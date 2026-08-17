@@ -15,7 +15,7 @@
   :root{
     --brand1:#4E8FD1;
     --brand2:#101114;
-    --red:var(--brand1);
+    --red:#C8102E;
     --ink:#101114;
     --paper:#F5F3EE;
     --card:#FFFFFF;
@@ -45,10 +45,10 @@
   .stripe-edge{height:7px;width:100%;flex:0 0 auto;
     background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,var(--brand2) 5px 10px);}
 
-  .appbar{background:var(--ink);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
+  .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:15px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
-  .brandmark{width:48px;height:48px;border-radius:12px;object-fit:cover;background:#fff;flex:0 0 48px;}
+  .brandmark{width:72px;height:72px;border-radius:18px;object-fit:cover;background:#fff;flex:0 0 72px;}
   .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
@@ -66,7 +66,7 @@
     font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
   }
   .primarybtn{background:var(--red);color:#fff;}
-  .darkbtn{background:var(--ink);color:#fff;}
+  .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
   input[type=text],input[type=email],input[type=password],input[type=number],textarea,select{
@@ -91,7 +91,7 @@
   .authtabs{display:flex;gap:8px;margin-bottom:14px;}
   .authtab{flex:1;text-align:center;padding:10px;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-weight:800;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
-  .authtab.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
 
   .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
     border-radius:12px;padding:12px;margin-bottom:10px;}
@@ -113,10 +113,10 @@
   .pill.off{background:var(--line);color:var(--slate);}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .tile-wide{grid-column:1 / -1;flex-direction:row;align-items:center;min-height:64px;}
+  .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:64px;}
   .tile-wide .icon{margin-bottom:0;}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
-    display:flex;flex-direction:column;gap:8px;min-height:92px;position:relative;}
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:92px;position:relative;}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
   .tile .lbl{font-size:12.5px;font-weight:800;line-height:1.2;}
   .tile .sub{font-size:10.5px;color:var(--slate-light);}
@@ -162,7 +162,7 @@
   .filterrow{display:flex;gap:8px;margin-bottom:12px;}
   .filterchip{flex:1;text-align:center;padding:8px;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
-  .filterchip.active{background:var(--ink);border-color:var(--ink);color:#fff;}
+  .filterchip.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
   .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
   .closurerow img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
 
@@ -979,6 +979,24 @@ async function renderTeam(){
   const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
+    <p class="sectiontitle">Company Theme</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Set your company's colours — these apply across the app for everyone at ${escapeHtml(ORG && ORG.name || 'your company')}.</p>
+      <div style="display:flex;gap:12px;margin-bottom:10px;">
+        <div style="flex:1;">
+          <label class="stub" style="display:block;margin-bottom:4px;">Primary colour</label>
+          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);" style="width:100%;height:44px;padding:4px;">
+        </div>
+        <div style="flex:1;">
+          <label class="stub" style="display:block;margin-bottom:4px;">Secondary colour</label>
+          <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="darkbtn" ${themeBusy?'disabled':''} onclick="saveCompanyTheme()">${themeBusy?'Saving…':'Save Theme'}</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
+      </div>
+    </div>
     <p class="sectiontitle">Integrations</p>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
@@ -1040,6 +1058,31 @@ async function renderTeam(){
   `, {title:'Manage Team', back:'#/sites', tabs:false});
 }
 let odBusy = false;
+let themeBusy = false;
+window.saveCompanyTheme = async function(){
+  if(!ME || ME.role!=='admin' || !ORG) return;
+  const c1 = document.getElementById('themeColor1').value;
+  const c2 = document.getElementById('themeColor2').value;
+  themeBusy = true; render();
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2});
+  themeBusy = false;
+  if(!row){ toast('Could not save theme — try again.'); render(); return; }
+  ORG.color_primary = c1; ORG.color_secondary = c2;
+  applyTheme(ORG);
+  toast('Company theme saved.');
+  render();
+};
+window.resetCompanyTheme = async function(){
+  if(!ME || ME.role!=='admin' || !ORG) return;
+  themeBusy = true; render();
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null});
+  themeBusy = false;
+  if(!row){ toast('Could not reset theme — try again.'); render(); return; }
+  ORG.color_primary = null; ORG.color_secondary = null;
+  applyTheme(ORG);
+  toast('Company theme reset to default.');
+  render();
+};
 window.connectOneDrive = async function(){
   odBusy = true; render();
   try{
