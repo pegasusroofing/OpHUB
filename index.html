@@ -922,12 +922,19 @@ window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   if(!name) return;
-  const rows = await dbInsert('sites', {name, address:addr||null, status:'active', created_by:ME.id, org_id:ME.org_id});
-  if(rows){
-    SITES.push(rows[0]);
-    toast('Site created');
-    render();
-  }
+  // Deliberately not asking PostgREST for the row back here (no
+  // Prefer: return=representation) — Postgres has a known quirk where a
+  // table's own SELECT policy, if it re-queries that same table (as sites'
+  // does via has_site_access()), can't reliably see a row that's still
+  // mid-insert within the same statement, which makes any "insert and
+  // return the new row" call get rejected even though the insert itself
+  // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
+  // it without weakening the security policy.
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
+  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  toast('Site created');
+  render();
 };
 
 /* ================= MANAGE TEAM (admin/PM grant, revoke, and remove team members) ================= */
