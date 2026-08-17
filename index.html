@@ -588,21 +588,12 @@ function renderLogin(){
   `, {centerTitle:true, tabs:false});
 }
 window.maybeAutoSignIn = function(ev){
-  // Auto-submit once both fields look filled in and Enter is pressed, or the
-  // password field loses trailing-whitespace-free content of reasonable length
-  // and the user pauses — simplest reliable trigger is the Enter key, which we
-  // wire here since a bare "field is non-empty" trigger fires while still typing.
-  if(ev && ev.key === 'Enter'){ doSignIn(); return; }
-  const email = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value;
-  if(email && password && password.length>=8 && !authBusy){
-    clearTimeout(window._autoSignInTimer);
-    window._autoSignInTimer = setTimeout(()=>{
-      const stillEmail = document.getElementById('authEmail');
-      const stillPass = document.getElementById('authPassword');
-      if(stillEmail && stillPass && stillEmail.value.trim()===email && stillPass.value===password){ doSignIn(); }
-    }, 600);
-  }
+  // Only Enter submits — a bare "fields look filled" trigger caused false
+  // sign-ins whenever the browser's saved-password autofill populated the
+  // form (e.g. switching accounts on a shared device), signing people in as
+  // whoever was saved before they could change the email. Explicit Sign In
+  // click or Enter key only, from here on.
+  if(ev && ev.key === 'Enter'){ doSignIn(); }
 };
 window.doSignIn = async function(){
   const email = document.getElementById('authEmail').value.trim();
