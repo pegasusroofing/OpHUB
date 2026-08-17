@@ -45,16 +45,16 @@
   .stripe-edge{height:7px;width:100%;flex:0 0 auto;
     background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,var(--brand2) 5px 10px);}
 
-  .appbar{background:var(--ink);color:#fff;padding:14px 16px 12px;flex:0 0 auto;}
-  .appbar .row{display:flex;align-items:center;gap:10px;}
+  .appbar{background:var(--ink);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
+  .appbar .row{display:flex;align-items:center;gap:15px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
-  .brandmark{width:32px;height:32px;border-radius:8px;object-fit:cover;background:#fff;flex:0 0 32px;}
-  .brandline{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1px;}
-  .appbar h2{margin:0;font-size:16px;font-weight:800;}
-  .appbar .meta{font-size:11px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:2px;}
-  .backarrow{font-size:38px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:4px 14px 4px 0;margin:-4px 0;display:flex;align-items:center;min-height:44px;min-width:36px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:10.5px;font-weight:700;
-    padding:4px 9px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+  .brandmark{width:48px;height:48px;border-radius:12px;object-fit:cover;background:#fff;flex:0 0 48px;}
+  .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
+  .appbar h2{margin:0;font-size:24px;font-weight:800;}
+  .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
+  .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:15.5px;font-weight:700;
+    padding:6px 13.5px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
   .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
 
@@ -528,6 +528,13 @@ function shell(innerHtml, opts){
           <div class="row" style="justify-content:center;text-align:center;">
             <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to the Operative Hub'}</h2>
           </div>
+        ` : opts.centerHeader ? `
+          <div class="row" style="flex-direction:column;gap:8px;text-align:center;">
+            <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
+            <div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
+            <h2>${opts.title||''}</h2>
+            ${ME ? `<span class="rolechip" style="margin:2px auto 0;">${roleLabel(ME.role)}</span>` : ''}
+          </div>
         ` : `
         <div class="row">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
@@ -545,18 +552,20 @@ function shell(innerHtml, opts){
     </div>
   `;
 }
+let currentUnreadMsgs = 0;
 function tabbar(siteId, active){
   if(!siteId) return '';
   const tabs = [
     {k:'home', ic:'🏠', lbl:'Home', href:`#/site/${siteId}/home`},
     {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
-    {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`},
+    {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     {k:'more', ic:'☰', lbl:'More', href:`#/site/${siteId}/more`},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')">
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
       <span class="tabicon">${t.ic}</span>${t.lbl}
+      ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;
 }
 
@@ -927,7 +936,7 @@ async function renderSites(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {title:'Choose Site', tabs:false});
+  `, {title:'Choose Site', tabs:false, centerHeader:true});
 }
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
@@ -1090,16 +1099,18 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, unreadMsgs, pmList] = await Promise.all([
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, pmList] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
-    unreadCountForSite(siteId),
     ME.role==='admin' ? loadPMList() : Promise.resolve([]),
   ]);
+  // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
+  // the router right before this ran — reuse it here instead of querying twice.
+  const unreadMsgs = currentUnreadMsgs;
   const scheduleDone = tasks.filter(t=>t.status==='done').length;
   const signedIds = new Set(mySignatures.map(s=>s.rams_id));
   const pendingRams = ramsDocs.filter(r=>!signedIds.has(r.id)).length;
@@ -1512,6 +1523,10 @@ async function renderSnagging(siteId){
     `).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
 
     ${canAdd ? `
+      <p class="sectiontitle" style="margin-top:18px;">Export</p>
+      <button class="ghostbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
       <div class="card" style="margin-top:14px;">
         <p class="sectiontitle" style="margin-top:0;">Add snag</p>
         <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue"></div>
@@ -1562,6 +1577,78 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
       render();
     }
   }catch(e){ toast('Could not process photo.'); }
+};
+window.exportSnaggingPDF = async function(siteId, scope){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  let qs = 'site_id=eq.'+siteId+'&order=created_at.asc';
+  if(scope==='live') qs += '&status=eq.open';
+  else if(scope==='closed') qs += '&status=eq.closed';
+  else qs += '&status=in.(open,closed)';
+  const snags = await dbSelect('snags', qs);
+  if(!snags.length){ toast('No snags to export for that filter.'); return; }
+  await loadAllProfiles();
+  toast('Building PDF…');
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const RED = PDFLib.rgb(0.784,0.063,0.180);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const OK = PDFLib.rgb(0.2,0.55,0.35);
+    const WARN = PDFLib.rgb(0.69,0.45,0.06);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const scopeLabel = scope==='live' ? 'Live' : scope==='closed' ? 'Closed' : 'All';
+
+    let page, y;
+    function newPage(continued){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - 60;
+      page.drawText('Snagging Report' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
+      y -= 8;
+      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
+      y -= 26;
+      if(!continued){
+        page.drawText(site.name + ' — ' + scopeLabel + ' snags', {x:50, y, size:12, font:bold, color:INK});
+        y -= 18;
+        page.drawText('Generated ' + new Date().toLocaleString('en-GB'), {x:50, y, size:9, font:reg, color:SLATE});
+        y -= 22;
+      }
+    }
+    newPage(false);
+    snags.forEach((s,i)=>{
+      if(y < 110) newPage(true);
+      page.drawText((i+1)+'. '+s.title, {x:50, y, size:12.5, font:bold, color:INK});
+      page.drawText(s.status.toUpperCase(), {x:PAGE_W-120, y, size:9.5, font:bold, color: s.status==='closed' ? OK : WARN});
+      y -= 16;
+      page.drawText('Location: '+(s.location||'—'), {x:60, y, size:10, font:reg, color:SLATE});
+      y -= 14;
+      page.drawText('Raised by '+nameOf(s.created_by)+' · '+new Date(s.created_at).toLocaleDateString('en-GB'), {x:60, y, size:9.5, font:reg, color:SLATE});
+      y -= 14;
+      if(s.status==='closed'){
+        page.drawText('Closed by '+nameOf(s.closed_by)+(s.closed_at?' · '+new Date(s.closed_at).toLocaleDateString('en-GB'):''), {x:60, y, size:9.5, font:reg, color:SLATE});
+        y -= 14;
+      }
+      page.drawText('Photo: '+(s.photo_path?'attached':'none')+(s.status==='closed'?', closing photo: '+(s.closed_photo_path?'attached':'none'):''), {x:60, y, size:9, font:reg, color:SLATE});
+      y -= 22;
+    });
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-snagging-' + scope + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the PDF.');
+  }
 };
 
 /* ================= RAMS ================= */
@@ -1934,6 +2021,7 @@ async function renderMessages(siteId){
     broadcasts = await dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
   }
   markMessagesRead([...broadcasts, ...fromTeam].map(m=>m.id));
+  currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
 
   const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
   const msgRow = m => `
@@ -1992,6 +2080,9 @@ async function render(){
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
     const page = parts[2] || 'home';
+    // Keep the bottom tab bar's Messages badge fresh on every site-scoped
+    // navigation, not just when visiting Messages itself.
+    if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
