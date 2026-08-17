@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment received — OpHUB</title>
+<link rel="icon" href="assets/ophub-logo.png">
+<style>
+  body{margin:0;background:#EFEDE6;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:#101114;}
+  #wrap{max-width:460px;margin:0 auto;min-height:100vh;background:#F5F3EE;padding:60px 20px;text-align:center;}
+  #wrap img{width:56px;height:56px;border-radius:12px;object-fit:cover;margin-bottom:16px;}
+  h1{font-size:19px;}
+  p{color:#5B5F68;font-size:13.5px;}
+  .spinner{display:inline-block;width:24px;height:24px;border:3px solid #E4E1D8;border-top-color:#4E8FD1;
+    border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .errbox{font-size:13px;color:#B0740F;background:#F5EBD6;border-radius:8px;padding:12px;margin-top:16px;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <img src="assets/ophub-logo.png" alt="OpHUB" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22%3E%3Crect width=%2264%22 height=%2264%22 rx=%2214%22 fill=%22%234E8FD1%22/%3E%3Ctext x=%2232%22 y=%2241%22 font-size=%2222%22 font-family=%22Arial,sans-serif%22 font-weight=%22800%22 fill=%22%23fff%22 text-anchor=%22middle%22%3EOH%3C/text%3E%3C/svg%3E'">
+  <div class="spinner"></div>
+  <h1>Payment received</h1>
+  <p id="status">Setting up your account — this usually takes a few seconds…</p>
+</div>
+<script>
+  const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+  // The app is hosted as the site's homepage (index.html), so a relative
+  // link to "/" plus the hash route lands on it correctly.
+  const APP_PAGE = '/';
+
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session_id');
+  let attempts = 0;
+
+  async function poll(){
+    if(!sessionId){ document.getElementById('status').textContent = 'Missing session — check your email or contact support.'; return; }
+    attempts++;
+    try{
+      const res = await fetch(SUPABASE_URL + '/functions/v1/get-signup-status?session_id=' + encodeURIComponent(sessionId), {
+        headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY}
+      });
+      const d = await res.json();
+      if(d.status === 'completed' && d.invite_id){
+        document.getElementById('status').textContent = 'All set — taking you to create your account…';
+        location.href = APP_PAGE + '#/join/' + d.invite_id;
+        return;
+      }
+    }catch(e){ /* keep polling */ }
+    if(attempts > 20){
+      document.getElementById('wrap').innerHTML = '<h1>Still finishing up</h1><div class="errbox">This is taking longer than expected. Check your email for a confirmation, or contact support if it doesn\'t arrive shortly.</div>';
+      return;
+    }
+    setTimeout(poll, 2000);
+  }
+  poll();
+</script>
+</body>
+</html>
