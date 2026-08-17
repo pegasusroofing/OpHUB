@@ -113,6 +113,8 @@
   .pill.off{background:var(--line);color:var(--slate);}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .tile-wide{grid-column:1 / -1;flex-direction:row;align-items:center;min-height:64px;}
+  .tile-wide .icon{margin-bottom:0;}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
     display:flex;flex-direction:column;gap:8px;min-height:92px;position:relative;}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
@@ -548,10 +550,8 @@ function tabbar(siteId, active){
   const tabs = [
     {k:'home', ic:'🏠', lbl:'Home', href:`#/site/${siteId}/home`},
     {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
-    {k:'materials', ic:'📦', lbl:'Materials', href:`#/site/${siteId}/materials`},
     {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
-    {k:'snagging', ic:'🛠', lbl:'Snagging', href:`#/site/${siteId}/snagging`},
-    {k:'rams', ic:'📄', lbl:'RAMS', href:`#/site/${siteId}/rams`},
+    {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`},
     {k:'more', ic:'☰', lbl:'More', href:`#/site/${siteId}/more`},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
@@ -583,7 +583,7 @@ function renderLogin(){
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
     <div style="display:flex;justify-content:center;margin-top:22px;">
-      <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:84px;height:84px;border-radius:18px;object-fit:cover;box-shadow:0 4px 18px rgba(0,0,0,0.12);">
+      <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:252px;height:252px;border-radius:36px;object-fit:cover;box-shadow:0 4px 18px rgba(0,0,0,0.12);max-width:80vw;max-height:80vw;">
     </div>
   `, {centerTitle:true, tabs:false});
 }
@@ -1099,13 +1099,15 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin] = await Promise.all([
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, unreadMsgs, pmList] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
+    unreadCountForSite(siteId),
+    ME.role==='admin' ? loadPMList() : Promise.resolve([]),
   ]);
   const scheduleDone = tasks.filter(t=>t.status==='done').length;
   const signedIds = new Set(mySignatures.map(s=>s.rams_id));
@@ -1118,18 +1120,13 @@ async function renderSiteHome(siteId){
       ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
     </div>
     <div class="tilegrid">
-      <div class="tile" onclick="go('#/site/${siteId}/checkin')">
+      <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div class="lbl">Check In / Out</div><div class="sub">GPS logged</div>
+        <div><div class="lbl">Check In / Out</div><div class="sub">GPS logged</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
         <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')">
-        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
-        <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
-        ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/rams')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
@@ -1144,6 +1141,16 @@ async function renderSiteHome(siteId){
         <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
         <div class="lbl">Variations</div><div class="sub">Raise new</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+        <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
+        ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/messages')">
+        <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
+        <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
+        ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
+      </div>
     </div>
     ${isManager(ME) ? `
       <div class="card">
@@ -1156,9 +1163,40 @@ async function renderSiteHome(siteId){
           <button class="darkbtn" onclick="setGeofence('${siteId}')">Set current location as site</button>
         `}
       </div>
+      ${ME.role==='admin' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Responsible Project Manager</p>
+        <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
+        <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
+          <option value="">No owner — notify all project managers</option>
+          ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      ` : ''}
       <button class="ghostbtn" onclick="go('#/site/${siteId}/team')">Assign Team</button>
     ` : ''}
   `, {title:site.name, subtitle:site.address, back:'#/sites', siteId, activeTab:'home'});
+}
+async function loadPMList(){
+  await loadAllProfiles();
+  return Object.values(PROFILES).filter(p=>p.role==='pm').sort((a,b)=>a.name.localeCompare(b.name));
+}
+window.setResponsiblePM = async function(siteId, pmId){
+  const row = await dbUpdate('sites', siteId, {responsible_pm_id: pmId || null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    SITES[idx] = row;
+    toast('Responsible project manager updated');
+  }
+};
+async function unreadCountForSite(siteId){
+  const audience = isManager(ME) ? 'managers' : 'operatives';
+  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&select=id`);
+  if(!msgs.length) return 0;
+  const ids = msgs.map(m=>m.id);
+  const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${ids.join(',')})&select=message_id`);
+  const readSet = new Set(reads.map(r=>r.message_id));
+  return msgs.filter(m=>!readSet.has(m.id)).length;
 }
 window.setGeofence = async function(siteId){
   toast('Getting GPS lock…');
@@ -1213,6 +1251,7 @@ function renderMore(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/rams')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">RAMS</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Needs</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/variations')"><div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div><div class="lbl">Variations</div></div>
     </div>
@@ -1371,7 +1410,7 @@ window.setTaskStatus = async function(siteId, taskId, next){
   if(next==='done'){
     const photos = await dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id&limit=1');
     if(!photos || !photos.length){
-      toast('Add a progress photo before marking this complete.');
+      toast('Add a completion photo before marking this complete.');
       return;
     }
   }
@@ -1526,6 +1565,7 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
     if(!path) return;
     const row = await dbUpdate('snags', snagId, {status:'closed', closed_photo_path:path, closed_by:ME.id, closed_at:new Date().toISOString()});
     if(row){
+      postSystemMessage(siteId, 'snag_closed', `${ME.name} closed a snag: "${row.title||'Untitled'}"`);
       closingSnagId = null;
       toast('Snag closed');
       render();
@@ -1689,6 +1729,7 @@ async function renderMaterials(siteId){
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
@@ -1701,11 +1742,11 @@ async function renderMaterials(siteId){
         <div class="top">
           <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span class="statustag ${m.status}">${m.status}</span>
+            <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
           </div>
         </div>
-        ${m.status==='sent' ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>` :
+        ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>` : '') :
           m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
           m.status==='pending' ? (isPM ? `<div class="merchantrow">Send to:
             ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable" onclick="sendMaterial('${siteId}','${m.id}','${s.id}')">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
@@ -1761,7 +1802,10 @@ window.addMaterial = async function(siteId){
   const qty = document.getElementById('matQty').value.trim();
   if(!item) return;
   const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', requested_by:ME.id, status:'pending'});
-  if(rows){ toast('Request added'); render(); }
+  if(rows){
+    postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`);
+    toast('Request added'); render();
+  }
 };
 window.sendMaterial = async function(siteId, matId, supplierId){
   const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
@@ -1782,9 +1826,11 @@ window.sendMaterial = async function(siteId, matId, supplierId){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
       toast('Order emailed to '+supplier.name);
     } else {
-      toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
+      console.error('send-material-order failed:', d.error || res.status);
+      toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
     }
   }catch(e){
+    console.error('send-material-order failed:', e);
     toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
   }
   render();
@@ -1852,6 +1898,7 @@ window.submitVariation = async function(siteId){
   if(!path) return;
   const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live'});
   if(rows){
+    postSystemMessage(siteId, 'variation', `${ME.name} raised a variation: ${desc||'(no description)'}`);
     varDraft = null;
     toast('Variation submitted');
     render();
@@ -1860,6 +1907,84 @@ window.submitVariation = async function(siteId){
 window.closeVariation = async function(siteId, varId){
   const row = await dbUpdate('variations', varId, {status:'closed', closed_at:new Date().toISOString()});
   if(row){ toast('Variation closed'); render(); }
+};
+
+/* ================= MESSAGES ================= */
+// One-way announcements: PMs/Admins post down to operatives (per-site or
+// whole company); operative actions elsewhere (material requests, snag
+// closures, variations) post automatically up to whichever PM owns the site.
+async function postSystemMessage(siteId, kind, body){
+  // Best-effort — never blocks or errors out the action that triggered it.
+  try{
+    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'managers', kind, body});
+  }catch(e){ /* silent */ }
+}
+async function markMessagesRead(ids){
+  if(!ids || !ids.length) return;
+  try{
+    const rows = ids.map(id=>({message_id:id, user_id:ME.id}));
+    await sbFetch('/rest/v1/message_reads', {method:'POST', headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
+  }catch(e){ /* silent */ }
+}
+let msgDraft = '';
+async function renderMessages(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const mgr = isManager(ME);
+  await loadAllProfiles();
+
+  let broadcasts = [], fromTeam = [];
+  if(mgr){
+    [broadcasts, fromTeam] = await Promise.all([
+      dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
+      dbSelect('messages', `audience=eq.managers&site_id=eq.${siteId}&order=created_at.desc&limit=50`),
+    ]);
+  } else {
+    broadcasts = await dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
+  }
+  markMessagesRead([...broadcasts, ...fromTeam].map(m=>m.id));
+
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
+  const msgRow = m => `
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
+      <div style="font-size:13.5px;">${escapeHtml(m.body)}</div>
+    </div>`;
+
+  document.getElementById('app').innerHTML = shell(`
+    ${mgr ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Send a message</p>
+        <div class="formfield"><textarea id="msgBody" placeholder="Message to operatives...">${escapeHtml(msgDraft)}</textarea></div>
+        <div class="formfield">
+          <label class="field-label">Send to</label>
+          <select id="msgTarget">
+            <option value="site">This site's operatives</option>
+            <option value="all">All operatives (whole company)</option>
+          </select>
+        </div>
+        <button class="darkbtn" onclick="sendBroadcast('${siteId}')">Send</button>
+      </div>
+      <p class="sectiontitle" style="margin-top:18px;">From your team</p>
+      ${fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`}
+      <p class="sectiontitle" style="margin-top:18px;">Sent to operatives</p>
+      ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`}
+    ` : `
+      ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
+    `}
+  `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'});
+}
+window.sendBroadcast = async function(siteId){
+  const bodyInput = document.getElementById('msgBody');
+  const body = bodyInput.value.trim();
+  const target = document.getElementById('msgTarget').value;
+  if(!body){ toast('Write a message first.'); return; }
+  const rows = await dbInsert('messages', {org_id: ME.org_id, site_id: target==='all' ? null : siteId, sender_id: ME.id, audience:'operatives', kind:'message', body});
+  if(rows){
+    msgDraft = '';
+    toast(target==='all' ? "Sent to all operatives" : "Sent to this site's operatives");
+    render();
+  }
 };
 
 /* ================= router / render ================= */
@@ -1883,6 +2008,7 @@ async function render(){
     if(page==='snagging') return renderSnagging(siteId);
     if(page==='rams') return renderRams(siteId);
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
     if(page==='team') return renderAssignTeam(siteId);
   }
