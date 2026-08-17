@@ -262,7 +262,26 @@ function compressImage(file){
     reader.readAsDataURL(file);
   });
 }
-function getGeo(){
+async function getGeo(){
+  // In the native app, use Capacitor's Geolocation plugin — it drives Android's
+  // runtime permission prompt properly. Bare navigator.geolocation inside an
+  // embedded WebView often silently fails on Android because nothing ever
+  // triggers the permission dialog.
+  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation){
+    try{
+      const perm = await window.Capacitor.Plugins.Geolocation.checkPermissions();
+      if(perm.location !== 'granted' && perm.coarseLocation !== 'granted'){
+        const req = await window.Capacitor.Plugins.Geolocation.requestPermissions();
+        if(req.location !== 'granted' && req.coarseLocation !== 'granted'){
+          return {error:'Location permission denied. Enable it for this app in your phone\'s Settings.'};
+        }
+      }
+      const pos = await window.Capacitor.Plugins.Geolocation.getCurrentPosition({enableHighAccuracy:true, timeout:12000});
+      return {lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy};
+    }catch(e){
+      return {error: (e && e.message) || 'Could not get your location.'};
+    }
+  }
   return new Promise(resolve=>{
     if(!navigator.geolocation){ resolve({error:'Location not supported.'}); return; }
     navigator.geolocation.getCurrentPosition(
@@ -901,6 +920,7 @@ async function renderSites(){
           <div class="addr">${escapeHtml(s.address||'—')}</div>
         </div>
         <span class="status active">${escapeHtml(s.status)}</span>
+        ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">🗑</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No sites yet.</div>`}
     ${canAdd ? `
@@ -935,6 +955,17 @@ window.addSite = async function(){
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   toast('Site created');
   render();
+};
+window.deleteSite = async function(siteId, name){
+  if(!confirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
+  const ok = await dbDelete('sites', siteId);
+  if(ok){
+    SITES = SITES.filter(s=>s.id!==siteId);
+    toast('Site deleted');
+    render();
+  } else {
+    toast('Could not delete — try again.');
+  }
 };
 
 /* ================= MANAGE TEAM (admin/PM grant, revoke, and remove team members) ================= */
