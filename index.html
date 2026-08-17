@@ -11,6 +11,9 @@
 <meta name="theme-color" content="#101114">
 <link rel="apple-touch-icon" href="assets/ophub-logo.png">
 <link rel="icon" href="assets/ophub-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700&display=swap" rel="stylesheet">
 <style>
   :root{
     --brand1:#4E8FD1;
@@ -33,7 +36,7 @@
   html,body{height:100%;}
   body{
     margin:0;background:#EFEDE6;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-family:'Open Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     color:var(--ink);
   }
   #app{
@@ -53,8 +56,8 @@
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
   .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:15.5px;font-weight:700;
-    padding:6px 13.5px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:5.2px;font-weight:700;
+    padding:2px 4.5px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
   .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
 
@@ -65,7 +68,8 @@
     display:block;width:100%;padding:13px;border-radius:10px;border:none;
     font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
   }
-  .primarybtn{background:var(--red);color:#fff;}
+  .primarybtn{background:var(--brand1);color:#fff;}
+  .exportbtn{padding:6.5px;font-size:6.75px;}
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
@@ -443,6 +447,36 @@ async function loadProfile(){
   ME = rows[0] || null;
 }
 
+/* ================= push notifications ================= */
+// Registers this device for push (native app only) and saves the FCM token
+// against the signed-in user so server-side reminders (e.g. the 3pm sign-out
+// nudge) know where to deliver. Silently no-ops on the plain website.
+let pushRegistered = false;
+async function registerPushNotifications(){
+  try{
+    if(pushRegistered) return;
+    if(!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+    const PN = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if(!PN) return;
+    let perm = await PN.checkPermissions();
+    if(perm.receive !== 'granted'){ perm = await PN.requestPermissions(); }
+    if(perm.receive !== 'granted') return;
+    pushRegistered = true;
+    PN.addListener('registration', async (token)=>{
+      if(!ME || !token || !token.value) return;
+      try{
+        await sbFetch('/rest/v1/push_tokens?on_conflict=token', {
+          method:'POST',
+          headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body: JSON.stringify({user_id: ME.id, token: token.value, platform:'android', updated_at: new Date().toISOString()})
+        });
+      }catch(e){ console.error('Could not save push token', e); }
+    });
+    PN.addListener('registrationError', (err)=>{ console.error('Push registration error', err); });
+    await PN.register();
+  }catch(e){ console.error('Push notification setup failed', e); }
+}
+
 /* ================= state ================= */
 let ME = null;
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
@@ -511,6 +545,7 @@ async function init(){
     await loadOrg();
     await loadAllProfiles();
     SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+    if(ME.role!=='superadmin') registerPushNotifications();
   } else {
     applyTheme(null);
   }
@@ -526,7 +561,7 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to the Operative Hub'}</h2>
+            <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:column;gap:8px;text-align:center;">
@@ -622,6 +657,7 @@ window.doSignIn = async function(){
   await loadOrg();
   await loadAllProfiles();
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  registerPushNotifications();
   go('#/sites');
 };
 
@@ -1167,7 +1203,7 @@ async function renderSiteHome(siteId){
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div><div class="lbl">Check In / Out</div><div class="sub">GPS logged</div></div>
+        <div><div class="lbl" style="font-size:18.75px;">Check In / Out</div><div class="sub">GPS logged</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
@@ -1389,18 +1425,27 @@ window.exportCheckins = async function(siteId, scope){
 
 /* ================= SCHEDULE OF WORKS ================= */
 let editingTaskId = null;
+let scheduleFilter = 'all';
 async function renderSchedule(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
-  const tasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=created_at.asc');
+  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=created_at.asc');
+  const tasks = scheduleFilter==='all' ? allTasks : allTasks.filter(t=>t.status===scheduleFilter);
   let photosByTask = {};
-  if(tasks.length){
-    const ids = tasks.map(t=>t.id).join(',');
+  if(allTasks.length){
+    const ids = allTasks.map(t=>t.id).join(',');
     const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
     photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
   }
 
   document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
+      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress</div>
+      <div class="filterchip ${scheduleFilter==='done'?'active':''}" onclick="scheduleFilter='done';render()">Complete</div>
+      <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
+    </div>
+
     ${tasks.map(t=>`
       <div class="task">
         <div class="taskbody">
@@ -1565,11 +1610,12 @@ async function renderSnagging(siteId){
       </div>
     `).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
 
+    <p class="sectiontitle" style="margin-top:18px;">Export</p>
+    <button class="ghostbtn exportbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
+    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
+    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
+
     ${canAdd ? `
-      <p class="sectiontitle" style="margin-top:18px;">Export</p>
-      <button class="ghostbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
-      <button class="ghostbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
-      <button class="ghostbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
       <div class="card" style="margin-top:14px;">
         <p class="sectiontitle" style="margin-top:0;">Add snag</p>
         <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue"></div>
