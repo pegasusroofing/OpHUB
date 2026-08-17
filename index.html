@@ -42,8 +42,8 @@
     display:flex;flex-direction:column;
     box-shadow:0 0 40px rgba(0,0,0,0.08);
   }
-  .stripe-edge{height:4px;width:100%;flex:0 0 auto;
-    background:repeating-linear-gradient(-45deg,var(--brand1) 0 8px,var(--brand2) 8px 16px);}
+  .stripe-edge{height:7px;width:100%;flex:0 0 auto;
+    background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,var(--brand2) 5px 10px);}
 
   .appbar{background:var(--ink);color:#fff;padding:14px 16px 12px;flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:10px;}
@@ -52,7 +52,7 @@
   .brandline{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1px;}
   .appbar h2{margin:0;font-size:16px;font-weight:800;}
   .appbar .meta{font-size:11px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:2px;}
-  .backarrow{font-size:30px;line-height:1;color:#fff;opacity:.95;padding:4px 12px 4px 0;margin:-4px 0;display:flex;align-items:center;min-height:40px;min-width:32px;}
+  .backarrow{font-size:38px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:4px 14px 4px 0;margin:-4px 0;display:flex;align-items:center;min-height:44px;min-width:36px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:10.5px;font-weight:700;
     padding:4px 9px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
@@ -121,13 +121,19 @@
   .tile .badge-count{position:absolute;top:10px;right:10px;background:var(--red);color:#fff;font-size:10px;
     font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
-  .task{display:flex;align-items:flex-start;gap:10px;background:var(--card);border:1px solid var(--line);
+  .task{display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--card);border:1px solid var(--line);
     border-radius:10px;padding:12px;margin-bottom:8px;}
   .checkbox{width:22px;height:22px;border-radius:5px;flex:0 0 22px;margin-top:1px;border:2px solid var(--line);
     display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;}
   .checkbox.progress{border-color:var(--warn);background:var(--warn);}
   .checkbox.done{border-color:var(--ok);background:var(--ok);}
   .taskbody{flex:1;min-width:0;}
+  .statusbtns{display:flex;gap:6px;margin-top:9px;}
+  .statusbtn{flex:1;text-align:center;font-size:10.5px;font-weight:800;letter-spacing:.02em;
+    padding:8px 4px;border-radius:8px;border:1.5px solid var(--line);color:var(--slate);background:var(--paper);}
+  .statusbtn.active-todo{border-color:var(--slate-light);color:var(--ink);background:#fff;}
+  .statusbtn.active-progress{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
+  .statusbtn.active-done{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
   .taskname{font-size:13.5px;font-weight:700;}
   .taskname.done{text-decoration:line-through;color:var(--slate-light);}
   .taskmeta{font-size:11px;color:var(--slate);margin-top:3px;}
@@ -194,12 +200,15 @@
 
   .empty{text-align:center;color:var(--slate-light);font-size:13px;padding:26px 10px;}
 
-  .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;padding:8px 6px 12px;
+  .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;align-items:flex-end;padding:8px 3px 12px;
     background:#fff;border-top:1px solid var(--line);}
-  .tb{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;font-weight:700;
-    color:var(--slate-light);padding:4px 8px;}
+  .tb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8.5px;font-weight:700;
+    color:var(--slate-light);padding:4px 5px;border-radius:10px;}
   .tb.active{color:var(--brand1);}
-  .tabicon{font-size:16px;}
+  .tabicon{font-size:15px;}
+  .tb.tb-emph{border:1.5px solid var(--line);padding:6px 9px;margin:-4px 0;background:var(--paper);font-size:9.5px;}
+  .tb.tb-emph .tabicon{font-size:19px;}
+  .tb.tb-emph.active{border-color:var(--brand1);}
 
   .toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:13px 16px;
     border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);
@@ -494,6 +503,11 @@ function shell(innerHtml, opts){
     <div style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
       <div class="appbar">
+        ${opts.centerTitle ? `
+          <div class="row" style="justify-content:center;text-align:center;">
+            <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to the Operative Hub'}</h2>
+          </div>
+        ` : `
         <div class="row">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div>
@@ -503,6 +517,7 @@ function shell(innerHtml, opts){
           </div>
           ${ME ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : ''}
         </div>
+        `}
       </div>
       <div class="scrollarea">${innerHtml}</div>
       ${opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab)}
@@ -514,12 +529,14 @@ function tabbar(siteId, active){
   const tabs = [
     {k:'home', ic:'🏠', lbl:'Home', href:`#/site/${siteId}/home`},
     {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
-    {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`},
+    {k:'materials', ic:'📦', lbl:'Materials', href:`#/site/${siteId}/materials`},
+    {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
+    {k:'snagging', ic:'🛠', lbl:'Snagging', href:`#/site/${siteId}/snagging`},
     {k:'rams', ic:'📄', lbl:'RAMS', href:`#/site/${siteId}/rams`},
     {k:'more', ic:'☰', lbl:'More', href:`#/site/${siteId}/more`},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
-    <div class="tb ${active===t.k?'active':''}" onclick="go('${t.href}')">
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')">
       <span class="tabicon">${t.ic}</span>${t.lbl}
     </div>`).join('')}</div>`;
 }
@@ -538,7 +555,7 @@ function renderLogin(){
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="authPassword" placeholder="••••••••">
+        <input type="password" id="authPassword" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
       </div>
       <button class="primarybtn" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>Please wait…' : 'Sign In'}
@@ -546,8 +563,28 @@ function renderLogin(){
       <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by this app.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
-  `, {title:'Welcome', tabs:false});
+    <div style="display:flex;justify-content:center;margin-top:22px;">
+      <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:84px;height:84px;border-radius:18px;object-fit:cover;box-shadow:0 4px 18px rgba(0,0,0,0.12);">
+    </div>
+  `, {centerTitle:true, tabs:false});
 }
+window.maybeAutoSignIn = function(ev){
+  // Auto-submit once both fields look filled in and Enter is pressed, or the
+  // password field loses trailing-whitespace-free content of reasonable length
+  // and the user pauses — simplest reliable trigger is the Enter key, which we
+  // wire here since a bare "field is non-empty" trigger fires while still typing.
+  if(ev && ev.key === 'Enter'){ doSignIn(); return; }
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if(email && password && password.length>=8 && !authBusy){
+    clearTimeout(window._autoSignInTimer);
+    window._autoSignInTimer = setTimeout(()=>{
+      const stillEmail = document.getElementById('authEmail');
+      const stillPass = document.getElementById('authPassword');
+      if(stillEmail && stillPass && stillEmail.value.trim()===email && stillPass.value===password){ doSignIn(); }
+    }, 600);
+  }
+};
 window.doSignIn = async function(){
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
@@ -706,6 +743,7 @@ window.saveCompanySetup = async function(){
 /* ================= PLATFORM ADMIN (superadmin oversight across all companies) ================= */
 let adminResetBusy = null; // email currently being reset
 let adminResetResult = null; // {email, new_password}
+let adminExpandedOrg = null; // org id currently expanded to show its members
 async function renderAdmin(){
   const app = document.getElementById('app');
   const [orgs, subs, allProfiles] = await Promise.all([
@@ -737,25 +775,31 @@ async function renderAdmin(){
       const sub = subByOrg[o.id];
       const people = (peopleByOrg[o.id]||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
       const ROLES = ['operative','pm','admin'];
+      const expanded = adminExpandedOrg === o.id;
       return `
       <div class="card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="toggleAdminOrg('${o.id}')">
           <img src="${orgLogoUrl(o)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
           <div style="flex:1;min-width:0;">
             <div style="font-weight:800;font-size:14.5px;">${escapeHtml(o.name)}</div>
-            <div class="stub" style="margin:0;">${sub ? `${escapeHtml(sub.plan||'—')} · ${escapeHtml(sub.status)}` : 'No subscription'}</div>
+            <div class="stub" style="margin:0;">${sub ? `${escapeHtml(sub.plan||'—')} · ${escapeHtml(sub.status)}` : 'No subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
           </div>
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);" onclick="deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete</button>
+          <span class="stub" style="margin:0;font-size:16px;">${expanded?'▲':'▼'}</span>
         </div>
-        ${people.map(p=>`
-          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-            <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:10.5px;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
-              <button class="ghostbtn" style="width:auto;padding:6px 10px;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
-            </div>
+        ${expanded ? `
+          <div style="margin-top:10px;">
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin-bottom:8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete Company</button>
+            ${people.map(p=>`
+              <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:10.5px;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
+                  <button class="ghostbtn" style="width:auto;padding:6px 10px;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
+                </div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:10px;">No members yet.</div>`}
           </div>
-        `).join('') || `<div class="empty" style="padding:10px;">No members yet.</div>`}
+        ` : ''}
       </div>
     `;}).join('') || `<div class="empty">No companies registered yet.</div>`}
     <p style="text-align:center;margin-top:8px;">
@@ -763,6 +807,10 @@ async function renderAdmin(){
     </p>
   `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false});
 }
+window.toggleAdminOrg = function(orgId){
+  adminExpandedOrg = adminExpandedOrg === orgId ? null : orgId;
+  render();
+};
 window.setUserRole = async function(userId, role){
   if(!confirm(`Change this person's role to ${roleLabel(role)}?`)) return;
   const row = await dbUpdate('profiles', userId, {role});
@@ -852,7 +900,21 @@ async function renderTeam(){
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
   const pendingInvites = await dbSelect('invites', 'used_at=is.null&order=created_at.desc&select=*');
   const iAmAdmin = ME.role==='admin';
+  const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
   document.getElementById('app').innerHTML = shell(`
+    ${iAmAdmin ? `
+    <p class="sectiontitle">Integrations</p>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
+      ${odConn && odConn.access_token ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
+        <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
+      ` : `
+        <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>
+        <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
+      `}
+    </div>
+    ` : ''}
     <p class="sectiontitle">Invite a Team Member</p>
     <div class="card">
       ${newInviteLink ? `
@@ -901,6 +963,31 @@ async function renderTeam(){
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
   `, {title:'Manage Team', back:'#/sites', tabs:false});
 }
+let odBusy = false;
+window.connectOneDrive = async function(){
+  odBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({})});
+    const d = await res.json();
+    odBusy = false;
+    if(!res.ok || d.error){ toast(d.error || 'Could not start OneDrive connection.'); render(); return; }
+    // Microsoft's sign-in screen refuses to load inside an app's embedded
+    // webview (a security measure most OAuth providers enforce) — open it in
+    // the system browser instead when running as the native app. On the
+    // plain website, a normal same-tab redirect works fine.
+    if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+      window.Capacitor.Plugins.Browser.open({url: d.url});
+      toast('Finish connecting in the browser that just opened, then come back here.');
+    } else {
+      location.href = d.url;
+    }
+  }catch(e){ odBusy=false; toast('Could not reach the server.'); render(); }
+};
+window.disconnectOneDrive = async function(){
+  if(!confirm('Disconnect OneDrive? Photos will stop syncing until reconnected.')) return;
+  const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
+  if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
+};
 window.removeTeamMember = async function(userId, name){
   if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access.`)) return;
   const ok = await dbDelete('profiles', userId);
@@ -1156,9 +1243,6 @@ async function renderSchedule(siteId){
   document.getElementById('app').innerHTML = shell(`
     ${tasks.map(t=>`
       <div class="task">
-        <div class="checkbox ${t.status==='progress'?'progress':t.status==='done'?'done':''}" onclick="cycleTask('${siteId}','${t.id}','${t.status}')">
-          ${t.status==='done'?'✓':''}
-        </div>
         <div class="taskbody">
           ${canAdd && editingTaskId===t.id ? `
             <div class="taskeditrow">
@@ -1177,10 +1261,14 @@ async function renderSchedule(siteId){
               ` : ''}
             </div>
           `}
-          <div class="taskmeta">${t.status==='done'?'Complete':t.status==='progress'?'In progress':'Not started'}</div>
           ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}">`).join('')}</div>` : ''}
           <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
             <input type="file" accept="image/*" capture="environment" style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
+        </div>
+        <div class="statusbtns">
+          <div class="statusbtn ${t.status==='todo'?'active-todo':''}" onclick="setTaskStatus('${siteId}','${t.id}','todo')">To Commence</div>
+          <div class="statusbtn ${t.status==='progress'?'active-progress':''}" onclick="setTaskStatus('${siteId}','${t.id}','progress')">In Progress</div>
+          <div class="statusbtn ${t.status==='done'?'active-done':''}" onclick="setTaskStatus('${siteId}','${t.id}','done')">Complete</div>
         </div>
       </div>
     `).join('') || `<div class="empty">No tasks yet.</div>`}
@@ -1203,8 +1291,14 @@ async function renderSchedule(siteId){
     ` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
-window.cycleTask = async function(siteId, taskId, current){
-  const next = current==='todo' ? 'progress' : current==='progress' ? 'done' : 'todo';
+window.setTaskStatus = async function(siteId, taskId, next){
+  if(next==='done'){
+    const photos = await dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id&limit=1');
+    if(!photos || !photos.length){
+      toast('Add a progress photo before marking this complete.');
+      return;
+    }
+  }
   const row = await dbUpdate('schedule_tasks', taskId, {status:next});
   if(row) render();
 };
@@ -1238,9 +1332,21 @@ window.taskPhoto = async function(input, siteId, taskId){
     const stored = await uploadDataUrl('site-photos', path, dataUrl);
     if(!stored) return;
     const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
-    if(rows){ toast('Photo added — would sync to OneDrive'); render(); }
+    if(rows){
+      toast('Photo added');
+      render();
+      syncPhotoToOneDrive(dataUrl, path.split('/').pop(), (SITES.find(s=>s.id===siteId)||{}).name || siteId);
+    }
   }catch(e){ toast('Could not process photo.'); }
 };
+// Best-effort background sync — never blocks the UI or shows an error toast,
+// since most companies won't have OneDrive connected yet.
+async function syncPhotoToOneDrive(dataUrl, filename, subfolder){
+  try{
+    const base64 = dataUrl.split(',')[1];
+    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, subfolder})});
+  }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+}
 window.importScheduleExcel = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
   if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
@@ -1501,8 +1607,12 @@ let matFilter = 'live';
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=eq.closed';
-  const materials = await dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc');
+  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
+  const [materials, suppliers] = await Promise.all([
+    dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
+    isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+  ]);
+  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
 
   document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
@@ -1519,11 +1629,13 @@ async function renderMaterials(siteId){
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
           </div>
         </div>
-        ${m.status==='sent' ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant)}</span></div>` :
+        ${m.status==='sent' ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>` :
+          m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
           m.status==='pending' ? (isPM ? `<div class="merchantrow">Send to:
-            ${MERCHANTS.map(mc=>`<span class="merchantchip pickable" onclick="sendMaterial('${siteId}','${m.id}','${mc.replace(/'/g,"\\'")}')">${escapeHtml(mc)}</span>`).join('')}
-          </div>` : `<div class="merchantrow">Awaiting PM to route to a merchant</div>`) : ''}
-        ${isPM && m.status!=='closed' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
+            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable" onclick="sendMaterial('${siteId}','${m.id}','${s.id}')">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+          </div>` : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
+        ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
+        ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
 
@@ -1533,8 +1645,41 @@ async function renderMaterials(siteId){
       <div class="formfield"><input type="text" id="matQty" placeholder="Quantity"></div>
       <button class="darkbtn" onclick="addMaterial('${siteId}')">Request</button>
     </div>
-  `, {title:'Material Needs', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+    ${isPM ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Suppliers</p>
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(s.name)}</div><div class="addr">${escapeHtml(s.email)}</div></div>
+          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+      <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+      <button class="ghostbtn" onclick="addSupplier('${siteId}')">Add Supplier</button>
+    </div>
+    ` : ''}
+  `, {title:'Material Needs', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
 }
+window.addSupplier = async function(siteId){
+  const name = document.getElementById('supName').value.trim();
+  const email = document.getElementById('supEmail').value.trim();
+  if(!name || !email){ toast('Enter a supplier name and email.'); return; }
+  const rows = await dbInsert('suppliers', {org_id: ME.org_id, name, email, created_by: ME.id});
+  if(rows){ toast('Supplier added'); render(); }
+};
+window.deleteSupplier = async function(siteId, supplierId){
+  if(!confirm('Remove this supplier?')) return;
+  const ok = await dbDelete('suppliers', supplierId);
+  if(ok){ toast('Supplier removed'); render(); }
+};
+window.cancelMaterial = async function(siteId, matId){
+  const reason = prompt('Why are you cancelling this request? This will be visible to your Project Manager.');
+  if(reason === null) return;
+  if(!reason.trim()){ toast('A reason is required to cancel.'); return; }
+  const row = await dbUpdate('materials', matId, {status:'cancelled', cancel_reason: reason.trim(), cancelled_by: ME.id});
+  if(row){ toast('Request cancelled'); render(); }
+};
 window.addMaterial = async function(siteId){
   const item = document.getElementById('matItem').value.trim();
   const qty = document.getElementById('matQty').value.trim();
@@ -1542,9 +1687,31 @@ window.addMaterial = async function(siteId){
   const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', requested_by:ME.id, status:'pending'});
   if(rows){ toast('Request added'); render(); }
 };
-window.sendMaterial = async function(siteId, matId, merchant){
-  const row = await dbUpdate('materials', matId, {status:'sent', merchant, sent_at:new Date().toISOString()});
-  if(row){ toast('Order sent to '+merchant+' (stub — real send later)'); render(); }
+window.sendMaterial = async function(siteId, matId, supplierId){
+  const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
+  const supplier = suppliers && suppliers[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString()});
+  if(!row){ return; }
+  toast('Order routed to '+supplier.name+' — emailing…');
+  render();
+  try{
+    const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
+      material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
+      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
+      toast('Order emailed to '+supplier.name);
+    } else {
+      toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
+    }
+  }catch(e){
+    toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
+  }
+  render();
 };
 window.closeMaterial = async function(siteId, matId){
   const row = await dbUpdate('materials', matId, {status:'closed'});
