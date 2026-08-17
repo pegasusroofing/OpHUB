@@ -744,6 +744,8 @@ window.saveCompanySetup = async function(){
 let adminResetBusy = null; // email currently being reset
 let adminResetResult = null; // {email, new_password}
 let adminExpandedOrg = null; // org id currently expanded to show its members
+let newCompanyInvite = null; // {org_name, invite_link} after creating a company
+let newCompanyBusy = false;
 async function renderAdmin(){
   const app = document.getElementById('app');
   const [orgs, subs, allProfiles] = await Promise.all([
@@ -770,6 +772,22 @@ async function renderAdmin(){
         <button class="ghostbtn" onclick="adminResetResult=null;render()">Dismiss</button>
       </div>
     ` : ''}
+    <p class="sectiontitle" style="margin-top:18px;">Invite a Company</p>
+    <div class="card">
+      ${newCompanyInvite ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Company "<b>${escapeHtml(newCompanyInvite.org_name)}</b>" created — share this link with whoever should become their admin. It works once, for the next 14 days:</p>
+        <input type="text" readonly value="${escapeHtml(newCompanyInvite.invite_link)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <div style="display:flex;gap:8px;">
+          <button class="ghostbtn" style="width:auto;" onclick="copyNewCompanyInvite()">Copy Link</button>
+          <button class="ghostbtn" style="width:auto;" onclick="newCompanyInvite=null;render()">Invite Another</button>
+        </div>
+      ` : `
+        <div class="formfield"><input type="text" id="newCompanyName" placeholder="Company name"></div>
+        <div class="formfield"><input type="email" id="newCompanyEmail" placeholder="Their email (optional)"></div>
+        <button class="darkbtn" ${newCompanyBusy?'disabled':''} onclick="createCompanyInvite()">${newCompanyBusy?'Creating…':'Create Company & Invite'}</button>
+        <p class="stub" style="margin:8px 0 0;">Sets up a new company outside of Stripe checkout and gives you a founding-admin invite link to send them directly.</p>
+      `}
+    </div>
     <p class="sectiontitle" style="margin-top:18px;">All Companies (${orgs.length})</p>
     ${orgs.map(o=>{
       const sub = subByOrg[o.id];
@@ -807,6 +825,26 @@ async function renderAdmin(){
     </p>
   `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false});
 }
+window.createCompanyInvite = async function(){
+  const company_name = document.getElementById('newCompanyName').value.trim();
+  const email = document.getElementById('newCompanyEmail').value.trim();
+  if(!company_name){ toast('Enter a company name.'); return; }
+  newCompanyBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/admin-create-company', {method:'POST', body: JSON.stringify({company_name, email: email||undefined})});
+    const d = await res.json();
+    newCompanyBusy = false;
+    if(!res.ok || d.error){ toast('Could not create company — '+(d.error||res.status)); render(); return; }
+    newCompanyInvite = {org_name: company_name, invite_link: location.origin + location.pathname + '#/join/' + d.invite_id};
+    toast('Company created');
+    render();
+  }catch(e){ newCompanyBusy=false; toast('Could not reach the server.'); render(); }
+};
+window.copyNewCompanyInvite = async function(){
+  if(!newCompanyInvite) return;
+  try{ await navigator.clipboard.writeText(newCompanyInvite.invite_link); toast('Link copied'); }
+  catch(e){ toast('Could not copy — select and copy the link manually.'); }
+};
 window.toggleAdminOrg = function(orgId){
   adminExpandedOrg = adminExpandedOrg === orgId ? null : orgId;
   render();
@@ -884,7 +922,7 @@ window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   if(!name) return;
-  const rows = await dbInsert('sites', {name, address:addr||null, status:'active', created_by:ME.id});
+  const rows = await dbInsert('sites', {name, address:addr||null, status:'active', created_by:ME.id, org_id:ME.org_id});
   if(rows){
     SITES.push(rows[0]);
     toast('Site created');
