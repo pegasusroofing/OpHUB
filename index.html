@@ -1080,9 +1080,23 @@ window.addSite = async function(){
   const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
+  await preloadTbtBankForSite(newSite);
   toast('Site created');
   render();
 };
+// Pre-loads every company-wide Toolbox Talk template into this new site's
+// Bank TBT, so standard talks are already there without a PM re-uploading
+// them on every job.
+async function preloadTbtBankForSite(site){
+  if(!site) return;
+  try{
+    const templates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id);
+    if(!templates.length) return;
+    const rows = templates.map(t=>({site_id:site.id, org_id:ME.org_id, title:t.title, storage_path:t.storage_path, status:'bank', created_by:ME.id}));
+    await dbInsert('toolbox_talks', rows);
+  }catch(e){ console.error('Could not preload TBT bank for new site', e); }
+}
 window.deleteSite = async function(siteId, name){
   if(!confirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
   const ok = await dbDelete('sites', siteId);
@@ -1176,6 +1190,7 @@ async function renderTeam(){
   const pendingInvites = await dbSelect('invites', 'used_at=is.null&order=created_at.desc&select=*');
   const iAmAdmin = ME.role==='admin';
   const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
+  const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
     <p class="sectiontitle">Company Theme</p>
@@ -1206,6 +1221,23 @@ async function renderTeam(){
         <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>
         <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
       `}
+    </div>
+    <p class="sectiontitle">Toolbox Talk Bank (all new sites)</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</p>
+      ${tbtTemplates.map(t=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="swatch">🗣</div>
+          <div class="info"><div class="name">${escapeHtml(t.title)}</div><div class="addr">Added ${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <div class="taskicon danger" onclick="deleteTbtTemplate('${t.id}','${t.storage_path.replace(/'/g,"\\'")}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No templates yet — anything you upload here will be pre-loaded into every future site's Bank TBT.</div>`}
+      <div class="formfield" style="margin-top:10px;"><input type="text" id="tbtTemplateTitle" placeholder="Title, e.g. Alcohol & Drugs"></div>
+      <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
+        <input type="file" accept="application/pdf" id="tbtTemplateFile" style="display:none" onchange="document.getElementById('tbtTemplateFileName').textContent=this.files[0]?this.files[0].name:''">
+      </label>
+      <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
+      <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
     ` : ''}
     <p class="sectiontitle">Invite a Team Member</p>
@@ -1258,6 +1290,26 @@ async function renderTeam(){
 }
 let odBusy = false;
 let themeBusy = false;
+let tbtTemplateBusy = false;
+window.addTbtTemplate = async function(){
+  if(ME.role!=='admin') return;
+  const title = document.getElementById('tbtTemplateTitle').value.trim();
+  const fileInput = document.getElementById('tbtTemplateFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!title || !file){ toast('Add a title and choose a PDF.'); return; }
+  tbtTemplateBusy = true; render();
+  const path = ME.org_id+'/tbt-templates/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  tbtTemplateBusy = false;
+  if(!stored){ render(); return; }
+  const rows = await dbInsert('tbt_templates', {org_id:ME.org_id, title, storage_path:stored, created_by:ME.id});
+  if(rows){ toast('Added to the Toolbox Talk Bank'); render(); }
+};
+window.deleteTbtTemplate = async function(templateId, storagePath){
+  if(!confirm('Remove this template? Sites already created keep their copy — this only affects sites created from now on.')) return;
+  const ok = await dbDelete('tbt_templates', templateId);
+  if(ok){ toast('Template removed'); render(); }
+};
 window.saveCompanyTheme = async function(){
   if(!ME || ME.role!=='admin' || !ORG) return;
   const c1 = document.getElementById('themeColor1').value;
@@ -1313,11 +1365,22 @@ window.disconnectOneDrive = async function(){
    A folder can either live in the connected account's own OneDrive (driveId
    null — addressed via /me/drive/...) or in a DIFFERENT drive that's been
    shared with them — another person's OneDrive, or a SharePoint document
-   library synced/shared into their view (driveId set — addressed via
-   /drives/{driveId}/...). The "Shared with me" entry is a virtual folder
-   (id SHARED_ROOT_ID) that only exists client-side to get into that mode. */
+   library (driveId set — addressed via /drives/{driveId}/...).
+
+   There are two separate ways a folder can be "not really mine" and they
+   need different Graph calls to find:
+     - Someone individually shared it with this account → /me/drive/sharedWithMe
+       (the "🔗 Shared with me" virtual entry).
+     - It's visible because this account is a member of a SharePoint team
+       site (e.g. everyone at the company can see the org's shared folder,
+       nobody explicitly "shared" it with any one person) → /sites then
+       /sites/{id}/drives (the "🏢 Company Sites" virtual entry, which lists
+       sites and then that site's document libraries).
+   Both virtual entries only exist client-side to get the picker into that
+   mode — they're not real Graph items. */
 const SHARED_ROOT_ID = '__SHARED__';
-let odPickerStack = null; // array of {id, name, driveId} — first entry is always the OneDrive root
+const SITES_ROOT_ID = '__SITES__';
+let odPickerStack = null; // array of {id, name, driveId, isSite} — first entry is always the OneDrive root
 let odPickerFolders = [];
 let odPickerError = null;
 window.startOneDriveFolderPicker = function(siteId){
@@ -1331,21 +1394,28 @@ async function loadOdPickerFolders(){
   try{
     const body = current.id===SHARED_ROOT_ID
       ? {shared:true}
-      : current.driveId
-        ? {parent_id: current.id, drive_id: current.driveId}
-        : {parent_id: current.id};
+      : current.id===SITES_ROOT_ID
+        ? {companySites:true}
+        : current.isSite
+          ? {company_site_id: current.id}
+          : current.driveId
+            ? {parent_id: current.id, drive_id: current.driveId}
+            : {parent_id: current.id};
     const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
     else {
       odPickerFolders = d.folders || [];
       odPickerError = null;
-      // At the true root of the user's own OneDrive, also offer a way into
-      // everything other people/teams have shared with them — that's how
-      // folders like a shared "RTB Roofing" team folder get reached, since
-      // they don't live under the user's own drive at all.
+      // At the true root of the user's own OneDrive, also offer the two
+      // ways into folders that aren't in their own drive at all — see the
+      // comment above.
       if(current.id===null && !current.driveId){
-        odPickerFolders = [{id:SHARED_ROOT_ID, name:'🔗 Shared with me', driveId:null, virtual:true}, ...odPickerFolders];
+        odPickerFolders = [
+          {id:SHARED_ROOT_ID, name:'🔗 Shared with me', driveId:null, virtual:true},
+          {id:SITES_ROOT_ID, name:'🏢 Company Sites', driveId:null, virtual:true},
+          ...odPickerFolders,
+        ];
       }
     }
   }catch(e){ odPickerError = 'Could not reach OneDrive.'; odPickerFolders = []; }
@@ -1355,7 +1425,11 @@ async function renderOneDriveFolderPicker(siteId){
   if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
   const current = odPickerStack[odPickerStack.length-1];
-  const canUseCurrent = current.id && current.id!==SHARED_ROOT_ID;
+  const canUseCurrent = current.id && current.id!==SHARED_ROOT_ID && current.id!==SITES_ROOT_ID && !current.isSite;
+  const emptyMsg = current.id===SHARED_ROOT_ID ? 'Nothing has been shared with this account yet.'
+    : current.id===SITES_ROOT_ID ? 'No SharePoint sites found for this account.'
+    : current.isSite ? 'No document libraries in this site.'
+    : 'No subfolders here.';
   document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
     ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Up one level</button>` : ''}
@@ -1364,16 +1438,16 @@ async function renderOneDriveFolderPicker(siteId){
     ` : `
       ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
       ${odPickerFolders.map(f=>`
-        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}','${f.driveId||''}')">
-          <div class="swatch">${f.virtual?'🔗':'📁'}</div>
+        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}','${f.driveId||''}',${f.isSite?'true':'false'})">
+          <div class="swatch">${f.isSite?'🏢':f.virtual?'🔗':'📁'}</div>
           <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
         </div>
-      `).join('') || `<div class="empty">${current.id===SHARED_ROOT_ID?'Nothing has been shared with this account yet.':'No subfolders here.'}</div>`}
+      `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
   `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
 }
-window.odPickerInto = function(id, name, driveId){
-  odPickerStack.push({id, name, driveId: driveId || null});
+window.odPickerInto = function(id, name, driveId, isSite){
+  odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
   render();
 };
 window.odPickerUp = function(){
@@ -2525,6 +2599,23 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
     // mark any other live talk at this site as completed first.
     const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id');
     for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
+
+    // Issuing a Bank TBT for signing makes an independent live copy rather
+    // than converting the bank item in place — that way the original stays
+    // in Bank TBT, ready to reuse next time (e.g. next week's toolbox talk),
+    // and signatures attach only to the live copy that was actually issued.
+    const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
+    const source = rows && rows[0];
+    if(!source){ toast('Toolbox talk not found.'); return; }
+    if(source.status==='bank'){
+      const created = await dbInsert('toolbox_talks', {site_id:siteId, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
+      if(created && created[0]){
+        tbtFilter = 'live';
+        toast('Issued for signing — original kept in Bank TBT for reuse');
+        go(`#/site/${siteId}/hs/tbt/${created[0].id}`);
+      }
+      return;
+    }
   }
   const row = await dbUpdate('toolbox_talks', tbtId, {status:newStatus});
   if(row){
@@ -2535,9 +2626,23 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
 };
 window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
   if(!confirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
-  try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('toolbox_talks', tbtId);
-  if(ok){ toast('Toolbox talk deleted'); go(`#/site/${siteId}/hs/tbt`); }
+  if(ok){
+    // The same PDF can be shared by several talks now — the Bank TBT
+    // original, the live copy issued from it, and copies pre-loaded into
+    // other sites all point at the same storage_path. Only remove the
+    // actual file once nothing else references it, otherwise deleting one
+    // copy would break the document link on every other copy.
+    try{
+      const stillUsed = await dbSelect('toolbox_talks', 'storage_path=eq.'+encodeURIComponent(storagePath)+'&select=id&limit=1');
+      const stillUsedAsTemplate = await dbSelect('tbt_templates', 'storage_path=eq.'+encodeURIComponent(storagePath)+'&select=id&limit=1');
+      if(!stillUsed.length && !stillUsedAsTemplate.length){
+        await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'});
+      }
+    }catch(e){ /* non-fatal — the file being left behind is harmless */ }
+    toast('Toolbox talk deleted');
+    go(`#/site/${siteId}/hs/tbt`);
+  }
 };
 window.exportSignedToolboxTalk = async function(tbtId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
