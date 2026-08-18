@@ -1604,6 +1604,8 @@ window.importScheduleExcel = async function(input, siteId){
 /* ================= SNAGGING ================= */
 let snagFilter = 'live';
 let snagNewPhoto = null;
+let snagNewPdf = null; // {file, name} chosen in the "Add snag" form, not yet uploaded
+let attachingPdfSnagId = null;
 let closingSnagId = null;
 async function renderSnagging(siteId){
   const site = SITES.find(s=>s.id===siteId);
@@ -1624,6 +1626,7 @@ async function renderSnagging(siteId){
           <span class="statustag2 ${s.status}">${s.status}</span>
         </div>
         ${s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
+        ${s.pdf_path ? `<a class="ghostbtn" style="display:block;margin-top:10px;text-align:center;" href="${publicUrl('site-photos',s.pdf_path)}" target="_blank" rel="noopener">📄 View PDF</a>` : ''}
         ${s.status==='closed' ? `
           <div class="closurerow">
             ${s.closed_photo_path ? `<img src="${publicUrl('site-photos',s.closed_photo_path)}">` : ''}
@@ -1640,6 +1643,13 @@ async function renderSnagging(siteId){
             </div>
           ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="closingSnagId='${s.id}';render()">Close snag</button>`}
         `}
+        ${canAdd && !s.pdf_path ? (
+          attachingPdfSnagId===s.id ? `
+            <label class="ghostbtn" style="display:block;margin-top:8px;cursor:pointer;text-align:center;">📄 Choose PDF to attach
+              <input type="file" accept="application/pdf" style="display:none" onchange="attachSnagPdf(this,'${siteId}','${s.id}')">
+            </label>
+          ` : `<button class="ghostbtn" style="margin-top:8px;" onclick="attachingPdfSnagId='${s.id}';render()">Attach PDF</button>`
+        ) : ''}
       </div>
     `).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
 
@@ -1660,6 +1670,13 @@ async function renderSnagging(siteId){
             <input type="file" accept="image/*" capture="environment" style="display:none" onchange="snagAddPhoto(this)">
           </label>
         </div>
+        <div class="formfield">
+          <label class="field-label">PDF Attachment (optional)</label>
+          <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">
+            ${snagNewPdf ? `📄 ${escapeHtml(snagNewPdf.name)}` : `📄 Choose PDF`}
+            <input type="file" accept="application/pdf" style="display:none" onchange="snagAddPdf(this)">
+          </label>
+        </div>
         <button class="darkbtn" onclick="addSnag('${siteId}')">Add Snag</button>
       </div>
     ` : ''}
@@ -1670,6 +1687,12 @@ window.snagAddPhoto = async function(input){
   try{ snagNewPhoto = await compressImage(file); render(); }
   catch(e){ toast('Could not process photo.'); }
 };
+window.snagAddPdf = function(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
+  snagNewPdf = file;
+  render();
+};
 window.addSnag = async function(siteId){
   const title = document.getElementById('snagTitle').value.trim();
   const location = document.getElementById('snagLoc').value.trim();
@@ -1678,10 +1701,27 @@ window.addSnag = async function(siteId){
   if(snagNewPhoto){
     photoPath = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', snagNewPhoto);
   }
-  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPath, status:'open', created_by:ME.id});
+  let pdfPath = null;
+  if(snagNewPdf){
+    pdfPath = await uploadToStorage('site-photos', siteId+'/snags/'+uid()+'.pdf', snagNewPdf, 'application/pdf');
+  }
+  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPath, pdf_path:pdfPath, status:'open', created_by:ME.id});
   if(rows){
     snagNewPhoto = null;
+    snagNewPdf = null;
     toast('Snag added');
+    render();
+  }
+};
+window.attachSnagPdf = async function(input, siteId, snagId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
+  const path = await uploadToStorage('site-photos', siteId+'/snags/'+snagId+'-'+uid()+'.pdf', file, 'application/pdf');
+  if(!path) return;
+  const row = await dbUpdate('snags', snagId, {pdf_path: path});
+  if(row){
+    attachingPdfSnagId = null;
+    toast('PDF attached');
     render();
   }
 };
