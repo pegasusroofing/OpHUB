@@ -2,348 +2,2937 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpHUB — The site hub for trade & specialist contractors</title>
-<meta name="description" content="Schedules, RAMS sign-off, snagging, materials and team messaging — all in one branded app your crews will actually use.">
-<meta property="og:title" content="OpHUB — The site hub for trade & specialist contractors">
-<meta property="og:description" content="Run every site from one place. Schedules, RAMS, snagging, materials and messaging, branded as your own company's app.">
-<meta property="og:image" content="assets/ophub-logo.png">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>OpHUB</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OpHUB">
+<meta name="theme-color" content="#101114">
 <link rel="apple-touch-icon" href="assets/ophub-logo.png">
 <link rel="icon" href="assets/ophub-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400;1,700&display=swap" rel="stylesheet">
 <style>
   :root{
     --brand1:#4E8FD1;
     --brand2:#101114;
+    --red:#C8102E;
     --ink:#101114;
     --paper:#F5F3EE;
     --card:#FFFFFF;
     --line:#E4E1D8;
     --slate:#5B5F68;
-    --ok:#2E8B57;
-    --ok-bg:#E7F3EC;
+    --slate-light:#9A9DA3;
+    --ok:#2E6B3E;
+    --ok-bg:#E4EFE4;
+    --warn:#B0740F;
+    --warn-bg:#F5EBD6;
+    --blue:#2A4B7C;
+    --blue-bg:#E7EDF5;
   }
   *{box-sizing:border-box;}
-  html{scroll-behavior:smooth;}
-  body{margin:0;background:var(--paper);color:var(--ink);
+  html,body{height:100%;}
+  body{
+    margin:0;background:#EFEDE6;
     font-family:'Open Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;}
-  a{color:inherit;text-decoration:none;}
-  img{max-width:100%;display:block;}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px;}
-  section{padding:72px 0;}
-  h1,h2,h3{margin:0;line-height:1.15;}
-  p{margin:0;}
-
-  /* ---- nav ---- */
-  .nav{position:sticky;top:0;z-index:20;background:rgba(245,243,238,.9);backdrop-filter:blur(8px);
-    border-bottom:1px solid var(--line);}
-  .navrow{max-width:1120px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px;}
-  .navlogo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.01em;margin-right:auto;}
-  .navlogo img{width:34px;height:34px;border-radius:9px;object-fit:cover;}
-  .navlinks{display:flex;gap:26px;font-weight:700;font-size:14px;color:var(--slate);}
-  .navlinks a:hover{color:var(--ink);}
-  .navcta{display:flex;gap:10px;align-items:center;}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:10px;
-    font-weight:800;font-size:14px;letter-spacing:.01em;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;}
-  .btn-primary{background:var(--brand1);color:#fff;}
-  .btn-primary:hover{background:#3f7ab8;}
-  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line);}
-  .btn-ghost:hover{border-color:var(--brand1);color:var(--brand1);}
-  .btn-dark{background:var(--ink);color:#fff;}
-  .btn-sm{padding:9px 16px;font-size:13px;}
-  .btn-block{width:100%;}
-
-  /* ---- hero ---- */
-  .hero{padding:88px 0 64px;}
-  .herogrid{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;}
-  .kicker{display:inline-flex;align-items:center;gap:8px;background:#E9F1FB;color:var(--brand1);
-    font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:18px;}
-  .hero h1{font-size:44px;font-weight:800;letter-spacing:-.02em;}
-  .hero p.lead{font-size:17px;color:var(--slate);margin-top:18px;max-width:520px;line-height:1.55;}
-  .herobtns{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap;}
-  .heroreassure{margin-top:16px;font-size:12.5px;color:var(--slate);}
-  .heropanel{background:var(--ink);border-radius:20px;padding:26px;box-shadow:0 24px 60px -20px rgba(16,17,20,.35);}
-  .heropanel .stripe{height:6px;border-radius:3px;background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,#232323 5px 10px);margin-bottom:18px;}
-  .heropanel .mock{background:#181a1d;border-radius:14px;padding:18px;}
-  .mocktile{background:#212327;border-radius:10px;padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
-  .mocktile .ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:0 0 32px;}
-  .mocktile .t{color:#fff;font-weight:800;font-size:13px;}
-  .mocktile .s{color:#9a9da3;font-size:11.5px;margin-top:2px;}
-
-  /* ---- proof strip ---- */
-  .proof{padding:26px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
-  .proofrow{display:flex;align-items:center;justify-content:center;gap:40px;flex-wrap:wrap;color:var(--slate);
-    font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase;text-align:center;}
-
-  /* ---- section heads ---- */
-  .sectionhead{max-width:640px;margin:0 auto 44px;text-align:center;}
-  .sectionhead .kicker{margin-bottom:14px;}
-  .sectionhead h2{font-size:32px;font-weight:800;letter-spacing:-.01em;}
-  .sectionhead p{color:var(--slate);font-size:15.5px;margin-top:12px;line-height:1.55;}
-
-  /* ---- problem ---- */
-  .problemgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
-  .problemcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;}
-  .problemcard .ic{width:40px;height:40px;border-radius:10px;background:#FBEAEA;color:#B23A3A;display:flex;
-    align-items:center;justify-content:center;font-size:18px;margin-bottom:14px;}
-  .problemcard h3{font-size:16px;font-weight:800;}
-  .problemcard p{color:var(--slate);font-size:13.5px;margin-top:8px;line-height:1.5;}
-
-  /* ---- features ---- */
-  .featgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
-  .featcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;}
-  .featcard .ic{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:14px;}
-  .featcard h3{font-size:14.5px;font-weight:800;}
-  .featcard p{color:var(--slate);font-size:12.5px;margin-top:6px;line-height:1.5;}
-
-  /* ---- benefits ---- */
-  .benefits{background:var(--ink);color:#fff;border-radius:24px;padding:56px;}
-  .benefitsgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:32px;margin-top:36px;}
-  .benefititem{display:flex;gap:14px;align-items:flex-start;}
-  .benefititem .check{width:26px;height:26px;border-radius:50%;background:var(--brand1);color:#fff;flex:0 0 26px;
-    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;}
-  .benefititem h3{font-size:15px;font-weight:800;color:#fff;}
-  .benefititem p{color:#b9b9b9;font-size:13px;margin-top:6px;line-height:1.5;}
-  .benefits .sectionhead h2, .benefits .sectionhead p{color:#fff;}
-  .benefits .sectionhead p{color:#b9b9b9;}
-
-  /* ---- pricing ---- */
-  .pricegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;}
-  .pricecard{background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:30px;display:flex;flex-direction:column;}
-  .pricecard.featured{border-color:var(--brand1);box-shadow:0 20px 44px -24px rgba(78,143,209,.5);position:relative;}
-  .pricecard .tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--brand1);color:#fff;
-    font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;border-radius:999px;}
-  .pricecard h3{font-size:17px;font-weight:800;}
-  .pricecard .amt{font-size:38px;font-weight:800;margin-top:14px;}
-  .pricecard .amt span{font-size:14px;font-weight:700;color:var(--slate);}
-  .pricecard .desc{color:var(--slate);font-size:13px;margin-top:8px;line-height:1.5;min-height:40px;}
-  .pricecard ul{list-style:none;margin:22px 0 0;padding:0;flex:1;}
-  .pricecard li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--ink);margin-bottom:10px;}
-  .pricecard li:before{content:"✓";color:var(--ok);font-weight:900;}
-  .pricecard .btn{margin-top:24px;}
-
-  /* ---- final cta ---- */
-  .finalcta{text-align:center;background:#E9F1FB;border-radius:24px;padding:64px 32px;}
-  .finalcta h2{font-size:30px;font-weight:800;letter-spacing:-.01em;}
-  .finalcta p{color:var(--slate);font-size:15px;margin-top:12px;}
-  .finalcta .herobtns{justify-content:center;}
-
-  /* ---- footer ---- */
-  footer{border-top:1px solid var(--line);padding:44px 0;}
-  .footrow{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;}
-  .footlogo{display:flex;align-items:center;gap:10px;font-weight:800;}
-  .footlogo img{width:28px;height:28px;border-radius:7px;object-fit:cover;}
-  .footlinks{display:flex;gap:22px;font-size:13.5px;font-weight:700;color:var(--slate);}
-  .footlinks a:hover{color:var(--ink);}
-  .footmeta{color:var(--slate);font-size:12px;margin-top:22px;text-align:center;}
-
-  @media (max-width:900px){
-    .herogrid{grid-template-columns:1fr;}
-    .heropanel{order:-1;}
-    .problemgrid,.benefitsgrid{grid-template-columns:1fr;}
-    .featgrid{grid-template-columns:1fr 1fr;}
-    .pricegrid{grid-template-columns:1fr;}
-    .benefits{padding:40px 24px;}
-    .navlinks{display:none;}
-    .hero h1{font-size:32px;}
-    .sectionhead h2{font-size:26px;}
+    color:var(--ink);
   }
+  #app{
+    max-width:460px;margin:0 auto;min-height:100vh;
+    background:var(--paper);
+    display:flex;flex-direction:column;
+    box-shadow:0 0 40px rgba(0,0,0,0.08);
+  }
+  /* Same app, same layout, same everything below this width — on a wide
+     desktop browser window this just widens #app into a real page (like
+     admin.html's topbar + wide content layout) instead of framing it as a
+     phone card. Nothing inside #app is touched, so behavior is identical. */
+  @media (min-width:760px){
+    #app{
+      max-width:1180px;box-shadow:none;
+    }
+    .appbar{padding:20px 32px;}
+    .scrollarea{padding:24px 32px 32px;}
+    .tabbar{position:sticky;bottom:0;}
+  }
+  .stripe-edge{height:5px;width:100%;flex:0 0 auto;
+    background:
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
+      linear-gradient(90deg, var(--brand1), var(--brand2));}
+
+  .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
+  .appbar .row{display:flex;align-items:center;gap:15px;}
+  .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
+  .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
+  .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
+  .appbar h2{margin:0;font-size:24px;font-weight:800;}
+  .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
+  .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:5.2px;font-weight:700;
+    padding:2px 4.5px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+
+  .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .sectiontitle{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--slate);margin:4px 0 10px;}
+
+  .primarybtn,.darkbtn,.ghostbtn{
+    display:block;width:100%;padding:13px;border-radius:10px;border:none;
+    font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
+  }
+  .primarybtn{background:var(--brand1);color:#fff;}
+  .exportbtn{padding:8.125px;font-size:8.4375px;}
+  .darkbtn{background:var(--brand1);color:#fff;}
+  .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
+  .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
+  input[type=text],input[type=email],input[type=password],input[type=number],textarea,select{
+    width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
+    font-size:14px;background:#fff;color:var(--ink);font-family:inherit;
+  }
+  textarea{resize:vertical;min-height:70px;}
+  label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
+  .formfield{margin-bottom:12px;}
+  .row-gap{display:flex;gap:8px;}
+  .row-gap > *{flex:1;}
+
+  .rolepick{display:flex;gap:10px;margin-top:6px;}
+  .rolebtn{
+    flex:1;padding:18px 10px;border-radius:12px;border:2px solid var(--line);
+    background:#fff;text-align:center;font-weight:800;font-size:13.5px;color:var(--slate);
+  }
+  .rolebtn .ic{font-size:24px;display:block;margin-bottom:6px;}
+  .rolebtn.selected{border-color:var(--brand1);background:#E9F1FB;color:var(--brand1);}
+
+  .authtabs{display:flex;gap:8px;margin-bottom:14px;}
+  .authtab{flex:1;text-align:center;padding:10px;border-radius:8px;border:1.5px solid var(--line);
+    background:#fff;font-weight:800;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
+  .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+
+  .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px;margin-bottom:10px;}
+  .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
+    background:linear-gradient(135deg,var(--brand1),var(--brand2));display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:800;font-size:15px;}
+  .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
+  .sitecard .info{flex:1;min-width:0;}
+  .sitecard .info .name{font-weight:800;font-size:14.5px;}
+  .sitecard .info .addr{font-size:12px;color:var(--slate);margin-top:1px;}
+  .sitecard .status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    padding:3px 8px;border-radius:999px;flex:0 0 auto;}
+  .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
+  .sitecard .status.closed{background:var(--line);color:var(--slate);}
+  .closedtoggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
+  .closedtoggle .arrow{font-size:10px;}
+
+  .status-strip{display:flex;align-items:center;justify-content:space-between;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
+    text-transform:uppercase;padding:5px 9px;border-radius:999px;}
+  .pill.on{background:var(--ok-bg);color:var(--ok);}
+  .pill.off{background:var(--line);color:var(--slate);}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:64px;}
+  .tile-wide .icon{margin-bottom:0;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:92px;position:relative;}
+  .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .tile .lbl{font-size:12.5px;font-weight:800;line-height:1.2;}
+  .tile .sub{font-size:10.5px;color:var(--slate-light);}
+  .tile .badge-count{position:absolute;top:10px;right:10px;background:var(--red);color:#fff;font-size:10px;
+    font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
+
+  .task{display:flex;flex-direction:column;align-items:stretch;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:12px;margin-bottom:8px;}
+  .checkbox{width:22px;height:22px;border-radius:5px;flex:0 0 22px;margin-top:1px;border:2px solid var(--line);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;}
+  .checkbox.progress{border-color:var(--warn);background:var(--warn);}
+  .checkbox.done{border-color:var(--ok);background:var(--ok);}
+  .taskbody{flex:1;min-width:0;}
+  .statusbtns{display:flex;gap:6px;margin-top:9px;}
+  .statusbtn{flex:1;text-align:center;font-size:10.5px;font-weight:800;letter-spacing:.02em;
+    padding:8px 4px;border-radius:8px;border:1.5px solid var(--line);color:var(--slate);background:var(--paper);}
+  .statusbtn.active-todo{border-color:var(--slate-light);color:var(--ink);background:#fff;}
+  .statusbtn.active-progress{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
+  .statusbtn.active-done{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
+  .taskname{font-size:13.5px;font-weight:700;}
+  .taskname.done{text-decoration:line-through;color:var(--slate-light);}
+  .taskmeta{font-size:11px;color:var(--slate);margin-top:3px;}
+  .taskphoto{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
+  .taskphoto img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
+  .addphotobtn{margin-top:8px;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--brand1);}
+  .taskrowtop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .taskicons{display:flex;gap:4px;flex:0 0 auto;}
+  .taskicon{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;color:var(--slate);}
+  .taskicon.danger{color:var(--brand1);}
+  .taskeditrow{display:flex;gap:6px;margin-bottom:4px;}
+  .taskeditrow input{flex:1;padding:7px 9px;font-size:13px;}
+  .taskeditrow button{flex:0 0 auto;padding:7px 10px;font-size:11px;border-radius:6px;border:none;font-weight:800;}
+
+  .snag{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
+  .snag .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
+  .snag .title{font-size:13px;font-weight:700;margin-top:2px;}
+  .snag .loc{font-size:11px;color:var(--slate);margin-top:3px;}
+  .statustag2{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;flex:0 0 auto;}
+  .statustag2.open,.statustag2.live{background:var(--warn-bg);color:var(--warn);}
+  .statustag2.closed{background:var(--ok-bg);color:var(--ok);}
+  .statustag2.pending{background:#EAE6DC;color:#6B6F76;}
+  .snagthumb{width:100%;max-width:160px;border-radius:8px;margin-top:8px;display:block;}
+  .filterrow{display:flex;gap:8px;margin-bottom:12px;}
+  .filterchip{flex:1;text-align:center;padding:8px;border-radius:8px;border:1.5px solid var(--line);
+    background:#fff;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
+  .filterchip.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+  .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
+  .closurerow img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
+
+  .ramsdoc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;}
+  .ramsdoc .name{font-size:13.5px;font-weight:800;}
+  .ramsdoc .meta{font-size:11px;color:var(--slate);margin-top:3px;}
+  .ramsdoc .viewlink{font-size:11.5px;color:var(--blue);font-weight:700;text-decoration:underline;}
+  .siglinebox{margin-top:12px;border:1.5px dashed var(--line);border-radius:8px;min-height:56px;
+    display:flex;align-items:center;justify-content:center;color:var(--slate-light);font-size:12px;font-weight:600;
+    flex-direction:column;gap:2px;padding:8px;text-align:center;}
+  .siglinebox.signed{border-style:solid;border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
+  .siglinebox.signed .name{font-family:'Segoe Script','Brush Script MT',cursive;font-size:20px;}
+  .signerlist{margin-top:10px;font-size:11px;color:var(--slate);}
+  .signerlist div{padding:3px 0;}
+
+  .matcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
+  .matcard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .matcard .name{font-size:13.5px;font-weight:700;}
+  .matcard .qty{font-size:11.5px;color:var(--slate);margin-top:2px;}
+  .statustag{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
+  .statustag.sent{background:var(--blue-bg);color:var(--blue);}
+  .statustag.pending{background:var(--warn-bg);color:var(--warn);}
+  .merchantrow{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--slate);}
+  .merchantchip{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:4px 9px;
+    font-weight:700;font-size:10.5px;}
+  .merchantchip.pickable{cursor:pointer;}
+  .merchantchip.pickable.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+  .merchantchip.sent{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);}
+
+  .varcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
+  .varcard img{width:100%;border-radius:8px;margin-bottom:8px;}
+  .varcard .desc{font-size:13px;}
+  .varcard .meta{font-size:11px;color:var(--slate);margin-top:6px;}
+  .photoupload{background:var(--card);border:1.5px dashed var(--slate-light);border-radius:10px;
+    min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;color:var(--slate);font-size:12px;font-weight:700;overflow:hidden;}
+  .photoupload img{width:100%;height:100%;object-fit:cover;}
+
+  .empty{text-align:center;color:var(--slate-light);font-size:13px;padding:26px 10px;}
+
+  .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;align-items:flex-end;padding:8px 3px 12px;
+    background:#fff;border-top:1px solid var(--line);}
+  .tb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8.5px;font-weight:700;
+    color:var(--slate-light);padding:4px 5px;border-radius:10px;}
+  .tb.active{color:var(--brand1);}
+  .tabicon{font-size:15px;}
+  .tb.tb-emph{border:1.5px solid var(--line);padding:6px 9px;margin:-4px 0;background:var(--paper);font-size:9.5px;}
+  .tb.tb-emph .tabicon{font-size:19px;}
+  .tb.tb-emph.active{border-color:var(--brand1);}
+
+  .toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:13px 16px;
+    border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);
+    display:flex;align-items:center;gap:10px;max-width:428px;margin:0 auto;z-index:100;}
+  .toast .stripe{width:5px;align-self:stretch;background:var(--brand1);border-radius:3px;}
+
+  .stub{font-size:11px;color:var(--slate-light);font-style:italic;margin-top:6px;}
+  .errbox{font-size:12.5px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
+    border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:-2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
+<div id="app"></div>
+<div id="toastHost"></div>
 
-<div class="nav">
-  <div class="navrow">
-    <a href="/" class="navlogo"><img src="assets/ophub-logo.png" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-    <div class="navlinks">
-      <a href="#features">Features</a>
-      <a href="#pricing">Pricing</a>
-      <a href="#about">About</a>
-    </div>
-    <div class="navcta">
-      <a href="/app.html" class="btn btn-ghost btn-sm">Sign In</a>
-      <a href="/pricing.html" class="btn btn-primary btn-sm">Get Started</a>
-    </div>
-  </div>
-</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+/* ================= Supabase config ================= */
+const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
 
-<section class="hero">
-  <div class="wrap herogrid">
-    <div>
-      <span class="kicker">Built for site teams, across every trade</span>
-      <h1>The site hub that keeps every job on track</h1>
-      <p class="lead">Schedules, RAMS sign-off, snagging, materials and team messaging — all in one branded app your crews will actually use.</p>
-      <div class="herobtns">
-        <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="#features" class="btn btn-ghost">See how it works</a>
-      </div>
-      <p class="heroreassure">No credit card needed to take a look around · Set up your company in minutes</p>
-    </div>
-    <div class="heropanel">
-      <div class="stripe"></div>
-      <div class="mock">
-        <div class="mocktile"><div class="ic" style="background:#C8102E;color:#fff;">⏱</div><div><div class="t">Check In / Out</div><div class="s">GPS logged · On site</div></div></div>
-        <div class="mocktile"><div class="ic" style="background:#2b3a4d;color:#8FB8E8;">📋</div><div><div class="t">Schedule of Works</div><div class="s">6 of 9 tasks done</div></div></div>
-        <div class="mocktile"><div class="ic" style="background:#2b3a2b;color:#8fd1a0;">🧱</div><div><div class="t">Material Needs</div><div class="s">2 pending</div></div></div>
-        <div class="mocktile" style="margin-bottom:0;"><div class="ic" style="background:#2b2338;color:#c79ee0;">💬</div><div><div class="t">Messages</div><div class="s">3 unread</div></div></div>
-      </div>
-    </div>
-  </div>
-</section>
+/* ================= generic helpers ================= */
+function uid(){ return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,9); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){
+  const host=document.getElementById('toastHost');
+  const el=document.createElement('div'); el.className='toast';
+  el.innerHTML='<div class="stripe"></div><div>'+msg+'</div>';
+  host.innerHTML=''; host.appendChild(el);
+  setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },3200);
+}
+function compressImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('read failed'));
+    reader.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>reject(new Error('load failed'));
+      img.onload=()=>{
+        const maxW=480; const scale=Math.min(1,maxW/img.width);
+        const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
+        const c=document.createElement('canvas'); c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/jpeg',0.6));
+      };
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function getGeo(){
+  // In the native app, use Capacitor's Geolocation plugin — it drives Android's
+  // runtime permission prompt properly. Bare navigator.geolocation inside an
+  // embedded WebView often silently fails on Android because nothing ever
+  // triggers the permission dialog.
+  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation){
+    try{
+      const perm = await window.Capacitor.Plugins.Geolocation.checkPermissions();
+      if(perm.location !== 'granted' && perm.coarseLocation !== 'granted'){
+        const req = await window.Capacitor.Plugins.Geolocation.requestPermissions();
+        if(req.location !== 'granted' && req.coarseLocation !== 'granted'){
+          return {error:'Location permission denied. Enable it for this app in your phone\'s Settings.'};
+        }
+      }
+      const pos = await window.Capacitor.Plugins.Geolocation.getCurrentPosition({enableHighAccuracy:true, timeout:12000});
+      return {lat:pos.coords.latitude, lon:pos.coords.longitude, accuracy:pos.coords.accuracy};
+    }catch(e){
+      return {error: (e && e.message) || 'Could not get your location.'};
+    }
+  }
+  return new Promise(resolve=>{
+    if(!navigator.geolocation){ resolve({error:'Location not supported.'}); return; }
+    navigator.geolocation.getCurrentPosition(
+      p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy}),
+      e=>resolve({error:e.message||'Location permission denied.'}),
+      {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+    );
+  });
+}
+function distMeters(lat1, lon1, lat2, lon2){
+  const R = 6371000;
+  const toRad = d => d*Math.PI/180;
+  const dLat = toRad(lat2-lat1), dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function startOfWeek(d){
+  const dt = new Date(d);
+  const day = (dt.getDay()+6)%7;
+  dt.setHours(0,0,0,0);
+  dt.setDate(dt.getDate()-day);
+  return dt.getTime();
+}
 
-<div class="proof">
-  <div class="wrap proofrow">
-    <span>Multi-site scheduling</span>
-    <span>RAMS e-sign-off</span>
-    <span>GPS check-in</span>
-    <span>Snagging exports</span>
-    <span>Your own branding</span>
-  </div>
-</div>
+/* ================= local persistence (session only — no raw passwords ever stored) ================= */
+async function sget(key, shared){ try{ const r=await window.storage.get(key,shared); return r?r.value:null; }catch(e){ return null; } }
+async function sset(key, value, shared){ try{ return await window.storage.set(key,value,shared);}catch(e){ console.error(e); return null; } }
+async function sdelete(key, shared){ try{ return await window.storage.delete(key, shared); }catch(e){ return null; } }
+async function getJSON(key, shared, fallback){ const v=await sget(key,shared); if(!v) return fallback; try{return JSON.parse(v);}catch(e){return fallback;} }
+async function setJSON(key, obj, shared){ return sset(key, JSON.stringify(obj), shared); }
+const K_SESSION = 'rtb-session-v1';
 
-<section id="about">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Why OpHUB</span>
-      <h2>Built around the people actually on site</h2>
-      <p>OpHUB was built with one focus — giving site operatives a platform that's concise and clear, not another system to fight with. That's peace of mind for the management team too: everything lives in one place, with no ties to any commercial software. Think of it as a job folder in an app. Originally designed for on-site roofing teams, OpHUB has since grown to support every trade on site.</p>
-    </div>
-    <div class="problemgrid">
-      <div class="problemcard">
-        <div class="ic">👷</div>
-        <h3>Built for operatives</h3>
-        <p>Designed around the people on site, not the office — simple enough that it actually gets used every day.</p>
-      </div>
-      <div class="problemcard">
-        <div class="ic">🛡</div>
-        <h3>Peace of mind for management</h3>
-        <p>Schedules, RAMS, snagging and messages all logged in one clear, auditable place.</p>
-      </div>
-      <div class="problemcard">
-        <div class="ic">📁</div>
-        <h3>No ties to commercial software</h3>
-        <p>OpHUB isn't bolted onto anyone else's platform — it's your own job folder in an app, nothing to license or integrate.</p>
-      </div>
-    </div>
-  </div>
-</section>
+/* ================= Supabase data layer ================= */
+let SESSION = null; // {access_token, refresh_token, expires_at, user:{id,email}}
 
-<section id="features" style="padding-top:0;">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Everything in one place</span>
-      <h2>One app for the whole site team</h2>
-      <p>Set it up once, brand it as your own, and give every operative, PM and admin exactly what they need.</p>
-    </div>
-    <div class="featgrid">
-      <div class="featcard"><div class="ic" style="background:#E4EEFB;color:var(--brand1);">📋</div><h3>Schedule of Works</h3><p>Track every task to-commence, in progress or complete — with photo evidence attached.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAE6DC;color:var(--ink);">📄</div><h3>RAMS Sign-off</h3><p>Operatives sign RAMS digitally before starting — a clean, searchable audit trail.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FBEFDD;color:#B0740F;">🏷</div><h3>Snagging</h3><p>Log, photograph and close snags on the spot, then export a PDF report — live, closed or both.</p></div>
-      <div class="featcard"><div class="ic" style="background:var(--ok-bg);color:var(--ok);">🧱</div><h3>Material Requests</h3><p>Raise, route and track material orders straight through to your suppliers by email.</p></div>
-      <div class="featcard"><div class="ic" style="background:#F0E4F5;color:#6B3F86;">💬</div><h3>Team Messaging</h3><p>Broadcast updates to operatives or a site's project manager, with in-app notifications.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FBEAEA;color:#B23A3A;">📍</div><h3>GPS Check-in</h3><p>Geofenced check-in and check-out, so you always know who's actually on site.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E4EEFB;color:var(--brand1);">🏢</div><h3>Multi-Site Admin</h3><p>Manage every site, team member and responsible project manager from one dashboard.</p></div>
-      <div class="featcard"><div class="ic" style="background:#101114;color:#fff;">🎨</div><h3>Your Branding</h3><p>Set your own logo and colour theme — it feels like your own company's app, not ours.</p></div>
-    </div>
-  </div>
-</section>
+async function ensureFreshToken(){
+  if(!SESSION) return;
+  if(Date.now() < SESSION.expires_at - 60000) return;
+  try{
+    const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({refresh_token: SESSION.refresh_token})
+    });
+    if(res.ok){
+      const d = await res.json();
+      SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
+      await setJSON(K_SESSION, SESSION, false);
+    } else {
+      SESSION = null; ME = null; await sdelete(K_SESSION, false);
+    }
+  }catch(e){ SESSION = null; ME = null; }
+}
+async function sbFetch(path, opts){
+  opts = opts || {};
+  await ensureFreshToken();
+  const headers = Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + (SESSION ? SESSION.access_token : SUPABASE_ANON_KEY),
+    'Content-Type': 'application/json'
+  }, opts.headers||{});
+  return fetch(SUPABASE_URL + path, Object.assign({}, opts, {headers}));
+}
+async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
 
-<section>
-  <div class="wrap">
-    <div class="benefits">
-      <div class="sectionhead">
-        <span class="kicker" style="background:#232323;color:#8FB8E8;">Why teams switch</span>
-        <h2>Less admin. More proof. One place to work from.</h2>
-      </div>
-      <div class="benefitsgrid">
-        <div class="benefititem"><div class="check">✓</div><div><h3>Save hours of admin every week</h3><p>No more chasing paperwork or re-typing what's already on someone's phone.</p></div></div>
-        <div class="benefititem"><div class="check">✓</div><div><h3>Stay compliant, automatically</h3><p>Every sign-off, snag and check-in is timestamped and easy to pull up if you're ever asked.</p></div></div>
-        <div class="benefititem"><div class="check">✓</div><div><h3>One place for the whole crew</h3><p>Operatives, PMs and admins all work from the same live picture, on site or in the office.</p></div></div>
-      </div>
-    </div>
-  </div>
-</section>
+async function dbSelect(table, qs){
+  const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+  if(!res.ok){ console.error(await safeErr(res)); return []; }
+  return res.json();
+}
+async function dbInsert(table, rowOrRows){
+  const res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(rowOrRows)});
+  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return null; }
+  const d = await res.json();
+  return d;
+}
+async function dbUpdate(table, id, patch){
+  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(patch)});
+  if(!res.ok){ toast('Update failed — '+(await safeErr(res))); return null; }
+  const d = await res.json();
+  return Array.isArray(d)?d[0]:d;
+}
+async function dbDelete(table, id){
+  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE'});
+  if(!res.ok){ toast('Delete failed — '+(await safeErr(res))); return false; }
+  return true;
+}
+async function uploadToStorage(bucket, path, blobOrFile, contentType){
+  await ensureFreshToken();
+  const res = await fetch(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization':'Bearer '+SESSION.access_token,
+      'Content-Type': contentType || blobOrFile.type || 'application/octet-stream',
+      'x-upsert':'true'
+    },
+    body: blobOrFile
+  });
+  if(!res.ok){ toast('Upload failed — '+(await safeErr(res))); return null; }
+  return path;
+}
+async function uploadDataUrl(bucket, path, dataUrl){
+  const blob = await (await fetch(dataUrl)).blob();
+  return uploadToStorage(bucket, path, blob, blob.type);
+}
+function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path) : null; }
 
-<section id="pricing">
-  <div class="wrap">
-    <div class="sectionhead">
-      <span class="kicker">Pricing</span>
-      <h2>Simple plans that grow with your team</h2>
-      <p>One flat monthly price per company — no per-user fees. Cancel any time.</p>
-    </div>
-    <div class="pricegrid">
-      <div class="pricecard">
-        <h3>OpHUB Basic</h3>
-        <div class="amt">£50<span>/mo</span></div>
-        <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
-        <ul>
-          <li>Up to 25 members of staff</li>
-          <li>Unlimited sites</li>
-          <li>Schedule, RAMS, snagging & materials</li>
-          <li>Team messaging & notifications</li>
-          <li>Custom company branding & theme</li>
-        </ul>
-        <a href="/pricing.html?tier=starter" class="btn btn-ghost btn-block">Get Started</a>
-      </div>
-      <div class="pricecard featured">
-        <span class="tag">Most popular</span>
-        <h3>OpHUB Pro</h3>
-        <div class="amt">£80<span>/mo</span></div>
-        <p class="desc">For growing contractors running multiple sites at once.</p>
-        <ul>
-          <li>Up to 50 employees</li>
-          <li>Everything in Basic</li>
-          <li>GPS check-in & geofencing</li>
-          <li>OneDrive photo sync</li>
-        </ul>
-        <a href="/pricing.html?tier=growth" class="btn btn-primary btn-block">Get Started</a>
-      </div>
-      <div class="pricecard">
-        <h3>OpHUB Enterprise</h3>
-        <div class="amt">£150<span>/mo</span></div>
-        <p class="desc">For larger operations that need full oversight.</p>
-        <ul>
-          <li>Up to 150 employees</li>
-          <li>Everything in Pro</li>
-          <li>Priority support</li>
-          <li>Dedicated onboarding & training</li>
-        </ul>
-        <a href="/pricing.html?tier=enterprise" class="btn btn-ghost btn-block">Get Started</a>
-      </div>
-    </div>
-  </div>
-</section>
+/* ================= auth ================= */
+// `extra` becomes the new account's auth metadata. Only `invite_id` matters
+// server-side: the handle_new_user() DB trigger looks it up in the `invites`
+// table and resolves org_id/role from THAT row — anything else sent here
+// (e.g. a role) is display-only and is never trusted by the backend.
+async function signUp(email, password, extra){
+  const res = await fetch(SUPABASE_URL+'/auth/v1/signup', {
+    method:'POST',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({email, password, data: extra||{}})
+  });
+  const d = await res.json();
+  if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign up failed'};
+  if(d.access_token){
+    SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
+    await setJSON(K_SESSION, SESSION, false);
+    return {ok:true, confirmed:true};
+  }
+  return {ok:true, confirmed:false};
+}
+async function getInviteInfo(inviteId){
+  const res = await sbFetch('/rest/v1/rpc/get_invite_info', {method:'POST', body: JSON.stringify({p_invite_id: inviteId})});
+  if(!res.ok) return null;
+  const rows = await res.json();
+  return rows && rows[0] ? rows[0] : null;
+}
+async function signIn(email, password){
+  const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
+    method:'POST',
+    headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({email, password})
+  });
+  const d = await res.json();
+  if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign in failed'};
+  SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
+  await setJSON(K_SESSION, SESSION, false);
+  return {ok:true};
+}
+window.doSignOut = async function(){
+  try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
+  SESSION = null; ME = null; ORG = null;
+  applyTheme(null);
+  await sdelete(K_SESSION, false);
+  location.hash = '';
+  render();
+};
+async function loadProfile(){
+  const rows = await dbSelect('profiles', 'id=eq.'+SESSION.user.id+'&select=*');
+  ME = rows[0] || null;
+}
 
-<section>
-  <div class="wrap">
-    <div class="finalcta">
-      <h2>Ready to run every site from one place?</h2>
-      <p>Set up your company today — you'll be inviting your team within minutes.</p>
-      <div class="herobtns">
-        <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="/app.html" class="btn btn-ghost">Sign In</a>
+/* ================= push notifications ================= */
+// Registers this device for push (native app only) and saves the FCM token
+// against the signed-in user so server-side reminders (e.g. the 3pm sign-out
+// nudge) know where to deliver. Silently no-ops on the plain website.
+let pushRegistered = false;
+async function registerPushNotifications(){
+  try{
+    if(pushRegistered) return;
+    if(!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+    const PN = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+    if(!PN) return;
+    let perm = await PN.checkPermissions();
+    if(perm.receive !== 'granted'){ perm = await PN.requestPermissions(); }
+    if(perm.receive !== 'granted') return;
+    pushRegistered = true;
+    PN.addListener('registration', async (token)=>{
+      if(!ME || !token || !token.value) return;
+      try{
+        await sbFetch('/rest/v1/push_tokens?on_conflict=token', {
+          method:'POST',
+          headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+          body: JSON.stringify({user_id: ME.id, token: token.value, platform:'android', updated_at: new Date().toISOString()})
+        });
+      }catch(e){ console.error('Could not save push token', e); }
+    });
+    PN.addListener('registrationError', (err)=>{ console.error('Push registration error', err); });
+    await PN.register();
+  }catch(e){ console.error('Push notification setup failed', e); }
+}
+
+/* ================= OneDrive OAuth deep-link handoff (native app only) =================
+   The OneDrive "Connected"/"Connection failed" page (served from Supabase, in
+   the system browser Browser.open() opened) redirects to ophub://onedrive-callback
+   once it's done — iOS/Android route that straight back into this app and
+   auto-dismiss the system browser, so nobody has to tap "Close Window"
+   themselves. This just needs to catch that hand-off and refresh the screen. */
+function registerOneDriveDeepLinkHandler(){
+  if(!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+  const AppPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(!AppPlugin) return;
+  AppPlugin.addListener('appUrlOpen', async (data)=>{
+    try{
+      const openedUrl = new URL(data.url);
+      if(openedUrl.protocol !== 'ophub:' || openedUrl.hostname !== 'onedrive-callback') return;
+      if(window.Capacitor.Plugins.Browser){ try{ await window.Capacitor.Plugins.Browser.close(); }catch(e){} }
+      const status = openedUrl.searchParams.get('status');
+      toast(status==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
+      go('#/team');
+    }catch(e){ console.error('OneDrive deep link handling failed', e); }
+  });
+}
+
+/* ================= state ================= */
+let ME = null;
+let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
+let SITES = [];
+let PROFILES = {}; // id -> {name,email,role}
+
+const OPHUB_LOGO = 'assets/ophub-logo.png';
+const DEFAULT_BRAND1 = '#4E8FD1';
+const DEFAULT_BRAND2 = '#101114';
+// Inline SVG, can never 404 — the last-resort fallback so a missing/slow
+// asset never causes an onerror retry loop (which shows as a "flashing" broken image).
+const OPHUB_LOGO_INLINE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="14" fill="'+DEFAULT_BRAND1+'"/>'+
+  '<text x="32" y="41" font-size="22" font-family="-apple-system,Arial,sans-serif" font-weight="800" fill="#fff" text-anchor="middle">OH</text></svg>'
+);
+
+async function loadOrg(){
+  if(!ME || !ME.org_id){ ORG = null; applyTheme(null); return; }
+  const rows = await dbSelect('organizations', 'id=eq.'+ME.org_id+'&select=*');
+  ORG = rows[0] || null;
+  applyTheme(ORG);
+}
+function applyTheme(org){
+  const root = document.documentElement.style;
+  root.setProperty('--brand1', (org && org.color_primary) || DEFAULT_BRAND1);
+  root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
+}
+// Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
+// GPS check-in & geofencing — everything else (growth/enterprise) does.
+// Superadmin has no ORG at all, so treat that as unrestricted.
+function orgAllowsGps(){ return !ORG || ORG.plan_tier !== 'starter'; }
+const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
+function orgLogoUrl(org){
+  return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
+}
+// 'admin' is a superset of 'pm' capabilities everywhere in this app —
+// mirrors the DB's is_pm() which now also means "pm or admin".
+function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
+function roleLabel(role){
+  return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
+}
+
+async function loadAllProfiles(){
+  const rows = await dbSelect('profiles', 'select=id,name,email,role');
+  PROFILES = {};
+  rows.forEach(p=> PROFILES[p.id]=p);
+}
+function nameOf(userId){ return (PROFILES[userId] && PROFILES[userId].name) || 'Unknown'; }
+
+const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
+
+/* ================= routing ================= */
+function go(hash){ location.hash = hash; }
+window.addEventListener('hashchange', render);
+function parseRoute(){
+  const h = location.hash.replace(/^#\/?/, '').split('?')[0];
+  return h.split('/').filter(Boolean);
+}
+function routeQuery(){
+  const q = location.hash.split('?')[1];
+  return new URLSearchParams(q||'');
+}
+
+/* ================= init ================= */
+async function init(){
+  SESSION = await getJSON(K_SESSION, false, null);
+  if(SESSION){
+    await ensureFreshToken();
+    if(SESSION){
+      await loadProfile();
+      if(!ME){ SESSION=null; ME=null; }
+    }
+  }
+  if(SESSION && ME){
+    await loadOrg();
+    await loadAllProfiles();
+    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+    if(ME.role!=='superadmin') registerPushNotifications();
+  } else {
+    applyTheme(null);
+  }
+  render();
+}
+
+/* ================= shell ================= */
+function shell(innerHtml, opts){
+  opts = opts||{};
+  return `
+    <div style="display:flex;flex-direction:column;min-height:100vh;">
+      <div class="stripe-edge"></div>
+      <div class="appbar">
+        ${opts.centerTitle ? `
+          <div class="row" style="justify-content:center;text-align:center;">
+            <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
+          </div>
+        ` : opts.centerHeader ? `
+          <div class="row" style="flex-direction:column;gap:8px;text-align:center;">
+            <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
+            <div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
+            <h2>${opts.title||''}</h2>
+            ${ME ? `<span class="rolechip" style="margin:2px auto 0;">${roleLabel(ME.role)}</span>` : ''}
+          </div>
+        ` : `
+        <div class="row">
+          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
+          <div>
+            ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
+            <h2>${opts.title||''}</h2>
+            ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
+          </div>
+          ${ME ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : ''}
+        </div>
+        `}
+      </div>
+      <div class="scrollarea">${innerHtml}</div>
+      ${opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab)}
+    </div>
+  `;
+}
+let currentUnreadMsgs = 0;
+function tabbar(siteId, active){
+  if(!siteId) return '';
+  const tabs = [
+    {k:'home', ic:'🏠', lbl:'Home', href:`#/site/${siteId}/home`},
+    {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
+    {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
+    {k:'more', ic:'☰', lbl:'More', href:`#/site/${siteId}/more`},
+  ];
+  return `<div class="tabbar">${tabs.map(t=>`
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
+      <span class="tabicon">${t.ic}</span>${t.lbl}
+      ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
+    </div>`).join('')}</div>`;
+}
+
+/* ================= LOGIN ================= */
+let authBusy = false;
+let authError = null;
+function renderLogin(){
+  const app = document.getElementById('app');
+  app.innerHTML = shell(`
+    <div class="card">
+      ${authError ? `<div class="errbox">${escapeHtml(authError)}</div>` : ''}
+      <div class="formfield">
+        <label class="field-label">Email</label>
+        <input type="email" id="authEmail" placeholder="you@yourcompany.co.uk">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Password</label>
+        <input type="password" id="authPassword" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
+      </div>
+      <button class="primarybtn" ${authBusy?'disabled':''} onclick="doSignIn()">
+        ${authBusy ? '<span class="spinner"></span>Please wait…' : 'Sign In'}
+      </button>
+      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by this app.</p>
+      <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
+    </div>
+    <div style="display:flex;justify-content:center;margin-top:22px;">
+      <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:252px;height:252px;border-radius:36px;object-fit:cover;box-shadow:0 4px 18px rgba(0,0,0,0.12);max-width:80vw;max-height:80vw;">
+    </div>
+  `, {centerTitle:true, tabs:false});
+}
+window.maybeAutoSignIn = function(ev){
+  // Only Enter submits — a bare "fields look filled" trigger caused false
+  // sign-ins whenever the browser's saved-password autofill populated the
+  // form (e.g. switching accounts on a shared device), signing people in as
+  // whoever was saved before they could change the email. Explicit Sign In
+  // click or Enter key only, from here on.
+  if(ev && ev.key === 'Enter'){ doSignIn(); }
+};
+window.doSignIn = async function(){
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if(!email || !password){ authError='Enter your email and password.'; render(); return; }
+  authBusy = true; authError = null; render();
+  const r = await signIn(email, password);
+  authBusy = false;
+  if(r.error){ authError = r.error; render(); return; }
+  await loadProfile();
+  if(!ME || (!ME.org_id && ME.role!=='superadmin')){
+    authError = 'Your account isn\'t linked to a company yet. Contact your Project Manager for an invite.';
+    await doSignOut();
+    return;
+  }
+  if(ME.role==='superadmin'){ go('#/'); return; }
+  await loadOrg();
+  await loadAllProfiles();
+  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  registerPushNotifications();
+  go('#/sites');
+};
+
+/* ================= JOIN (invite-only account creation) ================= */
+let joinBusy = false;
+let joinError = null;
+let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
+async function renderJoin(inviteId){
+  const app = document.getElementById('app');
+  if(joinInfo === undefined){
+    app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false});
+    joinInfo = await getInviteInfo(inviteId);
+    render();
+    return;
+  }
+  if(!joinInfo || !joinInfo.is_valid){
+    app.innerHTML = shell(`
+      <div class="card">
+        <p class="stub" style="margin-top:0;">This invite link isn't valid — it may have already been used or expired. Ask your Project Manager for a new one.</p>
+        <button class="ghostbtn" onclick="joinInfo=undefined;go('#/')">Back to Sign In</button>
+      </div>
+    `, {title:'Invite not valid', tabs:false});
+    return;
+  }
+  // Preview the inviting company's own branding on this screen — falls back
+  // to the generic OpHUB mark/colours if they haven't finished company setup yet.
+  ORG = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
+  applyTheme(ORG);
+  app.innerHTML = shell(`
+    <div class="card">
+      <p class="stub" style="margin:0 0 12px;">You've been invited to join <b>${escapeHtml(joinInfo.org_name)}</b> on OpHUB.</p>
+      ${joinError ? `<div class="errbox">${escapeHtml(joinError)}</div>` : ''}
+      <div class="formfield">
+        <label class="field-label">Name</label>
+        <input type="text" id="joinName" placeholder="e.g. Andy Turner">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Email</label>
+        <input type="email" id="joinEmail" placeholder="you@yourcompany.co.uk">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Password</label>
+        <input type="password" id="joinPassword" placeholder="••••••••">
+      </div>
+      <button class="primarybtn" ${joinBusy?'disabled':''} onclick="doJoin('${inviteId}')">
+        ${joinBusy ? '<span class="spinner"></span>Please wait…' : 'Join Team'}
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:22px;">
+      <img src="${orgLogoUrl(joinInfo)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:64px;height:64px;border-radius:14px;object-fit:cover;">
+    </div>
+  `, {title:'Join OpHUB', tabs:false});
+}
+window.doJoin = async function(inviteId){
+  const name = document.getElementById('joinName').value.trim();
+  const email = document.getElementById('joinEmail').value.trim();
+  const password = document.getElementById('joinPassword').value;
+  if(!email || !password || !name){ joinError='Fill in every field.'; render(); return; }
+  if(password.length < 6){ joinError='Password needs to be at least 6 characters.'; render(); return; }
+  joinBusy = true; joinError = null; render();
+  const r = await signUp(email, password, {name, invite_id: inviteId});
+  joinBusy = false;
+  if(r.error){ joinError = r.error; render(); return; }
+  if(r.confirmed){
+    await loadProfile();
+    if(!ME || !ME.org_id){
+      joinError = 'That invite couldn\'t be applied to your account — it may have just been used by someone else. Contact your Project Manager.';
+      await doSignOut();
+      return;
+    }
+    joinInfo = undefined;
+    await loadOrg();
+    await loadAllProfiles();
+    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+    go('#/sites');
+  } else {
+    joinInfo = undefined;
+    location.hash = '';
+    authError = 'Account created — check your email to confirm it, then sign in.';
+    render();
+  }
+};
+
+/* ================= COMPANY SETUP (forced on the founding PM until logo+colours are set) ================= */
+let setupBusy = false;
+let setupError = null;
+let setupLogoDataUrl = null; // preview + upload source
+let setupColor1 = DEFAULT_BRAND1;
+let setupColor2 = DEFAULT_BRAND2;
+function renderCompanySetup(){
+  const app = document.getElementById('app');
+  app.innerHTML = shell(`
+    <div class="card">
+      <p class="stub" style="margin:0 0 12px;">Before you get started, set up <b>${escapeHtml(ORG.name)}</b>'s branding — this is shown throughout the app and on your team's invite link.</p>
+      ${setupError ? `<div class="errbox">${escapeHtml(setupError)}</div>` : ''}
+      <div class="formfield">
+        <label class="field-label">Company logo (required)</label>
+        <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('setupLogoInput').click()">
+          ${setupLogoDataUrl ? `<img src="${setupLogoDataUrl}">` : `<span>Tap to upload your logo</span>`}
+        </div>
+        <input type="file" id="setupLogoInput" accept="image/*" style="display:none;" onchange="onSetupLogoChosen(event)">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Brand colour 1 (required)</label>
+        <input type="color" id="setupColor1" value="${setupColor1}" oninput="setupColor1=this.value;document.documentElement.style.setProperty('--brand1',this.value);" style="width:100%;height:44px;padding:4px;">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Brand colour 2 (required)</label>
+        <input type="color" id="setupColor2" value="${setupColor2}" oninput="setupColor2=this.value;document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
+      </div>
+      <button class="primarybtn" ${setupBusy || !setupLogoDataUrl ?'disabled':''} onclick="saveCompanySetup()">
+        ${setupBusy ? '<span class="spinner"></span>Saving…' : 'Save & Continue'}
+      </button>
+    </div>
+  `, {title:'Set Up Your Company', tabs:false});
+  document.documentElement.style.setProperty('--brand1', setupColor1);
+  document.documentElement.style.setProperty('--brand2', setupColor2);
+}
+window.onSetupLogoChosen = async function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  setupLogoDataUrl = await compressImage(file);
+  renderCompanySetup();
+};
+window.saveCompanySetup = async function(){
+  if(!setupLogoDataUrl){ setupError='A logo is required.'; renderCompanySetup(); return; }
+  setupBusy = true; setupError = null; renderCompanySetup();
+  const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', setupLogoDataUrl);
+  if(!path){ setupBusy=false; setupError='Logo upload failed — try again.'; renderCompanySetup(); return; }
+  const row = await dbUpdate('organizations', ME.org_id, {logo_path: path, color_primary: setupColor1, color_secondary: setupColor2});
+  setupBusy = false;
+  if(!row){ setupError='Could not save — try again.'; renderCompanySetup(); return; }
+  await loadOrg();
+  toast('Company set up');
+  go('#/sites');
+};
+
+/* ================= PLATFORM ADMIN (superadmin oversight across all companies) ================= */
+let adminResetBusy = null; // email currently being reset
+let adminResetResult = null; // {email, new_password}
+let adminExpandedOrg = null; // org id currently expanded to show its members
+let newCompanyInvite = null; // {org_name, invite_link} after creating a company
+let newCompanyBusy = false;
+async function renderAdmin(){
+  const app = document.getElementById('app');
+  const [orgs, subs, allProfiles] = await Promise.all([
+    dbSelect('organizations', 'select=*&order=created_at.desc'),
+    dbSelect('subscriptions', 'select=*'),
+    dbSelect('profiles', 'select=*&order=name.asc'),
+  ]);
+  const subByOrg = {}; subs.forEach(s=>{ subByOrg[s.org_id] = s; });
+  const peopleByOrg = {};
+  allProfiles.forEach(p=>{ if(!p.org_id) return; (peopleByOrg[p.org_id] = peopleByOrg[p.org_id]||[]).push(p); });
+
+  app.innerHTML = shell(`
+    <p class="sectiontitle">My Account</p>
+    <div class="card">
+      <div class="sitecard" style="margin:0;">
+        <div class="info"><div class="name">${escapeHtml(ME.name)}${' (you)'}</div><div class="addr">${escapeHtml(ME.email)} · Super Admin</div></div>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${adminResetBusy===ME.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(ME.email)}')">${adminResetBusy===ME.email?'…':'Reset My Password'}</button>
       </div>
     </div>
-  </div>
-</section>
+    ${adminResetResult ? `
+      <div class="card" style="border-color:var(--ok);">
+        <p class="stub" style="margin:0 0 6px;color:var(--ok);">New password for <b>${escapeHtml(adminResetResult.email)}</b> — share this with them securely, they should change it after signing in:</p>
+        <input type="text" readonly value="${escapeHtml(adminResetResult.new_password)}" style="font-size:14px;font-weight:800;margin-bottom:8px;" onclick="this.select()">
+        <button class="ghostbtn" onclick="adminResetResult=null;render()">Dismiss</button>
+      </div>
+    ` : ''}
+    <p class="sectiontitle" style="margin-top:18px;">Invite a Company</p>
+    <div class="card">
+      ${newCompanyInvite ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Company "<b>${escapeHtml(newCompanyInvite.org_name)}</b>" created — share this link with whoever should become their admin. It works once, for the next 14 days:</p>
+        <input type="text" readonly value="${escapeHtml(newCompanyInvite.invite_link)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <div style="display:flex;gap:8px;">
+          <button class="ghostbtn" style="width:auto;" onclick="copyNewCompanyInvite()">Copy Link</button>
+          <button class="ghostbtn" style="width:auto;" onclick="newCompanyInvite=null;render()">Invite Another</button>
+        </div>
+      ` : `
+        <div class="formfield"><input type="text" id="newCompanyName" placeholder="Company name"></div>
+        <div class="formfield"><input type="email" id="newCompanyEmail" placeholder="Their email (optional)"></div>
+        <button class="darkbtn" ${newCompanyBusy?'disabled':''} onclick="createCompanyInvite()">${newCompanyBusy?'Creating…':'Create Company & Invite'}</button>
+        <p class="stub" style="margin:8px 0 0;">Sets up a new company outside of Stripe checkout and gives you a founding-admin invite link to send them directly.</p>
+      `}
+    </div>
+    <p class="sectiontitle" style="margin-top:18px;">All Companies (${orgs.length})</p>
+    ${orgs.map(o=>{
+      const sub = subByOrg[o.id];
+      const people = (peopleByOrg[o.id]||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+      const ROLES = ['operative','pm','admin'];
+      const expanded = adminExpandedOrg === o.id;
+      return `
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="toggleAdminOrg('${o.id}')">
+          <img src="${orgLogoUrl(o)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:800;font-size:14.5px;">${escapeHtml(o.name)}</div>
+            <div class="stub" style="margin:0;">${escapeHtml(PLAN_LABEL[o.plan_tier] || o.plan_tier)} · ${sub ? `${escapeHtml(sub.status)}` : 'no Stripe subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
+          </div>
+          <span class="stub" style="margin:0;font-size:16px;">${expanded?'▲':'▼'}</span>
+        </div>
+        ${expanded ? `
+          <div style="margin-top:10px;">
+            <div class="formfield" style="margin-top:0;" onclick="event.stopPropagation();">
+              <label class="field-label">Package</label>
+              <select onchange="setOrgPlanTier('${o.id}', this.value)" onclick="event.stopPropagation();">
+                <option value="starter" ${o.plan_tier==='starter'?'selected':''}>OpHUB Basic — no GPS check-in/geofencing</option>
+                <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro — GPS check-in & geofencing</option>
+                <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
+              </select>
+            </div>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete Company</button>
+            ${people.map(p=>`
+              <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:10.5px;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
+                  <button class="ghostbtn" style="width:auto;padding:6px 10px;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
+                </div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:10px;">No members yet.</div>`}
+          </div>
+        ` : ''}
+      </div>
+    `;}).join('') || `<div class="empty">No companies registered yet.</div>`}
+    <p style="text-align:center;margin-top:8px;">
+      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+    </p>
+  `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false});
+}
+window.setOrgPlanTier = async function(orgId, tier){
+  const row = await dbUpdate('organizations', orgId, {plan_tier: tier});
+  if(row){ toast('Package updated — '+(PLAN_LABEL[tier]||tier)); render(); }
+};
+window.createCompanyInvite = async function(){
+  const company_name = document.getElementById('newCompanyName').value.trim();
+  const email = document.getElementById('newCompanyEmail').value.trim();
+  if(!company_name){ toast('Enter a company name.'); return; }
+  newCompanyBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/admin-create-company', {method:'POST', body: JSON.stringify({company_name, email: email||undefined})});
+    const d = await res.json();
+    newCompanyBusy = false;
+    if(!res.ok || d.error){ toast('Could not create company — '+(d.error||res.status)); render(); return; }
+    newCompanyInvite = {org_name: company_name, invite_link: location.origin + location.pathname + '#/join/' + d.invite_id};
+    toast('Company created');
+    render();
+  }catch(e){ newCompanyBusy=false; toast('Could not reach the server.'); render(); }
+};
+window.copyNewCompanyInvite = async function(){
+  if(!newCompanyInvite) return;
+  try{ await navigator.clipboard.writeText(newCompanyInvite.invite_link); toast('Link copied'); }
+  catch(e){ toast('Could not copy — select and copy the link manually.'); }
+};
+window.toggleAdminOrg = function(orgId){
+  adminExpandedOrg = adminExpandedOrg === orgId ? null : orgId;
+  render();
+};
+window.setUserRole = async function(userId, role){
+  if(!confirm(`Change this person's role to ${roleLabel(role)}?`)) return;
+  const row = await dbUpdate('profiles', userId, {role});
+  if(row){ toast(`Role changed to ${roleLabel(role)}`); render(); }
+};
+window.resetUserPassword = async function(email){
+  const custom = prompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
+  if(custom === null) return; // cancelled
+  const newPassword = custom.trim();
+  if(newPassword && newPassword.length < 8){ toast('Password must be at least 8 characters.'); return; }
+  adminResetBusy = email; adminResetResult = null; render();
+  try{
+    const res = await sbFetch('/functions/v1/admin-reset-password', {method:'POST', body: JSON.stringify({target_email: email, new_password: newPassword || undefined})});
+    const d = await res.json();
+    adminResetBusy = null;
+    if(!res.ok || d.error){ toast('Reset failed — '+(d.error||res.status)); render(); return; }
+    adminResetResult = {email: d.email, new_password: d.new_password};
+    render();
+  }catch(e){
+    adminResetBusy = null;
+    toast('Reset failed — could not reach the server.');
+    render();
+  }
+};
+window.deleteCompany = async function(orgId, name){
+  if(!confirm(`Permanently delete "${name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`)) return;
+  if(prompt(`Type the company name to confirm deleting "${name}":`) !== name) { toast("Names didn't match — nothing deleted."); return; }
+  try{
+    const res = await sbFetch('/functions/v1/admin-delete-company', {method:'POST', body: JSON.stringify({org_id: orgId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Delete failed — '+(d.error||res.status)); return; }
+    toast(`Deleted ${d.deleted}`);
+    render();
+  }catch(e){
+    toast('Delete failed — could not reach the server.');
+  }
+};
 
-<footer>
-  <div class="wrap">
-    <div class="footrow">
-      <a href="/" class="footlogo"><img src="assets/ophub-logo.png" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
-      <div class="footlinks">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="/app.html">Sign In</a>
-        <a href="mailto:sales@operativehub.co.uk">Contact</a>
+/* ================= SITES LIST ================= */
+let showClosedSites = false;
+function fullSiteAddress(s){
+  return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
+}
+function siteCardHtml(s, canAdd){
+  return `
+    <div class="sitecard" onclick="go('#/site/${s.id}/home')">
+      <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+      <div class="info">
+        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
+      </div>
+      <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
+      ${canAdd ? `<div class="taskicon" style="margin-left:8px;" title="${s.status==='closed'?'Reopen job':'Close job'}" onclick="event.stopPropagation();toggleSiteStatus('${s.id}','${s.status==='closed'?'active':'closed'}')">${s.status==='closed'?'↩':'📦'}</div>` : ''}
+      ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">🗑</div>` : ''}
+    </div>
+  `;
+}
+async function renderSites(){
+  const app = document.getElementById('app');
+  const canAdd = isManager(ME);
+  const activeSites = SITES.filter(s=>s.status!=='closed');
+  const closedSites = SITES.filter(s=>s.status==='closed');
+  app.innerHTML = shell(`
+    <p class="sectiontitle">Your Sites</p>
+    ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">No active sites.</div>`}
+    ${closedSites.length ? `
+      <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="showClosedSites=!showClosedSites;render()">
+        <span class="arrow">${showClosedSites?'▼':'▶'}</span> Closed Jobs (${closedSites.length})
+      </p>
+      ${showClosedSites ? closedSites.map(s=>siteCardHtml(s,canAdd)).join('') : ''}
+    ` : ''}
+    ${canAdd ? `
+      <div class="card" style="margin-top:6px;">
+        <p class="sectiontitle" style="margin-top:0;">Add a site</p>
+        <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name"></div>
+        <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address"></div>
+        <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
+        <button class="darkbtn" onclick="addSite()">Create Site</button>
+      </div>
+      <button class="ghostbtn" onclick="go('#/team')">Manage Team</button>
+    ` : ''}
+    <p style="text-align:center;margin-top:8px;">
+      <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
+      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
+      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+    </p>
+  `, {title:'Choose Site', tabs:false, centerHeader:true});
+}
+window.toggleSiteStatus = async function(siteId, newStatus){
+  const row = await dbUpdate('sites', siteId, {status:newStatus});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(newStatus==='closed' ? 'Job closed' : 'Job reopened');
+    render();
+  }
+};
+window.addSite = async function(){
+  const name = document.getElementById('newSiteName').value.trim();
+  const addr = document.getElementById('newSiteAddr').value.trim();
+  const postcode = document.getElementById('newSitePostcode').value.trim();
+  if(!name) return;
+  // Deliberately not asking PostgREST for the row back here (no
+  // Prefer: return=representation) — Postgres has a known quirk where a
+  // table's own SELECT policy, if it re-queries that same table (as sites'
+  // does via has_site_access()), can't reliably see a row that's still
+  // mid-insert within the same statement, which makes any "insert and
+  // return the new row" call get rejected even though the insert itself
+  // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
+  // it without weakening the security policy.
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
+  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  toast('Site created');
+  render();
+};
+window.deleteSite = async function(siteId, name){
+  if(!confirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
+  const ok = await dbDelete('sites', siteId);
+  if(ok){
+    SITES = SITES.filter(s=>s.id!==siteId);
+    toast('Site deleted');
+    render();
+  } else {
+    toast('Could not delete — try again.');
+  }
+};
+
+/* ================= MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ================= */
+let sigHasDrawn = false;
+function renderSignaturePad(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Your signature</p>
+      ${ME.signature_path ? `
+        <p class="stub" style="margin:0 0 10px;">Currently adopted:</p>
+        <div style="background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:10px;margin-bottom:14px;">
+          <img src="${publicUrl('signatures', ME.signature_path)}" style="height:50px;max-width:100%;object-fit:contain;">
+        </div>
+      ` : `<p class="stub" style="margin:0 0 10px;">Draw your signature below — it'll be used automatically whenever you sign a RAMS document or Toolbox Talk.</p>`}
+      <p class="field-label" style="margin-bottom:6px;">${ME.signature_path ? 'Draw a new signature to replace it' : 'Draw here'}</p>
+      <canvas id="sigCanvas" style="width:100%;height:160px;background:#fff;border:1.5px dashed var(--line);border-radius:8px;touch-action:none;display:block;"></canvas>
+      <div class="row-gap" style="margin-top:12px;">
+        <button class="ghostbtn" onclick="clearSignaturePad()">Clear</button>
+        <button class="darkbtn" onclick="saveSignaturePad()">Save Signature</button>
       </div>
     </div>
-    <p class="footmeta">© 2026 OpHUB · operativehub.co.uk · sales@operativehub.co.uk</p>
-  </div>
-</footer>
+  `, {title:'My Signature', subtitle:ME.name, back:'#/sites', tabs:false});
+  attachSignatureCanvas();
+}
+let sigCtx = null;
+function attachSignatureCanvas(){
+  const canvas = document.getElementById('sigCanvas');
+  if(!canvas) return;
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#101114';
+  sigCtx = ctx;
+  sigHasDrawn = false;
+  let drawing = false, lastX = 0, lastY = 0;
+  function posFromEvent(e){
+    const r = canvas.getBoundingClientRect();
+    return {x: e.clientX - r.left, y: e.clientY - r.top};
+  }
+  canvas.onpointerdown = (e)=>{ drawing = true; const p = posFromEvent(e); lastX = p.x; lastY = p.y; canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointermove = (e)=>{
+    if(!drawing) return;
+    const p = posFromEvent(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y;
+    sigHasDrawn = true;
+  };
+  canvas.onpointerup = ()=>{ drawing = false; };
+  canvas.onpointerleave = ()=>{ drawing = false; };
+}
+window.clearSignaturePad = function(){
+  const canvas = document.getElementById('sigCanvas');
+  if(canvas && sigCtx){ sigCtx.clearRect(0,0,canvas.width,canvas.height); sigHasDrawn = false; }
+};
+window.saveSignaturePad = async function(){
+  if(!sigHasDrawn){ toast('Draw your signature first.'); return; }
+  const canvas = document.getElementById('sigCanvas');
+  const dataUrl = canvas.toDataURL('image/png');
+  const path = ME.id+'/signature.png';
+  const stored = await uploadDataUrl('signatures', path, dataUrl);
+  if(!stored) return;
+  const row = await dbUpdate('profiles', ME.id, {signature_path: path});
+  if(row){
+    ME.signature_path = path;
+    toast('Signature saved');
+    history.length>1 ? history.back() : go('#/sites');
+  }
+};
 
+/* ================= MANAGE TEAM (admin/PM grant, revoke, and remove team members) ================= */
+let newInviteLink = null;
+let invitesBusy = false;
+async function renderTeam(){
+  await loadAllProfiles();
+  const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
+  const pendingInvites = await dbSelect('invites', 'used_at=is.null&order=created_at.desc&select=*');
+  const iAmAdmin = ME.role==='admin';
+  const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
+  document.getElementById('app').innerHTML = shell(`
+    ${iAmAdmin ? `
+    <p class="sectiontitle">Company Theme</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Set your company's colours — these apply across the app for everyone at ${escapeHtml(ORG && ORG.name || 'your company')}.</p>
+      <div style="display:flex;gap:12px;margin-bottom:10px;">
+        <div style="flex:1;">
+          <label class="stub" style="display:block;margin-bottom:4px;">Primary colour</label>
+          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);" style="width:100%;height:44px;padding:4px;">
+        </div>
+        <div style="flex:1;">
+          <label class="stub" style="display:block;margin-bottom:4px;">Secondary colour</label>
+          <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="darkbtn" ${themeBusy?'disabled':''} onclick="saveCompanyTheme()">${themeBusy?'Saving…':'Save Theme'}</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
+      </div>
+    </div>
+    <p class="sectiontitle">Integrations</p>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
+      ${odConn && odConn.access_token ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">Connected — syncing to ${escapeHtml(odConn.account_email||'your OneDrive')} · folder "${escapeHtml(odConn.folder_path)}"</p>
+        <button class="ghostbtn" onclick="disconnectOneDrive()">Disconnect</button>
+      ` : `
+        <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>
+        <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
+      `}
+    </div>
+    ` : ''}
+    <p class="sectiontitle">Invite a Team Member</p>
+    <div class="card">
+      ${newInviteLink ? `
+        <p class="stub" style="margin:0 0 8px;">Share this link — it works once, for the next 14 days:</p>
+        <input type="text" readonly value="${escapeHtml(newInviteLink)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <button class="ghostbtn" onclick="copyInviteLink()">Copy Link</button>
+      ` : `
+        <button class="darkbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate Invite Link'}</button>
+        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative. Only the OpHUB platform admin can change someone's role.</p>
+      `}
+      ${pendingInvites.length ? `
+        <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
+        ${pendingInvites.map(i=>`
+          <div class="sitecard" style="padding:8px 10px;">
+            <div class="info"><div class="addr">Created ${new Date(i.created_at).toLocaleDateString('en-GB')} · expires ${new Date(i.expires_at).toLocaleDateString('en-GB')}</div></div>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="revokeInvite('${i.id}')">Revoke</button>
+          </div>
+        `).join('')}
+      ` : ''}
+    </div>
+    <p class="sectiontitle">Company Admins</p>
+    ${people.filter(p=>p.role==='admin').map(p=>`
+      <div class="sitecard">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+      </div>
+    `).join('') || `<div class="empty">No other admins yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
+    ${people.filter(p=>p.role==='pm').map(p=>`
+      <div class="sitecard">
+        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No project managers yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
+    ${people.filter(p=>p.role==='operative').map(p=>`
+      <div class="sitecard">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>
+      </div>
+    `).join('') || `<div class="empty">No operatives yet.</div>`}
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
+  `, {title:'Manage Team', back:'#/sites', tabs:false});
+}
+let odBusy = false;
+let themeBusy = false;
+window.saveCompanyTheme = async function(){
+  if(!ME || ME.role!=='admin' || !ORG) return;
+  const c1 = document.getElementById('themeColor1').value;
+  const c2 = document.getElementById('themeColor2').value;
+  themeBusy = true; render();
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2});
+  themeBusy = false;
+  if(!row){ toast('Could not save theme — try again.'); render(); return; }
+  ORG.color_primary = c1; ORG.color_secondary = c2;
+  applyTheme(ORG);
+  toast('Company theme saved.');
+  render();
+};
+window.resetCompanyTheme = async function(){
+  if(!ME || ME.role!=='admin' || !ORG) return;
+  themeBusy = true; render();
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null});
+  themeBusy = false;
+  if(!row){ toast('Could not reset theme — try again.'); render(); return; }
+  ORG.color_primary = null; ORG.color_secondary = null;
+  applyTheme(ORG);
+  toast('Company theme reset to default.');
+  render();
+};
+window.connectOneDrive = async function(){
+  odBusy = true; render();
+  try{
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const res = await sbFetch('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({native:isNative, origin: isNative ? null : location.origin})});
+    const d = await res.json();
+    odBusy = false;
+    if(!res.ok || d.error){ toast(d.error || 'Could not start OneDrive connection.'); render(); return; }
+    // Microsoft's sign-in screen refuses to load inside an app's embedded
+    // webview (a security measure most OAuth providers enforce) — open it in
+    // the system browser instead when running as the native app. On the
+    // plain website, a normal same-tab redirect works fine. On native, the
+    // callback page hands straight back to the app via a custom URL scheme
+    // (see the appUrlOpen listener below), so the browser closes itself.
+    if(isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+      window.Capacitor.Plugins.Browser.open({url: d.url});
+    } else {
+      location.href = d.url;
+    }
+  }catch(e){ odBusy=false; toast('Could not reach the server.'); render(); }
+};
+window.disconnectOneDrive = async function(){
+  if(!confirm('Disconnect OneDrive? Photos will stop syncing until reconnected.')) return;
+  const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
+  if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
+};
+
+/* ================= ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) =================
+   A folder can either live in the connected account's own OneDrive (driveId
+   null — addressed via /me/drive/...) or in a DIFFERENT drive that's been
+   shared with them — another person's OneDrive, or a SharePoint document
+   library synced/shared into their view (driveId set — addressed via
+   /drives/{driveId}/...). The "Shared with me" entry is a virtual folder
+   (id SHARED_ROOT_ID) that only exists client-side to get into that mode. */
+const SHARED_ROOT_ID = '__SHARED__';
+let odPickerStack = null; // array of {id, name, driveId} — first entry is always the OneDrive root
+let odPickerFolders = [];
+let odPickerError = null;
+window.startOneDriveFolderPicker = function(siteId){
+  odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  odPickerFolders = [];
+  odPickerError = null;
+  go(`#/site/${siteId}/onedrive-folder`);
+};
+async function loadOdPickerFolders(){
+  const current = odPickerStack[odPickerStack.length-1];
+  try{
+    const body = current.id===SHARED_ROOT_ID
+      ? {shared:true}
+      : current.driveId
+        ? {parent_id: current.id, drive_id: current.driveId}
+        : {parent_id: current.id};
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
+    const d = await res.json();
+    if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
+    else {
+      odPickerFolders = d.folders || [];
+      odPickerError = null;
+      // At the true root of the user's own OneDrive, also offer a way into
+      // everything other people/teams have shared with them — that's how
+      // folders like a shared "RTB Roofing" team folder get reached, since
+      // they don't live under the user's own drive at all.
+      if(current.id===null && !current.driveId){
+        odPickerFolders = [{id:SHARED_ROOT_ID, name:'🔗 Shared with me', driveId:null, virtual:true}, ...odPickerFolders];
+      }
+    }
+  }catch(e){ odPickerError = 'Could not reach OneDrive.'; odPickerFolders = []; }
+}
+async function renderOneDriveFolderPicker(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  await loadOdPickerFolders();
+  const current = odPickerStack[odPickerStack.length-1];
+  const canUseCurrent = current.id && current.id!==SHARED_ROOT_ID;
+  document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
+    ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Up one level</button>` : ''}
+    ${odPickerError ? `
+      <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
+    ` : `
+      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${odPickerFolders.map(f=>`
+        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}','${f.driveId||''}')">
+          <div class="swatch">${f.virtual?'🔗':'📁'}</div>
+          <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
+        </div>
+      `).join('') || `<div class="empty">${current.id===SHARED_ROOT_ID?'Nothing has been shared with this account yet.':'No subfolders here.'}</div>`}
+    `}
+  `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+}
+window.odPickerInto = function(id, name, driveId){
+  odPickerStack.push({id, name, driveId: driveId || null});
+  render();
+};
+window.odPickerUp = function(){
+  odPickerStack.pop();
+  render();
+};
+window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    odPickerStack = null;
+    toast('Folder linked — photos for this site will sync there from now on');
+    go(`#/site/${siteId}/home`);
+  }
+};
+window.unlinkOneDriveFolder = async function(siteId){
+  if(!confirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Folder unlinked');
+    render();
+  }
+};
+
+window.removeTeamMember = async function(userId, name){
+  if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access.`)) return;
+  const ok = await dbDelete('profiles', userId);
+  if(ok){
+    delete PROFILES[userId];
+    toast('Removed from team');
+    render();
+  }
+};
+window.generateInvite = async function(){
+  invitesBusy = true; render();
+  const rows = await dbInsert('invites', {org_id: ME.org_id, role:'operative', created_by: ME.id});
+  invitesBusy = false;
+  if(rows && rows[0]){
+    newInviteLink = location.origin + location.pathname + '#/join/' + rows[0].id;
+    toast('Invite link created');
+  }
+  render();
+};
+window.copyInviteLink = async function(){
+  if(!newInviteLink) return;
+  try{ await navigator.clipboard.writeText(newInviteLink); toast('Link copied'); }
+  catch(e){ toast('Could not copy — select and copy the link manually.'); }
+};
+window.revokeInvite = async function(inviteId){
+  if(!confirm('Revoke this invite link?')) return;
+  const ok = await dbDelete('invites', inviteId);
+  if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)) newInviteLink=null; render(); }
+};
+
+/* ================= SITE HOME ================= */
+async function renderSiteHome(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, pmList, odConnRows] = await Promise.all([
+    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+    dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+    dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
+    ME.role==='admin' ? loadPMList() : Promise.resolve([]),
+    isManager(ME) ? dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token') : Promise.resolve([]),
+  ]);
+  const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
+  // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
+  // the router right before this ran — reuse it here instead of querying twice.
+  const unreadMsgs = currentUnreadMsgs;
+  const scheduleDone = tasks.filter(t=>t.status==='done').length;
+  const signedIds = new Set(mySignatures.map(s=>s.rams_id));
+  const pendingRams = ramsDocs.filter(r=>!signedIds.has(r.id)).length;
+  const onSite = myLastCheckin[0] && myLastCheckin[0].type==='in';
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="status-strip">
+      <span>${escapeHtml(ME.name)}</span>
+      ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+    </div>
+    <div class="tilegrid">
+      <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
+        <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
+        <div><div class="lbl" style="font-size:18.75px;">Check In / Out</div><div class="sub">${orgAllowsGps() ? 'GPS logged' : 'Tap to log time'}</div></div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/schedule')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+        <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs')">
+        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
+        <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
+        ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')">
+        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+        <div class="lbl">Material Needs</div><div class="sub">${pendingMat.length} pending</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/variations')">
+        <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
+        <div class="lbl">Variations</div><div class="sub">Raise new</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+        <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
+        ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/messages')">
+        <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
+        <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
+        ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
+      </div>
+    </div>
+    ${isManager(ME) ? `
+      ${odCompanyConnected ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">OneDrive Folder</p>
+        ${site.onedrive_folder_id ? `
+          <p class="stub" style="margin:0 0 8px;color:var(--ok);">Linked to "${escapeHtml(site.onedrive_folder_name||'')}" — progress photos for this site sync straight there.</p>
+          <button class="ghostbtn" onclick="startOneDriveFolderPicker('${siteId}')">Change folder</button>
+          <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkOneDriveFolder('${siteId}')">Unlink</button>
+        ` : `
+          <p class="stub" style="margin:0 0 8px;">Not linked yet — photos are filing under a generic OpHUB folder. Pick this site's actual project folder so they land in the right place.</p>
+          <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}')">Choose folder</button>
+        `}
+      </div>
+      ` : ''}
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Site Geofence</p>
+        ${!orgAllowsGps() ? `
+          <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
+        ` : site.geofence_lat ? `
+          <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)} · check-ins must be within 100m</div>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="setGeofence('${siteId}')">Update location</button>
+        ` : `
+          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet. Stand at the site entrance and tap below.</p>
+          <button class="darkbtn" onclick="setGeofence('${siteId}')">Set current location as site</button>
+        `}
+      </div>
+      ${ME.role==='admin' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Responsible Project Manager</p>
+        <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
+        <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
+          <option value="">No owner — notify all project managers</option>
+          ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      ` : ''}
+      <button class="ghostbtn" onclick="go('#/site/${siteId}/team')">Assign Team</button>
+    ` : ''}
+  `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
+}
+async function loadPMList(){
+  await loadAllProfiles();
+  return Object.values(PROFILES).filter(p=>p.role==='pm').sort((a,b)=>a.name.localeCompare(b.name));
+}
+window.setResponsiblePM = async function(siteId, pmId){
+  const row = await dbUpdate('sites', siteId, {responsible_pm_id: pmId || null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    SITES[idx] = row;
+    toast('Responsible project manager updated');
+  }
+};
+async function unreadCountForSite(siteId){
+  const audience = isManager(ME) ? 'managers' : 'operatives';
+  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&select=id`);
+  if(!msgs.length) return 0;
+  const ids = msgs.map(m=>m.id);
+  const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${ids.join(',')})&select=message_id`);
+  const readSet = new Set(reads.map(r=>r.message_id));
+  return msgs.filter(m=>!readSet.has(m.id)).length;
+}
+window.setGeofence = async function(siteId){
+  if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
+  toast('Getting GPS lock…');
+  const g = await getGeo();
+  if(g.error){ toast(g.error); return; }
+  const row = await dbUpdate('sites', siteId, {geofence_lat:g.lat, geofence_lon:g.lon});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    SITES[idx] = row;
+    toast('Site location saved');
+    render();
+  }
+};
+
+/* ================= ASSIGN TEAM (per-site — PM allocates operatives to this job) ================= */
+async function renderAssignTeam(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  const assigned = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const assignedIds = new Set(assigned.map(a=>a.user_id));
+
+  document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
+    ${operatives.map(p=>`
+      <div class="sitecard">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
+          ${assignedIds.has(p.id) ? 'Assigned ✓' : 'Assign'}
+        </button>
+      </div>
+    `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
+  `, {title:'Assign Team', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
+}
+window.toggleAssignment = async function(siteId, userId, isAssigned){
+  if(isAssigned){
+    const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+    toast('Removed from site');
+  } else {
+    const rows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
+    if(!rows) return;
+    toast('Assigned to site');
+  }
+  render();
+};
+
+/* ================= MORE ================= */
+function renderMore(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid">
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Needs</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/variations')"><div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div><div class="lbl">Variations</div></div>
+    </div>
+  `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+
+/* ================= CHECK IN/OUT ================= */
+let checkinBusy = false;
+let checkinError = null;
+async function renderCheckin(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const mine = await dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5');
+  const last = mine[0];
+  const status = (last && last.type==='in') ? 'in' : 'out';
+
+  const body = `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Status</p>
+      ${status==='in' ? `<span class="pill on"><span class="dot"></span>On site since ${new Date(last.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>`
+                       : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+    </div>
+    ${checkinError ? `<div class="card" style="border-color:var(--warn);"><div class="stub" style="color:var(--warn);margin-top:0;">${escapeHtml(checkinError)}</div></div>` : ''}
+    <button class="primarybtn" style="${status==='in'?'background:var(--ink);':''}" ${checkinBusy?'disabled':''} onclick="doCheckAction('${siteId}','${status==='in'?'out':'in'}')">
+      ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
+    </button>
+    <p class="sectiontitle" style="margin-top:18px;">Recent</p>
+    ${mine.slice(0,4).map(c=>`
+      <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+        <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    `).join('') || `<div class="empty">No check-ins yet.</div>`}
+    ${isManager(ME) ? `
+      <p class="sectiontitle" style="margin-top:18px;">Reports</p>
+      <button class="ghostbtn" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
+      <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
+    ` : ''}
+  `;
+  document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'});
+}
+window.doCheckAction = async function(siteId, type){
+  checkinError = null;
+  checkinBusy = true;
+  render();
+
+  // OpHUB Basic doesn't include GPS check-in & geofencing — just log the
+  // timestamp with no location and skip the distance check entirely.
+  if(!orgAllowsGps()){
+    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type});
+    checkinBusy = false;
+    if(rows){
+      toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    }
+    render();
+    return;
+  }
+
+  const g = await getGeo();
+  if(g.error){
+    checkinBusy = false; checkinError = g.error; render(); return;
+  }
+  const site = SITES.find(s=>s.id===siteId);
+  if(site.geofence_lat){
+    const dist = Math.round(distMeters(g.lat, g.lon, site.geofence_lat, site.geofence_lon));
+    if(dist > 100){
+      checkinBusy = false;
+      checkinError = `${dist}m from site — must be within 100m to ${type==='in'?'check in':'check out'}. Move closer and try again.`;
+      render();
+      return;
+    }
+  }
+  const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  checkinBusy = false;
+  if(rows){
+    toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+  }
+  render();
+};
+window.exportCheckins = async function(siteId, scope){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  let qs = 'site_id=eq.'+siteId+'&order=ts.asc';
+  if(scope==='week') qs += '&ts=gte.'+new Date(startOfWeek(Date.now())).toISOString();
+  const rows = await dbSelect('checkins', qs);
+  if(!rows.length){ toast('No check-ins in that range.'); return; }
+  const data = rows.map(c=>({
+    Name: nameOf(c.user_id),
+    Type: c.type==='in'?'Check In':'Check Out',
+    Date: new Date(c.ts).toLocaleDateString('en-GB'),
+    Time: new Date(c.ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    Latitude: c.lat,
+    Longitude: c.lon,
+    'Accuracy (m)': c.accuracy_m||''
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:18},{wch:11},{wch:11},{wch:8},{wch:11},{wch:11},{wch:11}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Check-ins');
+  const label = scope==='week' ? 'ThisWeek' : 'AllTime';
+  XLSX.writeFile(wb, `${site.name.replace(/[^a-z0-9]+/gi,'-')}-checkins-${label}.xlsx`);
+  toast('Excel file downloaded');
+};
+
+/* ================= SCHEDULE OF WORKS ================= */
+let editingTaskId = null;
+let scheduleFilter = 'all';
+async function renderSchedule(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
+  const tasks = scheduleFilter==='all' ? allTasks : allTasks.filter(t=>t.status===scheduleFilter);
+  let photosByTask = {};
+  if(allTasks.length){
+    const ids = allTasks.map(t=>t.id).join(',');
+    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+    photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+  }
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
+      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress</div>
+      <div class="filterchip ${scheduleFilter==='done'?'active':''}" onclick="scheduleFilter='done';render()">Complete</div>
+      <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
+    </div>
+
+    ${tasks.map(t=>`
+      <div class="task">
+        <div class="taskbody">
+          ${canAdd && editingTaskId===t.id ? `
+            <div class="taskeditrow">
+              <input type="text" id="editTaskInput-${t.id}" value="${escapeHtml(t.name)}">
+              <button class="darkbtn" style="width:auto;" onclick="saveTaskEdit('${siteId}','${t.id}')">Save</button>
+              <button class="ghostbtn" style="width:auto;" onclick="editingTaskId=null;render()">Cancel</button>
+            </div>
+          ` : `
+            <div class="taskrowtop">
+              <div class="taskname ${t.status==='done'?'done':''}">${escapeHtml(t.name)}</div>
+              ${canAdd ? `
+                <div class="taskicons">
+                  <div class="taskicon" onclick="editingTaskId='${t.id}';render()">✎</div>
+                  <div class="taskicon danger" onclick="deleteTask('${siteId}','${t.id}')">🗑</div>
+                </div>
+              ` : ''}
+            </div>
+          `}
+          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}">`).join('')}</div>` : ''}
+          <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
+            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
+        </div>
+        <div class="statusbtns">
+          <div class="statusbtn ${t.status==='todo'?'active-todo':''}" onclick="setTaskStatus('${siteId}','${t.id}','todo')">To Commence</div>
+          <div class="statusbtn ${t.status==='progress'?'active-progress':''}" onclick="setTaskStatus('${siteId}','${t.id}','progress')">In Progress</div>
+          <div class="statusbtn ${t.status==='done'?'active-done':''}" onclick="setTaskStatus('${siteId}','${t.id}','done')">Complete</div>
+        </div>
+      </div>
+    `).join('') || `<div class="empty">No tasks yet.</div>`}
+
+    ${canAdd ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Add task</p>
+        <div class="row-gap">
+          <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="addTask('${siteId}')">Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload from Excel</p>
+        <p class="stub" style="margin:0 0 8px;">Reads column A, skips row 1 as a header — one task name per row.</p>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose file (.xlsx / .csv)
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importScheduleExcel(this,'${siteId}')">
+        </label>
+      </div>
+    ` : ''}
+  `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
+}
+window.setTaskStatus = async function(siteId, taskId, next){
+  if(next==='done'){
+    const photos = await dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id&limit=1');
+    if(!photos || !photos.length){
+      toast('Add a completion photo before marking this complete.');
+      return;
+    }
+  }
+  const row = await dbUpdate('schedule_tasks', taskId, {status:next});
+  if(row) render();
+};
+// Kept separate from created_at deliberately -- created_at ties (e.g. from a
+// bulk Excel import) have no reliable scan order, and an UPDATE (like
+// marking a task in-progress) can shuffle rows tied on created_at. Position
+// is set once here and never touched again, so the list order stays locked
+// to upload/add order regardless of status changes.
+async function nextTaskPosition(siteId){
+  const rows = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=position&order=position.desc.nullslast&limit=1');
+  return ((rows[0] && rows[0].position) || 0) + 1;
+}
+window.addTask = async function(siteId){
+  const input = document.getElementById('newTaskName');
+  const name = input.value.trim(); if(!name) return;
+  const position = await nextTaskPosition(siteId);
+  const rows = await dbInsert('schedule_tasks', {site_id:siteId, name, status:'todo', position});
+  if(rows){ toast('Task added'); render(); }
+};
+window.saveTaskEdit = async function(siteId, taskId){
+  const input = document.getElementById('editTaskInput-'+taskId);
+  const name = input.value.trim();
+  if(!name){ toast('Task name can\'t be empty.'); return; }
+  const row = await dbUpdate('schedule_tasks', taskId, {name});
+  if(row){
+    editingTaskId = null;
+    toast('Task updated');
+    render();
+  }
+};
+window.deleteTask = async function(siteId, taskId){
+  if(!confirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
+  const ok = await dbDelete('schedule_tasks', taskId);
+  if(ok){ toast('Task deleted'); render(); }
+};
+window.taskPhoto = async function(input, siteId, taskId){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{
+    const dataUrl = await compressImage(file);
+    const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
+    const stored = await uploadDataUrl('site-photos', path, dataUrl);
+    if(!stored) return;
+    const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
+    if(rows){
+      toast('Photo added');
+      render();
+      syncPhotoToOneDrive(dataUrl, path.split('/').pop(), siteId);
+    }
+  }catch(e){ toast('Could not process photo.'); }
+};
+// Best-effort background sync — never blocks the UI or shows an error toast,
+// since most companies won't have OneDrive connected yet. If this site has
+// been linked to a real OneDrive folder, the edge function uploads straight
+// there; otherwise it falls back to an auto-created subfolder named after
+// the site under the company's generic root.
+async function syncPhotoToOneDrive(dataUrl, filename, siteId){
+  try{
+    const base64 = dataUrl.split(',')[1];
+    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, site_id: siteId})});
+  }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+}
+window.importScheduleExcel = async function(input, siteId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+    const names = rows.slice(1).map(r=>r[0]).filter(v=>v!=null && String(v).trim()!=='');
+    if(!names.length){ toast('No task names found in column A.'); return; }
+    const startPos = await nextTaskPosition(siteId);
+    const newRows = names.map((n,i)=>({site_id:siteId, name:String(n).trim(), status:'todo', position:startPos+i}));
+    const inserted = await dbInsert('schedule_tasks', newRows);
+    if(inserted){ toast(`${names.length} task(s) imported`); render(); }
+  }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
+};
+
+/* ================= SNAGGING ================= */
+let snagFilter = 'live';
+let snagNewPhoto = null;
+let snagNewPdf = null; // {file, name} chosen in the "Add snag" form, not yet uploaded
+let attachingPdfSnagId = null;
+let closingSnagId = null;
+async function renderSnagging(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const status = snagFilter==='live' ? 'open' : 'closed';
+  const snags = await dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.'+status+'&order=created_at.desc');
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${snagFilter==='live'?'active':''}" onclick="snagFilter='live';render()">Live</div>
+      <div class="filterchip ${snagFilter==='closed'?'active':''}" onclick="snagFilter='closed';render()">Closed</div>
+    </div>
+
+    ${snags.map(s=>`
+      <div class="snag">
+        <div class="top">
+          <div><div class="title">${escapeHtml(s.title)}</div><div class="loc">${escapeHtml(s.location||'—')}</div></div>
+          <span class="statustag2 ${s.status}">${s.status}</span>
+        </div>
+        ${s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
+        ${s.pdf_path ? `<a class="ghostbtn" style="display:block;margin-top:10px;text-align:center;" href="${publicUrl('site-photos',s.pdf_path)}" target="_blank" rel="noopener">📄 View PDF</a>` : ''}
+        ${s.status==='closed' ? `
+          <div class="closurerow">
+            ${s.closed_photo_path ? `<img src="${publicUrl('site-photos',s.closed_photo_path)}">` : ''}
+            <div class="stub" style="margin-top:0;">Closed by ${escapeHtml(nameOf(s.closed_by))} · ${s.closed_at ? new Date(s.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : ''}</div>
+          </div>
+        ` : `
+          ${closingSnagId===s.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Upload a photo showing this is fixed.</p>
+              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📷 Take closing photo
+                <input type="file" accept="image/*" capture="environment" style="display:none" onchange="closeSnagPhoto(this,'${siteId}','${s.id}')">
+              </label>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="closingSnagId=null;render()">Cancel</button>
+            </div>
+          ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="closingSnagId='${s.id}';render()">Close snag</button>`}
+        `}
+        ${canAdd && !s.pdf_path ? (
+          attachingPdfSnagId===s.id ? `
+            <label class="ghostbtn" style="display:block;margin-top:8px;cursor:pointer;text-align:center;">📄 Choose PDF to attach
+              <input type="file" accept="application/pdf" style="display:none" onchange="attachSnagPdf(this,'${siteId}','${s.id}')">
+            </label>
+          ` : `<button class="ghostbtn" style="margin-top:8px;" onclick="attachingPdfSnagId='${s.id}';render()">Attach PDF</button>`
+        ) : ''}
+      </div>
+    `).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
+
+    ${canAdd ? `
+      <div class="card" style="margin-top:14px;">
+        <p class="sectiontitle" style="margin-top:0;">Add snag</p>
+        <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue"></div>
+        <div class="formfield"><input type="text" id="snagLoc" placeholder="Location"></div>
+        <div class="formfield">
+          <label class="field-label">Photo</label>
+          <label class="photoupload" style="cursor:pointer;">
+            ${snagNewPhoto ? `<img src="${snagNewPhoto}">` : `<div style="font-size:20px;">📷</div>Tap to capture`}
+            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="snagAddPhoto(this)">
+          </label>
+        </div>
+        <div class="formfield">
+          <label class="field-label">PDF Attachment (optional)</label>
+          <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">
+            ${snagNewPdf ? `📄 ${escapeHtml(snagNewPdf.name)}` : `📄 Choose PDF`}
+            <input type="file" accept="application/pdf" style="display:none" onchange="snagAddPdf(this)">
+          </label>
+        </div>
+        <button class="darkbtn" onclick="addSnag('${siteId}')">Add Snag</button>
+      </div>
+    ` : ''}
+
+    <p class="sectiontitle" style="margin-top:18px;">Export</p>
+    <button class="ghostbtn exportbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
+    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
+    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
+  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+window.snagAddPhoto = async function(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{ snagNewPhoto = await compressImage(file); render(); }
+  catch(e){ toast('Could not process photo.'); }
+};
+window.snagAddPdf = function(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
+  snagNewPdf = file;
+  render();
+};
+window.addSnag = async function(siteId){
+  const title = document.getElementById('snagTitle').value.trim();
+  const location = document.getElementById('snagLoc').value.trim();
+  if(!title) return;
+  let photoPath = null;
+  if(snagNewPhoto){
+    photoPath = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', snagNewPhoto);
+  }
+  let pdfPath = null;
+  if(snagNewPdf){
+    pdfPath = await uploadToStorage('site-photos', siteId+'/snags/'+uid()+'.pdf', snagNewPdf, 'application/pdf');
+  }
+  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPath, pdf_path:pdfPath, status:'open', created_by:ME.id});
+  if(rows){
+    snagNewPhoto = null;
+    snagNewPdf = null;
+    toast('Snag added');
+    render();
+  }
+};
+window.attachSnagPdf = async function(input, siteId, snagId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
+  const path = await uploadToStorage('site-photos', siteId+'/snags/'+snagId+'-'+uid()+'.pdf', file, 'application/pdf');
+  if(!path) return;
+  const row = await dbUpdate('snags', snagId, {pdf_path: path});
+  if(row){
+    attachingPdfSnagId = null;
+    toast('PDF attached');
+    render();
+  }
+};
+window.closeSnagPhoto = async function(input, siteId, snagId){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{
+    const dataUrl = await compressImage(file);
+    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+snagId+'-closed-'+uid()+'.jpg', dataUrl);
+    if(!path) return;
+    const row = await dbUpdate('snags', snagId, {status:'closed', closed_photo_path:path, closed_by:ME.id, closed_at:new Date().toISOString()});
+    if(row){
+      postSystemMessage(siteId, 'snag_closed', `${ME.name} closed a snag: "${row.title||'Untitled'}"`);
+      closingSnagId = null;
+      toast('Snag closed');
+      render();
+    }
+  }catch(e){ toast('Could not process photo.'); }
+};
+function pdfHexToRgb(hex){
+  const h = (hex||'').replace('#','');
+  if(h.length!==6) return PDFLib.rgb(0.306,0.561,0.820);
+  const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
+  return PDFLib.rgb(r,g,b);
+}
+async function pdfFetchImageBytes(url){
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  }catch(e){ return null; }
+}
+window.exportSnaggingPDF = async function(siteId, scope){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  let qs = 'site_id=eq.'+siteId+'&order=created_at.asc';
+  if(scope==='live') qs += '&status=eq.open';
+  else if(scope==='closed') qs += '&status=eq.closed';
+  else qs += '&status=in.(open,closed)';
+  const snags = await dbSelect('snags', qs);
+  if(!snags.length){ toast('No snags to export for that filter.'); return; }
+  await loadAllProfiles();
+  toast('Building PDF…');
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const CARDBG = PDFLib.rgb(0.976,0.969,0.949);
+    const OK = PDFLib.rgb(0.2,0.55,0.35);
+    const OKBG = PDFLib.rgb(0.90,0.95,0.91);
+    const WARN = PDFLib.rgb(0.69,0.45,0.06);
+    const WARNBG = PDFLib.rgb(0.97,0.92,0.83);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 42;
+    const scopeLabel = scope==='live' ? 'Live' : scope==='closed' ? 'Closed' : 'All';
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+    const openCount = snags.filter(s=>s.status==='open').length;
+    const closedCount = snags.filter(s=>s.status==='closed').length;
+
+    // Embed the company logo once (falls back to nothing if it can't be fetched/decoded).
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('SNAGGING REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + ' · ' + scopeLabel + ' snags', {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageNum){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      page.drawText('Page ' + pageNum, {x:PAGE_W-MARGIN-40, y:20, size:8, font:reg, color:SLATE});
+    }
+    let pageNum = 0;
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pageNum++;
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    newPage();
+    // Summary strip on the first page only.
+    const chipW = 150, chipGap = 14, chipY = y - 34;
+    [
+      {label:'Total snags', value:String(snags.length), bg:CARDBG, fg:INK},
+      {label:'Open', value:String(openCount), bg:WARNBG, fg:WARN},
+      {label:'Closed', value:String(closedCount), bg:OKBG, fg:OK},
+    ].forEach((c,i)=>{
+      const x = MARGIN + i*(chipW+chipGap);
+      page.drawRectangle({x, y:chipY, width:chipW, height:44, color:c.bg});
+      page.drawText(c.value, {x:x+12, y:chipY+22, size:16, font:bold, color:c.fg});
+      page.drawText(c.label.toUpperCase(), {x:x+12, y:chipY+8, size:7.5, font:bold, color:c.fg, opacity:0.8});
+    });
+    y = chipY - 26;
+
+    for(let i=0;i<snags.length;i++){
+      const s = snags[i];
+      const hasPhoto = !!(s.photo_path || (s.status==='closed' && s.closed_photo_path));
+      const blockH = hasPhoto ? 130 : 78;
+      if(y - blockH < 50){ newPage(); }
+
+      const cardTop = y;
+      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:PAGE_W-2*MARGIN, height:blockH, color:CARDBG});
+      const pillColor = s.status==='closed' ? OK : WARN;
+      const pillBg = s.status==='closed' ? OKBG : WARNBG;
+      const textLeft = MARGIN + 16;
+      const imgSlot = 84;
+      const textWidth = hasPhoto ? (PAGE_W-2*MARGIN) - imgSlot - 32 : (PAGE_W-2*MARGIN) - 32;
+      let ty = cardTop - 22;
+      const title = (i+1)+'. '+(s.title.length>52 ? s.title.slice(0,49)+'…' : s.title);
+      page.drawText(title, {x:textLeft, y:ty, size:12, font:bold, color:INK});
+      const pillW = 56;
+      page.drawRectangle({x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW, y:ty-3, width:pillW, height:15, color:pillBg});
+      page.drawText(s.status.toUpperCase(), {x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW+8, y:ty+1, size:8, font:bold, color:pillColor});
+      ty -= 18;
+      page.drawText('Location: '+(s.location||'—'), {x:textLeft, y:ty, size:9.5, font:reg, color:SLATE});
+      ty -= 14;
+      page.drawText('Raised by '+nameOf(s.created_by)+' · '+new Date(s.created_at).toLocaleDateString('en-GB'), {x:textLeft, y:ty, size:9, font:reg, color:SLATE});
+      ty -= 14;
+      if(s.status==='closed'){
+        page.drawText('Closed by '+nameOf(s.closed_by)+(s.closed_at?' · '+new Date(s.closed_at).toLocaleDateString('en-GB'):''), {x:textLeft, y:ty, size:9, font:reg, color:SLATE});
+        ty -= 14;
+      }
+      if(s.pdf_path){
+        page.drawText('PDF attachment on file', {x:textLeft, y:ty, size:8.5, font:reg, color:SLATE});
+      }
+
+      if(hasPhoto){
+        const photoPath = s.status==='closed' && s.closed_photo_path ? s.closed_photo_path : s.photo_path;
+        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-imgSlot+8;
+        const imgY = cardTop-blockH+14;
+        const boxSize = 76;
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', photoPath));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const s2 = boxSize/Math.max(dim.width, dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:imgX+(boxSize-w)/2, y:imgY+(boxSize-h)/2, width:w, height:h});
+          }
+        }catch(e){ /* skip photo if it fails to embed */ }
+      }
+
+      y = cardTop - blockH - 14;
+    }
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-snagging-' + scope + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the PDF.');
+  }
+};
+
+/* ================= RAMS ================= */
+let ramsPollTimer = null;
+function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd){
+  return docs.map(r=>{
+    const sigs = sigsByDoc[r.id]||[];
+    const mine = sigs.find(s=>s.user_id===ME.id);
+    return `
+    <div class="ramsdoc">
+      <div class="taskrowtop">
+        <div class="name">${escapeHtml(r.name)}</div>
+        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${r.storage_path.replace(/'/g,"\\'")}')">🗑</div></div>` : ''}
+      </div>
+      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
+      <a class="viewlink" href="${publicUrl('rams-docs', r.storage_path)}" target="_blank" rel="noopener">View document ↗</a>
+      <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
+        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+      </div>
+      ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
+        ${canAdd ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+    </div>`;
+  }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
+}
+async function fetchRamsData(siteId){
+  const docs = await dbSelect('rams_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc');
+  let sigsByDoc = {};
+  if(docs.length){
+    const ids = docs.map(d=>d.id).join(',');
+    const sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
+    sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
+  }
+  return {docs, sigsByDoc};
+}
+async function renderRams(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const {docs, sigsByDoc} = await fetchRamsData(siteId);
+
+  document.getElementById('app').innerHTML = shell(`
+    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
+
+    ${canAdd ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
+        <div class="formfield"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
+          <input type="file" accept="application/pdf" id="ramsFile" style="display:none" onchange="document.getElementById('ramsFileName').textContent=this.files[0]?this.files[0].name:''">
+        </label>
+        <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" onclick="addRams('${siteId}')">Upload</button>
+        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
+      </div>
+    ` : ''}
+  `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+
+  if(ramsPollTimer) clearInterval(ramsPollTimer);
+  ramsPollTimer = setInterval(async ()=>{
+    const el = document.getElementById('ramsDocsList');
+    if(!el){ clearInterval(ramsPollTimer); ramsPollTimer = null; return; }
+    const {docs, sigsByDoc} = await fetchRamsData(siteId);
+    const freshEl = document.getElementById('ramsDocsList');
+    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd);
+  }, 7000);
+}
+window.addRams = async function(siteId){
+  const name = document.getElementById('ramsName').value.trim();
+  const fileInput = document.getElementById('ramsFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/rams/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('RAMS uploaded'); render(); }
+};
+window.signRams = async function(siteId, ramsId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed — archived automatically'); render(); }
+};
+window.exportSignedRams = async function(ramsId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building signed PDF…');
+  const docs = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
+  const doc = docs[0];
+  if(!doc){ toast('Document not found.'); return; }
+  const sigs = await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc');
+  if(!sigs.length){ toast('No signatures yet.'); return; }
+  try{
+    const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const RED = PDFLib.rgb(0.784,0.063,0.180);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+
+    let page, y;
+    function newSigPage(continued){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - 60;
+      page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
+      y -= 8;
+      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
+      y -= 26;
+      if(!continued){
+        page.drawText(doc.name, {x:50, y, size:12, font:bold, color:INK});
+        y -= 22;
+      }
+    }
+    newSigPage(false);
+    for(const s of sigs){
+      if(y < 90) newSigPage(true);
+      const name = nameOf(s.user_id);
+      const when = new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      page.drawText(name, {x:50, y, size:11, font:reg, color:INK});
+      page.drawText(when, {x:330, y, size:10, font:reg, color:SLATE});
+      y -= 6;
+      if(s.signature_image_path){
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.signature_image_path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+            const dim = img.scale(1);
+            const boxH = 34, boxW = 120;
+            const s2 = Math.min(boxW/dim.width, boxH/dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:50, y:y-boxH, width:w, height:h});
+          }
+        }catch(e){ /* fall back to name-only if the signature image can't be embedded */ }
+        y -= 44;
+      } else {
+        y -= 10;
+      }
+      y -= 6;
+    }
+    y -= 14;
+    if(y < 60) newSigPage(true);
+    page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:50, y, size:8.5, font:reg, color:SLATE});
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = doc.name.replace(/[^a-z0-9]+/gi,'-') + '-signed.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('Signed PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+  }
+};
+window.deleteRams = async function(ramsId, storagePath){
+  if(!confirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
+  try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
+  const ok = await dbDelete('rams_docs', ramsId);
+  if(ok){ toast('RAMS document deleted'); render(); }
+};
+
+/* ================= HEALTH & SAFETY (folder: RAMS + Toolbox Talks) ================= */
+async function renderHealthSafety(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [pendingRamsRows, liveTbt] = await Promise.all([
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
+  ]);
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid">
+      <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
+        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
+        <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
+        <div class="lbl">Toolbox Talks</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
+      </div>
+    </div>
+  `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+
+/* ================= TOOLBOX TALKS =================
+   PMs upload a weekly PDF as "Bank TBT", then tap "Issue for Signing" to make
+   it the one Live TBT — operatives only ever see the currently-live talk plus
+   any they've personally already signed (enforced in the RLS policy on
+   toolbox_talks, not just hidden client-side). Signing uses the same adopted
+   signature as RAMS, and once complete a PM can export a signed PDF just like
+   RAMS. */
+let tbtFilter = 'live'; // PM tab state: bank | live | completed
+const TBT_STATUS_LABEL = {bank:'BANK', live:'LIVE', completed:'COMPLETED'};
+const TBT_STATUS_CLASS = {bank:'pending', live:'open', completed:'closed'};
+async function renderToolboxTalks(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+  const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  await loadAllProfiles();
+  let sigCounts = {};
+  if(isPM && talks.length){
+    const ids = talks.map(t=>t.id).join(',');
+    const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id');
+    sigs.forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; });
+  }
+  const visibleTalks = isPM ? talks.filter(t=>t.status===tbtFilter) : talks;
+  document.getElementById('app').innerHTML = shell(`
+    ${isPM ? `
+    <div class="filterrow">
+      <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';render()">Bank TBT</div>
+      <div class="filterchip ${tbtFilter==='live'?'active':''}" onclick="tbtFilter='live';render()">Live TBT</div>
+      <div class="filterchip ${tbtFilter==='completed'?'active':''}" onclick="tbtFilter='completed';render()">Completed TBT</div>
+    </div>
+    ` : ''}
+
+    ${visibleTalks.map(t=>`
+      <div class="card" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/hs/tbt/${t.id}')">
+        <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+        </div>
+        ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
+
+    ${isPM ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Upload a toolbox talk</p>
+      <div class="formfield"><input type="text" id="tbtTitle" placeholder="Title, e.g. Week 24 — Manual Handling"></div>
+      <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
+        <input type="file" accept="application/pdf" id="tbtFile" style="display:none" onchange="document.getElementById('tbtFileName').textContent=this.files[0]?this.files[0].name:''">
+      </label>
+      <p class="stub" id="tbtFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addToolboxTalk('${siteId}')">Upload</button>
+      <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
+    </div>
+    ` : ''}
+  `, {title:'Toolbox Talks', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+}
+window.addToolboxTalk = async function(siteId){
+  const title = document.getElementById('tbtTitle').value.trim();
+  const fileInput = document.getElementById('tbtFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!title || !file){ toast('Add a title and choose a PDF.'); return; }
+  const path = siteId+'/tbt/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('toolbox_talks', {site_id:siteId, org_id:ME.org_id, title, storage_path:stored, status:'bank', created_by:ME.id});
+  if(rows){ tbtFilter='bank'; toast('Toolbox talk uploaded to Bank TBT'); render(); }
+};
+async function renderToolboxTalkView(siteId, tbtId){
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+  const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
+  const talk = rows && rows[0];
+  if(!talk){ toast('Could not load that toolbox talk — it may no longer be live.'); go(`#/site/${siteId}/hs/tbt`); return; }
+  const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&order=signed_at.asc');
+  await loadAllProfiles();
+  const mine = sigs.find(s=>s.user_id===ME.id);
+  const isLive = talk.status==='live';
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <p class="sectiontitle" style="margin-top:0;">${escapeHtml(talk.title)}</p>
+        <span class="statustag2 ${TBT_STATUS_CLASS[talk.status]||'closed'}">${TBT_STATUS_LABEL[talk.status]||talk.status}</span>
+      </div>
+      <a class="viewlink" href="${publicUrl('rams-docs', talk.storage_path)}" target="_blank" rel="noopener">View document ↗</a>
+      <div class="siglinebox ${mine?'signed':''}" style="margin-top:14px;${mine||!isLive?'':'cursor:pointer;'}" onclick="${mine||!isLive?'':`signToolboxTalk('${siteId}','${tbtId}')`}">
+        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (isLive ? 'Tap to sign' : 'Not live — can\'t sign')}
+      </div>
+    </div>
+    ${isPM ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Manager controls</p>
+      ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
+      ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Completed TBT</button>` : ''}
+      ${sigs.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export PDF with all signatures</button>` : ''}
+      <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${talk.storage_path.replace(/'/g,"\\'")}')">Delete</button>
+      <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
+      ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
+    </div>
+    ` : ''}
+  `, {title:talk.title, subtitle:site.name, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'});
+}
+window.signToolboxTalk = async function(siteId, tbtId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('toolbox_talk_signatures', {tbt_id:tbtId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed'); render(); }
+};
+window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
+  if(newStatus==='live'){
+    // Only one toolbox talk is ever "live" per site at a time — automatically
+    // mark any other live talk at this site as completed first.
+    const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id');
+    for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
+  }
+  const row = await dbUpdate('toolbox_talks', tbtId, {status:newStatus});
+  if(row){
+    tbtFilter = newStatus;
+    toast(newStatus==='live' ? 'Issued for signing' : 'Marked as completed');
+    render();
+  }
+};
+window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
+  if(!confirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
+  try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
+  const ok = await dbDelete('toolbox_talks', tbtId);
+  if(ok){ toast('Toolbox talk deleted'); go(`#/site/${siteId}/hs/tbt`); }
+};
+window.exportSignedToolboxTalk = async function(tbtId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building signed PDF…');
+  const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
+  const talk = rows[0];
+  if(!talk){ toast('Toolbox talk not found.'); return; }
+  const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&order=signed_at.asc');
+  if(!sigs.length){ toast('No signatures yet.'); return; }
+  try{
+    const srcBytes = await (await fetch(publicUrl('rams-docs', talk.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const RED = PDFLib.rgb(0.784,0.063,0.180);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+
+    let page, y;
+    function newSigPage(continued){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - 60;
+      page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
+      y -= 8;
+      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
+      y -= 26;
+      if(!continued){
+        page.drawText(talk.title, {x:50, y, size:12, font:bold, color:INK});
+        y -= 22;
+      }
+    }
+    newSigPage(false);
+    for(const s of sigs){
+      if(y < 90) newSigPage(true);
+      const name = nameOf(s.user_id);
+      const when = new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      page.drawText(name, {x:50, y, size:11, font:reg, color:INK});
+      page.drawText(when, {x:330, y, size:10, font:reg, color:SLATE});
+      y -= 6;
+      if(s.signature_image_path){
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.signature_image_path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+            const dim = img.scale(1);
+            const boxH = 34, boxW = 120;
+            const s2 = Math.min(boxW/dim.width, boxH/dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:50, y:y-boxH, width:w, height:h});
+          }
+        }catch(e){ /* fall back to name-only if the signature image can't be embedded */ }
+        y -= 44;
+      } else {
+        y -= 10;
+      }
+      y -= 6;
+    }
+    y -= 14;
+    if(y < 60) newSigPage(true);
+    page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:50, y, size:8.5, font:reg, color:SLATE});
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = talk.title.replace(/[^a-z0-9]+/gi,'-') + '-signed.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('Signed PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+  }
+};
+
+/* ================= MATERIALS ================= */
+let matFilter = 'live';
+let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
+let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
+async function renderMaterials(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
+  const [materials, suppliers] = await Promise.all([
+    dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
+    isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+  ]);
+  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live</div>
+      <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
+    </div>
+
+    ${materials.map(m=>`
+      <div class="matcard">
+        <div class="top">
+          <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
+            ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
+          </div>
+        </div>
+        ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
+          m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
+          m.status==='pending' ? (isPM ? (
+            sendingMaterial && sendingMaterial.matId===m.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
+              <div class="formfield"><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
+              <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
+            </div>
+          ` : `<div class="merchantrow">Send to:
+            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${materialSupplierChoice[m.id]===s.id?'active':''}" onclick="materialSupplierChoice['${m.id}']='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+            ${materialSupplierChoice[m.id] ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-left:auto;" onclick="beginSendMaterial('${m.id}')">Send Order</button>` : ''}
+          </div>`
+          ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
+        ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
+        ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
+
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Request material</p>
+      <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
+      <div class="formfield"><input type="text" id="matQty" placeholder="Quantity"></div>
+      <button class="darkbtn" onclick="addMaterial('${siteId}')">Request</button>
+    </div>
+    ${isPM ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Suppliers</p>
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(s.name)}</div><div class="addr">${escapeHtml(s.email)}</div></div>
+          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+      <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+      <button class="ghostbtn" onclick="addSupplier('${siteId}')">Add Supplier</button>
+    </div>
+    ` : ''}
+  `, {title:'Material Needs', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
+}
+window.addSupplier = async function(siteId){
+  const name = document.getElementById('supName').value.trim();
+  const email = document.getElementById('supEmail').value.trim();
+  if(!name || !email){ toast('Enter a supplier name and email.'); return; }
+  const rows = await dbInsert('suppliers', {org_id: ME.org_id, name, email, created_by: ME.id});
+  if(rows){ toast('Supplier added'); render(); }
+};
+window.deleteSupplier = async function(siteId, supplierId){
+  if(!confirm('Remove this supplier?')) return;
+  const ok = await dbDelete('suppliers', supplierId);
+  if(ok){ toast('Supplier removed'); render(); }
+};
+window.cancelMaterial = async function(siteId, matId){
+  const reason = prompt('Why are you cancelling this request? This will be visible to your Project Manager.');
+  if(reason === null) return;
+  if(!reason.trim()){ toast('A reason is required to cancel.'); return; }
+  const row = await dbUpdate('materials', matId, {status:'cancelled', cancel_reason: reason.trim(), cancelled_by: ME.id});
+  if(row){ toast('Request cancelled'); render(); }
+};
+window.addMaterial = async function(siteId){
+  const item = document.getElementById('matItem').value.trim();
+  const qty = document.getElementById('matQty').value.trim();
+  if(!item) return;
+  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', requested_by:ME.id, status:'pending'});
+  if(rows){
+    postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`);
+    toast('Request added'); render();
+  }
+};
+window.beginSendMaterial = async function(matId){
+  const supplierId = materialSupplierChoice[matId];
+  if(!supplierId) return;
+  const rows = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=name');
+  const supplier = rows && rows[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  sendingMaterial = {matId, supplierId, supplierName: supplier.name};
+  render();
+};
+window.confirmSendMaterial = async function(siteId, matId){
+  if(!sendingMaterial || sendingMaterial.matId !== matId) return;
+  const supplierId = sendingMaterial.supplierId;
+  const dateInput = document.getElementById('reqDeliveryDate_'+matId);
+  const requiredForDelivery = dateInput ? dateInput.value : '';
+  if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
+  const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
+  const supplier = suppliers && suppliers[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
+  if(!row){ return; }
+  sendingMaterial = null;
+  delete materialSupplierChoice[matId];
+  toast('Order routed to '+supplier.name+' — emailing…');
+  render();
+  try{
+    const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
+      material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
+      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
+      required_for_delivery: requiredForDelivery,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
+      toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+    } else {
+      console.error('send-material-order failed:', d.error || res.status);
+      toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
+    }
+  }catch(e){
+    console.error('send-material-order failed:', e);
+    toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
+  }
+  render();
+};
+window.closeMaterial = async function(siteId, matId){
+  const row = await dbUpdate('materials', matId, {status:'closed'});
+  if(row){ toast('Material request closed'); render(); }
+};
+window.deleteMaterial = async function(siteId, matId){
+  if(!confirm('Delete this material request? This can\'t be undone.')) return;
+  const ok = await dbDelete('materials', matId);
+  if(ok){ toast('Material request deleted'); render(); }
+};
+
+/* ================= VARIATIONS ================= */
+let varDraft = null;
+let varFilter = 'live';
+async function renderVariations(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  varDraft = varDraft || {photo:null, desc:''};
+  const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc');
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Raise a variation</p>
+      <div class="formfield">
+        <label class="field-label">Photo evidence</label>
+        <label class="photoupload" style="cursor:pointer;">
+          ${varDraft.photo ? `<img src="${varDraft.photo}">` : `<div style="font-size:22px;">📷</div>Tap to capture`}
+          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="varPhoto(this)">
+        </label>
+      </div>
+      <div class="formfield">
+        <label class="field-label">Description</label>
+        <textarea id="varDesc" placeholder="What's changed and why...">${escapeHtml(varDraft.desc)}</textarea>
+      </div>
+      <button class="primarybtn" ${(varDraft.photo)?'':'disabled'} onclick="submitVariation('${siteId}')">Submit Variation</button>
+    </div>
+
+    <div class="filterrow">
+      <div class="filterchip ${varFilter==='live'?'active':''}" onclick="varFilter='live';render()">Live</div>
+      <div class="filterchip ${varFilter==='closed'?'active':''}" onclick="varFilter='closed';render()">Closed</div>
+    </div>
+    ${variations.map(v=>`
+      <div class="varcard">
+        <img src="${publicUrl('site-photos', v.photo_path)}">
+        <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div class="desc">${escapeHtml(v.description)}</div>
+          <span class="statustag2 ${v.status}">${v.status}</span>
+        </div>
+        <div class="meta">${escapeHtml(nameOf(v.created_by))} · ${new Date(v.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
+        ${isManager(ME) && v.status==='live' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No ${varFilter} variations.</div>`}
+  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+window.varPhoto = async function(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{ varDraft.photo = await compressImage(file); render(); }
+  catch(e){ toast('Could not process photo.'); }
+};
+window.submitVariation = async function(siteId){
+  const desc = document.getElementById('varDesc').value.trim();
+  const path = await uploadDataUrl('site-photos', siteId+'/variations/'+uid()+'.jpg', varDraft.photo);
+  if(!path) return;
+  const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live'});
+  if(rows){
+    postSystemMessage(siteId, 'variation', `${ME.name} raised a variation: ${desc||'(no description)'}`);
+    varDraft = null;
+    toast('Variation submitted');
+    render();
+  }
+};
+window.closeVariation = async function(siteId, varId){
+  const row = await dbUpdate('variations', varId, {status:'closed', closed_at:new Date().toISOString()});
+  if(row){ toast('Variation closed'); render(); }
+};
+
+/* ================= MESSAGES ================= */
+// One-way announcements: PMs/Admins post down to operatives (per-site or
+// whole company); operative actions elsewhere (material requests, snag
+// closures, variations) post automatically up to whichever PM owns the site.
+async function postSystemMessage(siteId, kind, body){
+  // Best-effort — never blocks or errors out the action that triggered it.
+  try{
+    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'managers', kind, body});
+  }catch(e){ /* silent */ }
+}
+async function markMessagesRead(ids){
+  if(!ids || !ids.length) return;
+  try{
+    const rows = ids.map(id=>({message_id:id, user_id:ME.id}));
+    await sbFetch('/rest/v1/message_reads', {method:'POST', headers:{'Prefer':'resolution=ignore-duplicates,return=minimal'}, body: JSON.stringify(rows)});
+  }catch(e){ /* silent */ }
+}
+let msgDraft = '';
+async function renderMessages(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const mgr = isManager(ME);
+  await loadAllProfiles();
+
+  let broadcasts = [], fromTeam = [];
+  if(mgr){
+    [broadcasts, fromTeam] = await Promise.all([
+      dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
+      dbSelect('messages', `audience=eq.managers&site_id=eq.${siteId}&order=created_at.desc&limit=50`),
+    ]);
+  } else {
+    broadcasts = await dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
+  }
+  markMessagesRead([...broadcasts, ...fromTeam].map(m=>m.id));
+  currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
+
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
+  const msgRow = m => `
+    <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+        <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
+        ${mgr ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
+      </div>
+      <div style="font-size:13.5px;">${escapeHtml(m.body)}</div>
+    </div>`;
+
+  document.getElementById('app').innerHTML = shell(`
+    ${mgr ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Send a message</p>
+        <div class="formfield"><textarea id="msgBody" placeholder="Message to operatives...">${escapeHtml(msgDraft)}</textarea></div>
+        <div class="formfield">
+          <label class="field-label">Send to</label>
+          <select id="msgTarget">
+            <option value="site">This site's operatives</option>
+            <option value="all">All operatives (whole company)</option>
+          </select>
+        </div>
+        <button class="darkbtn" onclick="sendBroadcast('${siteId}')">Send</button>
+      </div>
+      <p class="sectiontitle" style="margin-top:18px;">From your team</p>
+      ${fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`}
+      <p class="sectiontitle" style="margin-top:18px;">Sent to operatives</p>
+      ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`}
+    ` : `
+      ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
+    `}
+  `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'});
+}
+window.deleteMessage = async function(siteId, messageId){
+  if(!confirm('Delete this message? This can\'t be undone.')) return;
+  const ok = await dbDelete('messages', messageId);
+  if(ok){ toast('Message deleted'); render(); }
+};
+window.sendBroadcast = async function(siteId){
+  const bodyInput = document.getElementById('msgBody');
+  const body = bodyInput.value.trim();
+  const target = document.getElementById('msgTarget').value;
+  if(!body){ toast('Write a message first.'); return; }
+  const rows = await dbInsert('messages', {org_id: ME.org_id, site_id: target==='all' ? null : siteId, sender_id: ME.id, audience:'operatives', kind:'message', body});
+  if(rows){
+    msgDraft = '';
+    toast(target==='all' ? "Sent to all operatives" : "Sent to this site's operatives");
+    render();
+  }
+};
+
+/* ================= router / render ================= */
+async function render(){
+  if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
+  const preParts = parseRoute();
+  if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
+  if(!SESSION || !ME){ renderLogin(); return; }
+  if(ME.role==='superadmin'){ return renderAdmin(); }
+  if(ME.role==='admin' && ORG && !ORG.logo_path){ renderCompanySetup(); return; }
+  const parts = parseRoute();
+  if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
+  if(parts[0]==='team'){
+    // Web-app return leg of the OneDrive OAuth flow: the callback page
+    // redirects here with ?onedrive=success|error so we can toast the
+    // result, since there's no app to hand off to like the native flow has.
+    const odStatus = routeQuery().get('onedrive');
+    if(odStatus){
+      toast(odStatus==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
+      history.replaceState(null, '', location.pathname + location.search + '#/team');
+    }
+    return renderTeam();
+  }
+  if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='site' && parts[1]){
+    const siteId = parts[1];
+    const page = parts[2] || 'home';
+    // Keep the bottom tab bar's Messages badge fresh on every site-scoped
+    // navigation, not just when visiting Messages itself.
+    if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
+    if(page==='home') return renderSiteHome(siteId);
+    if(page==='more') return renderMore(siteId);
+    if(page==='checkin') return renderCheckin(siteId);
+    if(page==='schedule') return renderSchedule(siteId);
+    if(page==='snagging') return renderSnagging(siteId);
+    if(page==='hs'){
+      const sub = parts[3];
+      if(!sub) return renderHealthSafety(siteId);
+      if(sub==='rams') return renderRams(siteId);
+      if(sub==='tbt'){
+        const tbtId = parts[4];
+        if(tbtId) return renderToolboxTalkView(siteId, tbtId);
+        return renderToolboxTalks(siteId);
+      }
+      return renderHealthSafety(siteId);
+    }
+    if(page==='materials') return renderMaterials(siteId);
+    if(page==='messages') return renderMessages(siteId);
+    if(page==='variations') return renderVariations(siteId);
+    if(page==='team') return renderAssignTeam(siteId);
+    if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
+  }
+  renderSites();
+}
+
+registerOneDriveDeepLinkHandler();
+init();
+</script>
 </body>
 </html>

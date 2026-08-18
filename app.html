@@ -497,6 +497,28 @@ async function registerPushNotifications(){
   }catch(e){ console.error('Push notification setup failed', e); }
 }
 
+/* ================= OneDrive OAuth deep-link handoff (native app only) =================
+   The OneDrive "Connected"/"Connection failed" page (served from Supabase, in
+   the system browser Browser.open() opened) redirects to ophub://onedrive-callback
+   once it's done — iOS/Android route that straight back into this app and
+   auto-dismiss the system browser, so nobody has to tap "Close Window"
+   themselves. This just needs to catch that hand-off and refresh the screen. */
+function registerOneDriveDeepLinkHandler(){
+  if(!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
+  const AppPlugin = window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(!AppPlugin) return;
+  AppPlugin.addListener('appUrlOpen', async (data)=>{
+    try{
+      const openedUrl = new URL(data.url);
+      if(openedUrl.protocol !== 'ophub:' || openedUrl.hostname !== 'onedrive-callback') return;
+      if(window.Capacitor.Plugins.Browser){ try{ await window.Capacitor.Plugins.Browser.close(); }catch(e){} }
+      const status = openedUrl.searchParams.get('status');
+      toast(status==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
+      go('#/team');
+    }catch(e){ console.error('OneDrive deep link handling failed', e); }
+  });
+}
+
 /* ================= state ================= */
 let ME = null;
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
@@ -552,8 +574,12 @@ const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
 function go(hash){ location.hash = hash; }
 window.addEventListener('hashchange', render);
 function parseRoute(){
-  const h = location.hash.replace(/^#\/?/, '');
+  const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
+}
+function routeQuery(){
+  const q = location.hash.split('?')[1];
+  return new URLSearchParams(q||'');
 }
 
 /* ================= init ================= */
@@ -1259,17 +1285,19 @@ window.resetCompanyTheme = async function(){
 window.connectOneDrive = async function(){
   odBusy = true; render();
   try{
-    const res = await sbFetch('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({})});
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const res = await sbFetch('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({native:isNative, origin: isNative ? null : location.origin})});
     const d = await res.json();
     odBusy = false;
     if(!res.ok || d.error){ toast(d.error || 'Could not start OneDrive connection.'); render(); return; }
     // Microsoft's sign-in screen refuses to load inside an app's embedded
     // webview (a security measure most OAuth providers enforce) — open it in
     // the system browser instead when running as the native app. On the
-    // plain website, a normal same-tab redirect works fine.
-    if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    // plain website, a normal same-tab redirect works fine. On native, the
+    // callback page hands straight back to the app via a custom URL scheme
+    // (see the appUrlOpen listener below), so the browser closes itself.
+    if(isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
       window.Capacitor.Plugins.Browser.open({url: d.url});
-      toast('Finish connecting in the browser that just opened, then come back here.');
     } else {
       location.href = d.url;
     }
@@ -1281,12 +1309,19 @@ window.disconnectOneDrive = async function(){
   if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
 };
 
-/* ================= ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) ================= */
-let odPickerStack = null; // array of {id, name} — first entry is always the OneDrive root
+/* ================= ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) =================
+   A folder can either live in the connected account's own OneDrive (driveId
+   null — addressed via /me/drive/...) or in a DIFFERENT drive that's been
+   shared with them — another person's OneDrive, or a SharePoint document
+   library synced/shared into their view (driveId set — addressed via
+   /drives/{driveId}/...). The "Shared with me" entry is a virtual folder
+   (id SHARED_ROOT_ID) that only exists client-side to get into that mode. */
+const SHARED_ROOT_ID = '__SHARED__';
+let odPickerStack = null; // array of {id, name, driveId} — first entry is always the OneDrive root
 let odPickerFolders = [];
 let odPickerError = null;
 window.startOneDriveFolderPicker = function(siteId){
-  odPickerStack = [{id:null, name:'OneDrive'}];
+  odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];
   odPickerError = null;
   go(`#/site/${siteId}/onedrive-folder`);
@@ -1294,43 +1329,59 @@ window.startOneDriveFolderPicker = function(siteId){
 async function loadOdPickerFolders(){
   const current = odPickerStack[odPickerStack.length-1];
   try{
-    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify({parent_id: current.id})});
+    const body = current.id===SHARED_ROOT_ID
+      ? {shared:true}
+      : current.driveId
+        ? {parent_id: current.id, drive_id: current.driveId}
+        : {parent_id: current.id};
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
-    else { odPickerFolders = d.folders || []; odPickerError = null; }
+    else {
+      odPickerFolders = d.folders || [];
+      odPickerError = null;
+      // At the true root of the user's own OneDrive, also offer a way into
+      // everything other people/teams have shared with them — that's how
+      // folders like a shared "RTB Roofing" team folder get reached, since
+      // they don't live under the user's own drive at all.
+      if(current.id===null && !current.driveId){
+        odPickerFolders = [{id:SHARED_ROOT_ID, name:'🔗 Shared with me', driveId:null, virtual:true}, ...odPickerFolders];
+      }
+    }
   }catch(e){ odPickerError = 'Could not reach OneDrive.'; odPickerFolders = []; }
 }
 async function renderOneDriveFolderPicker(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive'}];
+  if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
   const current = odPickerStack[odPickerStack.length-1];
+  const canUseCurrent = current.id && current.id!==SHARED_ROOT_ID;
   document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
     ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Up one level</button>` : ''}
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
-      ${current.id ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
       ${odPickerFolders.map(f=>`
-        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">
-          <div class="swatch">📁</div>
+        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}','${f.driveId||''}')">
+          <div class="swatch">${f.virtual?'🔗':'📁'}</div>
           <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
         </div>
-      `).join('') || `<div class="empty">No subfolders here.</div>`}
+      `).join('') || `<div class="empty">${current.id===SHARED_ROOT_ID?'Nothing has been shared with this account yet.':'No subfolders here.'}</div>`}
     `}
   `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
 }
-window.odPickerInto = function(id, name){
-  odPickerStack.push({id, name});
+window.odPickerInto = function(id, name, driveId){
+  odPickerStack.push({id, name, driveId: driveId || null});
   render();
 };
 window.odPickerUp = function(){
   odPickerStack.pop();
   render();
 };
-window.selectOneDriveFolder = async function(siteId, folderId, folderName){
-  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName});
+window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -1341,7 +1392,7 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName){
 };
 window.unlinkOneDriveFolder = async function(siteId){
   if(!confirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
-  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null});
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -2837,7 +2888,17 @@ async function render(){
   if(ME.role==='admin' && ORG && !ORG.logo_path){ renderCompanySetup(); return; }
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
-  if(parts[0]==='team'){ return renderTeam(); }
+  if(parts[0]==='team'){
+    // Web-app return leg of the OneDrive OAuth flow: the callback page
+    // redirects here with ?onedrive=success|error so we can toast the
+    // result, since there's no app to hand off to like the native flow has.
+    const odStatus = routeQuery().get('onedrive');
+    if(odStatus){
+      toast(odStatus==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
+      history.replaceState(null, '', location.pathname + location.search + '#/team');
+    }
+    return renderTeam();
+  }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
@@ -2870,6 +2931,7 @@ async function render(){
   renderSites();
 }
 
+registerOneDriveDeepLinkHandler();
 init();
 </script>
 </body>
