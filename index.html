@@ -256,6 +256,8 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
 <script>
 /* ================= Supabase config ================= */
 const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
@@ -1810,6 +1812,8 @@ window.exportCheckins = async function(siteId, scope){
 /* ================= SCHEDULE OF WORKS ================= */
 let editingTaskId = null;
 let scheduleFilter = 'all';
+let pdfImportSiteId = null;
+let pdfImportText = '';
 async function renderSchedule(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
@@ -1830,8 +1834,6 @@ async function renderSchedule(siteId){
       <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
       <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
     </div>
-    ${allTasks.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
-
     ${tasks.map(t=>`
       <div class="task">
         <div class="taskbody">
@@ -1873,13 +1875,32 @@ async function renderSchedule(siteId){
         </div>
       </div>
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload from Excel</p>
-        <p class="stub" style="margin:0 0 8px;">Reads column A, skips row 1 as a header — one task name per row.</p>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose file (.xlsx / .csv)
+        <p class="sectiontitle" style="margin-top:0;">Upload schedule</p>
+        <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:14px;">Choose Excel/CSV file
           <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importScheduleExcel(this,'${siteId}')">
         </label>
+        <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
+          <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
+        </label>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose PDF file
+          <input type="file" accept="application/pdf" style="display:none" onchange="importSchedulePdf(this,'${siteId}')">
+        </label>
       </div>
+      ${pdfImportSiteId===siteId ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Review extracted tasks</p>
+        <p class="stub" style="margin:0 0 8px;">One task per line — edit, delete, or add lines, then import. Nothing is added until you confirm.</p>
+        <textarea id="pdfImportTextarea" rows="10" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">${escapeHtml(pdfImportText)}</textarea>
+        <div class="row-gap" style="margin-top:10px;">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="confirmPdfImport('${siteId}')">Import as tasks</button>
+          <button class="ghostbtn" style="width:auto;" onclick="pdfImportSiteId=null;render()">Cancel</button>
+        </div>
+      </div>
+      ` : ''}
     ` : ''}
+    ${allTasks.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
 window.setTaskStatus = async function(siteId, taskId, next){
@@ -1973,6 +1994,68 @@ window.importScheduleExcel = async function(input, siteId){
     const inserted = await dbInsert('schedule_tasks', newRows);
     if(inserted){ toast(`${names.length} task(s) imported`); render(); }
   }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
+};
+window.importSchedulePdf = async function(input, siteId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(typeof pdfjsLib==='undefined'){ toast('PDF reader failed to load — check connection.'); return; }
+  const manual = !!(document.getElementById('pdfManualMode') && document.getElementById('pdfManualMode').checked);
+  toast('Reading PDF…');
+  try{
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let lines = [];
+    for(let i=1;i<=pdf.numPages;i++){
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      // Group text fragments into lines by their vertical position, since
+      // pdf.js returns individual text runs rather than whole lines.
+      let lineMap = {};
+      content.items.forEach(it=>{
+        const y = Math.round(it.transform[5]);
+        (lineMap[y] = lineMap[y] || []).push(it.str);
+      });
+      Object.keys(lineMap).map(Number).sort((a,b)=>b-a).forEach(y=>{
+        const text = lineMap[y].join(' ').replace(/\s+/g,' ').trim();
+        if(text) lines.push(text);
+      });
+    }
+    if(!lines.length){ toast('No readable text found in that PDF — try ticking manual entry and paste the list yourself.'); pdfImportSiteId=siteId; pdfImportText=''; render(); return; }
+    let prefill;
+    if(manual){
+      // Manual mode: hand back everything we could read so the person can
+      // trim it down themselves, rather than guessing what's a task line.
+      prefill = lines.join('\n');
+    } else {
+      // Best-effort auto-pull: drop obvious non-task lines (page numbers,
+      // headers, very short fragments) and hope the rest are task rows —
+      // still reviewed and editable before anything is actually imported.
+      const skip = /^(page\s*\d+|schedule of works|item|description|task|ref\.?|no\.?|date|status|notes?)$/i;
+      prefill = lines.filter(l=>{
+        const t = l.trim();
+        if(t.length<3) return false;
+        if(/^\d+$/.test(t)) return false;
+        if(skip.test(t)) return false;
+        return true;
+      }).join('\n');
+    }
+    pdfImportSiteId = siteId;
+    pdfImportText = prefill;
+    render();
+  }catch(e){ console.error(e); toast('Could not read that PDF — try ticking manual entry and paste the list yourself.'); }
+  input.value = '';
+};
+window.confirmPdfImport = async function(siteId){
+  const ta = document.getElementById('pdfImportTextarea');
+  const names = (ta ? ta.value : '').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!names.length){ toast('Nothing to import.'); return; }
+  const startPos = await nextTaskPosition(siteId);
+  const newRows = names.map((n,i)=>({site_id:siteId, name:n, status:'todo', position:startPos+i}));
+  const inserted = await dbInsert('schedule_tasks', newRows);
+  if(inserted){
+    toast(`${names.length} task${names.length===1?'':'s'} added`);
+    pdfImportSiteId = null; pdfImportText = '';
+    render();
+  }
 };
 
 /* ================= SNAGGING ================= */
