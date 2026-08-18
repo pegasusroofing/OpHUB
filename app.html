@@ -977,13 +977,16 @@ window.deleteCompany = async function(orgId, name){
 
 /* ================= SITES LIST ================= */
 let showClosedSites = false;
+function fullSiteAddress(s){
+  return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
+}
 function siteCardHtml(s, canAdd){
   return `
     <div class="sitecard" onclick="go('#/site/${s.id}/home')">
       <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
       <div class="info">
         <div class="name">${escapeHtml(s.name)}</div>
-        <div class="addr">${escapeHtml(s.address||'—')}</div>
+        <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
       <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
       ${canAdd ? `<div class="taskicon" style="margin-left:8px;" title="${s.status==='closed'?'Reopen job':'Close job'}" onclick="event.stopPropagation();toggleSiteStatus('${s.id}','${s.status==='closed'?'active':'closed'}')">${s.status==='closed'?'↩':'📦'}</div>` : ''}
@@ -1010,6 +1013,7 @@ async function renderSites(){
         <p class="sectiontitle" style="margin-top:0;">Add a site</p>
         <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name"></div>
         <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address"></div>
+        <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
         <button class="darkbtn" onclick="addSite()">Create Site</button>
       </div>
       <button class="ghostbtn" onclick="go('#/team')">Manage Team</button>
@@ -1033,6 +1037,7 @@ window.toggleSiteStatus = async function(siteId, newStatus){
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
+  const postcode = document.getElementById('newSitePostcode').value.trim();
   if(!name) return;
   // Deliberately not asking PostgREST for the row back here (no
   // Prefer: return=representation) — Postgres has a known quirk where a
@@ -1042,7 +1047,7 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   toast('Site created');
@@ -1386,7 +1391,7 @@ async function renderSiteHome(siteId){
       ` : ''}
       <button class="ghostbtn" onclick="go('#/site/${siteId}/team')">Assign Team</button>
     ` : ''}
-  `, {title:site.name, subtitle:site.address, back:'#/sites', siteId, activeTab:'home'});
+  `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
 }
 async function loadPMList(){
   await loadAllProfiles();
