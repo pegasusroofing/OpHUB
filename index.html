@@ -72,8 +72,8 @@
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
   .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:700;
-    padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
+    font-family:Calibri,'Open Sans',sans-serif;padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
   .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
 
@@ -142,8 +142,8 @@
   .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
     display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:112px;position:relative;}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
-  .tile .lbl{font-size:18.75px;font-weight:800;line-height:1.2;}
-  .tile .sub{font-size:15.75px;color:var(--slate-light);}
+  .tile .lbl{font-size:15.94px;font-weight:800;line-height:1.2;font-family:Calibri,'Open Sans',sans-serif;}
+  .tile .sub{font-size:13.39px;color:var(--slate-light);font-family:Calibri,'Open Sans',sans-serif;}
   .tile .badge-count{position:absolute;top:10px;right:10px;background:var(--red);color:#fff;font-size:10px;
     font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
@@ -636,13 +636,13 @@ function shell(innerHtml, opts){
             <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
-          <div class="row" style="flex-direction:row;align-items:center;gap:15px;text-align:left;">
+          <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
-            <div>
-              <div class="brandline" style="font-size:22.5px;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
-              <h2 style="font-size:27px;">${opts.title||''}</h2>
-              ${ME ? `<span class="rolechip" style="margin-top:2px;">${roleLabel(ME.role)}</span>` : ''}
+            <div style="flex:1;text-align:center;">
+              <div class="brandline" style="font-size:22.5px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
+              <h2 style="font-size:27px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title||''}</h2>
             </div>
+            ${ME ? `<span class="rolechip" style="flex:0 0 auto;margin-left:0;">${roleLabel(ME.role)}</span>` : `<span style="flex:0 0 40px;"></span>`}
           </div>
         ` : `
         <div class="row">
@@ -1560,7 +1560,7 @@ async function renderSiteHome(siteId){
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div><div class="lbl" style="font-size:18.75px;">Check In / Out</div><div class="sub">${orgAllowsGps() ? 'GPS logged' : 'Tap to log time'}</div></div>
+        <div><div class="lbl" style="font-size:15.94px;">Check In / Out</div><div class="sub">${orgAllowsGps() ? 'GPS logged' : 'Tap to log time'}</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
