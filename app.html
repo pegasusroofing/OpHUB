@@ -504,6 +504,11 @@ function applyTheme(org){
   root.setProperty('--brand1', (org && org.color_primary) || DEFAULT_BRAND1);
   root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
 }
+// Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
+// GPS check-in & geofencing — everything else (growth/enterprise) does.
+// Superadmin has no ORG at all, so treat that as unrestricted.
+function orgAllowsGps(){ return !ORG || ORG.plan_tier !== 'starter'; }
+const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
 function orgLogoUrl(org){
   return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
 }
@@ -855,13 +860,21 @@ async function renderAdmin(){
           <img src="${orgLogoUrl(o)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
           <div style="flex:1;min-width:0;">
             <div style="font-weight:800;font-size:14.5px;">${escapeHtml(o.name)}</div>
-            <div class="stub" style="margin:0;">${sub ? `${escapeHtml(sub.plan||'—')} · ${escapeHtml(sub.status)}` : 'No subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
+            <div class="stub" style="margin:0;">${escapeHtml(PLAN_LABEL[o.plan_tier] || o.plan_tier)} · ${sub ? `${escapeHtml(sub.status)}` : 'no Stripe subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
           </div>
           <span class="stub" style="margin:0;font-size:16px;">${expanded?'▲':'▼'}</span>
         </div>
         ${expanded ? `
           <div style="margin-top:10px;">
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin-bottom:8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete Company</button>
+            <div class="formfield" style="margin-top:0;" onclick="event.stopPropagation();">
+              <label class="field-label">Package</label>
+              <select onchange="setOrgPlanTier('${o.id}', this.value)" onclick="event.stopPropagation();">
+                <option value="starter" ${o.plan_tier==='starter'?'selected':''}>OpHUB Basic — no GPS check-in/geofencing</option>
+                <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro — GPS check-in & geofencing</option>
+                <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
+              </select>
+            </div>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete Company</button>
             ${people.map(p=>`
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
@@ -880,6 +893,10 @@ async function renderAdmin(){
     </p>
   `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false});
 }
+window.setOrgPlanTier = async function(orgId, tier){
+  const row = await dbUpdate('organizations', orgId, {plan_tier: tier});
+  if(row){ toast('Package updated — '+(PLAN_LABEL[tier]||tier)); render(); }
+};
 window.createCompanyInvite = async function(){
   const company_name = document.getElementById('newCompanyName').value.trim();
   const email = document.getElementById('newCompanyEmail').value.trim();
@@ -1203,7 +1220,7 @@ async function renderSiteHome(siteId){
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div><div class="lbl" style="font-size:18.75px;">Check In / Out</div><div class="sub">GPS logged</div></div>
+        <div><div class="lbl" style="font-size:18.75px;">Check In / Out</div><div class="sub">${orgAllowsGps() ? 'GPS logged' : 'Tap to log time'}</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
@@ -1236,7 +1253,9 @@ async function renderSiteHome(siteId){
     ${isManager(ME) ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Site Geofence</p>
-        ${site.geofence_lat ? `
+        ${!orgAllowsGps() ? `
+          <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
+        ` : site.geofence_lat ? `
           <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)} · check-ins must be within 100m</div>
           <button class="ghostbtn" style="margin-top:8px;" onclick="setGeofence('${siteId}')">Update location</button>
         ` : `
@@ -1280,6 +1299,7 @@ async function unreadCountForSite(siteId){
   return msgs.filter(m=>!readSet.has(m.id)).length;
 }
 window.setGeofence = async function(siteId){
+  if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
   toast('Getting GPS lock…');
   const g = await getGeo();
   if(g.error){ toast(g.error); return; }
@@ -1356,7 +1376,7 @@ async function renderCheckin(siteId){
     </div>
     ${checkinError ? `<div class="card" style="border-color:var(--warn);"><div class="stub" style="color:var(--warn);margin-top:0;">${escapeHtml(checkinError)}</div></div>` : ''}
     <button class="primarybtn" style="${status==='in'?'background:var(--ink);':''}" ${checkinBusy?'disabled':''} onclick="doCheckAction('${siteId}','${status==='in'?'out':'in'}')">
-      ${checkinBusy ? 'Getting GPS lock…' : (status==='in' ? 'Check Out' : 'Check In')}
+      ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
     </button>
     <p class="sectiontitle" style="margin-top:18px;">Recent</p>
     ${mine.slice(0,4).map(c=>`
@@ -1377,6 +1397,19 @@ window.doCheckAction = async function(siteId, type){
   checkinError = null;
   checkinBusy = true;
   render();
+
+  // OpHUB Basic doesn't include GPS check-in & geofencing — just log the
+  // timestamp with no location and skip the distance check entirely.
+  if(!orgAllowsGps()){
+    const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type});
+    checkinBusy = false;
+    if(rows){
+      toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    }
+    render();
+    return;
+  }
+
   const g = await getGeo();
   if(g.error){
     checkinBusy = false; checkinError = g.error; render(); return;
