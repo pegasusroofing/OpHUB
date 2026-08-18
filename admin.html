@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>OpHUB — Admin</title>
+<link rel="icon" href="assets/ophub-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand1:#4E8FD1; --brand2:#101114; --ink:#101114; --paper:#F5F3EE; --card:#FFFFFF;
+    --line:#E4E1D8; --slate:#5B5F68; --ok:#2E8B57; --ok-bg:#E7F3EC; --warn:#B0740F; --warn-bg:#F5EBD6;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Open Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+  a{color:inherit;}
+  button, select, input{font-family:inherit;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 18px;border-radius:9px;
+    font-weight:800;font-size:13.5px;border:1.5px solid transparent;cursor:pointer;white-space:nowrap;}
+  .btn-primary{background:var(--brand1);color:#fff;}
+  .btn-primary:hover{background:#3f7ab8;}
+  .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line);}
+  .btn-ghost:hover{border-color:var(--brand1);color:var(--brand1);}
+  .btn-warn{background:transparent;color:var(--warn);border-color:var(--warn-bg);}
+  .btn-warn:hover{background:var(--warn-bg);}
+  .btn-sm{padding:7px 12px;font-size:12px;}
+  .btn:disabled{background:#d8d5cb;color:#9a978c;border-color:transparent;cursor:default;}
+  input[type=text],input[type=email],input[type=password],select{
+    padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;background:#fff;color:var(--ink);}
+  label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
+
+  /* ---- login gate ---- */
+  #loginGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .logincard{width:100%;max-width:360px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;}
+  .logincard .logowrap{text-align:center;margin-bottom:14px;}
+  .logincard img{width:52px;height:52px;border-radius:12px;object-fit:cover;}
+  .logincard h1{font-size:18px;text-align:center;margin:0 0 4px;}
+  .logincard p.sub{color:var(--slate);font-size:12.5px;text-align:center;margin:0 0 22px;}
+  .formfield{margin-bottom:14px;}
+  .formfield input{width:100%;}
+  .errbox{font-size:12.5px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:10px 12px;margin-bottom:14px;}
+
+  /* ---- admin shell ---- */
+  #adminApp{display:none;}
+  .topbar{background:var(--ink);color:#fff;padding:16px 28px;display:flex;align-items:center;gap:16px;}
+  .topbar .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;margin-right:auto;}
+  .topbar .brand img{width:28px;height:28px;border-radius:7px;object-fit:cover;}
+  .topbar .whoami{font-size:12.5px;color:#b9b9b9;}
+  .topbar .btn-ghost{color:#fff;border-color:#3a3b3e;}
+  .topbar .btn-ghost:hover{border-color:var(--brand1);color:var(--brand1);}
+  .main{max-width:1180px;margin:0 auto;padding:32px 28px 60px;}
+  .panelhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap;}
+  .panelhead h2{font-size:20px;margin:0;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:22px;}
+
+  table.companies{width:100%;border-collapse:collapse;}
+  table.companies th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    color:var(--slate);padding:0 12px 10px;border-bottom:1px solid var(--line);}
+  table.companies td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:13.5px;}
+  table.companies tr:last-child td{border-bottom:none;}
+  .companyname{display:flex;align-items:center;gap:10px;font-weight:800;}
+  .companyname img{width:32px;height:32px;border-radius:8px;object-fit:cover;flex:0 0 32px;}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.04em;
+    text-transform:uppercase;padding:4px 9px;border-radius:999px;}
+  .pill.ok{background:var(--ok-bg);color:var(--ok);}
+  .pill.off{background:var(--line);color:var(--slate);}
+  .empty{color:var(--slate);font-size:13px;padding:20px 0;text-align:center;}
+
+  /* ---- modal ---- */
+  .modalbg{display:none;position:fixed;inset:0;background:rgba(16,17,20,.5);z-index:50;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;}
+  .modalbg.open{display:flex;}
+  .modal{background:var(--card);border-radius:16px;max-width:560px;width:100%;padding:26px;}
+  .modal h3{margin:0 0 4px;font-size:17px;}
+  .modal p.sub{color:var(--slate);font-size:12.5px;margin:0 0 18px;}
+  .modal .closex{float:right;cursor:pointer;font-size:20px;color:var(--slate);line-height:1;}
+  .memberrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .memberrow:last-child{border-bottom:none;}
+  .memberrow .info{flex:1;min-width:160px;}
+  .memberrow .name{font-weight:800;font-size:13.5px;}
+  .memberrow .addr{font-size:11.5px;color:var(--slate);}
+  .memberrow .acts{display:flex;gap:6px;flex-wrap:wrap;}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;
+    padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25);}
+
+  @media (max-width:720px){
+    table.companies thead{display:none;}
+    table.companies, table.companies tbody, table.companies tr, table.companies td{display:block;width:100%;}
+    table.companies tr{border-bottom:1px solid var(--line);padding:12px 0;}
+    table.companies td{border-bottom:none;padding:4px 0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loginGate">
+  <div class="logincard">
+    <div class="logowrap"><img src="assets/ophub-logo.png" alt="OpHUB" onerror="this.style.display='none'"></div>
+    <h1>OpHUB Admin</h1>
+    <p class="sub">Platform administration — superadmin sign-in required.</p>
+    <div id="loginErrHost"></div>
+    <div class="formfield"><label class="field-label">Email</label><input type="email" id="loginEmail" placeholder="you@operativehub.co.uk"></div>
+    <div class="formfield"><label class="field-label">Password</label><input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin();"></div>
+    <button class="btn btn-primary" id="loginBtn" style="width:100%;" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
+
+<div id="adminApp">
+  <div class="topbar">
+    <div class="brand"><img src="assets/ophub-logo.png" alt="OpHUB" onerror="this.style.display='none'">OpHUB Admin</div>
+    <span class="whoami" id="whoamiHost"></span>
+    <button class="btn btn-ghost btn-sm" onclick="adminSignOut()">Sign Out</button>
+  </div>
+  <div class="main">
+    <div class="card">
+      <div class="panelhead" style="margin-bottom:14px;">
+        <h2 style="font-size:15px;">My Account</h2>
+        <button class="btn btn-ghost btn-sm" id="resetMyPwBtn" onclick="resetPassword(ME_EMAIL)">Reset My Password</button>
+      </div>
+      <div id="resetResultHost"></div>
+    </div>
+
+    <div class="card">
+      <div class="panelhead">
+        <h2>Create Company</h2>
+      </div>
+      <div id="newCompanyHost">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+          <div class="formfield" style="flex:1;min-width:200px;margin:0;"><label class="field-label">Company name</label><input type="text" id="newCompanyName" style="width:100%;"></div>
+          <div class="formfield" style="flex:1;min-width:200px;margin:0;"><label class="field-label">Their email (optional)</label><input type="email" id="newCompanyEmail" style="width:100%;"></div>
+          <button class="btn btn-primary" id="createCompanyBtn" onclick="createCompany()">Create Company &amp; Invite</button>
+        </div>
+        <p class="sub" style="color:var(--slate);font-size:12px;margin-top:10px;">Sets up a new company outside of Stripe checkout and gives you a founding-admin invite link to send them directly.</p>
+      </div>
+    </div>
+
+    <div class="panelhead">
+      <h2 id="companiesCount">All Companies</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">Refresh</button>
+    </div>
+    <div class="card" style="padding:8px 22px;">
+      <table class="companies">
+        <thead><tr><th>Company</th><th>Package</th><th>Subscription</th><th>Members</th><th></th></tr></thead>
+        <tbody id="companiesTbody"></tbody>
+      </table>
+      <div id="companiesEmpty" class="empty" style="display:none;">No companies registered yet.</div>
+    </div>
+  </div>
+</div>
+
+<div class="modalbg" id="membersModalBg" onclick="if(event.target===this) closeMembersModal();">
+  <div class="modal">
+    <span class="closex" onclick="closeMembersModal()">&times;</span>
+    <h3 id="modalOrgName"></h3>
+    <p class="sub" id="modalOrgMeta"></p>
+    <div id="modalMembers"></div>
+    <button class="btn btn-warn" style="margin-top:16px;" id="modalDeleteBtn" onclick="deleteCompanyFromModal()">Delete Company</button>
+  </div>
+</div>
+
+<div id="toastHost"></div>
+
+<script>
+const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+const K_SESSION = 'ophub-admin-session-v1';
+const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
+const ROLE_LABEL = { admin:'Company Admin', pm:'Project Manager', operative:'Operative', superadmin:'Super Admin' };
+const OPHUB_LOGO_INLINE = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" rx="14" fill="#4E8FD1"/>'+
+  '<text x="32" y="41" font-size="22" font-family="-apple-system,Arial,sans-serif" font-weight="800" fill="#fff" text-anchor="middle">OH</text></svg>'
+);
+
+let SESSION = null;
+let ME_EMAIL = '';
+let ORGS = [], SUBS = [], PROFILES = [];
+
+function toast(msg){
+  const host = document.getElementById('toastHost');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  host.innerHTML = '';
+  host.appendChild(el);
+  setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 3400);
+}
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function showLoginErr(msg){ document.getElementById('loginErrHost').innerHTML = msg ? `<div class="errbox">${escapeHtml(msg)}</div>` : ''; }
+
+/* ---- session ---- */
+function saveSession(){ localStorage.setItem(K_SESSION, JSON.stringify(SESSION)); }
+function clearSession(){ SESSION = null; localStorage.removeItem(K_SESSION); }
+function loadSession(){
+  try{ const v = localStorage.getItem(K_SESSION); return v ? JSON.parse(v) : null; }catch(e){ return null; }
+}
+async function ensureFreshToken(){
+  if(!SESSION) return;
+  if(Date.now() < SESSION.expires_at - 60000) return;
+  const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+    method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+    body: JSON.stringify({refresh_token: SESSION.refresh_token})
+  });
+  if(res.ok){
+    const d = await res.json();
+    SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
+    saveSession();
+  } else {
+    clearSession();
+  }
+}
+async function sbFetch(path, opts){
+  opts = opts || {};
+  await ensureFreshToken();
+  const headers = Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + (SESSION ? SESSION.access_token : SUPABASE_ANON_KEY),
+    'Content-Type': 'application/json'
+  }, opts.headers||{});
+  return fetch(SUPABASE_URL + path, Object.assign({}, opts, {headers}));
+}
+async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
+async function dbSelect(table, qs){
+  const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+  if(!res.ok){ console.error(await safeErr(res)); return []; }
+  return res.json();
+}
+async function dbUpdate(table, id, patch){
+  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(patch)});
+  if(!res.ok){ toast('Update failed — '+(await safeErr(res))); return null; }
+  const d = await res.json();
+  return Array.isArray(d)?d[0]:d;
+}
+
+/* ---- auth flow ---- */
+async function doLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if(!email || !password){ showLoginErr('Enter your email and password.'); return; }
+  showLoginErr(null);
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try{
+    const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
+      method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email, password})
+    });
+    const d = await res.json();
+    if(!res.ok){ showLoginErr(d.msg||d.error_description||d.error||'Sign in failed.'); btn.disabled=false; btn.textContent='Sign In'; return; }
+    SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
+    saveSession();
+    await afterAuth();
+  }catch(e){
+    showLoginErr('Could not reach the server — check your connection and try again.');
+  }
+  btn.disabled = false; btn.textContent = 'Sign In';
+}
+async function afterAuth(){
+  const profiles = await dbSelect('profiles', 'id=eq.'+SESSION.user.id+'&select=*');
+  const me = profiles[0];
+  if(!me || me.role !== 'superadmin'){
+    showLoginErr('This account isn\'t a superadmin — access denied.');
+    await sbFetch('/auth/v1/logout', {method:'POST'}).catch(()=>{});
+    clearSession();
+    return;
+  }
+  ME_EMAIL = me.email;
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'block';
+  document.getElementById('whoamiHost').textContent = 'Signed in as ' + ME_EMAIL;
+  loadDashboard();
+}
+window.adminSignOut = async function(){
+  try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
+  clearSession();
+  location.reload();
+};
+
+/* ---- dashboard ---- */
+window.loadDashboard = async function(){
+  const [orgs, subs, profiles] = await Promise.all([
+    dbSelect('organizations', 'select=*&order=created_at.desc'),
+    dbSelect('subscriptions', 'select=*'),
+    dbSelect('profiles', 'select=*&order=name.asc'),
+  ]);
+  ORGS = orgs; SUBS = subs; PROFILES = profiles;
+  renderCompanies();
+};
+function peopleFor(orgId){ return PROFILES.filter(p=>p.org_id===orgId).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
+function subFor(orgId){ return SUBS.find(s=>s.org_id===orgId); }
+function renderCompanies(){
+  const tbody = document.getElementById('companiesTbody');
+  document.getElementById('companiesCount').textContent = `All Companies (${ORGS.length})`;
+  document.getElementById('companiesEmpty').style.display = ORGS.length ? 'none' : 'block';
+  tbody.innerHTML = ORGS.map(o=>{
+    const sub = subFor(o.id);
+    const people = peopleFor(o.id);
+    const logo = o.logo_path ? (SUPABASE_URL+'/storage/v1/object/public/org-logos/'+o.logo_path) : OPHUB_LOGO_INLINE;
+    return `
+    <tr>
+      <td><div class="companyname"><img src="${logo}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">${escapeHtml(o.name)}</div></td>
+      <td>
+        <select onchange="setOrgPlanTier('${o.id}', this.value)">
+          <option value="starter" ${o.plan_tier==='starter'?'selected':''}>OpHUB Basic</option>
+          <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro</option>
+          <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise</option>
+        </select>
+      </td>
+      <td>${sub ? `<span class="pill ${sub.status==='active'?'ok':'off'}">${escapeHtml(sub.status)}</span>` : `<span class="pill off">no subscription</span>`}</td>
+      <td>${people.length} member${people.length===1?'':'s'}</td>
+      <td style="text-align:right;"><button class="btn btn-ghost btn-sm" onclick="openMembersModal('${o.id}')">Manage</button></td>
+    </tr>`;
+  }).join('');
+}
+window.setOrgPlanTier = async function(orgId, tier){
+  const row = await dbUpdate('organizations', orgId, {plan_tier: tier});
+  if(row){
+    const idx = ORGS.findIndex(o=>o.id===orgId); if(idx>-1) ORGS[idx] = row;
+    toast('Package updated — '+(PLAN_LABEL[tier]||tier));
+  }
+};
+
+/* ---- create company ---- */
+window.createCompany = async function(){
+  const company_name = document.getElementById('newCompanyName').value.trim();
+  const email = document.getElementById('newCompanyEmail').value.trim();
+  if(!company_name){ toast('Enter a company name.'); return; }
+  const btn = document.getElementById('createCompanyBtn');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try{
+    const res = await sbFetch('/functions/v1/admin-create-company', {method:'POST', body: JSON.stringify({company_name, email: email||undefined})});
+    const d = await res.json();
+    btn.disabled = false; btn.textContent = 'Create Company & Invite';
+    if(!res.ok || d.error){ toast('Could not create company — '+(d.error||res.status)); return; }
+    const link = location.origin + '/app.html#/join/' + d.invite_id;
+    document.getElementById('newCompanyHost').innerHTML = `
+      <p style="color:var(--ok);font-size:13px;margin:0 0 8px;">Company "<b>${escapeHtml(company_name)}</b>" created — share this link with whoever should become their admin. It works once, for the next 14 days:</p>
+      <input type="text" readonly value="${escapeHtml(link)}" style="width:100%;font-size:12px;margin-bottom:10px;" onclick="this.select()">
+      <button class="btn btn-ghost btn-sm" onclick="location.reload()">Invite Another</button>
+    `;
+    loadDashboard();
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'Create Company & Invite';
+    toast('Could not reach the server.');
+  }
+};
+
+/* ---- members modal ---- */
+let modalOrgId = null;
+window.openMembersModal = function(orgId){
+  modalOrgId = orgId;
+  const o = ORGS.find(x=>x.id===orgId);
+  const people = peopleFor(orgId);
+  const sub = subFor(orgId);
+  document.getElementById('modalOrgName').textContent = o.name;
+  document.getElementById('modalOrgMeta').textContent = (PLAN_LABEL[o.plan_tier]||o.plan_tier) + ' · ' + (sub ? sub.status+' subscription' : 'no Stripe subscription');
+  const ROLES = ['operative','pm','admin'];
+  document.getElementById('modalMembers').innerHTML = people.map(p=>`
+    <div class="memberrow">
+      <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${ROLE_LABEL[p.role]||p.role}</div></div>
+      <div class="acts">
+        ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="btn btn-ghost btn-sm" onclick="setUserRole('${p.id}','${r}')">Make ${ROLE_LABEL[r]}</button>`).join('')}
+        <button class="btn btn-ghost btn-sm" onclick="resetPassword('${escapeHtml(p.email)}')">Reset Password</button>
+      </div>
+    </div>
+  `).join('') || `<div class="empty">No members yet.</div>`;
+  document.getElementById('membersModalBg').classList.add('open');
+};
+window.closeMembersModal = function(){
+  document.getElementById('membersModalBg').classList.remove('open');
+  modalOrgId = null;
+};
+window.setUserRole = async function(userId, role){
+  if(!confirm(`Change this person's role to ${ROLE_LABEL[role]}?`)) return;
+  const row = await dbUpdate('profiles', userId, {role});
+  if(row){
+    const idx = PROFILES.findIndex(p=>p.id===userId); if(idx>-1) PROFILES[idx] = row;
+    toast(`Role changed to ${ROLE_LABEL[role]}`);
+    if(modalOrgId) openMembersModal(modalOrgId);
+    renderCompanies();
+  }
+};
+window.deleteCompanyFromModal = async function(){
+  if(!modalOrgId) return;
+  const o = ORGS.find(x=>x.id===modalOrgId);
+  if(!confirm(`Permanently delete "${o.name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`)) return;
+  if(prompt(`Type the company name to confirm deleting "${o.name}":`) !== o.name){ toast("Names didn't match — nothing deleted."); return; }
+  try{
+    const res = await sbFetch('/functions/v1/admin-delete-company', {method:'POST', body: JSON.stringify({org_id: modalOrgId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Delete failed — '+(d.error||res.status)); return; }
+    toast(`Deleted ${d.deleted}`);
+    closeMembersModal();
+    loadDashboard();
+  }catch(e){ toast('Delete failed — could not reach the server.'); }
+};
+
+/* ---- password reset ---- */
+window.resetPassword = async function(email){
+  const custom = prompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
+  if(custom === null) return;
+  const newPassword = custom.trim();
+  if(newPassword && newPassword.length < 8){ toast('Password must be at least 8 characters.'); return; }
+  try{
+    const res = await sbFetch('/functions/v1/admin-reset-password', {method:'POST', body: JSON.stringify({target_email: email, new_password: newPassword || undefined})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Reset failed — '+(d.error||res.status)); return; }
+    document.getElementById('resetResultHost').innerHTML = `
+      <div style="border:1px solid var(--ok);border-radius:10px;padding:12px;margin-top:10px;">
+        <p style="margin:0 0 6px;color:var(--ok);font-size:12.5px;">New password for <b>${escapeHtml(d.email)}</b> — share this with them securely, they should change it after signing in:</p>
+        <input type="text" readonly value="${escapeHtml(d.new_password)}" style="width:100%;font-size:13.5px;font-weight:800;" onclick="this.select()">
+      </div>`;
+    toast('Password reset');
+  }catch(e){ toast('Reset failed — could not reach the server.'); }
+};
+
+/* ---- boot ---- */
+(async function boot(){
+  SESSION = loadSession();
+  if(SESSION){ await afterAuth(); }
+})();
+</script>
+</body>
+</html>
