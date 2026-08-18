@@ -1789,6 +1789,19 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
     }
   }catch(e){ toast('Could not process photo.'); }
 };
+function pdfHexToRgb(hex){
+  const h = (hex||'').replace('#','');
+  if(h.length!==6) return PDFLib.rgb(0.306,0.561,0.820);
+  const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
+  return PDFLib.rgb(r,g,b);
+}
+async function pdfFetchImageBytes(url){
+  try{
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    return new Uint8Array(await res.arrayBuffer());
+  }catch(e){ return null; }
+}
 window.exportSnaggingPDF = async function(siteId, scope){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
@@ -1804,46 +1817,125 @@ window.exportSnaggingPDF = async function(siteId, scope){
     const pdfDoc = await PDFLib.PDFDocument.create();
     const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
     const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-    const RED = PDFLib.rgb(0.784,0.063,0.180);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
     const INK = PDFLib.rgb(0.06,0.06,0.07);
     const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const CARDBG = PDFLib.rgb(0.976,0.969,0.949);
     const OK = PDFLib.rgb(0.2,0.55,0.35);
+    const OKBG = PDFLib.rgb(0.90,0.95,0.91);
     const WARN = PDFLib.rgb(0.69,0.45,0.06);
+    const WARNBG = PDFLib.rgb(0.97,0.92,0.83);
     const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 42;
     const scopeLabel = scope==='live' ? 'Live' : scope==='closed' ? 'Closed' : 'All';
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+    const openCount = snags.filter(s=>s.status==='open').length;
+    const closedCount = snags.filter(s=>s.status==='closed').length;
+
+    // Embed the company logo once (falls back to nothing if it can't be fetched/decoded).
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
 
     let page, y;
-    function newPage(continued){
-      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - 60;
-      page.drawText('Snagging Report' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
-      y -= 8;
-      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
-      y -= 26;
-      if(!continued){
-        page.drawText(site.name + ' — ' + scopeLabel + ' snags', {x:50, y, size:12, font:bold, color:INK});
-        y -= 18;
-        page.drawText('Generated ' + new Date().toLocaleString('en-GB'), {x:50, y, size:9, font:reg, color:SLATE});
-        y -= 22;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
       }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('SNAGGING REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + ' · ' + scopeLabel + ' snags', {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
-    newPage(false);
-    snags.forEach((s,i)=>{
-      if(y < 110) newPage(true);
-      page.drawText((i+1)+'. '+s.title, {x:50, y, size:12.5, font:bold, color:INK});
-      page.drawText(s.status.toUpperCase(), {x:PAGE_W-120, y, size:9.5, font:bold, color: s.status==='closed' ? OK : WARN});
-      y -= 16;
-      page.drawText('Location: '+(s.location||'—'), {x:60, y, size:10, font:reg, color:SLATE});
-      y -= 14;
-      page.drawText('Raised by '+nameOf(s.created_by)+' · '+new Date(s.created_at).toLocaleDateString('en-GB'), {x:60, y, size:9.5, font:reg, color:SLATE});
-      y -= 14;
-      if(s.status==='closed'){
-        page.drawText('Closed by '+nameOf(s.closed_by)+(s.closed_at?' · '+new Date(s.closed_at).toLocaleDateString('en-GB'):''), {x:60, y, size:9.5, font:reg, color:SLATE});
-        y -= 14;
-      }
-      page.drawText('Photo: '+(s.photo_path?'attached':'none')+(s.status==='closed'?', closing photo: '+(s.closed_photo_path?'attached':'none'):''), {x:60, y, size:9, font:reg, color:SLATE});
-      y -= 22;
+    function drawFooter(pageNum){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      page.drawText('Page ' + pageNum, {x:PAGE_W-MARGIN-40, y:20, size:8, font:reg, color:SLATE});
+    }
+    let pageNum = 0;
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pageNum++;
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    newPage();
+    // Summary strip on the first page only.
+    const chipW = 150, chipGap = 14, chipY = y - 34;
+    [
+      {label:'Total snags', value:String(snags.length), bg:CARDBG, fg:INK},
+      {label:'Open', value:String(openCount), bg:WARNBG, fg:WARN},
+      {label:'Closed', value:String(closedCount), bg:OKBG, fg:OK},
+    ].forEach((c,i)=>{
+      const x = MARGIN + i*(chipW+chipGap);
+      page.drawRectangle({x, y:chipY, width:chipW, height:44, color:c.bg});
+      page.drawText(c.value, {x:x+12, y:chipY+22, size:16, font:bold, color:c.fg});
+      page.drawText(c.label.toUpperCase(), {x:x+12, y:chipY+8, size:7.5, font:bold, color:c.fg, opacity:0.8});
     });
+    y = chipY - 26;
+
+    for(let i=0;i<snags.length;i++){
+      const s = snags[i];
+      const hasPhoto = !!(s.photo_path || (s.status==='closed' && s.closed_photo_path));
+      const blockH = hasPhoto ? 130 : 78;
+      if(y - blockH < 50){ newPage(); }
+
+      const cardTop = y;
+      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:PAGE_W-2*MARGIN, height:blockH, color:CARDBG});
+      const pillColor = s.status==='closed' ? OK : WARN;
+      const pillBg = s.status==='closed' ? OKBG : WARNBG;
+      const textLeft = MARGIN + 16;
+      const imgSlot = 84;
+      const textWidth = hasPhoto ? (PAGE_W-2*MARGIN) - imgSlot - 32 : (PAGE_W-2*MARGIN) - 32;
+      let ty = cardTop - 22;
+      const title = (i+1)+'. '+(s.title.length>52 ? s.title.slice(0,49)+'…' : s.title);
+      page.drawText(title, {x:textLeft, y:ty, size:12, font:bold, color:INK});
+      const pillW = 56;
+      page.drawRectangle({x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW, y:ty-3, width:pillW, height:15, color:pillBg});
+      page.drawText(s.status.toUpperCase(), {x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW+8, y:ty+1, size:8, font:bold, color:pillColor});
+      ty -= 18;
+      page.drawText('Location: '+(s.location||'—'), {x:textLeft, y:ty, size:9.5, font:reg, color:SLATE});
+      ty -= 14;
+      page.drawText('Raised by '+nameOf(s.created_by)+' · '+new Date(s.created_at).toLocaleDateString('en-GB'), {x:textLeft, y:ty, size:9, font:reg, color:SLATE});
+      ty -= 14;
+      if(s.status==='closed'){
+        page.drawText('Closed by '+nameOf(s.closed_by)+(s.closed_at?' · '+new Date(s.closed_at).toLocaleDateString('en-GB'):''), {x:textLeft, y:ty, size:9, font:reg, color:SLATE});
+        ty -= 14;
+      }
+      if(s.pdf_path){
+        page.drawText('PDF attachment on file', {x:textLeft, y:ty, size:8.5, font:reg, color:SLATE});
+      }
+
+      if(hasPhoto){
+        const photoPath = s.status==='closed' && s.closed_photo_path ? s.closed_photo_path : s.photo_path;
+        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-imgSlot+8;
+        const imgY = cardTop-blockH+14;
+        const boxSize = 76;
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', photoPath));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const s2 = boxSize/Math.max(dim.width, dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:imgX+(boxSize-w)/2, y:imgY+(boxSize-h)/2, width:w, height:h});
+          }
+        }catch(e){ /* skip photo if it fails to embed */ }
+      }
+
+      y = cardTop - blockH - 14;
+    }
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
     const outBytes = await pdfDoc.save();
     const blob = new Blob([outBytes], {type:'application/pdf'});
@@ -2009,6 +2101,7 @@ window.deleteRams = async function(ramsId, storagePath){
 
 /* ================= MATERIALS ================= */
 let matFilter = 'live';
+let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -2035,11 +2128,20 @@ async function renderMaterials(siteId){
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
           </div>
         </div>
-        ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>` : '') :
+        ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
           m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
-          m.status==='pending' ? (isPM ? `<div class="merchantrow">Send to:
-            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable" onclick="sendMaterial('${siteId}','${m.id}','${s.id}')">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
-          </div>` : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
+          m.status==='pending' ? (isPM ? (
+            sendingMaterial && sendingMaterial.matId===m.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
+              <div class="formfield"><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
+              <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
+            </div>
+          ` : `<div class="merchantrow">Send to:
+            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable" onclick="sendingMaterial={matId:'${m.id}',supplierId:'${s.id}',supplierName:'${escapeHtml(s.name).replace(/'/g,"\\'")}'};render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+          </div>`
+          ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
         ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
         ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
       </div>
@@ -2096,24 +2198,31 @@ window.addMaterial = async function(siteId){
     toast('Request added'); render();
   }
 };
-window.sendMaterial = async function(siteId, matId, supplierId){
+window.confirmSendMaterial = async function(siteId, matId){
+  if(!sendingMaterial || sendingMaterial.matId !== matId) return;
+  const supplierId = sendingMaterial.supplierId;
+  const dateInput = document.getElementById('reqDeliveryDate_'+matId);
+  const requiredForDelivery = dateInput ? dateInput.value : '';
+  if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
   const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
-  const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString()});
+  const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
   if(!row){ return; }
+  sendingMaterial = null;
   toast('Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
+      required_for_delivery: requiredForDelivery,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast('Order emailed to '+supplier.name);
+      toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
