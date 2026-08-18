@@ -57,8 +57,10 @@
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;}
   }
-  .stripe-edge{height:7px;width:100%;flex:0 0 auto;
-    background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,var(--brand2) 5px 10px);}
+  .stripe-edge{height:5px;width:100%;flex:0 0 auto;
+    background:
+      repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
+      linear-gradient(90deg, var(--brand1), var(--brand2));}
 
   .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:15px;}
@@ -1276,6 +1278,76 @@ window.disconnectOneDrive = async function(){
   const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
   if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
 };
+
+/* ================= ONEDRIVE FOLDER PICKER (link a site to its real, existing project folder) ================= */
+let odPickerStack = null; // array of {id, name} — first entry is always the OneDrive root
+let odPickerFolders = [];
+let odPickerError = null;
+window.startOneDriveFolderPicker = function(siteId){
+  odPickerStack = [{id:null, name:'OneDrive'}];
+  odPickerFolders = [];
+  odPickerError = null;
+  go(`#/site/${siteId}/onedrive-folder`);
+};
+async function loadOdPickerFolders(){
+  const current = odPickerStack[odPickerStack.length-1];
+  try{
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify({parent_id: current.id})});
+    const d = await res.json();
+    if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
+    else { odPickerFolders = d.folders || []; odPickerError = null; }
+  }catch(e){ odPickerError = 'Could not reach OneDrive.'; odPickerFolders = []; }
+}
+async function renderOneDriveFolderPicker(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive'}];
+  await loadOdPickerFolders();
+  const current = odPickerStack[odPickerStack.length-1];
+  document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
+    ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Up one level</button>` : ''}
+    ${odPickerError ? `
+      <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
+    ` : `
+      ${current.id ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${odPickerFolders.map(f=>`
+        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">
+          <div class="swatch">📁</div>
+          <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
+        </div>
+      `).join('') || `<div class="empty">No subfolders here.</div>`}
+    `}
+  `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+}
+window.odPickerInto = function(id, name){
+  odPickerStack.push({id, name});
+  render();
+};
+window.odPickerUp = function(){
+  odPickerStack.pop();
+  render();
+};
+window.selectOneDriveFolder = async function(siteId, folderId, folderName){
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    odPickerStack = null;
+    toast('Folder linked — photos for this site will sync there from now on');
+    go(`#/site/${siteId}/home`);
+  }
+};
+window.unlinkOneDriveFolder = async function(siteId){
+  if(!confirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
+  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Folder unlinked');
+    render();
+  }
+};
+
 window.removeTeamMember = async function(userId, name){
   if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access.`)) return;
   const ok = await dbDelete('profiles', userId);
@@ -1311,7 +1383,7 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, pmList] = await Promise.all([
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, pmList, odConnRows] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
@@ -1319,7 +1391,9 @@ async function renderSiteHome(siteId){
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
     ME.role==='admin' ? loadPMList() : Promise.resolve([]),
+    isManager(ME) ? dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token') : Promise.resolve([]),
   ]);
+  const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
   // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
   // the router right before this ran — reuse it here instead of querying twice.
   const unreadMsgs = currentUnreadMsgs;
@@ -1367,6 +1441,19 @@ async function renderSiteHome(siteId){
       </div>
     </div>
     ${isManager(ME) ? `
+      ${odCompanyConnected ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">OneDrive Folder</p>
+        ${site.onedrive_folder_id ? `
+          <p class="stub" style="margin:0 0 8px;color:var(--ok);">Linked to "${escapeHtml(site.onedrive_folder_name||'')}" — progress photos for this site sync straight there.</p>
+          <button class="ghostbtn" onclick="startOneDriveFolderPicker('${siteId}')">Change folder</button>
+          <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkOneDriveFolder('${siteId}')">Unlink</button>
+        ` : `
+          <p class="stub" style="margin:0 0 8px;">Not linked yet — photos are filing under a generic OpHUB folder. Pick this site's actual project folder so they land in the right place.</p>
+          <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}')">Choose folder</button>
+        `}
+      </div>
+      ` : ''}
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Site Geofence</p>
         ${!orgAllowsGps() ? `
@@ -1699,16 +1786,19 @@ window.taskPhoto = async function(input, siteId, taskId){
     if(rows){
       toast('Photo added');
       render();
-      syncPhotoToOneDrive(dataUrl, path.split('/').pop(), (SITES.find(s=>s.id===siteId)||{}).name || siteId);
+      syncPhotoToOneDrive(dataUrl, path.split('/').pop(), siteId);
     }
   }catch(e){ toast('Could not process photo.'); }
 };
 // Best-effort background sync — never blocks the UI or shows an error toast,
-// since most companies won't have OneDrive connected yet.
-async function syncPhotoToOneDrive(dataUrl, filename, subfolder){
+// since most companies won't have OneDrive connected yet. If this site has
+// been linked to a real OneDrive folder, the edge function uploads straight
+// there; otherwise it falls back to an auto-created subfolder named after
+// the site under the company's generic root.
+async function syncPhotoToOneDrive(dataUrl, filename, siteId){
   try{
     const base64 = dataUrl.split(',')[1];
-    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, subfolder})});
+    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, site_id: siteId})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 }
 window.importScheduleExcel = async function(input, siteId){
@@ -2663,6 +2753,7 @@ async function render(){
     if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
     if(page==='team') return renderAssignTeam(siteId);
+    if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
   }
   renderSites();
 }
