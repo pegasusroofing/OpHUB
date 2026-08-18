@@ -70,8 +70,8 @@
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
   .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:5.2px;font-weight:700;
-    padding:2px 4.5px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:700;
+    padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
   .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
 
@@ -1046,7 +1046,7 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
         <button class="darkbtn" onclick="addSite()">Create Site</button>
       </div>
-      <button class="ghostbtn" onclick="go('#/team')">Manage Team</button>
+      <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
     ` : ''}
     <p style="text-align:center;margin-top:8px;">
       <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
@@ -1286,7 +1286,7 @@ async function renderTeam(){
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
-  `, {title:'Manage Team', back:'#/sites', tabs:false});
+  `, {title:'Admin Centre', back:'#/sites', tabs:false});
 }
 let odBusy = false;
 let themeBusy = false;
