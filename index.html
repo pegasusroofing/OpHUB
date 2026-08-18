@@ -2023,6 +2023,94 @@ async function pdfFetchImageBytes(url){
     return new Uint8Array(await res.arrayBuffer());
   }catch(e){ return null; }
 }
+// Shared "Signature Record" pages used by both the RAMS and Toolbox Talk
+// signed-PDF exports: a disclaimer paragraph followed by a clean
+// Name / Signature / Date table (one row per signer), paginating cleanly if
+// the signer list runs past a page.
+async function drawSignatureTablePages(pdfDoc, opts){
+  const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  const RED = PDFLib.rgb(0.784,0.063,0.180);
+  const INK = PDFLib.rgb(0.06,0.06,0.07);
+  const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+  const LINE = PDFLib.rgb(0.85,0.85,0.85);
+  const HEADBG = PDFLib.rgb(0.95,0.94,0.91);
+  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const MARGIN = 50;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  const COL_NAME = 160, COL_SIG = 205, COL_DATE = TABLE_W - COL_NAME - COL_SIG;
+  const ROW_H = 46, HEADER_H = 24;
+
+  function wrapText(text, font, size, maxWidth){
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for(const w of words){
+      const test = cur ? cur+' '+w : w;
+      if(font.widthOfTextAtSize(test, size) > maxWidth && cur){ lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if(cur) lines.push(cur);
+    return lines;
+  }
+
+  let page, y;
+  function drawTableHeader(){
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+    page.drawText('Name', {x:MARGIN+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawText('Signature', {x:MARGIN+COL_NAME+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawText('Date', {x:MARGIN+COL_NAME+COL_SIG+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:y}, end:{x:MARGIN+COL_NAME,y:y-HEADER_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.5, color:LINE});
+    y -= HEADER_H;
+  }
+  function newPage(continued){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    y = PAGE_H - 60;
+    page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:MARGIN, y, size:18, font:bold, color:RED});
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1.5, color:INK});
+    y -= 24;
+    page.drawText(opts.title, {x:MARGIN, y, size:12, font:bold, color:INK});
+    y -= 20;
+    if(!continued){
+      wrapText(opts.disclaimer, reg, 9.5, TABLE_W).forEach(line=>{
+        page.drawText(line, {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+        y -= 13;
+      });
+      y -= 12;
+    }
+    drawTableHeader();
+  }
+  newPage(false);
+  for(const s of opts.signers){
+    if(y - ROW_H < 70) newPage(true);
+    const rowTop = y;
+    page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
+    page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
+    if(s.imagePath){
+      try{
+        const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.imagePath));
+        if(bytes){
+          let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+          const dim = img.scale(1);
+          const boxH = 30, boxW = COL_SIG-20;
+          const s2 = Math.min(boxW/dim.width, boxH/dim.height);
+          const w = dim.width*s2, h = dim.height*s2;
+          page.drawImage(img, {x:MARGIN+COL_NAME+10, y:rowTop-ROW_H/2-h/2, width:w, height:h});
+        }
+      }catch(e){ /* fall back to blank signature cell */ }
+    }
+    page.drawText(s.when, {x:MARGIN+COL_NAME+COL_SIG+10, y:rowTop-ROW_H/2-4, size:9.5, font:reg, color:SLATE});
+    y = rowTop - ROW_H;
+  }
+  y -= 16;
+  if(y < 60) newPage(true);
+  page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:MARGIN, y, size:8.5, font:reg, color:SLATE});
+}
 window.exportSnaggingPDF = async function(siteId, scope){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
@@ -2269,55 +2357,13 @@ window.exportSignedRams = async function(ramsId){
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
-    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-    const RED = PDFLib.rgb(0.784,0.063,0.180);
-    const INK = PDFLib.rgb(0.06,0.06,0.07);
-    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
-    const PAGE_W = 595.28, PAGE_H = 841.89;
-
-    let page, y;
-    function newSigPage(continued){
-      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - 60;
-      page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
-      y -= 8;
-      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
-      y -= 26;
-      if(!continued){
-        page.drawText(doc.name, {x:50, y, size:12, font:bold, color:INK});
-        y -= 22;
-      }
-    }
-    newSigPage(false);
-    for(const s of sigs){
-      if(y < 90) newSigPage(true);
-      const name = nameOf(s.user_id);
-      const when = new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      page.drawText(name, {x:50, y, size:11, font:reg, color:INK});
-      page.drawText(when, {x:330, y, size:10, font:reg, color:SLATE});
-      y -= 6;
-      if(s.signature_image_path){
-        try{
-          const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.signature_image_path));
-          if(bytes){
-            let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
-            const dim = img.scale(1);
-            const boxH = 34, boxW = 120;
-            const s2 = Math.min(boxW/dim.width, boxH/dim.height);
-            const w = dim.width*s2, h = dim.height*s2;
-            page.drawImage(img, {x:50, y:y-boxH, width:w, height:h});
-          }
-        }catch(e){ /* fall back to name-only if the signature image can't be embedded */ }
-        y -= 44;
-      } else {
-        y -= 10;
-      }
-      y -= 6;
-    }
-    y -= 14;
-    if(y < 60) newSigPage(true);
-    page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:50, y, size:8.5, font:reg, color:SLATE});
+    const disclaimer = `I have read and understood the contents of this RAMS document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
+    const signers = sigs.map(s=>({
+      name: nameOf(s.user_id),
+      when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      imagePath: s.signature_image_path,
+    }));
+    await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
 
     const outBytes = await pdfDoc.save();
     const blob = new Blob([outBytes], {type:'application/pdf'});
@@ -2504,55 +2550,13 @@ window.exportSignedToolboxTalk = async function(tbtId){
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', talk.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
-    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-    const RED = PDFLib.rgb(0.784,0.063,0.180);
-    const INK = PDFLib.rgb(0.06,0.06,0.07);
-    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
-    const PAGE_W = 595.28, PAGE_H = 841.89;
-
-    let page, y;
-    function newSigPage(continued){
-      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-      y = PAGE_H - 60;
-      page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
-      y -= 8;
-      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
-      y -= 26;
-      if(!continued){
-        page.drawText(talk.title, {x:50, y, size:12, font:bold, color:INK});
-        y -= 22;
-      }
-    }
-    newSigPage(false);
-    for(const s of sigs){
-      if(y < 90) newSigPage(true);
-      const name = nameOf(s.user_id);
-      const when = new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      page.drawText(name, {x:50, y, size:11, font:reg, color:INK});
-      page.drawText(when, {x:330, y, size:10, font:reg, color:SLATE});
-      y -= 6;
-      if(s.signature_image_path){
-        try{
-          const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.signature_image_path));
-          if(bytes){
-            let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
-            const dim = img.scale(1);
-            const boxH = 34, boxW = 120;
-            const s2 = Math.min(boxW/dim.width, boxH/dim.height);
-            const w = dim.width*s2, h = dim.height*s2;
-            page.drawImage(img, {x:50, y:y-boxH, width:w, height:h});
-          }
-        }catch(e){ /* fall back to name-only if the signature image can't be embedded */ }
-        y -= 44;
-      } else {
-        y -= 10;
-      }
-      y -= 6;
-    }
-    y -= 14;
-    if(y < 60) newSigPage(true);
-    page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:50, y, size:8.5, font:reg, color:SLATE});
+    const disclaimer = `I have read and understood the contents of this Toolbox Talk (${talk.title}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
+    const signers = sigs.map(s=>({
+      name: nameOf(s.user_id),
+      when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      imagePath: s.signature_image_path,
+    }));
+    await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers});
 
     const outBytes = await pdfDoc.save();
     const blob = new Blob([outBytes], {type:'application/pdf'});
