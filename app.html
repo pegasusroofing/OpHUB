@@ -45,13 +45,23 @@
     display:flex;flex-direction:column;
     box-shadow:0 0 40px rgba(0,0,0,0.08);
   }
+  /* Same app, same layout, same everything below this width — this only
+     changes how it's FRAMED on a wide desktop browser window, so it reads as
+     an intentional webpage rather than a phone screen stretched into a void.
+     Nothing inside #app is touched, so behavior is identical either way. */
+  @media (min-width:760px){
+    body{display:flex;align-items:center;justify-content:center;min-height:100vh;
+      background:linear-gradient(160deg,#E9EEF5 0%,#EFEDE6 55%,#EDE8DD 100%);}
+    #app{height:92vh;max-height:900px;min-height:0;border-radius:22px;overflow:hidden;
+      box-shadow:0 30px 80px -20px rgba(16,17,20,.35);}
+  }
   .stripe-edge{height:7px;width:100%;flex:0 0 auto;
     background:repeating-linear-gradient(-45deg,var(--brand1) 0 5px,var(--brand2) 5px 10px);}
 
   .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:15px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
-  .brandmark{width:72px;height:72px;border-radius:18px;object-fit:cover;background:#fff;flex:0 0 72px;}
+  .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
   .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
@@ -69,7 +79,7 @@
     font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
   }
   .primarybtn{background:var(--brand1);color:#fff;}
-  .exportbtn{padding:6.5px;font-size:6.75px;}
+  .exportbtn{padding:8.125px;font-size:8.4375px;}
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
@@ -102,12 +112,16 @@
   .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
     background:linear-gradient(135deg,var(--brand1),var(--brand2));display:flex;align-items:center;justify-content:center;
     color:#fff;font-weight:800;font-size:15px;}
+  .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
   .sitecard .info{flex:1;min-width:0;}
   .sitecard .info .name{font-weight:800;font-size:14.5px;}
   .sitecard .info .addr{font-size:12px;color:var(--slate);margin-top:1px;}
   .sitecard .status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
     padding:3px 8px;border-radius:999px;flex:0 0 auto;}
   .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
+  .sitecard .status.closed{background:var(--line);color:var(--slate);}
+  .closedtoggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
+  .closedtoggle .arrow{font-size:10px;}
 
   .status-strip{display:flex;align-items:center;justify-content:space-between;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
@@ -960,22 +974,35 @@ window.deleteCompany = async function(orgId, name){
 };
 
 /* ================= SITES LIST ================= */
+let showClosedSites = false;
+function siteCardHtml(s, canAdd){
+  return `
+    <div class="sitecard" onclick="go('#/site/${s.id}/home')">
+      <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+      <div class="info">
+        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="addr">${escapeHtml(s.address||'—')}</div>
+      </div>
+      <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
+      ${canAdd ? `<div class="taskicon" style="margin-left:8px;" title="${s.status==='closed'?'Reopen job':'Close job'}" onclick="event.stopPropagation();toggleSiteStatus('${s.id}','${s.status==='closed'?'active':'closed'}')">${s.status==='closed'?'↩':'📦'}</div>` : ''}
+      ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">🗑</div>` : ''}
+    </div>
+  `;
+}
 async function renderSites(){
   const app = document.getElementById('app');
   const canAdd = isManager(ME);
+  const activeSites = SITES.filter(s=>s.status!=='closed');
+  const closedSites = SITES.filter(s=>s.status==='closed');
   app.innerHTML = shell(`
     <p class="sectiontitle">Your Sites</p>
-    ${SITES.map(s=>`
-      <div class="sitecard" onclick="go('#/site/${s.id}/home')">
-        <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info">
-          <div class="name">${escapeHtml(s.name)}</div>
-          <div class="addr">${escapeHtml(s.address||'—')}</div>
-        </div>
-        <span class="status active">${escapeHtml(s.status)}</span>
-        ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">🗑</div>` : ''}
-      </div>
-    `).join('') || `<div class="empty">No sites yet.</div>`}
+    ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">No active sites.</div>`}
+    ${closedSites.length ? `
+      <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="showClosedSites=!showClosedSites;render()">
+        <span class="arrow">${showClosedSites?'▼':'▶'}</span> Closed Jobs (${closedSites.length})
+      </p>
+      ${showClosedSites ? closedSites.map(s=>siteCardHtml(s,canAdd)).join('') : ''}
+    ` : ''}
     ${canAdd ? `
       <div class="card" style="margin-top:6px;">
         <p class="sectiontitle" style="margin-top:0;">Add a site</p>
@@ -991,6 +1018,15 @@ async function renderSites(){
     </p>
   `, {title:'Choose Site', tabs:false, centerHeader:true});
 }
+window.toggleSiteStatus = async function(siteId, newStatus){
+  const row = await dbUpdate('sites', siteId, {status:newStatus});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(newStatus==='closed' ? 'Job closed' : 'Job reopened');
+    render();
+  }
+};
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
@@ -1085,7 +1121,7 @@ async function renderTeam(){
     <p class="sectiontitle">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
       <div class="sitecard">
-        <div class="swatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
       </div>
     `).join('') || `<div class="empty">No other admins yet.</div>`}
@@ -1093,7 +1129,7 @@ async function renderTeam(){
     <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
     ${people.filter(p=>p.role==='pm').map(p=>`
       <div class="sitecard">
-        <div class="swatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>` : ''}
       </div>
@@ -1102,7 +1138,7 @@ async function renderTeam(){
     <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
     ${people.filter(p=>p.role==='operative').map(p=>`
       <div class="sitecard">
-        <div class="swatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>
       </div>
@@ -1324,7 +1360,7 @@ async function renderAssignTeam(siteId){
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
       <div class="sitecard">
-        <div class="swatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
           ${assignedIds.has(p.id) ? 'Assigned ✓' : 'Assign'}
@@ -1462,7 +1498,7 @@ let scheduleFilter = 'all';
 async function renderSchedule(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
-  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=created_at.asc');
+  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
   const tasks = scheduleFilter==='all' ? allTasks : allTasks.filter(t=>t.status===scheduleFilter);
   let photosByTask = {};
   if(allTasks.length){
@@ -1540,10 +1576,20 @@ window.setTaskStatus = async function(siteId, taskId, next){
   const row = await dbUpdate('schedule_tasks', taskId, {status:next});
   if(row) render();
 };
+// Kept separate from created_at deliberately -- created_at ties (e.g. from a
+// bulk Excel import) have no reliable scan order, and an UPDATE (like
+// marking a task in-progress) can shuffle rows tied on created_at. Position
+// is set once here and never touched again, so the list order stays locked
+// to upload/add order regardless of status changes.
+async function nextTaskPosition(siteId){
+  const rows = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=position&order=position.desc.nullslast&limit=1');
+  return ((rows[0] && rows[0].position) || 0) + 1;
+}
 window.addTask = async function(siteId){
   const input = document.getElementById('newTaskName');
   const name = input.value.trim(); if(!name) return;
-  const rows = await dbInsert('schedule_tasks', {site_id:siteId, name, status:'todo'});
+  const position = await nextTaskPosition(siteId);
+  const rows = await dbInsert('schedule_tasks', {site_id:siteId, name, status:'todo', position});
   if(rows){ toast('Task added'); render(); }
 };
 window.saveTaskEdit = async function(siteId, taskId){
@@ -1595,7 +1641,8 @@ window.importScheduleExcel = async function(input, siteId){
     const rows = XLSX.utils.sheet_to_json(ws, {header:1});
     const names = rows.slice(1).map(r=>r[0]).filter(v=>v!=null && String(v).trim()!=='');
     if(!names.length){ toast('No task names found in column A.'); return; }
-    const newRows = names.map(n=>({site_id:siteId, name:String(n).trim(), status:'todo'}));
+    const startPos = await nextTaskPosition(siteId);
+    const newRows = names.map((n,i)=>({site_id:siteId, name:String(n).trim(), status:'todo', position:startPos+i}));
     const inserted = await dbInsert('schedule_tasks', newRows);
     if(inserted){ toast(`${names.length} task(s) imported`); render(); }
   }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
@@ -2188,7 +2235,10 @@ async function renderMessages(siteId){
   const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
   const msgRow = m => `
     <div class="card" style="padding:10px 12px;margin-bottom:8px;">
-      <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+        <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
+        ${mgr ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
+      </div>
       <div style="font-size:13.5px;">${escapeHtml(m.body)}</div>
     </div>`;
 
@@ -2215,6 +2265,11 @@ async function renderMessages(siteId){
     `}
   `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'});
 }
+window.deleteMessage = async function(siteId, messageId){
+  if(!confirm('Delete this message? This can\'t be undone.')) return;
+  const ok = await dbDelete('messages', messageId);
+  if(ok){ toast('Message deleted'); render(); }
+};
 window.sendBroadcast = async function(siteId){
   const bodyInput = document.getElementById('msgBody');
   const body = bodyInput.value.trim();
