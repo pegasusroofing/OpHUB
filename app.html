@@ -1206,7 +1206,9 @@ window.saveSignaturePad = async function(){
 
 /* ================= MANAGE TEAM (admin/PM grant, revoke, and remove team members) ================= */
 let newInviteLink = null;
+let newInviteId = null;
 let invitesBusy = false;
+let inviteEmailBusy = false;
 async function renderTeam(){
   await loadAllProfiles();
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
@@ -1269,6 +1271,10 @@ async function renderTeam(){
         <p class="stub" style="margin:0 0 8px;">Share this link — it works once, for the next 14 days:</p>
         <input type="text" readonly value="${escapeHtml(newInviteLink)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
         <button class="ghostbtn" onclick="copyInviteLink()">Copy Link</button>
+        <p class="sectiontitle" style="margin-top:16px;">Or email it to them</p>
+        <p class="stub" style="margin:0 0 8px;">We'll send a nicely branded invite email with a button that takes them straight to sign-up.</p>
+        <div class="formfield"><input type="email" id="inviteEmailInput" placeholder="operative@example.com"></div>
+        <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
       ` : `
         <button class="darkbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate Invite Link'}</button>
         <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative. Only the OpHUB platform admin can change someone's role.</p>
@@ -1277,7 +1283,7 @@ async function renderTeam(){
         <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
         ${pendingInvites.map(i=>`
           <div class="sitecard" style="padding:8px 10px;">
-            <div class="info"><div class="addr">Created ${new Date(i.created_at).toLocaleDateString('en-GB')} · expires ${new Date(i.expires_at).toLocaleDateString('en-GB')}</div></div>
+            <div class="info">${i.email ? `<div class="name">${escapeHtml(i.email)}</div>` : ''}<div class="addr">Created ${new Date(i.created_at).toLocaleDateString('en-GB')} · expires ${new Date(i.expires_at).toLocaleDateString('en-GB')}</div></div>
             <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="revokeInvite('${i.id}')">Revoke</button>
           </div>
         `).join('')}
@@ -1512,6 +1518,7 @@ window.generateInvite = async function(){
   const rows = await dbInsert('invites', {org_id: ME.org_id, role:'operative', created_by: ME.id});
   invitesBusy = false;
   if(rows && rows[0]){
+    newInviteId = rows[0].id;
     newInviteLink = location.origin + location.pathname + '#/join/' + rows[0].id;
     toast('Invite link created');
   }
@@ -1522,10 +1529,25 @@ window.copyInviteLink = async function(){
   try{ await navigator.clipboard.writeText(newInviteLink); toast('Link copied'); }
   catch(e){ toast('Could not copy — select and copy the link manually.'); }
 };
+window.sendInviteEmail = async function(){
+  if(!newInviteId){ toast('Generate an invite link first.'); return; }
+  const input = document.getElementById('inviteEmailInput');
+  const email = input ? input.value.trim() : '';
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  inviteEmailBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/send-invite-email', {method:'POST', body: JSON.stringify({invite_id: newInviteId, email})});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || data.error){ toast(data.error || 'Could not send the invite email.'); }
+    else { toast('Invite email sent to '+email); }
+  }catch(e){ toast('Could not send the invite email.'); }
+  inviteEmailBusy = false;
+  render();
+};
 window.revokeInvite = async function(inviteId){
   if(!confirm('Revoke this invite link?')) return;
   const ok = await dbDelete('invites', inviteId);
-  if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)) newInviteLink=null; render(); }
+  if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)){ newInviteLink=null; newInviteId=null; } render(); }
 };
 
 /* ================= SITE HOME ================= */
