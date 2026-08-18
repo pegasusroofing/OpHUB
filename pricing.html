@@ -66,6 +66,12 @@
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
   let tier = null;
+  // Lets the homepage's pricing cards deep-link straight to a plan, e.g.
+  // pricing.html?tier=growth, instead of landing here with nothing chosen.
+  (function preselectFromQuery(){
+    const t = new URLSearchParams(location.search).get('tier');
+    if(t && document.querySelector(`.plan[data-tier="${t}"]`)) selectPlan(t);
+  })();
   function selectPlan(t){
     tier = t;
     document.querySelectorAll('.plan').forEach(el=>el.classList.toggle('selected', el.dataset.tier===t));

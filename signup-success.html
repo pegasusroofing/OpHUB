@@ -27,9 +27,8 @@
 <script>
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
-  // The app is hosted as the site's homepage (index.html), so a relative
-  // link to "/" plus the hash route lands on it correctly.
-  const APP_PAGE = '/';
+  // The app now lives at /app.html (index.html is the marketing homepage).
+  const APP_PAGE = '/app.html';
 
   const params = new URLSearchParams(location.search);
   const sessionId = params.get('session_id');
