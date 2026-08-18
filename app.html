@@ -1282,6 +1282,10 @@ async function renderSiteHome(siteId){
         <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
         ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/checklists')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📝</div>
+        <div class="lbl">Checklists</div><div class="sub">Toolbox talks & more</div>
+      </div>
       <div class="tile" onclick="go('#/site/${siteId}/messages')">
         <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
         <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
@@ -1390,6 +1394,7 @@ function renderMore(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/checklists')"><div class="icon" style="background:var(--blue-bg);color:var(--blue);">📝</div><div class="lbl">Checklists</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/rams')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">RAMS</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Needs</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/variations')"><div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div><div class="lbl">Variations</div></div>
@@ -2243,6 +2248,269 @@ window.deleteMaterial = async function(siteId, matId){
   if(ok){ toast('Material request deleted'); render(); }
 };
 
+/* ================= CHECKLISTS (bespoke inspection templates) =================
+   Phase 1 trial: a small fixed set of field types (text, textarea, choice,
+   checkbox, photo) driven entirely by JSON stored in inspection_templates.
+   Submitted checklists land in `inspections` (a snapshot of the template's
+   fields is stored alongside, so a later template edit never changes what a
+   past submission looked like). Export reuses the same pdf-lib branding
+   helpers (pdfHexToRgb / pdfFetchImageBytes) built for the snagging PDF. */
+let checklistFormState = null; // {template} while filling in a new checklist
+let checklistAnswers = {};     // choice-field values, keyed by field key
+let checklistPhotos = {};      // photo-field dataURL previews, keyed by field key
+async function renderChecklists(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+
+  if(checklistFormState){
+    return renderChecklistForm(siteId, site);
+  }
+
+  const [templates, subs] = await Promise.all([
+    dbSelect('inspection_templates', 'active=eq.true&order=name.asc'),
+    dbSelect('inspections', 'site_id=eq.'+siteId+'&order=submitted_at.desc'),
+  ]);
+  await loadAllProfiles();
+
+  document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">Start a checklist</p>
+    <div class="tilegrid" style="margin-bottom:6px;">
+      ${templates.map(t=>`
+        <div class="tile" onclick="startChecklist('${siteId}','${t.id}')">
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📝</div>
+          <div class="lbl" style="font-size:13px;">${escapeHtml(t.name)}</div>
+        </div>
+      `).join('') || `<div class="empty">No checklist templates available yet.</div>`}
+    </div>
+
+    <p class="sectiontitle" style="margin-top:18px;">Completed</p>
+    ${subs.map(s=>`
+      <div class="card" style="margin-bottom:10px;">
+        <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div class="title">${escapeHtml(s.template_name)}</div><div class="loc">${escapeHtml(nameOf(s.submitted_by))} · ${new Date(s.submitted_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+          ${isPM ? `<div class="taskicon danger" onclick="deleteChecklist('${siteId}','${s.id}')">🗑</div>` : ''}
+        </div>
+        <button class="ghostbtn" style="margin-top:10px;" onclick="exportInspectionPDF('${s.id}')">Export PDF</button>
+      </div>
+    `).join('') || `<div class="empty">No checklists completed yet.</div>`}
+  `, {title:'Checklists', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+function checklistFieldHtml(field){
+  const label = `<label class="field-label">${escapeHtml(field.label)}${field.required?' *':''}</label>`;
+  if(field.type==='text'){
+    return `<div class="formfield">${label}<input type="text" id="cf_${field.key}"></div>`;
+  }
+  if(field.type==='textarea'){
+    return `<div class="formfield">${label}<textarea id="cf_${field.key}"></textarea></div>`;
+  }
+  if(field.type==='checkbox'){
+    return `<div class="formfield" style="display:flex;align-items:center;gap:10px;"><input type="checkbox" id="cf_${field.key}" style="width:20px;height:20px;">${label}</div>`;
+  }
+  if(field.type==='choice'){
+    const current = checklistAnswers[field.key];
+    return `<div class="formfield">${label}
+      <div class="filterrow" style="margin:6px 0 0;">
+        ${(field.options||[]).map(opt=>`<div class="filterchip ${current===opt?'active':''}" onclick="checklistAnswers['${field.key}']='${opt.replace(/'/g,"\\'")}';render()">${escapeHtml(opt)}</div>`).join('')}
+      </div>
+    </div>`;
+  }
+  if(field.type==='photo'){
+    const preview = checklistPhotos[field.key];
+    return `<div class="formfield">${label}
+      <label class="photoupload" style="cursor:pointer;">
+        ${preview ? `<img src="${preview}">` : `<div style="font-size:20px;">📷</div>Tap to capture`}
+        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="checklistAddPhoto(this,'${field.key}')">
+      </label>
+    </div>`;
+  }
+  return '';
+}
+function renderChecklistForm(siteId, site){
+  const template = checklistFormState.template;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(template.name)}</p>
+      ${(template.fields||[]).map(checklistFieldHtml).join('')}
+      <button class="darkbtn" onclick="submitChecklist('${siteId}')">Submit Checklist</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="cancelChecklist()">Cancel</button>
+    </div>
+  `, {title:template.name, subtitle:site.name, back:`#/site/${siteId}/checklists`, siteId, activeTab:'more'});
+}
+window.startChecklist = async function(siteId, templateId){
+  const rows = await dbSelect('inspection_templates', 'id=eq.'+templateId+'&select=*');
+  const template = rows && rows[0];
+  if(!template){ toast('Could not load that template.'); return; }
+  checklistAnswers = {};
+  checklistPhotos = {};
+  checklistFormState = {template};
+  render();
+};
+window.cancelChecklist = function(){
+  checklistFormState = null;
+  checklistAnswers = {};
+  checklistPhotos = {};
+  render();
+};
+window.checklistAddPhoto = async function(input, key){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{ checklistPhotos[key] = await compressImage(file); render(); }
+  catch(e){ toast('Could not process photo.'); }
+};
+window.submitChecklist = async function(siteId){
+  const template = checklistFormState.template;
+  const answers = {};
+  for(const field of (template.fields||[])){
+    let value = null;
+    if(field.type==='text' || field.type==='textarea'){
+      const el = document.getElementById('cf_'+field.key);
+      value = el ? el.value.trim() : '';
+    } else if(field.type==='checkbox'){
+      const el = document.getElementById('cf_'+field.key);
+      value = el ? el.checked : false;
+    } else if(field.type==='choice'){
+      value = checklistAnswers[field.key] || '';
+    } else if(field.type==='photo'){
+      value = null; // filled in below once uploaded
+    }
+    if(field.required && field.type!=='photo' && field.type!=='checkbox' && !value){
+      toast('"'+field.label+'" is required.');
+      return;
+    }
+    answers[field.key] = value;
+  }
+  // Upload any captured photos.
+  for(const field of (template.fields||[])){
+    if(field.type==='photo' && checklistPhotos[field.key]){
+      const path = await uploadDataUrl('site-photos', siteId+'/inspections/'+uid()+'.jpg', checklistPhotos[field.key]);
+      answers[field.key] = path;
+    }
+  }
+  const rows = await dbInsert('inspections', {
+    site_id: siteId, org_id: ME.org_id, template_id: template.id,
+    template_name: template.name, template_fields: template.fields,
+    answers, submitted_by: ME.id,
+  });
+  if(rows){
+    checklistFormState = null;
+    checklistAnswers = {};
+    checklistPhotos = {};
+    toast('Checklist submitted');
+    render();
+  }
+};
+window.deleteChecklist = async function(siteId, inspectionId){
+  if(!confirm('Delete this checklist? This can\'t be undone.')) return;
+  const ok = await dbDelete('inspections', inspectionId);
+  if(ok){ toast('Checklist deleted'); render(); }
+};
+window.exportInspectionPDF = async function(inspectionId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const rows = await dbSelect('inspections', 'id=eq.'+inspectionId+'&select=*');
+  const insp = rows && rows[0];
+  if(!insp){ toast('Could not load that checklist.'); return; }
+  const site = SITES.find(s=>s.id===insp.site_id);
+  await loadAllProfiles();
+  toast('Building PDF…');
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const CARDBG = PDFLib.rgb(0.976,0.969,0.949);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 42;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('CHECKLIST', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(insp.template_name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText((site?site.name:'') + ' · ' + companyName, {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageNum, totalPages){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      page.drawText('Page ' + pageNum + ' of ' + totalPages, {x:PAGE_W-MARGIN-70, y:20, size:8, font:reg, color:SLATE});
+    }
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    newPage();
+    page.drawText('Submitted by '+nameOf(insp.submitted_by)+' · '+new Date(insp.submitted_at).toLocaleString('en-GB'), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+    y -= 26;
+
+    for(const field of (insp.template_fields||[])){
+      const value = insp.answers ? insp.answers[field.key] : null;
+      if(field.type==='photo'){
+        if(!value) continue;
+        const boxSize = 160;
+        if(y - (boxSize+30) < 60) newPage();
+        page.drawText(field.label, {x:MARGIN, y, size:10.5, font:bold, color:INK});
+        y -= 8;
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', value));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const s2 = boxSize/Math.max(dim.width, dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawRectangle({x:MARGIN, y:y-boxSize, width:boxSize, height:boxSize, color:CARDBG});
+            page.drawImage(img, {x:MARGIN+(boxSize-w)/2, y:y-boxSize+(boxSize-h)/2, width:w, height:h});
+          }
+        }catch(e){ /* skip photo if it fails to embed */ }
+        y -= (boxSize+22);
+        continue;
+      }
+      if(y - 30 < 60) newPage();
+      const displayValue = field.type==='checkbox' ? (value ? 'Yes' : 'No') : (value || '—');
+      page.drawText(field.label, {x:MARGIN, y, size:9, font:bold, color:SLATE});
+      y -= 14;
+      page.drawText(String(displayValue), {x:MARGIN, y, size:11.5, font:reg, color:INK});
+      y -= 22;
+    }
+
+    const pages = pdfDoc.getPages();
+    pages.forEach((p,idx)=>{ page = p; drawFooter(idx+1, pages.length); });
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = insp.template_name.replace(/[^a-z0-9]+/gi,'-') + '-' + new Date(insp.submitted_at).toISOString().slice(0,10) + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the PDF.');
+  }
+};
+
 /* ================= VARIATIONS ================= */
 let varDraft = null;
 let varFilter = 'live';
@@ -2416,6 +2684,7 @@ async function render(){
     if(page==='checkin') return renderCheckin(siteId);
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging') return renderSnagging(siteId);
+    if(page==='checklists') return renderChecklists(siteId);
     if(page==='rams') return renderRams(siteId);
     if(page==='materials') return renderMaterials(siteId);
     if(page==='messages') return renderMessages(siteId);
