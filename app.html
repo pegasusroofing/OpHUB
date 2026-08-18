@@ -180,6 +180,7 @@
   .statustag2{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;flex:0 0 auto;}
   .statustag2.open,.statustag2.live{background:var(--warn-bg);color:var(--warn);}
   .statustag2.closed{background:var(--ok-bg);color:var(--ok);}
+  .statustag2.pending{background:#EAE6DC;color:#6B6F76;}
   .snagthumb{width:100%;max-width:160px;border-radius:8px;margin-top:8px;display:block;}
   .filterrow{display:flex;gap:8px;margin-bottom:12px;}
   .filterchip{flex:1;text-align:center;padding:8px;border-radius:8px;border:1.5px solid var(--line);
@@ -211,6 +212,7 @@
   .merchantchip{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:4px 9px;
     font-weight:700;font-size:10.5px;}
   .merchantchip.pickable{cursor:pointer;}
+  .merchantchip.pickable.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
   .merchantchip.sent{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);}
 
   .varcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
@@ -2294,7 +2296,7 @@ async function renderHealthSafety(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [pendingRamsRows, liveTbt] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
-    dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&is_live=eq.true&select=id,title'),
+    dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
   ]);
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
@@ -2311,10 +2313,15 @@ async function renderHealthSafety(siteId){
 }
 
 /* ================= TOOLBOX TALKS =================
-   PMs upload a weekly PDF and "make it live" — operatives only ever see the
-   currently-live talk plus any they've personally already signed (enforced
-   in the RLS policy on toolbox_talks, not just hidden client-side). Signing
-   uses the same adopted signature as RAMS. */
+   PMs upload a weekly PDF as "Bank TBT", then tap "Issue for Signing" to make
+   it the one Live TBT — operatives only ever see the currently-live talk plus
+   any they've personally already signed (enforced in the RLS policy on
+   toolbox_talks, not just hidden client-side). Signing uses the same adopted
+   signature as RAMS, and once complete a PM can export a signed PDF just like
+   RAMS. */
+let tbtFilter = 'live'; // PM tab state: bank | live | completed
+const TBT_STATUS_LABEL = {bank:'BANK', live:'LIVE', completed:'COMPLETED'};
+const TBT_STATUS_CLASS = {bank:'pending', live:'open', completed:'closed'};
 async function renderToolboxTalks(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -2326,16 +2333,25 @@ async function renderToolboxTalks(siteId){
     const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id');
     sigs.forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; });
   }
+  const visibleTalks = isPM ? talks.filter(t=>t.status===tbtFilter) : talks;
   document.getElementById('app').innerHTML = shell(`
-    ${talks.map(t=>`
+    ${isPM ? `
+    <div class="filterrow">
+      <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';render()">Bank TBT</div>
+      <div class="filterchip ${tbtFilter==='live'?'active':''}" onclick="tbtFilter='live';render()">Live TBT</div>
+      <div class="filterchip ${tbtFilter==='completed'?'active':''}" onclick="tbtFilter='completed';render()">Completed TBT</div>
+    </div>
+    ` : ''}
+
+    ${visibleTalks.map(t=>`
       <div class="card" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/hs/tbt/${t.id}')">
         <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <span class="statustag2 ${t.is_live?'open':'closed'}">${t.is_live?'LIVE':'Archived'}</span>
+          <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
         </div>
         ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
       </div>
-    `).join('') || `<div class="empty">No toolbox talks yet.</div>`}
+    `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
 
     ${isPM ? `
     <div class="card">
@@ -2346,7 +2362,7 @@ async function renderToolboxTalks(siteId){
       </label>
       <p class="stub" id="tbtFileName" style="margin:-4px 0 10px;"></p>
       <button class="darkbtn" onclick="addToolboxTalk('${siteId}')">Upload</button>
-      <p class="stub">New uploads aren't visible to operatives until you tap "Make Live" on them.</p>
+      <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
     </div>
     ` : ''}
   `, {title:'Toolbox Talks', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
@@ -2359,8 +2375,8 @@ window.addToolboxTalk = async function(siteId){
   const path = siteId+'/tbt/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
-  const rows = await dbInsert('toolbox_talks', {site_id:siteId, org_id:ME.org_id, title, storage_path:stored, is_live:false, created_by:ME.id});
-  if(rows){ toast('Toolbox talk uploaded — tap it to make it live'); render(); }
+  const rows = await dbInsert('toolbox_talks', {site_id:siteId, org_id:ME.org_id, title, storage_path:stored, status:'bank', created_by:ME.id});
+  if(rows){ tbtFilter='bank'; toast('Toolbox talk uploaded to Bank TBT'); render(); }
 };
 async function renderToolboxTalkView(siteId, tbtId){
   const site = SITES.find(s=>s.id===siteId);
@@ -2371,22 +2387,25 @@ async function renderToolboxTalkView(siteId, tbtId){
   const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&order=signed_at.asc');
   await loadAllProfiles();
   const mine = sigs.find(s=>s.user_id===ME.id);
+  const isLive = talk.status==='live';
 
   document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <p class="sectiontitle" style="margin-top:0;">${escapeHtml(talk.title)}</p>
-        <span class="statustag2 ${talk.is_live?'open':'closed'}">${talk.is_live?'LIVE':'Archived'}</span>
+        <span class="statustag2 ${TBT_STATUS_CLASS[talk.status]||'closed'}">${TBT_STATUS_LABEL[talk.status]||talk.status}</span>
       </div>
       <a class="viewlink" href="${publicUrl('rams-docs', talk.storage_path)}" target="_blank" rel="noopener">View document ↗</a>
-      <div class="siglinebox ${mine?'signed':''}" style="margin-top:14px;${mine||!talk.is_live?'':'cursor:pointer;'}" onclick="${mine||!talk.is_live?'':`signToolboxTalk('${siteId}','${tbtId}')`}">
-        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (talk.is_live ? 'Tap to sign' : 'No longer live — can\'t sign')}
+      <div class="siglinebox ${mine?'signed':''}" style="margin-top:14px;${mine||!isLive?'':'cursor:pointer;'}" onclick="${mine||!isLive?'':`signToolboxTalk('${siteId}','${tbtId}')`}">
+        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (isLive ? 'Tap to sign' : 'Not live — can\'t sign')}
       </div>
     </div>
     ${isPM ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Manager controls</p>
-      ${talk.is_live ? `<button class="ghostbtn" onclick="setToolboxTalkLive('${siteId}','${tbtId}',false)">Take off live</button>` : `<button class="darkbtn" onclick="setToolboxTalkLive('${siteId}','${tbtId}',true)">Make Live</button>`}
+      ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
+      ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Completed TBT</button>` : ''}
+      ${sigs.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export PDF with all signatures</button>` : ''}
       <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${talk.storage_path.replace(/'/g,"\\'")}')">Delete</button>
       <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
@@ -2403,15 +2422,19 @@ window.signToolboxTalk = async function(siteId, tbtId){
   const rows = await dbInsert('toolbox_talk_signatures', {tbt_id:tbtId, user_id:ME.id, signature_image_path:ME.signature_path});
   if(rows){ toast('Signed'); render(); }
 };
-window.setToolboxTalkLive = async function(siteId, tbtId, makeLive){
-  if(makeLive){
-    // Only one toolbox talk is ever "live" per site at a time — take every
-    // other one off live first, then bring this one up.
-    const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&is_live=eq.true&select=id');
-    for(const o of others){ await dbUpdate('toolbox_talks', o.id, {is_live:false}); }
+window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
+  if(newStatus==='live'){
+    // Only one toolbox talk is ever "live" per site at a time — automatically
+    // mark any other live talk at this site as completed first.
+    const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id');
+    for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
   }
-  const row = await dbUpdate('toolbox_talks', tbtId, {is_live:makeLive});
-  if(row){ toast(makeLive ? 'Now live for operatives' : 'Taken off live'); render(); }
+  const row = await dbUpdate('toolbox_talks', tbtId, {status:newStatus});
+  if(row){
+    tbtFilter = newStatus;
+    toast(newStatus==='live' ? 'Issued for signing' : 'Marked as completed');
+    render();
+  }
 };
 window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
   if(!confirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
@@ -2419,10 +2442,88 @@ window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
   const ok = await dbDelete('toolbox_talks', tbtId);
   if(ok){ toast('Toolbox talk deleted'); go(`#/site/${siteId}/hs/tbt`); }
 };
+window.exportSignedToolboxTalk = async function(tbtId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building signed PDF…');
+  const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
+  const talk = rows[0];
+  if(!talk){ toast('Toolbox talk not found.'); return; }
+  const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&order=signed_at.asc');
+  if(!sigs.length){ toast('No signatures yet.'); return; }
+  try{
+    const srcBytes = await (await fetch(publicUrl('rams-docs', talk.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const RED = PDFLib.rgb(0.784,0.063,0.180);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+
+    let page, y;
+    function newSigPage(continued){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      y = PAGE_H - 60;
+      page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:50, y, size:18, font:bold, color:RED});
+      y -= 8;
+      page.drawLine({start:{x:50,y}, end:{x:PAGE_W-50,y}, thickness:1.5, color:INK});
+      y -= 26;
+      if(!continued){
+        page.drawText(talk.title, {x:50, y, size:12, font:bold, color:INK});
+        y -= 22;
+      }
+    }
+    newSigPage(false);
+    for(const s of sigs){
+      if(y < 90) newSigPage(true);
+      const name = nameOf(s.user_id);
+      const when = new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      page.drawText(name, {x:50, y, size:11, font:reg, color:INK});
+      page.drawText(when, {x:330, y, size:10, font:reg, color:SLATE});
+      y -= 6;
+      if(s.signature_image_path){
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.signature_image_path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+            const dim = img.scale(1);
+            const boxH = 34, boxW = 120;
+            const s2 = Math.min(boxW/dim.width, boxH/dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:50, y:y-boxH, width:w, height:h});
+          }
+        }catch(e){ /* fall back to name-only if the signature image can't be embedded */ }
+        y -= 44;
+      } else {
+        y -= 10;
+      }
+      y -= 6;
+    }
+    y -= 14;
+    if(y < 60) newSigPage(true);
+    page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:50, y, size:8.5, font:reg, color:SLATE});
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = talk.title.replace(/[^a-z0-9]+/gi,'-') + '-signed.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('Signed PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+  }
+};
 
 /* ================= MATERIALS ================= */
 let matFilter = 'live';
 let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
+let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -2460,7 +2561,8 @@ async function renderMaterials(siteId){
               <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
             </div>
           ` : `<div class="merchantrow">Send to:
-            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable" onclick="sendingMaterial={matId:'${m.id}',supplierId:'${s.id}',supplierName:'${escapeHtml(s.name).replace(/'/g,"\\'")}'};render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${materialSupplierChoice[m.id]===s.id?'active':''}" onclick="materialSupplierChoice['${m.id}']='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+            ${materialSupplierChoice[m.id] ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-left:auto;" onclick="beginSendMaterial('${m.id}')">Send Order</button>` : ''}
           </div>`
           ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
         ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
@@ -2519,6 +2621,15 @@ window.addMaterial = async function(siteId){
     toast('Request added'); render();
   }
 };
+window.beginSendMaterial = async function(matId){
+  const supplierId = materialSupplierChoice[matId];
+  if(!supplierId) return;
+  const rows = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=name');
+  const supplier = rows && rows[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  sendingMaterial = {matId, supplierId, supplierName: supplier.name};
+  render();
+};
 window.confirmSendMaterial = async function(siteId, matId){
   if(!sendingMaterial || sendingMaterial.matId !== matId) return;
   const supplierId = sendingMaterial.supplierId;
@@ -2532,6 +2643,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
   if(!row){ return; }
   sendingMaterial = null;
+  delete materialSupplierChoice[matId];
   toast('Order routed to '+supplier.name+' — emailing…');
   render();
   try{
