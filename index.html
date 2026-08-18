@@ -69,6 +69,8 @@
   .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
+  .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
+  .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
   .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:700;
     padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
@@ -135,13 +137,13 @@
   .pill.off{background:var(--line);color:var(--slate);}
   .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
   .tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:64px;}
+  .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:72px;}
   .tile-wide .icon{margin-bottom:0;}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
-    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:92px;position:relative;}
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:112px;position:relative;}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
-  .tile .lbl{font-size:12.5px;font-weight:800;line-height:1.2;}
-  .tile .sub{font-size:10.5px;color:var(--slate-light);}
+  .tile .lbl{font-size:18.75px;font-weight:800;line-height:1.2;}
+  .tile .sub{font-size:15.75px;color:var(--slate-light);}
   .tile .badge-count{position:absolute;top:10px;right:10px;background:var(--red);color:#fff;font-size:10px;
     font-weight:800;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;}
 
@@ -269,6 +271,23 @@ function toast(msg){
   host.innerHTML=''; host.appendChild(el);
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },3200);
 }
+window.viewImage = function(url){
+  let ov = document.getElementById('imgViewerOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'imgViewerOverlay';
+    ov.className = 'img-viewer-overlay';
+    ov.onclick = closeImageViewer;
+    ov.innerHTML = '<img id="imgViewerImg">';
+    document.body.appendChild(ov);
+  }
+  document.getElementById('imgViewerImg').src = url;
+  ov.style.display = 'flex';
+};
+window.closeImageViewer = function(){
+  const ov = document.getElementById('imgViewerOverlay');
+  if(ov) ov.style.display = 'none';
+};
 function compressImage(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -615,11 +634,13 @@ function shell(innerHtml, opts){
             <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
-          <div class="row" style="flex-direction:column;gap:8px;text-align:center;">
+          <div class="row" style="flex-direction:row;align-items:center;gap:15px;text-align:left;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
-            <div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
-            <h2>${opts.title||''}</h2>
-            ${ME ? `<span class="rolechip" style="margin:2px auto 0;">${roleLabel(ME.role)}</span>` : ''}
+            <div>
+              <div class="brandline" style="font-size:22.5px;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
+              <h2 style="font-size:27px;">${opts.title||''}</h2>
+              ${ME ? `<span class="rolechip" style="margin-top:2px;">${roleLabel(ME.role)}</span>` : ''}
+            </div>
           </div>
         ` : `
         <div class="row">
@@ -1432,7 +1453,7 @@ async function renderOneDriveFolderPicker(siteId){
     : 'No subfolders here.';
   document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
-    ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Up one level</button>` : ''}
+    ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Back a folder</button>` : ''}
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
@@ -1793,7 +1814,9 @@ async function renderSchedule(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
-  const tasks = scheduleFilter==='all' ? allTasks : allTasks.filter(t=>t.status===scheduleFilter);
+  const tasks = scheduleFilter==='all' ? allTasks
+    : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
+    : allTasks.filter(t=>t.status===scheduleFilter);
   let photosByTask = {};
   if(allTasks.length){
     const ids = allTasks.map(t=>t.id).join(',');
@@ -1803,11 +1826,11 @@ async function renderSchedule(siteId){
 
   document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
-      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
-      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress</div>
-      <div class="filterchip ${scheduleFilter==='done'?'active':''}" onclick="scheduleFilter='done';render()">Complete</div>
       <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
+      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
+      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
     </div>
+    ${allTasks.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
 
     ${tasks.map(t=>`
       <div class="task">
@@ -1829,7 +1852,7 @@ async function renderSchedule(siteId){
               ` : ''}
             </div>
           `}
-          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}">`).join('')}</div>` : ''}
+          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')">`).join('')}</div>` : ''}
           <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
             <input type="file" accept="image/*" capture="environment" style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
         </div>
@@ -1913,7 +1936,14 @@ window.taskPhoto = async function(input, siteId, taskId){
     if(rows){
       toast('Photo added');
       render();
-      syncPhotoToOneDrive(dataUrl, path.split('/').pop(), siteId);
+      const [existing, taskRows] = await Promise.all([
+        dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id'),
+        dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name&limit=1'),
+      ]);
+      const taskName = (taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo';
+      const photoNum = existing ? existing.length : 1;
+      const odFilename = taskName.replace(/[^a-z0-9 ]+/gi,'').trim()+' '+photoNum+'.jpg';
+      syncPhotoToOneDrive(dataUrl, odFilename, siteId);
     }
   }catch(e){ toast('Could not process photo.'); }
 };
@@ -2326,6 +2356,177 @@ window.exportSnaggingPDF = async function(siteId, scope){
     const a = document.createElement('a');
     a.href = url;
     a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-snagging-' + scope + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('PDF downloaded');
+  }catch(e){
+    console.error(e);
+    toast('Could not build the PDF.');
+  }
+};
+
+window.exportSchedulePDF = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
+  if(!allTasks.length){ toast('No tasks to export yet.'); return; }
+  let photosByTask = {};
+  const ids = allTasks.map(t=>t.id).join(',');
+  const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+  photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+  toast('Building PDF…');
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const CARDBG = PDFLib.rgb(0.976,0.969,0.949);
+    const OK = PDFLib.rgb(0.2,0.55,0.35);
+    const OKBG = PDFLib.rgb(0.90,0.95,0.91);
+    const PROG = PDFLib.rgb(0.16,0.40,0.70);
+    const PROGBG = PDFLib.rgb(0.87,0.92,0.98);
+    const TODO = PDFLib.rgb(0.38,0.39,0.44);
+    const TODOBG = PDFLib.rgb(0.90,0.90,0.92);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 42;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+    const todoTasks = allTasks.filter(t=>t.status==='todo');
+    const progTasks = allTasks.filter(t=>t.status==='progress');
+    const doneTasks = allTasks.filter(t=>t.status==='done');
+
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + ' · as of ' + new Date().toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageNum){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      page.drawText('Page ' + pageNum, {x:PAGE_W-MARGIN-40, y:20, size:8, font:reg, color:SLATE});
+    }
+    let pageNum = 0;
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pageNum++;
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    newPage();
+
+    // Summary strip on the first page only.
+    const chipW = 112, chipGap = 10, chipY = y - 34;
+    [
+      {label:'Total tasks', value:String(allTasks.length), bg:CARDBG, fg:INK},
+      {label:'To do', value:String(todoTasks.length), bg:TODOBG, fg:TODO},
+      {label:'In progress', value:String(progTasks.length), bg:PROGBG, fg:PROG},
+      {label:'Complete', value:String(doneTasks.length), bg:OKBG, fg:OK},
+    ].forEach((c,i)=>{
+      const x = MARGIN + i*(chipW+chipGap);
+      page.drawRectangle({x, y:chipY, width:chipW, height:44, color:c.bg});
+      page.drawText(c.value, {x:x+12, y:chipY+22, size:16, font:bold, color:c.fg});
+      page.drawText(c.label.toUpperCase(), {x:x+12, y:chipY+8, size:7, font:bold, color:c.fg, opacity:0.85});
+    });
+    // Overall progress bar.
+    y = chipY - 22;
+    const pct = allTasks.length ? Math.round((doneTasks.length/allTasks.length)*100) : 0;
+    const barW = PAGE_W - 2*MARGIN;
+    page.drawText('Overall progress: ' + pct + '%', {x:MARGIN, y, size:9, font:bold, color:INK});
+    y -= 10;
+    page.drawRectangle({x:MARGIN, y:y-8, width:barW, height:8, color:TODOBG});
+    page.drawRectangle({x:MARGIN, y:y-8, width:barW*(pct/100), height:8, color:OK});
+    y -= 28;
+
+    function sectionHeader(label, color){
+      if(y - 24 < 60) newPage();
+      page.drawText(label, {x:MARGIN, y, size:11.5, font:bold, color});
+      y -= 6;
+      page.drawLine({start:{x:MARGIN,y:y-2}, end:{x:PAGE_W-MARGIN,y:y-2}, thickness:1, color:FAINT});
+      y -= 16;
+    }
+
+    async function drawTaskRow(t, pillColor, pillBg){
+      const taskPhotos = photosByTask[t.id] || [];
+      const hasPhoto = taskPhotos.length>0;
+      const blockH = hasPhoto ? 88 : 42;
+      if(y - blockH < 60) newPage();
+      const cardTop = y;
+      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:PAGE_W-2*MARGIN, height:blockH, color:CARDBG});
+      const textLeft = MARGIN + 14;
+      const imgSlot = 76;
+      let ty = cardTop - 20;
+      const name = t.name.length>60 ? t.name.slice(0,57)+'…' : t.name;
+      page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
+      const pillW = 76;
+      page.drawRectangle({x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW, y:ty-3, width:pillW, height:15, color:pillBg});
+      const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
+      page.drawText(pillLabel, {x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW+8, y:ty+1, size:7.5, font:bold, color:pillColor});
+      if(hasPhoto){
+        ty -= 16;
+        page.drawText(taskPhotos.length + ' progress photo' + (taskPhotos.length===1?'':'s') + ' on file', {x:textLeft, y:ty, size:8.5, font:reg, color:SLATE});
+        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-imgSlot+8;
+        const imgY = cardTop-blockH+12;
+        const boxSize = 60;
+        try{
+          const latest = taskPhotos[taskPhotos.length-1];
+          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', latest.storage_path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const s2 = boxSize/Math.max(dim.width, dim.height);
+            const w = dim.width*s2, h = dim.height*s2;
+            page.drawImage(img, {x:imgX+(boxSize-w)/2, y:imgY+(boxSize-h)/2, width:w, height:h});
+          }
+        }catch(e){ /* skip photo if it fails to embed */ }
+      }
+      y = cardTop - blockH - 10;
+    }
+
+    if(todoTasks.length){
+      sectionHeader('TO DO (' + todoTasks.length + ')', TODO);
+      for(const t of todoTasks) await drawTaskRow(t, TODO, TODOBG);
+      y -= 6;
+    }
+    if(progTasks.length){
+      sectionHeader('IN PROGRESS (' + progTasks.length + ')', PROG);
+      for(const t of progTasks) await drawTaskRow(t, PROG, PROGBG);
+      y -= 6;
+    }
+    if(doneTasks.length){
+      sectionHeader('COMPLETE (' + doneTasks.length + ')', OK);
+      for(const t of doneTasks) await drawTaskRow(t, OK, OKBG);
+    }
+
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
+
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-schedule-of-works.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
