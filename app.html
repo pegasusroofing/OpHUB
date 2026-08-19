@@ -181,6 +181,7 @@
   .taskicon{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;
     display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;color:var(--slate);}
   .taskicon.danger{color:var(--brand1);}
+  .taskicon.lg{width:39px;height:39px;flex:0 0 39px;font-size:18px;border-radius:8px;}
   .taskeditrow{display:flex;gap:6px;margin-bottom:4px;}
   .taskeditrow input{flex:1;padding:7px 9px;font-size:13px;}
   .taskeditrow button{flex:0 0 auto;padding:7px 10px;font-size:11px;border-radius:6px;border:none;font-weight:800;}
@@ -3506,19 +3507,12 @@ async function renderDrawings(siteId, folderId){
         </div>
       `).join('')}
       ${files.map(f=>`
-        <div class="card" style="margin-bottom:10px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;">
-            <div class="swatch" style="flex:0 0 44px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-weight:500;font-size:14.5px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.35;">${escapeHtml(f.name)}</div>
-              <div class="addr" style="margin-top:2px;">Uploaded ${new Date(f.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <a class="ghostbtn" style="flex:1;text-align:center;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
-            ${canManage ? `<div class="taskicon" style="flex:0 0 auto;" onclick="renameDrawingFile('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">✏️</div>` : ''}
-            ${canManage ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
-          </div>
+        <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
+          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
+          <div style="flex:1;min-width:0;font-weight:500;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+          <a class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
+          ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">✏️</div>` : ''}
+          ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
