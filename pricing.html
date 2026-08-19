@@ -66,6 +66,7 @@
   .pricecard h3{font-size:17px;font-weight:800;}
   .pricecard .amt{font-size:38px;font-weight:800;margin-top:14px;}
   .pricecard .amt span{font-size:14px;font-weight:700;color:var(--slate);}
+  .pricecard .amt span.vat{font-size:10.5px;font-weight:700;color:var(--slate-light,var(--slate));}
   .pricecard .setupfee{font-size:12px;font-weight:700;color:var(--brand1);margin-top:4px;}
   .pricecard .desc{color:var(--slate);font-size:13px;margin-top:8px;line-height:1.5;min-height:40px;}
   .pricecard ul{list-style:none;margin:22px 0 0;padding:0;flex:1;}
@@ -130,12 +131,12 @@
     <div class="pricegrid">
       <div class="pricecard" data-tier="starter" onclick="selectPlan('starter')">
         <h3>OpHUB Basic</h3>
-        <div class="amt">£75<span>/mo</span></div>
+        <div class="amt">£75<span>/mo</span><span class="vat"> + VAT</span></div>
         <p class="setupfee">+ £250 one-off setup fee</p>
         <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
         <ul>
           <li>Up to 25 members of staff</li>
-          <li>Unlimited sites</li>
+          <li>Up to 10 live sites</li>
           <li>Schedule, RAMS, snagging & materials</li>
           <li>Team messaging & notifications</li>
           <li>Custom company branding & theme</li>
@@ -145,11 +146,12 @@
       <div class="pricecard featured" data-tier="growth" onclick="selectPlan('growth')">
         <span class="tag">Most popular</span>
         <h3>OpHUB Pro</h3>
-        <div class="amt">£125<span>/mo</span></div>
+        <div class="amt">£125<span>/mo</span><span class="vat"> + VAT</span></div>
         <p class="setupfee">+ £200 one-off setup fee</p>
         <p class="desc">For growing contractors running multiple sites at once.</p>
         <ul>
           <li>Up to 50 employees</li>
+          <li>Up to 150 live sites</li>
           <li>Everything in Basic</li>
           <li>GPS check-in & geofencing</li>
           <li>OneDrive photo sync</li>
@@ -158,11 +160,12 @@
       </div>
       <div class="pricecard" data-tier="enterprise" onclick="selectPlan('enterprise')">
         <h3>OpHUB Enterprise</h3>
-        <div class="amt">£200<span>/mo</span></div>
+        <div class="amt">£200<span>/mo</span><span class="vat"> + VAT</span></div>
         <p class="setupfee">+ £100 one-off setup fee</p>
         <p class="desc">For larger operations that need full oversight.</p>
         <ul>
           <li>Up to 150 employees</li>
+          <li>Up to 500 live sites</li>
           <li>Everything in Pro</li>
           <li>Priority support</li>
           <li>Dedicated onboarding & training</li>
@@ -218,9 +221,9 @@
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
   const PLAN_INFO = {
-    starter: { name: 'OpHUB Basic', price: '£75/mo', setupFee: '£250' },
-    growth: { name: 'OpHUB Pro', price: '£125/mo', setupFee: '£200' },
-    enterprise: { name: 'OpHUB Enterprise', price: '£200/mo', setupFee: '£100' },
+    starter: { name: 'OpHUB Basic', price: '£75/mo + VAT', setupFee: '£250 + VAT' },
+    growth: { name: 'OpHUB Pro', price: '£125/mo + VAT', setupFee: '£200 + VAT' },
+    enterprise: { name: 'OpHUB Enterprise', price: '£200/mo + VAT', setupFee: '£100 + VAT' },
   };
   let tier = null;
   function selectPlan(t){
