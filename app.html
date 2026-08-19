@@ -375,7 +375,40 @@ function startOfWeek(d){
   return dt.getTime();
 }
 
-/* ================= local persistence (session only — no raw passwords ever stored) ================= */
+/* ================= local persistence (session only — no raw passwords ever stored) =================
+   Keeps a signed-in user signed in across page reloads / app restarts, so
+   nobody has to log back in every time — only an explicit "Sign out" clears
+   this. Uses Capacitor's Preferences plugin (native storage that survives
+   app restarts) when running as the native app, and localStorage on the
+   plain website. */
+window.storage = {
+  async get(key, shared){
+    try{
+      if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences){
+        return await window.Capacitor.Plugins.Preferences.get({key});
+      }
+    }catch(e){ /* fall through to localStorage */ }
+    try{ return {value: localStorage.getItem(key)}; }catch(e){ return {value:null}; }
+  },
+  async set(key, value){
+    try{
+      if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences){
+        await window.Capacitor.Plugins.Preferences.set({key, value});
+        return true;
+      }
+    }catch(e){ /* fall through to localStorage */ }
+    try{ localStorage.setItem(key, value); return true; }catch(e){ return false; }
+  },
+  async delete(key){
+    try{
+      if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.Preferences){
+        await window.Capacitor.Plugins.Preferences.remove({key});
+        return true;
+      }
+    }catch(e){ /* fall through to localStorage */ }
+    try{ localStorage.removeItem(key); return true; }catch(e){ return false; }
+  }
+};
 async function sget(key, shared){ try{ const r=await window.storage.get(key,shared); return r?r.value:null; }catch(e){ return null; } }
 async function sset(key, value, shared){ try{ return await window.storage.set(key,value,shared);}catch(e){ console.error(e); return null; } }
 async function sdelete(key, shared){ try{ return await window.storage.delete(key, shared); }catch(e){ return null; } }
@@ -1074,6 +1107,26 @@ window.deleteCompany = async function(orgId, name){
 
 /* ================= SITES LIST ================= */
 let showClosedSites = false;
+// Everything (org theme/package, team, sites, responsible PMs, etc.) is
+// loaded once at sign-in and only patched locally when an action on this
+// device changes it — so a change made by someone else in Admin Centre
+// doesn't show up here until this device re-fetches it. This gives
+// operatives/PMs a manual "pull the latest" button rather than waiting on
+// their next full sign-in.
+let refreshingAppData = false;
+window.refreshAppData = async function(){
+  if(refreshingAppData) return;
+  refreshingAppData = true; render();
+  await loadProfile();
+  if(ME){
+    await loadOrg();
+    await loadAllProfiles();
+    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+  }
+  refreshingAppData = false;
+  toast('Up to date');
+  render();
+};
 function fullSiteAddress(s){
   return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
 }
@@ -1097,6 +1150,9 @@ async function renderSites(){
   const activeSites = SITES.filter(s=>s.status!=='closed');
   const closedSites = SITES.filter(s=>s.status==='closed');
   app.innerHTML = shell(`
+    <p style="text-align:center;margin:-8px 0 16px;">
+      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="refreshAppData()">${refreshingAppData?'Refreshing…':'⟳ Refresh — pull latest from Admin Centre'}</span>
+    </p>
     <p class="sectiontitle">Your Sites</p>
     ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">No active sites.</div>`}
     ${closedSites.length ? `
@@ -3443,16 +3499,24 @@ async function renderDrawings(siteId, folderId){
       ${subfolders.map(f=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
           <div class="swatch">📁</div>
-          <div class="info"><div class="name">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          <div class="info"><div class="name" style="font-weight:500;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
           ${canManage ? `<div class="taskicon danger" onclick="event.stopPropagation();deleteDrawingFolder('${f.id}')">🗑</div>` : ''}
         </div>
       `).join('')}
       ${files.map(f=>`
-        <div class="sitecard">
-          <div class="swatch">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
-          <div class="info"><div class="name">${escapeHtml(f.name)}</div><div class="addr">Uploaded ${new Date(f.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <a class="ghostbtn" style="width:auto;padding:8px 12px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
-          ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
+        <div class="card" style="margin-bottom:10px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;">
+            <div class="swatch" style="flex:0 0 44px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:500;font-size:14.5px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.35;">${escapeHtml(f.name)}</div>
+              <div class="addr" style="margin-top:2px;">Uploaded ${new Date(f.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <a class="ghostbtn" style="flex:1;text-align:center;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
+            ${canManage ? `<div class="taskicon" style="flex:0 0 auto;" onclick="renameDrawingFile('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">✏️</div>` : ''}
+            ${canManage ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
+          </div>
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
@@ -3516,6 +3580,16 @@ window.deleteDrawingFile = async function(fileId, storagePath){
     toast('Drawing deleted');
     render();
   }
+};
+// Renames just the display title — the underlying stored file/link is left
+// exactly where it is, so the PDF/image itself never moves.
+window.renameDrawingFile = async function(fileId, currentName){
+  const next = prompt('Rename drawing', currentName);
+  if(next==null) return;
+  const trimmed = next.trim();
+  if(!trimmed || trimmed===currentName) return;
+  const row = await dbUpdate('drawing_files', fileId, {name: trimmed});
+  if(row){ toast('Drawing renamed'); render(); }
 };
 
 /* ================= MESSAGES ================= */
