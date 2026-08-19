@@ -1794,31 +1794,88 @@ window.geoOptionManual = function(siteId){
   ov.innerHTML = `
     <div class="geo-modal-card">
       <h3>Input GPS Co-Ordinates</h3>
-      <p class="stub">Enter the site's latitude and longitude (e.g. from Google Maps — right-click a spot there and the co-ordinates copy straight in).</p>
-      <div class="formfield"><label class="field-label">Latitude</label><input type="text" inputmode="decimal" id="geoManualLat" placeholder="e.g. 51.50735" oninput="updateGeoMapLink()"></div>
-      <div class="formfield"><label class="field-label">Longitude</label><input type="text" inputmode="decimal" id="geoManualLon" placeholder="e.g. -0.12776" oninput="updateGeoMapLink()"></div>
-      <a id="geoManualMapLink" class="stub" style="display:none;margin:-6px 0 12px;color:var(--blue);" href="#" target="_blank" rel="noopener">Find this spot on the map ↗</a>
+      <p class="stub">Paste or type the site's latitude and longitude — plain decimal (51.51828) or Google's degrees/minutes/seconds format (51°31'05.8"N) both work. You can also paste a full pair straight from Google into the Latitude box and it'll split itself.</p>
+      <div class="formfield"><label class="field-label">Latitude</label><input type="text" id="geoManualLat" placeholder="e.g. 51.51828 or 51°31'05.8&quot;N" oninput="updateGeoMapLink()"></div>
+      <div class="formfield"><label class="field-label">Longitude</label><input type="text" id="geoManualLon" placeholder="e.g. -0.15139 or 0°09'05.0&quot;W" oninput="updateGeoMapLink()"></div>
+      <p id="geoManualPreview" class="stub" style="display:none;font-family:ui-monospace,Menlo,monospace;margin:-6px 0 6px;"></p>
+      <a id="geoManualMapLink" class="stub" style="display:none;margin:0 0 12px;color:var(--blue);" href="#" target="_blank" rel="noopener">Find this spot on the map ↗</a>
       <button class="darkbtn" style="width:100%;" onclick="saveManualGeo('${siteId}')">Save Location</button>
       <button class="geo-modal-cancel" onclick="openGeoOptions('${siteId}')">‹ Back</button>
     </div>`;
 };
+// Converts one co-ordinate token to decimal degrees. Accepts plain decimal
+// ("51.51828", "-0.15139"), decimal with a hemisphere letter ("0.15139 W"),
+// and degrees/minutes/seconds as copied straight out of Google Maps/Google
+// Search ("51°31'05.8"N", "0°09'05.0"W", also tolerates straight quotes,
+// curly quotes, "deg"/"min"/"sec" words, and missing seconds).
+function parseCoordToken(raw){
+  if(raw==null) return NaN;
+  let str = String(raw).trim();
+  if(!str) return NaN;
+  str = str.replace(/[’′]/g,"'").replace(/[”″]/g,'"');
+  // Plain decimal, optionally with a trailing/leading hemisphere letter.
+  let m = str.match(/^([NSEW])?\s*(-?\d+(?:\.\d+)?)\s*°?\s*([NSEW])?$/i);
+  if(m){
+    let val = parseFloat(m[2]);
+    const hem = (m[1]||m[3]||'').toUpperCase();
+    if(hem==='S'||hem==='W') val = -Math.abs(val);
+    else if(hem==='N'||hem==='E') val = Math.abs(val);
+    return val;
+  }
+  // Degrees° minutes' seconds" [hemisphere]
+  m = str.match(/^(-?\d+(?:\.\d+)?)\s*(?:°|deg)\s*(\d+(?:\.\d+)?)?\s*(?:'|min)?\s*(\d+(?:\.\d+)?)?\s*(?:"|sec)?\s*([NSEW])?$/i);
+  if(m && (m[2]!=null || m[4]!=null)){
+    const deg = parseFloat(m[1]);
+    const min = m[2]!=null ? parseFloat(m[2]) : 0;
+    const sec = m[3]!=null ? parseFloat(m[3]) : 0;
+    let val = Math.abs(deg) + min/60 + sec/3600;
+    const hem = (m[4]||'').toUpperCase();
+    if(hem==='S'||hem==='W' || deg<0) val = -val;
+    return val;
+  }
+  return NaN;
+}
+// If someone pastes a full "lat, lon" pair (either decimal or DMS) into a
+// single box, split it into the two halves so each can be parsed on its own.
+function splitCoordPair(str){
+  if(!str) return null;
+  const s = String(str).trim();
+  // DMS pair: two chunks each ending in a hemisphere letter.
+  const dmsMatches = s.match(/-?\d+(?:\.\d+)?\s*(?:°|deg)\s*\d*(?:\.\d+)?\s*(?:'|min)?\s*\d*(?:\.\d+)?\s*(?:"|sec)?\s*[NSEW]/gi);
+  if(dmsMatches && dmsMatches.length===2) return [dmsMatches[0].trim(), dmsMatches[1].trim()];
+  // Decimal pair separated by comma and/or whitespace, e.g. "51.51828, -0.15139".
+  const m = s.match(/^(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)$/);
+  if(m) return [m[1], m[2]];
+  return null;
+}
 window.updateGeoMapLink = function(){
-  const lat = parseFloat(document.getElementById('geoManualLat').value);
-  const lon = parseFloat(document.getElementById('geoManualLon').value);
+  const latEl = document.getElementById('geoManualLat');
+  const lonEl = document.getElementById('geoManualLon');
+  if(!latEl || !lonEl) return;
+  // Auto-split a full pair pasted into either single box.
+  const pastedInLat = splitCoordPair(latEl.value);
+  if(pastedInLat && !lonEl.value.trim()){ latEl.value = pastedInLat[0]; lonEl.value = pastedInLat[1]; }
+  else {
+    const pastedInLon = splitCoordPair(lonEl.value);
+    if(pastedInLon && !latEl.value.trim()){ latEl.value = pastedInLon[0]; lonEl.value = pastedInLon[1]; }
+  }
+  const lat = parseCoordToken(latEl.value);
+  const lon = parseCoordToken(lonEl.value);
   const link = document.getElementById('geoManualMapLink');
-  if(!link) return;
-  if(isFinite(lat) && isFinite(lon) && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
-    link.href = `https://www.google.com/maps?q=${lat},${lon}`;
-    link.style.display = 'block';
-  } else {
-    link.style.display = 'none';
+  const preview = document.getElementById('geoManualPreview');
+  const valid = isFinite(lat) && isFinite(lon) && lat>=-90 && lat<=90 && lon>=-180 && lon<=180;
+  if(link) link.style.display = valid ? 'block' : 'none';
+  if(valid) link.href = `https://www.google.com/maps?q=${lat},${lon}`;
+  if(preview){
+    if(valid){ preview.textContent = 'Interpreted as: '+lat.toFixed(5)+', '+lon.toFixed(5); preview.style.display='block'; }
+    else { preview.style.display = 'none'; }
   }
 };
 window.saveManualGeo = async function(siteId){
-  const lat = parseFloat(document.getElementById('geoManualLat').value);
-  const lon = parseFloat(document.getElementById('geoManualLon').value);
+  const lat = parseCoordToken(document.getElementById('geoManualLat').value);
+  const lon = parseCoordToken(document.getElementById('geoManualLon').value);
   if(!isFinite(lat) || !isFinite(lon) || lat<-90 || lat>90 || lon<-180 || lon>180){
-    toast('Enter a valid latitude (-90 to 90) and longitude (-180 to 180).');
+    toast('Could not read that as a co-ordinate — use decimal (51.51828) or degrees/minutes/seconds (51°31\'05.8"N).');
     return;
   }
   closeGeoModal();
