@@ -265,6 +265,18 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 /* ================= generic helpers ================= */
 function uid(){ return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,9); }
+// A per-install identifier persisted in localStorage — survives app
+// restarts and browser sessions, but resets if someone clears site data or
+// reinstalls the app. Good enough to stop casual "log in as me on your
+// phone" sharing without needing a native device-ID plugin.
+function getDeviceId(){
+  let id = localStorage.getItem('ophub_device_id');
+  if(!id){
+    id = 'dev_'+Date.now()+'_'+Math.random().toString(36).slice(2,12);
+    try{ localStorage.setItem('ophub_device_id', id); }catch(e){ /* private browsing etc — non-fatal */ }
+  }
+  return id;
+}
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(msg){
   const host=document.getElementById('toastHost');
@@ -474,6 +486,18 @@ async function signIn(email, password){
   SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
   await setJSON(K_SESSION, SESSION, false);
   return {ok:true};
+}
+// One phone/browser profile = one operative. The first operative to sign
+// in on a device locks it to them (via the check_and_lock_device DB
+// function); anyone else signing in as a different operative on that same
+// device gets blocked, closing the "use my mate's phone to check in" gap.
+// PMs/admins are exempt — see the role check at the call site.
+async function checkDeviceLock(){
+  try{
+    const res = await sbFetch('/rest/v1/rpc/check_and_lock_device', {method:'POST', body: JSON.stringify({p_device_id: getDeviceId()})});
+    if(!res.ok) return {ok:false, error:'request_failed'};
+    return await res.json();
+  }catch(e){ return {ok:false, error:'request_failed'}; }
 }
 window.doSignOut = async function(){
   try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
@@ -728,6 +752,16 @@ window.doSignIn = async function(){
     return;
   }
   if(ME.role==='superadmin'){ go('#/'); return; }
+  if(ME.role==='operative'){
+    const lock = await checkDeviceLock();
+    if(!lock.ok){
+      authError = lock.error==='device_locked'
+        ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your admin to unlock it in Admin Centre if this is wrong.`
+        : 'Could not verify this device — check your connection and try again.';
+      await doSignOut();
+      return;
+    }
+  }
   await loadOrg();
   await loadAllProfiles();
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
@@ -1216,6 +1250,7 @@ async function renderTeam(){
   const iAmAdmin = ME.role==='admin';
   const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
+  const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
     <p class="sectiontitle">Company Theme</p>
@@ -1263,6 +1298,16 @@ async function renderTeam(){
       </label>
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
+    </div>
+    <p class="sectiontitle">Device Locks (one phone = one operative)</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
+      ${deviceLocks.length ? deviceLocks.map(d=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
+        </div>
+      `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
     ` : ''}
     <p class="sectiontitle">Invite a Team Member</p>
@@ -1549,6 +1594,12 @@ window.revokeInvite = async function(inviteId){
   const ok = await dbDelete('invites', inviteId);
   if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)){ newInviteLink=null; newInviteId=null; } render(); }
 };
+window.unlockDevice = async function(deviceId){
+  if(!confirm('Unlock this device? Whoever next signs in on it will lock it to themselves.')) return;
+  const res = await sbFetch('/rest/v1/device_locks?device_id=eq.'+encodeURIComponent(deviceId), {method:'DELETE'});
+  if(res.ok){ toast('Device unlocked'); render(); }
+  else{ toast('Could not unlock — '+(await safeErr(res))); }
+};
 
 /* ================= SITE HOME ================= */
 async function renderSiteHome(siteId){
@@ -1595,16 +1646,16 @@ async function renderSiteHome(siteId){
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-        <div class="lbl">Material Needs</div><div class="sub">${pendingMat.length} pending</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/variations')">
-        <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
-        <div class="lbl">Variations</div><div class="sub">Raise new</div>
+        <div class="lbl">Material Requests</div><div class="sub">${pendingMat.length} pending</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/snagging')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
-        <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
+        <div class="lbl">Snagging / Variations</div><div class="sub">${openSnags.length} open</div>
         ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/drawings')">
+        <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
+        <div class="lbl">Drawings</div><div class="sub">View &amp; upload</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/messages')">
         <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
@@ -1726,10 +1777,10 @@ function renderMore(siteId){
   const site = SITES.find(s=>s.id===siteId);
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging / Variations</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Needs</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/variations')"><div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div><div class="lbl">Variations</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
     </div>
   `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
 }
@@ -2080,6 +2131,27 @@ window.confirmPdfImport = async function(siteId){
   }
 };
 
+/* ================= SNAGGING / VARIATIONS (folder: Snagging + Variations) ================= */
+async function renderSnaggingFolder(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [openSnags, liveVariations] = await Promise.all([
+    dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
+    dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
+  ]);
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid">
+      <div class="tile" onclick="go('#/site/${siteId}/snagging/list')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+        <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging/variations')">
+        <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
+        <div class="lbl">Variations</div><div class="sub">${liveVariations.length} live</div>
+      </div>
+    </div>
+  `, {title:'Snagging / Variations', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+
 /* ================= SNAGGING ================= */
 let snagFilter = 'live';
 let snagNewPhoto = null;
@@ -2159,7 +2231,7 @@ async function renderSnagging(siteId){
     <button class="ghostbtn exportbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
     <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
     <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
-  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.snagAddPhoto = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -3056,7 +3128,7 @@ async function renderMaterials(siteId){
       <button class="ghostbtn" onclick="addSupplier('${siteId}')">Add Supplier</button>
     </div>
     ` : ''}
-  `, {title:'Material Needs', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
+  `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
 }
 window.addSupplier = async function(siteId){
   const name = document.getElementById('supName').value.trim();
@@ -3182,7 +3254,7 @@ async function renderVariations(siteId){
         ${isManager(ME) && v.status==='live' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No ${varFilter} variations.</div>`}
-  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.varPhoto = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -3204,6 +3276,90 @@ window.submitVariation = async function(siteId){
 window.closeVariation = async function(siteId, varId){
   const row = await dbUpdate('variations', varId, {status:'closed', closed_at:new Date().toISOString()});
   if(row){ toast('Variation closed'); render(); }
+};
+
+/* ================= DRAWINGS (PM/admin-managed folders of PDF drawings, per site) ================= */
+async function renderDrawings(siteId, folderId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  let currentFolder = null;
+  if(folderId){
+    const rows = await dbSelect('drawing_folders', 'id=eq.'+folderId+'&select=*');
+    currentFolder = rows[0] || null;
+    if(!currentFolder){ go(`#/site/${siteId}/drawings`); return; }
+  }
+  const [subfolders, files] = await Promise.all([
+    dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=name.asc'),
+    dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=name.asc'),
+  ]);
+  const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : `#/site/${siteId}/drawings`) : `#/site/${siteId}/home`;
+
+  document.getElementById('app').innerHTML = shell(`
+    ${subfolders.length || files.length ? `
+      ${subfolders.map(f=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
+          <div class="swatch">📁</div>
+          <div class="info"><div class="name">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          ${canManage ? `<div class="taskicon danger" onclick="event.stopPropagation();deleteDrawingFolder('${f.id}')">🗑</div>` : ''}
+        </div>
+      `).join('')}
+      ${files.map(f=>`
+        <div class="sitecard">
+          <div class="swatch">📐</div>
+          <div class="info"><div class="name">${escapeHtml(f.name)}</div><div class="addr">Uploaded ${new Date(f.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <a class="ghostbtn" style="width:auto;padding:8px 12px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
+          ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
+        </div>
+      `).join('')}
+    ` : `<div class="empty">Nothing here yet.</div>`}
+
+    ${canManage ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">New folder</p>
+        <div class="row-gap">
+          <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${folderId?`'${folderId}'`:'null'})">Add</button>
+        </div>
+      </div>
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload PDF</p>
+        <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose PDF
+          <input type="file" accept="application/pdf" style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
+        </label>
+      </div>
+    ` : ''}
+  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'});
+}
+window.createDrawingFolder = async function(siteId, folderId){
+  const input = document.getElementById('newDrawingFolderName');
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter a folder name.'); return; }
+  const rows = await dbInsert('drawing_folders', {site_id:siteId, parent_id:folderId||null, name, created_by:ME.id});
+  if(rows){ toast('Folder created'); render(); }
+};
+window.deleteDrawingFolder = async function(folderId){
+  if(!confirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
+  const ok = await dbDelete('drawing_folders', folderId);
+  if(ok){ toast('Folder deleted'); render(); }
+};
+window.uploadDrawingFile = async function(input, siteId, folderId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(file.type!=='application/pdf'){ toast('Please choose a PDF file.'); return; }
+  const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('drawings', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('Drawing uploaded'); render(); }
+};
+window.deleteDrawingFile = async function(fileId, storagePath){
+  if(!confirm('Delete this drawing? This can\'t be undone.')) return;
+  const ok = await dbDelete('drawing_files', fileId);
+  if(ok){
+    try{ await sbFetch('/storage/v1/object/drawings/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
+    toast('Drawing deleted');
+    render();
+  }
 };
 
 /* ================= MESSAGES ================= */
@@ -3325,7 +3481,17 @@ async function render(){
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
     if(page==='schedule') return renderSchedule(siteId);
-    if(page==='snagging') return renderSnagging(siteId);
+    if(page==='snagging'){
+      const sub = parts[3];
+      if(!sub) return renderSnaggingFolder(siteId);
+      if(sub==='list') return renderSnagging(siteId);
+      if(sub==='variations') return renderVariations(siteId);
+      return renderSnaggingFolder(siteId);
+    }
+    if(page==='drawings'){
+      const folderId = parts[3] || null;
+      return renderDrawings(siteId, folderId);
+    }
     if(page==='hs'){
       const sub = parts[3];
       if(!sub) return renderHealthSafety(siteId);
