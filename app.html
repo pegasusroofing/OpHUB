@@ -709,7 +709,12 @@ function shell(innerHtml, opts){
               <div class="brandline" style="font-size:22.5px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
               <h2 style="font-size:27px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title||''}</h2>
             </div>
-            ${ME ? `<span class="rolechip" style="flex:0 0 auto;margin-left:0;">${roleLabel(ME.role)}</span>` : `<span style="flex:0 0 40px;"></span>`}
+            ${ME ? `
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto;">
+                <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
+                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:16px;line-height:1;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
+              </div>
+            ` : `<span style="flex:0 0 40px;"></span>`}
           </div>
         ` : `
         <div class="row">
@@ -1150,9 +1155,6 @@ async function renderSites(){
   const activeSites = SITES.filter(s=>s.status!=='closed');
   const closedSites = SITES.filter(s=>s.status==='closed');
   app.innerHTML = shell(`
-    <p style="text-align:center;margin:-8px 0 16px;">
-      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="refreshAppData()">${refreshingAppData?'Refreshing…':'⟳ Refresh — pull latest from Admin Centre'}</span>
-    </p>
     <p class="sectiontitle">Your Sites</p>
     ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">No active sites.</div>`}
     ${closedSites.length ? `
@@ -1176,7 +1178,7 @@ async function renderSites(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {title:'Choose Site', tabs:false, centerHeader:true});
+  `, {title:'Choose Site', tabs:false, centerHeader:true, showRefresh:true});
 }
 window.toggleSiteStatus = async function(siteId, newStatus){
   const row = await dbUpdate('sites', siteId, {status:newStatus});
