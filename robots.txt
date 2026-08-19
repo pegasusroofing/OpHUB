@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /app.html
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /signup-success.html
+
+Sitemap: https://operativehub.co.uk/sitemap.xml

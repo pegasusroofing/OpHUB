@@ -71,6 +71,16 @@
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
+  .geo-modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,17,20,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;}
+  .geo-modal-card{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:360px;box-shadow:0 10px 40px rgba(0,0,0,0.25);}
+  .geo-modal-card h3{margin:0 0 4px;font-size:16px;font-weight:800;color:var(--ink);}
+  .geo-modal-card p.stub{margin:0 0 16px;}
+  .geo-modal-btn{display:block;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:10px;
+    padding:14px 16px;margin-bottom:10px;font-weight:800;font-size:14px;color:var(--ink);cursor:pointer;}
+  .geo-modal-btn .sub2{display:block;font-weight:600;font-size:11.5px;color:var(--slate);margin-top:2px;}
+  .geo-modal-btn:hover{border-color:var(--slate-light);}
+  .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
+    font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
   .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
@@ -1683,10 +1693,11 @@ async function renderSiteHome(siteId){
           <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
         ` : site.geofence_lat ? `
           <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)} · check-ins must be within 100m</div>
-          <button class="ghostbtn" style="margin-top:8px;" onclick="setGeofence('${siteId}')">Update location</button>
+          <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
+          <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
         ` : `
-          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet. Stand at the site entrance and tap below.</p>
-          <button class="darkbtn" onclick="setGeofence('${siteId}')">Set current location as site</button>
+          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
+          <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
         `}
       </div>
       ${ME.role==='admin' ? `
@@ -1736,6 +1747,82 @@ window.setGeofence = async function(siteId){
     toast('Site location saved');
     render();
   }
+};
+async function saveGeofenceCoords(siteId, lat, lon){
+  const row = await dbUpdate('sites', siteId, {geofence_lat:lat, geofence_lon:lon});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    SITES[idx] = row;
+    toast('Site location saved');
+    render();
+  }
+}
+// Pop-up giving the PM/admin a choice: capture the phone's current GPS
+// position, or type in known co-ordinates for the job (e.g. from a plan or
+// Google Maps) instead of having to stand on site.
+window.openGeoOptions = function(siteId){
+  if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
+  let ov = document.getElementById('geoModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'geoModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) closeGeoModal(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Set site location</h3>
+      <p class="stub">Choose how to set the GPS point operatives must check in near.</p>
+      <button class="geo-modal-btn" onclick="geoOptionManual('${siteId}')">Input GPS Co-Ordinates<span class="sub2">Type in latitude &amp; longitude</span></button>
+      <button class="geo-modal-btn" onclick="geoOptionClick('${siteId}')">Click for GPS Co-Ordinates<span class="sub2">Use this device's current location</span></button>
+      <button class="geo-modal-cancel" onclick="closeGeoModal()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeGeoModal = function(){
+  const ov = document.getElementById('geoModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.geoOptionClick = async function(siteId){
+  closeGeoModal();
+  await window.setGeofence(siteId);
+};
+window.geoOptionManual = function(siteId){
+  const ov = document.getElementById('geoModalOverlay');
+  if(!ov) return;
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Input GPS Co-Ordinates</h3>
+      <p class="stub">Enter the site's latitude and longitude (e.g. from Google Maps — right-click a spot there and the co-ordinates copy straight in).</p>
+      <div class="formfield"><label class="field-label">Latitude</label><input type="text" inputmode="decimal" id="geoManualLat" placeholder="e.g. 51.50735" oninput="updateGeoMapLink()"></div>
+      <div class="formfield"><label class="field-label">Longitude</label><input type="text" inputmode="decimal" id="geoManualLon" placeholder="e.g. -0.12776" oninput="updateGeoMapLink()"></div>
+      <a id="geoManualMapLink" class="stub" style="display:none;margin:-6px 0 12px;color:var(--blue);" href="#" target="_blank" rel="noopener">Find this spot on the map ↗</a>
+      <button class="darkbtn" style="width:100%;" onclick="saveManualGeo('${siteId}')">Save Location</button>
+      <button class="geo-modal-cancel" onclick="openGeoOptions('${siteId}')">‹ Back</button>
+    </div>`;
+};
+window.updateGeoMapLink = function(){
+  const lat = parseFloat(document.getElementById('geoManualLat').value);
+  const lon = parseFloat(document.getElementById('geoManualLon').value);
+  const link = document.getElementById('geoManualMapLink');
+  if(!link) return;
+  if(isFinite(lat) && isFinite(lon) && lat>=-90 && lat<=90 && lon>=-180 && lon<=180){
+    link.href = `https://www.google.com/maps?q=${lat},${lon}`;
+    link.style.display = 'block';
+  } else {
+    link.style.display = 'none';
+  }
+};
+window.saveManualGeo = async function(siteId){
+  const lat = parseFloat(document.getElementById('geoManualLat').value);
+  const lon = parseFloat(document.getElementById('geoManualLon').value);
+  if(!isFinite(lat) || !isFinite(lon) || lat<-90 || lat>90 || lon<-180 || lon>180){
+    toast('Enter a valid latitude (-90 to 90) and longitude (-180 to 180).');
+    return;
+  }
+  closeGeoModal();
+  await saveGeofenceCoords(siteId, lat, lon);
 };
 
 /* ================= ASSIGN TEAM (per-site — PM allocates operatives to this job) ================= */
