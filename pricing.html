@@ -66,6 +66,7 @@
   .pricecard h3{font-size:17px;font-weight:800;}
   .pricecard .amt{font-size:38px;font-weight:800;margin-top:14px;}
   .pricecard .amt span{font-size:14px;font-weight:700;color:var(--slate);}
+  .pricecard .setupfee{font-size:12px;font-weight:700;color:var(--brand1);margin-top:4px;}
   .pricecard .desc{color:var(--slate);font-size:13px;margin-top:8px;line-height:1.5;min-height:40px;}
   .pricecard ul{list-style:none;margin:22px 0 0;padding:0;flex:1;}
   .pricecard li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;margin-bottom:10px;}
@@ -80,6 +81,7 @@
   .checkout .picked{margin-top:20px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
     display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13.5px;}
   .checkout .picked span.price{color:var(--brand1);}
+  .setupfeenote{font-size:12px;color:var(--slate);margin-top:8px;text-align:center;}
   .formfield{margin:16px 0 0;}
   label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
   input{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;font-family:inherit;}
@@ -128,7 +130,8 @@
     <div class="pricegrid">
       <div class="pricecard" data-tier="starter" onclick="selectPlan('starter')">
         <h3>OpHUB Basic</h3>
-        <div class="amt">£50<span>/mo</span></div>
+        <div class="amt">£75<span>/mo</span></div>
+        <p class="setupfee">+ £250 one-off setup fee</p>
         <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
         <ul>
           <li>Up to 25 members of staff</li>
@@ -142,7 +145,8 @@
       <div class="pricecard featured" data-tier="growth" onclick="selectPlan('growth')">
         <span class="tag">Most popular</span>
         <h3>OpHUB Pro</h3>
-        <div class="amt">£80<span>/mo</span></div>
+        <div class="amt">£125<span>/mo</span></div>
+        <p class="setupfee">+ £200 one-off setup fee</p>
         <p class="desc">For growing contractors running multiple sites at once.</p>
         <ul>
           <li>Up to 50 employees</li>
@@ -154,7 +158,8 @@
       </div>
       <div class="pricecard" data-tier="enterprise" onclick="selectPlan('enterprise')">
         <h3>OpHUB Enterprise</h3>
-        <div class="amt">£150<span>/mo</span></div>
+        <div class="amt">£200<span>/mo</span></div>
+        <p class="setupfee">+ £100 one-off setup fee</p>
         <p class="desc">For larger operations that need full oversight.</p>
         <ul>
           <li>Up to 150 employees</li>
@@ -177,6 +182,7 @@
         <span id="pickedName"></span>
         <span class="price" id="pickedPrice"></span>
       </div>
+      <p class="setupfeenote" id="pickedSetupNote" style="display:none;"></p>
       <div class="formfield">
         <label>Company name</label>
         <input type="text" id="companyName" placeholder="e.g. Acme Contracting Ltd">
@@ -187,7 +193,7 @@
       </div>
       <div id="errHost"></div>
       <button id="subscribeBtn" class="btn btn-primary btn-block" style="margin-top:18px;" onclick="subscribe()">Continue to Payment</button>
-      <p class="reassure">No setup fees · Cancel any time</p>
+      <p class="reassure">One-off setup fee applies · Cancel any time</p>
     </div>
   </div>
 </section>
@@ -212,9 +218,9 @@
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
   const PLAN_INFO = {
-    starter: { name: 'OpHUB Basic', price: '£50/mo' },
-    growth: { name: 'OpHUB Pro', price: '£80/mo' },
-    enterprise: { name: 'OpHUB Enterprise', price: '£150/mo' },
+    starter: { name: 'OpHUB Basic', price: '£75/mo', setupFee: '£250' },
+    growth: { name: 'OpHUB Pro', price: '£125/mo', setupFee: '£200' },
+    enterprise: { name: 'OpHUB Enterprise', price: '£200/mo', setupFee: '£100' },
   };
   let tier = null;
   function selectPlan(t){
@@ -224,6 +230,9 @@
     document.getElementById('pickedName').textContent = info.name;
     document.getElementById('pickedPrice').textContent = info.price;
     document.getElementById('pickedRow').style.display = 'flex';
+    const note = document.getElementById('pickedSetupNote');
+    note.textContent = `Plus a ${info.setupFee} one-off setup fee, charged with your first payment.`;
+    note.style.display = 'block';
   }
   // Lets the homepage's pricing cards (or anyone) deep-link straight to a
   // plan, e.g. pricing.html?tier=growth, instead of landing with nothing chosen.
