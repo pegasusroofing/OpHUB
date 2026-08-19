@@ -3468,8 +3468,9 @@ async function renderDrawings(siteId, folderId){
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
         <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose file
-          <input type="file" accept="application/pdf,image/jpeg,image/png" style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
+        <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;" id="drawingUploadLabel">Choose file(s)
+          <input type="file" accept="application/pdf,image/jpeg,image/png" multiple style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
         </label>
       </div>
     ` : ''}
@@ -3488,14 +3489,24 @@ window.deleteDrawingFolder = async function(folderId){
   if(ok){ toast('Folder deleted'); render(); }
 };
 window.uploadDrawingFile = async function(input, siteId, folderId){
-  const file = input.files && input.files[0]; if(!file) return;
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
   const allowed = {'application/pdf':true, 'image/jpeg':true, 'image/png':true};
-  if(!allowed[file.type]){ toast('Please choose a PDF, JPEG or PNG file.'); return; }
-  const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-  const stored = await uploadToStorage('drawings', path, file, file.type);
-  if(!stored) return;
-  const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
-  if(rows){ toast('Drawing uploaded'); render(); }
+  const label = document.getElementById('drawingUploadLabel');
+  let uploaded = 0, skipped = 0;
+  for(let i=0; i<files.length; i++){
+    const file = files[i];
+    if(!allowed[file.type]){ skipped++; continue; }
+    if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
+    const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('drawings', path, file, file.type);
+    if(!stored) continue;
+    const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
+    if(rows) uploaded++;
+  }
+  if(uploaded) toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:''));
+  else if(skipped) toast('Please choose PDF, JPEG or PNG files.');
+  render();
 };
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!confirm('Delete this drawing? This can\'t be undone.')) return;
