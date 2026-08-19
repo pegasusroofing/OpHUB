@@ -1644,6 +1644,10 @@ async function renderSiteHome(siteId){
         <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
         ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/drawings')">
+        <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
+        <div class="lbl">Drawings</div><div class="sub">View &amp; upload</div>
+      </div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
         <div class="lbl">Material Requests</div><div class="sub">${pendingMat.length} pending</div>
@@ -1652,10 +1656,6 @@ async function renderSiteHome(siteId){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
         <div class="lbl">Snagging / Variations</div><div class="sub">${openSnags.length} open</div>
         ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/drawings')">
-        <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
-        <div class="lbl">Drawings</div><div class="sub">View &amp; upload</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/messages')">
         <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
@@ -1779,8 +1779,8 @@ function renderMore(siteId){
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging / Variations</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
     </div>
   `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
 }
@@ -3305,7 +3305,7 @@ async function renderDrawings(siteId, folderId){
       `).join('')}
       ${files.map(f=>`
         <div class="sitecard">
-          <div class="swatch">📐</div>
+          <div class="swatch">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
           <div class="info"><div class="name">${escapeHtml(f.name)}</div><div class="addr">Uploaded ${new Date(f.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
           <a class="ghostbtn" style="width:auto;padding:8px 12px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
           ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
@@ -3322,10 +3322,10 @@ async function renderDrawings(siteId, folderId){
         </div>
       </div>
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload PDF</p>
+        <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
         <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose PDF
-          <input type="file" accept="application/pdf" style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
+        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose file
+          <input type="file" accept="application/pdf,image/jpeg,image/png" style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
         </label>
       </div>
     ` : ''}
@@ -3345,9 +3345,10 @@ window.deleteDrawingFolder = async function(folderId){
 };
 window.uploadDrawingFile = async function(input, siteId, folderId){
   const file = input.files && input.files[0]; if(!file) return;
-  if(file.type!=='application/pdf'){ toast('Please choose a PDF file.'); return; }
+  const allowed = {'application/pdf':true, 'image/jpeg':true, 'image/png':true};
+  if(!allowed[file.type]){ toast('Please choose a PDF, JPEG or PNG file.'); return; }
   const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-  const stored = await uploadToStorage('drawings', path, file, 'application/pdf');
+  const stored = await uploadToStorage('drawings', path, file, file.type);
   if(!stored) return;
   const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
   if(rows){ toast('Drawing uploaded'); render(); }
