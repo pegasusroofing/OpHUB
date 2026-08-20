@@ -2088,6 +2088,11 @@ window.exportCheckins = async function(siteId, scope){
 /* ================= SCHEDULE OF WORKS ================= */
 let editingTaskId = null;
 let scheduleFilter = 'all';
+// A task moving to "Complete" isn't saved as done straight away — it sits
+// here as a pending completion until at least one completion photo is
+// uploaded, so nobody can mark a job done with no evidence attached. They
+// can back out to In Progress at any point if they haven't got photos yet.
+let pendingCompleteTaskId = null;
 let pdfImportSiteId = null;
 let pdfImportText = '';
 async function renderSchedule(siteId){
@@ -2131,13 +2136,23 @@ async function renderSchedule(siteId){
             </div>
           `}
           ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')">`).join('')}</div>` : ''}
-          <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
-            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
+          ${pendingCompleteTaskId===t.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
+              <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
+              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📸 Upload completed photos
+                <input type="file" accept="image/*" multiple style="display:none" onchange="completeTaskWithPhotos(this,'${siteId}','${t.id}')">
+              </label>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="pendingCompleteTaskId=null;render()">‹ Back to In Progress</button>
+            </div>
+          ` : t.status==='progress' ? `
+            <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
+              <input type="file" accept="image/*" multiple style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
+          ` : ''}
         </div>
         <div class="statusbtns">
-          <div class="statusbtn ${t.status==='todo'?'active-todo':''}" onclick="setTaskStatus('${siteId}','${t.id}','todo')">To Commence</div>
-          <div class="statusbtn ${t.status==='progress'?'active-progress':''}" onclick="setTaskStatus('${siteId}','${t.id}','progress')">In Progress</div>
-          <div class="statusbtn ${t.status==='done'?'active-done':''}" onclick="setTaskStatus('${siteId}','${t.id}','done')">Complete</div>
+          <div class="statusbtn ${t.status==='todo'&&pendingCompleteTaskId!==t.id?'active-todo':''}" onclick="setTaskStatus('${siteId}','${t.id}','todo')">To Commence</div>
+          <div class="statusbtn ${t.status==='progress'&&pendingCompleteTaskId!==t.id?'active-progress':''}" onclick="setTaskStatus('${siteId}','${t.id}','progress')">In Progress</div>
+          <div class="statusbtn ${(t.status==='done'||pendingCompleteTaskId===t.id)?'active-done':''}" onclick="beginTaskComplete('${t.id}')">Complete</div>
         </div>
       </div>
     `).join('') || `<div class="empty">No tasks yet.</div>`}
@@ -2180,15 +2195,42 @@ async function renderSchedule(siteId){
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
 window.setTaskStatus = async function(siteId, taskId, next){
-  if(next==='done'){
-    const photos = await dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id&limit=1');
-    if(!photos || !photos.length){
-      toast('Add a completion photo before marking this complete.');
-      return;
-    }
-  }
+  // Completion always goes through beginTaskComplete/completeTaskWithPhotos
+  // instead, since it requires a photo upload first — this only ever
+  // handles the direct, no-evidence-needed To Commence/In Progress moves.
+  if(next==='done') return;
+  if(pendingCompleteTaskId===taskId) pendingCompleteTaskId = null;
   const row = await dbUpdate('schedule_tasks', taskId, {status:next});
   if(row) render();
+};
+// Clicking "Complete" doesn't save anything yet — it just opens the
+// mandatory completed-photo upload prompt. Nothing is marked done until a
+// photo actually uploads successfully (see completeTaskWithPhotos below).
+window.beginTaskComplete = function(taskId){
+  pendingCompleteTaskId = taskId;
+  render();
+};
+window.completeTaskWithPhotos = async function(input, siteId, taskId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  let uploaded = 0;
+  for(const file of files){
+    try{
+      const dataUrl = await compressImage(file);
+      const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
+      const stored = await uploadDataUrl('site-photos', path, dataUrl);
+      if(!stored) continue;
+      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
+      if(rows){ uploaded++; syncPhotoToOneDrive(dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
+    }catch(e){ /* skip this file, keep going with the rest */ }
+  }
+  if(!uploaded){ toast('Could not process photo(s) — try again.'); return; }
+  const row = await dbUpdate('schedule_tasks', taskId, {status:'done'});
+  if(row){
+    pendingCompleteTaskId = null;
+    toast('Task marked complete');
+    render();
+  }
 };
 // Kept separate from created_at deliberately -- created_at ties (e.g. from a
 // bulk Excel import) have no reliable scan order, and an UPDATE (like
@@ -2223,26 +2265,31 @@ window.deleteTask = async function(siteId, taskId){
   if(ok){ toast('Task deleted'); render(); }
 };
 window.taskPhoto = async function(input, siteId, taskId){
-  const file = input.files && input.files[0]; if(!file) return;
-  try{
-    const dataUrl = await compressImage(file);
-    const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
-    const stored = await uploadDataUrl('site-photos', path, dataUrl);
-    if(!stored) return;
-    const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
-    if(rows){
-      toast('Photo added');
-      render();
-      const [existing, taskRows] = await Promise.all([
-        dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id'),
-        dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name&limit=1'),
-      ]);
-      const taskName = (taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo';
-      const photoNum = existing ? existing.length : 1;
-      const odFilename = taskName.replace(/[^a-z0-9 ]+/gi,'').trim()+' '+photoNum+'.jpg';
-      syncPhotoToOneDrive(dataUrl, odFilename, siteId);
-    }
-  }catch(e){ toast('Could not process photo.'); }
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  let uploaded = 0;
+  for(const file of files){
+    try{
+      const dataUrl = await compressImage(file);
+      const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
+      const stored = await uploadDataUrl('site-photos', path, dataUrl);
+      if(!stored) continue;
+      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
+      if(rows){
+        uploaded++;
+        const [existing, taskRows] = await Promise.all([
+          dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id'),
+          dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name&limit=1'),
+        ]);
+        const taskName = (taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo';
+        const photoNum = existing ? existing.length : 1;
+        const odFilename = taskName.replace(/[^a-z0-9 ]+/gi,'').trim()+' '+photoNum+'.jpg';
+        syncPhotoToOneDrive(dataUrl, odFilename, siteId);
+      }
+    }catch(e){ /* skip this file, keep going with the rest */ }
+  }
+  if(uploaded){ toast(uploaded===1 ? 'Photo added' : `${uploaded} photos added`); render(); }
+  else toast('Could not process photo(s).');
 };
 // Best-effort background sync — never blocks the UI or shows an error toast,
 // since most companies won't have OneDrive connected yet. If this site has
@@ -2390,8 +2437,8 @@ async function renderSnagging(siteId){
           ${closingSnagId===s.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Upload a photo showing this is fixed.</p>
-              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📷 Take closing photo
-                <input type="file" accept="image/*" capture="environment" style="display:none" onchange="closeSnagPhoto(this,'${siteId}','${s.id}')">
+              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📷 Add closing photo
+                <input type="file" accept="image/*" style="display:none" onchange="closeSnagPhoto(this,'${siteId}','${s.id}')">
               </label>
               <button class="ghostbtn" style="margin-top:8px;" onclick="closingSnagId=null;render()">Cancel</button>
             </div>
@@ -2415,8 +2462,8 @@ async function renderSnagging(siteId){
         <div class="formfield">
           <label class="field-label">Photo</label>
           <label class="photoupload" style="cursor:pointer;">
-            ${snagNewPhoto ? `<img src="${snagNewPhoto}">` : `<div style="font-size:20px;">📷</div>Tap to capture`}
-            <input type="file" accept="image/*" capture="environment" style="display:none" onchange="snagAddPhoto(this)">
+            ${snagNewPhoto ? `<img src="${snagNewPhoto}">` : `<div style="font-size:20px;">📷</div>Tap to add a photo`}
+            <input type="file" accept="image/*" style="display:none" onchange="snagAddPhoto(this)">
           </label>
         </div>
         <div class="formfield">
@@ -3431,8 +3478,8 @@ async function renderVariations(siteId){
       <div class="formfield">
         <label class="field-label">Photo evidence</label>
         <label class="photoupload" style="cursor:pointer;">
-          ${varDraft.photo ? `<img src="${varDraft.photo}">` : `<div style="font-size:22px;">📷</div>Tap to capture`}
-          <input type="file" accept="image/*" capture="environment" style="display:none" onchange="varPhoto(this)">
+          ${varDraft.photo ? `<img src="${varDraft.photo}">` : `<div style="font-size:22px;">📷</div>Tap to add a photo`}
+          <input type="file" accept="image/*" style="display:none" onchange="varPhoto(this)">
         </label>
       </div>
       <div class="formfield">
