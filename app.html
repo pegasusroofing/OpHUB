@@ -34,6 +34,11 @@
   }
   *{box-sizing:border-box;}
   html,body{height:100%;}
+  /* Lots of tiles/rows/buttons in this app are plain divs/spans with an
+     onclick handler rather than real <button>/<a> elements, so the browser
+     was showing its default text-select (I-beam) cursor over their text
+     instead of a normal pointer — this catches all of them in one go. */
+  [onclick]{cursor:pointer;}
   body{
     margin:0;background:#EFEDE6;
     font-family:'Open Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
