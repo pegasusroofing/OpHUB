@@ -395,13 +395,15 @@ window.setUserRole = async function(userId, role){
   }
 };
 window.deleteUserFromModal = async function(userId, name){
-  if(!confirm(`Permanently delete ${name||'this user'}? They will immediately lose all access. This cannot be undone.`)) return;
-  const ok = await dbDelete('profiles', userId);
-  if(ok){
-    toast(`${name||'User'} deleted`);
+  if(!confirm(`Permanently delete ${name||'this user'}? This removes their login completely — they will not be able to sign in again. This cannot be undone.`)) return;
+  try{
+    const res = await sbFetch('/functions/v1/admin-delete-user', {method:'POST', body: JSON.stringify({user_id: userId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Delete failed — '+(d.error||res.status)); return; }
+    toast(`${d.deleted||name||'User'} deleted`);
     if(modalOrgId) openMembersModal(modalOrgId);
     loadDashboard();
-  }
+  }catch(e){ toast('Delete failed — could not reach the server.'); }
 };
 window.deleteCompanyFromModal = async function(){
   if(!modalOrgId) return;
