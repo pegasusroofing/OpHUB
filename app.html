@@ -690,12 +690,29 @@ const REPORT_FIELD_TYPES = [
   {k:'signature', lbl:'Signature'},
   {k:'instruction', lbl:'Instruction Text (no answer)'},
 ];
+// Pass-fail questions are stored internally as Pass/Fail/N-A (this is also
+// the scoring key), but displayed as Yes/No/N-A to match how these
+// questions are actually phrased and shown on RTB's SafetyCulture forms.
+const PASSFAIL_LABEL = {Pass:'Yes', Fail:'No', 'N/A':'N/A'};
+// Conditional logic: a question with showIf={qId, values} only counts as
+// "on the form" when the referenced earlier question's current answer is
+// one of the listed values — mirrors SafetyCulture's "If answer is X then
+// ask questions" branching. Checkbox answers are booleans in state but
+// compared as 'Yes'/'No' here since that's how their options are offered.
+function itemVisible(it, answers){
+  if(!it.showIf || !it.showIf.qId) return true;
+  const raw = answers ? answers[it.showIf.qId] : undefined;
+  const val = typeof raw === 'boolean' ? (raw ? 'Yes' : 'No') : raw;
+  return (it.showIf.values||[]).includes(val);
+}
 // Mirrors SafetyCulture-style scoring: a "Count towards score" question adds
 // to a running earned/possible tally. Pass-fail: Pass=1pt, Fail=0pt, N/A is
 // excluded from the denominator entirely. Checkbox: Yes=1pt, No=0pt (always
 // counted, since a checkbox has no true "not applicable" state). Unanswered
 // scored questions count as 0 earned but still add to the denominator, same
 // as SafetyCulture showing a red bar and reducing the section's score.
+// Questions hidden by conditional logic (their trigger condition isn't met)
+// are skipped entirely — they were never asked, so they shouldn't count.
 function scoreSections(sections, answers){
   const bySection = {};
   let overallEarned = 0, overallPossible = 0;
@@ -703,6 +720,7 @@ function scoreSections(sections, answers){
     let earned = 0, possible = 0;
     (s.items||[]).forEach(it=>{
       if(!it.scored) return;
+      if(!itemVisible(it, answers)) return;
       const val = answers ? answers[it.id] : undefined;
       if(it.type==='passfail'){
         if(val==='N/A') return; // excluded entirely
@@ -1293,7 +1311,6 @@ async function renderSites(){
         <button class="darkbtn" onclick="addSite()">Create Site</button>
       </div>
       <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
-      ${ME.role==='admin' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="go('#/templates')">Report Templates</button>` : ''}
     ` : ''}
     <p style="text-align:center;margin-top:8px;">
       <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
@@ -2193,6 +2210,10 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
 /* ================= REPORT TEMPLATES (Company Admin builds; PM fills in) ================= */
 let editingTemplate = null; // deep-cloned template object being edited, or null
 let templateBusy = false;
+// Templates are managed entirely from inside a site's Snagging/Variations ›
+// Reports screen now (no standalone home-page entry), so the editor needs to
+// remember which site to send the admin back to once they're done.
+let templatesReturnSiteId = null;
 async function renderReportTemplates(){
   const rows = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=created_at.desc');
   document.getElementById('app').innerHTML = shell(`
@@ -2211,11 +2232,12 @@ async function renderReportTemplates(){
     <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>
   `, {title:'Report Templates', back:'#/sites', tabs:false});
 }
-window.createNewTemplate = async function(){
+window.createNewTemplate = async function(siteId){
+  templatesReturnSiteId = siteId || null;
   const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Untitled Template', created_by:ME.id, sections:[{id:uid(), title:'Section 1', items:[]}]});
   if(rows && rows[0]) go('#/templates/'+rows[0].id);
 };
-window.openTemplateEditor = function(id){ editingTemplate = null; go('#/templates/'+id); };
+window.openTemplateEditor = function(id, siteId){ editingTemplate = null; templatesReturnSiteId = siteId || null; go('#/templates/'+id); };
 window.duplicateTemplate = async function(id){
   const rows = await dbSelect('report_templates', 'id=eq.'+id+'&limit=1');
   if(!rows[0]) return;
@@ -2252,7 +2274,7 @@ async function renderTemplateEditor(templateId){
     `).join('')}
     <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
-  `, {title:'Edit Template', back:'#/templates', tabs:false});
+  `, {title:'Edit Template', back: templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/reports` : '#/templates', tabs:false});
 }
 function renderTemplateItemEditor(si, ii, it){
   return `
@@ -2271,11 +2293,68 @@ function renderTemplateItemEditor(si, ii, it){
         ${(it.type==='passfail' || it.type==='checkbox') ? `
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:4px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].scored=this.checked">Count towards score${it.type==='passfail' ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
         ` : ''}
+        ${it.type!=='instruction' ? renderTemplateItemLogicEditor(si, ii, it) : ''}
       </div>
       <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
     </div>
   `;
 }
+// Trigger candidates for conditional logic: earlier questions in the SAME
+// section with a fixed set of possible answers (passfail/choice/checkbox) —
+// mirrors how SafetyCulture nests a conditional question directly under the
+// question that triggers it.
+function possibleTriggerItems(si, ii){
+  const items = editingTemplate.sections[si].items;
+  const out = [];
+  items.forEach((cand,idx)=>{
+    if(idx>=ii) return;
+    if(cand.type==='passfail' || cand.type==='choice' || cand.type==='checkbox') out.push(cand);
+  });
+  return out;
+}
+function triggerOptionsFor(qId){
+  for(const s of editingTemplate.sections){
+    for(const cand of (s.items||[])){
+      if(cand.id===qId){
+        if(cand.type==='passfail') return ['Pass','Fail','N/A'];
+        if(cand.type==='checkbox') return ['Yes','No'];
+        if(cand.type==='choice') return cand.options||[];
+      }
+    }
+  }
+  return [];
+}
+function renderTemplateItemLogicEditor(si, ii, it){
+  const candidates = possibleTriggerItems(si, ii);
+  if(!candidates.length && !it.showIf) return '';
+  return `
+    <div style="margin-top:6px;">
+      <label class="field-label" style="margin-bottom:2px;">Only show this question if…</label>
+      <select onchange="setItemLogicTrigger(${si},${ii},this.value)">
+        <option value="">Always show</option>
+        ${candidates.map(cand=>`<option value="${cand.id}" ${it.showIf && it.showIf.qId===cand.id?'selected':''}>${escapeHtml(cand.label||'(untitled question)')}</option>`).join('')}
+      </select>
+      ${it.showIf ? `
+        <div class="row-gap" style="margin-top:6px;flex-wrap:wrap;">
+          ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(PASSFAIL_LABEL[o]||o)}</label>`).join('')}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+window.setItemLogicTrigger = function(si, ii, val){
+  const it = editingTemplate.sections[si].items[ii];
+  it.showIf = val ? {qId: val, values: []} : null;
+  render();
+};
+window.toggleItemLogicValue = function(si, ii, value, checked){
+  const it = editingTemplate.sections[si].items[ii];
+  if(!it.showIf) return;
+  const set = new Set(it.showIf.values||[]);
+  if(checked) set.add(value); else set.delete(value);
+  it.showIf.values = Array.from(set);
+  render();
+};
 window.addTemplateSection = function(){
   editingTemplate.sections.push({id:uid(), title:'Section '+(editingTemplate.sections.length+1), items:[]});
   render();
@@ -2286,7 +2365,7 @@ window.removeTemplateSection = function(si){
   render();
 };
 window.addTemplateItem = function(si){
-  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[], scored:false});
+  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[], scored:false, showIf:null});
   render();
 };
 window.removeTemplateItem = function(si, ii){
@@ -2303,8 +2382,13 @@ window.saveTemplate = async function(){
     updated_at: new Date().toISOString(),
   });
   templateBusy = false;
-  if(row){ toast('Template saved'); editingTemplate = null; go('#/templates'); }
-  else render();
+  if(row){
+    toast('Template saved');
+    editingTemplate = null;
+    const dest = templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/reports` : '#/templates';
+    templatesReturnSiteId = null;
+    go(dest);
+  } else render();
 };
 
 /* ================= SITE REPORTS (PM fills a template in and submits) ================= */
@@ -2312,18 +2396,28 @@ let reportFillDraft = null; // {templateId, template, answers:{}}
 let reportSubmitBusy = false;
 async function renderSiteReports(siteId){
   const site = SITES.find(s=>s.id===siteId);
+  const isAdmin = ME.role==='admin';
   const [templates, submissions] = await Promise.all([
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
     dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=50'),
   ]);
   await loadAllProfiles();
   document.getElementById('app').innerHTML = shell(`
-    <p class="sectiontitle" style="margin-top:0;">Fill Out a Report</p>
+    <p class="sectiontitle" style="margin-top:0;">${isAdmin ? 'Report Templates' : 'Fill Out a Report'}</p>
+    ${isAdmin ? `<p class="stub" style="margin:0 0 10px;">Build and manage templates here — Project Managers pick one to carry out an inspection. Editing a template never changes reports already submitted from it.</p>` : ''}
     ${templates.map(t=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/fill/${t.id}')">
-        <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+      <div class="sitecard">
+        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/fill/${t.id}')"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+        ${isAdmin ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}','${siteId}')">Edit</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="duplicateTemplate('${t.id}')">Duplicate</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
+          </div>
+        ` : ''}
       </div>
-    `).join('') || `<div class="empty">No report templates yet — ask a Company Admin to create one.</div>`}
+    `).join('') || `<div class="empty">No report templates yet${isAdmin?'.':' — ask a Company Admin to create one.'}</div>`}
+    ${isAdmin ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
     <p class="sectiontitle" style="margin-top:18px;">Submitted Reports</p>
     ${submissions.map(s=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/view/${s.id}')">
@@ -2351,7 +2445,7 @@ async function renderReportFill(siteId, templateId){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).map(it=>renderReportFillItem(it)).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>renderReportFillItem(it)).join('')}
       </div>
     `).join('')}
     <button class="darkbtn" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Submitting…':'Submit Report'}</button>
@@ -2366,8 +2460,8 @@ function renderReportFillItem(it){
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
   if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
   if(it.type==='checkbox') return `<div class="formfield"><label class="stub" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto;" ${val?'checked':''} onchange="reportFillDraft.answers['${it.id}']=this.checked;render()">${escapeHtml(it.label)}${reqStar}</label></div>`;
-  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${o}</button>`).join('')}</div></div>`;
-  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
+  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>`;
+  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value;render()"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
   if(it.type==='photo') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${val ? `<img src="${val}" style="max-width:160px;border-radius:8px;margin-bottom:6px;display:block;">` : ''}<input type="file" accept="image/*" capture="environment" onchange="onReportPhotoChosen(this,'${it.id}')"></div>`;
   if(it.type==='signature') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${ME.signature_path ? `<img src="${publicUrl('signatures', ME.signature_path)}" style="height:50px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;"><p class="stub" style="margin:6px 0 0;">Your adopted signature will be attached when you submit.</p>` : `<p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p>`}</div>`;
   return '';
@@ -2385,6 +2479,7 @@ window.submitReport = async function(siteId){
   for(const s of (t.sections||[])){
     for(const it of (s.items||[])){
       if(it.type==='instruction') continue;
+      if(!itemVisible(it, reportFillDraft.answers)) continue;
       if(it.required){
         const v = reportFillDraft.answers[it.id];
         if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
@@ -2426,7 +2521,7 @@ async function renderReportView(siteId, submissionId){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).map(it=>renderReportViewItem(it, sub.answers[it.id])).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id])).join('')}
       </div>
     `).join('')}
     <div class="row-gap">
@@ -2441,6 +2536,7 @@ function renderReportViewItem(it, val){
   if(it.type==='signature' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${publicUrl('signatures', val)}" style="height:44px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:10px;">`;
   let display = '—';
   if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+  else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
   else if(val!=null && val!=='') display = String(val);
   return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p></div>`;
 }
@@ -2522,6 +2618,7 @@ async function buildReportPdf(submissionId){
       page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1, color:FAINT});
       y -= 16;
       for(const it of (s.items||[])){
+        if(!itemVisible(it, sub.answers)) continue;
         if(it.type==='instruction'){
           ensureSpace(20);
           wrapText(it.label, reg, 9.5, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 13; });
@@ -2559,6 +2656,7 @@ async function buildReportPdf(submissionId){
         }
         let display = '—';
         if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+        else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
         else if(val!=null && val!=='') display = String(val);
         ensureSpace(28);
         page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 13;
