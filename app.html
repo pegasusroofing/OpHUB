@@ -1091,9 +1091,9 @@ async function renderAdmin(){
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:10.5px;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
-                  <button class="ghostbtn" style="width:auto;padding:6px 10px;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
-                  <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
+                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
+                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
+                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:800;text-transform:none;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
                 </div>
               </div>
             `).join('') || `<div class="empty" style="padding:10px;">No members yet.</div>`}
