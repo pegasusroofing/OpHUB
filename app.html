@@ -694,6 +694,21 @@ const REPORT_FIELD_TYPES = [
 // the scoring key), but displayed as Yes/No/N-A to match how these
 // questions are actually phrased and shown on RTB's SafetyCulture forms.
 const PASSFAIL_LABEL = {Pass:'Yes', Fail:'No', 'N/A':'N/A'};
+// Auto-fill: lets a template question pull its answer in automatically when
+// a PM opens the form, instead of them typing it every time. Only offered on
+// the field types it makes sense for (text -> address/name, date -> today).
+const AUTOFILL_OPTIONS = [
+  {k:'', lbl:'None', types:['text','date']},
+  {k:'site_address', lbl:'Site Address (from the site)', types:['text']},
+  {k:'today_date', lbl:"Today's Date", types:['date']},
+  {k:'inspector_name', lbl:'Inspector / Filler Name', types:['text']},
+];
+function autofillValue(kind, site){
+  if(kind==='site_address') return fullSiteAddress(site) || '';
+  if(kind==='today_date') return todayISODate();
+  if(kind==='inspector_name') return ME.name || '';
+  return undefined;
+}
 // Conditional logic: a question with showIf={qId, values} only counts as
 // "on the form" when the referenced earlier question's current answer is
 // one of the listed values — mirrors SafetyCulture's "If answer is X then
@@ -746,6 +761,11 @@ function orgLogoUrl(org){
 // 'admin' is a superset of 'pm' capabilities everywhere in this app —
 // mirrors the DB's is_pm() which now also means "pm or admin".
 function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
+// Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
+// now live too); operatives still see the original "Snagging / Variations"
+// name since Reports isn't visible to them anyway.
+function snaggingFolderLabel(){ return isManager(ME) ? 'Snagging &amp; Reports' : 'Snagging / Variations'; }
+function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
   return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
 }
@@ -1952,7 +1972,7 @@ async function renderSiteHome(siteId){
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/snagging')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
-        <div class="lbl">Snagging / Variations</div><div class="sub">${openSnags.length} open</div>
+        <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
         ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/messages')">
@@ -2287,6 +2307,12 @@ function renderTemplateItemEditor(si, ii, it){
         ${it.type==='choice' ? `
           <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="editingTemplate.sections[${si}].items[${ii}].options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Options, comma separated">
         ` : ''}
+        ${(it.type==='text' || it.type==='date') ? `
+          <label class="field-label" style="margin-top:6px;margin-bottom:2px;">Auto-fill</label>
+          <select onchange="editingTemplate.sections[${si}].items[${ii}].autofill=this.value||null">
+            ${AUTOFILL_OPTIONS.filter(o=>!o.k || o.types.includes(it.type)).map(o=>`<option value="${o.k}" ${(it.autofill||'')===o.k?'selected':''}>${o.lbl}</option>`).join('')}
+          </select>
+        ` : ''}
         ${it.type!=='instruction' ? `
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].required=this.checked">Required</label>
         ` : ''}
@@ -2432,6 +2458,11 @@ async function renderReportFill(siteId, templateId){
     const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
     if(!rows[0]){ toast('Template not found'); go(`#/site/${siteId}/snagging/reports`); return; }
     reportFillDraft = {templateId, template: rows[0], answers:{}};
+    (reportFillDraft.template.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+      if(!it.autofill) return;
+      const v = autofillValue(it.autofill, site);
+      if(v!==undefined) reportFillDraft.answers[it.id] = v;
+    }));
   }
   const t = reportFillDraft.template;
   const sc = scoreSections(t.sections, reportFillDraft.answers);
@@ -2455,10 +2486,11 @@ function renderReportFillItem(it){
   const val = reportFillDraft.answers[it.id];
   const reqStar = it.required ? ' *' : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
-  if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
+  const autoHint = it.autofill ? ` <span style="font-weight:400;color:var(--slate);font-size:11px;">(auto-filled — edit if needed)</span>` : '';
+  if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
   if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>`;
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
-  if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
+  if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
   if(it.type==='checkbox') return `<div class="formfield"><label class="stub" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto;" ${val?'checked':''} onchange="reportFillDraft.answers['${it.id}']=this.checked;render()">${escapeHtml(it.label)}${reqStar}</label></div>`;
   if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>`;
   if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value;render()"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
@@ -2718,7 +2750,7 @@ function renderMore(siteId){
   const site = SITES.find(s=>s.id===siteId);
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">Snagging / Variations</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
@@ -3248,7 +3280,7 @@ async function renderSnaggingFolder(siteId){
       </div>
       ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div></div>` : ''}
     </div>
-  `, {title:'Snagging / Variations', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:snaggingFolderLabel(), subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
 }
 
 /* ================= SNAGGING ================= */
