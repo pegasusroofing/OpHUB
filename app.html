@@ -305,6 +305,15 @@ function getDeviceId(){
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// For values dropped into an onclick="fn('...')" attribute: escape backslash
+// and single-quote for JS FIRST, then HTML-escape the result for the
+// attribute. Doing it the other way round (HTML-escape, then try to
+// backslash-escape quotes) is a no-op, because escapeHtml already turned
+// every ' into &#39; — leaving nothing left to backslash-escape. The
+// browser decodes &#39; back to a literal ' before parsing the onclick JS,
+// so any name containing an apostrophe (e.g. "Andy's Documents") silently
+// broke the click handler with no error shown — it just did nothing.
+function jsAttr(s){ return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function toast(msg){
   const host=document.getElementById('toastHost');
   const el=document.createElement('div'); el.className='toast';
@@ -1165,7 +1174,7 @@ function siteCardHtml(s, canAdd){
       </div>
       <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
       ${canAdd ? `<div class="taskicon" style="margin-left:8px;" title="${s.status==='closed'?'Reopen job':'Close job'}" onclick="event.stopPropagation();toggleSiteStatus('${s.id}','${s.status==='closed'?'active':'closed'}')">${s.status==='closed'?'↩':'📦'}</div>` : ''}
-      ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${escapeHtml(s.name).replace(/'/g,"\\'")}')">🗑</div>` : ''}
+      ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${jsAttr(s.name)}')">🗑</div>` : ''}
     </div>
   `;
 }
@@ -1377,7 +1386,7 @@ async function renderTeam(){
         <div class="sitecard" style="padding:8px 10px;">
           <div class="swatch">🗣</div>
           <div class="info"><div class="name">${escapeHtml(t.title)}</div><div class="addr">Added ${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <div class="taskicon danger" onclick="deleteTbtTemplate('${t.id}','${t.storage_path.replace(/'/g,"\\'")}')">🗑</div>
+          <div class="taskicon danger" onclick="deleteTbtTemplate('${t.id}','${jsAttr(t.storage_path)}')">🗑</div>
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — anything you upload here will be pre-loaded into every future site's Bank TBT.</div>`}
       <div class="formfield" style="margin-top:10px;"><input type="text" id="tbtTemplateTitle" placeholder="Title, e.g. Alcohol & Drugs"></div>
@@ -1598,9 +1607,9 @@ async function renderOneDriveFolderPicker(siteId){
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
-      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${escapeHtml(current.name).replace(/'/g,"\\'")}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
       ${odPickerFolders.map(f=>`
-        <div class="sitecard" onclick="odPickerInto('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}','${f.driveId||''}',${f.isSite?'true':'false'})">
+        <div class="sitecard" onclick="odPickerInto('${f.id}','${jsAttr(f.name)}','${f.driveId||''}',${f.isSite?'true':'false'})">
           <div class="swatch">${f.isSite?'🏢':f.virtual?'🔗':'📁'}</div>
           <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
         </div>
@@ -3089,7 +3098,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd){
     <div class="ramsdoc">
       <div class="taskrowtop">
         <div class="name">${escapeHtml(r.name)}</div>
-        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${r.storage_path.replace(/'/g,"\\'")}')">🗑</div></div>` : ''}
+        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
       <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
       <a class="viewlink" href="${publicUrl('rams-docs', r.storage_path)}" target="_blank" rel="noopener">View document ↗</a>
@@ -3319,7 +3328,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Completed TBT</button>` : ''}
       ${sigs.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export PDF with all signatures</button>` : ''}
-      <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${talk.storage_path.replace(/'/g,"\\'")}')">Delete</button>
+      <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}')">Delete</button>
       <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
     </div>
@@ -3741,8 +3750,8 @@ async function renderDrawings(siteId, folderId){
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
           <div style="flex:1;min-width:0;font-weight:500;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
           <a class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
-          ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${escapeHtml(f.name).replace(/'/g,"\\'")}')">✏️</div>` : ''}
-          ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${f.storage_path.replace(/'/g,"\\'")}')">🗑</div>` : ''}
+          ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
+          ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
