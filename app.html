@@ -337,11 +337,14 @@ function compressImage(file){
       const img=new Image();
       img.onerror=()=>reject(new Error('load failed'));
       img.onload=()=>{
-        const maxW=480; const scale=Math.min(1,maxW/img.width);
+        // 1600px / 0.85 quality keeps photos sharp enough for snagging reports
+        // and OneDrive exports while still compressing well below the original
+        // camera file size (was 480px/0.6, which looked like a thumbnail).
+        const maxW=1600; const scale=Math.min(1,maxW/img.width);
         const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
         const c=document.createElement('canvas'); c.width=w;c.height=h;
         c.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(c.toDataURL('image/jpeg',0.6));
+        resolve(c.toDataURL('image/jpeg',0.85));
       };
       img.src=reader.result;
     };
