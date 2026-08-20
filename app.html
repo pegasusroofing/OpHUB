@@ -678,6 +678,18 @@ function applyTheme(org){
 // Superadmin has no ORG at all, so treat that as unrestricted.
 function orgAllowsGps(){ return !ORG || ORG.plan_tier !== 'starter'; }
 const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
+const REPORT_FIELD_TYPES = [
+  {k:'text', lbl:'Short Text'},
+  {k:'textarea', lbl:'Long Text / Notes'},
+  {k:'number', lbl:'Number'},
+  {k:'passfail', lbl:'Pass / Fail / N-A'},
+  {k:'choice', lbl:'Multiple Choice'},
+  {k:'checkbox', lbl:'Yes / No'},
+  {k:'photo', lbl:'Photo'},
+  {k:'date', lbl:'Date'},
+  {k:'signature', lbl:'Signature'},
+  {k:'instruction', lbl:'Instruction Text (no answer)'},
+];
 function orgLogoUrl(org){
   return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
 }
@@ -1249,6 +1261,7 @@ async function renderSites(){
         <button class="darkbtn" onclick="addSite()">Create Site</button>
       </div>
       <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
+      ${ME.role==='admin' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="go('#/templates')">Report Templates</button>` : ''}
     ` : ''}
     <p style="text-align:center;margin-top:8px;">
       <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
@@ -2145,6 +2158,387 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
   render();
 };
 
+/* ================= REPORT TEMPLATES (Company Admin builds; PM fills in) ================= */
+let editingTemplate = null; // deep-cloned template object being edited, or null
+let templateBusy = false;
+async function renderReportTemplates(){
+  const rows = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=created_at.desc');
+  document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">Report Templates</p>
+    <p class="stub" style="margin:0 0 14px;">Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report.</p>
+    ${rows.map(t=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(t.name)}</div><div class="addr">${(t.sections||[]).length} section${(t.sections||[]).length===1?'':'s'}</div></div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="openTemplateEditor('${t.id}')">Edit</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="duplicateTemplate('${t.id}')">Duplicate</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
+        </div>
+      </div>
+    `).join('') || `<div class="empty">No templates yet — create your first one below.</div>`}
+    <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>
+  `, {title:'Report Templates', back:'#/sites', tabs:false});
+}
+window.createNewTemplate = async function(){
+  const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Untitled Template', created_by:ME.id, sections:[{id:uid(), title:'Section 1', items:[]}]});
+  if(rows && rows[0]) go('#/templates/'+rows[0].id);
+};
+window.openTemplateEditor = function(id){ editingTemplate = null; go('#/templates/'+id); };
+window.duplicateTemplate = async function(id){
+  const rows = await dbSelect('report_templates', 'id=eq.'+id+'&limit=1');
+  if(!rows[0]) return;
+  const src = rows[0];
+  const copy = await dbInsert('report_templates', {org_id:ME.org_id, name: src.name+' (Copy)', description: src.description, sections: src.sections, created_by: ME.id});
+  if(copy){ toast('Template duplicated'); render(); }
+};
+window.deleteTemplate = async function(id, name){
+  if(!confirm(`Delete template "${name}"? Reports already submitted from it are kept.`)) return;
+  const ok = await dbDelete('report_templates', id);
+  if(ok){ toast('Template deleted'); render(); }
+};
+async function renderTemplateEditor(templateId){
+  if(!editingTemplate || editingTemplate.id !== templateId){
+    const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
+    if(!rows[0]){ toast('Template not found'); go('#/templates'); return; }
+    editingTemplate = JSON.parse(JSON.stringify(rows[0]));
+    if(!editingTemplate.sections || !editingTemplate.sections.length) editingTemplate.sections = [{id:uid(), title:'Section 1', items:[]}];
+  }
+  const t = editingTemplate;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="formfield" style="margin-top:0;"><label class="field-label">Template Name</label><input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name=this.value"></div>
+    <div class="formfield"><label class="field-label">Description (optional)</label><textarea oninput="editingTemplate.description=this.value">${escapeHtml(t.description||'')}</textarea></div>
+    ${t.sections.map((s,si)=>`
+      <div class="card">
+        <div class="formfield" style="margin-top:0;">
+          <label class="field-label">Section Title</label>
+          <input type="text" value="${escapeHtml(s.title)}" oninput="editingTemplate.sections[${si}].title=this.value" placeholder="Section title">
+        </div>
+        ${(s.items||[]).map((it,ii)=>renderTemplateItemEditor(si,ii,it)).join('') || `<div class="empty">No questions in this section yet.</div>`}
+        <button class="ghostbtn" style="margin-top:8px;" onclick="addTemplateItem(${si})">+ Add Question</button>
+        ${t.sections.length>1 ? `<button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="removeTemplateSection(${si})">Remove Section</button>` : ''}
+      </div>
+    `).join('')}
+    <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
+    <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
+  `, {title:'Edit Template', back:'#/templates', tabs:false});
+}
+function renderTemplateItemEditor(si, ii, it){
+  return `
+    <div class="sitecard" style="flex-wrap:wrap;align-items:flex-start;">
+      <div class="info" style="min-width:220px;">
+        <input type="text" value="${escapeHtml(it.label||'')}" oninput="editingTemplate.sections[${si}].items[${ii}].label=this.value" placeholder="Question text" style="margin-bottom:6px;">
+        <select onchange="editingTemplate.sections[${si}].items[${ii}].type=this.value;render()">
+          ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${it.type===ft.k?'selected':''}>${ft.lbl}</option>`).join('')}
+        </select>
+        ${it.type==='choice' ? `
+          <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="editingTemplate.sections[${si}].items[${ii}].options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Options, comma separated">
+        ` : ''}
+        ${it.type!=='instruction' ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].required=this.checked">Required</label>
+        ` : ''}
+      </div>
+      <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
+    </div>
+  `;
+}
+window.addTemplateSection = function(){
+  editingTemplate.sections.push({id:uid(), title:'Section '+(editingTemplate.sections.length+1), items:[]});
+  render();
+};
+window.removeTemplateSection = function(si){
+  if(!confirm('Remove this section and all its questions?')) return;
+  editingTemplate.sections.splice(si,1);
+  render();
+};
+window.addTemplateItem = function(si){
+  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[]});
+  render();
+};
+window.removeTemplateItem = function(si, ii){
+  editingTemplate.sections[si].items.splice(ii,1);
+  render();
+};
+window.saveTemplate = async function(){
+  if(!editingTemplate.name || !editingTemplate.name.trim()){ toast('Give the template a name.'); return; }
+  templateBusy = true; render();
+  const row = await dbUpdate('report_templates', editingTemplate.id, {
+    name: editingTemplate.name.trim(),
+    description: editingTemplate.description || null,
+    sections: editingTemplate.sections,
+    updated_at: new Date().toISOString(),
+  });
+  templateBusy = false;
+  if(row){ toast('Template saved'); editingTemplate = null; go('#/templates'); }
+  else render();
+};
+
+/* ================= SITE REPORTS (PM fills a template in and submits) ================= */
+let reportFillDraft = null; // {templateId, template, answers:{}}
+let reportSubmitBusy = false;
+async function renderSiteReports(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [templates, submissions] = await Promise.all([
+    dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
+    dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=50'),
+  ]);
+  await loadAllProfiles();
+  document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">Fill Out a Report</p>
+    ${templates.map(t=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/reports/fill/${t.id}')">
+        <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+      </div>
+    `).join('') || `<div class="empty">No report templates yet — ask a Company Admin to create one.</div>`}
+    <p class="sectiontitle" style="margin-top:18px;">Submitted Reports</p>
+    ${submissions.map(s=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/reports/view/${s.id}')">
+        <div class="info"><div class="name">${escapeHtml(s.template_name)}</div><div class="addr">${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div></div>
+      </div>
+    `).join('') || `<div class="empty">No reports submitted yet.</div>`}
+  `, {title:'Site Reports', subtitle:site.name, back:`#/site/${siteId}/more`, siteId, activeTab:'more'});
+}
+async function renderReportFill(siteId, templateId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!reportFillDraft || reportFillDraft.templateId !== templateId){
+    const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
+    if(!rows[0]){ toast('Template not found'); go(`#/site/${siteId}/reports`); return; }
+    reportFillDraft = {templateId, template: rows[0], answers:{}};
+  }
+  const t = reportFillDraft.template;
+  document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">${escapeHtml(t.name)}</p>
+    ${t.description ? `<p class="stub">${escapeHtml(t.description)}</p>` : ''}
+    ${(t.sections||[]).map(s=>`
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">${escapeHtml(s.title)}</p>
+        ${(s.items||[]).map(it=>renderReportFillItem(it)).join('')}
+      </div>
+    `).join('')}
+    <button class="darkbtn" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Submitting…':'Submit Report'}</button>
+  `, {title:'Fill Out Report', subtitle:site.name, back:`#/site/${siteId}/reports`, siteId, activeTab:'more'});
+}
+function renderReportFillItem(it){
+  const val = reportFillDraft.answers[it.id];
+  const reqStar = it.required ? ' *' : '';
+  if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
+  if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
+  if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>`;
+  if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
+  if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
+  if(it.type==='checkbox') return `<div class="formfield"><label class="stub" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto;" ${val?'checked':''} onchange="reportFillDraft.answers['${it.id}']=this.checked">${escapeHtml(it.label)}${reqStar}</label></div>`;
+  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${o}</button>`).join('')}</div></div>`;
+  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
+  if(it.type==='photo') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${val ? `<img src="${val}" style="max-width:160px;border-radius:8px;margin-bottom:6px;display:block;">` : ''}<input type="file" accept="image/*" capture="environment" onchange="onReportPhotoChosen(this,'${it.id}')"></div>`;
+  if(it.type==='signature') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${ME.signature_path ? `<img src="${publicUrl('signatures', ME.signature_path)}" style="height:50px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;"><p class="stub" style="margin:6px 0 0;">Your adopted signature will be attached when you submit.</p>` : `<p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p>`}</div>`;
+  return '';
+}
+window.onReportPhotoChosen = async function(input, itemId){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{
+    const dataUrl = await compressImage(file);
+    reportFillDraft.answers[itemId] = dataUrl;
+    render();
+  }catch(e){ toast('Could not process that photo.'); }
+};
+window.submitReport = async function(siteId){
+  const t = reportFillDraft.template;
+  for(const s of (t.sections||[])){
+    for(const it of (s.items||[])){
+      if(it.type==='instruction') continue;
+      if(it.required){
+        const v = reportFillDraft.answers[it.id];
+        if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
+        if(it.type==='signature' && !ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
+      }
+    }
+  }
+  reportSubmitBusy = true; render();
+  const answers = Object.assign({}, reportFillDraft.answers);
+  (t.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+    if(it.type==='signature' && ME.signature_path) answers[it.id] = ME.signature_path;
+  }));
+  const rows = await dbInsert('report_submissions', {
+    template_id: t.id, org_id: ME.org_id, site_id: siteId,
+    template_name: t.name, sections: t.sections, answers,
+    submitted_by: ME.id,
+  });
+  reportSubmitBusy = false;
+  if(rows && rows[0]){
+    toast('Report submitted');
+    reportFillDraft = null;
+    go(`#/site/${siteId}/reports/view/${rows[0].id}`);
+  } else render();
+};
+async function renderReportView(siteId, submissionId){
+  const site = SITES.find(s=>s.id===siteId);
+  const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
+  const sub = rows[0];
+  if(!sub){ toast('Report not found'); go(`#/site/${siteId}/reports`); return; }
+  await loadAllProfiles();
+  document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
+    <p class="stub">Submitted ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
+    ${(sub.sections||[]).map(s=>`
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">${escapeHtml(s.title)}</p>
+        ${(s.items||[]).map(it=>renderReportViewItem(it, sub.answers[it.id])).join('')}
+      </div>
+    `).join('')}
+    <button class="darkbtn" onclick="exportReportPDF('${sub.id}')">Export PDF</button>
+  `, {title:'Report', subtitle:site.name, back:`#/site/${siteId}/reports`, siteId, activeTab:'more'});
+}
+function renderReportViewItem(it, val){
+  if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
+  if(it.type==='photo' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${val}" style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;">`;
+  if(it.type==='signature' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${publicUrl('signatures', val)}" style="height:44px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:10px;">`;
+  let display = '—';
+  if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+  else if(val!=null && val!=='') display = String(val);
+  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p></div>`;
+}
+window.exportReportPDF = async function(submissionId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
+  const sub = rows[0]; if(!sub) return;
+  const site = SITES.find(s=>s.id===sub.site_id);
+  await loadAllProfiles();
+  toast('Building PDF…');
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 42;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s2 = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s2, h = dim.height*s2;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      const titleText = sub.template_name.length>46 ? sub.template_name.slice(0,43)+'…' : sub.template_name;
+      page.drawText('SITE REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName+' · '+(site?site.name:'')+' · '+new Date(sub.submitted_at).toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageNum, total){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      page.drawText('Page '+pageNum+' of '+total, {x:PAGE_W-MARGIN-70, y:20, size:8, font:reg, color:SLATE});
+    }
+    function newPage(){ page = pdfDoc.addPage([PAGE_W, PAGE_H]); drawHeaderBand(); y = PAGE_H-118; }
+    newPage();
+    page.drawText('Submitted by '+nameOf(sub.submitted_by), {x:MARGIN, y, size:10, font:reg, color:SLATE});
+    y -= 24;
+
+    function wrapText(text, font, size, maxWidth){
+      const words = String(text).split(/\s+/);
+      const lines = []; let line = '';
+      words.forEach(w=>{
+        const test = line ? line+' '+w : w;
+        if(font.widthOfTextAtSize(test, size) > maxWidth && line){ lines.push(line); line = w; }
+        else line = test;
+      });
+      if(line) lines.push(line);
+      return lines;
+    }
+    function ensureSpace(h){ if(y - h < 60) newPage(); }
+
+    for(const s of (sub.sections||[])){
+      ensureSpace(30);
+      page.drawText(s.title||'', {x:MARGIN, y, size:12.5, font:bold, color:INK});
+      y -= 8;
+      page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1, color:FAINT});
+      y -= 16;
+      for(const it of (s.items||[])){
+        if(it.type==='instruction'){
+          ensureSpace(20);
+          wrapText(it.label, reg, 9.5, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 13; });
+          y -= 6; continue;
+        }
+        const val = sub.answers[it.id];
+        if(it.type==='photo' && val){
+          ensureSpace(140);
+          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
+          try{
+            const b64 = val.split(',')[1];
+            const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1); const sc = Math.min(140/dim.width, 100/dim.height, 1);
+            const w = dim.width*sc, h = dim.height*sc;
+            page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
+            y -= h+14;
+          }catch(e){ page.drawText('(photo could not be embedded)', {x:MARGIN, y, size:9, font:reg, color:SLATE}); y -= 16; }
+          continue;
+        }
+        if(it.type==='signature' && val){
+          ensureSpace(70);
+          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
+          try{
+            const bytes = await pdfFetchImageBytes(publicUrl('signatures', val));
+            if(bytes){
+              let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+              const dim = img.scale(1); const sc = Math.min(120/dim.width, 44/dim.height, 1);
+              const w = dim.width*sc, h = dim.height*sc;
+              page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
+              y -= h+14;
+            }
+          }catch(e){ y -= 16; }
+          continue;
+        }
+        let display = '—';
+        if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+        else if(val!=null && val!=='') display = String(val);
+        ensureSpace(28);
+        page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 13;
+        wrapText(display, reg, 10, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:10, font:reg, color:INK}); y -= 13; });
+        y -= 8;
+      }
+      y -= 8;
+    }
+    const total = pdfDoc.getPageCount();
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter(idx+1, total); });
+
+    const outBytes = await pdfDoc.save();
+    const filename = (site?site.name:'site').replace(/[^a-z0-9]+/gi,'-')+'-'+sub.template_name.replace(/[^a-z0-9]+/gi,'-')+'.pdf';
+    const blob = new Blob([outBytes], {type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+    toast('PDF downloaded');
+
+    // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
+    try{
+      let binary=''; const chunk=0x8000;
+      for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
+      const base64 = btoa(binary);
+      await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64:base64, site_id: sub.site_id})});
+    }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+  }catch(e){
+    console.error(e);
+    toast('Could not build the PDF.');
+  }
+};
+
 /* ================= MORE ================= */
 function renderMore(siteId){
   const site = SITES.find(s=>s.id===siteId);
@@ -2154,6 +2548,7 @@ function renderMore(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
+      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Site Reports</div></div>` : ''}
     </div>
   `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
 }
@@ -4098,6 +4493,11 @@ async function render(){
     return renderTeam();
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='templates'){
+    if(!ME || ME.role!=='admin'){ go('#/sites'); return; }
+    if(parts[1]) return renderTemplateEditor(parts[1]);
+    return renderReportTemplates();
+  }
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
     const page = parts[2] || 'home';
@@ -4131,6 +4531,12 @@ async function render(){
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='reports'){
+      const sub = parts[3];
+      if(sub==='fill' && parts[4]) return renderReportFill(siteId, parts[4]);
+      if(sub==='view' && parts[4]) return renderReportView(siteId, parts[4]);
+      return renderSiteReports(siteId);
+    }
     if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
     if(page==='team') return renderAssignTeam(siteId);
