@@ -314,6 +314,10 @@ function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':
 // so any name containing an apostrophe (e.g. "Andy's Documents") silently
 // broke the click handler with no error shown — it just did nothing.
 function jsAttr(s){ return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+// A JS literal for embedding inside a double-quoted onclick="..." attribute —
+// booleans stay bare (true/false), everything else becomes a single-quoted,
+// escaped string. Used for the media-required value toggles below.
+function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${String(o).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`; }
 function toast(msg){
   const host=document.getElementById('toastHost');
   const el=document.createElement('div'); el.className='toast';
@@ -683,9 +687,10 @@ const REPORT_FIELD_TYPES = [
   {k:'textarea', lbl:'Long Text / Notes'},
   {k:'number', lbl:'Number'},
   {k:'passfail', lbl:'Pass / Fail / N-A'},
-  {k:'choice', lbl:'Multiple Choice'},
+  {k:'choice', lbl:'Multiple Choice (pick one)'},
+  {k:'multichoice', lbl:'Multiple Choice (tick many)'},
   {k:'checkbox', lbl:'Yes / No'},
-  {k:'photo', lbl:'Photo'},
+  {k:'photo', lbl:'Photo(s)'},
   {k:'date', lbl:'Date'},
   {k:'signature', lbl:'Signature'},
   {k:'instruction', lbl:'Instruction Text (no answer)'},
@@ -754,6 +759,39 @@ function scoreLabel(sc){
   if(!sc || sc.possible===0) return '';
   const pct = Math.round((sc.earned/sc.possible)*100);
   return `${sc.earned} / ${sc.possible} (${pct}%)`;
+}
+// Optional photo attachment on any answer (not just dedicated Photo
+// questions) — every question offers this by default now, except ones that
+// wouldn't make sense (photo/signature/instruction questions, and fields
+// that auto-fill themselves like site address/date/inspector name). An
+// admin can still switch it off per-question in the template builder.
+function itemAllowsMedia(it){
+  if(!it) return false;
+  if(it.type==='photo' || it.type==='signature' || it.type==='instruction') return false;
+  if(it.autofill) return false;
+  if(it.allowMedia===false) return false;
+  return true;
+}
+// The set of discrete values a question's own answer can take, used to build
+// the "require the photo when the answer is…" picker. null means the answer
+// is free-form (text/number/date), so there's nothing to branch on there.
+function itemOwnValueOptions(it){
+  if(it.type==='passfail') return ['Pass','Fail','N/A'];
+  if(it.type==='checkbox') return [true,false];
+  if(it.type==='choice' || it.type==='multichoice') return it.options||[];
+  return null;
+}
+// Whether the attached photo is mandatory given the question's CURRENT
+// answer — mediaRequiredWhen is a list of trigger values, or ['__always__']
+// for free-form questions where "require it whenever answered" is the only
+// option. A multichoice answer (an array) counts as a match if ANY ticked
+// option is in the trigger list.
+function mediaRequiredFor(it, answers){
+  if(!itemAllowsMedia(it) || !it.mediaRequiredWhen || !it.mediaRequiredWhen.length) return false;
+  if(it.mediaRequiredWhen.includes('__always__')) return true;
+  const val = answers ? answers[it.id] : undefined;
+  if(Array.isArray(val)) return val.some(v=>it.mediaRequiredWhen.includes(v));
+  return it.mediaRequiredWhen.includes(val);
 }
 function orgLogoUrl(org){
   return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
@@ -1620,7 +1658,7 @@ async function renderTeam(){
         <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
       ` : `
         <button class="darkbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate Invite Link'}</button>
-        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative. Only the OpHUB platform admin can change someone's role.</p>
+        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative — a Company Admin can promote them to Project Manager below once they've joined.</p>
       `}
       ${pendingInvites.length ? `
         <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
@@ -1643,22 +1681,30 @@ async function renderTeam(){
 
     <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
     ${people.filter(p=>p.role==='pm').map(p=>`
-      <div class="sitecard">
+      <div class="sitecard" style="flex-wrap:wrap;">
         <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+        ${p.id!==ME.id && iAmAdmin ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+          </div>
+        ` : ''}
       </div>
     `).join('') || `<div class="empty">No project managers yet.</div>`}
 
     <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
     ${people.filter(p=>p.role==='operative').map(p=>`
-      <div class="sitecard">
+      <div class="sitecard" style="flex-wrap:wrap;">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+        </div>
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
-    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can switch someone between Operative and Project Manager here — promoting or demoting a Company Admin is still done by the OpHUB platform admin.</p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false});
 }
 let odBusy = false;
@@ -2304,8 +2350,9 @@ function renderTemplateItemEditor(si, ii, it){
         <select onchange="editingTemplate.sections[${si}].items[${ii}].type=this.value;render()">
           ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${it.type===ft.k?'selected':''}>${ft.lbl}</option>`).join('')}
         </select>
-        ${it.type==='choice' ? `
+        ${(it.type==='choice' || it.type==='multichoice') ? `
           <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="editingTemplate.sections[${si}].items[${ii}].options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Options, comma separated">
+          ${it.type==='multichoice' ? `<p class="stub" style="margin:2px 0 0;">Fillers can tick more than one.</p>` : ''}
         ` : ''}
         ${(it.type==='text' || it.type==='date') ? `
           <label class="field-label" style="margin-top:6px;margin-bottom:2px;">Auto-fill</label>
@@ -2320,11 +2367,37 @@ function renderTemplateItemEditor(si, ii, it){
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:4px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].scored=this.checked">Count towards score${it.type==='passfail' ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
         ` : ''}
         ${it.type!=='instruction' ? renderTemplateItemLogicEditor(si, ii, it) : ''}
+        ${(it.type!=='instruction' && it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowMedia!==false?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].allowMedia=this.checked;if(!this.checked)editingTemplate.sections[${si}].items[${ii}].mediaRequiredWhen=[];render()">Allow a photo to be attached to this answer</label>
+          ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
+        ` : ''}
       </div>
       <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
     </div>
   `;
 }
+function renderMediaRequiredEditor(si, ii, it){
+  const opts = itemOwnValueOptions(it);
+  return `
+    <div style="margin-top:4px;padding-left:2px;">
+      ${opts ? `
+        <label class="field-label" style="margin-bottom:2px;">Require the photo when the answer is…</label>
+        <div class="row-gap" style="flex-wrap:wrap;">
+          ${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes(o)?'checked':''} onchange="toggleMediaRequiredValue(${si},${ii},${jsLit(o)},this.checked)">${escapeHtml(typeof o==='boolean'?(o?'Yes':'No'):(PASSFAIL_LABEL[o]||o))}</label>`).join('')}
+        </div>
+      ` : `
+        <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes('__always__')?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].mediaRequiredWhen=this.checked?['__always__']:[];render()">Always require the photo</label>
+      `}
+    </div>
+  `;
+}
+window.toggleMediaRequiredValue = function(si, ii, value, checked){
+  const it = editingTemplate.sections[si].items[ii];
+  const set = new Set(it.mediaRequiredWhen||[]);
+  if(checked) set.add(value); else set.delete(value);
+  it.mediaRequiredWhen = Array.from(set);
+  render();
+};
 // Trigger candidates for conditional logic: earlier questions in the SAME
 // section with a fixed set of possible answers (passfail/choice/checkbox) —
 // mirrors how SafetyCulture nests a conditional question directly under the
@@ -2391,7 +2464,7 @@ window.removeTemplateSection = function(si){
   render();
 };
 window.addTemplateItem = function(si){
-  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[], scored:false, showIf:null});
+  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[], scored:false, showIf:null, allowMedia:true, mediaRequiredWhen:[]});
   render();
 };
 window.removeTemplateItem = function(si, ii){
@@ -2420,6 +2493,10 @@ window.saveTemplate = async function(){
 /* ================= SITE REPORTS (PM fills a template in and submits) ================= */
 let reportFillDraft = null; // {templateId, template, answers:{}}
 let reportSubmitBusy = false;
+let reportsListOpen = false;         // Submitted Reports is a click-to-open dropdown, closed by default
+let reportsFilterTemplate = '';      // '' = all templates
+let selectedReportIds = new Set();   // checked rows, for bulk email
+let bulkEmailBusy = false;
 async function renderSiteReports(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isAdmin = ME.role==='admin';
@@ -2428,6 +2505,8 @@ async function renderSiteReports(siteId){
     dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=50'),
   ]);
   await loadAllProfiles();
+  const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
+  const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
   document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${isAdmin ? 'Report Templates' : 'Fill Out a Report'}</p>
     ${isAdmin ? `<p class="stub" style="margin:0 0 10px;">Build and manage templates here — Project Managers pick one to carry out an inspection. Editing a template never changes reports already submitted from it.</p>` : ''}
@@ -2444,14 +2523,62 @@ async function renderSiteReports(siteId){
       </div>
     `).join('') || `<div class="empty">No report templates yet${isAdmin?'.':' — ask a Company Admin to create one.'}</div>`}
     ${isAdmin ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
-    <p class="sectiontitle" style="margin-top:18px;">Submitted Reports</p>
-    ${submissions.map(s=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/view/${s.id}')">
-        <div class="info"><div class="name">${escapeHtml(s.template_name)}</div><div class="addr">${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div></div>
+
+    <div class="card" style="margin-top:18px;padding:0;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;" onclick="toggleReportsListOpen()">
+        <p class="sectiontitle" style="margin:0;">Submitted Reports (${submissions.length})</p>
+        <span style="font-size:13px;color:var(--slate);">${reportsListOpen?'▾ Hide':'▸ Show'}</span>
       </div>
-    `).join('') || `<div class="empty">No reports submitted yet.</div>`}
+      ${reportsListOpen ? `
+        <div style="padding:0 16px 16px;">
+          ${templateNames.length>1 ? `
+            <div class="formfield" style="margin-top:0;">
+              <label class="field-label">Filter by template</label>
+              <select onchange="setReportsFilter(this.value)">
+                <option value="">All templates</option>
+                ${templateNames.map(n=>`<option value="${escapeHtml(n)}" ${reportsFilterTemplate===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+          ${selectedReportIds.size>0 ? `
+            <button class="darkbtn" style="margin-bottom:10px;" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':`Email ${selectedReportIds.size} Selected Report${selectedReportIds.size===1?'':'s'} (individual attachments, one email)`}</button>
+          ` : ''}
+          ${filtered.map(s=>`
+            <div class="sitecard">
+              <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedReportIds.has(s.id)?'checked':''} onclick="toggleReportSelect('${s.id}')">
+              <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/view/${s.id}')"><div class="name">${escapeHtml(s.template_name)}</div><div class="addr">${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div></div>
+            </div>
+          `).join('') || `<div class="empty">No reports submitted yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
+        </div>
+      ` : ''}
+    </div>
   `, {title:'Site Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
+window.toggleReportsListOpen = function(){ reportsListOpen = !reportsListOpen; render(); };
+window.setReportsFilter = function(name){ reportsFilterTemplate = name; render(); };
+window.toggleReportSelect = function(id){
+  if(selectedReportIds.has(id)) selectedReportIds.delete(id); else selectedReportIds.add(id);
+  render();
+};
+window.emailSelectedReports = async function(){
+  if(!selectedReportIds.size) return;
+  bulkEmailBusy = true; render();
+  toast('Building PDFs…');
+  try{
+    const ids = Array.from(selectedReportIds);
+    const attachments = [];
+    for(const id of ids){
+      const built = await buildReportPdf(id);
+      if(built) attachments.push({submission_id:id, filename:built.filename, content_base64:built.base64});
+    }
+    if(!attachments.length){ toast('Could not build any of the selected reports.'); bulkEmailBusy=false; render(); return; }
+    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else { toast(`${attachments.length} report(s) emailed to ${ME.email}`); selectedReportIds = new Set(); }
+  }catch(e){ toast('Email failed — could not reach the server.'); }
+  bulkEmailBusy = false; render();
+};
 async function renderReportFill(siteId, templateId){
   const site = SITES.find(s=>s.id===siteId);
   if(!reportFillDraft || reportFillDraft.templateId !== templateId){
@@ -2482,29 +2609,65 @@ async function renderReportFill(siteId, templateId){
     <button class="darkbtn" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Submitting…':'Submit Report'}</button>
   `, {title:'Fill Out Report', subtitle:site.name, back:`#/site/${siteId}/snagging/reports`, siteId, activeTab:'more'});
 }
+function renderPhotoArrayWidget(key, arr, opts){
+  opts = opts || {};
+  const size = opts.size || 90;
+  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}<input type="file" accept="image/*" multiple capture="environment" onchange="onReportPhotoChosen(this,'${key}')">`;
+}
+function renderExtraMediaWidget(it, answers){
+  if(!itemAllowsMedia(it)) return '';
+  const key = it.id+'__media';
+  const arr = Array.isArray(answers[key]) ? answers[key] : [];
+  const isReq = mediaRequiredFor(it, answers);
+  return `<div class="formfield" style="margin-top:-6px;">
+    <label class="field-label" style="font-size:11px;color:${isReq?'var(--warn)':'var(--slate)'};">${isReq?'Photo required for this answer *':'Attach a photo (optional)'}</label>
+    ${renderPhotoArrayWidget(key, arr, {size:70})}
+  </div>`;
+}
 function renderReportFillItem(it){
   const val = reportFillDraft.answers[it.id];
   const reqStar = it.required ? ' *' : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const autoHint = it.autofill ? ` <span style="font-weight:400;color:var(--slate);font-size:11px;">(auto-filled — edit if needed)</span>` : '';
-  if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
-  if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>`;
-  if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
-  if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>`;
-  if(it.type==='checkbox') return `<div class="formfield"><label class="stub" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" style="width:auto;" ${val?'checked':''} onchange="reportFillDraft.answers['${it.id}']=this.checked;render()">${escapeHtml(it.label)}${reqStar}</label></div>`;
-  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>`;
-  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value;render()"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>`;
-  if(it.type==='photo') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${val ? `<img src="${val}" style="max-width:160px;border-radius:8px;margin-bottom:6px;display:block;">` : ''}<input type="file" accept="image/*" capture="environment" onchange="onReportPhotoChosen(this,'${it.id}')"></div>`;
+  const extraMedia = renderExtraMediaWidget(it, reportFillDraft.answers);
+  if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
+  if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>${extraMedia}`;
+  if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
+  if(it.type==='date') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
+  if(it.type==='checkbox') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${[{v:true,l:'Yes'},{v:false,l:'No'}].map(o=>`<button type="button" class="${val===o.v?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']=${o.v};render()">${o.l}</button>`).join('')}</div></div>${extraMedia}`;
+  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>${extraMedia}`;
+  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value;render()"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>${extraMedia}`;
+  if(it.type==='multichoice'){
+    const arr = Array.isArray(val) ? val : [];
+    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap" style="flex-wrap:wrap;">${(it.options||[]).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;"><input type="checkbox" style="width:auto;" ${arr.includes(o)?'checked':''} onchange="toggleReportMultichoice('${it.id}','${jsAttr(o)}',this.checked)">${escapeHtml(o)}</label>`).join('')}</div></div>${extraMedia}`;
+  }
+  if(it.type==='photo'){
+    const arr = Array.isArray(val) ? val : (val ? [val] : []);
+    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${renderPhotoArrayWidget(it.id, arr)}</div>`;
+  }
   if(it.type==='signature') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${ME.signature_path ? `<img src="${publicUrl('signatures', ME.signature_path)}" style="height:50px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;"><p class="stub" style="margin:6px 0 0;">Your adopted signature will be attached when you submit.</p>` : `<p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p>`}</div>`;
   return '';
 }
-window.onReportPhotoChosen = async function(input, itemId){
-  const file = input.files && input.files[0]; if(!file) return;
+window.toggleReportMultichoice = function(itemId, value, checked){
+  const cur = new Set(reportFillDraft.answers[itemId]||[]);
+  if(checked) cur.add(value); else cur.delete(value);
+  reportFillDraft.answers[itemId] = Array.from(cur);
+  render();
+};
+window.onReportPhotoChosen = async function(input, key){
+  const files = input.files ? Array.from(input.files) : []; if(!files.length) return;
   try{
-    const dataUrl = await compressImage(file);
-    reportFillDraft.answers[itemId] = dataUrl;
+    const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : (reportFillDraft.answers[key] ? [reportFillDraft.answers[key]] : []);
+    for(const file of files){ cur.push(await compressImage(file)); }
+    reportFillDraft.answers[key] = cur;
     render();
   }catch(e){ toast('Could not process that photo.'); }
+};
+window.removeReportPhoto = function(key, idx){
+  const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : [];
+  cur.splice(idx,1);
+  reportFillDraft.answers[key] = cur;
+  render();
 };
 window.submitReport = async function(siteId){
   const t = reportFillDraft.template;
@@ -2514,8 +2677,14 @@ window.submitReport = async function(siteId){
       if(!itemVisible(it, reportFillDraft.answers)) continue;
       if(it.required){
         const v = reportFillDraft.answers[it.id];
-        if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
+        if(it.type==='photo' || it.type==='multichoice'){
+          if(!Array.isArray(v) || !v.length){ toast(`"${it.label}" is required.`); return; }
+        } else if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
         if(it.type==='signature' && !ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
+      }
+      if(mediaRequiredFor(it, reportFillDraft.answers)){
+        const media = reportFillDraft.answers[it.id+'__media'];
+        if(!Array.isArray(media) || !media.length){ toast(`A photo is required for "${it.label}" based on your answer.`); return; }
       }
     }
   }
@@ -2553,7 +2722,7 @@ async function renderReportView(siteId, submissionId){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).filter(it=>itemVisible(it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id])).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id], sub.answers)).join('')}
       </div>
     `).join('')}
     <div class="row-gap">
@@ -2562,15 +2731,22 @@ async function renderReportView(siteId, submissionId){
     </div>
   `, {title:'Report', subtitle:site.name, back:`#/site/${siteId}/snagging/reports`, siteId, activeTab:'more'});
 }
-function renderReportViewItem(it, val){
+function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
-  if(it.type==='photo' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${val}" style="max-width:200px;border-radius:8px;margin-bottom:10px;display:block;">`;
+  const mediaArr = (answers && itemAllowsMedia(it) && Array.isArray(answers[it.id+'__media'])) ? answers[it.id+'__media'] : [];
+  const extraMediaHtml = mediaArr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;">${mediaArr.map(u=>`<img src="${u}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">`).join('')}</div>` : '';
+  if(it.type==='photo'){
+    const arr = Array.isArray(val) ? val : (val ? [val] : []);
+    if(!arr.length) return '';
+    return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">${arr.map(u=>`<img src="${u}" style="width:140px;height:140px;object-fit:cover;border-radius:8px;">`).join('')}</div>`;
+  }
   if(it.type==='signature' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${publicUrl('signatures', val)}" style="height:44px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:10px;">`;
   let display = '—';
-  if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+  if(it.type==='checkbox') display = val===true ? 'Yes' : (val===false ? 'No' : '—');
   else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
+  else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
   else if(val!=null && val!=='') display = String(val);
-  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p></div>`;
+  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${extraMediaHtml}</div>`;
 }
 let reportEmailBusy = null;
 async function buildReportPdf(submissionId){
@@ -2657,18 +2833,37 @@ async function buildReportPdf(submissionId){
           y -= 6; continue;
         }
         const val = sub.answers[it.id];
-        if(it.type==='photo' && val){
-          ensureSpace(140);
-          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
+        // Shared helper: draws a data-URL image at (x, y-h) sized to fit a
+        // maxW×maxH box, returns its drawn height (0 if it couldn't embed).
+        async function drawInlinePhoto(dataUrl, x, maxW, maxH){
           try{
-            const b64 = val.split(',')[1];
+            const b64 = dataUrl.split(',')[1];
             const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
             let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
-            const dim = img.scale(1); const sc = Math.min(140/dim.width, 100/dim.height, 1);
+            const dim = img.scale(1); const sc = Math.min(maxW/dim.width, maxH/dim.height, 1);
             const w = dim.width*sc, h = dim.height*sc;
-            page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
-            y -= h+14;
-          }catch(e){ page.drawText('(photo could not be embedded)', {x:MARGIN, y, size:9, font:reg, color:SLATE}); y -= 16; }
+            page.drawImage(img, {x, y:y-h, width:w, height:h});
+            return h;
+          }catch(e){ return 0; }
+        }
+        async function drawPhotoRow(urls, maxH){
+          if(!urls.length) return;
+          ensureSpace(maxH+16);
+          let x = MARGIN, rowH = 0;
+          for(const u of urls){
+            if(x + 140 > PAGE_W-MARGIN){ y -= rowH+10; x = MARGIN; rowH = 0; ensureSpace(maxH+16); }
+            const h = await drawInlinePhoto(u, x, 130, maxH);
+            rowH = Math.max(rowH, h);
+            x += 140;
+          }
+          y -= rowH+14;
+        }
+        if(it.type==='photo'){
+          const arr = Array.isArray(val) ? val : (val ? [val] : []);
+          if(!arr.length) continue;
+          ensureSpace(24);
+          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
+          await drawPhotoRow(arr, 100);
           continue;
         }
         if(it.type==='signature' && val){
@@ -2687,13 +2882,16 @@ async function buildReportPdf(submissionId){
           continue;
         }
         let display = '—';
-        if(it.type==='checkbox') display = val ? 'Yes' : 'No';
+        if(it.type==='checkbox') display = val===true ? 'Yes' : (val===false ? 'No' : '—');
         else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
+        else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
         else if(val!=null && val!=='') display = String(val);
         ensureSpace(28);
         page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 13;
         wrapText(display, reg, 10, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:10, font:reg, color:INK}); y -= 13; });
         y -= 8;
+        const extraMedia = itemAllowsMedia(it) && Array.isArray(sub.answers[it.id+'__media']) ? sub.answers[it.id+'__media'] : [];
+        if(extraMedia.length) await drawPhotoRow(extraMedia, 80);
       }
       y -= 8;
     }
