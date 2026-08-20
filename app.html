@@ -1541,6 +1541,7 @@ async function renderTeam(){
       <div class="sitecard">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No other admins yet.</div>`}
 
@@ -1549,7 +1550,7 @@ async function renderTeam(){
       <div class="sitecard">
         <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>` : ''}
+        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No project managers yet.</div>`}
 
@@ -1558,10 +1559,10 @@ async function renderTeam(){
       <div class="sitecard">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${escapeHtml(p.name)}')">Remove</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
-    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. Changing someone's role (promoting/demoting) is done by the OpHUB platform admin.</p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false});
 }
 let odBusy = false;
@@ -1904,7 +1905,10 @@ async function renderSiteHome(siteId){
 }
 async function loadPMList(){
   await loadAllProfiles();
-  return Object.values(PROFILES).filter(p=>p.role==='pm').sort((a,b)=>a.name.localeCompare(b.name));
+  // Company admins act as project managers too (they have full PM-level
+  // access to every site already), so they're valid choices for "responsible
+  // project manager" on a job, not just accounts with the literal 'pm' role.
+  return Object.values(PROFILES).filter(p=>p.role==='pm' || p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
 }
 window.setResponsiblePM = async function(siteId, pmId){
   const row = await dbUpdate('sites', siteId, {responsible_pm_id: pmId || null});
@@ -2097,7 +2101,7 @@ async function renderAssignTeam(siteId){
       <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
       <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
         <option value="">No owner — notify all project managers</option>
-        ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
       </select>
     </div>
     <p class="sectiontitle">Assign Operatives</p>

@@ -189,6 +189,11 @@ function toast(msg){
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 3400);
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// For values dropped into an onclick="fn('...')" attribute: escape backslash
+// and single-quote for JS FIRST, then HTML-escape the result — the other
+// order is a no-op (escapeHtml already turns ' into &#39;, which the browser
+// decodes straight back to a literal ' before parsing the onclick JS).
+function jsAttr(s){ return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 function showLoginErr(msg){ document.getElementById('loginErrHost').innerHTML = msg ? `<div class="errbox">${escapeHtml(msg)}</div>` : ''; }
 
 /* ---- session ---- */
@@ -233,6 +238,11 @@ async function dbUpdate(table, id, patch){
   if(!res.ok){ toast('Update failed — '+(await safeErr(res))); return null; }
   const d = await res.json();
   return Array.isArray(d)?d[0]:d;
+}
+async function dbDelete(table, id){
+  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE'});
+  if(!res.ok){ toast('Delete failed — '+(await safeErr(res))); return false; }
+  return true;
 }
 
 /* ---- auth flow ---- */
@@ -364,6 +374,7 @@ window.openMembersModal = function(orgId){
       <div class="acts">
         ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="btn btn-ghost btn-sm" onclick="setUserRole('${p.id}','${r}')">Make ${ROLE_LABEL[r]}</button>`).join('')}
         <button class="btn btn-ghost btn-sm" onclick="resetPassword('${escapeHtml(p.email)}')">Reset Password</button>
+        <button class="btn btn-ghost btn-sm" style="color:#B23A3A;" onclick="deleteUserFromModal('${p.id}','${jsAttr(p.name)}')">Delete User</button>
       </div>
     </div>
   `).join('') || `<div class="empty">No members yet.</div>`;
@@ -381,6 +392,15 @@ window.setUserRole = async function(userId, role){
     toast(`Role changed to ${ROLE_LABEL[role]}`);
     if(modalOrgId) openMembersModal(modalOrgId);
     renderCompanies();
+  }
+};
+window.deleteUserFromModal = async function(userId, name){
+  if(!confirm(`Permanently delete ${name||'this user'}? They will immediately lose all access. This cannot be undone.`)) return;
+  const ok = await dbDelete('profiles', userId);
+  if(ok){
+    toast(`${name||'User'} deleted`);
+    if(modalOrgId) openMembersModal(modalOrgId);
+    loadDashboard();
   }
 };
 window.deleteCompanyFromModal = async function(){
