@@ -713,7 +713,7 @@ function shell(innerHtml, opts){
             ${ME ? `
               <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto;">
                 <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
-                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:16px;line-height:1;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
+                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
               </div>
             ` : `<span style="flex:0 0 40px;"></span>`}
           </div>
