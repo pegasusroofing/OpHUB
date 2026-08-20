@@ -62,6 +62,15 @@
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;}
   }
+  /* Phone-only header text scale-down (0.85x) — only applies below the
+     desktop breakpoint above, so the wide-browser header stays full size. */
+  @media (max-width:759px){
+    .appbar .brandline{font-size:12.75px;}
+    .appbar .brandline.lg{font-size:19.125px;}
+    .appbar h2{font-size:20.4px;}
+    .appbar h2.lg{font-size:22.95px;}
+    .rolechip{font-size:6.63px;}
+  }
   .stripe-edge{height:5px;width:100%;flex:0 0 auto;
     background:
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
@@ -72,7 +81,9 @@
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
   .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
+  .brandline.lg{font-size:22.5px;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
+  .appbar h2.lg{font-size:27px;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
@@ -712,11 +723,11 @@ function shell(innerHtml, opts){
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
-              <div class="brandline" style="font-size:22.5px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
-              <h2 style="font-size:27px;font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title||''}</h2>
+              <div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>
+              <h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title||''}</h2>
             </div>
             ${ME ? `
-              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto;">
+              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
                 <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
                 ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
               </div>
@@ -3317,6 +3328,9 @@ window.exportSignedToolboxTalk = async function(tbtId){
 let matFilter = 'live';
 let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
 let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
+let selectedMaterialIds = new Set(); // matIds ticked for a grouped/combined send
+let groupSupplierId = null; // supplier chosen for the current group selection
+let sendingGroup = false; // true while entering the Required for Delivery date for a grouped send
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -3334,10 +3348,31 @@ async function renderMaterials(siteId){
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
     </div>
 
+    ${isPM && selectedMaterialIds.size>0 ? `
+      <div class="card" style="border-color:var(--brand1);border-width:1.5px;">
+        <p class="sectiontitle" style="margin-top:0;">${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order</p>
+        ${sendingGroup ? `
+          <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
+          <div class="formfield"><input type="date" id="reqDeliveryDate_group" min="${new Date().toISOString().slice(0,10)}"></div>
+          <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; Send ${selectedMaterialIds.size} Items to ${escapeHtml(supplierName(groupSupplierId)||'')}</button>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="sendingGroup=false;render()">Cancel</button>
+        ` : `
+          <div class="merchantrow">Send all to:
+            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${groupSupplierId===s.id?'active':''}" onclick="groupSupplierId='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+          </div>
+          ${groupSupplierId ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="sendingGroup=true;render()">Send Order (${selectedMaterialIds.size} items)</button>` : ''}
+          <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMaterialIds=new Set();groupSupplierId=null;render()">Clear selection</button>
+        `}
+      </div>
+    ` : ''}
+
     ${materials.map(m=>`
       <div class="matcard">
         <div class="top">
-          <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+            ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
+            <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
+          </div>
           <div style="display:flex;align-items:center;gap:6px;">
             <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
@@ -3346,6 +3381,7 @@ async function renderMaterials(siteId){
         ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
           m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
           m.status==='pending' ? (isPM ? (
+            selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
             sendingMaterial && sendingMaterial.matId===m.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
@@ -3448,6 +3484,50 @@ window.confirmSendMaterial = async function(siteId, matId){
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
+      toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+    } else {
+      console.error('send-material-order failed:', d.error || res.status);
+      toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
+    }
+  }catch(e){
+    console.error('send-material-order failed:', e);
+    toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
+  }
+  render();
+};
+window.toggleMaterialSelect = function(matId){
+  if(selectedMaterialIds.has(matId)) selectedMaterialIds.delete(matId);
+  else selectedMaterialIds.add(matId);
+  render();
+};
+window.confirmSendGroupedMaterial = async function(siteId){
+  if(!groupSupplierId || !selectedMaterialIds.size) return;
+  const dateInput = document.getElementById('reqDeliveryDate_group');
+  const requiredForDelivery = dateInput ? dateInput.value : '';
+  if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
+  const suppliers = await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
+  const supplier = suppliers && suppliers[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  const matIds = Array.from(selectedMaterialIds);
+  const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
+  if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
+  const nowIso = new Date().toISOString();
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'sent', merchant:supplier.name, supplier_id:groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
+  if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
+  sendingGroup = false;
+  selectedMaterialIds = new Set();
+  groupSupplierId = null;
+  toast('Order routed to '+supplier.name+' — emailing…');
+  render();
+  try{
+    const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
+      supplier_email: supplier.email, supplier_name: supplier.name, site_id: siteId,
+      required_for_delivery: requiredForDelivery,
+      items: materials.map(m=>({item:m.item, qty:m.qty})),
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      await Promise.all(matIds.map(id => dbUpdate('materials', id, {email_sent_at:new Date().toISOString()})));
       toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
     } else {
       console.error('send-material-order failed:', d.error || res.status);
