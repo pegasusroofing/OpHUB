@@ -2010,25 +2010,74 @@ function renderMore(siteId){
 /* ================= CHECK IN/OUT ================= */
 let checkinBusy = false;
 let checkinError = null;
+// Pairs up each operative's raw in/out log (chronological, ascending) into
+// sessions of {user_id, in, out} — out:null means still on site. An "in"
+// with no prior open session starts a new one; a stray "out" with nothing
+// open is kept as its own row (in:null) so nothing silently disappears.
+function buildCheckinSessions(rowsAsc){
+  const byUser = {};
+  rowsAsc.forEach(c=>{ (byUser[c.user_id] = byUser[c.user_id] || []).push(c); });
+  const sessions = [];
+  Object.keys(byUser).forEach(uid=>{
+    let open = null;
+    byUser[uid].forEach(c=>{
+      if(c.type==='in'){
+        if(open) sessions.push({user_id:uid, in:open, out:null});
+        open = c;
+      } else {
+        if(open){ sessions.push({user_id:uid, in:open, out:c}); open = null; }
+        else sessions.push({user_id:uid, in:null, out:c});
+      }
+    });
+    if(open) sessions.push({user_id:uid, in:open, out:null});
+  });
+  return sessions;
+}
+function checkinDayLabel(ts){
+  const d = new Date(ts); d.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yest = new Date(today); yest.setDate(yest.getDate()-1);
+  if(d.getTime()===today.getTime()) return 'Today';
+  if(d.getTime()===yest.getTime()) return 'Yesterday';
+  return d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+}
 async function renderCheckin(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const [mine, teamRecent] = await Promise.all([
+  const [mine, teamAll] = await Promise.all([
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
-    // PMs/admins get the whole site's recent check-in activity so they can see
-    // every operative's current in/out status at a glance, not just their own.
-    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.desc&limit=200') : Promise.resolve([]),
+    // PMs/admins get the whole site's check-in history (ascending, so it can
+    // be paired into in/out sessions and grouped by day below) so they can
+    // see every operative's activity, not just their own.
+    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500') : Promise.resolve([]),
   ]);
   const last = mine[0];
   const status = (last && last.type==='in') ? 'in' : 'out';
 
-  // Latest check-in per operative (teamRecent is already ts.desc, so the
-  // first row seen for each user_id is that operative's current status).
+  // Latest check-in per operative (teamAll is ts.asc, so the last write for
+  // each user_id ends up being their most recent check-in/out).
   const latestByUser = {};
-  teamRecent.forEach(c=>{ if(!latestByUser[c.user_id]) latestByUser[c.user_id] = c; });
+  teamAll.forEach(c=>{ latestByUser[c.user_id] = c; });
   const teamStatusList = Object.values(latestByUser).sort((a,b)=>{
     const aIn = a.type==='in' ? 0 : 1, bIn = b.type==='in' ? 0 : 1;
     return aIn - bIn || new Date(b.ts) - new Date(a.ts);
+  });
+
+  // Day-grouped history: each operative's sign-in & sign-out shown together
+  // in one row, newest day first.
+  const sessions = buildCheckinSessions(teamAll);
+  const dayGroups = {};
+  sessions.forEach(s=>{
+    const anchor = s.in || s.out;
+    const dayKey = new Date(anchor.ts).toDateString();
+    (dayGroups[dayKey] = dayGroups[dayKey] || []).push(s);
+  });
+  const dayKeysSorted = Object.keys(dayGroups).sort((a,b)=>new Date(b)-new Date(a));
+  dayKeysSorted.forEach(k=>{
+    dayGroups[k].sort((a,b)=>{
+      const aTs = new Date((a.in||a.out).ts), bTs = new Date((b.in||b.out).ts);
+      return bTs - aTs;
+    });
   });
 
   const body = `
@@ -2047,6 +2096,23 @@ async function renderCheckin(siteId){
         <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
           <div style="font-size:13px;font-weight:700;">${escapeHtml(nameOf(c.user_id))}${c.user_id===ME.id?' <span style="color:var(--slate);font-weight:600;">(you)</span>':''}</div>
           ${c.type==='in' ? `<span class="pill on" style="margin:0;"><span class="dot"></span>On site since ${new Date(c.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>` : `<span class="pill off" style="margin:0;"><span class="dot"></span>Off site</span>`}
+        </div>
+      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
+    ` : ''}
+    ${isPM ? `
+      <p class="sectiontitle" style="margin-top:18px;">Recent Check-ins — All Operatives</p>
+      ${dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;">${checkinDayLabel(dayKey)}</div>
+          ${dayGroups[dayKey].map(s=>`
+            <div class="card" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:13px;font-weight:700;flex:1;min-width:90px;">${escapeHtml(nameOf(s.user_id))}</div>
+              <div style="font-size:12px;color:var(--slate);display:flex;align-items:center;gap:14px;">
+                <span>${s.in ? 'In '+new Date(s.in.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : '—'}</span>
+                <span>${s.out ? 'Out '+new Date(s.out.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : (s.in ? '<span style="color:var(--ok);font-weight:700;">On site</span>' : '—')}</span>
+              </div>
+            </div>
+          `).join('')}
         </div>
       `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
     ` : ''}
