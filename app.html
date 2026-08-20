@@ -2514,6 +2514,9 @@ async function renderSnaggingFolder(siteId){
 /* ================= SNAGGING ================= */
 let snagFilter = 'live';
 let snagNewPhoto = null;
+let snagNewTitle = ''; // kept in JS state (not just read from the DOM at submit)
+let snagNewLocation = ''; // because attaching a photo/PDF triggers a re-render mid-form,
+                           // which was wiping out whatever had been typed so far.
 let snagNewPdf = null; // {file, name} chosen in the "Add snag" form, not yet uploaded
 let attachingPdfSnagId = null;
 let closingSnagId = null;
@@ -2566,8 +2569,8 @@ async function renderSnagging(siteId){
     ${canAdd ? `
       <div class="card" style="margin-top:14px;">
         <p class="sectiontitle" style="margin-top:0;">Add snag</p>
-        <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue"></div>
-        <div class="formfield"><input type="text" id="snagLoc" placeholder="Location"></div>
+        <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue" value="${escapeHtml(snagNewTitle)}" oninput="snagNewTitle=this.value"></div>
+        <div class="formfield"><input type="text" id="snagLoc" placeholder="Location" value="${escapeHtml(snagNewLocation)}" oninput="snagNewLocation=this.value"></div>
         <div class="formfield">
           <label class="field-label">Photo</label>
           <label class="photoupload" style="cursor:pointer;">
@@ -2604,8 +2607,8 @@ window.snagAddPdf = function(input){
   render();
 };
 window.addSnag = async function(siteId){
-  const title = document.getElementById('snagTitle').value.trim();
-  const location = document.getElementById('snagLoc').value.trim();
+  const title = snagNewTitle.trim();
+  const location = snagNewLocation.trim();
   if(!title) return;
   let photoPath = null;
   if(snagNewPhoto){
@@ -2619,6 +2622,8 @@ window.addSnag = async function(siteId){
   if(rows){
     snagNewPhoto = null;
     snagNewPdf = null;
+    snagNewTitle = '';
+    snagNewLocation = '';
     toast('Snag added');
     render();
   }
@@ -3662,7 +3667,7 @@ async function renderVariations(siteId){
       </div>
       <div class="formfield">
         <label class="field-label">Description</label>
-        <textarea id="varDesc" placeholder="What's changed and why...">${escapeHtml(varDraft.desc)}</textarea>
+        <textarea id="varDesc" placeholder="What's changed and why..." oninput="varDraft.desc=this.value">${escapeHtml(varDraft.desc)}</textarea>
       </div>
       <button class="primarybtn" ${(varDraft.photo)?'':'disabled'} onclick="submitVariation('${siteId}')">Submit Variation</button>
     </div>
@@ -3690,7 +3695,7 @@ window.varPhoto = async function(input){
   catch(e){ toast('Could not process photo.'); }
 };
 window.submitVariation = async function(siteId){
-  const desc = document.getElementById('varDesc').value.trim();
+  const desc = (varDraft.desc||'').trim();
   const path = await uploadDataUrl('site-photos', siteId+'/variations/'+uid()+'.jpg', varDraft.photo);
   if(!path) return;
   const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live'});
