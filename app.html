@@ -2012,9 +2012,24 @@ let checkinBusy = false;
 let checkinError = null;
 async function renderCheckin(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const mine = await dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5');
+  const isPM = isManager(ME);
+  const [mine, teamRecent] = await Promise.all([
+    dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
+    // PMs/admins get the whole site's recent check-in activity so they can see
+    // every operative's current in/out status at a glance, not just their own.
+    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.desc&limit=200') : Promise.resolve([]),
+  ]);
   const last = mine[0];
   const status = (last && last.type==='in') ? 'in' : 'out';
+
+  // Latest check-in per operative (teamRecent is already ts.desc, so the
+  // first row seen for each user_id is that operative's current status).
+  const latestByUser = {};
+  teamRecent.forEach(c=>{ if(!latestByUser[c.user_id]) latestByUser[c.user_id] = c; });
+  const teamStatusList = Object.values(latestByUser).sort((a,b)=>{
+    const aIn = a.type==='in' ? 0 : 1, bIn = b.type==='in' ? 0 : 1;
+    return aIn - bIn || new Date(b.ts) - new Date(a.ts);
+  });
 
   const body = `
     <div class="card">
@@ -2026,13 +2041,22 @@ async function renderCheckin(siteId){
     <button class="primarybtn" style="${status==='in'?'background:var(--ink);':''}" ${checkinBusy?'disabled':''} onclick="doCheckAction('${siteId}','${status==='in'?'out':'in'}')">
       ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
     </button>
+    ${isPM ? `
+      <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
+      ${teamStatusList.length ? teamStatusList.map(c=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="font-size:13px;font-weight:700;">${escapeHtml(nameOf(c.user_id))}${c.user_id===ME.id?' <span style="color:var(--slate);font-weight:600;">(you)</span>':''}</div>
+          ${c.type==='in' ? `<span class="pill on" style="margin:0;"><span class="dot"></span>On site since ${new Date(c.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>` : `<span class="pill off" style="margin:0;"><span class="dot"></span>Off site</span>`}
+        </div>
+      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
+    ` : ''}
     <p class="sectiontitle" style="margin-top:18px;">Recent</p>
     ${mine.slice(0,4).map(c=>`
       <div class="card" style="padding:10px 12px;margin-bottom:8px;">
         <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
       </div>
     `).join('') || `<div class="empty">No check-ins yet.</div>`}
-    ${isManager(ME) ? `
+    ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Reports</p>
       <button class="ghostbtn" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
       <button class="ghostbtn" style="margin-top:8px;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
