@@ -1205,6 +1205,7 @@ function siteCardHtml(s, canAdd){
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
       <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
+      ${s.responsible_pm_id ? `<span class="rolechip" style="margin-left:8px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${escapeHtml((nameOf(s.responsible_pm_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</span>` : ''}
       ${canAdd ? `<div class="taskicon" style="margin-left:8px;" title="${s.status==='closed'?'Reopen job':'Close job'}" onclick="event.stopPropagation();toggleSiteStatus('${s.id}','${s.status==='closed'?'active':'closed'}')">${s.status==='closed'?'↩':'📦'}</div>` : ''}
       ${canAdd ? `<div class="taskicon danger" style="margin-left:8px;" onclick="event.stopPropagation();deleteSite('${s.id}','${jsAttr(s.name)}')">🗑</div>` : ''}
     </div>
@@ -1213,6 +1214,7 @@ function siteCardHtml(s, canAdd){
 async function renderSites(){
   const app = document.getElementById('app');
   const canAdd = isManager(ME);
+  await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
   const activeSites = SITES.filter(s=>s.status!=='closed');
   const closedSites = SITES.filter(s=>s.status==='closed');
   app.innerHTML = shell(`
@@ -1826,14 +1828,13 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, pmList, odConnRows] = await Promise.all([
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, odConnRows] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
-    ME.role==='admin' ? loadPMList() : Promise.resolve([]),
     isManager(ME) ? dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token') : Promise.resolve([]),
   ]);
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
@@ -1897,29 +1898,6 @@ async function renderSiteHome(siteId){
         `}
       </div>
       ` : ''}
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Site Geofence</p>
-        ${!orgAllowsGps() ? `
-          <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
-        ` : site.geofence_lat ? `
-          <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)} · check-ins must be within 100m</div>
-          <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
-          <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
-        ` : `
-          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
-          <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
-        `}
-      </div>
-      ${ME.role==='admin' ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Responsible Project Manager</p>
-        <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
-        <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
-          <option value="">No owner — notify all project managers</option>
-          ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
-      </div>
-      ` : ''}
       <button class="ghostbtn" onclick="go('#/site/${siteId}/team')">Assign Team</button>
     ` : ''}
   `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
@@ -1945,6 +1923,15 @@ async function unreadCountForSite(siteId){
   const readSet = new Set(reads.map(r=>r.message_id));
   return msgs.filter(m=>!readSet.has(m.id)).length;
 }
+window.setGeofenceRadius = async function(siteId, radius){
+  const row = await dbUpdate('sites', siteId, {geofence_radius_m: radius});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Check-in distance set to '+radius+'m');
+    render();
+  }
+};
 window.setGeofence = async function(siteId){
   if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
   toast('Getting GPS lock…');
@@ -2097,10 +2084,24 @@ async function renderAssignTeam(siteId){
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const assigned = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const [assigned, pmList] = await Promise.all([
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    ME.role==='admin' ? loadPMList() : Promise.resolve([]),
+  ]);
   const assignedIds = new Set(assigned.map(a=>a.user_id));
 
   document.getElementById('app').innerHTML = shell(`
+    ${ME.role==='admin' ? `
+    <p class="sectiontitle" style="margin-top:0;">Responsible Project Manager</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
+      <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
+        <option value="">No owner — notify all project managers</option>
+        ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+      </select>
+    </div>
+    <p class="sectiontitle">Assign Operatives</p>
+    ` : ''}
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
       <div class="sitecard">
@@ -2223,6 +2224,25 @@ async function renderCheckin(siteId){
       ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
     </button>
     ${isPM ? `
+      <p class="sectiontitle" style="margin-top:18px;">Site Geofence</p>
+      <div class="card">
+        ${!orgAllowsGps() ? `
+          <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
+        ` : `
+          ${site.geofence_lat ? `
+            <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)}</div>
+            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
+            <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
+          ` : `
+            <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
+            <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
+          `}
+          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+          <div class="row-gap">
+            ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
+          </div>
+        `}
+      </div>
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
       ${teamStatusList.length ? teamStatusList.map(c=>`
         <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -2287,9 +2307,10 @@ window.doCheckAction = async function(siteId, type){
   const site = SITES.find(s=>s.id===siteId);
   if(site.geofence_lat){
     const dist = Math.round(distMeters(g.lat, g.lon, site.geofence_lat, site.geofence_lon));
-    if(dist > 100){
+    const allowedRadius = site.geofence_radius_m || 100;
+    if(dist > allowedRadius){
       checkinBusy = false;
-      checkinError = `${dist}m from site — must be within 100m to ${type==='in'?'check in':'check out'}. Move closer and try again.`;
+      checkinError = `${dist}m from site — must be within ${allowedRadius}m to ${type==='in'?'check in':'check out'}. Move closer and try again.`;
       render();
       return;
     }
