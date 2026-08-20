@@ -338,7 +338,20 @@ window.closeImageViewer = function(){
   const ov = document.getElementById('imgViewerOverlay');
   if(ov) ov.style.display = 'none';
 };
-function compressImage(file){
+function compressImage(file, opts){
+  // 1600px / 0.85 quality (the default) keeps photos sharp enough for
+  // snagging reports and OneDrive exports while still compressing well
+  // below the original camera file size (was 480px/0.6, which looked like
+  // a thumbnail). That default is overkill for things that are never shown
+  // bigger than a small icon (a company logo, for instance) — a full-size
+  // modern phone photo (4000px+, several MB) run through the 1600px target
+  // is real work for the JS-side canvas decode/redraw/encode, especially on
+  // an older Android device, which is what made logo upload feel "frozen"
+  // with no progress indicator shown while it churned. Pass {maxW, quality}
+  // to use a smaller/faster target for cases like that.
+  opts = opts || {};
+  const maxW = opts.maxW || 1600;
+  const quality = opts.quality != null ? opts.quality : 0.85;
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
     reader.onerror=()=>reject(new Error('read failed'));
@@ -346,14 +359,11 @@ function compressImage(file){
       const img=new Image();
       img.onerror=()=>reject(new Error('load failed'));
       img.onload=()=>{
-        // 1600px / 0.85 quality keeps photos sharp enough for snagging reports
-        // and OneDrive exports while still compressing well below the original
-        // camera file size (was 480px/0.6, which looked like a thumbnail).
-        const maxW=1600; const scale=Math.min(1,maxW/img.width);
+        const scale=Math.min(1,maxW/img.width);
         const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
         const c=document.createElement('canvas'); c.width=w;c.height=h;
         c.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(c.toDataURL('image/jpeg',0.85));
+        resolve(c.toDataURL('image/jpeg',quality));
       };
       img.src=reader.result;
     };
@@ -940,10 +950,10 @@ function renderCompanySetup(){
       ${setupError ? `<div class="errbox">${escapeHtml(setupError)}</div>` : ''}
       <div class="formfield">
         <label class="field-label">Company logo (required)</label>
-        <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('setupLogoInput').click()">
-          ${setupLogoDataUrl ? `<img src="${setupLogoDataUrl}">` : `<span>Tap to upload your logo</span>`}
+        <div class="photoupload" style="cursor:${setupLogoProcessing?'default':'pointer'};" onclick="${setupLogoProcessing?'':"document.getElementById('setupLogoInput').click()"}">
+          ${setupLogoProcessing ? `<span><span class="spinner"></span> Processing photo…</span>` : setupLogoDataUrl ? `<img src="${setupLogoDataUrl}">` : `<span>Tap to upload your logo</span>`}
         </div>
-        <input type="file" id="setupLogoInput" accept="image/*" style="display:none;" onchange="onSetupLogoChosen(event)">
+        <input type="file" id="setupLogoInput" accept="image/*" style="display:none;" onchange="onSetupLogoChosen(event)" ${setupLogoProcessing?'disabled':''}>
       </div>
       <div class="formfield">
         <label class="field-label">Brand colour 1 (required)</label>
@@ -953,7 +963,7 @@ function renderCompanySetup(){
         <label class="field-label">Brand colour 2 (required)</label>
         <input type="color" id="setupColor2" value="${setupColor2}" oninput="setupColor2=this.value;document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
       </div>
-      <button class="primarybtn" ${setupBusy || !setupLogoDataUrl ?'disabled':''} onclick="saveCompanySetup()">
+      <button class="primarybtn" ${setupBusy || setupLogoProcessing || !setupLogoDataUrl ?'disabled':''} onclick="saveCompanySetup()">
         ${setupBusy ? '<span class="spinner"></span>Saving…' : 'Save & Continue'}
       </button>
     </div>
@@ -961,23 +971,45 @@ function renderCompanySetup(){
   document.documentElement.style.setProperty('--brand1', setupColor1);
   document.documentElement.style.setProperty('--brand2', setupColor2);
 }
+let setupLogoProcessing = false;
 window.onSetupLogoChosen = async function(e){
   const file = e.target.files[0];
   if(!file) return;
-  setupLogoDataUrl = await compressImage(file);
+  // Show visible progress and handle failure — previously this ran silently
+  // with nothing on screen until it finished, which on a big camera photo
+  // looked exactly like the app had frozen.
+  setupLogoProcessing = true; setupError = null; renderCompanySetup();
+  try{
+    // Logos are only ever shown at a small size in the app (max ~250px), so
+    // there's no need to run them through the full 1600px photo pipeline —
+    // 400px keeps the upload and processing fast regardless of how large the
+    // original camera photo is.
+    setupLogoDataUrl = await compressImage(file, {maxW:400, quality:0.85});
+  }catch(err){
+    setupError = 'Could not process that image — try a different photo.';
+  }
+  setupLogoProcessing = false;
   renderCompanySetup();
 };
 window.saveCompanySetup = async function(){
   if(!setupLogoDataUrl){ setupError='A logo is required.'; renderCompanySetup(); return; }
   setupBusy = true; setupError = null; renderCompanySetup();
-  const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', setupLogoDataUrl);
-  if(!path){ setupBusy=false; setupError='Logo upload failed — try again.'; renderCompanySetup(); return; }
-  const row = await dbUpdate('organizations', ME.org_id, {logo_path: path, color_primary: setupColor1, color_secondary: setupColor2});
-  setupBusy = false;
-  if(!row){ setupError='Could not save — try again.'; renderCompanySetup(); return; }
-  await loadOrg();
-  toast('Company set up');
-  go('#/sites');
+  try{
+    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', setupLogoDataUrl);
+    if(!path){ setupBusy=false; setupError='Logo upload failed — try again.'; renderCompanySetup(); return; }
+    const row = await dbUpdate('organizations', ME.org_id, {logo_path: path, color_primary: setupColor1, color_secondary: setupColor2});
+    setupBusy = false;
+    if(!row){ setupError='Could not save — try again.'; renderCompanySetup(); return; }
+    await loadOrg();
+    toast('Company set up');
+    go('#/sites');
+  }catch(err){
+    // A network hiccup mid-upload used to leave this stuck on "Saving…"
+    // forever with no way to retry short of reloading the whole app.
+    setupBusy = false;
+    setupError = 'Something went wrong saving that — check your connection and try again.';
+    renderCompanySetup();
+  }
 };
 
 /* ================= PLATFORM ADMIN (superadmin oversight across all companies) ================= */
@@ -1336,20 +1368,79 @@ window.saveSignaturePad = async function(){
 };
 
 /* ================= MANAGE TEAM (admin/PM grant, revoke, and remove team members) ================= */
+let teamLogoProcessing = false; // compressing the chosen file
+let teamLogoBusy = false; // uploading + saving
+let teamLogoPreview = null; // compressed data URL, staged but not saved yet
+let teamLogoError = null;
+window.onTeamLogoChosen = async function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  teamLogoProcessing = true; teamLogoError = null; render();
+  try{
+    // Same fast, small logo target as Company Setup — a logo is never shown
+    // bigger than a small icon, so there's no reason to run it through the
+    // full 1600px photo pipeline (which is what made this feel "frozen" on
+    // a large camera photo before this fix).
+    teamLogoPreview = await compressImage(file, {maxW:400, quality:0.85});
+  }catch(err){
+    teamLogoError = 'Could not process that image — try a different photo.';
+  }
+  teamLogoProcessing = false;
+  render();
+};
+window.saveTeamLogo = async function(){
+  if(!teamLogoPreview) return;
+  teamLogoBusy = true; teamLogoError = null; render();
+  try{
+    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', teamLogoPreview);
+    if(!path){ teamLogoBusy=false; teamLogoError='Logo upload failed — try again.'; render(); return; }
+    const row = await dbUpdate('organizations', ME.org_id, {logo_path: path});
+    teamLogoBusy = false;
+    if(!row){ teamLogoError='Could not save — try again.'; render(); return; }
+    await loadOrg();
+    teamLogoPreview = null;
+    toast('Logo updated');
+    render();
+  }catch(err){
+    teamLogoBusy = false;
+    teamLogoError = 'Something went wrong saving that — check your connection and try again.';
+    render();
+  }
+};
 let newInviteLink = null;
 let newInviteId = null;
 let invitesBusy = false;
 let inviteEmailBusy = false;
+let permanentInviteBusy = false;
 async function renderTeam(){
   await loadAllProfiles();
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
-  const pendingInvites = await dbSelect('invites', 'used_at=is.null&order=created_at.desc&select=*');
+  const [pendingInvites, permanentInviteRows] = await Promise.all([
+    dbSelect('invites', 'used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
+    dbSelect('invites', 'org_id=eq.'+ME.org_id+'&is_reusable=eq.true&order=created_at.desc&limit=1&select=*'),
+  ]);
+  const permanentInvite = permanentInviteRows[0] || null;
   const iAmAdmin = ME.role==='admin';
   const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
+    <p class="sectiontitle">Company Logo</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Shown throughout the app and on your team's invite/join screen.</p>
+      <div class="photoupload" style="width:120px;height:120px;cursor:${teamLogoProcessing?'default':'pointer'};" onclick="${teamLogoProcessing?'':"document.getElementById('teamLogoInput').click()"}">
+        ${teamLogoProcessing ? `<span><span class="spinner"></span> Processing…</span>` : `<img src="${teamLogoPreview || orgLogoUrl(ORG)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
+      </div>
+      <input type="file" id="teamLogoInput" accept="image/*" style="display:none;" onchange="onTeamLogoChosen(event)" ${teamLogoProcessing?'disabled':''}>
+      ${teamLogoError ? `<div class="errbox" style="margin-top:10px;">${escapeHtml(teamLogoError)}</div>` : ''}
+      ${teamLogoPreview ? `
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="darkbtn" ${teamLogoBusy?'disabled':''} onclick="saveTeamLogo()">${teamLogoBusy?'Saving…':'Save New Logo'}</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${teamLogoBusy?'disabled':''} onclick="teamLogoPreview=null;teamLogoError=null;render()">Cancel</button>
+        </div>
+      ` : `<p class="stub" style="margin-top:10px;">Tap the logo above to choose a new one.</p>`}
+    </div>
     <p class="sectiontitle">Company Theme</p>
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Set your company's colours — these apply across the app for everyone at ${escapeHtml(ORG && ORG.name || 'your company')}.</p>
@@ -1407,6 +1498,18 @@ async function renderTeam(){
       `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
     ` : ''}
+    <p class="sectiontitle">Permanent Team Invite Link</p>
+    <div class="card">
+      ${permanentInvite ? `
+        <p class="stub" style="margin:0 0 8px;">Share this one link with as many operatives as you like — it never expires and can be used more than once. Used ${permanentInvite.use_count} time${permanentInvite.use_count===1?'':'s'} so far.</p>
+        <input type="text" readonly value="${escapeHtml(location.origin + location.pathname + '#/join/' + permanentInvite.id)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <button class="ghostbtn" onclick="copyPermanentInviteLink('${permanentInvite.id}')">Copy Link</button>
+        <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="revokePermanentInvite('${permanentInvite.id}')">Revoke &amp; Create New Link</button>
+      ` : `
+        <p class="stub" style="margin:0 0 8px;">Create one link you can share with your whole team at once — in a group chat, on a noticeboard, or as a QR code — instead of sending a separate link to each operative.</p>
+        <button class="darkbtn" ${permanentInviteBusy?'disabled':''} onclick="createPermanentInvite()">${permanentInviteBusy?'Creating…':'Create Permanent Invite Link'}</button>
+      `}
+    </div>
     <p class="sectiontitle">Invite a Team Member</p>
     <div class="card">
       ${newInviteLink ? `
@@ -1690,6 +1793,26 @@ window.revokeInvite = async function(inviteId){
   if(!confirm('Revoke this invite link?')) return;
   const ok = await dbDelete('invites', inviteId);
   if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)){ newInviteLink=null; newInviteId=null; } render(); }
+};
+window.createPermanentInvite = async function(){
+  permanentInviteBusy = true; render();
+  // 10-year expiry so it's effectively permanent without needing a DB
+  // change to make expires_at nullable — is_reusable is what actually
+  // keeps it alive across multiple sign-ups, not this date.
+  const farFuture = new Date(Date.now() + 1000*60*60*24*365*10).toISOString();
+  const rows = await dbInsert('invites', {org_id: ME.org_id, role:'operative', created_by: ME.id, is_reusable:true, expires_at: farFuture});
+  permanentInviteBusy = false;
+  if(rows){ toast('Permanent invite link created'); render(); }
+};
+window.copyPermanentInviteLink = async function(inviteId){
+  const link = location.origin + location.pathname + '#/join/' + inviteId;
+  try{ await navigator.clipboard.writeText(link); toast('Link copied'); }
+  catch(e){ toast('Could not copy — tap and hold the link above to copy it manually.'); }
+};
+window.revokePermanentInvite = async function(inviteId){
+  if(!confirm('This stops the current link from working — anyone who already joined stays on your team, but the link itself won\'t sign anyone new up any more. You can create a fresh one straight after. Continue?')) return;
+  const ok = await dbDelete('invites', inviteId);
+  if(ok){ toast('Old link revoked'); render(); }
 };
 window.unlockDevice = async function(deviceId){
   if(!confirm('Unlock this device? Whoever next signs in on it will lock it to themselves.')) return;
