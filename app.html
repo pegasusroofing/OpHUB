@@ -2621,7 +2621,7 @@ async function renderTemplateEditor(templateId){
     `).join('')}
     <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
-  `, {title:'Edit Template', back: templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/reports` : '#/templates', tabs:false});
+  `, {title:'Edit Template', back: templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates', tabs:false});
 }
 function renderTemplateItemEditor(si, ii, it){
   return `
@@ -2792,7 +2792,7 @@ window.saveTemplate = async function(){
   if(row){
     toast('Template saved');
     editingTemplate = null;
-    const dest = templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/reports` : '#/templates';
+    const dest = templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates';
     templatesReturnSiteId = null;
     go(dest);
   } else render();
@@ -2802,16 +2802,42 @@ window.saveTemplate = async function(){
 let reportFillDraft = null; // {submissionId, template_name, answers:{}, sections}
 let reportSubmitBusy = false;
 let reportSaveBusy = false;
-let reportsTab = 'templates';        // 'templates' | 'inspections'
 let reportsFilterTemplate = '';      // '' = all templates
 let selectedReportIds = new Set();   // checked rows, for bulk email/export
 let bulkEmailBusy = false;
 let bulkExportBusy = false;
+let reportPickerOpen = false;        // shows a template picker at the top of the Reports screen, to start a new inspection
 const REPORT_STATUS_LABEL = {in_progress:'In Progress', completed:'Completed'};
 const REPORT_STATUS_CLASS = {in_progress:'open', completed:'closed'};
+// Templates tile: build/manage report templates for this site. Any PM or
+// admin can view and edit templates (isManager), matching the Reports tile's
+// access level — editing a template never changes inspections already
+// started from it.
+async function renderSiteReportTemplates(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canEdit = isManager(ME);
+  const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc');
+  document.getElementById('app').innerHTML = shell(`
+    ${canEdit ? `<p class="stub" style="margin:0 0 10px;">Build and manage templates here. Editing a template never changes inspections already started from it.</p>` : ''}
+    ${templates.map(t=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+        ${canEdit ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="ghostbtn" style="width:auto;padding:8px 10px;" onclick="openTemplateEditor('${t.id}','${siteId}')">Edit</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 10px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No report templates yet${canEdit?'.':' — ask a Project Manager to create one.'}</div>`}
+    ${canEdit ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
+  `, {title:'Report Templates', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+}
+// Reports tile: inspections list for this site, plus a template picker for
+// starting a new one — the "start a report" flow that used to live inside
+// the combined Templates/Inspections screen.
 async function renderSiteReports(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const isAdmin = ME.role==='admin';
   const [templates, submissions] = await Promise.all([
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
     dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=100'),
@@ -2819,57 +2845,48 @@ async function renderSiteReports(siteId){
   await loadAllProfiles();
   const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
   const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
-  const inProgressCount = submissions.filter(s=>s.status==='in_progress').length;
 
   document.getElementById('app').innerHTML = shell(`
-    <div class="filterrow">
-      <div class="filterchip ${reportsTab==='templates'?'active':''}" onclick="reportsTab='templates';render()">Templates</div>
-      <div class="filterchip ${reportsTab==='inspections'?'active':''}" onclick="reportsTab='inspections';render()">Inspections${inProgressCount?' ('+inProgressCount+')':''}</div>
-    </div>
-
-    ${reportsTab==='templates' ? `
-      ${isAdmin ? `<p class="stub" style="margin:0 0 10px;">Build and manage templates here. Editing a template never changes inspections already started from it.</p>` : ''}
-      ${templates.map(t=>`
-        <div class="sitecard">
-          <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="startReport('${siteId}','${t.id}')">Start</button>
-            ${isAdmin ? `
-              <button class="ghostbtn" style="width:auto;padding:8px 10px;" onclick="openTemplateEditor('${t.id}','${siteId}')">Edit</button>
-              <button class="ghostbtn" style="width:auto;padding:8px 10px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
-            ` : ''}
-          </div>
-        </div>
-      `).join('') || `<div class="empty">No report templates yet${isAdmin?'.':' — ask a Company Admin to create one.'}</div>`}
-      ${isAdmin ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
-    ` : `
-      ${templateNames.length>1 ? `
-        <div class="formfield" style="margin-top:0;">
-          <label class="field-label">Filter by template</label>
-          <select onchange="setReportsFilter(this.value)">
-            <option value="">All templates</option>
-            ${templateNames.map(n=>`<option value="${escapeHtml(n)}" ${reportsFilterTemplate===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
-          </select>
+    ${isManager(ME) ? `
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="reportPickerOpen=!reportPickerOpen;render()">${reportPickerOpen?'Cancel':'+ New Report'}</button>
+      ${reportPickerOpen ? `
+        <div class="card" style="margin-bottom:14px;">
+          <p class="stub" style="margin:0 0 8px;">Pick a template to start a new inspection:</p>
+          ${templates.map(t=>`
+            <div class="sitecard">
+              <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+              <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="startReport('${siteId}','${t.id}')">Start</button>
+            </div>
+          `).join('') || `<div class="empty">No report templates yet — add one from the Templates tile.</div>`}
         </div>
       ` : ''}
-      ${selectedReportIds.size>0 ? `
-        <div class="row-gap" style="margin-bottom:10px;">
-          <button class="darkbtn" style="flex:1;" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':`Email ${selectedReportIds.size} Selected`}</button>
-          <button class="ghostbtn" style="flex:1;" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('${siteId}')">${bulkExportBusy?'Building…':`Export ${selectedReportIds.size} Selected (PDF)`}</button>
+    ` : ''}
+    ${templateNames.length>1 ? `
+      <div class="formfield" style="margin-top:0;">
+        <label class="field-label">Filter by template</label>
+        <select onchange="setReportsFilter(this.value)">
+          <option value="">All templates</option>
+          ${templateNames.map(n=>`<option value="${escapeHtml(n)}" ${reportsFilterTemplate===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}
+        </select>
+      </div>
+    ` : ''}
+    ${selectedReportIds.size>0 ? `
+      <div class="row-gap" style="margin-bottom:10px;">
+        <button class="darkbtn" style="flex:1;" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':`Email ${selectedReportIds.size} Selected`}</button>
+        <button class="ghostbtn" style="flex:1;" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('${siteId}')">${bulkExportBusy?'Building…':`Export ${selectedReportIds.size} Selected (PDF)`}</button>
+      </div>
+    ` : ''}
+    ${filtered.map(s=>`
+      <div class="sitecard" style="flex-wrap:wrap;">
+        <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedReportIds.has(s.id)?'checked':''} onclick="toggleReportSelect('${s.id}')">
+        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+          <div class="name">${escapeHtml(s.template_name)}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Submitted'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
         </div>
-      ` : ''}
-      ${filtered.map(s=>`
-        <div class="sitecard" style="flex-wrap:wrap;">
-          <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedReportIds.has(s.id)?'checked':''} onclick="toggleReportSelect('${s.id}')">
-          <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
-            <div class="name">${escapeHtml(s.template_name)}</div>
-            <div class="addr">${s.status==='in_progress' ? 'Started' : 'Submitted'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
-          </div>
-          <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
-        </div>
-      `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
-    `}
-  `, {title:'Site Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+      </div>
+    `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
+  `, {title:'Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.startReport = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
@@ -2889,6 +2906,7 @@ window.startReport = async function(siteId, templateId){
   });
   if(inserted && inserted[0]){
     reportFillDraft = null;
+    reportPickerOpen = false;
     toast('Inspection started');
     go(`#/site/${siteId}/snagging/reports/fill/${inserted[0].id}`);
   }
@@ -2968,7 +2986,7 @@ async function renderReportFill(siteId, submissionId){
     `).join('')}
     <div class="row-gap">
       <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
-      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Submitting…':'Submit Report'}</button>
+      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':'Complete Inspection'}</button>
     </div>
   `, {title:'Inspection', subtitle:site.name, back:`#/site/${siteId}/snagging/reports`, siteId, activeTab:'more'});
 }
@@ -3138,6 +3156,19 @@ function renderReportViewItem(it, val, answers){
   return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${extraMediaHtml}</div>`;
 }
 let reportEmailBusy = null;
+// Matches the look of the SafetyCulture PDFs these templates were modelled
+// on (see RTB's own Pre-Start Inspection example): a plain title page built
+// from the template's first section (Project Address / Date / Attendance —
+// every RTB template starts with a simple "details" section like this),
+// then each answer after that rendered as a coloured status bar (green
+// Pass/Yes, red Fail/No, grey N/A, blue for any other picked answer) with
+// free-text answers left as plain paragraphs, section score badges, photos
+// numbered continuously through the whole report, and a "Media summary"
+// appendix at the end re-showing every photo against the same numbers.
+const TITLE_SECTION_TYPES = ['text','date','number','textarea'];
+function isTitleSection(s){
+  return !!(s && s.items && s.items.length && s.items.every(it=>TITLE_SECTION_TYPES.includes(it.type)));
+}
 async function buildReportPdf(submissionId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
@@ -3149,14 +3180,21 @@ async function buildReportPdf(submissionId){
     const pdfDoc = await PDFLib.PDFDocument.create();
     const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
     const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
     const WHITE = PDFLib.rgb(1,1,1);
     const INK = PDFLib.rgb(0.06,0.06,0.07);
     const SLATE = PDFLib.rgb(0.36,0.37,0.41);
-    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const LINE = PDFLib.rgb(0.88,0.88,0.90);
+    const HEADBAR = PDFLib.rgb(0.933,0.941,0.961);
+    const GREEN = PDFLib.rgb(0.122,0.573,0.322);
+    const RED = PDFLib.rgb(0.757,0.231,0.231);
+    const GRAY = PDFLib.rgb(0.463,0.463,0.478);
+    const BLUE = PDFLib.rgb(0.231,0.435,0.851);
+    const GREENTXT = PDFLib.rgb(0.122,0.573,0.322);
     const PAGE_W = 595.28, PAGE_H = 841.89;
-    const MARGIN = 42;
-    const companyName = (ORG && ORG.name) || 'OpHUB';
+    const MARGIN = 44;
+    const CONTENT_W = PAGE_W - 2*MARGIN;
+    const BAR_X = MARGIN + CONTENT_W*0.46; // colour bars start ~46% across, like the reference PDFs
+    const BAR_W = PAGE_W - MARGIN - BAR_X;
 
     let logoImg = null;
     const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
@@ -3164,37 +3202,15 @@ async function buildReportPdf(submissionId){
       const bytes = await pdfFetchImageBytes(logoUrl);
       if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
     }
-    let page, y;
-    function drawHeaderBand(){
-      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
-      if(logoImg){
-        const dim = logoImg.scale(1);
-        const s2 = 40/Math.max(dim.width, dim.height);
-        const w = dim.width*s2, h = dim.height*s2;
-        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
-      }
-      const textX = logoImg ? MARGIN+52 : MARGIN;
-      const titleText = sub.template_name.length>46 ? sub.template_name.slice(0,43)+'…' : sub.template_name;
-      page.drawText('SITE REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-      page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-      page.drawText(companyName+' · '+(site?site.name:'')+' · '+new Date(sub.submitted_at).toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
-      if(scoreInfo.overall.possible>0){
-        const scoreText = 'Score '+scoreLabel(scoreInfo.overall);
-        const w = bold.widthOfTextAtSize(scoreText, 11);
-        page.drawText(scoreText, {x:PAGE_W-MARGIN-w, y:PAGE_H-40, size:11, font:bold, color:WHITE});
-      }
-    }
-    function drawFooter(pageNum, total){
-      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
-      page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
-      page.drawText('Page '+pageNum+' of '+total, {x:PAGE_W-MARGIN-70, y:20, size:8, font:reg, color:SLATE});
-    }
-    function newPage(){ page = pdfDoc.addPage([PAGE_W, PAGE_H]); drawHeaderBand(); y = PAGE_H-118; }
-    newPage();
-    page.drawText('Submitted by '+nameOf(sub.submitted_by), {x:MARGIN, y, size:10, font:reg, color:SLATE});
-    y -= 24;
 
+    let page, y, pageNum = 0;
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      pageNum += 1;
+      page.drawText('Private & confidential', {x:MARGIN, y:26, size:8.5, font:reg, color:SLATE});
+      y = PAGE_H - MARGIN;
+    }
+    function ensureSpace(h){ if(y - h < 50) newPage(); }
     function wrapText(text, font, size, maxWidth){
       const words = String(text).split(/\s+/);
       const lines = []; let line = '';
@@ -3206,86 +3222,220 @@ async function buildReportPdf(submissionId){
       if(line) lines.push(line);
       return lines;
     }
-    function ensureSpace(h){ if(y - h < 60) newPage(); }
-
-    for(const s of (sub.sections||[])){
+    // A full-width light bar used for section/template headings, with an
+    // optional bold score badge right-aligned — e.g. "Scope Of Works  4/9 (44%)".
+    function drawHeadingBar(label, scoreText, size){
+      size = size || 11.5;
+      const h = 26;
+      ensureSpace(h+4);
+      page.drawRectangle({x:MARGIN, y:y-h, width:CONTENT_W, height:h, color:HEADBAR});
+      page.drawText(label, {x:MARGIN+10, y:y-h+8, size, font:bold, color:INK});
+      if(scoreText){
+        const w = bold.widthOfTextAtSize(scoreText, size-1.5);
+        page.drawText(scoreText, {x:PAGE_W-MARGIN-10-w, y:y-h+8, size:size-1.5, font:bold, color:INK});
+      }
+      y -= h+8;
+    }
+    // A single question row: label on the left, a coloured status bar (or
+    // plain white cell for freeform answers) on the right.
+    function drawAnswerRow(label, valueText, barColor){
+      const labelLines = wrapText(label, bold, 10.5, BAR_X-MARGIN-16);
+      const rowH = Math.max(26, labelLines.length*13+10);
+      ensureSpace(rowH+2);
+      const top = y;
+      if(barColor) page.drawRectangle({x:BAR_X, y:top-rowH, width:BAR_W, height:rowH, color:barColor});
+      labelLines.forEach((l,i)=>{ page.drawText(l, {x:MARGIN+2, y:top-16-(i*13), size:10.5, font:bold, color:INK}); });
+      if(barColor && valueText){
+        const vw = bold.widthOfTextAtSize(valueText, 10.5);
+        page.drawText(valueText, {x:PAGE_W-MARGIN-10-vw, y:top-rowH+ (rowH-10.5)/2 +1, size:10.5, font:bold, color:WHITE});
+      }
+      page.drawLine({start:{x:MARGIN,y:top-rowH}, end:{x:PAGE_W-MARGIN,y:top-rowH}, thickness:0.75, color:LINE});
+      y -= rowH;
+    }
+    function drawParagraphAnswer(label, text){
       ensureSpace(30);
-      page.drawText(s.title||'', {x:MARGIN, y, size:12.5, font:bold, color:INK});
+      page.drawText(label, {x:MARGIN, y:y-14, size:10.5, font:bold, color:INK});
+      y -= 20;
+      wrapText(text, reg, 10, CONTENT_W).forEach(l=>{ ensureSpace(14); page.drawText(l, {x:MARGIN, y:y-10, size:10, font:reg, color:INK}); y -= 14; });
       y -= 8;
-      page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1, color:FAINT});
-      y -= 16;
+    }
+
+    // Photos are numbered once, continuously, in the order they're first
+    // drawn — the same numbers are reused later in the Media Summary
+    // appendix rather than starting the count over.
+    const allPhotos = []; // {url, num}
+    async function embedFromDataUrl(dataUrl){
+      const b64 = dataUrl.split(',')[1];
+      const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+      try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
+    }
+    async function drawPhotoGrid(urls){
+      if(!urls.length) return;
+      const colW = (CONTENT_W-16)/2, boxH = 150, capH = 16;
+      for(let i=0;i<urls.length;i+=2){
+        ensureSpace(boxH+capH+10);
+        const pair = urls.slice(i,i+2);
+        let maxH = 0;
+        for(let c=0;c<pair.length;c++){
+          const entry = pair[c];
+          const cx = MARGIN + c*(colW+16);
+          try{
+            const img = await embedFromDataUrl(entry.url);
+            const dim = img.scale(1);
+            const sc = Math.min(colW/dim.width, boxH/dim.height, 1);
+            const w = dim.width*sc, h = dim.height*sc;
+            page.drawImage(img, {x:cx, y:y-h, width:w, height:h});
+            page.drawText('Photo '+entry.num, {x:cx, y:y-boxH-13, size:8.5, font:reg, color:SLATE});
+            maxH = Math.max(maxH, h);
+          }catch(e){}
+        }
+        y -= boxH+capH+10;
+      }
+    }
+    function collectPhotos(urls){
+      return urls.map(u=>{ const num = allPhotos.length+1; const entry = {url:u, num}; allPhotos.push(entry); return entry; });
+    }
+
+    /* ---------- Page 1: title page ---------- */
+    newPage();
+    if(logoImg){
+      const dim = logoImg.scale(1);
+      const sc = Math.min(96/dim.width, 96/dim.height, 1);
+      const w = dim.width*sc, h = dim.height*sc;
+      page.drawImage(logoImg, {x:MARGIN, y:y-96+(96-h)/2, width:w, height:h});
+    }
+    y -= (logoImg?110:0);
+    page.drawText(sub.template_name, {x:MARGIN, y:y-22, size:20, font:bold, color:INK});
+    y -= 40;
+
+    const sections = sub.sections||[];
+    const titleSection = isTitleSection(sections[0]) ? sections[0] : null;
+    const bodySections = titleSection ? sections.slice(1) : sections;
+
+    // repeated-name row + Complete badge
+    {
+      const rowH = 30;
+      ensureSpace(rowH);
+      page.drawText(sub.template_name, {x:MARGIN+8, y:y-20, size:12.5, font:reg, color:INK});
+      const badgeText = sub.status==='completed' ? 'Complete' : 'In Progress';
+      const bw = bold.widthOfTextAtSize(badgeText, 10.5);
+      page.drawText(badgeText, {x:PAGE_W-MARGIN-10-bw, y:y-19, size:10.5, font:bold, color: sub.status==='completed'?GREENTXT:SLATE});
+      page.drawLine({start:{x:MARGIN,y:y-rowH}, end:{x:PAGE_W-MARGIN,y:y-rowH}, thickness:0.75, color:LINE});
+      y -= rowH;
+    }
+    if(scoreInfo.overall.possible>0){
+      const rowH = 30;
+      ensureSpace(rowH);
+      page.drawRectangle({x:MARGIN, y:y-rowH, width:CONTENT_W, height:rowH, color:HEADBAR});
+      page.drawText('Score', {x:MARGIN+8, y:y-20, size:11, font:bold, color:INK});
+      const st = scoreLabel(scoreInfo.overall);
+      const sw = bold.widthOfTextAtSize(st, 11);
+      page.drawText(st, {x:PAGE_W-MARGIN-10-sw, y:y-20, size:11, font:bold, color:INK});
+      y -= rowH;
+    }
+    if(titleSection){
+      for(const it of titleSection.items){
+        if(!itemVisible(it, sub.answers)) continue;
+        const val = sub.answers[it.id];
+        const display = (val!=null && val!=='') ? String(val) : '—';
+        const rowH = 30;
+        ensureSpace(rowH);
+        page.drawText(it.label, {x:MARGIN+8, y:y-20, size:11, font:bold, color:INK});
+        const dw = reg.widthOfTextAtSize(display, 10.5);
+        page.drawText(display, {x:PAGE_W-MARGIN-10-dw, y:y-20, size:10.5, font:reg, color:INK});
+        page.drawLine({start:{x:MARGIN,y:y-rowH}, end:{x:PAGE_W-MARGIN,y:y-rowH}, thickness:0.75, color:LINE});
+        y -= rowH;
+      }
+    }
+
+    /* ---------- Body: one heading bar per section, then its questions ---------- */
+    newPage();
+    drawHeadingBar(sub.template_name, scoreInfo.overall.possible>0 ? scoreLabel(scoreInfo.overall) : null, 12.5);
+
+    for(const s of bodySections){
+      const sc = scoreInfo.bySection[s.id];
+      drawHeadingBar(s.title||'', sc ? scoreLabel(sc) : null);
+
       for(const it of (s.items||[])){
         if(!itemVisible(it, sub.answers)) continue;
+        const val = sub.answers[it.id];
+
         if(it.type==='instruction'){
-          ensureSpace(20);
-          wrapText(it.label, reg, 9.5, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 13; });
+          ensureSpace(24);
+          wrapText(it.label, reg, 9.5, CONTENT_W).forEach(l=>{ page.drawText(l, {x:MARGIN, y:y-10, size:9.5, font:reg, color:SLATE}); y -= 13; });
           y -= 6; continue;
         }
-        const val = sub.answers[it.id];
-        // Shared helper: draws a data-URL image at (x, y-h) sized to fit a
-        // maxW×maxH box, returns its drawn height (0 if it couldn't embed).
-        async function drawInlinePhoto(dataUrl, x, maxW, maxH){
-          try{
-            const b64 = dataUrl.split(',')[1];
-            const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
-            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
-            const dim = img.scale(1); const sc = Math.min(maxW/dim.width, maxH/dim.height, 1);
-            const w = dim.width*sc, h = dim.height*sc;
-            page.drawImage(img, {x, y:y-h, width:w, height:h});
-            return h;
-          }catch(e){ return 0; }
-        }
-        async function drawPhotoRow(urls, maxH){
-          if(!urls.length) return;
-          ensureSpace(maxH+16);
-          let x = MARGIN, rowH = 0;
-          for(const u of urls){
-            if(x + 140 > PAGE_W-MARGIN){ y -= rowH+10; x = MARGIN; rowH = 0; ensureSpace(maxH+16); }
-            const h = await drawInlinePhoto(u, x, 130, maxH);
-            rowH = Math.max(rowH, h);
-            x += 140;
-          }
-          y -= rowH+14;
-        }
+
         if(it.type==='photo'){
           const arr = Array.isArray(val) ? val : (val ? [val] : []);
           if(!arr.length) continue;
           ensureSpace(24);
-          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
-          await drawPhotoRow(arr, 100);
+          page.drawText(it.label, {x:MARGIN, y:y-12, size:10.5, font:bold, color:INK}); y -= 20;
+          await drawPhotoGrid(collectPhotos(arr));
           continue;
         }
-        if(it.type==='signature' && val){
-          ensureSpace(70);
-          page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 14;
+        if(it.type==='signature'){
+          if(!val) continue;
+          ensureSpace(80);
+          page.drawText(it.label, {x:MARGIN, y:y-12, size:10.5, font:bold, color:INK}); y -= 20;
           try{
             const bytes = await pdfFetchImageBytes(publicUrl('signatures', val));
             if(bytes){
               let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
-              const dim = img.scale(1); const sc = Math.min(120/dim.width, 44/dim.height, 1);
-              const w = dim.width*sc, h = dim.height*sc;
+              const dim = img.scale(1); const sc2 = Math.min(130/dim.width, 46/dim.height, 1);
+              const w = dim.width*sc2, h = dim.height*sc2;
               page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
-              y -= h+14;
+              const signer = nameOf(sub.submitted_by);
+              const when = new Date(sub.submitted_at).toLocaleString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}).replace(',', '');
+              page.drawText(signer, {x:MARGIN+150, y:y-16, size:9.5, font:reg, color:INK});
+              page.drawText(when, {x:MARGIN+150, y:y-29, size:9, font:reg, color:SLATE});
+              y -= h+16;
             }
           }catch(e){ y -= 16; }
+          page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:LINE}); y -= 12;
           continue;
         }
-        let display = '—';
-        if(it.type==='checkbox') display = val===true ? 'Yes' : (val===false ? 'No' : '—');
-        else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
-        else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
-        else if(val!=null && val!=='') display = String(val);
-        ensureSpace(28);
-        page.drawText(it.label, {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 13;
-        wrapText(display, reg, 10, PAGE_W-2*MARGIN).forEach(l=>{ page.drawText(l, {x:MARGIN, y, size:10, font:reg, color:INK}); y -= 13; });
-        y -= 8;
+
+        // freeform text — plain paragraph, no colour bar (matches how
+        // free-text answers like "any other issues" read in the reference)
+        if(it.type==='text' || it.type==='textarea' || it.type==='number' || it.type==='date'){
+          const display = (val!=null && val!=='') ? String(val) : '—';
+          drawParagraphAnswer(it.label, display);
+        } else {
+          let display = '—', color = GRAY;
+          if(it.type==='checkbox'){
+            display = val===true ? 'Yes' : (val===false ? 'No' : '—');
+            color = val===true ? GREEN : (val===false ? RED : GRAY);
+          } else if(it.type==='passfail' && val){
+            display = PASSFAIL_LABEL[val]||val;
+            color = val==='Pass' ? GREEN : (val==='Fail' ? RED : GRAY);
+          } else if(it.type==='multichoice'){
+            display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
+            color = BLUE;
+          } else if(it.type==='choice' && val){
+            display = val; color = BLUE;
+          }
+          drawAnswerRow(it.label, display, color);
+        }
+
+        // an optional photo attached to this specific answer
         const extraMedia = itemAllowsMedia(it) && Array.isArray(sub.answers[it.id+'__media']) ? sub.answers[it.id+'__media'] : [];
-        if(extraMedia.length) await drawPhotoRow(extraMedia, 80);
+        if(extraMedia.length) await drawPhotoGrid(collectPhotos(extraMedia));
       }
-      y -= 8;
+      y -= 6;
     }
+
+    /* ---------- Media summary appendix — same photos, same numbers ---------- */
+    if(allPhotos.length){
+      newPage();
+      drawHeadingBar('Media summary', null, 12.5);
+      await drawPhotoGrid(allPhotos);
+    }
+
     const total = pdfDoc.getPageCount();
-    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter(idx+1, total); });
+    pdfDoc.getPages().forEach((p,idx)=>{
+      p.drawText((idx+1)+'/'+total, {x:PAGE_W-MARGIN-26, y:26, size:8.5, font:reg, color:SLATE});
+    });
 
     const filename = exportFilename(site?site.name:'', sub.template_name, 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
@@ -3856,6 +4006,7 @@ async function renderSnaggingFolder(siteId){
         <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
         <div class="lbl">Variations</div><div class="sub">${liveVariations.length} live</div>
       </div>
+      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/templates')"><div class="icon" style="background:#E3F2FD;color:#1565C0;">📋</div><div class="lbl">Templates</div></div>` : ''}
       ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div></div>` : ''}
     </div>
   `, {title:snaggingFolderLabel(), subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
@@ -5705,7 +5856,7 @@ async function render(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='templates'){
-    if(!ME || ME.role!=='admin'){ go('#/sites'); return; }
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1]) return renderTemplateEditor(parts[1]);
     return renderReportTemplates();
   }
@@ -5733,6 +5884,7 @@ async function render(){
       if(!sub) return renderSnaggingFolder(siteId);
       if(sub==='list') return renderSnagging(siteId);
       if(sub==='variations') return renderVariations(siteId);
+      if(sub==='templates') return renderSiteReportTemplates(siteId);
       if(sub==='reports'){
         const rsub = parts[4];
         if(rsub==='fill' && parts[5]) return renderReportFill(siteId, parts[5]);
