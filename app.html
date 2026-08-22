@@ -2133,13 +2133,21 @@ window.unlinkOneDriveFolder = async function(siteId){
 };
 
 window.removeTeamMember = async function(userId, name){
-  if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access.`)) return;
-  const ok = await dbDelete('profiles', userId);
-  if(ok){
+  if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access, and their email will be free to sign up fresh again later.`)) return;
+  // Goes through an edge function rather than a plain profiles DELETE — a
+  // client-side delete only removes the profiles row via RLS and leaves the
+  // underlying auth.users account behind, which silently blocks that email
+  // from ever registering again (and is invisible everywhere, including the
+  // Super Admin panel) since Supabase Auth won't let a still-existing
+  // account's email sign up a second time.
+  try{
+    const res = await sbFetch('/functions/v1/remove-team-member', {method:'POST', body: JSON.stringify({user_id: userId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not remove — '+(d.error||res.status)); return; }
     delete PROFILES[userId];
-    toast('Removed from team');
+    toast(`${d.deleted||name||'Team member'} removed`);
     render();
-  }
+  }catch(e){ toast('Could not remove — check your connection and try again.'); }
 };
 window.generateInvite = async function(){
   invitesBusy = true; render();

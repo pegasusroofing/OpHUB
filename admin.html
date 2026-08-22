@@ -147,6 +147,16 @@
     </div>
 
     <div class="panelhead">
+      <h2 id="orphanCount">Orphaned Logins</h2>
+      <button class="btn btn-ghost btn-sm" onclick="loadOrphans()">Refresh</button>
+    </div>
+    <div class="card" style="padding:8px 22px;">
+      <p class="sub" style="color:var(--slate);font-size:12px;margin:8px 0 4px;">Accounts that still exist behind the scenes but have no profile at all — usually left behind by an old removal that didn't fully delete the login. These block that email from ever registering again until removed here.</p>
+      <div id="orphanList"></div>
+      <div id="orphanEmpty" class="empty" style="display:none;">No orphaned logins.</div>
+    </div>
+
+    <div class="panelhead">
       <h2 id="unassignedCount">Unassigned Users</h2>
       <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">Refresh</button>
     </div>
@@ -297,6 +307,7 @@ async function afterAuth(){
   document.getElementById('adminApp').style.display = 'block';
   document.getElementById('whoamiHost').textContent = 'Signed in as ' + ME_EMAIL;
   loadDashboard();
+  loadOrphans();
 }
 window.adminSignOut = async function(){
   try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
@@ -363,6 +374,38 @@ window.deleteUnassignedUser = async function(userId, name){
     if(!res.ok || d.error){ toast('Delete failed — '+(d.error||res.status)); return; }
     toast(`${d.deleted||name||'User'} deleted`);
     loadDashboard();
+  }catch(e){ toast('Delete failed — could not reach the server.'); }
+};
+/* ---- orphaned logins (auth accounts with no profile row at all) ---- */
+window.loadOrphans = async function(){
+  try{
+    const res = await sbFetch('/functions/v1/list-orphan-logins', {method:'POST', body:'{}'});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not load orphaned logins — '+(d.error||res.status)); return; }
+    renderOrphans(d.orphans||[]);
+  }catch(e){ toast('Could not load orphaned logins — could not reach the server.'); }
+};
+function renderOrphans(orphans){
+  orphans = orphans.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  document.getElementById('orphanCount').textContent = `Orphaned Logins (${orphans.length})`;
+  document.getElementById('orphanEmpty').style.display = orphans.length ? 'none' : 'block';
+  document.getElementById('orphanList').innerHTML = orphans.map(u=>`
+    <div class="unassignedrow">
+      <div class="info"><div class="name">${escapeHtml(u.email||'(no email)')}</div><div class="addr">registered ${fmtDate(u.created_at)} · no profile</div></div>
+      <div class="acts">
+        <button class="btn btn-ghost btn-sm" style="color:#B23A3A;" onclick="deleteOrphanLogin('${u.id}','${jsAttr(u.email||'')}')">Permanently Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+window.deleteOrphanLogin = async function(userId, email){
+  if(!confirm(`Permanently delete the login for ${email||'this account'}? This frees up the email to register again. This cannot be undone.`)) return;
+  try{
+    const res = await sbFetch('/functions/v1/admin-delete-user', {method:'POST', body: JSON.stringify({user_id: userId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Delete failed — '+(d.error||res.status)); return; }
+    toast(`${d.deleted||email||'Login'} deleted`);
+    loadOrphans();
   }catch(e){ toast('Delete failed — could not reach the server.'); }
 };
 function peopleFor(orgId){ return PROFILES.filter(p=>p.org_id===orgId).sort((a,b)=>(a.name||'').localeCompare(b.name||'')); }
