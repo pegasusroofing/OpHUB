@@ -4479,7 +4479,7 @@ window.exportSignedRams = async function(ramsId){
   if(!sigs.length){ toast('No signatures yet.'); return; }
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
-    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
     const disclaimer = `I have read and understood the contents of this RAMS document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
     const signers = sigs.map(s=>({
       name: nameOf(s.user_id),
@@ -4597,7 +4597,7 @@ window.exportSignedCoshh = async function(coshhId){
   if(!sigs.length){ toast('No signatures yet.'); return; }
   try{
     const srcBytes = await (await fetch(publicUrl('coshh-docs', doc.storage_path))).arrayBuffer();
-    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
     const disclaimer = `I have read and understood the contents of this COSHH document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
     const signers = sigs.map(s=>({
       name: nameOf(s.user_id),
@@ -4897,7 +4897,7 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   if(!sigs.length) return null;
   await loadAllProfiles();
   const srcBytes = await (await fetch(publicUrl('rams-docs', talk.storage_path))).arrayBuffer();
-  const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+  const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
   const disclaimer = `I have read and understood the contents of this Toolbox Talk (${talk.title}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
   const signers = sigs.map(s=>({
     name: nameOf(s.user_id),
