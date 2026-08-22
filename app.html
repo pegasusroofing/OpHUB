@@ -18,6 +18,7 @@
   :root{
     --brand1:#4E8FD1;
     --brand2:#101114;
+    --brand1-text:#fff;
     --red:#C8102E;
     --ink:#101114;
     --paper:#F5F3EE;
@@ -67,6 +68,7 @@
   @media (max-width:759px){
     .appbar .brandline{font-size:12.75px;}
     .appbar .brandline.lg{font-size:19.125px;}
+    .appbar .brandline.orgname{font-size:15.9375px;}
     .appbar h2{font-size:20.4px;}
     .appbar h2.lg{font-size:22.95px;}
     .rolechip{font-size:6.63px;}
@@ -82,6 +84,7 @@
   .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
   .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
   .brandline.lg{font-size:22.5px;}
+  .brandline.orgname{font-size:18.75px;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;}
   .appbar h2.lg{font-size:27px;}
   .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
@@ -786,10 +789,23 @@ async function loadOrg(){
   ORG = rows[0] || null;
   applyTheme(ORG);
 }
+function readableTextColor(hex){
+  // Picks black or white text depending on how light the given colour is,
+  // so a company that sets a near-white primary colour still gets legible
+  // header text instead of white-on-white.
+  if(!hex) return '#fff';
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if(!m) return '#fff';
+  const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return luminance > 0.72 ? '#101114' : '#fff';
+}
 function applyTheme(org){
   const root = document.documentElement.style;
-  root.setProperty('--brand1', (org && org.color_primary) || DEFAULT_BRAND1);
+  const brand1 = (org && org.color_primary) || DEFAULT_BRAND1;
+  root.setProperty('--brand1', brand1);
   root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
+  root.setProperty('--brand1-text', readableTextColor(brand1));
 }
 // Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
 // GPS check-in & geofencing — everything else (growth/enterprise) does.
@@ -935,10 +951,12 @@ const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
 function go(hash){ location.hash = hash; }
 window.addEventListener('hashchange', render);
 // Edge-swipe-to-go-back (left edge, swiping left→right), like the native iOS
-// gesture. Our navigation is hash-based (go() sets location.hash, which
-// pushes a browser history entry each time), so a plain history.back() lands
-// exactly on the previous screen and the existing hashchange listener above
-// re-renders it — no native code/plugin needed.
+// gesture. This deliberately goes up one folder level (whatever the current
+// screen's own '‹' back arrow points to — CURRENT_BACK_HASH, kept in sync by
+// shell()) rather than replaying raw browser history: history includes every
+// hop taken to get here, so a plain history.back() could land somewhere
+// sideways instead of "out" one level (e.g. RAMS → Health & Safety → site
+// home → sites list), which is what this gesture is meant to feel like.
 (function(){
   let startX = 0, startY = 0, tracking = false;
   const EDGE_PX = 24, SWIPE_PX = 80, MAX_VERTICAL = 60;
@@ -954,7 +972,7 @@ window.addEventListener('hashchange', render);
     const t = e.changedTouches && e.changedTouches[0];
     if(!t) return;
     const dx = t.clientX - startX, dy = t.clientY - startY;
-    if(dx > SWIPE_PX && Math.abs(dy) < MAX_VERTICAL) history.back();
+    if(dx > SWIPE_PX && Math.abs(dy) < MAX_VERTICAL && CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
   }, {passive:true});
 })();
 function parseRoute(){
@@ -988,8 +1006,10 @@ async function init(){
 }
 
 /* ================= shell ================= */
+let CURRENT_BACK_HASH = null; // kept in sync with each screen's header back-arrow target, so edge-swipe-to-go-back goes up one folder level (same as tapping '‹') instead of replaying raw browser history.
 function shell(innerHtml, opts){
   opts = opts||{};
+  CURRENT_BACK_HASH = opts.back || null;
   return `
     <div style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
@@ -1002,14 +1022,14 @@ function shell(innerHtml, opts){
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
-              <div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;text-transform:none;">OpHub</div>
-              ${ORG && ORG.name ? `<div class="brandline" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;">${escapeHtml(ORG.name)}</div>` : ''}
+              <div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;text-transform:none;color:var(--brand1-text);">OpHUB</div>
+              ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1-text);">${escapeHtml(ORG.name)}</div>` : ''}
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
             ${ME ? `
               <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
                 <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
-                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
+                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:var(--brand1-text);font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);text-shadow:0 0 1px currentColor,0 0 1px currentColor;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
               </div>
             ` : `<span style="flex:0 0 40px;"></span>`}
           </div>
@@ -1215,7 +1235,7 @@ function renderCompanySetup(){
       </div>
       <div class="formfield">
         <label class="field-label">Brand colour 1 (required)</label>
-        <input type="color" id="setupColor1" value="${setupColor1}" oninput="setupColor1=this.value;document.documentElement.style.setProperty('--brand1',this.value);" style="width:100%;height:44px;padding:4px;">
+        <input type="color" id="setupColor1" value="${setupColor1}" oninput="setupColor1=this.value;document.documentElement.style.setProperty('--brand1',this.value);document.documentElement.style.setProperty('--brand1-text',readableTextColor(this.value));" style="width:100%;height:44px;padding:4px;">
       </div>
       <div class="formfield">
         <label class="field-label">Brand colour 2 (required)</label>
@@ -1228,6 +1248,7 @@ function renderCompanySetup(){
   `, {title:'Set Up Your Company', tabs:false});
   document.documentElement.style.setProperty('--brand1', setupColor1);
   document.documentElement.style.setProperty('--brand2', setupColor2);
+  document.documentElement.style.setProperty('--brand1-text', readableTextColor(setupColor1));
 }
 let setupLogoProcessing = false;
 window.onSetupLogoChosen = async function(e){
@@ -1483,6 +1504,7 @@ function siteCardHtml(s, canAdd){
   `;
 }
 let siteFilterPmIds = []; // multi-select — empty = all PMs
+let pmFilterOpen = false;
 let addSiteFormOpen = false;
 async function renderSites(){
   const app = document.getElementById('app');
@@ -1496,9 +1518,22 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
       ${canAdd && pmOptions.length ? `
-        <select multiple onchange="setSiteFilterPm(Array.from(this.selectedOptions).map(o=>o.value))" title="Filter by project manager (multi-select)" style="width:auto;flex:none;min-width:96px;max-height:30px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};">
-          ${pmOptions.map(p=>`<option value="${p.id}" ${siteFilterPmIds.includes(p.id)?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
+        <div style="position:relative;">
+          <button type="button" onclick="togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+            ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'Select PM'} ${pmFilterOpen?'▲':'▼'}
+          </button>
+          ${pmFilterOpen ? `
+            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;">
+              ${pmOptions.map(p=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--ink);cursor:pointer;">
+                  <input type="checkbox" ${siteFilterPmIds.includes(p.id)?'checked':''} onchange="togglePmFilterId('${p.id}')">
+                  ${escapeHtml(p.name)}
+                </label>
+              `).join('')}
+              ${siteFilterPmIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="setSiteFilterPm([])">Clear</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
       ` : ''}
     </div>
     ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">${siteFilterPmIds.length?'No active sites for the selected PMs.':'No active sites.'}</div>`}
@@ -1528,6 +1563,11 @@ async function renderSites(){
   `, {tabs:false, centerHeader:true, showRefresh:true});
 }
 window.setSiteFilterPm = function(pmIds){ siteFilterPmIds = pmIds || []; render(); };
+window.togglePmFilterOpen = function(){ pmFilterOpen = !pmFilterOpen; render(); };
+window.togglePmFilterId = function(id){
+  siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
+  render();
+};
 window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; render(); };
 window.toggleSiteStatus = async function(siteId, newStatus){
   const row = await dbUpdate('sites', siteId, {status:newStatus});
@@ -1713,9 +1753,12 @@ async function renderTeam(){
   const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
+  const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
-    <p class="sectiontitle">Company Logo</p>
+    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
+    ${teamSectionOpen.branding ? `
+    <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Shown throughout the app and on your team's invite/join screen.</p>
       <div class="photoupload" style="width:120px;height:120px;cursor:${teamLogoProcessing?'default':'pointer'};" onclick="${teamLogoProcessing?'':"document.getElementById('teamLogoInput').click()"}">
@@ -1736,7 +1779,7 @@ async function renderTeam(){
       <div style="display:flex;gap:12px;margin-bottom:10px;">
         <div style="flex:1;">
           <label class="stub" style="display:block;margin-bottom:4px;">Primary colour</label>
-          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);" style="width:100%;height:44px;padding:4px;">
+          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);document.documentElement.style.setProperty('--brand1-text',readableTextColor(this.value));" style="width:100%;height:44px;padding:4px;">
         </div>
         <div style="flex:1;">
           <label class="stub" style="display:block;margin-bottom:4px;">Secondary colour</label>
@@ -1748,6 +1791,7 @@ async function renderTeam(){
         <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
       </div>
     </div>
+    ` : ''}
     <p class="sectiontitle">Integrations</p>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
@@ -1759,7 +1803,8 @@ async function renderTeam(){
         <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
       `}
     </div>
-    <p class="sectiontitle">Toolbox Talk Bank (all new sites)</p>
+    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
+    ${teamSectionOpen.tbt ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</p>
       ${tbtTemplates.map(t=>`
@@ -1775,6 +1820,7 @@ async function renderTeam(){
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
+    ` : ''}
     <p class="sectiontitle">Device Locks (one phone = one operative)</p>
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
@@ -1786,7 +1832,8 @@ async function renderTeam(){
       `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
     ` : ''}
-    <p class="sectiontitle">Permanent Team Invite Link</p>
+    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
+    ${teamSectionOpen.invites ? `
     <div class="card">
       ${permanentInvite ? `
         <p class="stub" style="margin:0 0 8px;">Share this one link with as many operatives as you like — it never expires and can be used more than once. Used ${permanentInvite.use_count} time${permanentInvite.use_count===1?'':'s'} so far.</p>
@@ -1797,9 +1844,7 @@ async function renderTeam(){
         <p class="stub" style="margin:0 0 8px;">Create one link you can share with your whole team at once — in a group chat, on a noticeboard, or as a QR code — instead of sending a separate link to each operative.</p>
         <button class="darkbtn" ${permanentInviteBusy?'disabled':''} onclick="createPermanentInvite()">${permanentInviteBusy?'Creating…':'Create Permanent Invite Link'}</button>
       `}
-    </div>
-    <p class="sectiontitle">Invite a Team Member</p>
-    <div class="card">
+      <p class="sectiontitle" style="margin-top:16px;">One-time invite</p>
       ${newInviteLink ? `
         <p class="stub" style="margin:0 0 8px;">Share this link — it works once, for the next 14 days:</p>
         <input type="text" readonly value="${escapeHtml(newInviteLink)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
@@ -1809,7 +1854,8 @@ async function renderTeam(){
         <div class="formfield"><input type="email" id="inviteEmailInput" placeholder="operative@example.com"></div>
         <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
       ` : `
-        <button class="darkbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate Invite Link'}</button>
+        <p class="stub" style="margin:0 0 8px;">Prefer a single-use link for one person instead of the permanent link above?</p>
+        <button class="ghostbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate One-Time Invite Link'}</button>
         <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative — a Company Admin can promote them to Project Manager below once they've joined.</p>
       `}
       ${pendingInvites.length ? `
@@ -1822,12 +1868,15 @@ async function renderTeam(){
         `).join('')}
       ` : ''}
     </div>
-    <p class="sectiontitle">Company Admins</p>
+    ` : ''}
+    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
+    ${teamSectionOpen.users ? `
+    <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
       <div class="sitecard">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-size:6.75px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No other admins yet.</div>`}
 
@@ -1838,8 +1887,8 @@ async function renderTeam(){
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         ${p.id!==ME.id && isManager(ME) ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            ${isManager(ME) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-size:6.75px;" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
-            ${iAmAdmin ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+            ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
           </div>
         ` : ''}
       </div>
@@ -1851,14 +1900,17 @@ async function renderTeam(){
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${isManager(ME) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-size:6.75px;" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
-          <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+          ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
         </div>
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can switch someone between Operative and Project Manager here — promoting or demoting a Company Admin is still done by the OpHUB platform admin.</p>
+    ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true});
 }
+let teamSectionOpen = {branding:false, tbt:false, invites:false, users:false};
+window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
 let tbtTemplateBusy = false;
@@ -2182,7 +2234,7 @@ async function renderSiteHome(siteId){
       </div>
     </div>
     ${isManager(ME) ? `
-      <button class="ghostbtn" onclick="go('#/site/${siteId}/team')">Team &amp; Admin</button>
+      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Team &amp; Admin</button>
     ` : ''}
   `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
 }
@@ -4394,11 +4446,130 @@ window.deleteRams = async function(ramsId, storagePath){
   if(ok){ toast('RAMS document deleted'); render(); }
 };
 
-/* ================= HEALTH & SAFETY (folder: RAMS + Toolbox Talks) ================= */
+/* ================= COSHH (identical to RAMS above — separate document type) ================= */
+let coshhPollTimer = null;
+function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
+  return docs.map(r=>{
+    const sigs = sigsByDoc[r.id]||[];
+    const mine = sigs.find(s=>s.user_id===ME.id);
+    return `
+    <div class="ramsdoc">
+      <div class="taskrowtop">
+        <div class="name">${escapeHtml(r.name)}</div>
+        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
+      </div>
+      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
+      <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
+      <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signCoshh('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
+        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+      </div>
+      ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
+        ${canAdd ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+    </div>`;
+  }).join('') || `<div class="empty">No COSHH uploaded.</div>`;
+}
+async function fetchCoshhData(siteId){
+  const docs = await dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc');
+  let sigsByDoc = {};
+  if(docs.length){
+    const ids = docs.map(d=>d.id).join(',');
+    const sigs = await dbSelect('coshh_signatures', 'coshh_id=in.('+ids+')');
+    sigs.forEach(s=>{ (sigsByDoc[s.coshh_id]=sigsByDoc[s.coshh_id]||[]).push(s); });
+  }
+  return {docs, sigsByDoc};
+}
+async function renderCoshh(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+
+  document.getElementById('app').innerHTML = shell(`
+    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
+
+    ${canAdd ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload COSHH</p>
+        <div class="formfield"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('coshhFileName').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" onclick="addCoshh('${siteId}')">Upload</button>
+        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
+      </div>
+    ` : ''}
+  `, {title:'COSHH', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+
+  if(coshhPollTimer) clearInterval(coshhPollTimer);
+  coshhPollTimer = setInterval(async ()=>{
+    const el = document.getElementById('coshhDocsList');
+    if(!el){ clearInterval(coshhPollTimer); coshhPollTimer = null; return; }
+    const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+    const freshEl = document.getElementById('coshhDocsList');
+    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd);
+  }, 7000);
+}
+window.addCoshh = async function(siteId){
+  const name = document.getElementById('coshhName').value.trim();
+  const fileInput = document.getElementById('coshhFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/coshh/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('coshh-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('coshh_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('COSHH uploaded'); render(); }
+};
+window.signCoshh = async function(siteId, coshhId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('coshh_signatures', {coshh_id:coshhId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed — archived automatically'); render(); }
+};
+window.exportSignedCoshh = async function(coshhId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building signed PDF…');
+  const docs = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=*');
+  const doc = docs[0];
+  if(!doc){ toast('Document not found.'); return; }
+  const sigs = await dbSelect('coshh_signatures', 'coshh_id=eq.'+coshhId+'&order=signed_at.asc');
+  if(!sigs.length){ toast('No signatures yet.'); return; }
+  try{
+    const srcBytes = await (await fetch(publicUrl('coshh-docs', doc.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes);
+    const disclaimer = `I have read and understood the contents of this COSHH document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
+    const signers = sigs.map(s=>({
+      name: nameOf(s.user_id),
+      when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      imagePath: s.signature_image_path,
+    }));
+    await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
+
+    const coshhSite = SITES.find(s=>s.id===doc.site_id);
+    const filename = exportFilename(coshhSite?coshhSite.name:'', doc.name+' (Signed)', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await pdfDoc.save();
+    await deliverPdf(outBytes, filename);
+  }catch(e){
+    console.error(e);
+    toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+  }
+};
+window.deleteCoshh = async function(coshhId, storagePath){
+  if(!confirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
+  try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
+  const ok = await dbDelete('coshh_docs', coshhId);
+  if(ok){ toast('COSHH document deleted'); render(); }
+};
+
+/* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
 async function renderHealthSafety(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const [pendingRamsRows, liveTbt] = await Promise.all([
+  const [pendingRamsRows, pendingCoshhRows, liveTbt] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
   ]);
   document.getElementById('app').innerHTML = shell(`
@@ -4406,6 +4577,10 @@ async function renderHealthSafety(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
+        <div class="icon" style="background:#EAE6DC;color:var(--ink);">🧪</div>
+        <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
@@ -5369,6 +5544,7 @@ async function render(){
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
   addSiteFormOpen = false; // navigating anywhere off the site list closes the collapsed add-site form back up
+  pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
     // redirects here with ?onedrive=success|error so we can toast the
@@ -5426,6 +5602,7 @@ async function render(){
       const sub = parts[3];
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams') return renderRams(siteId);
+      if(sub==='coshh') return renderCoshh(siteId);
       if(sub==='tbt'){
         const tbtId = parts[4];
         if(tbtId) return renderToolboxTalkView(siteId, tbtId);
