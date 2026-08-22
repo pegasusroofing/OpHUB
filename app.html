@@ -78,16 +78,16 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;padding-top:calc(21px + env(safe-area-inset-top));flex:0 0 auto;}
+  .appbar{background:var(--brand1);color:var(--brand1-text);padding:21px 24px 18px;padding-top:calc(21px + env(safe-area-inset-top));flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:15px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
-  .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#b9b9b9;margin-bottom:1.5px;}
-  .brandline.lg{font-size:22.5px;}
-  .brandline.orgname{font-size:18.75px;}
-  .appbar h2{margin:0;font-size:24px;font-weight:800;}
+  .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand1-text);opacity:.8;margin-bottom:1.5px;}
+  .brandline.lg{font-size:22.5px;opacity:1;}
+  .brandline.orgname{font-size:18.75px;opacity:1;}
+  .appbar h2{margin:0;font-size:24px;font-weight:800;color:var(--brand1-text);}
   .appbar h2.lg{font-size:27px;}
-  .appbar .meta{font-size:16.5px;color:#b9b9b9;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
+  .appbar .meta{font-size:16.5px;color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
   .geo-modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,17,20,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;}
@@ -100,7 +100,7 @@
   .geo-modal-btn:hover{border-color:var(--slate-light);}
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
-  .backarrow{font-size:57px;font-weight:900;line-height:1;color:#fff;opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px #fff, 0.5px 0 0 #fff;}
+  .backarrow{font-size:57px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
@@ -802,7 +802,10 @@ function applyTheme(org){
   const brand1 = (org && org.color_primary) || DEFAULT_BRAND1;
   root.setProperty('--brand1', brand1);
   root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
-  root.setProperty('--brand1-text', readableTextColor(brand1));
+  // Header text colour: uses the company's chosen colour if they've set one,
+  // otherwise falls back to auto black/white based on how light the primary
+  // theme colour is (readableTextColor).
+  root.setProperty('--brand1-text', (org && org.header_text_color) || readableTextColor(brand1));
 }
 // Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
 // GPS check-in & geofencing — everything else (growth/enterprise) does.
@@ -1783,6 +1786,15 @@ async function renderTeam(){
           <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
         </div>
       </div>
+      <label class="stub" style="display:block;margin-bottom:4px;">Header text colour</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <input type="color" id="themeHeaderText" value="${escapeHtml((ORG && ORG.header_text_color) || readableTextColor((ORG && ORG.color_primary) || DEFAULT_BRAND1))}" oninput="document.documentElement.style.setProperty('--brand1-text',this.value);document.getElementById('themeHeaderTextAuto').checked=false;" style="width:60px;height:40px;padding:2px;flex:0 0 auto;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink);cursor:pointer;">
+          <input type="checkbox" id="themeHeaderTextAuto" ${!(ORG && ORG.header_text_color)?'checked':''} onchange="if(this.checked){document.documentElement.style.setProperty('--brand1-text',readableTextColor(document.getElementById('themeColor1').value));}">
+          Auto (black or white based on your primary colour)
+        </label>
+      </div>
+      <p class="stub" style="margin:0 0 10px;">Controls the OpHUB logo text, company name, page titles, and the back &amp; refresh buttons — every header text apart from the role badge.</p>
       <div style="display:flex;gap:8px;">
         <button class="darkbtn" ${themeBusy?'disabled':''} onclick="saveCompanyTheme()">${themeBusy?'Saving…':'Save Theme'}</button>
         <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
@@ -1934,11 +1946,13 @@ window.saveCompanyTheme = async function(){
   if(!ME || ME.role!=='admin' || !ORG) return;
   const c1 = document.getElementById('themeColor1').value;
   const c2 = document.getElementById('themeColor2').value;
+  const autoHeaderText = document.getElementById('themeHeaderTextAuto').checked;
+  const headerText = autoHeaderText ? null : document.getElementById('themeHeaderText').value;
   themeBusy = true; render();
-  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2});
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2, header_text_color: headerText});
   themeBusy = false;
   if(!row){ toast('Could not save theme — try again.'); render(); return; }
-  ORG.color_primary = c1; ORG.color_secondary = c2;
+  ORG.color_primary = c1; ORG.color_secondary = c2; ORG.header_text_color = headerText;
   applyTheme(ORG);
   toast('Company theme saved.');
   render();
@@ -1946,10 +1960,10 @@ window.saveCompanyTheme = async function(){
 window.resetCompanyTheme = async function(){
   if(!ME || ME.role!=='admin' || !ORG) return;
   themeBusy = true; render();
-  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null});
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null, header_text_color: null});
   themeBusy = false;
   if(!row){ toast('Could not reset theme — try again.'); render(); return; }
-  ORG.color_primary = null; ORG.color_secondary = null;
+  ORG.color_primary = null; ORG.color_secondary = null; ORG.header_text_color = null;
   applyTheme(ORG);
   toast('Company theme reset to default.');
   render();
@@ -2430,7 +2444,8 @@ async function renderAssignTeam(siteId){
 
   document.getElementById('app').innerHTML = shell(`
     ${odCompanyConnected ? `
-    <p class="sectiontitle" style="margin-top:0;">Sync Folder</p>
+    <p class="sectiontitle closedtoggle" style="margin-top:0;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
+    ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
       ${site.onedrive_folder_id ? `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
@@ -2449,8 +2464,10 @@ async function renderAssignTeam(siteId){
       `}
     </div>
     ` : ''}
+    ` : ''}
     ${ME.role==='admin' ? `
-    <p class="sectiontitle" style="margin-top:0;">Responsible Project Manager</p>
+    <p class="sectiontitle closedtoggle" onclick="toggleSiteTeamSection('pm')"><span class="arrow">${siteTeamSectionOpen.pm?'▼':'▶'}</span> Responsible Project Manager</p>
+    ${siteTeamSectionOpen.pm ? `
     <div class="card">
       <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
       <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
@@ -2458,8 +2475,10 @@ async function renderAssignTeam(siteId){
         ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
       </select>
     </div>
-    <p class="sectiontitle">Assign Operatives</p>
     ` : ''}
+    ` : ''}
+    <p class="sectiontitle closedtoggle" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
+    ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
       <div class="sitecard">
@@ -2470,12 +2489,17 @@ async function renderAssignTeam(siteId){
         </button>
       </div>
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
+    ` : ''}
 
-    <p class="sectiontitle" style="margin-top:18px;">Site Admin</p>
+    <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="toggleSiteTeamSection('admin')"><span class="arrow">${siteTeamSectionOpen.admin?'▼':'▶'}</span> Site Admin</p>
+    ${siteTeamSectionOpen.admin ? `
     <button class="darkbtn" style="background:var(--red);" onclick="toggleSiteStatus('${siteId}','${site.status==='closed'?'active':'closed'}')">${site.status==='closed'?'Reopen Site':'Close Site'}</button>
     <button class="darkbtn" style="background:var(--red);margin-top:10px;" onclick="deleteSite('${siteId}','${jsAttr(site.name)}')">Delete Site</button>
+    ` : ''}
   `, {title:'Team & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
+let siteTeamSectionOpen = {sync:false, pm:false, operatives:false, admin:false};
+window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.toggleAssignment = async function(siteId, userId, isAssigned){
   if(isAssigned){
     const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
@@ -2959,8 +2983,15 @@ window.submitReport = async function(siteId){
         const v = reportFillDraft.answers[it.id];
         if(it.type==='photo' || it.type==='multichoice'){
           if(!Array.isArray(v) || !v.length){ toast(`"${it.label}" is required.`); return; }
+        } else if(it.type==='signature'){
+          // Signature fields display the user's already-adopted signature
+          // automatically rather than making them draw it again each time —
+          // so "signed" is measured by ME.signature_path existing, not by
+          // something being written into answers[it.id] during fill (nothing
+          // ever writes there until submit, so checking v here always failed
+          // even when a signature was clearly showing on screen).
+          if(!ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
         } else if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
-        if(it.type==='signature' && !ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
       }
       if(mediaRequiredFor(it, reportFillDraft.answers)){
         const media = reportFillDraft.answers[it.id+'__media'];
@@ -3829,9 +3860,11 @@ async function renderSnagging(siteId){
     ` : ''}
 
     <p class="sectiontitle" style="margin-top:18px;">Export</p>
-    <button class="ghostbtn exportbtn" onclick="exportSnaggingPDF('${siteId}','live')">Export live snags (PDF)</button>
-    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed snags (PDF)</button>
-    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSnaggingPDF('${siteId}','both')">Export all snags (PDF)</button>
+    <div style="display:flex;gap:6px;">
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','live')">Export live (PDF)</button>
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed (PDF)</button>
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','both')">Export all (PDF)</button>
+    </div>
   `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.snagAddPhoto = async function(input){
@@ -5145,9 +5178,11 @@ async function renderVariations(siteId){
     </div>
 
     <p class="sectiontitle" style="margin-top:18px;">Export</p>
-    <button class="ghostbtn exportbtn" onclick="exportVariationsPDF('${siteId}','live')">Export live variations (PDF)</button>
-    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportVariationsPDF('${siteId}','closed')">Export closed variations (PDF)</button>
-    <button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportVariationsPDF('${siteId}','both')">Export all variations (PDF)</button>
+    <div style="display:flex;gap:6px;">
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','live')">Export live (PDF)</button>
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','closed')">Export closed (PDF)</button>
+      <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','both')">Export all (PDF)</button>
+    </div>
   `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.varPhoto = async function(input){
