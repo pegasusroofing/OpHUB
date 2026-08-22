@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>OpHUB</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -58,7 +58,7 @@
     #app{
       max-width:1180px;box-shadow:none;
     }
-    .appbar{padding:20px 32px;}
+    .appbar{padding:20px 32px;padding-top:calc(20px + env(safe-area-inset-top));}
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;}
   }
@@ -76,7 +76,7 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;flex:0 0 auto;}
+  .appbar{background:var(--brand1);color:#fff;padding:21px 24px 18px;padding-top:calc(21px + env(safe-area-inset-top));flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:15px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
@@ -115,7 +115,7 @@
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
-  input[type=text],input[type=email],input[type=password],input[type=number],textarea,select{
+  input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],textarea,select{
     width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
     font-size:14px;background:#fff;color:var(--ink);font-family:inherit;
   }
@@ -256,6 +256,7 @@
   .empty{text-align:center;color:var(--slate-light);font-size:13px;padding:26px 10px;}
 
   .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;align-items:flex-end;padding:8px 3px 12px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom));
     background:#fff;border-top:1px solid var(--line);}
   .tb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8.5px;font-weight:700;
     color:var(--slate-light);padding:4px 5px;border-radius:10px;}
@@ -305,6 +306,18 @@ function getDeviceId(){
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Consistent, readable export filenames across every PDF/Excel export:
+// "Site Name - Export Name - DD-MM-YY.ext" (a literal "/" isn't allowed in
+// filenames on iOS/Mac/Windows, so the date uses dashes instead of slashes).
+function exportFilename(siteName, label, ext){
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yy = String(d.getFullYear()).slice(-2);
+  const parts = [siteName, label, dd+'-'+mm+'-'+yy].filter(Boolean);
+  const name = parts.join(' - ').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,' ').trim();
+  return name + '.' + ext;
+}
 // For values dropped into an onclick="fn('...')" attribute: escape backslash
 // and single-quote for JS FIRST, then HTML-escape the result for the
 // attribute. Doing it the other way round (HTML-escape, then try to
@@ -341,6 +354,18 @@ window.viewImage = function(url){
 window.closeImageViewer = function(){
   const ov = document.getElementById('imgViewerOverlay');
   if(ov) ov.style.display = 'none';
+};
+// Drawings "View": images pop up in the in-app image viewer above; PDFs open
+// via Capacitor's Browser plugin (an in-app sheet with its own Done button)
+// rather than a plain <a target="_blank">, which on the native app was
+// kicking people out to the real external Safari app instead of staying
+// inside OpHUB.
+window.viewDrawing = async function(url, isImage){
+  if(isImage){ viewImage(url); return; }
+  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()){
+    try{ await window.Capacitor.Plugins.Browser.open({url}); return; }catch(e){ /* fall through to web */ }
+  }
+  window.open(url, '_blank');
 };
 function compressImage(file, opts){
   // 1600px / 0.85 quality (the default) keeps photos sharp enough for
@@ -534,6 +559,74 @@ async function uploadDataUrl(bucket, path, dataUrl){
   return uploadToStorage(bucket, path, blob, blob.type);
 }
 function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path) : null; }
+// Web Share API — hands a file to the OS share sheet (Mail, WhatsApp,
+// Messages, AirDrop, "Save to Files", etc.). Supported on iOS 15+ (our
+// minimum target) inside both Safari and a Capacitor WKWebView. Returns
+// true if the share sheet was actually shown.
+async function shareFile(blob, filename, mimeType){
+  try{
+    const file = new File([blob], filename, {type: mimeType});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title: filename});
+      return true;
+    }
+  }catch(e){ /* user cancelled the share sheet, or it's unsupported — ignore */ }
+  return false;
+}
+// Shared PDF delivery for every generated export (reports, RAMS, toolbox talks,
+// snagging, schedule of works). On the website, this just triggers a normal
+// browser download like before. Inside the native app, a plain <a download>
+// silently does nothing — the WKWebView has no download manager — so instead
+// we upload the finished PDF to Supabase Storage and open the public URL in
+// the in-app browser (Safari's own PDF viewer — reliably scrolls through
+// every page, and has a built-in Share button for emailing/WhatsApp/etc).
+// The PDF's title metadata (set via pdfDoc.setTitle() before this is called)
+// is what Safari shows in its title bar, so the long Supabase URL isn't
+// what the user actually sees.
+async function deliverPdf(bytes, filename){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const blob = new Blob([bytes], {type:'application/pdf'});
+  if(isNative && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    toast('Opening PDF…');
+    const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
+    const path = 'exports/'+uid()+'-'+safeName;
+    try{
+      const stored = await uploadToStorage('site-photos', path, blob, 'application/pdf');
+      if(stored){ await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)}); return; }
+    }catch(e){ /* fall through to the download-link fallback below */ }
+  }
+  if(await shareFile(blob, filename, 'application/pdf')) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  toast('PDF downloaded');
+}
+// Same problem as deliverPdf above (a plain download link does nothing inside
+// the native app) but for Excel exports. There's no in-app spreadsheet
+// viewer, so on native this uploads the file and hands it to the system —
+// tapping it opens iOS's own document preview, from where it can be saved
+// or shared like any other file.
+async function deliverExcelFile(wb, filename){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if(isNative){
+    toast('Opening file…');
+    try{
+      const out = XLSX.write(wb, {type:'array', bookType:'xlsx'});
+      const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
+      const path = 'exports/'+uid()+'-'+safeName;
+      const stored = await uploadToStorage('site-photos', path, blob, blob.type);
+      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)});
+        return;
+      }
+    }catch(e){ /* fall through to the direct-download fallback below */ }
+  }
+  XLSX.writeFile(wb, filename);
+  toast('Excel file downloaded');
+}
 
 /* ================= auth ================= */
 // `extra` becomes the new account's auth metadata. Only `invite_id` matters
@@ -619,11 +712,23 @@ async function registerPushNotifications(){
         await sbFetch('/rest/v1/push_tokens?on_conflict=token', {
           method:'POST',
           headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
-          body: JSON.stringify({user_id: ME.id, token: token.value, platform:'android', updated_at: new Date().toISOString()})
+          body: JSON.stringify({user_id: ME.id, token: token.value, platform: window.Capacitor.getPlatform(), updated_at: new Date().toISOString()})
         });
       }catch(e){ console.error('Could not save push token', e); }
     });
     PN.addListener('registrationError', (err)=>{ console.error('Push registration error', err); });
+    // Tapping a push notification (message/material/variation/snag alert)
+    // jumps straight to the relevant tab on the relevant site instead of
+    // just opening the app to wherever it was last left.
+    PN.addListener('pushNotificationActionPerformed', (action)=>{
+      try{
+        const data = (action && action.notification && action.notification.data) || {};
+        if(!data.site_id) return;
+        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', message:'messages' };
+        const dest = routes[data.kind] || 'messages';
+        go(`#/site/${data.site_id}/${dest}`);
+      }catch(e){ console.error('Push notification routing failed', e); }
+    });
     await PN.register();
   }catch(e){ console.error('Push notification setup failed', e); }
 }
@@ -869,7 +974,7 @@ function shell(innerHtml, opts){
               <h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title||''}</h2>
             </div>
             ${ME ? `
-              <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
                 <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
                 ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:#fff;font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
               </div>
@@ -1345,28 +1450,42 @@ function siteCardHtml(s, canAdd){
     </div>
   `;
 }
+let siteFilterPmId = '';
+let addSiteFormOpen = false;
 async function renderSites(){
   const app = document.getElementById('app');
   const canAdd = isManager(ME);
   await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
-  const activeSites = SITES.filter(s=>s.status!=='closed');
-  const closedSites = SITES.filter(s=>s.status==='closed');
+  const pmOptions = Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
+  const filtered = (canAdd && siteFilterPmId) ? SITES.filter(s=>s.responsible_pm_id===siteFilterPmId) : SITES;
+  const activeSites = filtered.filter(s=>s.status!=='closed');
+  const closedSites = filtered.filter(s=>s.status==='closed');
   app.innerHTML = shell(`
-    <p class="sectiontitle">Your Sites</p>
-    ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">No active sites.</div>`}
-    ${closedSites.length ? `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
+      ${canAdd && pmOptions.length ? `
+        <select onchange="setSiteFilterPm(this.value)" title="Filter by project manager" style="width:auto;flex:none;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmId?'var(--brand1)':'#fff'};color:${siteFilterPmId?'#fff':'var(--slate)'};">
+          <option value="" ${!siteFilterPmId?'selected':''}>All PMs</option>
+          ${pmOptions.map(p=>`<option value="${p.id}" ${siteFilterPmId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      ` : ''}
+    </div>
+    ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">${siteFilterPmId?'No active sites for this PM.':'No active sites.'}</div>`}
+    ${canAdd && closedSites.length ? `
       <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="showClosedSites=!showClosedSites;render()">
         <span class="arrow">${showClosedSites?'▼':'▶'}</span> Closed Jobs (${closedSites.length})
       </p>
       ${showClosedSites ? closedSites.map(s=>siteCardHtml(s,canAdd)).join('') : ''}
     ` : ''}
     ${canAdd ? `
-      <div class="card" style="margin-top:6px;">
+      <div class="card" style="margin-top:6px;background:var(--paper);">
         <p class="sectiontitle" style="margin-top:0;">Add a site</p>
-        <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name"></div>
-        <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address"></div>
-        <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
-        <button class="darkbtn" onclick="addSite()">Create Site</button>
+        ${addSiteFormOpen ? `
+          <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name"></div>
+          <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address"></div>
+          <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
+        ` : ''}
+        <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Site</button>
       </div>
       <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
     ` : ''}
@@ -1377,6 +1496,8 @@ async function renderSites(){
     </p>
   `, {title:'Choose Site', tabs:false, centerHeader:true, showRefresh:true});
 }
+window.setSiteFilterPm = function(pmId){ siteFilterPmId = pmId || ''; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; render(); };
 window.toggleSiteStatus = async function(siteId, newStatus){
   const row = await dbUpdate('sites', siteId, {status:newStatus});
   if(row){
@@ -1390,7 +1511,7 @@ window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   const postcode = document.getElementById('newSitePostcode').value.trim();
-  if(!name) return;
+  if(!name){ toast('Enter a site name.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
   // Prefer: return=representation) — Postgres has a known quirk where a
   // table's own SELECT policy, if it re-queries that same table (as sites'
@@ -1404,6 +1525,7 @@ window.addSite = async function(){
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
+  addSiteFormOpen = false;
   toast('Site created');
   render();
 };
@@ -1617,9 +1739,8 @@ async function renderTeam(){
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — anything you upload here will be pre-loaded into every future site's Bank TBT.</div>`}
       <div class="formfield" style="margin-top:10px;"><input type="text" id="tbtTemplateTitle" placeholder="Title, e.g. Alcohol & Drugs"></div>
-      <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
-        <input type="file" accept="application/pdf" id="tbtTemplateFile" style="display:none" onchange="document.getElementById('tbtTemplateFileName').textContent=this.files[0]?this.files[0].name:''">
-      </label>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('tbtTemplateFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="tbtTemplateFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('tbtTemplateFileName').textContent=this.files[0]?this.files[0].name:''">
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
@@ -1802,6 +1923,10 @@ const SITES_ROOT_ID = '__SITES__';
 let odPickerStack = null; // array of {id, name, driveId, isSite} — first entry is always the OneDrive root
 let odPickerFolders = [];
 let odPickerError = null;
+window.onedriveFolderAction = function(siteId, action){
+  if(action==='change') startOneDriveFolderPicker(siteId);
+  else if(action==='unlink') unlinkOneDriveFolder(siteId);
+};
 window.startOneDriveFolderPicker = function(siteId){
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];
@@ -2029,15 +2154,21 @@ async function renderSiteHome(siteId){
     </div>
     ${isManager(ME) ? `
       ${odCompanyConnected ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">OneDrive Folder</p>
+      <div class="card" style="padding:10px 14px;">
         ${site.onedrive_folder_id ? `
-          <p class="stub" style="margin:0 0 8px;color:var(--ok);">Linked to "${escapeHtml(site.onedrive_folder_name||'')}" — progress photos for this site sync straight there.</p>
-          <button class="ghostbtn" onclick="startOneDriveFolderPicker('${siteId}')">Change folder</button>
-          <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkOneDriveFolder('${siteId}')">Unlink</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span class="stub" style="margin:0;font-size:13px;color:var(--ok);">📁 Synced to "${escapeHtml(site.onedrive_folder_name||'')}"</span>
+            <select style="width:auto;flex:none;padding:6px 10px;font-size:13px;" onchange="onedriveFolderAction('${siteId}', this.value); this.selectedIndex=0;">
+              <option value="" selected disabled>Folder ▾</option>
+              <option value="change">Change folder</option>
+              <option value="unlink">Unlink folder</option>
+            </select>
+          </div>
         ` : `
-          <p class="stub" style="margin:0 0 8px;">Not linked yet — photos are filing under a generic OpHUB folder. Pick this site's actual project folder so they land in the right place.</p>
-          <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}')">Choose folder</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <span class="stub" style="margin:0;font-size:13px;">OneDrive folder not linked</span>
+            <button class="ghostbtn" style="padding:5px 12px;font-size:13px;" onclick="startOneDriveFolderPicker('${siteId}')">Choose</button>
+          </div>
         `}
       </div>
       ` : ''}
@@ -2612,7 +2743,7 @@ async function renderReportFill(siteId, templateId){
 function renderPhotoArrayWidget(key, arr, opts){
   opts = opts || {};
   const size = opts.size || 90;
-  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}<input type="file" accept="image/*" multiple capture="environment" onchange="onReportPhotoChosen(this,'${key}')">`;
+  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}<input type="file" accept="image/*" multiple onchange="onReportPhotoChosen(this,'${key}')">`;
 }
 function renderExtraMediaWidget(it, answers){
   if(!itemAllowsMedia(it)) return '';
@@ -2898,8 +3029,9 @@ async function buildReportPdf(submissionId){
     const total = pdfDoc.getPageCount();
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter(idx+1, total); });
 
+    const filename = exportFilename(site?site.name:'', sub.template_name, 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    const filename = (site?site.name:'site').replace(/[^a-z0-9]+/gi,'-')+'-'+sub.template_name.replace(/[^a-z0-9]+/gi,'-')+'.pdf';
     let binary=''; const chunk=0x8000;
     for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
     const base64 = btoa(binary);
@@ -2914,13 +3046,7 @@ window.exportReportPDF = async function(submissionId){
   toast('Building PDF…');
   const built = await buildReportPdf(submissionId);
   if(!built) return;
-  const blob = new Blob([built.bytes], {type:'application/pdf'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = built.filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  toast('PDF downloaded');
+  await deliverPdf(built.bytes, built.filename);
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
   try{
@@ -3158,9 +3284,8 @@ window.exportCheckins = async function(siteId, scope){
   ws['!cols'] = [{wch:18},{wch:11},{wch:11},{wch:8},{wch:11},{wch:11},{wch:11}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Check-ins');
-  const label = scope==='week' ? 'ThisWeek' : 'AllTime';
-  XLSX.writeFile(wb, `${site.name.replace(/[^a-z0-9]+/gi,'-')}-checkins-${label}.xlsx`);
-  toast('Excel file downloaded');
+  const label = scope==='week' ? 'Check-ins (This Week)' : 'Check-ins (All Time)';
+  await deliverExcelFile(wb, exportFilename(site.name, label, 'xlsx'));
 };
 
 /* ================= SCHEDULE OF WORKS ================= */
@@ -3217,15 +3342,14 @@ async function renderSchedule(siteId){
           ${pendingCompleteTaskId===t.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
               <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
-              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📸 Upload completed photos
-                <input type="file" accept="image/*" multiple style="display:none" onchange="completeTaskWithPhotos(this,'${siteId}','${t.id}')">
-              </label>
+              <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('completePhotoInput-${t.id}').click()">📸 Upload completed photos</div>
+              <input type="file" id="completePhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="completeTaskWithPhotos(this,'${siteId}','${t.id}')">
               <button class="ghostbtn" style="margin-top:8px;" onclick="pendingCompleteTaskId=null;render()">‹ Back to In Progress</button>
             </div>
-          ` : t.status==='progress' ? `
-            <label class="addphotobtn" style="cursor:pointer;">📷 Add progress photo
-              <input type="file" accept="image/*" multiple style="display:none" onchange="taskPhoto(this,'${siteId}','${t.id}')"></label>
-          ` : ''}
+          ` : `
+            <div class="addphotobtn" style="cursor:pointer;" onclick="document.getElementById('taskPhotoInput-${t.id}').click()">📷 Add photo</div>
+            <input type="file" id="taskPhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="taskPhoto(this,'${siteId}','${t.id}')">
+          `}
         </div>
         <div class="statusbtns">
           <div class="statusbtn ${t.status==='todo'&&pendingCompleteTaskId!==t.id?'active-todo':''}" onclick="setTaskStatus('${siteId}','${t.id}','todo')">To Commence</div>
@@ -3246,16 +3370,14 @@ async function renderSchedule(siteId){
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Upload schedule</p>
         <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:14px;">Choose Excel/CSV file
-          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" onchange="importScheduleExcel(this,'${siteId}')">
-        </label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:14px;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
+        <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
         <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
         <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
           <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
         </label>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">Choose PDF file
-          <input type="file" accept="application/pdf" style="display:none" onchange="importSchedulePdf(this,'${siteId}')">
-        </label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
+        <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
       </div>
       ${pdfImportSiteId===siteId ? `
       <div class="card">
@@ -3483,7 +3605,7 @@ async function renderSnaggingFolder(siteId){
 
 /* ================= SNAGGING ================= */
 let snagFilter = 'live';
-let snagNewPhoto = null;
+let snagNewPhotos = [];
 let snagNewTitle = ''; // kept in JS state (not just read from the DOM at submit)
 let snagNewLocation = ''; // because attaching a photo/PDF triggers a re-render mid-form,
                            // which was wiping out whatever had been typed so far.
@@ -3508,7 +3630,7 @@ async function renderSnagging(siteId){
           <div><div class="title">${escapeHtml(s.title)}</div><div class="loc">${escapeHtml(s.location||'—')}</div></div>
           <span class="statustag2 ${s.status}">${s.status}</span>
         </div>
-        ${s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
+        ${(s.photo_paths && s.photo_paths.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">${s.photo_paths.map(p=>`<img class="snagthumb" src="${publicUrl('site-photos',p)}">`).join('')}</div>` : s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
         ${s.pdf_path ? `<a class="ghostbtn" style="display:block;margin-top:10px;text-align:center;" href="${publicUrl('site-photos',s.pdf_path)}" target="_blank" rel="noopener">📄 View PDF</a>` : ''}
         ${s.status==='closed' ? `
           <div class="closurerow">
@@ -3519,18 +3641,16 @@ async function renderSnagging(siteId){
           ${closingSnagId===s.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Upload a photo showing this is fixed.</p>
-              <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">📷 Add closing photo
-                <input type="file" accept="image/*" style="display:none" onchange="closeSnagPhoto(this,'${siteId}','${s.id}')">
-              </label>
+              <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('closeSnagPhotoInput-${s.id}').click()">📷 Add closing photo</div>
+              <input type="file" id="closeSnagPhotoInput-${s.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="closeSnagPhoto(this,'${siteId}','${s.id}')">
               <button class="ghostbtn" style="margin-top:8px;" onclick="closingSnagId=null;render()">Cancel</button>
             </div>
           ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="closingSnagId='${s.id}';render()">Close snag</button>`}
         `}
         ${canAdd && !s.pdf_path ? (
           attachingPdfSnagId===s.id ? `
-            <label class="ghostbtn" style="display:block;margin-top:8px;cursor:pointer;text-align:center;">📄 Choose PDF to attach
-              <input type="file" accept="application/pdf" style="display:none" onchange="attachSnagPdf(this,'${siteId}','${s.id}')">
-            </label>
+            <div class="ghostbtn" style="margin-top:8px;cursor:pointer;text-align:center;" onclick="document.getElementById('attachSnagPdfInput-${s.id}').click()">📄 Choose PDF to attach</div>
+            <input type="file" id="attachSnagPdfInput-${s.id}" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="attachSnagPdf(this,'${siteId}','${s.id}')">
           ` : `<button class="ghostbtn" style="margin-top:8px;" onclick="attachingPdfSnagId='${s.id}';render()">Attach PDF</button>`
         ) : ''}
       </div>
@@ -3542,18 +3662,19 @@ async function renderSnagging(siteId){
         <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue" value="${escapeHtml(snagNewTitle)}" oninput="snagNewTitle=this.value"></div>
         <div class="formfield"><input type="text" id="snagLoc" placeholder="Location" value="${escapeHtml(snagNewLocation)}" oninput="snagNewLocation=this.value"></div>
         <div class="formfield">
-          <label class="field-label">Photo</label>
-          <label class="photoupload" style="cursor:pointer;">
-            ${snagNewPhoto ? `<img src="${snagNewPhoto}">` : `<div style="font-size:20px;">📷</div>Tap to add a photo`}
-            <input type="file" accept="image/*" style="display:none" onchange="snagAddPhoto(this)">
-          </label>
+          <label class="field-label">Photos</label>
+          ${snagNewPhotos.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${snagNewPhotos.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeSnagNewPhoto(${idx})">✕</div></div>`).join('')}</div>` : ''}
+          <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('snagPhotoInput').click()">
+            <div style="font-size:20px;">📷</div>Take a photo or choose from library
+          </div>
+          <input type="file" id="snagPhotoInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="snagAddPhoto(this)">
         </div>
         <div class="formfield">
           <label class="field-label">PDF Attachment (optional)</label>
-          <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;">
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('snagPdfInput').click()">
             ${snagNewPdf ? `📄 ${escapeHtml(snagNewPdf.name)}` : `📄 Choose PDF`}
-            <input type="file" accept="application/pdf" style="display:none" onchange="snagAddPdf(this)">
-          </label>
+          </div>
+          <input type="file" id="snagPdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="snagAddPdf(this)">
         </div>
         <button class="darkbtn" onclick="addSnag('${siteId}')">Add Snag</button>
       </div>
@@ -3566,9 +3687,16 @@ async function renderSnagging(siteId){
   `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
 }
 window.snagAddPhoto = async function(input){
-  const file = input.files && input.files[0]; if(!file) return;
-  try{ snagNewPhoto = await compressImage(file); render(); }
-  catch(e){ toast('Could not process photo.'); }
+  const files = input.files && Array.from(input.files); if(!files || !files.length) return;
+  try{
+    for(const file of files){ snagNewPhotos.push(await compressImage(file)); }
+    render();
+  }catch(e){ toast('Could not process photo.'); }
+  input.value = '';
+};
+window.removeSnagNewPhoto = function(idx){
+  snagNewPhotos.splice(idx,1);
+  render();
 };
 window.snagAddPdf = function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -3580,17 +3708,18 @@ window.addSnag = async function(siteId){
   const title = snagNewTitle.trim();
   const location = snagNewLocation.trim();
   if(!title) return;
-  let photoPath = null;
-  if(snagNewPhoto){
-    photoPath = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', snagNewPhoto);
+  let photoPaths = [];
+  for(const dataUrl of snagNewPhotos){
+    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', dataUrl);
+    if(path) photoPaths.push(path);
   }
   let pdfPath = null;
   if(snagNewPdf){
     pdfPath = await uploadToStorage('site-photos', siteId+'/snags/'+uid()+'.pdf', snagNewPdf, 'application/pdf');
   }
-  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPath, pdf_path:pdfPath, status:'open', created_by:ME.id});
+  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPaths[0]||null, photo_paths:photoPaths.length?photoPaths:null, pdf_path:pdfPath, status:'open', created_by:ME.id});
   if(rows){
-    snagNewPhoto = null;
+    snagNewPhotos = [];
     snagNewPdf = null;
     snagNewTitle = '';
     snagNewLocation = '';
@@ -3810,7 +3939,7 @@ window.exportSnaggingPDF = async function(siteId, scope){
 
     for(let i=0;i<snags.length;i++){
       const s = snags[i];
-      const hasPhoto = !!(s.photo_path || (s.status==='closed' && s.closed_photo_path));
+      const hasPhoto = !!((s.photo_paths && s.photo_paths.length) || s.photo_path || (s.status==='closed' && s.closed_photo_path));
       const blockH = hasPhoto ? 130 : 78;
       if(y - blockH < 50){ newPage(); }
 
@@ -3841,7 +3970,7 @@ window.exportSnaggingPDF = async function(siteId, scope){
       }
 
       if(hasPhoto){
-        const photoPath = s.status==='closed' && s.closed_photo_path ? s.closed_photo_path : s.photo_path;
+        const photoPath = s.status==='closed' && s.closed_photo_path ? s.closed_photo_path : ((s.photo_paths && s.photo_paths[0]) || s.photo_path);
         const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-imgSlot+8;
         const imgY = cardTop-blockH+14;
         const boxSize = 76;
@@ -3861,17 +3990,11 @@ window.exportSnaggingPDF = async function(siteId, scope){
     }
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
+    const exportLabel = scope==='live' ? 'Snagging Report (Live)' : scope==='closed' ? 'Snagging Report (Closed)' : 'Snagging Report (All)';
+    const filename = exportFilename(site.name, exportLabel, 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    const blob = new Blob([outBytes], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-snagging-' + scope + '.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    toast('PDF downloaded');
+    await deliverPdf(outBytes, filename);
   }catch(e){
     console.error(e);
     toast('Could not build the PDF.');
@@ -3939,11 +4062,25 @@ window.exportSchedulePDF = async function(siteId){
       page.drawText('Page ' + pageNum, {x:PAGE_W-MARGIN-40, y:20, size:8, font:reg, color:SLATE});
     }
     let pageNum = 0;
+    // Tracks whichever section (To Do / In Progress / Complete) is currently
+    // being drawn, so that when a section's task rows spill onto a new page
+    // the section header gets repeated at the top of it. Without this, a
+    // page break mid-section left rows with no heading at all — which is
+    // what made In Progress photos look like they'd landed inside the
+    // Complete section on the next page.
+    let currentSection = null;
+    function drawSectionHeaderText(label, color){
+      page.drawText(label, {x:MARGIN, y, size:11.5, font:bold, color});
+      y -= 6;
+      page.drawLine({start:{x:MARGIN,y:y-2}, end:{x:PAGE_W-MARGIN,y:y-2}, thickness:1, color:FAINT});
+      y -= 16;
+    }
     function newPage(){
       page = pdfDoc.addPage([PAGE_W, PAGE_H]);
       pageNum++;
       drawHeaderBand();
       y = PAGE_H - 118;
+      if(currentSection) drawSectionHeaderText(currentSection.label, currentSection.color);
     }
     newPage();
 
@@ -3971,11 +4108,9 @@ window.exportSchedulePDF = async function(siteId){
     y -= 28;
 
     function sectionHeader(label, color){
-      if(y - 24 < 60) newPage();
-      page.drawText(label, {x:MARGIN, y, size:11.5, font:bold, color});
-      y -= 6;
-      page.drawLine({start:{x:MARGIN,y:y-2}, end:{x:PAGE_W-MARGIN,y:y-2}, thickness:1, color:FAINT});
-      y -= 16;
+      currentSection = {label, color};
+      if(y - 24 < 60) newPage(); // newPage() draws the header itself via currentSection
+      else drawSectionHeaderText(label, color);
     }
 
     async function drawTaskRow(t, pillColor, pillBg){
@@ -4032,17 +4167,10 @@ window.exportSchedulePDF = async function(siteId){
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
+    const filename = exportFilename(site.name, 'Schedule of Works', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    const blob = new Blob([outBytes], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = site.name.replace(/[^a-z0-9]+/gi,'-') + '-schedule-of-works.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    toast('PDF downloaded');
+    await deliverPdf(outBytes, filename);
   }catch(e){
     console.error(e);
     toast('Could not build the PDF.');
@@ -4093,9 +4221,8 @@ async function renderRams(siteId){
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
         <div class="formfield"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
-          <input type="file" accept="application/pdf" id="ramsFile" style="display:none" onchange="document.getElementById('ramsFileName').textContent=this.files[0]?this.files[0].name:''">
-        </label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="ramsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('ramsFileName').textContent=this.files[0]?this.files[0].name:''">
         <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;"></p>
         <button class="darkbtn" onclick="addRams('${siteId}')">Upload</button>
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
@@ -4151,17 +4278,11 @@ window.exportSignedRams = async function(ramsId){
     }));
     await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
 
+    const ramsSite = SITES.find(s=>s.id===doc.site_id);
+    const filename = exportFilename(ramsSite?ramsSite.name:'', doc.name+' (Signed)', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    const blob = new Blob([outBytes], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = doc.name.replace(/[^a-z0-9]+/gi,'-') + '-signed.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    toast('Signed PDF downloaded');
+    await deliverPdf(outBytes, filename);
   }catch(e){
     console.error(e);
     toast('Could not build the signed PDF — the source file may not be a valid PDF.');
@@ -4240,9 +4361,8 @@ async function renderToolboxTalks(siteId){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Upload a toolbox talk</p>
       <div class="formfield"><input type="text" id="tbtTitle" placeholder="Title, e.g. Week 24 — Manual Handling"></div>
-      <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;margin-bottom:10px;">Choose PDF
-        <input type="file" accept="application/pdf" id="tbtFile" style="display:none" onchange="document.getElementById('tbtFileName').textContent=this.files[0]?this.files[0].name:''">
-      </label>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('tbtFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="tbtFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('tbtFileName').textContent=this.files[0]?this.files[0].name:''">
       <p class="stub" id="tbtFileName" style="margin:-4px 0 10px;"></p>
       <button class="darkbtn" onclick="addToolboxTalk('${siteId}')">Upload</button>
       <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
@@ -4287,7 +4407,7 @@ async function renderToolboxTalkView(siteId, tbtId){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Manager controls</p>
       ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
-      ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Completed TBT</button>` : ''}
+      ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
       ${sigs.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export PDF with all signatures</button>` : ''}
       <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}')">Delete</button>
       <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
@@ -4375,17 +4495,11 @@ window.exportSignedToolboxTalk = async function(tbtId){
     }));
     await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers});
 
+    const tbtSite = SITES.find(s=>s.id===talk.site_id);
+    const filename = exportFilename(tbtSite?tbtSite.name:'', talk.title+' (Signed)', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    const blob = new Blob([outBytes], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = talk.title.replace(/[^a-z0-9]+/gi,'-') + '-signed.pdf';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 5000);
-    toast('Signed PDF downloaded');
+    await deliverPdf(outBytes, filename);
   }catch(e){
     console.error(e);
     toast('Could not build the signed PDF — the source file may not be a valid PDF.');
@@ -4399,6 +4513,7 @@ let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
 let selectedMaterialIds = new Set(); // matIds ticked for a grouped/combined send
 let groupSupplierId = null; // supplier chosen for the current group selection
 let sendingGroup = false; // true while entering the Required for Delivery date for a grouped send
+let reemailingMaterialId = null; // matId while a re-email is in flight
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -4421,7 +4536,7 @@ async function renderMaterials(siteId){
         <p class="sectiontitle" style="margin-top:0;">${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order</p>
         ${sendingGroup ? `
           <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
-          <div class="formfield"><input type="date" id="reqDeliveryDate_group" min="${new Date().toISOString().slice(0,10)}"></div>
+          <div class="formfield"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_group" min="${new Date().toISOString().slice(0,10)}"></div>
           <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; Send ${selectedMaterialIds.size} Items to ${escapeHtml(supplierName(groupSupplierId)||'')}</button>
           <button class="ghostbtn" style="margin-top:8px;" onclick="sendingGroup=false;render()">Cancel</button>
         ` : `
@@ -4446,14 +4561,14 @@ async function renderMaterials(siteId){
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
           </div>
         </div>
-        ${m.status==='sent' ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
+        ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
           m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
           m.status==='pending' ? (isPM ? (
             selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
             sendingMaterial && sendingMaterial.matId===m.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
-              <div class="formfield"><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
+              <div class="formfield"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
               <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
               <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
             </div>
@@ -4464,6 +4579,10 @@ async function renderMaterials(siteId){
           ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
         ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
         ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
+        ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
+          <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
+          ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" ${reemailingMaterialId===m.id?'disabled':''} onclick="reemailMaterial('${siteId}','${m.id}')">${reemailingMaterialId===m.id?'Emailing…':'Re-email order'}</button>` : ''}
+        </div>` : ''}
       </div>
     `).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
 
@@ -4537,7 +4656,9 @@ window.confirmSendMaterial = async function(siteId, matId){
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
-  const row = await dbUpdate('materials', matId, {status:'sent', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
+  // Goes straight to 'closed' — an order that's just been sent to a merchant
+  // doesn't need a separate manual "Close request" step afterwards.
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
@@ -4580,7 +4701,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'sent', merchant:supplier.name, supplier_id:groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant:supplier.name, supplier_id:groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
@@ -4611,6 +4732,41 @@ window.closeMaterial = async function(siteId, matId){
   const row = await dbUpdate('materials', matId, {status:'closed'});
   if(row){ toast('Material request closed'); render(); }
 };
+window.reopenMaterial = async function(siteId, matId){
+  // Reopened requests go back to 'sent' (not 'pending') when they'd already
+  // been ordered, so the merchant/email history stays visible and it lands
+  // back in the Live tab rather than looking like a brand new request.
+  const row = await dbUpdate('materials', matId, {status:'sent'});
+  if(row){ toast('Material request reopened'); render(); }
+};
+window.reemailMaterial = async function(siteId, matId){
+  const rows = await dbSelect('materials', 'id=eq.'+matId+'&select=*');
+  const material = rows && rows[0];
+  if(!material || !material.supplier_id){ toast('Missing supplier details — cannot re-email.'); return; }
+  const suppliers = await dbSelect('suppliers', 'id=eq.'+material.supplier_id+'&select=*');
+  const supplier = suppliers && suppliers[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  reemailingMaterialId = matId; render();
+  try{
+    const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
+      material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
+      item: material.item, qty: material.qty, site_id: siteId,
+      required_for_delivery: material.required_for_delivery,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
+      toast('Order re-emailed to '+supplier.name+' (you\'ve been CC\'d)');
+    } else {
+      console.error('send-material-order failed:', d.error || res.status);
+      toast('Re-email failed — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
+    }
+  }catch(e){
+    console.error('send-material-order failed:', e);
+    toast('Re-email failed — could not reach the server.');
+  }
+  reemailingMaterialId = null; render();
+};
 window.deleteMaterial = async function(siteId, matId){
   if(!confirm('Delete this material request? This can\'t be undone.')) return;
   const ok = await dbDelete('materials', matId);
@@ -4630,10 +4786,10 @@ async function renderVariations(siteId){
       <p class="sectiontitle" style="margin-top:0;">Raise a variation</p>
       <div class="formfield">
         <label class="field-label">Photo evidence</label>
-        <label class="photoupload" style="cursor:pointer;">
+        <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('varPhotoInput').click()">
           ${varDraft.photo ? `<img src="${varDraft.photo}">` : `<div style="font-size:22px;">📷</div>Tap to add a photo`}
-          <input type="file" accept="image/*" style="display:none" onchange="varPhoto(this)">
-        </label>
+        </div>
+        <input type="file" id="varPhotoInput" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="varPhoto(this)">
       </div>
       <div class="formfield">
         <label class="field-label">Description</label>
@@ -4710,7 +4866,7 @@ async function renderDrawings(siteId, folderId){
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
           <div style="flex:1;min-width:0;font-weight:500;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-          <a class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;" href="${publicUrl('drawings', f.storage_path)}" target="_blank" rel="noopener">View</a>
+          <div class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.name)})">View</div>
           ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
           ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
@@ -4729,9 +4885,8 @@ async function renderDrawings(siteId, folderId){
         <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
         <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
         <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
-        <label class="ghostbtn" style="display:block;cursor:pointer;text-align:center;" id="drawingUploadLabel">Choose file(s)
-          <input type="file" accept="application/pdf,image/jpeg,image/png" multiple style="display:none" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
-        </label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
+        <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
       </div>
     ` : ''}
   `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'});
@@ -4905,6 +5060,14 @@ async function render(){
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
     const page = parts[2] || 'home';
+    // Once a job is closed, operatives lose access to it entirely — bounce
+    // them back to the site list rather than letting a stale tab/bookmark
+    // keep it reachable. Managers still need to get in (to reopen it, pull
+    // a final export, etc), so this only applies to operatives.
+    if(!isManager(ME)){
+      const site = SITES.find(s=>s.id===siteId);
+      if(site && site.status==='closed'){ toast('This job is closed.'); go('#/sites'); return; }
+    }
     // Keep the bottom tab bar's Messages badge fresh on every site-scoped
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
