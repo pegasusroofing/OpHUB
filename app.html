@@ -858,14 +858,29 @@ function autofillValue(kind, site){
   if(kind==='inspector_name') return ME.name || '';
   return undefined;
 }
-// Conditional logic: a question with showIf={qId, values} only counts as
-// "on the form" when the referenced earlier question's current answer is
-// one of the listed values — mirrors SafetyCulture's "If answer is X then
-// ask questions" branching. Checkbox answers are booleans in state but
-// compared as 'Yes'/'No' here since that's how their options are offered.
+// Conditional logic: a question with showIf={qId, mode, values} only counts
+// as "on the form" when the referenced earlier question's current answer
+// satisfies the condition. Two modes:
+//  - 'notblank' — trigger question just needs *any* answer at all (works for
+//    every question type, including free text/number/photo — e.g. "if they
+//    wrote anything in the notes field, ask a follow-up").
+//  - 'equals' (default, for backwards compatibility with templates saved
+//    before 'notblank' existed) — trigger question's answer must be one of
+//    the listed values; mirrors SafetyCulture's "If answer is X then ask
+//    questions" branching. Only offered for fixed-option question types
+//    (Pass/Fail/N-A, choice, Yes/No). Checkbox answers are booleans in state
+//    but compared as 'Yes'/'No' here since that's how their options are
+//    offered.
+function isAnswered(val){
+  if(val===undefined || val===null) return false;
+  if(typeof val==='string') return val.trim()!=='';
+  if(Array.isArray(val)) return val.length>0;
+  return true; // booleans (checkbox once tapped) and numbers always count as answered
+}
 function itemVisible(it, answers){
   if(!it.showIf || !it.showIf.qId) return true;
   const raw = answers ? answers[it.showIf.qId] : undefined;
+  if(it.showIf.mode==='notblank') return isAnswered(raw);
   const val = typeof raw === 'boolean' ? (raw ? 'Yes' : 'No') : raw;
   return (it.showIf.values||[]).includes(val);
 }
@@ -2664,18 +2679,26 @@ window.toggleMediaRequiredValue = function(si, ii, value, checked){
   it.mediaRequiredWhen = Array.from(set);
   render();
 };
-// Trigger candidates for conditional logic: earlier questions in the SAME
-// section with a fixed set of possible answers (passfail/choice/checkbox) —
-// mirrors how SafetyCulture nests a conditional question directly under the
-// question that triggers it.
+// Trigger candidates for conditional logic: any earlier question in the SAME
+// section that can actually be answered (everything except instruction text)
+// — mirrors how SafetyCulture nests a conditional question directly under
+// the question that triggers it. Fixed-option questions (Pass/Fail/N-A,
+// choice, Yes/No) can trigger on "equals a specific answer" as well as "has
+// any answer"; every other type (text, number, date, photo, signature,
+// multichoice) can only trigger on "has any answer" since there's no fixed
+// list of possible values to pick from.
 function possibleTriggerItems(si, ii){
   const items = editingTemplate.sections[si].items;
   const out = [];
   items.forEach((cand,idx)=>{
     if(idx>=ii) return;
-    if(cand.type==='passfail' || cand.type==='choice' || cand.type==='checkbox') out.push(cand);
+    if(cand.type==='instruction') return;
+    out.push(cand);
   });
   return out;
+}
+function itemHasFixedOptions(it){
+  return it.type==='passfail' || it.type==='choice' || it.type==='checkbox';
 }
 function triggerOptionsFor(qId){
   for(const s of editingTemplate.sections){
@@ -2692,6 +2715,9 @@ function triggerOptionsFor(qId){
 function renderTemplateItemLogicEditor(si, ii, it){
   const candidates = possibleTriggerItems(si, ii);
   if(!candidates.length && !it.showIf) return '';
+  const triggerItem = it.showIf ? candidates.find(c=>c.id===it.showIf.qId) : null;
+  const fixedOptions = triggerItem ? itemHasFixedOptions(triggerItem) : false;
+  const isEquals = !!it.showIf && it.showIf.mode !== 'notblank';
   return `
     <div style="margin-top:6px;">
       <label class="field-label" style="margin-bottom:2px;">Only show this question if…</label>
@@ -2700,16 +2726,32 @@ function renderTemplateItemLogicEditor(si, ii, it){
         ${candidates.map(cand=>`<option value="${cand.id}" ${it.showIf && it.showIf.qId===cand.id?'selected':''}>${escapeHtml(cand.label||'(untitled question)')}</option>`).join('')}
       </select>
       ${it.showIf ? `
-        <div class="row-gap" style="margin-top:6px;flex-wrap:wrap;">
-          ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(PASSFAIL_LABEL[o]||o)}</label>`).join('')}
-        </div>
+        <select style="margin-top:6px;" onchange="setItemLogicMode(${si},${ii},this.value)">
+          <option value="notblank" ${!isEquals?'selected':''}>…isn't left blank (any answer given)</option>
+          ${fixedOptions ? `<option value="equals" ${isEquals?'selected':''}>…equals a specific answer</option>` : ''}
+        </select>
+        ${(isEquals && fixedOptions) ? `
+          <div class="row-gap" style="margin-top:6px;flex-wrap:wrap;">
+            ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(PASSFAIL_LABEL[o]||o)}</label>`).join('')}
+          </div>
+        ` : ''}
       ` : ''}
     </div>
   `;
 }
 window.setItemLogicTrigger = function(si, ii, val){
   const it = editingTemplate.sections[si].items[ii];
-  it.showIf = val ? {qId: val, values: []} : null;
+  if(!val){ it.showIf = null; render(); return; }
+  const cand = editingTemplate.sections[si].items.find(c=>c.id===val);
+  const fixedOptions = cand ? itemHasFixedOptions(cand) : false;
+  it.showIf = {qId: val, mode: fixedOptions ? 'equals' : 'notblank', values: []};
+  render();
+};
+window.setItemLogicMode = function(si, ii, mode){
+  const it = editingTemplate.sections[si].items[ii];
+  if(!it.showIf) return;
+  it.showIf.mode = mode;
+  if(mode==='notblank') it.showIf.values = [];
   render();
 };
 window.toggleItemLogicValue = function(si, ii, value, checked){
