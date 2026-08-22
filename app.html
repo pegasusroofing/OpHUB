@@ -364,6 +364,20 @@ window.closeImageViewer = function(){
 // rather than a plain <a target="_blank">, which on the native app was
 // kicking people out to the real external Safari app instead of staying
 // inside OpHUB.
+// The display "name" on a drawing can be freely renamed by a PM/admin (see
+// renameDrawingFile) to anything, e.g. "Site Plan Rev 3" with no extension —
+// but the real file extension never changes, since rename only touches the
+// display title, not the stored file. If we hand that extension-less name
+// straight to viewDrawing()'s ?download= filename, Safari/the browser can't
+// tell what kind of file it is and falls back to showing the raw storage
+// URL/domain as the title instead of a proper name. Always take the real
+// extension from storage_path (never user-edited) and make sure the display
+// name ends with it.
+function drawingDownloadFilename(f){
+  const m = /\.[a-z0-9]+$/i.exec(f.storage_path||'');
+  const ext = m ? m[0] : '';
+  return (ext && !f.name.toLowerCase().endsWith(ext.toLowerCase())) ? (f.name+ext) : f.name;
+}
 window.viewDrawing = async function(url, isImage, filename){
   if(isImage){ viewImage(url); return; }
   // Same Content-Disposition trick as deliverPdf() above — makes Safari's
@@ -1518,7 +1532,7 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
       ${canAdd && pmOptions.length ? `
-        <div style="position:relative;">
+        <div style="position:relative;margin-top:-5px;">
           <button type="button" onclick="togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
             ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'Select PM'} ${pmFilterOpen?'▲':'▼'}
           </button>
@@ -1754,9 +1768,10 @@ async function renderTeam(){
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
+  const ddHdr = 'font-size:13.75px;'; // section-header text, 1.25x the normal 11px sectiontitle
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
-    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
@@ -1801,7 +1816,8 @@ async function renderTeam(){
       </div>
     </div>
     ` : ''}
-    <p class="sectiontitle">Integrations</p>
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
+    ${teamSectionOpen.integrations ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
       ${odConn && odConn.access_token ? `
@@ -1812,7 +1828,8 @@ async function renderTeam(){
         <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
       `}
     </div>
-    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
+    ` : ''}
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</p>
@@ -1830,7 +1847,8 @@ async function renderTeam(){
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
     ` : ''}
-    <p class="sectiontitle">Device Locks (one phone = one operative)</p>
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
+    ${teamSectionOpen.devicelocks ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
       ${deviceLocks.length ? deviceLocks.map(d=>`
@@ -1841,7 +1859,8 @@ async function renderTeam(){
       `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
+    ` : ''}
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
     ${teamSectionOpen.invites ? `
     <div class="card">
       ${permanentInvite ? `
@@ -1878,7 +1897,7 @@ async function renderTeam(){
       ` : ''}
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
+    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
     ${teamSectionOpen.users ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
@@ -1918,7 +1937,7 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true});
 }
-let teamSectionOpen = {branding:false, tbt:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, tbt:false, devicelocks:false, invites:false, users:false};
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
@@ -2444,7 +2463,7 @@ async function renderAssignTeam(siteId){
 
   document.getElementById('app').innerHTML = shell(`
     ${odCompanyConnected ? `
-    <p class="sectiontitle closedtoggle" style="margin-top:0;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
+    <p class="sectiontitle closedtoggle" style="margin-top:0;font-size:16.5px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
       ${site.onedrive_folder_id ? `
@@ -2466,7 +2485,7 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
     ${ME.role==='admin' ? `
-    <p class="sectiontitle closedtoggle" onclick="toggleSiteTeamSection('pm')"><span class="arrow">${siteTeamSectionOpen.pm?'▼':'▶'}</span> Responsible Project Manager</p>
+    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="toggleSiteTeamSection('pm')"><span class="arrow">${siteTeamSectionOpen.pm?'▼':'▶'}</span> Responsible Project Manager</p>
     ${siteTeamSectionOpen.pm ? `
     <div class="card">
       <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
@@ -2477,7 +2496,7 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
-    <p class="sectiontitle closedtoggle" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
+    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
@@ -2491,10 +2510,10 @@ async function renderAssignTeam(siteId){
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
     ` : ''}
 
-    <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="toggleSiteTeamSection('admin')"><span class="arrow">${siteTeamSectionOpen.admin?'▼':'▶'}</span> Site Admin</p>
+    <p class="sectiontitle closedtoggle" style="margin-top:18px;font-size:16.5px;" onclick="toggleSiteTeamSection('admin')"><span class="arrow">${siteTeamSectionOpen.admin?'▼':'▶'}</span> Site Admin</p>
     ${siteTeamSectionOpen.admin ? `
-    <button class="darkbtn" style="background:var(--red);" onclick="toggleSiteStatus('${siteId}','${site.status==='closed'?'active':'closed'}')">${site.status==='closed'?'Reopen Site':'Close Site'}</button>
-    <button class="darkbtn" style="background:var(--red);margin-top:10px;" onclick="deleteSite('${siteId}','${jsAttr(site.name)}')">Delete Site</button>
+    <button class="darkbtn" style="padding:11.05px;font-size:11.475px;" onclick="toggleSiteStatus('${siteId}','${site.status==='closed'?'active':'closed'}')">${site.status==='closed'?'Reopen Site':'Close Site'}</button>
+    <button class="darkbtn" style="padding:11.05px;font-size:11.475px;margin-top:10px;" onclick="deleteSite('${siteId}','${jsAttr(site.name)}')">Delete Site</button>
     ` : ''}
   `, {title:'Team & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
@@ -2905,13 +2924,16 @@ async function renderReportFill(siteId, submissionId){
 }
 window.saveReportProgress = async function(siteId){
   reportSaveBusy = true; render();
-  const row = await dbUpdate('report_submissions', reportFillDraft.submissionId, {answers: Object.assign({}, reportFillDraft.answers)});
+  let row = null;
+  try{
+    row = await dbUpdate('report_submissions', reportFillDraft.submissionId, {answers: Object.assign({}, reportFillDraft.answers)});
+  }catch(e){ console.error(e); }
   reportSaveBusy = false;
   if(row){
     toast('Progress saved');
     reportFillDraft = null;
     go(`#/site/${siteId}/snagging/reports`);
-  } else render();
+  } else { toast('Could not save — check your connection and try again.'); render(); }
 };
 function renderPhotoArrayWidget(key, arr, opts){
   opts = opts || {};
@@ -2949,7 +2971,16 @@ function renderReportFillItem(it){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
     return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${renderPhotoArrayWidget(it.id, arr)}</div>`;
   }
-  if(it.type==='signature') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${ME.signature_path ? `<img src="${publicUrl('signatures', ME.signature_path)}" style="height:50px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;"><p class="stub" style="margin:6px 0 0;">Your adopted signature will be attached when you submit.</p>` : `<p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p>`}</div>`;
+  if(it.type==='signature'){
+    if(!ME.signature_path) return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p></div>`;
+    const signed = !!val;
+    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>
+      <div class="siglinebox ${signed?'signed':''}" onclick="${signed?'':`reportFillDraft.answers['${it.id}']='${jsAttr(ME.signature_path)}';render();`}" style="${signed?'':'cursor:pointer;'}">
+        <img src="${publicUrl('signatures', ME.signature_path)}" style="height:34px;max-width:140px;object-fit:contain;">
+        <span>${signed?'Signed — tap to attach on submit':'Tap to sign'}</span>
+      </div>
+    </div>`;
+  }
   return '';
 }
 window.toggleReportMultichoice = function(itemId, value, checked){
@@ -2984,13 +3015,8 @@ window.submitReport = async function(siteId){
         if(it.type==='photo' || it.type==='multichoice'){
           if(!Array.isArray(v) || !v.length){ toast(`"${it.label}" is required.`); return; }
         } else if(it.type==='signature'){
-          // Signature fields display the user's already-adopted signature
-          // automatically rather than making them draw it again each time —
-          // so "signed" is measured by ME.signature_path existing, not by
-          // something being written into answers[it.id] during fill (nothing
-          // ever writes there until submit, so checking v here always failed
-          // even when a signature was clearly showing on screen).
           if(!ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
+          if(!v){ toast(`Tap to sign "${it.label}" before submitting.`); return; }
         } else if(v===undefined || v===null || v===''){ toast(`"${it.label}" is required.`); return; }
       }
       if(mediaRequiredFor(it, reportFillDraft.answers)){
@@ -3004,16 +3030,19 @@ window.submitReport = async function(siteId){
   (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
     if(it.type==='signature' && ME.signature_path) answers[it.id] = ME.signature_path;
   }));
-  const rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, {
-    answers, status:'completed', submitted_at:new Date().toISOString(),
-  });
+  let rows = null;
+  try{
+    rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, {
+      answers, status:'completed', submitted_at:new Date().toISOString(),
+    });
+  }catch(e){ console.error(e); }
   reportSubmitBusy = false;
   if(rows){
     toast('Report submitted');
     const submissionId = reportFillDraft.submissionId;
     reportFillDraft = null;
     go(`#/site/${siteId}/snagging/reports/view/${submissionId}`);
-  } else render();
+  } else { toast('Could not submit — check your connection and try again.'); render(); }
 };
 async function renderReportView(siteId, submissionId){
   const site = SITES.find(s=>s.id===siteId);
@@ -4661,7 +4690,7 @@ async function renderToolboxTalks(siteId){
       </div>
     `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
 
-    ${isPM ? `
+    ${isPM && tbtFilter==='bank' ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Upload a toolbox talk</p>
       <div class="formfield"><input type="text" id="tbtTitle" placeholder="Title, e.g. Week 24 — Manual Handling"></div>
@@ -4712,7 +4741,12 @@ async function renderToolboxTalkView(siteId, tbtId){
       <p class="sectiontitle" style="margin-top:0;">Manager controls</p>
       ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
-      ${sigs.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export PDF with all signatures</button>` : ''}
+      ${sigs.length ? `
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button class="ghostbtn" style="display:block;width:auto;flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
+        <button class="ghostbtn" style="display:block;width:auto;flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
+      </div>
+      ` : ''}
       <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}')">Delete</button>
       <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
@@ -4753,6 +4787,32 @@ async function maybeAutoCompleteToolboxTalk(siteId, tbtId){
     }
   }catch(e){ /* best-effort */ }
 }
+let tbtEmailBusy = null;
+window.emailTbtManual = async function(siteId, tbtId){
+  tbtEmailBusy = tbtId; render();
+  try{
+    const built = await buildSignedToolboxTalkPdfBytes(tbtId);
+    if(!built){ tbtEmailBusy=null; toast('Could not build the PDF to email.'); render(); return; }
+    const site = SITES.find(s=>s.id===siteId);
+    await loadAllProfiles();
+    let recipients = [];
+    if(site && site.responsible_pm_id && PROFILES[site.responsible_pm_id] && PROFILES[site.responsible_pm_id].email){
+      recipients = [PROFILES[site.responsible_pm_id].email];
+    } else {
+      recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email).map(p=>p.email);
+    }
+    if(!recipients.length){ tbtEmailBusy=null; toast('No project manager email found to send to.'); render(); return; }
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
+    const base64 = btoa(binary);
+    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipients, site_name: site?site.name:'', tbt_title: built.talk.title, filename: built.filename, pdf_base64: base64,
+    })});
+    tbtEmailBusy = null;
+    if(res.ok) toast('Toolbox Talk emailed'); else toast('Could not send email — try again.');
+    render();
+  }catch(e){ console.error(e); tbtEmailBusy=null; toast('Could not send email — try again.'); render(); }
+};
 async function emailCompletedTbtToPM(siteId, tbtId){
   try{
     const built = await buildSignedToolboxTalkPdfBytes(tbtId);
@@ -4867,6 +4927,7 @@ window.exportSignedToolboxTalk = async function(tbtId){
 
 /* ================= MATERIALS ================= */
 let matFilter = 'live';
+let suppliersOpen = false;
 let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
 let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
 let selectedMaterialIds = new Set(); // matIds ticked for a grouped/combined send
@@ -4945,15 +5006,18 @@ async function renderMaterials(siteId){
       </div>
     `).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
 
+    ${matFilter==='live' ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       <div class="formfield"><input type="text" id="matQty" placeholder="Quantity"></div>
       <button class="darkbtn" onclick="addMaterial('${siteId}')">Request</button>
     </div>
+    ` : ''}
     ${isPM ? `
+    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> Suppliers</p>
+    ${suppliersOpen ? `
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Suppliers</p>
       ${suppliers.map(s=>`
         <div class="sitecard" style="padding:8px 10px;">
           <div class="info"><div class="name">${escapeHtml(s.name)}</div><div class="addr">${escapeHtml(s.email)}</div></div>
@@ -4964,6 +5028,7 @@ async function renderMaterials(siteId){
       <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
       <button class="ghostbtn" onclick="addSupplier('${siteId}')">Add Supplier</button>
     </div>
+    ` : ''}
     ` : ''}
   `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
 }
@@ -5390,7 +5455,7 @@ async function renderDrawings(siteId, folderId){
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
           <div style="flex:1;min-width:0;font-weight:500;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-          <div class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.name)}, '${jsAttr(f.name)}')">View</div>
+          <div class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
           ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
           ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
