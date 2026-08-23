@@ -402,10 +402,18 @@ function drawingDownloadFilename(f){
 }
 window.viewDrawing = async function(url, isImage, filename){
   if(isImage){ viewImage(url); return; }
-  // Same Content-Disposition trick as deliverPdf() above — makes Safari's
-  // title bar show the drawing's actual name instead of the raw storage URL.
-  const dlUrl = filename ? (url+(url.includes('?')?'&':'?')+'download='+encodeURIComponent(filename)) : url;
-  if(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  // Same Content-Disposition trick as deliverPdf() above (?download=name
+  // makes Safari's PDF viewer show the drawing's actual name instead of the
+  // raw storage URL) — but Android Chrome treats that same header literally:
+  // instead of rendering the PDF inline, it silently kicks off a background
+  // download and leaves the tab blank with nothing but the raw supabase.co
+  // URL visible, which is exactly the "long link" bug. So only use the
+  // filename trick on iOS, where it's confirmed to actually help; everywhere
+  // else, open the plain URL so the PDF renders inline instead of vanishing.
+  const useDownloadParam = isNative && window.Capacitor.getPlatform && window.Capacitor.getPlatform()==='ios';
+  const dlUrl = (useDownloadParam && filename) ? (url+(url.includes('?')?'&':'?')+'download='+encodeURIComponent(filename)) : url;
+  if(isNative){
     try{ await window.Capacitor.Plugins.Browser.open({url: dlUrl}); return; }catch(e){ /* fall through to web */ }
   }
   window.open(dlUrl, '_blank');
@@ -639,8 +647,14 @@ async function deliverPdf(bytes, filename){
       // filename header on the response — that's what Safari's built-in PDF
       // viewer actually reads for its title bar (setTitle() on the PDF's own
       // internal metadata is NOT read by SFSafariViewController, which is
-      // why the raw supabase.co URL was showing up there instead).
-      if(stored){ await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)}); return; }
+      // why the raw supabase.co URL was showing up there instead). Android
+      // Chrome reads that same header differently though — it silently
+      // starts a background download instead of showing the PDF, leaving
+      // the tab blank with just the raw URL visible (the same "long link"
+      // bug reported for Drawings' View button) — so only add it on iOS.
+      const isIos = window.Capacitor.getPlatform && window.Capacitor.getPlatform()==='ios';
+      const openUrl = publicUrl('site-photos', stored) + (isIos ? '?download='+encodeURIComponent(filename) : '');
+      if(stored){ await window.Capacitor.Plugins.Browser.open({url: openUrl}); return; }
     }catch(e){ /* fall through to the download-link fallback below */ }
   }
   // Non-native (web/PWA): open the PDF in a new tab so the browser's own PDF
@@ -1063,6 +1077,43 @@ window.addEventListener('popstate', function(){
   if(SELF_NAV) return;
   if(CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
 });
+// Custom confirmation dialog, replacing the native window.confirm(). On this
+// build's Android WebView, window.confirm() was returning immediately
+// without ever showing anything — so every "Are you sure?" prompt (delete
+// site, assign PM, etc.) silently cancelled itself and looked like the
+// button just didn't work / got stuck. This reuses the same persistent-
+// overlay pattern as the GPS options modal (openGeoOptions) below, which is
+// known to render reliably, instead of relying on a native browser dialog.
+// Usage: if(!await customConfirm('Are you sure?')) return;
+let _confirmResolve = null;
+function customConfirm(message, opts){
+  opts = opts || {};
+  return new Promise(resolve=>{
+    _confirmResolve = resolve;
+    let ov = document.getElementById('confirmModalOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'confirmModalOverlay';
+      ov.className = 'geo-modal-overlay';
+      document.body.appendChild(ov);
+    }
+    ov.onclick = (e)=>{ if(e.target===ov) window._confirmAnswer(false); };
+    ov.innerHTML = `
+      <div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+        <button class="darkbtn" style="width:100%;margin-bottom:8px;${opts.danger?'background:var(--warn);':''}" onclick="window._confirmAnswer(true)">${escapeHtml(opts.confirmLabel||'Yes, continue')}</button>
+        <button class="geo-modal-cancel" onclick="window._confirmAnswer(false)">${escapeHtml(opts.cancelLabel||'Cancel')}</button>
+      </div>`;
+    ov.style.display = 'flex';
+  });
+}
+window._confirmAnswer = function(result){
+  const ov = document.getElementById('confirmModalOverlay');
+  if(ov) ov.style.display = 'none';
+  const resolve = _confirmResolve;
+  _confirmResolve = null;
+  if(resolve) resolve(result);
+};
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
@@ -1522,7 +1573,7 @@ window.toggleAdminOrg = function(orgId){
   render();
 };
 window.setUserRole = async function(userId, role){
-  if(!confirm(`Change this person's role to ${roleLabel(role)}?`)) return;
+  if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)) return;
   const row = await dbUpdate('profiles', userId, {role});
   if(row){ toast(`Role changed to ${roleLabel(role)}`); render(); }
 };
@@ -1547,7 +1598,7 @@ window.resetUserPassword = async function(email){
 };
 window.deleteUserPlatform = async function(userId, name){
   if(userId===ME.id){ toast("You can't delete your own account this way."); return; }
-  if(!confirm(`Permanently delete ${name||'this user'}? This removes their login completely — they will not be able to sign in again. This cannot be undone.`)) return;
+  if(!await customConfirm(`Permanently delete ${name||'this user'}? This removes their login completely — they will not be able to sign in again. This cannot be undone.`)) return;
   try{
     const res = await sbFetch('/functions/v1/admin-delete-user', {method:'POST', body: JSON.stringify({user_id: userId})});
     const d = await res.json();
@@ -1559,7 +1610,7 @@ window.deleteUserPlatform = async function(userId, name){
   }
 };
 window.deleteCompany = async function(orgId, name){
-  if(!confirm(`Permanently delete "${name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`)) return;
+  if(!await customConfirm(`Permanently delete "${name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`)) return;
   if(prompt(`Type the company name to confirm deleting "${name}":`) !== name) { toast("Names didn't match — nothing deleted."); return; }
   try{
     const res = await sbFetch('/functions/v1/admin-delete-company', {method:'POST', body: JSON.stringify({org_id: orgId})});
@@ -1649,10 +1700,10 @@ window.openPmPicker = function(siteId){
   siteStatusMenuOpenId = null;
   render();
 };
-window.confirmSetResponsiblePm = function(siteId, pmId, pmName){
+window.confirmSetResponsiblePm = async function(siteId, pmId, pmName){
   sitePmPickerOpenId = null;
-  if(!confirm(`Set ${pmName} as the responsible project manager for this site? A project manager can only be selected once — are you sure?`)){ render(); return; }
-  setResponsiblePM(siteId, pmId);
+  if(!await customConfirm(`Set ${pmName} as the responsible project manager for this site? A project manager can only be selected once — are you sure?`)){ render(); return; }
+  await setResponsiblePM(siteId, pmId);
 };
 window.setSiteStatus = async function(siteId, status){
   siteStatusMenuOpenId = null;
@@ -1771,7 +1822,7 @@ async function preloadTbtBankForSite(site){
   }catch(e){ console.error('Could not preload TBT bank for new site', e); }
 }
 window.deleteSite = async function(siteId, name){
-  if(!confirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
+  if(!await customConfirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
   siteStatusMenuOpenId = null;
   const ok = await dbDelete('sites', siteId);
   if(ok){
@@ -2110,7 +2161,7 @@ window.addTbtTemplate = async function(){
   if(rows){ toast('Added to the Toolbox Talk Bank'); render(); }
 };
 window.deleteTbtTemplate = async function(templateId, storagePath){
-  if(!confirm('Remove this template? Sites already created keep their copy — this only affects sites created from now on.')) return;
+  if(!await customConfirm('Remove this template? Sites already created keep their copy — this only affects sites created from now on.')) return;
   const ok = await dbDelete('tbt_templates', templateId);
   if(ok){ toast('Template removed'); render(); }
 };
@@ -2162,7 +2213,7 @@ window.connectOneDrive = async function(){
   }catch(e){ odBusy=false; toast('Could not reach the server.'); render(); }
 };
 window.disconnectOneDrive = async function(){
-  if(!confirm('Disconnect OneDrive? Photos will stop syncing until reconnected.')) return;
+  if(!await customConfirm('Disconnect OneDrive? Photos will stop syncing until reconnected.')) return;
   const res = await sbFetch('/rest/v1/onedrive_connections?org_id=eq.'+ME.org_id, {method:'DELETE'});
   if(res.ok){ toast('OneDrive disconnected'); render(); } else { toast('Could not disconnect — try again.'); }
 };
@@ -2275,7 +2326,7 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
   }
 };
 window.unlinkOneDriveFolder = async function(siteId){
-  if(!confirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
+  if(!await customConfirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
   const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
@@ -2286,7 +2337,7 @@ window.unlinkOneDriveFolder = async function(siteId){
 };
 
 window.removeTeamMember = async function(userId, name){
-  if(!confirm(`Remove ${name||'this person'} from the team? They will immediately lose access, and their email will be free to sign up fresh again later.`)) return;
+  if(!await customConfirm(`Remove ${name||'this person'} from the team? They will immediately lose access, and their email will be free to sign up fresh again later.`)) return;
   // Goes through an edge function rather than a plain profiles DELETE — a
   // client-side delete only removes the profiles row via RLS and leaves the
   // underlying auth.users account behind, which silently blocks that email
@@ -2334,7 +2385,7 @@ window.sendInviteEmail = async function(){
   render();
 };
 window.revokeInvite = async function(inviteId){
-  if(!confirm('Revoke this invite link?')) return;
+  if(!await customConfirm('Revoke this invite link?')) return;
   const ok = await dbDelete('invites', inviteId);
   if(ok){ toast('Invite revoked'); if(newInviteLink && newInviteLink.endsWith(inviteId)){ newInviteLink=null; newInviteId=null; } render(); }
 };
@@ -2354,12 +2405,12 @@ window.copyPermanentInviteLink = async function(inviteId){
   catch(e){ toast('Could not copy — tap and hold the link above to copy it manually.'); }
 };
 window.revokePermanentInvite = async function(inviteId){
-  if(!confirm('This stops the current link from working — anyone who already joined stays on your team, but the link itself won\'t sign anyone new up any more. You can create a fresh one straight after. Continue?')) return;
+  if(!await customConfirm('This stops the current link from working — anyone who already joined stays on your team, but the link itself won\'t sign anyone new up any more. You can create a fresh one straight after. Continue?')) return;
   const ok = await dbDelete('invites', inviteId);
   if(ok){ toast('Old link revoked'); render(); }
 };
 window.unlockDevice = async function(deviceId){
-  if(!confirm('Unlock this device? Whoever next signs in on it will lock it to themselves.')) return;
+  if(!await customConfirm('Unlock this device? Whoever next signs in on it will lock it to themselves.')) return;
   const res = await sbFetch('/rest/v1/device_locks?device_id=eq.'+encodeURIComponent(deviceId), {method:'DELETE'});
   if(res.ok){ toast('Device unlocked'); render(); }
   else{ toast('Could not unlock — '+(await safeErr(res))); }
@@ -2459,6 +2510,7 @@ window.setResponsiblePM = async function(siteId, pmId){
     SITES[idx] = row;
     toast('Responsible project manager updated');
   }
+  render();
 };
 async function unreadCountForSite(siteId){
   const audience = isManager(ME) ? 'managers' : 'operatives';
@@ -2911,7 +2963,7 @@ window.useTemplateAsDailyBriefing = async function(siteId, templateId){
   if(row){ toast('Added to Daily Briefings'); render(); }
 };
 window.removeTemplateFromDailyBriefings = async function(siteId, templateId){
-  if(!confirm('Remove this template from Daily Briefings? The template itself is kept — this just stops new briefings using it, and existing briefings stay where they are.')) return;
+  if(!await customConfirm('Remove this template from Daily Briefings? The template itself is kept — this just stops new briefings using it, and existing briefings stay where they are.')) return;
   const row = await dbUpdate('report_templates', templateId, {is_daily_briefing:false});
   if(row){ toast('Removed from Daily Briefings'); render(); }
 };
@@ -2923,7 +2975,7 @@ window.duplicateTemplate = async function(id){
   if(copy){ toast('Template duplicated'); render(); }
 };
 window.deleteTemplate = async function(id, name){
-  if(!confirm(`Delete template "${name}"? Reports already submitted from it are kept.`)) return;
+  if(!await customConfirm(`Delete template "${name}"? Reports already submitted from it are kept.`)) return;
   const ok = await dbDelete('report_templates', id);
   if(ok){ toast('Template deleted'); render(); }
 };
@@ -3099,8 +3151,8 @@ window.addTemplateSection = function(){
   editingTemplate.sections.push({id:uid(), title:'Section '+(editingTemplate.sections.length+1), items:[]});
   render();
 };
-window.removeTemplateSection = function(si){
-  if(!confirm('Remove this section and all its questions?')) return;
+window.removeTemplateSection = async function(si){
+  if(!await customConfirm('Remove this section and all its questions?')) return;
   editingTemplate.sections.splice(si,1);
   render();
 };
@@ -4291,7 +4343,7 @@ window.renameSection = async function(siteId, sectionId){
   if(row){ toast('Section renamed'); render(); }
 };
 window.deleteSection = async function(siteId, sectionId){
-  if(!confirm('Delete this section? Its tasks move back to the ungrouped list — they are not deleted.')) return;
+  if(!await customConfirm('Delete this section? Its tasks move back to the ungrouped list — they are not deleted.')) return;
   const ok = await dbDelete('schedule_sections', sectionId);
   if(ok){ toast('Section deleted'); render(); }
 };
@@ -4369,7 +4421,7 @@ window.saveTaskEdit = async function(siteId, taskId){
   }
 };
 window.deleteTask = async function(siteId, taskId){
-  if(!confirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
   const ok = await dbDelete('schedule_tasks', taskId);
   if(ok){ toast('Task deleted'); render(); }
 };
@@ -5264,7 +5316,7 @@ window.exportSignedRams = async function(ramsId){
   }
 };
 window.deleteRams = async function(ramsId, storagePath){
-  if(!confirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
   try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('rams_docs', ramsId);
   if(ok){ toast('RAMS document deleted'); render(); }
@@ -5406,7 +5458,7 @@ window.exportSignedCoshh = async function(coshhId){
   }
 };
 window.deleteCoshh = async function(coshhId, storagePath){
-  if(!confirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
   try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('coshh_docs', coshhId);
   if(ok){ toast('COSHH document deleted'); render(); }
@@ -5560,7 +5612,7 @@ window.startBriefing = async function(siteId, templateId){
   }
 };
 window.issueBriefing = async function(siteId, submissionId){
-  if(!confirm('Issue this briefing for signing? Every operative in the app will be able to sign it — this is optional and can still be exported without any signatures.')) return;
+  if(!await customConfirm('Issue this briefing for signing? Every operative in the app will be able to sign it — this is optional and can still be exported without any signatures.')) return;
   const row = await dbUpdate('report_submissions', submissionId, {issued_at:new Date().toISOString(), issued_by:ME.id});
   if(row){ toast('Briefing issued for signing'); render(); }
 };
@@ -5816,7 +5868,7 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
   }
 };
 window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
-  if(!confirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
   const ok = await dbDelete('toolbox_talks', tbtId);
   if(ok){
     // The same PDF can be shared by several talks now — the Bank TBT
@@ -6062,7 +6114,7 @@ window.importSuppliersExcel = async function(input, siteId){
   }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
 };
 window.deleteSupplier = async function(siteId, supplierId){
-  if(!confirm('Remove this supplier?')) return;
+  if(!await customConfirm('Remove this supplier?')) return;
   const ok = await dbDelete('suppliers', supplierId);
   if(ok){ toast('Supplier removed'); render(); }
 };
@@ -6214,7 +6266,7 @@ window.reemailMaterial = async function(siteId, matId){
   reemailingMaterialId = null; render();
 };
 window.deleteMaterial = async function(siteId, matId){
-  if(!confirm('Delete this material request? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this material request? This can\'t be undone.')) return;
   const ok = await dbDelete('materials', matId);
   if(ok){ toast('Material request deleted'); render(); }
 };
@@ -6569,7 +6621,7 @@ window.moveDrawingFolder = async function(siteId, parentFolderId, folderId, dir)
   render();
 };
 window.deleteDrawingFolder = async function(folderId){
-  if(!confirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
   const ok = await dbDelete('drawing_folders', folderId);
   if(ok){ toast('Folder deleted'); render(); }
 };
@@ -6700,7 +6752,7 @@ async function renderDrawingImportPicker(siteId){
   `, {title:'Import from OneDrive', subtitle:site.name, back:backHref, siteId, tabs:false});
 }
 window.deleteDrawingFile = async function(fileId, storagePath){
-  if(!confirm('Delete this drawing? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this drawing? This can\'t be undone.')) return;
   const ok = await dbDelete('drawing_files', fileId);
   if(ok){
     try{ await sbFetch('/storage/v1/object/drawings/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
@@ -6853,7 +6905,7 @@ window.toggleMsgSelect = function(id){
 };
 window.deleteSelectedMessages = async function(siteId){
   if(!msgSelectedIds.size) return;
-  if(!confirm(`Delete ${msgSelectedIds.size} message${msgSelectedIds.size===1?'':'s'}? This can't be undone.`)) return;
+  if(!await customConfirm(`Delete ${msgSelectedIds.size} message${msgSelectedIds.size===1?'':'s'}? This can't be undone.`)) return;
   const ids = Array.from(msgSelectedIds);
   const res = await sbFetch('/rest/v1/messages?id=in.('+ids.join(',')+')', {method:'DELETE'});
   if(res.ok){
@@ -6863,7 +6915,7 @@ window.deleteSelectedMessages = async function(siteId){
   } else toast('Could not delete — '+(await safeErr(res)));
 };
 window.deleteMessage = async function(siteId, messageId){
-  if(!confirm('Delete this message? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this message? This can\'t be undone.')) return;
   const ok = await dbDelete('messages', messageId);
   if(ok){ toast('Message deleted'); render(); }
 };
