@@ -155,7 +155,7 @@
   .sitecard .status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
     padding:3px 8px;border-radius:999px;flex:0 0 auto;}
   .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
-  .sitecard .status.live{background:var(--blue-bg);color:var(--blue);}
+  .sitecard .status.live{background:var(--ok-bg);color:var(--ok);}
   .sitecard .status.upcoming{background:var(--warn-bg);color:var(--warn);}
   .sitecard .status.closed{background:var(--line);color:var(--slate);}
   .statusmenu{position:absolute;top:calc(100% + 4px);right:12px;z-index:60;background:#fff;
@@ -1036,6 +1036,19 @@ window.addEventListener('hashchange', render);
     if(dx > SWIPE_PX && Math.abs(dy) < MAX_VERTICAL && CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
   }, {passive:true});
 })();
+// Safety net for platforms where "swipe back" isn't caught by the manual
+// touch handler above and instead triggers a REAL browser/WebView back
+// navigation — Android's hardware/gesture back button (Capacitor's default
+// Android bridge falls back to WebView.goBack() when nothing else handles
+// it) or a native edge-swipe in a plain browser tab. That kind of back
+// replays raw hash history, same problem the comment above describes.
+// 'popstate' only fires for a real history traversal (never for our own
+// go()/location.hash= pushes), and fires before 'hashchange' for the same
+// navigation, so CURRENT_BACK_HASH here still holds the screen we were just
+// on — redirecting it here overrides wherever raw history landed us.
+window.addEventListener('popstate', function(){
+  if(CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
+});
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
@@ -1097,12 +1110,12 @@ function shell(innerHtml, opts){
         ` : `
         <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
-          <div style="flex:1;min-width:0;text-align:center;">
+          <div style="flex:1;min-width:0;min-height:66px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
             <h2>${opts.title||''}</h2>
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
           </div>
-          <div style="flex:0 0 auto;display:flex;align-items:center;">
+          <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
@@ -1648,8 +1661,8 @@ async function renderSites(){
   const liveSites = filtered.filter(s=>statusOf(s)==='live');
   const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
   const closedSites = filtered.filter(s=>statusOf(s)==='closed');
-  const siteSection = (key, label, list) => canAdd ? `
-      <div class="ddrow" style="margin-top:18px;" onclick="toggleSiteSection('${key}')">
+  const siteSection = (key, label, list, isFirst) => canAdd ? `
+      <div class="ddrow" style="margin-top:${isFirst?'0':'18px'};" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
       </div>
       ${siteSectionOpen[key] ? (list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`) : ''}
@@ -1677,7 +1690,7 @@ async function renderSites(){
       ` : ''}
     </div>
     ${canAdd ? `
-      ${siteSection('live','Live Jobs',liveSites)}
+      ${siteSection('live','Live Jobs',liveSites,true)}
       ${siteSection('upcoming','Upcoming Jobs',upcomingSites)}
       ${siteSection('closed','Closed Jobs',closedSites)}
     ` : `
@@ -1823,7 +1836,10 @@ window.saveSignaturePad = async function(){
   if(row){
     ME.signature_path = path;
     toast('Signature saved');
-    history.length>1 ? history.back() : go('#/sites');
+    // Plain history.back() would now get caught by the popstate "go up one
+    // level" safety net below anyway (see edge-swipe-to-go-back), so just go
+    // there directly rather than round-tripping through a real back-nav.
+    go(CURRENT_BACK_HASH || '#/sites');
   }
 };
 
@@ -2405,7 +2421,7 @@ async function renderSiteHome(siteId){
       ` : ''}
     </div>
     ${isManager(ME) ? `
-      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Site Team</button>
+      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
     ` : ''}
   `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
 }
@@ -2626,7 +2642,7 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
-    <p class="ddrow" style="" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
@@ -2671,7 +2687,7 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
     ` : ''}
-  `, {title:'Site Team', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
+  `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
 let siteTeamSectionOpen = {sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
@@ -2805,7 +2821,7 @@ async function renderPriceTile(siteId){
     ${priceViewState.updatedAt ? `<p class="stub" style="margin:0 0 10px;">Last synced ${new Date(priceViewState.updatedAt).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>` : ''}
     ${priceViewState.loading ? `<p class="stub">Loading price file…</p>`
       : priceViewState.error ? `<div class="empty">${escapeHtml(priceViewState.error)}</div>`
-      : !priceViewState.sheetHtml ? `<div class="empty">No price file uploaded yet${canManage ? ' — add one from Site Team › Price.' : '.'}</div>`
+      : !priceViewState.sheetHtml ? `<div class="empty">No price file uploaded yet${canManage ? ' — add one from Settings & Admin › Price.' : '.'}</div>`
       : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceViewState.sheetHtml}</div>`}
   `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
 }
@@ -2840,6 +2856,7 @@ let templateBusy = false;
 // Reports screen now (no standalone home-page entry), so the editor needs to
 // remember which site to send the admin back to once they're done.
 let templatesReturnSiteId = null;
+let templatesReturnPath = null; // overrides templatesReturnSiteId's default path when set (e.g. Daily Briefings tile)
 async function renderReportTemplates(){
   const rows = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=created_at.desc');
   document.getElementById('app').innerHTML = shell(`
@@ -2862,7 +2879,22 @@ window.createNewTemplate = async function(siteId){
   const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Untitled Template', created_by:ME.id, sections:[{id:uid(), title:'Section 1', items:[]}]});
   if(rows && rows[0]) go('#/templates/'+rows[0].id);
 };
-window.openTemplateEditor = function(id, siteId){ editingTemplate = null; templatesReturnSiteId = siteId || null; go('#/templates/'+id); };
+window.openTemplateEditor = function(id, siteId, returnPath){ editingTemplate = null; templatesReturnSiteId = siteId || null; templatesReturnPath = returnPath || null; go('#/templates/'+id); };
+window.createDailyBriefingTemplate = async function(siteId){
+  templatesReturnSiteId = null;
+  templatesReturnPath = `#/site/${siteId}/hs/briefings`;
+  const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Daily Briefing', created_by:ME.id, is_daily_briefing:true, sections:[{id:uid(), title:'Section 1', items:[]}]});
+  if(rows && rows[0]) go('#/templates/'+rows[0].id);
+};
+window.useTemplateAsDailyBriefing = async function(siteId, templateId){
+  const row = await dbUpdate('report_templates', templateId, {is_daily_briefing:true});
+  if(row){ toast('Added to Daily Briefings'); render(); }
+};
+window.removeTemplateFromDailyBriefings = async function(siteId, templateId){
+  if(!confirm('Remove this template from Daily Briefings? The template itself is kept — this just stops new briefings using it, and existing briefings stay where they are.')) return;
+  const row = await dbUpdate('report_templates', templateId, {is_daily_briefing:false});
+  if(row){ toast('Removed from Daily Briefings'); render(); }
+};
 window.duplicateTemplate = async function(id){
   const rows = await dbSelect('report_templates', 'id=eq.'+id+'&limit=1');
   if(!rows[0]) return;
@@ -2902,7 +2934,7 @@ async function renderTemplateEditor(templateId){
     `).join('')}
     <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
-  `, {title:'Edit Template', back: templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates', tabs:false});
+  `, {title:'Edit Template', back: templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates'), tabs:false});
 }
 function renderTemplateItemEditor(si, ii, it){
   return `
@@ -3074,8 +3106,9 @@ window.saveTemplate = async function(){
   if(row){
     toast('Template saved');
     editingTemplate = null;
-    const dest = templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates';
+    const dest = templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates');
     templatesReturnSiteId = null;
+    templatesReturnPath = null;
     go(dest);
   } else render();
 };
@@ -4526,7 +4559,7 @@ async function renderSnagging(siteId){
       ${open ? `<div class="snag" style="margin-top:-6px;">${snagCardBody(siteId, s, canAdd)}</div>` : ''}`;
     }).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
 
-    ${canAdd ? `
+    ${canAdd && snagFilter!=='closed' ? `
       <div class="card" style="margin-top:14px;">
         <p class="sectiontitle" style="margin-top:0;">Add snag</p>
         <div class="formfield"><input type="text" id="snagTitle" placeholder="Issue" value="${escapeHtml(snagNewTitle)}" oninput="snagNewTitle=this.value"></div>
@@ -5124,25 +5157,32 @@ async function fetchRamsData(siteId){
   }
   return {docs, sigsByDoc};
 }
+let ramsUploadOpen = false;
 async function renderRams(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const {docs, sigsByDoc} = await fetchRamsData(siteId);
-
-  document.getElementById('app').innerHTML = shell(`
-    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
-
-    ${canAdd ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
-        <div class="formfield"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
+  const uploadForm = `
+        <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
         <input type="file" accept="application/pdf" id="ramsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('ramsFileName').textContent=this.files[0]?this.files[0].name:''">
         <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;"></p>
         <button class="darkbtn" onclick="addRams('${siteId}')">Upload</button>
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
+  `;
+
+  document.getElementById('app').innerHTML = shell(`
+    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
+
+    ${canAdd ? (docs.length ? `
+      <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Upload RAMS</div>
+      ${ramsUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
+    ` : `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
+        ${uploadForm}
       </div>
-    ` : ''}
+    `) : ''}
   `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
@@ -5163,7 +5203,7 @@ window.addRams = async function(siteId){
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
   const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
-  if(rows){ toast('RAMS uploaded'); render(); }
+  if(rows){ toast('RAMS uploaded'); ramsUploadOpen = false; render(); }
 };
 window.signRams = async function(siteId, ramsId){
   if(!ME.signature_path){
@@ -5399,10 +5439,13 @@ async function renderHealthSafety(siteId){
    compulsory: a briefing a PM has simply completed can be exported with
    zero signatures. */
 let briefingPickerOpen = false;
+let briefingTemplatesManageOpen = false;
 async function renderDailyBriefings(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
-  const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&order=name.asc');
+  const allTemplates = canManage ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
+  const templates = canManage ? allTemplates.filter(t=>t.is_daily_briefing) : await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&order=name.asc');
+  const otherTemplates = allTemplates.filter(t=>!t.is_daily_briefing);
   let submissions = [];
   if(templates.length){
     const ids = templates.map(t=>t.id).join(',');
@@ -5417,7 +5460,31 @@ async function renderDailyBriefings(siteId){
   }
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
-      <button class="darkbtn" style="margin-bottom:10px;" onclick="briefingPickerOpen=!briefingPickerOpen;render()">${briefingPickerOpen?'Cancel':'+ New Briefing'}</button>
+      <div class="ddrow" style="margin-top:0;" onclick="briefingTemplatesManageOpen=!briefingTemplatesManageOpen;render()"><span class="arrow">${briefingTemplatesManageOpen?'▼':'▶'}</span> Daily Briefing Templates (${templates.length})</div>
+      ${briefingTemplatesManageOpen ? `
+        <div class="card">
+          ${templates.map(t=>`
+            <div class="sitecard">
+              <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="openTemplateEditor('${t.id}',null,'#/site/${siteId}/hs/briefings')">Edit</button>
+                <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateFromDailyBriefings('${siteId}','${t.id}')">Remove</button>
+              </div>
+            </div>
+          `).join('') || `<div class="empty">No Daily Briefing templates yet.</div>`}
+          <button class="darkbtn" style="margin-top:10px;" onclick="createDailyBriefingTemplate('${siteId}')">+ New Daily Briefing Template</button>
+          ${otherTemplates.length ? `
+            <p class="stub" style="margin:14px 0 6px;">Or use an existing template as a Daily Briefing:</p>
+            ${otherTemplates.map(t=>`
+              <div class="sitecard" style="padding:8px 10px;">
+                <div class="info"><div class="name">${escapeHtml(t.name)}</div></div>
+                <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="useTemplateAsDailyBriefing('${siteId}','${t.id}')">Use this</button>
+              </div>
+            `).join('')}
+          ` : ''}
+        </div>
+      ` : ''}
+      <button class="darkbtn" style="margin:14px 0 10px;" onclick="briefingPickerOpen=!briefingPickerOpen;render()">${briefingPickerOpen?'Cancel':'+ New Briefing'}</button>
       ${briefingPickerOpen ? `
         <div class="card" style="margin-bottom:14px;">
           <p class="stub" style="margin:0 0 8px;">Pick a Daily Briefing template to start:</p>
@@ -5426,7 +5493,7 @@ async function renderDailyBriefings(siteId){
               <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
               <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="startBriefing('${siteId}','${t.id}')">Start</button>
             </div>
-          `).join('') || `<div class="empty">No Daily Briefing templates yet — open a template under Templates and tick "Use as a Daily Briefing template".</div>`}
+          `).join('') || `<div class="empty">No Daily Briefing templates yet — use "Daily Briefing Templates" above to create or add one.</div>`}
         </div>
       ` : ''}
     ` : ''}
@@ -5877,9 +5944,11 @@ async function renderMaterials(siteId){
       // Closed material requests collapse into a single dropdown row —
       // tap to expand the same detail shown for live requests above.
       const open = expandedMaterialIds.has(m.id);
+      const closedSupplier = m.merchant || supplierName(m.supplier_id);
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
-          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)} <span style="margin-left:auto;font-weight:600;color:var(--slate);">Qty ${escapeHtml(m.qty)}</span>
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)}
+          <span style="margin-left:auto;font-weight:600;color:var(--slate);white-space:nowrap;">Qty ${escapeHtml(m.qty)}${closedSupplier ? ' · '+escapeHtml(closedSupplier) : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
@@ -6400,7 +6469,7 @@ async function renderDrawings(siteId, folderId){
       ${subfolders.map((f,idx)=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
           <div class="swatch">📁</div>
-          <div class="info"><div class="name" style="font-weight:500;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
           ${canManage ? `
             <div class="taskicons">
               <div class="taskicon" style="${idx===0?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveDrawingFolder('${siteId}',${parentArg},'${f.id}',-1)">▲</div>
@@ -6424,32 +6493,29 @@ async function renderDrawings(siteId, folderId){
 
     ${canManage ? `<div style="height:66px;"></div>` : ''}
 
-    ${canManage && site.onedrive_folder_id ? `
-      <button class="ghostbtn" style="margin-bottom:14px;" onclick="startDrawingImport('${siteId}', ${parentArg})">⇩ Import from OneDrive</button>
-    ` : ''}
     ${canManage ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">New folder</p>
-        ${(!currentFolder || drawingNewFolderOpen) ? `
+      <div class="ddrow" onclick="drawingNewFolderOpen=!drawingNewFolderOpen;render()">
+        <span class="arrow">${(subfolders.length===0||drawingNewFolderOpen)?'▼':'▶'}</span> New folder
+      </div>
+      ${(subfolders.length===0 || drawingNewFolderOpen) ? `
+        <div class="card">
           <div class="row-gap">
             <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
             <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Add</button>
           </div>
-        ` : `
-          <button class="darkbtn" onclick="drawingNewFolderOpen=true;render()">New folder</button>
-        `}
-      </div>
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
-        ${drawingUploadOpen ? `
+        </div>
+      ` : ''}
+
+      <button class="${drawingUploadOpen?'darkbtn':'ghostbtn'}" style="margin-top:10px;" onclick="drawingUploadOpen=!drawingUploadOpen;render()">Upload drawing</button>
+      ${drawingUploadOpen ? `
+        <div class="card" style="margin-top:10px;">
+          <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
           <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
           <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
           <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
-        ` : `
-          <button class="darkbtn" onclick="drawingUploadOpen=true;render()">Upload drawing</button>
-        `}
-      </div>
+        </div>
+      ` : ''}
     ` : ''}
   `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'});
 }
