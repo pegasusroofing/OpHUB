@@ -87,7 +87,8 @@
   .brandline.orgname{font-size:18.75px;opacity:1;}
   .appbar h2{margin:0;font-size:24px;font-weight:800;color:var(--brand1-text);}
   .appbar h2.lg{font-size:27px;}
-  .appbar .meta{font-size:16.5px;color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;}
+  .appbar .meta{font-size:clamp(9px, 3.3vw, 12.7px);color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .homebtn{cursor:pointer;color:var(--brand1-text);font-size:19px;line-height:1;width:34px;height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
   .geo-modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,17,20,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;}
@@ -143,7 +144,7 @@
   .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
 
   .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
-    border-radius:12px;padding:12px;margin-bottom:10px;}
+    border-radius:12px;padding:12px;margin-bottom:10px;position:relative;}
   .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
     background:linear-gradient(135deg,var(--brand1),var(--brand2));display:flex;align-items:center;justify-content:center;
     color:#fff;font-weight:800;font-size:15px;}
@@ -154,9 +155,29 @@
   .sitecard .status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
     padding:3px 8px;border-radius:999px;flex:0 0 auto;}
   .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
+  .sitecard .status.live{background:var(--blue-bg);color:var(--blue);}
+  .sitecard .status.upcoming{background:var(--warn-bg);color:var(--warn);}
   .sitecard .status.closed{background:var(--line);color:var(--slate);}
+  .statusmenu{position:absolute;top:calc(100% + 4px);right:12px;z-index:60;background:#fff;
+    border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);
+    padding:6px;min-width:150px;}
+  .statusmenu-item{padding:8px 10px;font-size:12.5px;font-weight:700;color:var(--ink);border-radius:7px;cursor:pointer;}
+  .statusmenu-item:hover{background:var(--paper);}
+  .statusmenu-item.danger{color:var(--brand1);}
   .closedtoggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
   .closedtoggle .arrow{font-size:10px;}
+  /* Shared "dropdown row" aesthetic — every collapsible row in the app
+     (Team & Admin sections, Messages sections, Schedule sections/upload,
+     Suppliers, site geofence, recent check-ins, closed material requests,
+     the old closed-sites toggle, etc) renders with this one look: a bit
+     thinner than the filter tab chips, stretched full-width, with a
+     chevron, where clicking anywhere on the row toggles it open/closed. */
+  .ddrow{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    width:100%;box-sizing:border-box;padding:9px 14px;margin:10px 0 0;
+    border-radius:9px;border:1px solid var(--line);background:#fff;
+    font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);}
+  .ddrow:first-child{margin-top:0;}
+  .ddrow .arrow{font-size:10px;color:var(--slate);flex:0 0 auto;}
 
   .status-strip{display:flex;align-items:center;justify-content:space-between;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
@@ -192,6 +213,7 @@
   .taskname{font-size:13.5px;font-weight:700;}
   .taskname.done{color:var(--ink);}
   .taskname .donetick{color:var(--ok);font-weight:800;margin-left:6px;}
+  .taskname-input{font-size:13.5px;font-weight:700;flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:inherit;background:#fff;color:var(--ink);}
   .taskmeta{font-size:11px;color:var(--slate);margin-top:3px;}
   .taskphoto{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
   .taskphoto img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
@@ -215,8 +237,8 @@
   .statustag2.closed{background:var(--ok-bg);color:var(--ok);}
   .statustag2.pending{background:#EAE6DC;color:#6B6F76;}
   .snagthumb{width:100%;max-width:160px;border-radius:8px;margin-top:8px;display:block;}
-  .filterrow{display:flex;gap:8px;margin-bottom:12px;}
-  .filterchip{flex:1;text-align:center;padding:8px;border-radius:8px;border:1.5px solid var(--line);
+  .filterrow{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;}
+  .filterchip{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;min-height:34px;line-height:1.2;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
   .filterchip.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
   .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
@@ -621,13 +643,23 @@ async function deliverPdf(bytes, filename){
       if(stored){ await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)}); return; }
     }catch(e){ /* fall through to the download-link fallback below */ }
   }
-  if(await shareFile(blob, filename, 'application/pdf')) return;
+  // Non-native (web/PWA): open the PDF in a new tab so the browser's own PDF
+  // viewer shows it straight away — that viewer already has its own
+  // print/download/share icons built in, so nobody's asked to share a file
+  // they haven't seen yet. Sharing used to fire automatically here via the
+  // Web Share API before the PDF was ever shown — removed for exactly that
+  // reason. Only fall back to a plain download if the tab was blocked.
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
-  toast('PDF downloaded');
+  const win = window.open(url, '_blank');
+  if(!win){
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    toast('Pop-up blocked — PDF downloaded instead');
+  } else {
+    toast('PDF opened — use the viewer\'s own share/download button if you need it');
+  }
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
 }
 // Same problem as deliverPdf above (a plain download link does nothing inside
 // the native app) but for Excel exports. There's no in-app spreadsheet
@@ -1058,19 +1090,21 @@ function shell(innerHtml, opts){
             ${ME ? `
               <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
                 <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
-                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" style="cursor:pointer;color:var(--brand1-text);font-size:26px;font-weight:800;line-height:1;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);text-shadow:0 0 1px currentColor,0 0 1px currentColor;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
+                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" class="homebtn" style="font-size:21px;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'⟳'}</span>` : ''}
               </div>
             ` : `<span style="flex:0 0 40px;"></span>`}
           </div>
         ` : `
-        <div class="row">
+        <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
-          <div>
+          <div style="flex:1;min-width:0;text-align:center;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
             <h2>${opts.title||''}</h2>
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
           </div>
-          ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : ''}
+          <div style="flex:0 0 auto;display:flex;align-items:center;">
+            ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+          </div>
         </div>
         `}
       </div>
@@ -1106,16 +1140,17 @@ function renderLogin(){
       ${authError ? `<div class="errbox">${escapeHtml(authError)}</div>` : ''}
       <div class="formfield">
         <label class="field-label">Email</label>
-        <input type="email" id="authEmail" placeholder="you@yourcompany.co.uk">
+        <input type="email" id="authEmail" value="${escapeHtml(rememberedAuth().email)}" placeholder="you@yourcompany.co.uk">
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="authPassword" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
+        <input type="password" id="authPassword" value="${escapeHtml(rememberedAuth().password)}" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
       </div>
+      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email & password on this device</label>
       <button class="primarybtn" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>Please wait…' : 'Sign In'}
       </button>
-      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by this app.</p>
+      <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves it on this device only, so only use it on a phone/computer that's yours alone.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
     </div>
     <div style="display:flex;justify-content:center;margin-top:22px;">
@@ -1131,10 +1166,27 @@ window.maybeAutoSignIn = function(ev){
   // click or Enter key only, from here on.
   if(ev && ev.key === 'Enter'){ doSignIn(); }
 };
+// "Remember me" on the sign-in page — stored in localStorage, on-device
+// only, and never sent anywhere except back into these two fields. Opt-in
+// via the checkbox; unticking it (or a fresh sign-in without it checked)
+// clears whatever was saved.
+function rememberedAuth(){
+  try{
+    const raw = localStorage.getItem('ophub_remember');
+    if(!raw) return {email:'', password:'', remember:false};
+    const parsed = JSON.parse(raw);
+    return {email: parsed.email||'', password: parsed.password||'', remember:true};
+  }catch(e){ return {email:'', password:'', remember:false}; }
+}
 window.doSignIn = async function(){
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
+  const remember = document.getElementById('authRemember') && document.getElementById('authRemember').checked;
   if(!email || !password){ authError='Enter your email and password.'; render(); return; }
+  try{
+    if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password}));
+    else localStorage.removeItem('ophub_remember');
+  }catch(e){}
   authBusy = true; authError = null; render();
   const r = await signIn(email, password);
   authBusy = false;
@@ -1494,7 +1546,6 @@ window.deleteCompany = async function(orgId, name){
 };
 
 /* ================= SITES LIST ================= */
-let showClosedSites = false;
 // Everything (org theme/package, team, sites, responsible PMs, etc.) is
 // loaded once at sign-in and only patched locally when an action on this
 // device changes it — so a change made by someone else in Admin Centre
@@ -1519,7 +1570,13 @@ window.refreshAppData = async function(){
 function fullSiteAddress(s){
   return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
 }
-function siteCardHtml(s, canAdd){
+const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
+function siteCardHtml(s, canAdd, pmOptions){
+  const statusKey = s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
+  const pmLocked = !!s.responsible_pm_id;
+  const canChangePm = ME.role==='admin' || ME.role==='superadmin';
+  const canSetPm = canAdd && (!pmLocked || canChangePm);
+  const pmInitials = pmLocked ? (nameOf(s.responsible_pm_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '–';
   return `
     <div class="sitecard" onclick="go('#/site/${s.id}/home')">
       <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
@@ -1527,27 +1584,81 @@ function siteCardHtml(s, canAdd){
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
-      <span class="status ${s.status==='closed'?'closed':'active'}">${escapeHtml(s.status)}</span>
-      ${s.responsible_pm_id ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${escapeHtml((nameOf(s.responsible_pm_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</span>` : ''}
+      ${canAdd ? `
+        <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
+          style="margin-left:4px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
+          onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
+      ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
+      <span class="status ${statusKey}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
+      ${canAdd && siteStatusMenuOpenId===s.id ? `
+        <div class="statusmenu" onclick="event.stopPropagation()">
+          ${statusKey!=='live' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','live')">Set Active</div>` : ''}
+          ${statusKey!=='upcoming' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','upcoming')">Set Upcoming</div>` : ''}
+          ${statusKey!=='closed' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','closed')">Close</div>` : ''}
+          <div class="statusmenu-item danger" onclick="deleteSite('${s.id}','${jsAttr(s.name)}')">Delete permanently</div>
+        </div>
+      ` : ''}
+      ${canSetPm && sitePmPickerOpenId===s.id ? `
+        <div class="statusmenu" onclick="event.stopPropagation()">
+          ${pmOptions.length ? pmOptions.map(p=>`<div class="statusmenu-item" onclick="confirmSetResponsiblePm('${s.id}','${p.id}','${jsAttr(p.name)}')">${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</div>`).join('') : `<div class="statusmenu-item" style="cursor:default;color:var(--slate);">No project managers yet</div>`}
+        </div>
+      ` : ''}
     </div>
   `;
 }
 let siteFilterPmIds = []; // multi-select — empty = all PMs
 let pmFilterOpen = false;
 let addSiteFormOpen = false;
+let siteStatusMenuOpenId = null;
+let sitePmPickerOpenId = null;
+let siteSectionOpen = {live:true, upcoming:true, closed:true};
+window.toggleSiteStatusMenu = function(siteId){
+  siteStatusMenuOpenId = siteStatusMenuOpenId===siteId ? null : siteId;
+  sitePmPickerOpenId = null;
+  render();
+};
+window.openPmPicker = function(siteId){
+  sitePmPickerOpenId = sitePmPickerOpenId===siteId ? null : siteId;
+  siteStatusMenuOpenId = null;
+  render();
+};
+window.confirmSetResponsiblePm = function(siteId, pmId, pmName){
+  sitePmPickerOpenId = null;
+  if(!confirm(`Set ${pmName} as the responsible project manager for this site? A project manager can only be selected once — are you sure?`)){ render(); return; }
+  setResponsiblePM(siteId, pmId);
+};
+window.setSiteStatus = async function(siteId, status){
+  siteStatusMenuOpenId = null;
+  const row = await dbUpdate('sites', siteId, {status});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Status updated');
+  }
+  render();
+};
+window.toggleSiteSection = function(key){ siteSectionOpen[key] = !siteSectionOpen[key]; render(); };
 async function renderSites(){
   const app = document.getElementById('app');
   const canAdd = isManager(ME);
   await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
   const pmOptions = Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
   const filtered = (canAdd && siteFilterPmIds.length) ? SITES.filter(s=>siteFilterPmIds.includes(s.responsible_pm_id)) : SITES;
-  const activeSites = filtered.filter(s=>s.status!=='closed');
-  const closedSites = filtered.filter(s=>s.status==='closed');
+  const statusOf = s => s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
+  const liveSites = filtered.filter(s=>statusOf(s)==='live');
+  const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
+  const closedSites = filtered.filter(s=>statusOf(s)==='closed');
+  const siteSection = (key, label, list) => canAdd ? `
+      <div class="ddrow" style="margin-top:18px;" onclick="toggleSiteSection('${key}')">
+        <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
+      </div>
+      ${siteSectionOpen[key] ? (list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`) : ''}
+    ` : '';
   app.innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
       ${canAdd && pmOptions.length ? `
-        <div style="position:relative;margin-top:-5px;">
+        <div style="position:relative;margin-top:-9px;">
           <button type="button" onclick="togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
             ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'Select PM'} ${pmFilterOpen?'▲':'▼'}
           </button>
@@ -1565,13 +1676,13 @@ async function renderSites(){
         </div>
       ` : ''}
     </div>
-    ${activeSites.map(s=>siteCardHtml(s,canAdd)).join('') || `<div class="empty">${siteFilterPmIds.length?'No active sites for the selected PMs.':'No active sites.'}</div>`}
-    ${canAdd && closedSites.length ? `
-      <p class="sectiontitle closedtoggle" style="margin-top:18px;" onclick="showClosedSites=!showClosedSites;render()">
-        <span class="arrow">${showClosedSites?'▼':'▶'}</span> Closed Jobs (${closedSites.length})
-      </p>
-      ${showClosedSites ? closedSites.map(s=>siteCardHtml(s,canAdd)).join('') : ''}
-    ` : ''}
+    ${canAdd ? `
+      ${siteSection('live','Live Jobs',liveSites)}
+      ${siteSection('upcoming','Upcoming Jobs',upcomingSites)}
+      ${siteSection('closed','Closed Jobs',closedSites)}
+    ` : `
+      ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
+    `}
     ${canAdd ? `
       <div class="card" style="margin-top:6px;background:var(--paper);">
         <p class="sectiontitle" style="margin-top:0;">Add a site</p>
@@ -1598,15 +1709,6 @@ window.togglePmFilterId = function(id){
   render();
 };
 window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; render(); };
-window.toggleSiteStatus = async function(siteId, newStatus){
-  const row = await dbUpdate('sites', siteId, {status:newStatus});
-  if(row){
-    const idx = SITES.findIndex(s=>s.id===siteId);
-    if(idx>-1) SITES[idx] = row;
-    toast(newStatus==='closed' ? 'Job closed' : 'Job reopened');
-    render();
-  }
-};
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
@@ -1620,7 +1722,7 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'active', created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'upcoming', created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
@@ -1783,10 +1885,10 @@ async function renderTeam(){
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
-  const ddHdr = 'font-size:13.75px;'; // section-header text, 1.25x the normal 11px sectiontitle
+  const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
@@ -1831,7 +1933,7 @@ async function renderTeam(){
       </div>
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
     ${teamSectionOpen.integrations ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
@@ -1844,7 +1946,7 @@ async function renderTeam(){
       `}
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Templates here are automatically copied into Bank TBT on every new site you create, so standard talks (e.g. Alcohol &amp; Drugs, Manual Handling) are already there without re-uploading per job.</p>
@@ -1862,7 +1964,7 @@ async function renderTeam(){
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
     ${teamSectionOpen.devicelocks ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
@@ -1875,7 +1977,7 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
     ${teamSectionOpen.invites ? `
     <div class="card">
       ${permanentInvite ? `
@@ -1912,7 +2014,7 @@ async function renderTeam(){
       ` : ''}
     </div>
     ` : ''}
-    <p class="sectiontitle closedtoggle" style="${ddHdr}" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
     ${teamSectionOpen.users ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
@@ -2247,6 +2349,16 @@ async function renderSiteHome(siteId){
   const signedIds = new Set(mySignatures.map(s=>s.rams_id));
   const pendingRams = ramsDocs.filter(r=>!signedIds.has(r.id)).length;
   const onSite = myLastCheckin[0] && myLastCheckin[0].type==='in';
+  // Price tile visibility: project admin and this site's responsible PM
+  // always see it once enabled; an operative needs an explicit grant.
+  let canSeePrice = false;
+  if(site.price_enabled){
+    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
+    else {
+      const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+      canSeePrice = grant.length>0;
+    }
+  }
 
   document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
@@ -2285,9 +2397,15 @@ async function renderSiteHome(siteId){
         <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
         ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
       </div>
+      ${canSeePrice ? `
+      <div class="tile" onclick="go('#/site/${siteId}/price')">
+        <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
+        <div class="lbl">Price</div><div class="sub">Restricted access</div>
+      </div>
+      ` : ''}
     </div>
     ${isManager(ME) ? `
-      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Team &amp; Admin</button>
+      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Site Team</button>
     ` : ''}
   `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
 }
@@ -2476,17 +2594,18 @@ async function renderAssignTeam(siteId){
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const [assigned, pmList, odConnRows] = await Promise.all([
+  const [assigned, odConnRows, priceAccessRows] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    ME.role==='admin' ? loadPMList() : Promise.resolve([]),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
+    ME.role==='admin' ? dbSelect('site_price_access', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
   ]);
   const assignedIds = new Set(assigned.map(a=>a.user_id));
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
+  const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
 
   document.getElementById('app').innerHTML = shell(`
     ${odCompanyConnected ? `
-    <p class="sectiontitle closedtoggle" style="margin-top:0;font-size:16.5px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
+    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
       ${site.onedrive_folder_id ? `
@@ -2507,19 +2626,7 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
-    ${ME.role==='admin' ? `
-    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="toggleSiteTeamSection('pm')"><span class="arrow">${siteTeamSectionOpen.pm?'▼':'▶'}</span> Responsible Project Manager</p>
-    ${siteTeamSectionOpen.pm ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 8px;">All project managers keep full access to this site — this just decides who gets notified when the crew logs something here.</p>
-      <select id="responsiblePmSelect" onchange="setResponsiblePM('${siteId}', this.value)">
-        <option value="">No owner — notify all project managers</option>
-        ${pmList.map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
-      </select>
-    </div>
-    ` : ''}
-    ` : ''}
-    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
+    <p class="ddrow" style="" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
@@ -2533,14 +2640,40 @@ async function renderAssignTeam(siteId){
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
     ` : ''}
 
-    <p class="sectiontitle closedtoggle" style="margin-top:18px;font-size:16.5px;" onclick="toggleSiteTeamSection('admin')"><span class="arrow">${siteTeamSectionOpen.admin?'▼':'▶'}</span> Site Admin</p>
-    ${siteTeamSectionOpen.admin ? `
-    <button class="darkbtn" style="padding:11.05px;font-size:11.475px;" onclick="toggleSiteStatus('${siteId}','${site.status==='closed'?'active':'closed'}')">${site.status==='closed'?'Reopen Site':'Close Site'}</button>
-    <button class="darkbtn" style="padding:11.05px;font-size:11.475px;margin-top:10px;" onclick="deleteSite('${siteId}','${jsAttr(site.name)}')">Delete Site</button>
+    ${ME.role==='admin' ? `
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
+    ${siteTeamSectionOpen.price ? `
+    <div class="card">
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.price_enabled?'checked':''} onchange="togglePriceEnabled('${siteId}', this.checked)">This project is on a price</label>
+      <p class="stub" style="margin:8px 0 0;">When on, a "Price" tile appears on the site home screen — visible to the project admin, this site's responsible PM, and whichever operatives you tick below.</p>
+    </div>
+    ${site.price_enabled ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Price file</p>
+        ${site.price_onedrive_item_id ? `
+          <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Auto-syncing from OneDrive${site.price_updated_at ? ' · last pulled '+new Date(site.price_updated_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
+        ` : (site.price_excel_path ? `<p class="stub" style="margin:0 0 8px;">A file has been uploaded manually — no OneDrive auto-sync set.</p>` : `<p class="stub" style="margin:0 0 8px;">No price file yet.</p>`)}
+        ${odCompanyConnected ? `<button class="ghostbtn" onclick="startPriceFilePicker('${siteId}')">${site.price_onedrive_item_id?'Change OneDrive source file':'Choose Excel from OneDrive'}</button>` : `<p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive (above, on this same page) to auto-sync the price file instead of uploading manually.</p>`}
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-top:8px;" onclick="document.getElementById('priceFileInput').click()">Upload Excel manually</div>
+        <input type="file" accept=".xlsx,.xls,.csv" id="priceFileInput" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadPriceFileManually('${siteId}', this)">
+      </div>
+      <p class="sectiontitle" style="margin-top:14px;">Who can see it</p>
+      <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this project's price. The project admin and this site's responsible PM can always see it.</p>
+      ${operatives.map(p=>`
+        <div class="sitecard">
+          <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+          <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+          <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="togglePriceAccess('${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
+            ${priceAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
+          </button>
+        </div>
+      `).join('') || `<div class="empty">No operatives yet.</div>`}
     ` : ''}
-  `, {title:'Team & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
+    ` : ''}
+    ` : ''}
+  `, {title:'Site Team', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
-let siteTeamSectionOpen = {sync:false, pm:false, operatives:false, admin:false};
+let siteTeamSectionOpen = {sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.toggleAssignment = async function(siteId, userId, isAssigned){
   if(isAssigned){
@@ -2554,6 +2687,151 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
   }
   render();
 };
+window.togglePriceEnabled = async function(siteId, checked){
+  const row = await dbUpdate('sites', siteId, {price_enabled: checked});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(checked ? 'Price tile enabled' : 'Price tile disabled');
+    render();
+  }
+};
+window.togglePriceAccess = async function(siteId, userId, hasAccess){
+  if(hasAccess){
+    const res = await sbFetch('/rest/v1/site_price_access?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+    toast('Access removed');
+  } else {
+    const rows = await dbInsert('site_price_access', {site_id:siteId, user_id:userId, granted_by:ME.id});
+    if(!rows) return;
+    toast('Access granted');
+  }
+  render();
+};
+window.uploadPriceFileManually = async function(siteId, input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const path = siteId+'/price'+(file.name.match(/\.[a-z0-9]+$/i)||['.xlsx'])[0];
+  const stored = await uploadToStorage('price-files', path, file, file.type);
+  if(!stored) return;
+  const row = await dbUpdate('sites', siteId, {price_excel_path: stored, price_updated_at: new Date().toISOString()});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Price file uploaded');
+    render();
+  }
+};
+/* ---- Price file OneDrive picker (browse to a spreadsheet, not a folder) ---- */
+let pricePickerStack = null;
+let pricePickerFolders = [];
+let pricePickerFiles = [];
+let pricePickerError = null;
+let pricePickerBusy = false;
+let pricePickerSiteId = null;
+window.startPriceFilePicker = function(siteId){
+  pricePickerSiteId = siteId;
+  pricePickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  pricePickerFolders = []; pricePickerFiles = []; pricePickerError = null;
+  go(`#/site/${siteId}/price-picker`);
+  loadPricePickerLevel();
+};
+async function loadPricePickerLevel(){
+  pricePickerBusy = true; render();
+  const current = pricePickerStack[pricePickerStack.length-1];
+  try{
+    const body = {includeFiles:true};
+    if(current.id){ body.parent_id = current.id; if(current.driveId) body.drive_id = current.driveId; }
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const d = await res.json();
+    if(!res.ok || d.error){ pricePickerError = d.error || 'Could not load OneDrive folders.'; pricePickerFolders = []; pricePickerFiles = []; }
+    else {
+      pricePickerFolders = d.folders || [];
+      pricePickerFiles = (d.files||[]).filter(f=>/\.(xlsx|xls|csv)$/i.test(f.name));
+      pricePickerError = null;
+    }
+  }catch(e){ pricePickerError = 'Could not reach OneDrive.'; pricePickerFolders = []; pricePickerFiles = []; }
+  pricePickerBusy = false; render();
+}
+window.openPricePickerFolder = function(id, name, driveId){
+  const parentDrive = pricePickerStack[pricePickerStack.length-1].driveId;
+  pricePickerStack.push({id, name, driveId: driveId || parentDrive});
+  loadPricePickerLevel();
+};
+window.pricePickerUp = function(){
+  if(pricePickerStack.length>1){ pricePickerStack.pop(); loadPricePickerLevel(); }
+};
+window.selectPriceFile = async function(itemId, name, driveId){
+  const row = await dbUpdate('sites', pricePickerSiteId, {price_onedrive_item_id:itemId, price_onedrive_drive_id: driveId||null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===pricePickerSiteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(`"${name}" set as the price source — it'll sync each time the Price tile is opened.`);
+    go(`#/site/${pricePickerSiteId}/team`);
+  }
+};
+/* ---- Price tile viewer — pulls the latest copy from OneDrive (if linked) via a
+   signed URL from the price-file-access edge function, which is the only
+   thing allowed to touch the private price-files bucket. ---- */
+let priceViewState = {siteId:null, loading:false, error:null, sheetHtml:null, updatedAt:null};
+async function loadPriceView(siteId, refresh){
+  priceViewState = {siteId, loading:true, error:null, sheetHtml:priceViewState.siteId===siteId?priceViewState.sheetHtml:null, updatedAt:priceViewState.siteId===siteId?priceViewState.updatedAt:null};
+  render();
+  try{
+    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, refresh:!!refresh})});
+    const d = await res.json();
+    if(!res.ok || d.error){ priceViewState = {siteId, loading:false, error: d.error || 'Could not load the price file.', sheetHtml:null, updatedAt:null}; render(); return; }
+    if(!d.url){ priceViewState = {siteId, loading:false, error:null, sheetHtml:null, updatedAt:null}; render(); return; }
+    if(typeof XLSX==='undefined'){ priceViewState = {siteId, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null, updatedAt:null}; render(); return; }
+    const buf = await (await fetch(d.url)).arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const firstSheet = wb.Sheets[wb.SheetNames[0]];
+    const html = XLSX.utils.sheet_to_html(firstSheet, {id:'priceSheetTable'});
+    priceViewState = {siteId, loading:false, error:null, sheetHtml:html, updatedAt:d.updated_at};
+  }catch(e){
+    priceViewState = {siteId, loading:false, error:'Could not open the price file.', sheetHtml:null, updatedAt:null};
+  }
+  render();
+}
+async function renderPriceTile(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(priceViewState.siteId !== siteId){
+    loadPriceView(siteId, true);
+    return;
+  }
+  const canManage = isManager(ME);
+  document.getElementById('app').innerHTML = shell(`
+    ${canManage ? `<button class="ghostbtn" style="margin-bottom:12px;" ${priceViewState.loading?'disabled':''} onclick="loadPriceView('${siteId}', true)">↻ Refresh from OneDrive</button>` : ''}
+    ${priceViewState.updatedAt ? `<p class="stub" style="margin:0 0 10px;">Last synced ${new Date(priceViewState.updatedAt).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>` : ''}
+    ${priceViewState.loading ? `<p class="stub">Loading price file…</p>`
+      : priceViewState.error ? `<div class="empty">${escapeHtml(priceViewState.error)}</div>`
+      : !priceViewState.sheetHtml ? `<div class="empty">No price file uploaded yet${canManage ? ' — add one from Site Team › Price.' : '.'}</div>`
+      : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceViewState.sheetHtml}</div>`}
+  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+}
+async function renderPriceFilePicker(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!pricePickerStack || pricePickerSiteId!==siteId){ go(`#/site/${siteId}/team`); return; }
+  const current = pricePickerStack[pricePickerStack.length-1];
+  document.getElementById('app').innerHTML = shell(`
+    <div class="stub" style="margin:0 0 10px;">${pricePickerStack.map(f=>escapeHtml(f.name)).join(' › ')}</div>
+    ${pricePickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="pricePickerUp()">‹ Up one level</button>` : ''}
+    ${pricePickerError ? `<div class="empty">${escapeHtml(pricePickerError)}</div>` : pricePickerBusy ? `<p class="stub">Loading…</p>` : `
+      ${pricePickerFolders.map(f=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="openPricePickerFolder('${f.id}','${jsAttr(f.name)}','${f.driveId||''}')">
+          <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+        </div>
+      `).join('')}
+      ${pricePickerFiles.map(f=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="selectPriceFile('${f.id}','${jsAttr(f.name)}','${f.driveId||''}')">
+          <div class="info"><div class="name">📊 ${escapeHtml(f.name)}</div></div>
+          <button class="darkbtn" style="width:auto;padding:8px 12px;">Use this file</button>
+        </div>
+      `).join('')}
+      ${(!pricePickerFolders.length && !pricePickerFiles.length) ? `<div class="empty">Nothing here — no folders or spreadsheets.</div>` : ''}
+    `}
+  `, {title:'Choose Price File', subtitle:site.name, back:`#/site/${siteId}/team`, siteId, tabs:false});
+}
 
 /* ================= REPORT TEMPLATES (Company Admin builds; PM fills in) ================= */
 let editingTemplate = null; // deep-cloned template object being edited, or null
@@ -2608,6 +2886,9 @@ async function renderTemplateEditor(templateId){
   document.getElementById('app').innerHTML = shell(`
     <div class="formfield" style="margin-top:0;"><label class="field-label">Template Name</label><input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name=this.value"></div>
     <div class="formfield"><label class="field-label">Description (optional)</label><textarea oninput="editingTemplate.description=this.value">${escapeHtml(t.description||'')}</textarea></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:-6px 0 14px;">
+      <input type="checkbox" ${t.is_daily_briefing?'checked':''} onchange="editingTemplate.is_daily_briefing=this.checked"> Use as a Daily Briefing template — submissions from this template appear in the Daily Briefings tile (Health &amp; Safety) instead of Reports
+    </label>
     ${t.sections.map((s,si)=>`
       <div class="card">
         <div class="formfield" style="margin-top:0;">
@@ -2786,6 +3067,7 @@ window.saveTemplate = async function(){
     name: editingTemplate.name.trim(),
     description: editingTemplate.description || null,
     sections: editingTemplate.sections,
+    is_daily_briefing: !!editingTemplate.is_daily_briefing,
     updated_at: new Date().toISOString(),
   });
   templateBusy = false;
@@ -2962,14 +3244,15 @@ window.emailSelectedReports = async function(){
   }catch(e){ toast('Email failed — could not reach the server.'); }
   bulkEmailBusy = false; render();
 };
-async function renderReportFill(siteId, submissionId){
+async function renderReportFill(siteId, submissionId, fromBriefing){
   const site = SITES.find(s=>s.id===siteId);
+  const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
   if(!reportFillDraft || reportFillDraft.submissionId !== submissionId){
     const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
     const sub = rows[0];
-    if(!sub){ toast('Inspection not found'); go(`#/site/${siteId}/snagging/reports`); return; }
-    if(sub.status==='completed'){ go(`#/site/${siteId}/snagging/reports/view/${submissionId}`); return; }
-    reportFillDraft = {submissionId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{})};
+    if(!sub){ toast('Inspection not found'); go(listPath); return; }
+    if(sub.status==='completed'){ go(`${listPath}/view/${submissionId}`); return; }
+    reportFillDraft = {submissionId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing};
   }
   const sc = scoreSections(reportFillDraft.sections, reportFillDraft.answers);
   document.getElementById('app').innerHTML = shell(`
@@ -2986,9 +3269,9 @@ async function renderReportFill(siteId, submissionId){
     `).join('')}
     <div class="row-gap">
       <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
-      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':'Complete Inspection'}</button>
+      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
-  `, {title:'Inspection', subtitle:site.name, back:`#/site/${siteId}/snagging/reports`, siteId, activeTab:'more'});
+  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, back:listPath, siteId, activeTab:'more'});
 }
 window.saveReportProgress = async function(siteId){
   reportSaveBusy = true; render();
@@ -2999,8 +3282,9 @@ window.saveReportProgress = async function(siteId){
   reportSaveBusy = false;
   if(row){
     toast('Progress saved');
+    const fromBriefing = reportFillDraft.fromBriefing;
     reportFillDraft = null;
-    go(`#/site/${siteId}/snagging/reports`);
+    go(fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`);
   } else { toast('Could not save — check your connection and try again.'); render(); }
 };
 function renderPhotoArrayWidget(key, arr, opts){
@@ -3106,22 +3390,27 @@ window.submitReport = async function(siteId){
   }catch(e){ console.error(e); }
   reportSubmitBusy = false;
   if(rows){
-    toast('Report submitted');
+    const fromBriefing = reportFillDraft.fromBriefing;
+    toast(fromBriefing ? 'Briefing completed' : 'Report submitted');
     const submissionId = reportFillDraft.submissionId;
     reportFillDraft = null;
-    go(`#/site/${siteId}/snagging/reports/view/${submissionId}`);
+    go(fromBriefing ? `#/site/${siteId}/hs/briefings/view/${submissionId}` : `#/site/${siteId}/snagging/reports/view/${submissionId}`);
   } else { toast('Could not submit — check your connection and try again.'); render(); }
 };
-async function renderReportView(siteId, submissionId){
+async function renderReportView(siteId, submissionId, fromBriefing){
   const site = SITES.find(s=>s.id===siteId);
+  const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0];
-  if(!sub){ toast('Report not found'); go(`#/site/${siteId}/snagging/reports`); return; }
+  if(!sub){ toast('Report not found'); go(listPath); return; }
   await loadAllProfiles();
+  let sigs = [];
+  if(fromBriefing) sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
+  const mine = sigs.find(s=>s.user_id===ME.id);
   const sc = scoreSections(sub.sections, sub.answers);
   document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
-    <p class="stub">Submitted ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
+    <p class="stub">${fromBriefing?'Completed':'Submitted'} ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${(sub.sections||[]).map(s=>`
       <div class="card">
@@ -3132,11 +3421,21 @@ async function renderReportView(siteId, submissionId){
         ${(s.items||[]).filter(it=>itemVisible(it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id], sub.answers)).join('')}
       </div>
     `).join('')}
+    ${fromBriefing ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Signing</p>
+        <p class="stub" style="margin:0 0 10px;">${sub.issued_at ? `Issued for signing ${new Date(sub.issued_at).toLocaleString('en-GB')} — every operative in the app can sign it. Signing is optional, so this can be exported at any time regardless of how many have signed.` : 'Not issued for signing yet — issuing is optional; this briefing can be exported as-is at any time.'}</p>
+        ${isManager(ME) && !sub.issued_at ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="issueBriefing('${siteId}','${sub.id}')">Issue for Signing</button>` : ''}
+        ${sub.issued_at && !mine ? `<div class="siglinebox" style="cursor:pointer;margin-bottom:10px;" onclick="signBriefing('${siteId}','${sub.id}')">Tap to sign</div>` : ''}
+        ${mine ? `<div class="siglinebox signed" style="margin-bottom:10px;">${mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`}<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span></div>` : ''}
+        ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>` : ''}
+      </div>
+    ` : ''}
     <div class="row-gap">
-      <button class="darkbtn" style="flex:1;" onclick="exportReportPDF('${sub.id}')">Export PDF</button>
+      <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       <button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}')">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>
     </div>
-  `, {title:'Report', subtitle:site.name, back:`#/site/${siteId}/snagging/reports`, siteId, activeTab:'more'});
+  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, back:listPath, siteId, activeTab:'more'});
 }
 function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
@@ -3295,6 +3594,39 @@ async function buildReportPdf(submissionId){
     function collectPhotos(urls){
       return urls.map(u=>{ const num = allPhotos.length+1; const entry = {url:u, num}; allPhotos.push(entry); return entry; });
     }
+    // Media summary appendix grid: fixed 2x2 layout, exactly 4 photos per
+    // page with each tile roughly a quarter of the page — deliberately
+    // different from drawPhotoGrid's flowing 2-per-row layout used inline in
+    // the report body, per the "4 photos to each page" spec for this section.
+    async function drawMediaSummaryGrid(urls){
+      if(!urls.length) return;
+      const cols = 2, rows = 2, gutter = 14, capH = 16;
+      const cellW = (CONTENT_W - gutter) / cols;
+      const cellH = (PAGE_H - 2*MARGIN - gutter - capH*rows) / rows;
+      for(let i=0; i<urls.length; i+=cols*rows){
+        if(i>0) newPage();
+        const startY = y;
+        const group = urls.slice(i, i+cols*rows);
+        for(let r=0; r<rows; r++){
+          const rowItems = group.slice(r*cols, r*cols+cols);
+          if(!rowItems.length) break;
+          const rowTop = startY - r*(cellH+capH+gutter);
+          for(let c=0; c<rowItems.length; c++){
+            const entry = rowItems[c];
+            const cx = MARGIN + c*(cellW+gutter);
+            try{
+              const img = await embedFromDataUrl(entry.url);
+              const dim = img.scale(1);
+              const sc = Math.min(cellW/dim.width, cellH/dim.height, 1);
+              const w = dim.width*sc, h = dim.height*sc;
+              page.drawImage(img, {x:cx+(cellW-w)/2, y:rowTop-cellH+(cellH-h)/2, width:w, height:h});
+              page.drawText('Photo '+entry.num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
+            }catch(e){}
+          }
+        }
+        y = startY - rows*(cellH+capH+gutter);
+      }
+    }
 
     /* ---------- Page 1: title page ---------- */
     newPage();
@@ -3429,7 +3761,7 @@ async function buildReportPdf(submissionId){
     if(allPhotos.length){
       newPage();
       drawHeadingBar('Media summary', null, 12.5);
-      await drawPhotoGrid(allPhotos);
+      await drawMediaSummaryGrid(allPhotos);
     }
 
     const total = pdfDoc.getPageCount();
@@ -3493,6 +3825,8 @@ function renderMore(siteId){
 /* ================= CHECK IN/OUT ================= */
 let checkinBusy = false;
 let checkinError = null;
+let checkinGeofenceOpen = false;
+let checkinHistoryOpen = false;
 // Pairs up each operative's raw in/out log (chronological, ascending) into
 // sessions of {user_id, in, out} — out:null means still on site. An "in"
 // with no prior open session starts a new one; a stray "out" with nothing
@@ -3575,24 +3909,31 @@ async function renderCheckin(siteId){
     </button>
     ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Site Geofence</p>
-      <div class="card">
-        ${!orgAllowsGps() ? `
-          <p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p>
-        ` : `
-          ${site.geofence_lat ? `
+      ${!orgAllowsGps() ? `
+        <div class="card"><p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p></div>
+      ` : site.geofence_lat ? `
+        <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${site.geofence_radius_m||100}m radius</div>
+        ${checkinGeofenceOpen ? `
+          <div class="card">
             <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)}</div>
             <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
             <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
-          ` : `
-            <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
-            <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
-          `}
+            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+            <div class="row-gap">
+              ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+      ` : `
+        <div class="card">
+          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
+          <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
           <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
           <div class="row-gap">
             ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
           </div>
-        `}
-      </div>
+        </div>
+      `}
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
       ${teamStatusList.length ? teamStatusList.map(c=>`
         <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -3602,8 +3943,8 @@ async function renderCheckin(siteId){
       `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
     ` : ''}
     ${isPM ? `
-      <p class="sectiontitle" style="margin-top:18px;">Recent Check-ins — All Operatives</p>
-      ${dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinHistoryOpen=!checkinHistoryOpen;render()"><span class="arrow">${checkinHistoryOpen?'▼':'▶'}</span> Recent Check-ins — All Operatives</div>
+      ${checkinHistoryOpen ? (dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
         <div style="margin-bottom:14px;">
           <div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;">${checkinDayLabel(dayKey)}</div>
           ${dayGroups[dayKey].map(s=>`
@@ -3616,7 +3957,7 @@ async function renderCheckin(siteId){
             </div>
           `).join('')}
         </div>
-      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
+      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`) : ''}
     ` : ''}
     <p class="sectiontitle" style="margin-top:18px;">Recent</p>
     ${mine.slice(0,4).map(c=>`
@@ -3626,8 +3967,10 @@ async function renderCheckin(siteId){
     `).join('') || `<div class="empty">No check-ins yet.</div>`}
     ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Reports</p>
-      <button class="ghostbtn" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
-      <button class="ghostbtn" style="margin-top:8px;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
+      <div class="row-gap">
+        <button class="ghostbtn" style="flex:1;" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
+        <button class="ghostbtn" style="flex:1;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
+      </div>
       <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
     ` : ''}
   `;
@@ -3639,8 +3982,10 @@ window.doCheckAction = async function(siteId, type){
   render();
 
   // OpHUB Basic doesn't include GPS check-in & geofencing — just log the
-  // timestamp with no location and skip the distance check entirely.
-  if(!orgAllowsGps()){
+  // timestamp with no location and skip the distance check entirely. PMs
+  // and admins get the same no-GPS path regardless of tier — they don't
+  // need to be physically on site to check themselves in/out.
+  if(!orgAllowsGps() || isManager(ME)){
     const rows = await dbInsert('checkins', {site_id:siteId, user_id:ME.id, type});
     checkinBusy = false;
     if(rows){
@@ -3706,30 +4051,21 @@ let scheduleFilter = 'all';
 let pendingCompleteTaskId = null;
 let pdfImportSiteId = null;
 let pdfImportText = '';
-async function renderSchedule(siteId){
-  const site = SITES.find(s=>s.id===siteId);
-  const canAdd = isManager(ME);
-  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
-  const tasks = scheduleFilter==='all' ? allTasks
-    : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
-    : allTasks.filter(t=>t.status===scheduleFilter);
-  let photosByTask = {};
-  if(allTasks.length){
-    const ids = allTasks.map(t=>t.id).join(',');
-    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
-    photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
-  }
-
-  document.getElementById('app').innerHTML = shell(`
-    <div class="filterrow">
-      <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
-      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
-      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
-    </div>
-    ${tasks.map(t=>`
+// Sections default to OPEN (undefined/not-false = open) so switching a site
+// over to sections doesn't hide any tasks that were already visible.
+let scheduleSectionsOpen = {};
+let scheduleAddMode = 'task'; // 'task' | 'section'
+let scheduleUploadOpen = false;
+let scheduleSectionsCache = [];
+function taskRowHtml(siteId, t, canAdd, photosByTask){
+  // Per the "allow all rows in whilst they're in to do to be editable text"
+  // requirement — a To Do task's name is always a live-editable input
+  // (autosaves on blur) rather than needing the separate pencil-edit toggle.
+  const alwaysEditable = canAdd && t.status==='todo' && pendingCompleteTaskId!==t.id;
+  return `
       <div class="task">
         <div class="taskbody">
-          ${canAdd && editingTaskId===t.id ? `
+          ${canAdd && editingTaskId===t.id && !alwaysEditable ? `
             <div class="taskeditrow">
               <input type="text" id="editTaskInput-${t.id}" value="${escapeHtml(t.name)}">
               <button class="darkbtn" style="width:auto;" onclick="saveTaskEdit('${siteId}','${t.id}')">Save</button>
@@ -3737,10 +4073,14 @@ async function renderSchedule(siteId){
             </div>
           ` : `
             <div class="taskrowtop">
-              <div class="taskname ${t.status==='done'?'done':''}">${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</div>
+              ${alwaysEditable ? `
+                <input type="text" class="taskname-input" value="${escapeHtml(t.name)}" onblur="saveTaskNameInline(this,'${siteId}','${t.id}')" onkeydown="if(event.key==='Enter')this.blur();">
+              ` : `
+                <div class="taskname ${t.status==='done'?'done':''}">${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</div>
+              `}
               ${canAdd ? `
                 <div class="taskicons">
-                  <div class="taskicon" onclick="editingTaskId='${t.id}';render()">✎</div>
+                  ${!alwaysEditable ? `<div class="taskicon" onclick="editingTaskId='${t.id}';render()">✎</div>` : ''}
                   <div class="taskicon danger" onclick="deleteTask('${siteId}','${t.id}')">🗑</div>
                 </div>
               ` : ''}
@@ -3765,27 +4105,97 @@ async function renderSchedule(siteId){
           <div class="statusbtn ${(t.status==='done'||pendingCompleteTaskId===t.id)?'active-done':''}" onclick="beginTaskComplete('${t.id}')">Complete</div>
         </div>
       </div>
-    `).join('') || `<div class="empty">No tasks yet.</div>`}
+  `;
+}
+async function renderSchedule(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const [allTasks, sections] = await Promise.all([
+    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
+    dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
+  ]);
+  scheduleSectionsCache = sections;
+  const tasks = scheduleFilter==='all' ? allTasks
+    : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
+    : allTasks.filter(t=>t.status===scheduleFilter);
+  let photosByTask = {};
+  if(allTasks.length){
+    const ids = allTasks.map(t=>t.id).join(',');
+    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+    photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+  }
+  const ungrouped = tasks.filter(t=>!t.section_id);
+  const bySection = {};
+  tasks.forEach(t=>{ if(t.section_id){ (bySection[t.section_id]=bySection[t.section_id]||[]).push(t); } });
 
-    ${canAdd ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Add task</p>
-        <div class="row-gap">
-          <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing">
-          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="addTask('${siteId}')">Add</button>
-        </div>
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
+      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
+      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
+    </div>
+    ${ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('')}
+    ${sections.map(sec=>{
+      const secTasks = bySection[sec.id] || [];
+      const open = scheduleSectionsOpen[sec.id] !== false;
+      return `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('${sec.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}
+          ${canAdd ? `<span style="margin-left:auto;display:flex;gap:4px;" onclick="event.stopPropagation()">
+            <span class="taskicon" onclick="renameSection('${siteId}','${sec.id}')">✎</span>
+            <span class="taskicon danger" onclick="deleteSection('${siteId}','${sec.id}')">🗑</span>
+          </span>` : ''}
+        </p>
+        ${open ? `
+          <div style="padding:0 14px 14px;">
+            ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+            ${canAdd && scheduleFilter==='all' ? `
+              <div class="row-gap" style="margin-top:10px;">
+                <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;">
+                <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
+              </div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
+    `;}).join('')}
+    ${!ungrouped.length && !sections.length ? `<div class="empty">No tasks yet.</div>` : ''}
+
+    ${canAdd && scheduleFilter==='all' ? `
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload schedule</p>
-        <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:14px;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
-        <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
-        <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
-          <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
-        </label>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
-        <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
+        <p class="sectiontitle" style="margin-top:0;">Add</p>
+        <div class="filterrow" style="margin-bottom:10px;">
+          <div class="filterchip ${scheduleAddMode==='task'?'active':''}" onclick="scheduleAddMode='task';render()">Add Task</div>
+          <div class="filterchip ${scheduleAddMode==='section'?'active':''}" onclick="scheduleAddMode='section';render()">Add Section</div>
+        </div>
+        ${scheduleAddMode==='task' ? `
+          <div class="row-gap">
+            <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;">
+            <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addTask('${siteId}')">Add</button>
+          </div>
+        ` : `
+          <div class="row-gap">
+            <input type="text" id="newSectionName" placeholder="e.g. Roof Level 1" style="flex:2;">
+            <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addSection('${siteId}')">Add</button>
+          </div>
+        `}
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="scheduleUploadOpen=!scheduleUploadOpen;render()"><span class="arrow">${scheduleUploadOpen?'▼':'▶'}</span> Upload schedule</p>
+        ${scheduleUploadOpen ? `
+        <div style="padding:0 14px 14px;">
+          <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:14px;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
+          <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
+          <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
+            <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
+          </label>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
+          <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
+        </div>
+        ` : ''}
       </div>
       ${pdfImportSiteId===siteId ? `
       <div class="card">
@@ -3802,6 +4212,42 @@ async function renderSchedule(siteId){
     ${allTasks.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
+window.toggleScheduleSection = function(sectionId){
+  const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
+  scheduleSectionsOpen[sectionId] = !currentlyOpen;
+  render();
+};
+async function nextSectionPosition(siteId){
+  const rows = await dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&select=position&order=position.desc.nullslast&limit=1');
+  return ((rows[0] && rows[0].position) || 0) + 1;
+}
+window.addSection = async function(siteId){
+  const input = document.getElementById('newSectionName');
+  const name = input.value.trim(); if(!name) return;
+  const position = await nextSectionPosition(siteId);
+  const rows = await dbInsert('schedule_sections', {site_id:siteId, name, position, created_by:ME.id});
+  if(rows){ toast('Section added'); scheduleAddMode='task'; render(); }
+};
+window.renameSection = async function(siteId, sectionId){
+  const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
+  const name = prompt('Section name', sec ? sec.name : '');
+  if(name===null) return;
+  const trimmed = name.trim();
+  if(!trimmed){ toast('Section name can\'t be empty.'); return; }
+  const row = await dbUpdate('schedule_sections', sectionId, {name:trimmed});
+  if(row){ toast('Section renamed'); render(); }
+};
+window.deleteSection = async function(siteId, sectionId){
+  if(!confirm('Delete this section? Its tasks move back to the ungrouped list — they are not deleted.')) return;
+  const ok = await dbDelete('schedule_sections', sectionId);
+  if(ok){ toast('Section deleted'); render(); }
+};
+window.saveTaskNameInline = async function(input, siteId, taskId){
+  const name = input.value.trim();
+  if(!name){ toast('Task name can\'t be empty.'); render(); return; }
+  if(name === input.defaultValue) return;
+  await dbUpdate('schedule_tasks', taskId, {name});
+};
 window.setTaskStatus = async function(siteId, taskId, next){
   // Completion always goes through beginTaskComplete/completeTaskWithPhotos
   // instead, since it requires a photo upload first — this only ever
@@ -3849,11 +4295,13 @@ async function nextTaskPosition(siteId){
   const rows = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=position&order=position.desc.nullslast&limit=1');
   return ((rows[0] && rows[0].position) || 0) + 1;
 }
-window.addTask = async function(siteId){
-  const input = document.getElementById('newTaskName');
+window.addTask = async function(siteId, sectionId){
+  const input = document.getElementById(sectionId ? ('newTaskName-'+sectionId) : 'newTaskName');
   const name = input.value.trim(); if(!name) return;
   const position = await nextTaskPosition(siteId);
-  const rows = await dbInsert('schedule_tasks', {site_id:siteId, name, status:'todo', position});
+  const row = {site_id:siteId, name, status:'todo', position};
+  if(sectionId) row.section_id = sectionId;
+  const rows = await dbInsert('schedule_tasks', row);
   if(rows){ toast('Task added'); render(); }
 };
 window.saveTaskEdit = async function(siteId, taskId){
@@ -4018,27 +4466,14 @@ let snagNewPhotos = [];
 let snagNewTitle = ''; // kept in JS state (not just read from the DOM at submit)
 let snagNewLocation = ''; // because attaching a photo/PDF triggers a re-render mid-form,
                            // which was wiping out whatever had been typed so far.
-let snagNewPdf = null; // {file, name} chosen in the "Add snag" form, not yet uploaded
-let attachingPdfSnagId = null;
 let closingSnagId = null;
-async function renderSnagging(siteId){
-  const site = SITES.find(s=>s.id===siteId);
-  const canAdd = isManager(ME);
-  const status = snagFilter==='live' ? 'open' : 'closed';
-  const snags = await dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.'+status+'&order=created_at.desc');
-
-  document.getElementById('app').innerHTML = shell(`
-    <div class="filterrow">
-      <div class="filterchip ${snagFilter==='live'?'active':''}" onclick="snagFilter='live';render()">Live</div>
-      <div class="filterchip ${snagFilter==='closed'?'active':''}" onclick="snagFilter='closed';render()">Closed</div>
-    </div>
-
-    ${snags.map(s=>`
-      <div class="snag">
-        <div class="top">
-          <div><div class="title">${escapeHtml(s.title)}</div><div class="loc">${escapeHtml(s.location||'—')}</div></div>
-          <span class="statustag2 ${s.status}">${s.status}</span>
-        </div>
+let expandedSnagIds = new Set();
+window.toggleSnagExpand = function(id){
+  if(expandedSnagIds.has(id)) expandedSnagIds.delete(id); else expandedSnagIds.add(id);
+  render();
+};
+function snagCardBody(siteId, s, canAdd){
+  return `
         ${(s.photo_paths && s.photo_paths.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">${s.photo_paths.map(p=>`<img class="snagthumb" src="${publicUrl('site-photos',p)}">`).join('')}</div>` : s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
         ${s.pdf_path ? `<div class="ghostbtn" style="display:block;margin-top:10px;text-align:center;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos',s.pdf_path)}', false, '${jsAttr((s.title||'Snag')+' - Attachment.pdf')}')">📄 View PDF</div>` : ''}
         ${s.status==='closed' ? `
@@ -4056,14 +4491,40 @@ async function renderSnagging(siteId){
             </div>
           ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="closingSnagId='${s.id}';render()">Close snag</button>`}
         `}
-        ${canAdd && !s.pdf_path ? (
-          attachingPdfSnagId===s.id ? `
-            <div class="ghostbtn" style="margin-top:8px;cursor:pointer;text-align:center;" onclick="document.getElementById('attachSnagPdfInput-${s.id}').click()">📄 Choose PDF to attach</div>
-            <input type="file" id="attachSnagPdfInput-${s.id}" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="attachSnagPdf(this,'${siteId}','${s.id}')">
-          ` : `<button class="ghostbtn" style="margin-top:8px;" onclick="attachingPdfSnagId='${s.id}';render()">Attach PDF</button>`
-        ) : ''}
+  `;
+}
+async function renderSnagging(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const status = snagFilter==='live' ? 'open' : 'closed';
+  const snags = await dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.'+status+'&order=created_at.desc');
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${snagFilter==='live'?'active':''}" onclick="snagFilter='live';render()">Live</div>
+      <div class="filterchip ${snagFilter==='closed'?'active':''}" onclick="snagFilter='closed';render()">Closed</div>
+    </div>
+
+    ${snags.map(s=>{
+      // Closed snags collapse to a tappable line item — expand to see the
+      // full detail (photos, closing photo/note) rather than always
+      // showing every closed snag's full card at once.
+      if(s.status!=='closed') return `
+      <div class="snag">
+        <div class="top">
+          <div><div class="title">${escapeHtml(s.title)}</div><div class="loc">${escapeHtml(s.location||'—')}</div></div>
+          <span class="statustag2 ${s.status}">${s.status}</span>
+        </div>
+        ${snagCardBody(siteId, s, canAdd)}
+      </div>`;
+      const open = expandedSnagIds.has(s.id);
+      return `
+      <div class="sitecard" style="cursor:pointer;" onclick="toggleSnagExpand('${s.id}')">
+        <div class="info"><div class="name">${escapeHtml(s.title)}</div><div class="addr">${escapeHtml(s.location||'—')} · Closed ${s.closed_at ? new Date(s.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : ''}</div></div>
+        <span style="font-size:13px;color:var(--slate);">${open?'▼':'▶'}</span>
       </div>
-    `).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
+      ${open ? `<div class="snag" style="margin-top:-6px;">${snagCardBody(siteId, s, canAdd)}</div>` : ''}`;
+    }).join('') || `<div class="empty">No ${snagFilter} snags.</div>`}
 
     ${canAdd ? `
       <div class="card" style="margin-top:14px;">
@@ -4077,13 +4538,6 @@ async function renderSnagging(siteId){
             <div style="font-size:20px;">📷</div>Take a photo or choose from library
           </div>
           <input type="file" id="snagPhotoInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="snagAddPhoto(this)">
-        </div>
-        <div class="formfield">
-          <label class="field-label">PDF Attachment (optional)</label>
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('snagPdfInput').click()">
-            ${snagNewPdf ? `📄 ${escapeHtml(snagNewPdf.name)}` : `📄 Choose PDF`}
-          </div>
-          <input type="file" id="snagPdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="snagAddPdf(this)">
         </div>
         <button class="darkbtn" onclick="addSnag('${siteId}')">Add Snag</button>
       </div>
@@ -4109,12 +4563,6 @@ window.removeSnagNewPhoto = function(idx){
   snagNewPhotos.splice(idx,1);
   render();
 };
-window.snagAddPdf = function(input){
-  const file = input.files && input.files[0]; if(!file) return;
-  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
-  snagNewPdf = file;
-  render();
-};
 window.addSnag = async function(siteId){
   const title = snagNewTitle.trim();
   const location = snagNewLocation.trim();
@@ -4124,29 +4572,12 @@ window.addSnag = async function(siteId){
     const path = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', dataUrl);
     if(path) photoPaths.push(path);
   }
-  let pdfPath = null;
-  if(snagNewPdf){
-    pdfPath = await uploadToStorage('site-photos', siteId+'/snags/'+uid()+'.pdf', snagNewPdf, 'application/pdf');
-  }
-  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPaths[0]||null, photo_paths:photoPaths.length?photoPaths:null, pdf_path:pdfPath, status:'open', created_by:ME.id});
+  const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPaths[0]||null, photo_paths:photoPaths.length?photoPaths:null, status:'open', created_by:ME.id});
   if(rows){
     snagNewPhotos = [];
-    snagNewPdf = null;
     snagNewTitle = '';
     snagNewLocation = '';
     toast('Snag added');
-    render();
-  }
-};
-window.attachSnagPdf = async function(input, siteId, snagId){
-  const file = input.files && input.files[0]; if(!file) return;
-  if(file.type !== 'application/pdf'){ toast('Choose a PDF file.'); return; }
-  const path = await uploadToStorage('site-photos', siteId+'/snags/'+snagId+'-'+uid()+'.pdf', file, 'application/pdf');
-  if(!path) return;
-  const row = await dbUpdate('snags', snagId, {pdf_path: path});
-  if(row){
-    attachingPdfSnagId = null;
-    toast('PDF attached');
     render();
   }
 };
@@ -4177,6 +4608,62 @@ async function pdfFetchImageBytes(url){
     if(!res.ok) return null;
     return new Uint8Array(await res.arrayBuffer());
   }catch(e){ return null; }
+}
+// Shared "Media summary" appendix for exports that only ever embed ONE
+// representative photo per row/card (Snagging, Schedule of Works) even when
+// several exist — appends dedicated pages at the end showing every photo,
+// fixed 2x2 grid, exactly 4 per page (each tile roughly a quarter of the
+// page). Call this BEFORE any final page-numbering/footer pass so the
+// appendix pages pick up the same footer as the rest of the document.
+// `photoRefs` is an array of {path, bucket} — bucket lets callers mix
+// buckets if they ever need to (site-photos etc).
+async function appendMediaSummaryPages(pdfDoc, photoRefs){
+  if(!photoRefs || !photoRefs.length) return;
+  const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  const INK = PDFLib.rgb(0.06,0.06,0.07);
+  const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+  const HEADBAR = PDFLib.rgb(0.925,0.91,0.87);
+  const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 42;
+  const CONTENT_W = PAGE_W - 2*MARGIN;
+  const cols = 2, rows = 2, gutter = 14, capH = 16, headingH = 40;
+  const cellW = (CONTENT_W - gutter) / cols;
+  const cellH = (PAGE_H - 2*MARGIN - headingH - gutter - capH*rows) / rows;
+  let num = 0;
+  for(let i=0; i<photoRefs.length; i+=cols*rows){
+    const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    let y = PAGE_H - MARGIN;
+    if(i===0){
+      page.drawRectangle({x:MARGIN, y:y-26, width:CONTENT_W, height:26, color:HEADBAR});
+      page.drawText('Media summary', {x:MARGIN+10, y:y-26+8, size:11.5, font:bold, color:INK});
+      y -= 26+10;
+    } else {
+      y -= headingH; // keep every page's grid starting position consistent
+    }
+    const startY = y;
+    const group = photoRefs.slice(i, i+cols*rows);
+    for(let r=0; r<rows; r++){
+      const rowItems = group.slice(r*cols, r*cols+cols);
+      if(!rowItems.length) break;
+      const rowTop = startY - r*(cellH+capH+gutter);
+      for(let c=0; c<rowItems.length; c++){
+        num++;
+        const ref = rowItems[c];
+        const cx = MARGIN + c*(cellW+gutter);
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl(ref.bucket||'site-photos', ref.path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const sc = Math.min(cellW/dim.width, cellH/dim.height, 1);
+            const w = dim.width*sc, h = dim.height*sc;
+            page.drawImage(img, {x:cx+(cellW-w)/2, y:rowTop-cellH+(cellH-h)/2, width:w, height:h});
+            page.drawText('Photo '+num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
+          }
+        }catch(e){ /* skip photo if it fails to embed */ }
+      }
+    }
+  }
 }
 // Shared "Signature Record" pages used by both the RAMS and Toolbox Talk
 // signed-PDF exports: a disclaimer paragraph followed by a clean
@@ -4399,6 +4886,17 @@ window.exportSnaggingPDF = async function(siteId, scope){
 
       y = cardTop - blockH - 14;
     }
+
+    // Media summary appendix — every photo on every snag, not just the one
+    // shown on its card above (a snag can have several via photo_paths).
+    const snagPhotoRefs = [];
+    snags.forEach(s=>{
+      (s.photo_paths||[]).forEach(p=>snagPhotoRefs.push({path:p, bucket:'site-photos'}));
+      if(!((s.photo_paths||[]).length) && s.photo_path) snagPhotoRefs.push({path:s.photo_path, bucket:'site-photos'});
+      if(s.closed_photo_path) snagPhotoRefs.push({path:s.closed_photo_path, bucket:'site-photos'});
+    });
+    await appendMediaSummaryPages(pdfDoc, snagPhotoRefs);
+
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
     const exportLabel = scope==='live' ? 'Snagging Report (Live)' : scope==='closed' ? 'Snagging Report (Closed)' : 'Snagging Report (All)';
@@ -4576,6 +5074,12 @@ window.exportSchedulePDF = async function(siteId){
       for(const t of doneTasks) await drawTaskRow(t, OK, OKBG);
     }
 
+    // Media summary appendix — every progress photo on every task, not just
+    // the single latest one shown on each task's row above.
+    const schedulePhotoRefs = [];
+    allTasks.forEach(t=>{ (photosByTask[t.id]||[]).forEach(p=>schedulePhotoRefs.push({path:p.storage_path, bucket:'site-photos'})); });
+    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs);
+
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
     const filename = exportFilename(site.name, 'Schedule of Works', 'pdf');
@@ -4709,7 +5213,14 @@ window.deleteRams = async function(ramsId, storagePath){
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
 function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
-  return docs.map(r=>{
+  const unsignedCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+  const signAllRow = docs.length ? `
+    <button class="darkbtn" style="margin-bottom:14px;" ${unsignedCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
+      ${unsignedCount ? `Sign All COSHH Documents (${unsignedCount} unsigned)` : 'All COSHH documents signed'}
+    </button>
+    <p class="stub" style="margin:-8px 0 14px;">One tap signs every COSHH document below at once — each one still exports as its own separate PDF with its own signature page.</p>
+  ` : '';
+  return signAllRow + docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
     const mine = sigs.find(s=>s.user_id===ME.id);
     return `
@@ -4720,8 +5231,8 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
       </div>
       <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
       <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
-      <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signCoshh('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
-        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+      <div class="siglinebox ${mine?'signed':''}">
+        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet — use "Sign All" above'}
       </div>
       ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
         ${canAdd ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
@@ -4788,6 +5299,23 @@ window.signCoshh = async function(siteId, coshhId){
   const rows = await dbInsert('coshh_signatures', {coshh_id:coshhId, user_id:ME.id, signature_image_path:ME.signature_path});
   if(rows){ toast('Signed — archived automatically'); render(); }
 };
+// One tap signs every COSHH document at this site the user hasn't already
+// signed — each document still stays its own separate record, so
+// exportSignedCoshh still produces one PDF per document with its own
+// signature page; this just removes the need to open and sign each one in
+// turn.
+window.signAllCoshh = async function(siteId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
+  if(!toSign.length){ toast('Already signed everything.'); render(); return; }
+  const rows = await dbInsert('coshh_signatures', toSign.map(r=>({coshh_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
+  if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
+};
 window.exportSignedCoshh = async function(coshhId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building signed PDF…');
@@ -4827,11 +5355,18 @@ window.deleteCoshh = async function(coshhId, storagePath){
 /* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
 async function renderHealthSafety(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const [pendingRamsRows, pendingCoshhRows, liveTbt] = await Promise.all([
+  const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
+    dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
   ]);
+  let briefingSub = 'None yet';
+  if(briefingTemplates.length){
+    const ids = briefingTemplates.map(t=>t.id).join(',');
+    const briefings = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id,issued_at');
+    briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
+  }
   document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
@@ -4846,9 +5381,136 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
         <div class="lbl">Toolbox Talks</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/briefings')">
+        <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
+        <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
+      </div>
     </div>
   `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
 }
+
+/* ================= DAILY BRIEFINGS =================
+   Uses the same templated Report system as Reports (a template with
+   sections/items, filled per site — see SITE REPORTS below) but any
+   template flagged is_daily_briefing surfaces here instead of Reports.
+   Adds a document-level "issue for signing" step (every operative on the
+   app can then tap to sign it, mirroring RAMS) and exports exactly like
+   RAMS — a PDF with a signature table appended — except issuing is never
+   compulsory: a briefing a PM has simply completed can be exported with
+   zero signatures. */
+let briefingPickerOpen = false;
+async function renderDailyBriefings(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&order=name.asc');
+  let submissions = [];
+  if(templates.length){
+    const ids = templates.map(t=>t.id).join(',');
+    submissions = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&order=submitted_at.desc');
+  }
+  await loadAllProfiles();
+  let sigsBySubmission = {};
+  if(submissions.length){
+    const subIds = submissions.map(s=>s.id).join(',');
+    const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=in.('+subIds+')');
+    sigs.forEach(s=>{ (sigsBySubmission[s.submission_id]=sigsBySubmission[s.submission_id]||[]).push(s); });
+  }
+  document.getElementById('app').innerHTML = shell(`
+    ${canManage ? `
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="briefingPickerOpen=!briefingPickerOpen;render()">${briefingPickerOpen?'Cancel':'+ New Briefing'}</button>
+      ${briefingPickerOpen ? `
+        <div class="card" style="margin-bottom:14px;">
+          <p class="stub" style="margin:0 0 8px;">Pick a Daily Briefing template to start:</p>
+          ${templates.map(t=>`
+            <div class="sitecard">
+              <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+              <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="startBriefing('${siteId}','${t.id}')">Start</button>
+            </div>
+          `).join('') || `<div class="empty">No Daily Briefing templates yet — open a template under Templates and tick "Use as a Daily Briefing template".</div>`}
+        </div>
+      ` : ''}
+    ` : ''}
+    ${submissions.map(s=>{
+      const sigs = sigsBySubmission[s.id]||[];
+      const mine = sigs.find(x=>x.user_id===ME.id);
+      const needsMySignature = s.issued_at && s.status==='completed' && !mine;
+      return `
+      <div class="sitecard" style="flex-wrap:wrap;">
+        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/briefings/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+          <div class="name">${escapeHtml(s.template_name)}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Completed'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
+          <div class="addr">${s.issued_at ? `Issued for signing · ${sigs.length} signed` : 'Not issued for signing'}</div>
+        </div>
+        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+      </div>
+      ${needsMySignature ? `
+        <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
+      ` : ''}
+    `;}).join('') || `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
+  `, {title:'Daily Briefings', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+}
+window.startBriefing = async function(siteId, templateId){
+  const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
+  const t = rows[0];
+  if(!t){ toast('Template not found'); return; }
+  const answers = {};
+  const site = SITES.find(s=>s.id===siteId);
+  (t.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+    if(!it.autofill) return;
+    const v = autofillValue(it.autofill, site);
+    if(v!==undefined) answers[it.id] = v;
+  }));
+  const inserted = await dbInsert('report_submissions', {
+    template_id: t.id, org_id: ME.org_id, site_id: siteId,
+    template_name: t.name, sections: t.sections, answers,
+    submitted_by: ME.id, status:'in_progress',
+  });
+  if(inserted && inserted[0]){
+    reportFillDraft = null;
+    briefingPickerOpen = false;
+    toast('Briefing started');
+    go(`#/site/${siteId}/hs/briefings/fill/${inserted[0].id}`);
+  }
+};
+window.issueBriefing = async function(siteId, submissionId){
+  if(!confirm('Issue this briefing for signing? Every operative in the app will be able to sign it — this is optional and can still be exported without any signatures.')) return;
+  const row = await dbUpdate('report_submissions', submissionId, {issued_at:new Date().toISOString(), issued_by:ME.id});
+  if(row){ toast('Briefing issued for signing'); render(); }
+};
+window.signBriefing = async function(siteId, submissionId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('daily_briefing_signatures', {submission_id:submissionId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed'); render(); }
+};
+window.exportDailyBriefingPDF = async function(submissionId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building PDF…');
+  const built = await buildReportPdf(submissionId);
+  if(!built) return;
+  try{
+    const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
+    if(sigs.length){
+      const pdfDoc = await PDFLib.PDFDocument.load(built.bytes);
+      const signers = sigs.map(s=>({
+        name: nameOf(s.user_id),
+        when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+        imagePath: s.signature_image_path,
+      }));
+      await drawSignatureTablePages(pdfDoc, {title: built.sub.template_name, disclaimer: `I confirm I have read and understood the contents of this briefing (${built.sub.template_name}).`, signers});
+      const outBytes = await pdfDoc.save();
+      await deliverPdf(outBytes, built.filename);
+      return;
+    }
+    await deliverPdf(built.bytes, built.filename);
+  }catch(e){
+    console.error(e);
+    toast('Could not build the signed PDF.');
+  }
+};
 
 /* ================= TOOLBOX TALKS =================
    PMs upload a weekly PDF as "Bank TBT", then tap "Issue for Signing" to make
@@ -5128,7 +5790,13 @@ window.exportSignedToolboxTalk = async function(tbtId){
 
 /* ================= MATERIALS ================= */
 let matFilter = 'live';
+let expandedMaterialIds = new Set();
+window.toggleMaterialExpand = function(id){
+  if(expandedMaterialIds.has(id)) expandedMaterialIds.delete(id); else expandedMaterialIds.add(id);
+  render();
+};
 let suppliersOpen = false;
+let supplierAddOpen = false;
 let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
 let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
 let selectedMaterialIds = new Set(); // matIds ticked for a grouped/combined send
@@ -5170,42 +5838,52 @@ async function renderMaterials(siteId){
       </div>
     ` : ''}
 
-    ${materials.map(m=>`
-      <div class="matcard">
-        <div class="top">
-          <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
-            ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-            <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
-            ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
-          </div>
-        </div>
-        ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
-          m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
-          m.status==='pending' ? (isPM ? (
-            selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
-            sendingMaterial && sendingMaterial.matId===m.id ? `
-            <div class="card" style="margin:10px 0 0;padding:10px;">
-              <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
-              <div class="formfield"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
-              <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
-              <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
+    ${materials.map(m=>{
+      const cardBody = `
+          <div class="top">
+            <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+              ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
+              <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
             </div>
-          ` : `<div class="merchantrow">Send to:
-            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${materialSupplierChoice[m.id]===s.id?'active':''}" onclick="materialSupplierChoice['${m.id}']='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
-            ${materialSupplierChoice[m.id] ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-left:auto;" onclick="beginSendMaterial('${m.id}')">Send Order</button>` : ''}
-          </div>`
-          ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
-        ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
-        ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
-        ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
-          <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
-          ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" ${reemailingMaterialId===m.id?'disabled':''} onclick="reemailMaterial('${siteId}','${m.id}')">${reemailingMaterialId===m.id?'Emailing…':'Re-email order'}</button>` : ''}
-        </div>` : ''}
-      </div>
-    `).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
+              ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
+            </div>
+          </div>
+          ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
+            m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
+            m.status==='pending' ? (isPM ? (
+              selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
+              sendingMaterial && sendingMaterial.matId===m.id ? `
+              <div class="card" style="margin:10px 0 0;padding:10px;">
+                <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
+                <div class="formfield"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${m.id}" min="${new Date().toISOString().slice(0,10)}"></div>
+                <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
+                <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
+              </div>
+            ` : `<div class="merchantrow">Send to:
+              ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${materialSupplierChoice[m.id]===s.id?'active':''}" onclick="materialSupplierChoice['${m.id}']='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+              ${materialSupplierChoice[m.id] ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-left:auto;" onclick="beginSendMaterial('${m.id}')">Send Order</button>` : ''}
+            </div>`
+            ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
+          ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
+          ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
+          ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
+            <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
+            ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" ${reemailingMaterialId===m.id?'disabled':''} onclick="reemailMaterial('${siteId}','${m.id}')">${reemailingMaterialId===m.id?'Emailing…':'Re-email order'}</button>` : ''}
+          </div>` : ''}
+      `;
+      if(matFilter!=='closed') return `<div class="matcard">${cardBody}</div>`;
+      // Closed material requests collapse into a single dropdown row —
+      // tap to expand the same detail shown for live requests above.
+      const open = expandedMaterialIds.has(m.id);
+      return `
+        <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)} <span style="margin-left:auto;font-weight:600;color:var(--slate);">Qty ${escapeHtml(m.qty)}</span>
+        </div>
+        ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
+      `;
+    }).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
 
     ${matFilter==='live' ? `
     <div class="card">
@@ -5216,18 +5894,31 @@ async function renderMaterials(siteId){
     </div>
     ` : ''}
     ${isPM ? `
-    <p class="sectiontitle closedtoggle" style="font-size:16.5px;" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> Suppliers</p>
+    <p class="ddrow" style="" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> Suppliers</p>
     ${suppliersOpen ? `
     <div class="card">
       ${suppliers.map(s=>`
-        <div class="sitecard" style="padding:8px 10px;">
-          <div class="info"><div class="name">${escapeHtml(s.name)}</div><div class="addr">${escapeHtml(s.email)}</div></div>
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
+            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
+          </div>
           <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
-      <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
-      <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
-      <button class="ghostbtn" onclick="addSupplier('${siteId}')">Add Supplier</button>
+      ${supplierAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addSupplier('${siteId}')">Add Supplier</button>
+          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B):</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInput').click()">Choose Excel/CSV file</div>
+        <input type="file" id="supplierExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,'${siteId}')">
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
+      `}
     </div>
     ` : ''}
     ` : ''}
@@ -5238,7 +5929,48 @@ window.addSupplier = async function(siteId){
   const email = document.getElementById('supEmail').value.trim();
   if(!name || !email){ toast('Enter a supplier name and email.'); return; }
   const rows = await dbInsert('suppliers', {org_id: ME.org_id, name, email, created_by: ME.id});
-  if(rows){ toast('Supplier added'); render(); }
+  if(rows){ toast('Supplier added'); supplierAddOpen = false; render(); }
+};
+window.saveSupplierField = async function(input, supplierId, field){
+  const val = input.value.trim();
+  if(!val){ toast((field==='name'?'Supplier name':'Email')+' can\'t be empty.'); render(); return; }
+  if(val === input.defaultValue) return;
+  const row = await dbUpdate('suppliers', supplierId, {[field]:val});
+  if(row) toast('Supplier updated');
+};
+window.importSuppliersExcel = async function(input, siteId){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1});
+    if(!rows.length){ toast('No rows found in that file.'); return; }
+    // Try to find "Name"/"Email" columns from a header row; fall back to
+    // column A = name, column B = email if no matching header is found.
+    let nameCol = 0, emailCol = 1, startRow = 0;
+    const header = (rows[0]||[]).map(c=>String(c||'').trim().toLowerCase());
+    const nameIdx = header.findIndex(h=>h.includes('name'));
+    const emailIdx = header.findIndex(h=>h.includes('email'));
+    if(nameIdx>-1 || emailIdx>-1){
+      if(nameIdx>-1) nameCol = nameIdx;
+      if(emailIdx>-1) emailCol = emailIdx;
+      startRow = 1;
+    }
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const found = [];
+    for(let i=startRow;i<rows.length;i++){
+      const r = rows[i]; if(!r) continue;
+      const name = String(r[nameCol]!=null?r[nameCol]:'').trim();
+      const email = String(r[emailCol]!=null?r[emailCol]:'').trim();
+      if(!name || !EMAIL_RE.test(email)) continue;
+      found.push({org_id:ME.org_id, name, email, created_by:ME.id});
+    }
+    if(!found.length){ toast('Could not find any name + email pairs — check the file has Name/Email columns (or Name in column A, Email in column B).'); return; }
+    const inserted = await dbInsert('suppliers', found);
+    if(inserted){ toast(`${found.length} supplier${found.length===1?'':'s'} imported`); supplierAddOpen = false; render(); }
+  }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
 };
 window.deleteSupplier = async function(siteId, supplierId){
   if(!confirm('Remove this supplier?')) return;
@@ -5401,6 +6133,11 @@ window.deleteMaterial = async function(siteId, matId){
 /* ================= VARIATIONS ================= */
 let varDraft = null;
 let varFilter = 'live';
+let expandedVariationIds = new Set();
+window.toggleVariationExpand = function(id){
+  if(expandedVariationIds.has(id)) expandedVariationIds.delete(id); else expandedVariationIds.add(id);
+  render();
+};
 async function renderVariations(siteId){
   const site = SITES.find(s=>s.id===siteId);
   varDraft = varDraft || {photo:null, desc:''};
@@ -5412,12 +6149,18 @@ async function renderVariations(siteId){
       <div class="filterchip ${varFilter==='closed'?'active':''}" onclick="varFilter='closed';render()">Closed</div>
     </div>
 
-    ${variations.map(v=>`
-      <div class="snag">
-        <div class="top">
-          <div><div class="title">${escapeHtml(v.description)}</div><div class="loc">${escapeHtml(nameOf(v.created_by))} · ${new Date(v.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div></div>
-          <span class="statustag2 ${v.status}">${v.status}</span>
-        </div>
+    ${variations.map(v=>{
+      // Every variation is now a tappable line item that expands to show
+      // the photo/closing detail, rather than always showing the full card.
+      const open = expandedVariationIds.has(v.id);
+      return `
+      <div class="sitecard" style="cursor:pointer;" onclick="toggleVariationExpand('${v.id}')">
+        <div class="info"><div class="name">${escapeHtml(v.description)}</div><div class="addr">${escapeHtml(nameOf(v.created_by))} · ${new Date(v.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div></div>
+        <span class="statustag2 ${v.status}">${v.status}</span>
+        <span style="font-size:13px;color:var(--slate);margin-left:6px;">${open?'▼':'▶'}</span>
+      </div>
+      ${open ? `
+      <div class="snag" style="margin-top:-6px;">
         ${v.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos', v.photo_path)}">` : ''}
         ${v.status==='closed' ? `
           <div class="closurerow">
@@ -5425,8 +6168,10 @@ async function renderVariations(siteId){
           </div>
         ` : (isManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>` : '')}
       </div>
-    `).join('') || `<div class="empty">No ${varFilter} variations.</div>`}
+      ` : ''}`;
+    }).join('') || `<div class="empty">No ${varFilter} variations.</div>`}
 
+    ${varFilter!=='closed' ? `
     <div class="card" style="margin-top:14px;">
       <p class="sectiontitle" style="margin-top:0;">Raise a variation</p>
       <div class="formfield">
@@ -5442,6 +6187,7 @@ async function renderVariations(siteId){
       </div>
       <button class="primarybtn" ${(varDraft.photo)?'':'disabled'} onclick="submitVariation('${siteId}')">Submit Variation</button>
     </div>
+    ` : ''}
 
     <p class="sectiontitle" style="margin-top:18px;">Export</p>
     <div style="display:flex;gap:6px;">
@@ -5597,6 +6343,10 @@ window.exportVariationsPDF = async function(siteId, scope){
 
       y = cardTop - blockH - 14;
     }
+
+    const variationPhotoRefs = variations.filter(v=>v.photo_path).map(v=>({path:v.photo_path, bucket:'site-photos'}));
+    await appendMediaSummaryPages(pdfDoc, variationPhotoRefs);
+
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
     const exportLabel = scope==='live' ? 'Variations Report (Live)' : scope==='closed' ? 'Variations Report (Closed)' : 'Variations Report (All)';
@@ -5628,6 +6378,7 @@ function wrapPlainText(text, font, size, maxWidth){
 
 /* ================= DRAWINGS (PM/admin-managed folders of PDF drawings, per site) ================= */
 let drawingUploadOpen = false;
+let drawingNewFolderOpen = false;
 async function renderDrawings(siteId, folderId){
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
@@ -5638,38 +6389,55 @@ async function renderDrawings(siteId, folderId){
     if(!currentFolder){ go(`#/site/${siteId}/drawings`); return; }
   }
   const [subfolders, files] = await Promise.all([
-    dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=name.asc'),
+    dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=name.asc'),
   ]);
   const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : `#/site/${siteId}/drawings`) : `#/site/${siteId}/home`;
+  const parentArg = folderId ? `'${folderId}'` : 'null';
 
   document.getElementById('app').innerHTML = shell(`
     ${subfolders.length || files.length ? `
-      ${subfolders.map(f=>`
+      ${subfolders.map((f,idx)=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
           <div class="swatch">📁</div>
           <div class="info"><div class="name" style="font-weight:500;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
-          ${canManage ? `<div class="taskicon danger" onclick="event.stopPropagation();deleteDrawingFolder('${f.id}')">🗑</div>` : ''}
+          ${canManage ? `
+            <div class="taskicons">
+              <div class="taskicon" style="${idx===0?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveDrawingFolder('${siteId}',${parentArg},'${f.id}',-1)">▲</div>
+              <div class="taskicon" style="${idx===subfolders.length-1?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveDrawingFolder('${siteId}',${parentArg},'${f.id}',1)">▼</div>
+              <div class="taskicon" onclick="event.stopPropagation();renameDrawingFolder('${f.id}','${jsAttr(f.name)}')">✏️</div>
+              <div class="taskicon danger" onclick="event.stopPropagation();deleteDrawingFolder('${f.id}')">🗑</div>
+            </div>
+          ` : ''}
         </div>
       `).join('')}
       ${files.map(f=>`
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
-          <div style="flex:1;min-width:0;font-weight:500;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-          <div class="ghostbtn" style="flex:0 0 78px;width:78px;text-align:center;padding:9px 4px;font-size:12.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
-          ${canManage ? `<div class="taskicon lg" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
-          ${canManage ? `<div class="taskicon lg danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
+          <div style="flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
+          ${canManage ? `<div class="taskicon" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
+          ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
 
+    ${canManage ? `<div style="height:66px;"></div>` : ''}
+
+    ${canManage && site.onedrive_folder_id ? `
+      <button class="ghostbtn" style="margin-bottom:14px;" onclick="startDrawingImport('${siteId}', ${parentArg})">⇩ Import from OneDrive</button>
+    ` : ''}
     ${canManage ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">New folder</p>
-        <div class="row-gap">
-          <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
-          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${folderId?`'${folderId}'`:'null'})">Add</button>
-        </div>
+        ${(!currentFolder || drawingNewFolderOpen) ? `
+          <div class="row-gap">
+            <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
+            <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Add</button>
+          </div>
+        ` : `
+          <button class="darkbtn" onclick="drawingNewFolderOpen=true;render()">New folder</button>
+        `}
       </div>
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
@@ -5677,7 +6445,7 @@ async function renderDrawings(siteId, folderId){
           <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
           <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
-          <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${folderId?`'${folderId}'`:'null'})">
+          <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
         ` : `
           <button class="darkbtn" onclick="drawingUploadOpen=true;render()">Upload drawing</button>
         `}
@@ -5690,7 +6458,29 @@ window.createDrawingFolder = async function(siteId, folderId){
   const name = input ? input.value.trim() : '';
   if(!name){ toast('Enter a folder name.'); return; }
   const rows = await dbInsert('drawing_folders', {site_id:siteId, parent_id:folderId||null, name, created_by:ME.id});
-  if(rows){ toast('Folder created'); render(); }
+  if(rows){ toast('Folder created'); drawingNewFolderOpen = false; render(); }
+};
+window.renameDrawingFolder = async function(folderId, currentName){
+  const next = prompt('Rename folder', currentName);
+  if(next==null) return;
+  const trimmed = next.trim();
+  if(!trimmed || trimmed===currentName) return;
+  const row = await dbUpdate('drawing_folders', folderId, {name: trimmed});
+  if(row){ toast('Folder renamed'); render(); }
+};
+window.moveDrawingFolder = async function(siteId, parentFolderId, folderId, dir){
+  const siblings = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  // Normalize: give every sibling a real integer position first (existing
+  // folders may still have position:null from before this feature existed).
+  await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('drawing_folders', f.id, {position:idx}) : null));
+  const idx = siblings.findIndex(f=>f.id===folderId);
+  const swapIdx = idx + dir;
+  if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
+  await Promise.all([
+    dbUpdate('drawing_folders', siblings[idx].id, {position:swapIdx}),
+    dbUpdate('drawing_folders', siblings[swapIdx].id, {position:idx}),
+  ]);
+  render();
 };
 window.deleteDrawingFolder = async function(folderId){
   if(!confirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
@@ -5712,11 +6502,117 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
     if(!stored) continue;
     const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
     if(rows) uploaded++;
+    pushDrawingToOneDrive(siteId, file);
   }
   if(uploaded){ toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
   else if(skipped) toast('Please choose PDF, JPEG or PNG files.');
   render();
 };
+// Two-way OneDrive sync for Drawings, push half: best-effort, silent-fail,
+// same opportunistic pattern as photo/PDF sync elsewhere — only fires when
+// this site has a OneDrive folder linked (Team & Admin › Sync Folder).
+async function pushDrawingToOneDrive(siteId, file){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site || !site.onedrive_folder_id) return;
+  try{
+    const buf = await file.arrayBuffer();
+    let binary = ''; const bytes = new Uint8Array(buf); const chunk = 0x8000;
+    for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode(...bytes.subarray(i, Math.min(i+chunk, bytes.length)));
+    const base64 = btoa(binary);
+    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: file.name, content_base64: base64, site_id: siteId})});
+  }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+}
+/* ---- Drawings import (pull half of the two-way OneDrive sync) ---- */
+let drawingImportStack = null;
+let drawingImportFolders = [];
+let drawingImportFiles = [];
+let drawingImportError = null;
+let drawingImportBusy = false;
+let drawingImportSiteId = null;
+let drawingImportTargetFolderId = null;
+let drawingImportSelected = new Set();
+window.startDrawingImport = function(siteId, targetFolderId){
+  const site = SITES.find(s=>s.id===siteId);
+  drawingImportSiteId = siteId;
+  drawingImportTargetFolderId = targetFolderId || null;
+  drawingImportSelected = new Set();
+  drawingImportStack = [{id: site.onedrive_folder_id, name: site.onedrive_folder_name || 'Linked Folder', driveId: site.onedrive_drive_id}];
+  go(`#/site/${siteId}/drawings-import`);
+  loadDrawingImportLevel();
+};
+async function loadDrawingImportLevel(){
+  drawingImportBusy = true; render();
+  const current = drawingImportStack[drawingImportStack.length-1];
+  try{
+    const body = {includeFiles:true};
+    if(current.id){ body.parent_id = current.id; if(current.driveId) body.drive_id = current.driveId; }
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const d = await res.json();
+    if(!res.ok || d.error){ drawingImportError = d.error || 'Could not load OneDrive folders.'; drawingImportFolders = []; drawingImportFiles = []; }
+    else { drawingImportFolders = d.folders || []; drawingImportFiles = d.files || []; drawingImportError = null; }
+  }catch(e){ drawingImportError = 'Could not reach OneDrive.'; drawingImportFolders = []; drawingImportFiles = []; }
+  drawingImportBusy = false; render();
+}
+window.openDrawingImportFolder = function(id, name, driveId){
+  const parentDrive = drawingImportStack[drawingImportStack.length-1].driveId;
+  drawingImportStack.push({id, name, driveId: driveId || parentDrive});
+  loadDrawingImportLevel();
+};
+window.drawingImportUp = function(){
+  if(drawingImportStack.length>1){ drawingImportStack.pop(); loadDrawingImportLevel(); }
+};
+window.toggleDrawingImportSelect = function(key){
+  if(drawingImportSelected.has(key)) drawingImportSelected.delete(key); else drawingImportSelected.add(key);
+  render();
+};
+window.importSelectedDrawings = async function(){
+  if(!drawingImportSelected.size) return;
+  const files = drawingImportFiles.filter(f=>drawingImportSelected.has(f.id+'|'+(f.driveId||'')));
+  let imported = 0, failed = 0;
+  for(const f of files){
+    try{
+      const res = await sbFetch('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
+      const d = await res.json();
+      if(!res.ok || d.error || !d.content_base64){ failed++; continue; }
+      const bytes = Uint8Array.from(atob(d.content_base64), c=>c.charCodeAt(0));
+      const blob = new Blob([bytes]);
+      const path = drawingImportSiteId+'/'+(drawingImportTargetFolderId||'root')+'/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
+      const stored = await uploadToStorage('drawings', path, blob, 'application/octet-stream');
+      if(!stored){ failed++; continue; }
+      const rows = await dbInsert('drawing_files', {site_id:drawingImportSiteId, folder_id:drawingImportTargetFolderId||null, name:f.name, storage_path:stored, uploaded_by:ME.id});
+      if(rows) imported++; else failed++;
+    }catch(e){ failed++; }
+  }
+  toast(imported ? `${imported} drawing${imported===1?'':'s'} imported from OneDrive`+(failed?`, ${failed} failed`:'') : 'Import failed — try again.');
+  go(`#/site/${drawingImportSiteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`);
+};
+async function renderDrawingImportPicker(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!drawingImportStack || drawingImportSiteId!==siteId){ go(`#/site/${siteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`); return; }
+  const backHref = `#/site/${siteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="stub" style="margin:0 0 10px;">${drawingImportStack.map(f=>escapeHtml(f.name)).join(' › ')}</div>
+    ${drawingImportStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="drawingImportUp()">‹ Up one level</button>` : ''}
+    ${drawingImportError ? `<div class="empty">${escapeHtml(drawingImportError)}</div>` : drawingImportBusy ? `<p class="stub">Loading…</p>` : `
+      ${drawingImportFolders.map(f=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="openDrawingImportFolder('${f.id}','${jsAttr(f.name)}','${f.driveId||''}')">
+          <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+        </div>
+      `).join('')}
+      ${drawingImportFiles.map(f=>{
+        const key = f.id+'|'+(f.driveId||'');
+        const checked = drawingImportSelected.has(key);
+        return `
+        <div class="sitecard" style="cursor:pointer;" onclick="toggleDrawingImportSelect('${jsAttr(key)}')">
+          <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${checked?'checked':''} onclick="event.stopPropagation();toggleDrawingImportSelect('${jsAttr(key)}')">
+          <div class="info"><div class="name">${/\.(jpe?g|png)$/i.test(f.name)?'🖼':'📐'} ${escapeHtml(f.name)}</div></div>
+        </div>`;
+      }).join('')}
+      ${(!drawingImportFolders.length && !drawingImportFiles.length) ? `<div class="empty">Nothing here.</div>` : ''}
+    `}
+    ${drawingImportSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedDrawings()">Import ${drawingImportSelected.size} Selected</button>` : ''}
+  `, {title:'Import from OneDrive', subtitle:site.name, back:backHref, siteId, tabs:false});
+}
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!confirm('Delete this drawing? This can\'t be undone.')) return;
   const ok = await dbDelete('drawing_files', fileId);
@@ -5755,6 +6651,11 @@ async function markMessagesRead(ids){
   }catch(e){ /* silent */ }
 }
 let msgDraft = '';
+let msgSectionsOpen = {fromTeam:true, sent:true}; // collapsible, but open by default — not collapsed on load
+let msgReplyOpenId = null; // message id whose inline reply box is showing
+let msgReplyDraft = '';
+let msgSelectMode = false;
+let msgSelectedIds = new Set();
 async function renderMessages(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
@@ -5764,13 +6665,20 @@ async function renderMessages(siteId){
   let broadcasts = [], fromTeam = [];
   if(mgr){
     [broadcasts, fromTeam] = await Promise.all([
-      dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
-      dbSelect('messages', `audience=eq.managers&site_id=eq.${siteId}&order=created_at.desc&limit=50`),
+      dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`),
+      dbSelect('messages', `audience=eq.managers&parent_id=is.null&site_id=eq.${siteId}&order=created_at.desc&limit=50`),
     ]);
   } else {
-    broadcasts = await dbSelect('messages', `audience=eq.operatives&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
+    broadcasts = await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
   }
-  markMessagesRead([...broadcasts, ...fromTeam].map(m=>m.id));
+  const topLevel = [...broadcasts, ...fromTeam];
+  let repliesByParent = {};
+  if(topLevel.length){
+    const ids = topLevel.map(m=>m.id).join(',');
+    const replies = await dbSelect('messages', `parent_id=in.(${ids})&order=created_at.asc`);
+    replies.forEach(r=>{ (repliesByParent[r.parent_id]=repliesByParent[r.parent_id]||[]).push(r); });
+    markMessagesRead([...topLevel, ...replies].map(m=>m.id));
+  }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
 
   const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
@@ -5779,14 +6687,43 @@ async function renderMessages(siteId){
   // table used for push-notification taps in registerPushNotifications().
   const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list'};
   const msgRow = m => {
-    const dest = m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
+    const dest = !msgSelectMode && m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
+    const replies = repliesByParent[m.id] || [];
+    const replyAudience = m.audience==='operatives' ? 'managers' : 'operatives';
+    const selected = msgSelectedIds.has(m.id);
     return `
     <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}" ${dest?`onclick="go('${dest}')"`:''}>
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-        <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
-        ${mgr ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="event.stopPropagation();deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
+        <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
+          ${(mgr && msgSelectMode) ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:1px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMsgSelect('${m.id}')">` : ''}
+          <div style="min-width:0;">
+            <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
+            <div style="font-size:13.5px;">${escapeHtml(m.body)}</div>
+          </div>
+        </div>
+        ${(mgr && !msgSelectMode) ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="event.stopPropagation();deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
       </div>
-      <div style="font-size:13.5px;">${escapeHtml(m.body)}</div>
+      ${replies.length ? `
+        <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
+          ${replies.map(r=>`
+            <div style="margin-bottom:6px;">
+              <div style="font-size:11.5px;color:var(--slate);">${escapeHtml(nameOf(r.sender_id))} · ${new Date(r.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+              <div style="font-size:13px;">${escapeHtml(r.body)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      ${!msgSelectMode ? (
+        msgReplyOpenId===m.id ? `
+          <div style="margin-top:8px;" onclick="event.stopPropagation();">
+            <textarea style="min-height:60px;" placeholder="Write a reply..." oninput="msgReplyDraft=this.value">${escapeHtml(msgReplyDraft)}</textarea>
+            <div class="row-gap" style="margin-top:6px;">
+              <button class="darkbtn" style="flex:1;" onclick="sendMessageReply('${siteId}','${m.id}','${replyAudience}','${m.site_id||siteId}')">Send Reply</button>
+              <button class="ghostbtn" style="flex:1;" onclick="msgReplyOpenId=null;msgReplyDraft='';render()">Cancel</button>
+            </div>
+          </div>
+        ` : `<div class="stub" style="margin:8px 0 0;color:var(--blue);cursor:pointer;" onclick="event.stopPropagation();msgReplyOpenId='${m.id}';msgReplyDraft='';render()">↩ Reply</div>`
+      ) : ''}
     </div>`;
   };
 
@@ -5804,15 +6741,41 @@ async function renderMessages(siteId){
         </div>
         <button class="darkbtn" onclick="sendBroadcast('${siteId}')">Send</button>
       </div>
-      <p class="sectiontitle" style="margin-top:18px;">From your team</p>
-      ${fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`}
-      <p class="sectiontitle" style="margin-top:18px;">Sent to operatives</p>
-      ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`}
+
+      <div style="display:flex;justify-content:flex-end;margin:14px 0 0;">
+        <button class="ghostbtn" style="width:auto;padding:6px 12px;font-size:12.5px;" onclick="toggleMsgSelectMode()">${msgSelectMode?'Cancel select':'Select messages'}</button>
+      </div>
+      ${msgSelectMode && msgSelectedIds.size ? `<button class="darkbtn" style="margin-top:8px;" onclick="deleteSelectedMessages('${siteId}')">Delete ${msgSelectedIds.size} Selected</button>` : ''}
+
+      <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.fromTeam=!msgSectionsOpen.fromTeam;render()"><span class="arrow">${msgSectionsOpen.fromTeam?'▼':'▶'}</span> From your team</p>
+      ${msgSectionsOpen.fromTeam ? (fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`) : ''}
+      <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.sent=!msgSectionsOpen.sent;render()"><span class="arrow">${msgSectionsOpen.sent?'▼':'▶'}</span> Sent to operatives</p>
+      ${msgSectionsOpen.sent ? (broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`) : ''}
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
   `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'});
 }
+window.toggleMsgSelectMode = function(){
+  msgSelectMode = !msgSelectMode;
+  msgSelectedIds = new Set();
+  render();
+};
+window.toggleMsgSelect = function(id){
+  if(msgSelectedIds.has(id)) msgSelectedIds.delete(id); else msgSelectedIds.add(id);
+  render();
+};
+window.deleteSelectedMessages = async function(siteId){
+  if(!msgSelectedIds.size) return;
+  if(!confirm(`Delete ${msgSelectedIds.size} message${msgSelectedIds.size===1?'':'s'}? This can't be undone.`)) return;
+  const ids = Array.from(msgSelectedIds);
+  const res = await sbFetch('/rest/v1/messages?id=in.('+ids.join(',')+')', {method:'DELETE'});
+  if(res.ok){
+    toast('Messages deleted');
+    msgSelectMode = false; msgSelectedIds = new Set();
+    render();
+  } else toast('Could not delete — '+(await safeErr(res)));
+};
 window.deleteMessage = async function(siteId, messageId){
   if(!confirm('Delete this message? This can\'t be undone.')) return;
   const ok = await dbDelete('messages', messageId);
@@ -5827,6 +6790,21 @@ window.sendBroadcast = async function(siteId){
   if(rows){
     msgDraft = '';
     toast(target==='all' ? "Sent to all operatives" : "Sent to this site's operatives");
+    render();
+  }
+};
+// Reply to a specific message — works both directions: an operative
+// replying to a broadcast posts back to the managers' "From your team"
+// list, and a manager replying to something from the crew posts back to
+// operatives, all nested under the original message rather than starting a
+// fresh top-level thread.
+window.sendMessageReply = async function(siteId, parentId, audience, targetSiteId){
+  const body = (msgReplyDraft||'').trim();
+  if(!body){ toast('Write a reply first.'); return; }
+  const rows = await dbInsert('messages', {org_id: ME.org_id, site_id: targetSiteId||siteId, sender_id: ME.id, audience, kind:'message', body, parent_id: parentId});
+  if(rows){
+    msgReplyOpenId = null; msgReplyDraft = '';
+    toast('Reply sent');
     render();
   }
 };
@@ -5874,7 +6852,7 @@ async function render(){
     // Keep the bottom tab bar's Messages badge fresh on every site-scoped
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
-    if(page!=='drawings') drawingUploadOpen = false;
+    if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
@@ -5897,6 +6875,7 @@ async function render(){
       const folderId = parts[3] || null;
       return renderDrawings(siteId, folderId);
     }
+    if(page==='drawings-import') return renderDrawingImportPicker(siteId);
     if(page==='hs'){
       const sub = parts[3];
       if(!sub) return renderHealthSafety(siteId);
@@ -5907,13 +6886,24 @@ async function render(){
         if(tbtId) return renderToolboxTalkView(siteId, tbtId);
         return renderToolboxTalks(siteId);
       }
+      if(sub==='briefings'){
+        const bsub = parts[4];
+        if(bsub==='fill' && parts[5]) return renderReportFill(siteId, parts[5], true);
+        if(bsub==='view' && parts[5]) return renderReportView(siteId, parts[5], true);
+        return renderDailyBriefings(siteId);
+      }
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
     if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
-    if(page==='team') return renderAssignTeam(siteId);
+    if(page==='team'){
+      if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
+      return renderAssignTeam(siteId);
+    }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
+    if(page==='price') return renderPriceTile(siteId);
+    if(page==='price-picker') return renderPriceFilePicker(siteId);
   }
   renderSites();
 }
