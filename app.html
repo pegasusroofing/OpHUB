@@ -1009,8 +1009,19 @@ function nameOf(userId){ return (PROFILES[userId] && PROFILES[userId].name) || '
 const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
 
 /* ================= routing ================= */
-function go(hash){ location.hash = hash; }
-window.addEventListener('hashchange', render);
+// SELF_NAV guards against a WebView quirk (seen on this Android build) where
+// simply assigning location.hash — our own go() calls, i.e. every ordinary
+// button/link tap that navigates anywhere — ALSO fires 'popstate', not just
+// real back/forward traversal like the spec says it should. Without this
+// guard, the popstate safety net below would misread that as a real
+// back-navigation and immediately redirect to CURRENT_BACK_HASH, which is
+// why tapping anything while inside a site was bouncing straight back out.
+// Cleared on 'hashchange' (fires right after popstate for the same
+// navigation) with a short timeout fallback for the case where go() is
+// called with the hash unchanged, which never fires hashchange at all.
+let SELF_NAV = false;
+function go(hash){ SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300); location.hash = hash; }
+window.addEventListener('hashchange', function(){ SELF_NAV = false; render(); });
 // Edge-swipe-to-go-back (left edge, swiping left→right), like the native iOS
 // gesture. This deliberately goes up one folder level (whatever the current
 // screen's own '‹' back arrow points to — CURRENT_BACK_HASH, kept in sync by
@@ -1042,11 +1053,14 @@ window.addEventListener('hashchange', render);
 // Android bridge falls back to WebView.goBack() when nothing else handles
 // it) or a native edge-swipe in a plain browser tab. That kind of back
 // replays raw hash history, same problem the comment above describes.
-// 'popstate' only fires for a real history traversal (never for our own
-// go()/location.hash= pushes), and fires before 'hashchange' for the same
-// navigation, so CURRENT_BACK_HASH here still holds the screen we were just
-// on — redirecting it here overrides wherever raw history landed us.
+// 'popstate' is supposed to only fire for a real history traversal, never
+// for our own go()/location.hash= pushes — but see the SELF_NAV comment
+// above for why that's not reliably true on every WebView, hence the guard.
+// It fires before 'hashchange' for the same navigation, so CURRENT_BACK_HASH
+// here still holds the screen we were just on — redirecting it here
+// overrides wherever raw history landed us.
 window.addEventListener('popstate', function(){
+  if(SELF_NAV) return;
   if(CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
 });
 function parseRoute(){
@@ -1665,7 +1679,7 @@ async function renderSites(){
       <div class="ddrow" style="margin-top:${isFirst?'0':'18px'};" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
       </div>
-      ${siteSectionOpen[key] ? (list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`) : ''}
+      ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   app.innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
@@ -1758,14 +1772,20 @@ async function preloadTbtBankForSite(site){
 }
 window.deleteSite = async function(siteId, name){
   if(!confirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
+  siteStatusMenuOpenId = null;
   const ok = await dbDelete('sites', siteId);
   if(ok){
     SITES = SITES.filter(s=>s.id!==siteId);
     toast('Site deleted');
-    go('#/sites');
   } else {
     toast('Could not delete — try again.');
   }
+  // Deleting always happens from the sites list itself, so go('#/sites') was
+  // a same-hash no-op — no hashchange event fires for that, and render() is
+  // only ever wired up as a hashchange listener, so the screen never
+  // reflected the deletion (or the closed dropdown) even though it had
+  // already succeeded. Call render() directly instead of relying on go().
+  render();
 };
 
 /* ================= MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ================= */
