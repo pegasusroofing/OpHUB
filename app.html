@@ -2686,6 +2686,100 @@ let newTodoAssigneeDraft = '';
 let todoAddOpen = false;
 let todoFilter = 'live';
 let todoAssigneeEditId = null;
+let todoEmailBusy = false;
+// Builds a simple Name/Assigned-to table PDF of the live (not-yet-closed)
+// to-dos for a site — mirrors the look of drawSignatureTablePages, just
+// without the signature column.
+async function buildTodoListPdf(todos, siteName){
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  const INK = PDFLib.rgb(0.06,0.06,0.07);
+  const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+  const LINE = PDFLib.rgb(0.85,0.85,0.85);
+  const HEADBG = PDFLib.rgb(0.95,0.94,0.91);
+  const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 50;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  const COL_PM = 160, COL_TASK = TABLE_W - COL_PM;
+  const HEADER_H = 24;
+
+  function wrapText(text, font, size, maxWidth){
+    const words = String(text||'').split(' ');
+    const lines = [];
+    let cur = '';
+    for(const w of words){
+      const test = cur ? cur+' '+w : w;
+      if(font.widthOfTextAtSize(test, size) > maxWidth && cur){ lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if(cur) lines.push(cur);
+    return lines;
+  }
+
+  let page, y;
+  function drawTableHeader(){
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+    page.drawText('To Do', {x:MARGIN+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawText('Assigned To', {x:MARGIN+COL_TASK+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+    page.drawLine({start:{x:MARGIN+COL_TASK,y:y}, end:{x:MARGIN+COL_TASK,y:y-HEADER_H}, thickness:0.5, color:LINE});
+    y -= HEADER_H;
+  }
+  function newPage(continued){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    y = PAGE_H - 60;
+    page.drawText('To Do List' + (continued?' (continued)':''), {x:MARGIN, y, size:20, font:bold, color:INK});
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1.5, color:INK});
+    y -= 24;
+    if(!continued){
+      page.drawText(siteName||'', {x:MARGIN, y, size:12, font:bold, color:INK});
+      y -= 16;
+      page.drawText('Generated '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+      y -= 18;
+    }
+    drawTableHeader();
+  }
+  newPage(false);
+  for(const t of todos){
+    const pmName = t.assigned_to ? (nameOf(t.assigned_to)||'—') : '—';
+    const taskLines = wrapText(t.text, reg, 10, COL_TASK-20);
+    const pmLines = wrapText(pmName, reg, 10, COL_PM-20);
+    const lineCount = Math.max(taskLines.length, pmLines.length, 1);
+    const rowH = Math.max(30, lineCount*13 + 14);
+    if(y - rowH < 70) newPage(true);
+    const rowTop = y;
+    page.drawLine({start:{x:MARGIN,y:rowTop-rowH}, end:{x:MARGIN+TABLE_W,y:rowTop-rowH}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_TASK,y:rowTop}, end:{x:MARGIN+COL_TASK,y:rowTop-rowH}, thickness:0.5, color:LINE});
+    taskLines.forEach((l,i)=>{ page.drawText(l, {x:MARGIN+10, y:rowTop-16-(i*13), size:10, font:reg, color:INK}); });
+    pmLines.forEach((l,i)=>{ page.drawText(l, {x:MARGIN+COL_TASK+10, y:rowTop-16-(i*13), size:10, font:reg, color:INK}); });
+    y -= rowH;
+  }
+  return pdfDoc.save();
+}
+window.emailLiveTodos = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  todoEmailBusy = true; render();
+  toast('Building PDF…');
+  try{
+    const [liveTodos] = await Promise.all([
+      dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&order=created_at.asc'),
+      loadAllProfiles(),
+    ]);
+    if(!liveTodos.length){ toast('No live to-dos to email.'); todoEmailBusy=false; render(); return; }
+    const outBytes = await buildTodoListPdf(liveTodos, site?site.name:'');
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
+    const base64 = btoa(binary);
+    const filename = exportFilename(site?site.name:'', 'To Do List (Live)', 'pdf');
+    const res = await sbFetch('/functions/v1/send-todo-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64: base64})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else { toast('Live to-do list emailed to '+ME.email); }
+  }catch(e){ console.error(e); toast('Could not build/email the PDF.'); }
+  todoEmailBusy = false; render();
+};
 async function renderTodoList(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [allTodos, pmList] = await Promise.all([
@@ -2735,12 +2829,20 @@ async function renderTodoList(siteId){
       </div>
     `).join('') : `<div class="empty">No ${todoFilter} to-dos.</div>`}
 
-    ${todoFilter==='live' ? (
-      allTodos.length ? `
-        <div class="ddrow" style="margin-top:18px;" onclick="todoAddOpen=!todoAddOpen;render()"><span class="arrow">${todoAddOpen?'▼':'▶'}</span> Add To Do</div>
-        ${todoAddOpen ? `<div class="card">${addForm}</div>` : ''}
-      ` : `<div class="card" style="margin-top:18px;"><p class="sectiontitle" style="margin-top:0;">Add a to-do</p>${addForm}</div>`
-    ) : ''}
+    ${todoFilter==='live' && todos.length ? `
+      <button class="ghostbtn exportbtn" style="margin-top:14px;" ${todoEmailBusy?'disabled':''} onclick="emailLiveTodos('${siteId}')">${todoEmailBusy?'Sending…':'Email Live To Do List'}</button>
+    ` : ''}
+
+    ${todoFilter==='live' ? (() => {
+      // No items yet — nothing to hide behind a dropdown, so keep the add
+      // form expanded. Once at least one to-do exists, it collapses behind
+      // the usual ddrow toggle (closed by default, same as after adding).
+      const addOpen = allTodos.length===0 ? true : todoAddOpen;
+      return `
+        <div class="ddrow" style="margin-top:18px;" onclick="todoAddOpen=!todoAddOpen;render()"><span class="arrow">${addOpen?'▼':'▶'}</span> Add To Do</div>
+        ${addOpen ? `<div class="card">${addForm}</div>` : ''}
+      `;
+    })() : ''}
   `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'});
 }
 window.addTodo = async function(siteId){
