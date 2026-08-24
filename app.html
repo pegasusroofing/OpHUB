@@ -2568,13 +2568,14 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin] = await Promise.all([
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
+    isManager(ME) ? dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&select=id') : Promise.resolve([]),
   ]);
   // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
   // the router right before this ran — reuse it here instead of querying twice.
@@ -2637,6 +2638,12 @@ async function renderSiteHome(siteId){
         <div class="lbl">Price</div><div class="sub">Restricted access</div>
       </div>
       ` : ''}
+      ${isManager(ME) ? `
+      <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
+        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+        <div><div class="lbl" style="font-size:15.94px;">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
+      </div>
+      ` : ''}
     </div>
     ${isManager(ME) ? `
       <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
@@ -2668,6 +2675,62 @@ async function unreadCountForSite(siteId){
   const readSet = new Set(reads.map(r=>r.message_id));
   return msgs.filter(m=>!readSet.has(m.id)).length;
 }
+/* ================= TO DO LIST ================= */
+let newTodoDraft = '';
+let newTodoAssigneeDraft = '';
+async function renderTodoList(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [todos, pmList] = await Promise.all([
+    dbSelect('todos', 'site_id=eq.'+siteId+'&order=done.asc,created_at.asc'),
+    loadPMList(),
+  ]);
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Add a to-do</p>
+      <div class="formfield">
+        <input type="text" id="newTodoText" placeholder="What needs doing?" value="${escapeHtml(newTodoDraft)}" oninput="newTodoDraft=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo('${siteId}');}">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Assign to a project manager (optional)</label>
+        <select id="newTodoAssignee" onchange="newTodoAssigneeDraft=this.value">
+          <option value="">Unassigned</option>
+          ${pmList.map(p=>`<option value="${p.id}" ${newTodoAssigneeDraft===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
+    </div>
+    ${todos.length ? todos.map(t=>`
+      <div class="card" style="display:flex;align-items:flex-start;gap:10px;${t.done?'opacity:.6;':''}">
+        <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;margin-top:2px;" ${t.done?'checked':''} onclick="toggleTodo('${t.id}',${t.done})">
+        <div style="flex:1;min-width:0;">
+          <div style="${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
+          ${t.assigned_to ? `<div class="sub" style="margin-top:2px;">Assigned to ${escapeHtml(nameOf(t.assigned_to))}</div>` : ''}
+        </div>
+        <div class="taskicon danger" onclick="deleteTodo('${siteId}','${t.id}')">🗑</div>
+      </div>
+    `).join('') : `<div class="empty">No to-dos yet — add one above.</div>`}
+  `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'});
+}
+window.addTodo = async function(siteId){
+  const text = (newTodoDraft||'').trim();
+  if(!text){ toast('Enter what needs doing first.'); return; }
+  const row = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, created_by:ME.id});
+  if(row){
+    newTodoDraft = '';
+    newTodoAssigneeDraft = '';
+    toast('Added to the to-do list');
+    render();
+  }
+};
+window.toggleTodo = async function(id, done){
+  const row = await dbUpdate('todos', id, {done: !done});
+  if(row) render();
+};
+window.deleteTodo = async function(siteId, id){
+  if(!await customConfirm('Delete this to-do item? This can\'t be undone.')) return;
+  const ok = await dbDelete('todos', id);
+  if(ok){ toast('To-do deleted'); render(); }
+};
 window.setGeofenceRadius = async function(siteId, radius){
   const row = await dbUpdate('sites', siteId, {geofence_radius_m: radius});
   if(row){
@@ -2839,8 +2902,16 @@ async function renderAssignTeam(siteId){
   const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
 
   document.getElementById('app').innerHTML = shell(`
+    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address</p>
+    ${siteTeamSectionOpen.address ? `
+    <div class="card">
+      <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}"></div>
+      <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}"></div>
+      <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save Address</button>
+    </div>
+    ` : ''}
     ${odCompanyConnected ? `
-    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
       ${site.onedrive_folder_id ? `
@@ -2908,8 +2979,19 @@ async function renderAssignTeam(siteId){
     ` : ''}
   `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
-let siteTeamSectionOpen = {sync:false, operatives:false, price:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
+window.saveSiteAddress = async function(siteId){
+  const address = document.getElementById('editSiteAddress').value.trim();
+  const postcode = document.getElementById('editSitePostcode').value.trim();
+  const row = await dbUpdate('sites', siteId, {address: address||null, postcode: postcode||null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Address updated');
+    render();
+  }
+};
 window.toggleAssignment = async function(siteId, userId, isAssigned){
   if(isAssigned){
     const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
@@ -7426,6 +7508,7 @@ async function render(){
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
+    if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
@@ -7473,6 +7556,10 @@ async function render(){
     if(page==='team'){
       if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
       return renderAssignTeam(siteId);
+    }
+    if(page==='todos'){
+      if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
+      return renderTodoList(siteId);
     }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
     if(page==='price') return renderPriceTile(siteId);
