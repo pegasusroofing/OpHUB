@@ -59,36 +59,36 @@
     #app{
       max-width:1180px;box-shadow:none;
     }
-    .appbar{padding:20px 32px;padding-top:calc(20px + env(safe-area-inset-top));}
+    .appbar{padding:19px 30.4px;padding-top:calc(19px + env(safe-area-inset-top));}
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;}
   }
   /* Phone-only header text scale-down (0.85x) — only applies below the
      desktop breakpoint above, so the wide-browser header stays full size. */
   @media (max-width:759px){
-    .appbar .brandline{font-size:12.75px;}
-    .appbar .brandline.lg{font-size:19.125px;}
-    .appbar .brandline.orgname{font-size:15.9375px;}
-    .appbar h2{font-size:20.4px;}
-    .appbar h2.lg{font-size:22.95px;}
-    .rolechip{font-size:6.63px;}
+    .appbar .brandline{font-size:12.1125px;}
+    .appbar .brandline.lg{font-size:18.16875px;}
+    .appbar .brandline.orgname{font-size:15.140625px;}
+    .appbar h2{font-size:19.38px;}
+    .appbar h2.lg{font-size:21.8025px;}
+    .rolechip{font-size:6.2985px;}
   }
   .stripe-edge{height:5px;width:100%;flex:0 0 auto;
     background:
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1);color:var(--brand1-text);padding:21px 24px 18px;padding-top:calc(21px + env(safe-area-inset-top));flex:0 0 auto;}
-  .appbar .row{display:flex;align-items:center;gap:15px;}
+  .appbar{background:var(--brand1);color:var(--brand1-text);padding:19.95px 22.8px 17.1px;padding-top:calc(19.95px + env(safe-area-inset-top));flex:0 0 auto;}
+  .appbar .row{display:flex;align-items:center;gap:14.25px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
-  .brandmark{width:72px;height:72px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 72px;padding:4px;}
-  .brandline{font-size:15px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand1-text);opacity:.8;margin-bottom:1.5px;}
-  .brandline.lg{font-size:22.5px;opacity:1;}
-  .brandline.orgname{font-size:18.75px;opacity:1;}
-  .appbar h2{margin:0;font-size:24px;font-weight:800;color:var(--brand1-text);}
-  .appbar h2.lg{font-size:27px;}
-  .appbar .meta{font-size:clamp(9px, 3.3vw, 12.7px);color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
-  .homebtn{cursor:pointer;color:var(--brand1-text);font-size:19px;line-height:1;width:34px;height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);}
+  .brandmark{width:68.4px;height:68.4px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 68.4px;padding:3.8px;}
+  .brandline{font-size:14.25px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand1-text);opacity:.8;margin-bottom:1.5px;}
+  .brandline.lg{font-size:21.375px;opacity:1;}
+  .brandline.orgname{font-size:17.8125px;opacity:1;}
+  .appbar h2{margin:0;font-size:22.8px;font-weight:800;color:var(--brand1-text);}
+  .appbar h2.lg{font-size:25.65px;}
+  .appbar .meta{font-size:clamp(8.55px, 3.135vw, 12.065px);color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .homebtn{cursor:pointer;color:var(--brand1-text);font-size:18.05px;line-height:1;width:32.3px;height:32.3px;flex:0 0 32.3px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
   .geo-modal-overlay{display:none;position:fixed;inset:0;background:rgba(16,17,20,0.55);z-index:9999;align-items:center;justify-content:center;padding:20px;}
@@ -101,21 +101,25 @@
   .geo-modal-btn:hover{border-color:var(--slate-light);}
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
-  .backarrow{font-size:57px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:6px 21px 6px 0;margin:-6px 0;display:flex;align-items:center;min-height:66px;min-width:54px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
+  .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
 
   .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:26px;}
 
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(16,17,20,.04);}
   .sectiontitle{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--slate);margin:4px 0 10px;}
 
   .primarybtn,.darkbtn,.ghostbtn{
-    display:block;width:100%;padding:13px;border-radius:10px;border:none;
+    display:block;width:100%;padding:13px;border-radius:11px;border:none;
     font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
+    transition:opacity .15s ease,transform .15s ease;
   }
+  .primarybtn:active,.darkbtn:active,.ghostbtn:active{transform:scale(.98);opacity:.92;}
   .primarybtn{background:var(--brand1);color:#fff;}
-  .exportbtn{padding:6.90625px;font-size:7.171875px;}
+  .exportbtn{padding:6.90625px;font-size:7.171875px;border-radius:9px !important;border-width:1px !important;}
+  .ramsexportbtn{padding:8.978125px;font-size:9.323438px;}
+  .sowexportbtn{padding:8.2875px;font-size:8.60625px;}
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
@@ -144,7 +148,8 @@
   .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
 
   .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
-    border-radius:12px;padding:12px;margin-bottom:10px;position:relative;}
+    border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
+  .sitecard:active{transform:scale(.99);}
   .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
     background:linear-gradient(135deg,var(--brand1),var(--brand2));display:flex;align-items:center;justify-content:center;
     color:#fff;font-weight:800;font-size:15px;}
@@ -175,9 +180,18 @@
   .ddrow{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
     width:100%;box-sizing:border-box;padding:9px 14px;margin:10px 0 0;
     border-radius:9px;border:1px solid var(--line);background:#fff;
-    font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);}
+    font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);
+    box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease;}
   .ddrow:first-child{margin-top:0;}
   .ddrow .arrow{font-size:10px;color:var(--slate);flex:0 0 auto;}
+
+  .drawheaderrow{display:flex;align-items:center;justify-content:space-between;
+    width:100%;box-sizing:border-box;padding:0 2px;margin:0 0 8px;
+    font-size:12.5px;font-weight:800;letter-spacing:.01em;color:var(--slate);text-transform:uppercase;}
+  .roundplusbtn{flex:0 0 auto;width:30px;height:30px;border-radius:50%;
+    border:1px solid var(--line);background:#fff;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
+    cursor:pointer;line-height:1;}
 
   .status-strip{display:flex;align-items:center;justify-content:space-between;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
@@ -189,8 +203,10 @@
   .tilegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:72px;}
   .tile-wide .icon{margin-bottom:0;}
-  .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 12px;
-    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:112px;position:relative;}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 12px;
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:112px;position:relative;
+    box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
+  .tile:active{transform:scale(.98);}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
   .tile .lbl{font-size:15.94px;font-weight:800;line-height:1.2;font-family:Calibri,'Open Sans',sans-serif;}
   .tile .sub{font-size:13.39px;color:var(--slate-light);font-family:Calibri,'Open Sans',sans-serif;}
@@ -244,7 +260,7 @@
   .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
   .closurerow img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
 
-  .ramsdoc{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:10px;}
+  .ramsdoc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(16,17,20,.04);}
   .ramsdoc .name{font-size:13.5px;font-weight:800;}
   .ramsdoc .meta{font-size:11px;color:var(--slate);margin-top:3px;}
   .ramsdoc .viewlink{font-size:11.5px;color:var(--blue);font-weight:700;text-decoration:underline;}
@@ -1664,7 +1680,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -1718,9 +1734,14 @@ function siteCardHtml(s, canAdd, pmOptions){
 let siteFilterPmIds = []; // multi-select — empty = all PMs
 let pmFilterOpen = false;
 let addSiteFormOpen = false;
+let newSiteStatus = null; // 'active' | 'upcoming' — must be explicitly chosen, no silent default
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
-let siteSectionOpen = {live:true, upcoming:true, closed:true};
+// upcoming:null means "no explicit user choice yet" — renderSites resolves
+// it once (open if there are upcoming jobs, closed if there aren't) the
+// first time it's computed, then leaves it alone so the user's own
+// toggling takes over from there.
+let siteSectionOpen = {live:true, upcoming:null, closed:false};
 window.toggleSiteStatusMenu = function(siteId){
   siteStatusMenuOpenId = siteStatusMenuOpenId===siteId ? null : siteId;
   sitePmPickerOpenId = null;
@@ -1757,6 +1778,7 @@ async function renderSites(){
   const liveSites = filtered.filter(s=>statusOf(s)==='live');
   const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
   const closedSites = filtered.filter(s=>statusOf(s)==='closed');
+  if(siteSectionOpen.upcoming===null) siteSectionOpen.upcoming = upcomingSites.length>0;
   const siteSection = (key, label, list, isFirst) => canAdd ? `
       <div class="ddrow" style="margin-top:${isFirst?'0':'18px'};" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
@@ -1799,6 +1821,11 @@ async function renderSites(){
           <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name"></div>
           <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address"></div>
           <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode"></div>
+          <p class="field-label" style="margin-bottom:6px;">Status</p>
+          <div class="row-gap" style="margin-bottom:14px;">
+            <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
+            <button type="button" class="${newSiteStatus==='upcoming'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='upcoming';render()">Upcoming</button>
+          </div>
         ` : ''}
         <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Site</button>
       </div>
@@ -1817,12 +1844,13 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   const postcode = document.getElementById('newSitePostcode').value.trim();
   if(!name){ toast('Enter a site name.'); return; }
+  if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
   // Prefer: return=representation) — Postgres has a known quirk where a
   // table's own SELECT policy, if it re-queries that same table (as sites'
@@ -1831,8 +1859,9 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:'upcoming', created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:newSiteStatus, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  newSiteStatus = null;
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -2486,7 +2515,7 @@ async function renderSiteHome(siteId){
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div><div class="lbl" style="font-size:15.94px;">Check In / Out</div><div class="sub">${orgAllowsGps() ? 'GPS logged' : 'Tap to log time'}</div></div>
+        <div><div class="lbl" style="font-size:15.94px;">Check In / Out</div><div class="sub">Tap to log time</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
@@ -4346,7 +4375,7 @@ async function renderSchedule(siteId){
       </div>
       ` : ''}
     ` : ''}
-    ${allTasks.length ? `<button class="ghostbtn exportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
+    ${allTasks.length ? `<button class="ghostbtn exportbtn sowexportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
 window.toggleScheduleSection = function(sectionId){
@@ -5231,10 +5260,20 @@ window.exportSchedulePDF = async function(siteId){
 
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
-function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd){
+function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
+  const roster = assignedIds||[];
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
     const mine = sigs.find(s=>s.user_id===ME.id);
+    const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
+    let outstandingHtml;
+    if(!roster.length){
+      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>` : '';
+    } else if(!notSigned.length){
+      outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ RAMS signed by all operatives</div></div>`;
+    } else {
+      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>${notSigned.map(id=>`<div style="display:flex;align-items:center;gap:8px;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>`;
+    }
     return `
     <div class="ramsdoc">
       <div class="taskrowtop">
@@ -5246,26 +5285,30 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd){
       <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
       </div>
-      ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
-        ${canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+      ${outstandingHtml}
+      ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn ramsexportbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
 async function fetchRamsData(siteId){
-  const docs = await dbSelect('rams_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc');
+  const [docs, assigned] = await Promise.all([
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+  ]);
   let sigsByDoc = {};
   if(docs.length){
     const ids = docs.map(d=>d.id).join(',');
     const sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
     sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
   }
-  return {docs, sigsByDoc};
+  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
 }
 let ramsUploadOpen = false;
 async function renderRams(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
-  const {docs, sigsByDoc} = await fetchRamsData(siteId);
+  await loadAllProfiles();
+  const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
@@ -5276,7 +5319,7 @@ async function renderRams(siteId){
   `;
 
   document.getElementById('app').innerHTML = shell(`
-    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
+    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Upload RAMS</div>
@@ -5293,9 +5336,9 @@ async function renderRams(siteId){
   ramsPollTimer = setInterval(async ()=>{
     const el = document.getElementById('ramsDocsList');
     if(!el){ clearInterval(ramsPollTimer); ramsPollTimer = null; return; }
-    const {docs, sigsByDoc} = await fetchRamsData(siteId);
+    const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
     const freshEl = document.getElementById('ramsDocsList');
-    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd);
+    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds);
   }, 7000);
 }
 window.addRams = async function(siteId){
@@ -5356,7 +5399,8 @@ window.deleteRams = async function(ramsId, storagePath){
 
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
-function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
+function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
+  const roster = assignedIds||[];
   const unsignedCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
   const signAllRow = docs.length ? `
     <button class="darkbtn" style="margin-bottom:14px;" ${unsignedCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
@@ -5367,6 +5411,15 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
   return signAllRow + docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
     const mine = sigs.find(s=>s.user_id===ME.id);
+    const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
+    let outstandingHtml;
+    if(!roster.length){
+      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>` : '';
+    } else if(!notSigned.length){
+      outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ COSHH signed by all operatives</div></div>`;
+    } else {
+      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>${notSigned.map(id=>`<div style="display:flex;align-items:center;gap:8px;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>`;
+    }
     return `
     <div class="ramsdoc">
       <div class="taskrowtop">
@@ -5378,28 +5431,32 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
       <div class="siglinebox ${mine?'signed':''}">
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet — use "Sign All" above'}
       </div>
-      ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
-        ${canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+      ${outstandingHtml}
+      ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}
     </div>`;
   }).join('') || `<div class="empty">No COSHH uploaded.</div>`;
 }
 async function fetchCoshhData(siteId){
-  const docs = await dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc');
+  const [docs, assigned] = await Promise.all([
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+  ]);
   let sigsByDoc = {};
   if(docs.length){
     const ids = docs.map(d=>d.id).join(',');
     const sigs = await dbSelect('coshh_signatures', 'coshh_id=in.('+ids+')');
     sigs.forEach(s=>{ (sigsByDoc[s.coshh_id]=sigsByDoc[s.coshh_id]||[]).push(s); });
   }
-  return {docs, sigsByDoc};
+  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
 }
 async function renderCoshh(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
-  const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+  await loadAllProfiles();
+  const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
 
   document.getElementById('app').innerHTML = shell(`
-    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd)}</div>
+    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
     ${canAdd ? `
       <div class="card">
@@ -5418,9 +5475,9 @@ async function renderCoshh(siteId){
   coshhPollTimer = setInterval(async ()=>{
     const el = document.getElementById('coshhDocsList');
     if(!el){ clearInterval(coshhPollTimer); coshhPollTimer = null; return; }
-    const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+    const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
     const freshEl = document.getElementById('coshhDocsList');
-    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd);
+    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds);
   }, 7000);
 }
 window.addCoshh = async function(siteId){
@@ -5570,7 +5627,7 @@ async function renderDailyBriefings(siteId){
             <div class="sitecard">
               <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="openTemplateEditor('${t.id}',null,'#/site/${siteId}/hs/briefings')">Edit</button>
+                ${ME.role==='admin' ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="openTemplateEditor('${t.id}',null,'#/site/${siteId}/hs/briefings')">Edit</button>` : ''}
                 <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateFromDailyBriefings('${siteId}','${t.id}')">Remove</button>
               </div>
             </div>
@@ -5603,6 +5660,7 @@ async function renderDailyBriefings(siteId){
           <div class="addr">${s.issued_at ? `Issued for signing · ${sigs.length} signed` : 'Not issued for signing'}</div>
         </div>
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+        ${s.status==='in_progress' && ME.role==='admin' ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteBriefingSubmission('${siteId}','${s.id}')">🗑</div>` : ''}
       </div>
       ${needsMySignature ? `
         <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
@@ -5610,6 +5668,11 @@ async function renderDailyBriefings(siteId){
     `;}).join('') || `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
   `, {title:'Daily Briefings', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
 }
+window.deleteBriefingSubmission = async function(siteId, submissionId){
+  if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
+  const ok = await dbDelete('report_submissions', submissionId);
+  if(ok){ toast('Briefing deleted'); render(); }
+};
 window.startBriefing = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
   const t = rows[0];
@@ -6764,6 +6827,18 @@ async function renderDrawings(siteId, folderId){
   const isDrawingsFolderEmpty = subfolders.length===0 && files.length===0;
 
   document.getElementById('app').innerHTML = shell(`
+    <div class="drawheaderrow">
+      <span>File Name</span>
+      ${canManage ? `<div class="roundplusbtn" onclick="drawingNewFolderOpen=!drawingNewFolderOpen;render()">+</div>` : ''}
+    </div>
+    ${canManage && (isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
+      <div class="card" style="margin-bottom:10px;">
+        <div class="row-gap">
+          <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Create Folder</button>
+        </div>
+      </div>
+    ` : ''}
     ${subfolders.length || files.length ? `
       ${subfolders.map((f,idx)=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
@@ -6793,18 +6868,6 @@ async function renderDrawings(siteId, folderId){
     ${canManage ? `<div style="height:66px;"></div>` : ''}
 
     ${canManage ? `
-      <div class="ddrow" onclick="drawingNewFolderOpen=!drawingNewFolderOpen;render()">
-        <span class="arrow">${(isDrawingsFolderEmpty||drawingNewFolderOpen)?'▼':'▶'}</span> New folder
-      </div>
-      ${(isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
-        <div class="card">
-          <div class="row-gap">
-            <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
-            <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Create Folder</button>
-          </div>
-        </div>
-      ` : ''}
-
       <button class="${drawingUploadOpen?'darkbtn':'ghostbtn'}" style="margin-top:10px;" onclick="drawingUploadOpen=!drawingUploadOpen;render()">Upload Drawings</button>
       ${drawingUploadOpen ? `
         <div class="card" style="margin-top:10px;">
@@ -7184,7 +7247,7 @@ async function render(){
   if(ME.role==='admin' && ORG && !ORG.logo_path){ renderCompanySetup(); return; }
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
-  addSiteFormOpen = false; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
