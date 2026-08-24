@@ -2638,12 +2638,17 @@ async function renderSiteHome(siteId){
         <div class="lbl">Price</div><div class="sub">Restricted access</div>
       </div>
       ` : ''}
-      ${isManager(ME) ? `
+      ${isManager(ME) ? (canSeePrice ? `
+      <div class="tile" onclick="go('#/site/${siteId}/todos')">
+        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+        <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
+      </div>
+      ` : `
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
         <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
         <div><div class="lbl" style="font-size:15.94px;">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
       </div>
-      ` : ''}
+      `) : ''}
     </div>
     ${isManager(ME) ? `
       <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
@@ -2678,15 +2683,17 @@ async function unreadCountForSite(siteId){
 /* ================= TO DO LIST ================= */
 let newTodoDraft = '';
 let newTodoAssigneeDraft = '';
+let todoAddOpen = false;
+let todoFilter = 'live';
+let todoAssigneeEditId = null;
 async function renderTodoList(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const [todos, pmList] = await Promise.all([
-    dbSelect('todos', 'site_id=eq.'+siteId+'&order=done.asc,created_at.asc'),
+  const [allTodos, pmList] = await Promise.all([
+    dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
     loadPMList(),
   ]);
-  document.getElementById('app').innerHTML = shell(`
-    <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add a to-do</p>
+  const todos = allTodos.filter(t => todoFilter==='live' ? !t.done : t.done);
+  const addForm = `
       <div class="formfield">
         <input type="text" id="newTodoText" placeholder="What needs doing?" value="${escapeHtml(newTodoDraft)}" oninput="newTodoDraft=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo('${siteId}');}">
       </div>
@@ -2698,17 +2705,42 @@ async function renderTodoList(siteId){
         </select>
       </div>
       <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
+  `;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${todoFilter==='live'?'active':''}" onclick="todoFilter='live';render()">Live</div>
+      <div class="filterchip ${todoFilter==='closed'?'active':''}" onclick="todoFilter='closed';render()">Closed</div>
     </div>
+
     ${todos.length ? todos.map(t=>`
-      <div class="card" style="display:flex;align-items:flex-start;gap:10px;${t.done?'opacity:.6;':''}">
-        <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;margin-top:2px;" ${t.done?'checked':''} onclick="toggleTodo('${t.id}',${t.done})">
+      <div class="card" style="display:flex;align-items:flex-start;gap:10px;">
+        <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;margin-top:2px;" ${t.done?'checked':''} onclick="toggleTodo('${siteId}','${t.id}',${t.done})">
         <div style="flex:1;min-width:0;">
           <div style="${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
-          ${t.assigned_to ? `<div class="sub" style="margin-top:2px;">Assigned to ${escapeHtml(nameOf(t.assigned_to))}</div>` : ''}
+          ${todoAssigneeEditId===t.id ? `
+            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+              <select style="width:auto;flex:1;padding:5px 8px;font-size:12px;" onchange="changeTodoAssignee('${siteId}','${t.id}',this.value)">
+                <option value="">Unassigned</option>
+                ${pmList.map(p=>`<option value="${p.id}" ${t.assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+              </select>
+              <span class="taskicon" style="cursor:pointer;" onclick="todoAssigneeEditId=null;render()">✕</span>
+            </div>
+          ` : `
+            <div style="margin-top:3px;font-size:11px;font-style:italic;color:var(--slate);cursor:pointer;" onclick="todoAssigneeEditId='${t.id}';render()">
+              ${t.assigned_to ? 'Assigned to '+escapeHtml(nameOf(t.assigned_to))+' — tap to change' : 'Tap to assign a project manager'}
+            </div>
+          `}
         </div>
         <div class="taskicon danger" onclick="deleteTodo('${siteId}','${t.id}')">🗑</div>
       </div>
-    `).join('') : `<div class="empty">No to-dos yet — add one above.</div>`}
+    `).join('') : `<div class="empty">No ${todoFilter} to-dos.</div>`}
+
+    ${todoFilter==='live' ? (
+      allTodos.length ? `
+        <div class="ddrow" style="margin-top:18px;" onclick="todoAddOpen=!todoAddOpen;render()"><span class="arrow">${todoAddOpen?'▼':'▶'}</span> Add To Do</div>
+        ${todoAddOpen ? `<div class="card">${addForm}</div>` : ''}
+      ` : `<div class="card" style="margin-top:18px;"><p class="sectiontitle" style="margin-top:0;">Add a to-do</p>${addForm}</div>`
+    ) : ''}
   `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'});
 }
 window.addTodo = async function(siteId){
@@ -2718,13 +2750,22 @@ window.addTodo = async function(siteId){
   if(row){
     newTodoDraft = '';
     newTodoAssigneeDraft = '';
+    todoAddOpen = false;
     toast('Added to the to-do list');
     render();
   }
 };
-window.toggleTodo = async function(id, done){
+window.toggleTodo = async function(siteId, id, done){
   const row = await dbUpdate('todos', id, {done: !done});
-  if(row) render();
+  if(row){ toast(done ? 'Reopened' : 'Closed'); render(); }
+};
+window.changeTodoAssignee = async function(siteId, id, pmId){
+  const row = await dbUpdate('todos', id, {assigned_to: pmId || null});
+  if(row){
+    todoAssigneeEditId = null;
+    toast(pmId ? 'Project manager updated' : 'Project manager removed');
+    render();
+  }
 };
 window.deleteTodo = async function(siteId, id){
   if(!await customConfirm('Delete this to-do item? This can\'t be undone.')) return;
@@ -7508,7 +7549,7 @@ async function render(){
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
-    if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; }
+    if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; todoAddOpen = false; todoFilter = 'live'; todoAssigneeEditId = null; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
