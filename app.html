@@ -115,7 +115,7 @@
     font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
   }
   .primarybtn{background:var(--brand1);color:#fff;}
-  .exportbtn{padding:8.125px;font-size:8.4375px;}
+  .exportbtn{padding:6.90625px;font-size:7.171875px;}
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
@@ -1077,6 +1077,19 @@ window.addEventListener('popstate', function(){
   if(SELF_NAV) return;
   if(CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
 });
+// Close the PM-filter dropdown (home page) and the per-site status/PM-picker
+// dropdowns (the "Active ▾" style menus) on any tap outside them, instead of
+// only via their own toggle button. Every trigger and dropdown panel for
+// these already calls event.stopPropagation() on its own click, so any click
+// that reaches this document-level listener is — by construction — outside
+// all of them.
+document.addEventListener('click', function(e){
+  let changed = false;
+  if(pmFilterOpen && !e.target.closest('[data-pmfilter-root]')){ pmFilterOpen = false; changed = true; }
+  if(siteStatusMenuOpenId && !e.target.closest('.status, .statusmenu')){ siteStatusMenuOpenId = null; changed = true; }
+  if(sitePmPickerOpenId && !e.target.closest('.rolechip, .statusmenu')){ sitePmPickerOpenId = null; changed = true; }
+  if(changed) render();
+});
 // Custom confirmation dialog, replacing the native window.confirm(). On this
 // build's Android WebView, window.confirm() was returning immediately
 // without ever showing anything — so every "Are you sure?" prompt (delete
@@ -1114,6 +1127,24 @@ window._confirmAnswer = function(result){
   _confirmResolve = null;
   if(resolve) resolve(result);
 };
+// Same overlay, single-button variant for a plain heads-up message (no
+// yes/no choice needed) — e.g. "choose a supplier before sending".
+function customAlert(message){
+  let ov = document.getElementById('confirmModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'confirmModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    document.body.appendChild(ov);
+  }
+  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+      <button class="darkbtn" style="width:100%;" onclick="document.getElementById('confirmModalOverlay').style.display='none';">OK</button>
+    </div>`;
+  ov.style.display = 'flex';
+}
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
@@ -1736,8 +1767,8 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
       ${canAdd && pmOptions.length ? `
-        <div style="position:relative;margin-top:-9px;">
-          <button type="button" onclick="togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+        <div style="position:relative;margin-top:-9px;" data-pmfilter-root>
+          <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
             ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'Select PM'} ${pmFilterOpen?'▲':'▼'}
           </button>
           ${pmFilterOpen ? `
@@ -3260,7 +3291,7 @@ async function renderSiteReports(siteId){
     ${selectedReportIds.size>0 ? `
       <div class="row-gap" style="margin-bottom:10px;">
         <button class="darkbtn" style="flex:1;" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':`Email ${selectedReportIds.size} Selected`}</button>
-        <button class="ghostbtn" style="flex:1;" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('${siteId}')">${bulkExportBusy?'Building…':`Export ${selectedReportIds.size} Selected (PDF)`}</button>
+        <button class="ghostbtn exportbtn" style="flex:1;" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('${siteId}')">${bulkExportBusy?'Building…':`Export ${selectedReportIds.size} Selected (PDF)`}</button>
       </div>
     ` : ''}
     ${filtered.map(s=>`
@@ -3932,6 +3963,7 @@ let checkinBusy = false;
 let checkinError = null;
 let checkinGeofenceOpen = false;
 let checkinHistoryOpen = false;
+let checkinRecentOpen = false;
 // Pairs up each operative's raw in/out log (chronological, ascending) into
 // sessions of {user_id, in, out} — out:null means still on site. An "in"
 // with no prior open session starts a new one; a stray "out" with nothing
@@ -4064,17 +4096,17 @@ async function renderCheckin(siteId){
         </div>
       `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`) : ''}
     ` : ''}
-    <p class="sectiontitle" style="margin-top:18px;">Recent</p>
-    ${mine.slice(0,4).map(c=>`
+    <div class="ddrow" style="margin-top:18px;" onclick="checkinRecentOpen=!checkinRecentOpen;render()"><span class="arrow">${checkinRecentOpen?'▼':'▶'}</span> Recent</div>
+    ${checkinRecentOpen ? (mine.slice(0,4).map(c=>`
       <div class="card" style="padding:10px 12px;margin-bottom:8px;">
         <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
       </div>
-    `).join('') || `<div class="empty">No check-ins yet.</div>`}
+    `).join('') || `<div class="empty">No check-ins yet.</div>`) : ''}
     ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Reports</p>
       <div class="row-gap">
-        <button class="ghostbtn" style="flex:1;" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
-        <button class="ghostbtn" style="flex:1;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
+        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
+        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
       </div>
       <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
     ` : ''}
@@ -4314,7 +4346,7 @@ async function renderSchedule(siteId){
       </div>
       ` : ''}
     ` : ''}
-    ${allTasks.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
+    ${allTasks.length ? `<button class="ghostbtn exportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
 }
 window.toggleScheduleSection = function(sectionId){
@@ -5215,7 +5247,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd){
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
       </div>
       ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
-        ${canAdd ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+        ${canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
@@ -5347,7 +5379,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd){
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet — use "Sign All" above'}
       </div>
       ${sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>
-        ${canAdd ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
+        ${canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}` : ''}
     </div>`;
   }).join('') || `<div class="empty">No COSHH uploaded.</div>`;
 }
@@ -5517,7 +5549,6 @@ async function renderDailyBriefings(siteId){
   const canManage = isManager(ME);
   const allTemplates = canManage ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
   const templates = canManage ? allTemplates.filter(t=>t.is_daily_briefing) : await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&order=name.asc');
-  const otherTemplates = allTemplates.filter(t=>!t.is_daily_briefing);
   let submissions = [];
   if(templates.length){
     const ids = templates.map(t=>t.id).join(',');
@@ -5545,15 +5576,6 @@ async function renderDailyBriefings(siteId){
             </div>
           `).join('') || `<div class="empty">No Daily Briefing templates yet.</div>`}
           <button class="darkbtn" style="margin-top:10px;" onclick="createDailyBriefingTemplate('${siteId}')">+ New Daily Briefing Template</button>
-          ${otherTemplates.length ? `
-            <p class="stub" style="margin:14px 0 6px;">Or use an existing template as a Daily Briefing:</p>
-            ${otherTemplates.map(t=>`
-              <div class="sitecard" style="padding:8px 10px;">
-                <div class="info"><div class="name">${escapeHtml(t.name)}</div></div>
-                <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="useTemplateAsDailyBriefing('${siteId}','${t.id}')">Use this</button>
-              </div>
-            `).join('')}
-          ` : ''}
         </div>
       ` : ''}
       <button class="darkbtn" style="margin:14px 0 10px;" onclick="briefingPickerOpen=!briefingPickerOpen;render()">${briefingPickerOpen?'Cancel':'+ New Briefing'}</button>
@@ -5659,6 +5681,11 @@ window.exportDailyBriefingPDF = async function(submissionId){
    signature as RAMS, and once complete a PM can export a signed PDF just like
    RAMS. */
 let tbtFilter = 'live'; // PM tab state: bank | live | completed
+let selectedTbtIds = new Set(); // ticked toolbox talks in the Completed tab, for a combined email
+window.toggleTbtSelect = function(id){
+  if(selectedTbtIds.has(id)) selectedTbtIds.delete(id); else selectedTbtIds.add(id);
+  render();
+};
 const TBT_STATUS_LABEL = {bank:'BANK', live:'LIVE', completed:'COMPLETED'};
 const TBT_STATUS_CLASS = {bank:'pending', live:'open', completed:'closed'};
 async function renderToolboxTalks(siteId){
@@ -5676,19 +5703,26 @@ async function renderToolboxTalks(siteId){
   document.getElementById('app').innerHTML = shell(`
     ${isPM ? `
     <div class="filterrow">
-      <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';render()">Bank TBT</div>
-      <div class="filterchip ${tbtFilter==='live'?'active':''}" onclick="tbtFilter='live';render()">Live TBT</div>
-      <div class="filterchip ${tbtFilter==='completed'?'active':''}" onclick="tbtFilter='completed';render()">Completed TBT</div>
+      <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';selectedTbtIds=new Set();render()">Bank TBT</div>
+      <div class="filterchip ${tbtFilter==='live'?'active':''}" onclick="tbtFilter='live';selectedTbtIds=new Set();render()">Live TBT</div>
+      <div class="filterchip ${tbtFilter==='completed'?'active':''}" onclick="tbtFilter='completed';selectedTbtIds=new Set();render()">Completed TBT</div>
     </div>
     ` : ''}
 
+    ${isPM && tbtFilter==='completed' && selectedTbtIds.size>0 ? `
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="openEmailSelectedTbtsPrompt('${siteId}')">✉ Email ${selectedTbtIds.size} Selected (individual PDFs, one email)</button>
+    ` : ''}
     ${visibleTalks.map(t=>`
-      <div class="card" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/hs/tbt/${t.id}')">
+      <div class="card" style="margin-bottom:10px;" onclick="${isPM && tbtFilter==='completed' ? `toggleTbtSelect('${t.id}')` : `go('#/site/${siteId}/hs/tbt/${t.id}')`}">
         <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;">
-          <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+            ${isPM && tbtFilter==='completed' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedTbtIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTbtSelect('${t.id}')">` : ''}
+            <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          </div>
           <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
         </div>
         ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
+        ${isPM && tbtFilter==='completed' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="event.stopPropagation();go('#/site/${siteId}/hs/tbt/${t.id}')">Open</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
 
@@ -5745,7 +5779,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
       ${sigs.length ? `
       <div style="display:flex;gap:6px;margin-top:8px;">
-        <button class="ghostbtn" style="display:block;width:auto;flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
+        <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
         <button class="ghostbtn" style="display:block;width:auto;flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
       </div>
       ` : ''}
@@ -5814,6 +5848,89 @@ window.emailTbtManual = async function(siteId, tbtId){
     if(res.ok) toast('Toolbox Talk emailed'); else toast('Could not send email — try again.');
     render();
   }catch(e){ console.error(e); tbtEmailBusy=null; toast('Could not send email — try again.'); render(); }
+};
+// Completed tab multi-select: email several toolbox talks in one message,
+// each as its own signed PDF attachment. Address popup follows the same
+// pattern as the material-order re-email prompt (persistent DOM node outside
+// render(), so typing the address doesn't get reset by a re-render).
+window.openEmailSelectedTbtsPrompt = async function(siteId){
+  if(!selectedTbtIds.size) return;
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  let defaultEmail = '';
+  if(site && site.responsible_pm_id && PROFILES[site.responsible_pm_id]) defaultEmail = PROFILES[site.responsible_pm_id].email || '';
+  if(!defaultEmail && ME && ME.email) defaultEmail = ME.email;
+  let ov = document.getElementById('tbtEmailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'tbtEmailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeTbtEmailPrompt(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Email ${selectedTbtIds.size} Toolbox Talk${selectedTbtIds.size>1?'s':''}</h3>
+      <p class="stub">Each selected talk is attached as its own signed PDF, in one email.</p>
+      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="tbtEmailAddressInput" value="${escapeHtml(defaultEmail)}" placeholder="name@example.com"></div>
+      <button class="darkbtn" id="tbtEmailConfirmBtn" style="width:100%;" onclick="confirmEmailSelectedTbts('${siteId}')">Confirm &amp; Send</button>
+      <button class="geo-modal-cancel" onclick="closeTbtEmailPrompt()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeTbtEmailPrompt = function(){
+  const ov = document.getElementById('tbtEmailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmEmailSelectedTbts = async function(siteId){
+  const input = document.getElementById('tbtEmailAddressInput');
+  const email = input ? input.value.trim() : '';
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const btn = document.getElementById('tbtEmailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Building PDFs…'; }
+  const ids = Array.from(selectedTbtIds);
+  const attachments = [];
+  const titles = [];
+  let skipped = 0;
+  for(const id of ids){
+    try{
+      const built = await buildSignedToolboxTalkPdfBytes(id);
+      if(!built){ skipped++; continue; }
+      let binary=''; const chunk=0x8000;
+      for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
+      attachments.push({filename: built.filename, content: btoa(binary)});
+      titles.push(built.talk.title);
+    }catch(e){ console.error(e); skipped++; }
+  }
+  if(!attachments.length){
+    toast('None of the selected talks have signatures to build a PDF from.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    return;
+  }
+  if(btn) btn.textContent = 'Sending…';
+  const site = SITES.find(s=>s.id===siteId);
+  try{
+    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipients:[email], site_name: site?site.name:'', tbt_titles: titles, attachments,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      const skipNote = skipped ? `<p class="stub" style="margin:0 0 12px;color:var(--warn);">${skipped} selected talk${skipped>1?'s were':' was'} skipped — no signatures yet.</p>` : '';
+      const card = document.querySelector('#tbtEmailModalOverlay .geo-modal-card');
+      if(card){
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">${attachments.length} Toolbox Talk PDF${attachments.length>1?'s':''} emailed to ${escapeHtml(email)}.</p>${skipNote}<button class="darkbtn" style="width:100%;" onclick="closeTbtEmailPrompt();selectedTbtIds=new Set();render()">Done</button>`;
+      } else { selectedTbtIds = new Set(); render(); }
+    } else {
+      console.error('send-tbt-completion failed:', d.error || res.status);
+      toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    }
+  }catch(e){
+    console.error(e);
+    toast('Email failed — could not reach the server.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+  }
 };
 async function emailCompletedTbtToPM(siteId, tbtId){
   try{
@@ -5941,7 +6058,58 @@ let materialSupplierChoice = {}; // matId -> supplierId, picked but not yet sent
 let selectedMaterialIds = new Set(); // matIds ticked for a grouped/combined send
 let groupSupplierId = null; // supplier chosen for the current group selection
 let sendingGroup = false; // true while entering the Required for Delivery date for a grouped send
-let reemailingMaterialId = null; // matId while a re-email is in flight
+// Supplier picker (dropdown replacing the old row-of-chips): supplierPickerFor
+// holds the matId whose picker is open, or 'group' for the grouped-send
+// panel's picker, or null when every picker is closed. supplierPickerFilter
+// is the current text-filter value (only shown once there are 10+ suppliers).
+let supplierPickerFor = null;
+let supplierPickerFilter = '';
+window.toggleSupplierPicker = function(key){
+  supplierPickerFor = supplierPickerFor===key ? null : key;
+  supplierPickerFilter = '';
+  render();
+};
+window.pickSupplier = function(key, supplierId){
+  if(key==='group') groupSupplierId = supplierId;
+  else materialSupplierChoice[key] = supplierId;
+  supplierPickerFor = null;
+  supplierPickerFilter = '';
+  render();
+};
+window.setSupplierPickerFilter = function(val){
+  supplierPickerFilter = val;
+  render();
+};
+// Favouriting is capped at 3 (per the request) — enforced here rather than
+// in the DB, so the message on hitting the cap can be specific and helpful.
+window.toggleSupplierFavourite = async function(supplierId, isFav){
+  if(!isFav){
+    const rows = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&favourite=eq.true&select=id');
+    if(rows && rows.length>=3){ toast('You can only favourite up to 3 suppliers — unfavourite one first.'); return; }
+  }
+  const row = await dbUpdate('suppliers', supplierId, {favourite: !isFav});
+  if(row) render();
+};
+// Favourited suppliers (max 3) pin to the top, in alphabetical order among
+// themselves; everyone else follows underneath, also alphabetical — the DB
+// query already sorts by name.asc, so this is just a stable partition.
+function supplierPickerHtml(pickerKey, suppliers, selectedId){
+  const q = (supplierPickerFilter||'').trim().toLowerCase();
+  const filtered = q ? suppliers.filter(s=>s.name.toLowerCase().includes(q)) : suppliers;
+  const favs = filtered.filter(s=>s.favourite);
+  const rest = filtered.filter(s=>!s.favourite);
+  const list = favs.concat(rest);
+  return `
+    <div class="card" style="margin-top:8px;padding:10px;">
+      ${suppliers.length>10 ? `<div class="formfield" style="margin-bottom:8px;"><input type="text" placeholder="Filter suppliers…" value="${escapeHtml(supplierPickerFilter||'')}" oninput="setSupplierPickerFilter(this.value)"></div>` : ''}
+      ${list.length ? list.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;cursor:pointer;${selectedId===s.id?'border-color:var(--brand1);border-width:1.5px;':''}" onclick="pickSupplier('${pickerKey}','${s.id}')">
+          <div class="info" style="min-width:0;"><div class="name">${escapeHtml(s.name)}</div></div>
+          <span style="cursor:pointer;font-size:18px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="event.stopPropagation();toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
+        </div>
+      `).join('') : `<div class="empty">No suppliers match${q?' "'+escapeHtml(supplierPickerFilter)+'"':''}.</div>`}
+    </div>`;
+}
 async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -5968,11 +6136,12 @@ async function renderMaterials(siteId){
           <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; Send ${selectedMaterialIds.size} Items to ${escapeHtml(supplierName(groupSupplierId)||'')}</button>
           <button class="ghostbtn" style="margin-top:8px;" onclick="sendingGroup=false;render()">Cancel</button>
         ` : `
-          <div class="merchantrow">Send all to:
-            ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${groupSupplierId===s.id?'active':''}" onclick="groupSupplierId='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
+          <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('group')">
+            <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
-          ${groupSupplierId ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="sendingGroup=true;render()">Send Order (${selectedMaterialIds.size} items)</button>` : ''}
-          <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMaterialIds=new Set();groupSupplierId=null;render()">Clear selection</button>
+          ${supplierPickerFor==='group' ? (suppliers.length ? supplierPickerHtml('group', suppliers, groupSupplierId) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one below.</p>`) : ''}
+          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">Send Order (${selectedMaterialIds.size} items)</button>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMaterialIds=new Set();groupSupplierId=null;supplierPickerFor=null;render()">Clear selection</button>
         `}
       </div>
     ` : ''}
@@ -5986,10 +6155,17 @@ async function renderMaterials(siteId){
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
               <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
+              ${isPM && m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="width:auto;padding:6px 12px;font-size:10.5px;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
               ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
             </div>
           </div>
-          ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}` : '') :
+          ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? (
+            m.status==='closed'
+              // Closed tab: supplier name is hidden here (kept only in the
+              // request/send flow's own data) — show the emailed date instead.
+              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
+              : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
+          ) : '') :
             m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
             m.status==='pending' ? (isPM ? (
               selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
@@ -6000,27 +6176,31 @@ async function renderMaterials(siteId){
                 <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
                 <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
               </div>
-            ` : `<div class="merchantrow">Send to:
-              ${suppliers.length ? suppliers.map(s=>`<span class="merchantchip pickable ${materialSupplierChoice[m.id]===s.id?'active':''}" onclick="materialSupplierChoice['${m.id}']='${s.id}';render()">${escapeHtml(s.name)}</span>`).join('') : `<span class="stub" style="margin:0;">No suppliers set up yet — add one below.</span>`}
-              ${materialSupplierChoice[m.id] ? `<button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-left:auto;" onclick="beginSendMaterial('${m.id}')">Send Order</button>` : ''}
+            ` : `<div class="merchantrow" style="display:block;">
+              <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('${m.id}')">
+                <span class="arrow">${supplierPickerFor===m.id?'▼':'▶'}</span> ${materialSupplierChoice[m.id] ? escapeHtml(supplierName(materialSupplierChoice[m.id])) : 'Supplier'}
+              </div>
+              ${supplierPickerFor===m.id ? (suppliers.length ? supplierPickerHtml(m.id, suppliers, materialSupplierChoice[m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one below.</p>`) : ''}
             </div>`
             ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
           ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
           ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
           ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
-            ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" ${reemailingMaterialId===m.id?'disabled':''} onclick="reemailMaterial('${siteId}','${m.id}')">${reemailingMaterialId===m.id?'Emailing…':'Re-email order'}</button>` : ''}
+            ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" onclick="openReemailPrompt('${siteId}','${m.id}')">Re-email order</button>` : ''}
           </div>` : ''}
       `;
       if(matFilter!=='closed') return `<div class="matcard">${cardBody}</div>`;
       // Closed material requests collapse into a single dropdown row —
-      // tap to expand the same detail shown for live requests above.
+      // tap to expand the same detail shown for live requests above. Supplier
+      // is intentionally hidden in the Closed tab — the emailed date shows
+      // here instead.
       const open = expandedMaterialIds.has(m.id);
-      const closedSupplier = m.merchant || supplierName(m.supplier_id);
+      const emailedLabel = m.email_sent_at ? 'Emailed '+new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : null;
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
           <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)}
-          <span style="margin-left:auto;font-weight:600;color:var(--slate);white-space:nowrap;">Qty ${escapeHtml(m.qty)}${closedSupplier ? ' · '+escapeHtml(closedSupplier) : ''}</span>
+          <span style="margin-left:auto;font-weight:600;color:var(--slate);white-space:nowrap;">Qty ${escapeHtml(m.qty)}${emailedLabel ? ' · '+emailedLabel : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
@@ -6044,6 +6224,7 @@ async function renderMaterials(siteId){
             <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
             <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
           </div>
+          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
           <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
@@ -6137,7 +6318,7 @@ window.addMaterial = async function(siteId){
 };
 window.beginSendMaterial = async function(matId){
   const supplierId = materialSupplierChoice[matId];
-  if(!supplierId) return;
+  if(!supplierId){ customAlert('Please choose a supplier before sending this order.'); return; }
   const rows = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=name');
   const supplier = rows && rows[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
@@ -6237,33 +6418,72 @@ window.reopenMaterial = async function(siteId, matId){
   const row = await dbUpdate('materials', matId, {status:'sent'});
   if(row){ toast('Material request reopened'); render(); }
 };
-window.reemailMaterial = async function(siteId, matId){
+// Re-email popup: shows the address it was originally sent to (from the
+// supplier record), lets it be edited for this one send, and confirms once
+// the email has actually gone out. Built as a persistent DOM node outside
+// the normal render() cycle (same pattern as the GPS options modal) so
+// typing in the address field doesn't get reset by an app-wide re-render.
+window.openReemailPrompt = async function(siteId, matId){
   const rows = await dbSelect('materials', 'id=eq.'+matId+'&select=*');
   const material = rows && rows[0];
   if(!material || !material.supplier_id){ toast('Missing supplier details — cannot re-email.'); return; }
   const suppliers = await dbSelect('suppliers', 'id=eq.'+material.supplier_id+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
-  reemailingMaterialId = matId; render();
+  let ov = document.getElementById('reemailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'reemailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeReemailPrompt(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Re-email order</h3>
+      <p class="stub">This order was originally emailed to the address below — edit it if you need to send it somewhere else this time.</p>
+      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="reemailAddressInput" value="${escapeHtml(supplier.email)}"></div>
+      <button class="darkbtn" id="reemailConfirmBtn" style="width:100%;" onclick="confirmReemail('${siteId}','${matId}','${jsAttr(supplier.name)}')">Confirm &amp; Send</button>
+      <button class="geo-modal-cancel" onclick="closeReemailPrompt()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeReemailPrompt = function(){
+  const ov = document.getElementById('reemailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmReemail = async function(siteId, matId, supplierName){
+  const input = document.getElementById('reemailAddressInput');
+  const email = input ? input.value.trim() : '';
+  if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  const btn = document.getElementById('reemailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const rows = await dbSelect('materials', 'id=eq.'+matId+'&select=*');
+  const material = rows && rows[0];
+  if(!material){ toast('Could not find that request.'); window.closeReemailPrompt(); return; }
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
+      material_id: matId, supplier_email: email, supplier_name: supplierName,
       item: material.item, qty: material.qty, site_id: siteId,
       required_for_delivery: material.required_for_delivery,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast('Order re-emailed to '+supplier.name+' (you\'ve been CC\'d)');
+      const card = document.querySelector('#reemailModalOverlay .geo-modal-card');
+      if(card){
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 16px;">The order was re-emailed to ${escapeHtml(email)}.</p><button class="darkbtn" style="width:100%;" onclick="closeReemailPrompt();render()">Done</button>`;
+      } else { render(); }
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Re-email failed — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     }
   }catch(e){
     console.error('send-material-order failed:', e);
     toast('Re-email failed — could not reach the server.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
   }
-  reemailingMaterialId = null; render();
 };
 window.deleteMaterial = async function(siteId, matId){
   if(!await customConfirm('Delete this material request? This can\'t be undone.')) return;
@@ -6535,6 +6755,13 @@ async function renderDrawings(siteId, folderId){
   ]);
   const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : `#/site/${siteId}/drawings`) : `#/site/${siteId}/home`;
   const parentArg = folderId ? `'${folderId}'` : 'null';
+  // Was gated on subfolders.length alone, so any folder holding drawing
+  // FILES but no sub-folders (the normal case) kept "New folder" forced
+  // open forever — the reported "New folder is stuck" bug. Now it opens by
+  // default only while the folder is genuinely empty of both, and collapses
+  // as soon as either a sub-folder or a drawing is added, matching the rule
+  // that's meant to apply once there's anything in the folder.
+  const isDrawingsFolderEmpty = subfolders.length===0 && files.length===0;
 
   document.getElementById('app').innerHTML = shell(`
     ${subfolders.length || files.length ? `
@@ -6567,18 +6794,18 @@ async function renderDrawings(siteId, folderId){
 
     ${canManage ? `
       <div class="ddrow" onclick="drawingNewFolderOpen=!drawingNewFolderOpen;render()">
-        <span class="arrow">${(subfolders.length===0||drawingNewFolderOpen)?'▼':'▶'}</span> New folder
+        <span class="arrow">${(isDrawingsFolderEmpty||drawingNewFolderOpen)?'▼':'▶'}</span> New folder
       </div>
-      ${(subfolders.length===0 || drawingNewFolderOpen) ? `
+      ${(isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
         <div class="card">
           <div class="row-gap">
             <input type="text" id="newDrawingFolderName" placeholder="e.g. Roof Plans">
-            <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Add</button>
+            <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createDrawingFolder('${siteId}',${parentArg})">Create Folder</button>
           </div>
         </div>
       ` : ''}
 
-      <button class="${drawingUploadOpen?'darkbtn':'ghostbtn'}" style="margin-top:10px;" onclick="drawingUploadOpen=!drawingUploadOpen;render()">Upload drawing</button>
+      <button class="${drawingUploadOpen?'darkbtn':'ghostbtn'}" style="margin-top:10px;" onclick="drawingUploadOpen=!drawingUploadOpen;render()">Upload Drawings</button>
       ${drawingUploadOpen ? `
         <div class="card" style="margin-top:10px;">
           <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
