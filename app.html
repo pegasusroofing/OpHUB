@@ -89,8 +89,12 @@
   .appbar h2.lg{font-size:25.65px;}
   .appbar .meta{font-size:clamp(8.55px, 3.135vw, 12.065px);color:var(--brand1-text);opacity:.8;font-family:ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
   .homebtn{cursor:pointer;color:var(--brand1-text);font-size:18.05px;line-height:1;width:32.3px;height:32.3px;flex:0 0 32.3px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);}
-  .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;align-items:center;justify-content:center;padding:20px;}
-  .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);}
+  .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:8px;overflow:hidden;touch-action:none;}
+  .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);
+    image-rendering:-webkit-optimize-contrast;image-rendering:high-quality;will-change:transform;touch-action:none;user-select:none;-webkit-user-drag:none;}
+  .img-viewer-zoombar{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom));right:18px;display:flex;flex-direction:column;gap:8px;z-index:2;}
+  .img-viewer-zoombtn{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.14);color:#fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;cursor:pointer;}
+  .img-viewer-hint{position:absolute;top:calc(14px + env(safe-area-inset-top));left:0;right:0;text-align:center;color:rgba(255,255,255,0.6);font-size:11px;z-index:2;pointer-events:none;}
   .pdf-viewer-overlay{display:none;position:fixed;inset:0;background:#1a1b1e;z-index:9999;flex-direction:column;}
   .pdf-viewer-bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:12px 14px;
     padding-top:calc(12px + env(safe-area-inset-top));background:#101114;border-bottom:1px solid rgba(255,255,255,.1);}
@@ -140,6 +144,9 @@
   label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
     text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
   .formfield{margin-bottom:12px;}
+  .currency-input-wrap{position:relative;}
+  .currency-input-wrap .currency-prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--slate);font-weight:700;font-size:14px;pointer-events:none;}
+  .currency-input-wrap input{padding-left:25px;}
   .row-gap{display:flex;gap:8px;}
   .row-gap > *{flex:1;}
 
@@ -290,12 +297,14 @@
   .signerlist div{padding:3px 0;}
 
   .matcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
-  .matcard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-  .matcard .name{font-size:13.5px;font-weight:700;}
-  .matcard .qty{font-size:11.5px;color:var(--slate);margin-top:2px;}
+  .matcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .matcard .name{font-size:16.5px;font-weight:700;}
+  .matcard .qty{font-size:13.5px;color:var(--slate);margin-top:6px;font-weight:600;}
   .statustag{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
   .statustag.sent{background:var(--blue-bg);color:var(--blue);}
   .statustag.pending{background:var(--warn-bg);color:var(--warn);}
+  .statustag.approved{background:var(--ok-bg);color:var(--ok);}
+  .statustag.rejected{background:var(--warn-bg);color:var(--warn);}
   .merchantrow{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--slate);}
   .merchantchip{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:4px 9px;
     font-weight:700;font-size:10.5px;}
@@ -397,19 +406,97 @@ function toast(msg){
   host.innerHTML=''; host.appendChild(el);
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },3200);
 }
+// Image viewer with pinch-zoom/pan/double-tap — the underlying file was
+// already full quality (uploads are never downscaled for Drawings), the
+// complaint was really "I can't zoom in to read the detail," so this adds
+// real zoom instead of just fitting the whole image to the screen every time.
+let imgViewerZoom = {scale:1, x:0, y:0};
+function applyImgViewerTransform(){
+  const img = document.getElementById('imgViewerImg');
+  if(img) img.style.transform = `translate(${imgViewerZoom.x}px, ${imgViewerZoom.y}px) scale(${imgViewerZoom.scale})`;
+}
 window.viewImage = function(url){
   let ov = document.getElementById('imgViewerOverlay');
   if(!ov){
     ov = document.createElement('div');
     ov.id = 'imgViewerOverlay';
     ov.className = 'img-viewer-overlay';
-    ov.onclick = closeImageViewer;
-    ov.innerHTML = '<img id="imgViewerImg">';
+    ov.innerHTML = `
+      <div class="img-viewer-hint" id="imgViewerHint">Pinch or double-tap to zoom</div>
+      <div class="img-viewer-zoombtn" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:2;" onclick="event.stopPropagation();closeImageViewer()">✕</div>
+      <img id="imgViewerImg" draggable="false">
+      <div class="img-viewer-zoombar">
+        <div class="img-viewer-zoombtn" onclick="event.stopPropagation();imgViewerZoomBy(1.5)">+</div>
+        <div class="img-viewer-zoombtn" onclick="event.stopPropagation();imgViewerZoomBy(1/1.5)">−</div>
+      </div>
+    `;
     document.body.appendChild(ov);
+    setupImgViewerGestures(ov);
+    ov.addEventListener('click', (e)=>{ if(e.target===ov) closeImageViewer(); });
   }
-  document.getElementById('imgViewerImg').src = url;
+  imgViewerZoom = {scale:1, x:0, y:0};
+  const img = document.getElementById('imgViewerImg');
+  img.style.transform = 'translate(0px,0px) scale(1)';
+  img.src = url;
   ov.style.display = 'flex';
 };
+window.imgViewerZoomBy = function(factor){
+  imgViewerZoom.scale = Math.min(6, Math.max(1, imgViewerZoom.scale*factor));
+  if(imgViewerZoom.scale===1){ imgViewerZoom.x = 0; imgViewerZoom.y = 0; }
+  applyImgViewerTransform();
+};
+function setupImgViewerGestures(ov){
+  const img = ov.querySelector('#imgViewerImg');
+  let pointers = new Map();
+  let startDist = 0, startScale = 1, startMid = {x:0,y:0}, startPos = {x:0,y:0};
+  let lastTap = 0;
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+  img.addEventListener('pointerdown', (e)=>{
+    img.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===2){
+      const [a,b] = [...pointers.values()];
+      startDist = dist(a,b); startScale = imgViewerZoom.scale; startMid = mid(a,b);
+      startPos = {x:imgViewerZoom.x, y:imgViewerZoom.y};
+    } else if(pointers.size===1){
+      startPos = {x:e.clientX - imgViewerZoom.x, y:e.clientY - imgViewerZoom.y};
+      const now = Date.now();
+      if(now - lastTap < 300){
+        imgViewerZoom = imgViewerZoom.scale>1 ? {scale:1,x:0,y:0} : {scale:2.5,x:0,y:0};
+        applyImgViewerTransform();
+      }
+      lastTap = now;
+    }
+  });
+  img.addEventListener('pointermove', (e)=>{
+    if(!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===2){
+      const [a,b] = [...pointers.values()];
+      const scale = Math.min(6, Math.max(1, startScale * (dist(a,b)/(startDist||1))));
+      imgViewerZoom.scale = scale;
+      const m = mid(a,b);
+      imgViewerZoom.x = startPos.x + (m.x - startMid.x);
+      imgViewerZoom.y = startPos.y + (m.y - startMid.y);
+      applyImgViewerTransform();
+    } else if(pointers.size===1 && imgViewerZoom.scale>1){
+      imgViewerZoom.x = e.clientX - startPos.x;
+      imgViewerZoom.y = e.clientY - startPos.y;
+      applyImgViewerTransform();
+    }
+  });
+  function endPointer(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size<2 && imgViewerZoom.scale<=1){ imgViewerZoom.x = 0; imgViewerZoom.y = 0; applyImgViewerTransform(); }
+  }
+  img.addEventListener('pointerup', endPointer);
+  img.addEventListener('pointercancel', endPointer);
+  img.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    imgViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15);
+  }, {passive:false});
+}
 window.closeImageViewer = function(){
   const ov = document.getElementById('imgViewerOverlay');
   if(ov) ov.style.display = 'none';
@@ -871,7 +958,7 @@ async function registerPushNotifications(){
       try{
         const data = (action && action.notification && action.notification.data) || {};
         if(!data.site_id) return;
-        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', message:'messages' };
+        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages' };
         const dest = routes[data.kind] || 'messages';
         go(`#/site/${data.site_id}/${dest}`);
       }catch(e){ console.error('Push notification routing failed', e); }
@@ -2100,6 +2187,7 @@ async function renderTeam(){
   const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
   const reportTemplates = iAmAdmin ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
+  const suppliers = isManager(ME) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   document.getElementById('app').innerHTML = shell(`
@@ -2179,6 +2267,37 @@ async function renderTeam(){
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — create your first one below.</div>`}
       <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team')">+ New Template</button>
     </div>
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('suppliers')"><span class="arrow">${teamSectionOpen.suppliers?'▼':'▶'}</span> Suppliers (All Projects)</p>
+    ${teamSectionOpen.suppliers ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">One supplier list for the whole company — every site's Material Requests uses this same list.</p>
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
+            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
+          </div>
+          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
+          <div class="taskicon danger" onclick="deleteSupplier(null,'${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      ${supplierAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addSupplier(null)">Add Supplier</button>
+          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B). Anything that looks like an existing supplier (or a near-identical spelling) is skipped automatically.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInputAdmin').click()">Choose Excel/CSV file</div>
+        <input type="file" id="supplierExcelInputAdmin" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,null)">
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
+      `}
+    </div>
+    ` : ''}
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
@@ -2288,7 +2407,7 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true});
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, tbt:false, devicelocks:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, invites:false, users:false};
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
@@ -2594,7 +2713,6 @@ async function renderSiteHome(siteId){
       canSeePrice = grant.length>0;
     }
   }
-
   document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${escapeHtml(ME.name)}</span>
@@ -2683,102 +2801,80 @@ async function unreadCountForSite(siteId){
 /* ================= TO DO LIST ================= */
 let newTodoDraft = '';
 let newTodoAssigneeDraft = '';
-let todoAddOpen = false;
+let newTodoDateDraft = '';
+let newTodoCommentDraft = '';
+let todoAddOpen = true;
+let todoEmailRecipientIds = []; // PM ids ticked in the email picker
+let todoEmailFilterText = ''; // filters the PM list when there are more than 10
 let todoFilter = 'live';
 let todoAssigneeEditId = null;
-let todoEmailBusy = false;
-// Builds a simple Name/Assigned-to table PDF of the live (not-yet-closed)
-// to-dos for a site — mirrors the look of drawSignatureTablePages, just
-// without the signature column.
-async function buildTodoListPdf(todos, siteName){
-  const pdfDoc = await PDFLib.PDFDocument.create();
-  const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
-  const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
-  const INK = PDFLib.rgb(0.06,0.06,0.07);
-  const SLATE = PDFLib.rgb(0.36,0.37,0.41);
-  const LINE = PDFLib.rgb(0.85,0.85,0.85);
-  const HEADBG = PDFLib.rgb(0.95,0.94,0.91);
-  const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 50;
-  const TABLE_W = PAGE_W - 2*MARGIN;
-  const COL_PM = 160, COL_TASK = TABLE_W - COL_PM;
-  const HEADER_H = 24;
-
-  function wrapText(text, font, size, maxWidth){
-    const words = String(text||'').split(' ');
-    const lines = [];
-    let cur = '';
-    for(const w of words){
-      const test = cur ? cur+' '+w : w;
-      if(font.widthOfTextAtSize(test, size) > maxWidth && cur){ lines.push(cur); cur = w; }
-      else cur = test;
-    }
-    if(cur) lines.push(cur);
-    return lines;
+let todoEditId = null; // id of the to-do whose text/date is being edited
+let todoEditTextDraft = '';
+let todoEditDateDraft = '';
+let todoCommentDraft = {}; // todoId -> draft comment text
+// Email picker — themed HTML email (same look as material order emails)
+// listing the live to-dos, sent to whichever project managers are ticked.
+// The modal is a persistent DOM node appended outside #app (same pattern as
+// the toolbox-talk email prompt) so typing in the filter box or ticking
+// checkboxes doesn't get wiped by the page's own render() cycle.
+let todoEmailPmListCache = [];
+window.openTodoEmailPicker = async function(siteId){
+  const pmList = await loadPMList();
+  todoEmailPmListCache = pmList;
+  todoEmailRecipientIds = [];
+  todoEmailFilterText = '';
+  let ov = document.getElementById('todoEmailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'todoEmailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeTodoEmailPicker(); };
+    document.body.appendChild(ov);
   }
-
-  let page, y;
-  function drawTableHeader(){
-    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
-    page.drawText('To Do', {x:MARGIN+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
-    page.drawText('Assigned To', {x:MARGIN+COL_TASK+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
-    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
-    page.drawLine({start:{x:MARGIN+COL_TASK,y:y}, end:{x:MARGIN+COL_TASK,y:y-HEADER_H}, thickness:0.5, color:LINE});
-    y -= HEADER_H;
-  }
-  function newPage(continued){
-    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-    y = PAGE_H - 60;
-    page.drawText('To Do List' + (continued?' (continued)':''), {x:MARGIN, y, size:20, font:bold, color:INK});
-    y -= 8;
-    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:1.5, color:INK});
-    y -= 24;
-    if(!continued){
-      page.drawText(siteName||'', {x:MARGIN, y, size:12, font:bold, color:INK});
-      y -= 16;
-      page.drawText('Generated '+new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
-      y -= 18;
-    }
-    drawTableHeader();
-  }
-  newPage(false);
-  for(const t of todos){
-    const pmName = t.assigned_to ? (nameOf(t.assigned_to)||'—') : '—';
-    const taskLines = wrapText(t.text, reg, 10, COL_TASK-20);
-    const pmLines = wrapText(pmName, reg, 10, COL_PM-20);
-    const lineCount = Math.max(taskLines.length, pmLines.length, 1);
-    const rowH = Math.max(30, lineCount*13 + 14);
-    if(y - rowH < 70) newPage(true);
-    const rowTop = y;
-    page.drawLine({start:{x:MARGIN,y:rowTop-rowH}, end:{x:MARGIN+TABLE_W,y:rowTop-rowH}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_TASK,y:rowTop}, end:{x:MARGIN+COL_TASK,y:rowTop-rowH}, thickness:0.5, color:LINE});
-    taskLines.forEach((l,i)=>{ page.drawText(l, {x:MARGIN+10, y:rowTop-16-(i*13), size:10, font:reg, color:INK}); });
-    pmLines.forEach((l,i)=>{ page.drawText(l, {x:MARGIN+COL_TASK+10, y:rowTop-16-(i*13), size:10, font:reg, color:INK}); });
-    y -= rowH;
-  }
-  return pdfDoc.save();
+  ov.innerHTML = `
+    <div class="geo-modal-card" style="max-width:400px;">
+      <h3>Email To Do List</h3>
+      <p class="stub">Choose which project managers should receive the live to-do list for this site.</p>
+      ${pmList.length>10 ? `<div class="formfield"><input type="text" id="todoEmailFilterInput" placeholder="Filter project managers…" oninput="filterTodoEmailPmList(this.value)"></div>` : ''}
+      <div id="todoEmailPmListWrap" style="max-height:240px;overflow-y:auto;margin-bottom:14px;"></div>
+      <button class="darkbtn" id="todoEmailConfirmBtn" style="width:100%;" onclick="confirmEmailTodoList('${siteId}')">Send</button>
+      <button class="geo-modal-cancel" onclick="closeTodoEmailPicker()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+  renderTodoEmailPmList();
+};
+function renderTodoEmailPmList(){
+  const wrap = document.getElementById('todoEmailPmListWrap');
+  if(!wrap) return;
+  const filter = (todoEmailFilterText||'').toLowerCase();
+  const list = todoEmailPmListCache.filter(p=>!filter || p.name.toLowerCase().includes(filter) || (p.email||'').toLowerCase().includes(filter));
+  wrap.innerHTML = list.map(p=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:7px 2px;font-size:12.5px;cursor:pointer;">
+      <input type="checkbox" style="width:auto;" ${todoEmailRecipientIds.includes(p.id)?'checked':''} onchange="toggleTodoEmailRecipient('${p.id}',this.checked)">
+      <span>${escapeHtml(p.name)} <span style="color:var(--slate);font-size:10.5px;">${escapeHtml(p.email||'')}</span></span>
+    </label>
+  `).join('') || `<div class="empty">No project managers found.</div>`;
 }
-window.emailLiveTodos = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
-  const site = SITES.find(s=>s.id===siteId);
-  todoEmailBusy = true; render();
-  toast('Building PDF…');
+window.filterTodoEmailPmList = function(v){ todoEmailFilterText = v; renderTodoEmailPmList(); };
+window.toggleTodoEmailRecipient = function(id, checked){
+  if(checked){ if(!todoEmailRecipientIds.includes(id)) todoEmailRecipientIds.push(id); }
+  else { todoEmailRecipientIds = todoEmailRecipientIds.filter(x=>x!==id); }
+};
+window.closeTodoEmailPicker = function(){
+  const ov = document.getElementById('todoEmailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmEmailTodoList = async function(siteId){
+  if(!todoEmailRecipientIds.length){ toast('Pick at least one project manager.'); return; }
+  const btn = document.getElementById('todoEmailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
   try{
-    const [liveTodos] = await Promise.all([
-      dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&order=created_at.asc'),
-      loadAllProfiles(),
-    ]);
-    if(!liveTodos.length){ toast('No live to-dos to email.'); todoEmailBusy=false; render(); return; }
-    const outBytes = await buildTodoListPdf(liveTodos, site?site.name:'');
-    let binary=''; const chunk=0x8000;
-    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
-    const base64 = btoa(binary);
-    const filename = exportFilename(site?site.name:'', 'To Do List (Live)', 'pdf');
-    const res = await sbFetch('/functions/v1/send-todo-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64: base64})});
+    const res = await sbFetch('/functions/v1/send-todo-email', {method:'POST', body: JSON.stringify({site_id: siteId, recipient_ids: todoEmailRecipientIds})});
     const d = await res.json();
-    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
-    else { toast('Live to-do list emailed to '+ME.email); }
-  }catch(e){ console.error(e); toast('Could not build/email the PDF.'); }
-  todoEmailBusy = false; render();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); if(btn){ btn.disabled=false; btn.textContent='Send'; } return; }
+    toast('To-do list emailed');
+    window.closeTodoEmailPicker();
+  }catch(e){ console.error(e); toast('Could not send email.'); if(btn){ btn.disabled=false; btn.textContent='Send'; } }
 };
 async function renderTodoList(siteId){
   const site = SITES.find(s=>s.id===siteId);
@@ -2787,9 +2883,23 @@ async function renderTodoList(siteId){
     loadPMList(),
   ]);
   const todos = allTodos.filter(t => todoFilter==='live' ? !t.done : t.done);
+  let commentsByTodo = {};
+  if(todos.length){
+    const ids = todos.map(t=>t.id).join(',');
+    const comments = await dbSelect('todo_comments', 'todo_id=in.('+ids+')&order=created_at.asc');
+    comments.forEach(c=>{ (commentsByTodo[c.todo_id]=commentsByTodo[c.todo_id]||[]).push(c); });
+  }
   const addForm = `
       <div class="formfield">
         <input type="text" id="newTodoText" placeholder="What needs doing?" value="${escapeHtml(newTodoDraft)}" oninput="newTodoDraft=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo('${siteId}');}">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Comments (optional)</label>
+        <textarea id="newTodoComment" placeholder="Add any notes…" oninput="newTodoCommentDraft=this.value">${escapeHtml(newTodoCommentDraft)}</textarea>
+      </div>
+      <div class="formfield">
+        <label class="field-label">Date required by (optional)</label>
+        <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value">
       </div>
       <div class="formfield">
         <label class="field-label">Assign to a project manager (optional)</label>
@@ -2807,31 +2917,63 @@ async function renderTodoList(siteId){
     </div>
 
     ${todos.length ? todos.map(t=>`
-      <div class="card" style="display:flex;align-items:flex-start;gap:10px;">
-        <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;margin-top:2px;" ${t.done?'checked':''} onclick="toggleTodo('${siteId}','${t.id}',${t.done})">
-        <div style="flex:1;min-width:0;">
-          <div style="${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
-          ${todoAssigneeEditId===t.id ? `
-            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
-              <select style="width:auto;flex:1;padding:5px 8px;font-size:12px;" onchange="changeTodoAssignee('${siteId}','${t.id}',this.value)">
-                <option value="">Unassigned</option>
-                ${pmList.map(p=>`<option value="${p.id}" ${t.assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-              </select>
-              <span class="taskicon" style="cursor:pointer;" onclick="todoAssigneeEditId=null;render()">✕</span>
+      <div class="card" style="padding:12.6px;margin-bottom:10.8px;">
+        <div style="display:flex;align-items:flex-start;gap:9px;">
+          <div style="flex:1;min-width:0;">
+            ${todoEditId===t.id ? `
+              <div class="formfield" style="margin-top:0;">
+                <input type="text" value="${escapeHtml(todoEditTextDraft)}" oninput="todoEditTextDraft=this.value" style="font-size:12.6px;padding:6px 8px;">
+              </div>
+              <div class="formfield" style="margin:6px 0 0;">
+                <label class="field-label">Date required by</label>
+                <input type="date" value="${escapeHtml(todoEditDateDraft)}" oninput="todoEditDateDraft=this.value">
+              </div>
+              <div class="row-gap" style="margin-top:8px;">
+                <button class="darkbtn" style="width:auto;padding:7px 14px;font-size:11.7px;" onclick="saveTodoEdit('${siteId}','${t.id}')">Save</button>
+                <button class="ghostbtn" style="width:auto;padding:7px 14px;font-size:11.7px;" onclick="todoEditId=null;render()">Cancel</button>
+              </div>
+            ` : `
+              <div style="font-size:16.5px;font-weight:600;${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
+              ${t.date_required_by ? `<div style="margin-top:7px;font-size:11.7px;color:var(--slate);">Required by ${new Date(t.date_required_by+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
+            `}
+            ${todoAssigneeEditId===t.id ? `
+              <div style="margin-top:5px;display:flex;align-items:center;gap:5px;">
+                <select id="todoAssigneeSelect_${t.id}" style="width:auto;flex:1;padding:4.5px 7px;font-size:10.8px;">
+                  <option value="">Unassigned</option>
+                  ${pmList.map(p=>`<option value="${p.id}" ${t.assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+                </select>
+                <span class="taskicon" style="cursor:pointer;width:23.4px;height:23.4px;font-size:12.6px;color:var(--ok);border-color:var(--ok);" onclick="changeTodoAssignee('${siteId}','${t.id}',document.getElementById('todoAssigneeSelect_${t.id}').value)">✓</span>
+                <span class="taskicon" style="cursor:pointer;width:23.4px;height:23.4px;font-size:12.6px;" onclick="todoAssigneeEditId=null;render()">✕</span>
+              </div>
+            ` : `
+              <div style="margin-top:6px;font-size:10.8px;font-style:italic;color:var(--slate);cursor:pointer;" onclick="todoAssigneeEditId='${t.id}';render()">
+                ${t.assigned_to ? 'Assigned to <b style="font-style:normal;">'+escapeHtml(nameOf(t.assigned_to))+'</b> — tap to change' : 'Tap to assign a project manager'}
+              </div>
+            `}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:10px;font-weight:800;white-space:nowrap;${t.done?'background:var(--ok-bg);color:var(--ok);border-color:var(--ok);':''}" onclick="toggleTodo('${siteId}','${t.id}',${t.done})">${t.done?'✓ Completed':'Mark Complete'}</button>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              ${!t.done && todoEditId!==t.id ? `<div class="taskicon" style="width:23.4px;height:23.4px;font-size:12.6px;" onclick="todoEditId='${t.id}';todoEditTextDraft='${jsAttr(t.text)}';todoEditDateDraft='${t.date_required_by||''}';render()">✎</div>` : ''}
+              <div class="taskicon danger" style="width:23.4px;height:23.4px;font-size:12.6px;" onclick="deleteTodo('${siteId}','${t.id}')">🗑</div>
             </div>
-          ` : `
-            <div style="margin-top:3px;font-size:11px;font-style:italic;color:var(--slate);cursor:pointer;" onclick="todoAssigneeEditId='${t.id}';render()">
-              ${t.assigned_to ? 'Assigned to '+escapeHtml(nameOf(t.assigned_to))+' — tap to change' : 'Tap to assign a project manager'}
-            </div>
-          `}
+          </div>
         </div>
-        <div class="taskicon danger" onclick="deleteTodo('${siteId}','${t.id}')">🗑</div>
+        <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
+          <p class="field-label" style="margin:0 0 6px;font-size:9px;">Comments</p>
+          ${(commentsByTodo[t.id]||[]).map(c=>`
+            <div style="margin-bottom:6px;font-size:11.3px;">
+              <b>${escapeHtml(nameOf(c.created_by))}</b> <span style="color:var(--slate);font-size:9.9px;">${new Date(c.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+              <div>${escapeHtml(c.body)}</div>
+            </div>
+          `).join('') || `<p class="stub" style="margin:0 0 8px;font-size:11px;">No comments yet — add one if something isn't possible.</p>`}
+          <div class="row-gap">
+            <input type="text" placeholder="Add a comment…" value="${escapeHtml(todoCommentDraft[t.id]||'')}" oninput="todoCommentDraft['${t.id}']=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodoComment('${siteId}','${t.id}');}" style="flex:2;font-size:11.7px;padding:6px 8px;">
+            <button class="ghostbtn" style="flex:1;padding:6px 10px;font-size:11.3px;" onclick="addTodoComment('${siteId}','${t.id}')">Comment</button>
+          </div>
+        </div>
       </div>
     `).join('') : `<div class="empty">No ${todoFilter} to-dos.</div>`}
-
-    ${todoFilter==='live' && todos.length ? `
-      <button class="ghostbtn exportbtn" style="margin-top:14px;" ${todoEmailBusy?'disabled':''} onclick="emailLiveTodos('${siteId}')">${todoEmailBusy?'Sending…':'Email Live To Do List'}</button>
-    ` : ''}
 
     ${todoFilter==='live' ? (() => {
       // No items yet — nothing to hide behind a dropdown, so keep the add
@@ -2843,16 +2985,28 @@ async function renderTodoList(siteId){
         ${addOpen ? `<div class="card">${addForm}</div>` : ''}
       `;
     })() : ''}
+
+    ${todoFilter==='live' && todos.length ? `
+      <button class="ghostbtn exportbtn" style="margin-top:14px;" onclick="openTodoEmailPicker('${siteId}')">Email To Do List</button>
+    ` : ''}
   `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'});
 }
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
   if(!text){ toast('Enter what needs doing first.'); return; }
-  const row = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, created_by:ME.id});
+  const row = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, date_required_by: newTodoDateDraft||null, created_by:ME.id});
   if(row){
+    const comment = (newTodoCommentDraft||'').trim();
+    if(comment) await dbInsert('todo_comments', {todo_id:row.id, body:comment, created_by:ME.id});
+    if(newTodoAssigneeDraft){
+      const site = SITES.find(s=>s.id===siteId);
+      postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'New to-do assigned to '+nameOf(newTodoAssigneeDraft)+': '+text);
+    }
     newTodoDraft = '';
     newTodoAssigneeDraft = '';
-    todoAddOpen = false;
+    newTodoDateDraft = '';
+    newTodoCommentDraft = '';
+    todoAddOpen = false; // collapse the Add To Do dropdown once a to-do has been created
     toast('Added to the to-do list');
     render();
   }
@@ -2861,11 +3015,34 @@ window.toggleTodo = async function(siteId, id, done){
   const row = await dbUpdate('todos', id, {done: !done});
   if(row){ toast(done ? 'Reopened' : 'Closed'); render(); }
 };
+window.saveTodoEdit = async function(siteId, id){
+  const text = (todoEditTextDraft||'').trim();
+  if(!text){ toast('To-do text can\'t be empty.'); return; }
+  const row = await dbUpdate('todos', id, {text, date_required_by: todoEditDateDraft||null});
+  if(row){
+    todoEditId = null;
+    toast('To-do updated');
+    render();
+  }
+};
 window.changeTodoAssignee = async function(siteId, id, pmId){
   const row = await dbUpdate('todos', id, {assigned_to: pmId || null});
   if(row){
     todoAssigneeEditId = null;
     toast(pmId ? 'Project manager updated' : 'Project manager removed');
+    if(pmId){
+      const site = SITES.find(s=>s.id===siteId);
+      postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'To-do assigned to '+nameOf(pmId)+': '+row.text);
+    }
+    render();
+  }
+};
+window.addTodoComment = async function(siteId, todoId){
+  const body = (todoCommentDraft[todoId]||'').trim();
+  if(!body) return;
+  const rows = await dbInsert('todo_comments', {todo_id:todoId, body, created_by:ME.id});
+  if(rows){
+    todoCommentDraft[todoId] = '';
     render();
   }
 };
@@ -3097,15 +3274,7 @@ async function renderAssignTeam(siteId){
       <p class="stub" style="margin:8px 0 0;">When on, a "Price" tile appears on the site home screen — visible to the project admin, this site's responsible PM, and whichever operatives you tick below.</p>
     </div>
     ${site.price_enabled ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Price file</p>
-        ${site.price_onedrive_item_id ? `
-          <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Auto-syncing from OneDrive${site.price_updated_at ? ' · last pulled '+new Date(site.price_updated_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
-        ` : (site.price_excel_path ? `<p class="stub" style="margin:0 0 8px;">A file has been uploaded manually — no OneDrive auto-sync set.</p>` : `<p class="stub" style="margin:0 0 8px;">No price file yet.</p>`)}
-        ${odCompanyConnected ? `<button class="ghostbtn" onclick="startPriceFilePicker('${siteId}')">${site.price_onedrive_item_id?'Change OneDrive source file':'Choose Excel from OneDrive'}</button>` : `<p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive (above, on this same page) to auto-sync the price file instead of uploading manually.</p>`}
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-top:8px;" onclick="document.getElementById('priceFileInput').click()">Upload Excel manually</div>
-        <input type="file" accept=".xlsx,.xls,.csv" id="priceFileInput" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadPriceFileManually('${siteId}', this)">
-      </div>
+      <p class="stub" style="margin:14px 0 0;">Manage the price file itself, price total and weekly figures from the Price tile on the site home page — the file uploader lives there now.</p>
       <p class="sectiontitle" style="margin-top:14px;">Who can see it</p>
       <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this project's price. The project admin and this site's responsible PM can always see it.</p>
       ${operatives.map(p=>`
@@ -3168,130 +3337,496 @@ window.togglePriceAccess = async function(siteId, userId, hasAccess){
   }
   render();
 };
-window.uploadPriceFileManually = async function(siteId, input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  const path = siteId+'/price'+(file.name.match(/\.[a-z0-9]+$/i)||['.xlsx'])[0];
-  const stored = await uploadToStorage('price-files', path, file, file.type);
-  if(!stored) return;
-  const row = await dbUpdate('sites', siteId, {price_excel_path: stored, price_updated_at: new Date().toISOString()});
-  if(row){
-    const idx = SITES.findIndex(s=>s.id===siteId);
-    if(idx>-1) SITES[idx] = row;
-    toast('Price file uploaded');
+/* ---- Price files — manual multi-upload (PDF/Excel), no OneDrive link.
+   Each upload is its own row in price_files; view/download goes through
+   the price-file-access edge function, which is the only thing allowed to
+   touch the private price-files bucket. ---- */
+let priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
+window.uploadPriceFiles = async function(siteId, input){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  let uploaded = 0;
+  for(const file of files){
+    const path = siteId+'/price/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-_]/gi,'_');
+    const stored = await uploadToStorage('price-files', path, file, file.type);
+    if(!stored) continue;
+    const rows = await dbInsert('price_files', {site_id:siteId, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
+    if(rows) uploaded++;
+  }
+  input.value = '';
+  if(uploaded){ toast(uploaded===1 ? 'File uploaded' : uploaded+' files uploaded'); render(); }
+};
+window.deletePriceFile = async function(siteId, fileId, storagePath){
+  if(!await customConfirm('Delete this price file? This can\'t be undone.')) return;
+  try{ await sbFetch('/storage/v1/object/price-files/'+storagePath, {method:'DELETE'}); }catch(e){}
+  const ok = await dbDelete('price_files', fileId);
+  if(ok){
+    toast('File deleted');
+    if(priceFilePreview.path===storagePath) priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
     render();
   }
 };
-/* ---- Price file OneDrive picker (browse to a spreadsheet, not a folder) ---- */
-let pricePickerStack = null;
-let pricePickerFolders = [];
-let pricePickerFiles = [];
-let pricePickerError = null;
-let pricePickerBusy = false;
-let pricePickerSiteId = null;
-window.startPriceFilePicker = function(siteId){
-  pricePickerSiteId = siteId;
-  pricePickerStack = [{id:null, name:'OneDrive', driveId:null}];
-  pricePickerFolders = []; pricePickerFiles = []; pricePickerError = null;
-  go(`#/site/${siteId}/price-picker`);
-  loadPricePickerLevel();
-};
-async function loadPricePickerLevel(){
-  pricePickerBusy = true; render();
-  const current = pricePickerStack[pricePickerStack.length-1];
-  try{
-    const body = {includeFiles:true};
-    if(current.id){ body.parent_id = current.id; if(current.driveId) body.drive_id = current.driveId; }
-    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+window.viewPriceFile = async function(siteId, storagePath, filename){
+  const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
+  if(!isSheet){
+    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
-    if(!res.ok || d.error){ pricePickerError = d.error || 'Could not load OneDrive folders.'; pricePickerFolders = []; pricePickerFiles = []; }
-    else {
-      pricePickerFolders = d.folders || [];
-      pricePickerFiles = (d.files||[]).filter(f=>/\.(xlsx|xls|csv)$/i.test(f.name));
-      pricePickerError = null;
-    }
-  }catch(e){ pricePickerError = 'Could not reach OneDrive.'; pricePickerFolders = []; pricePickerFiles = []; }
-  pricePickerBusy = false; render();
-}
-window.openPricePickerFolder = function(id, name, driveId){
-  const parentDrive = pricePickerStack[pricePickerStack.length-1].driveId;
-  pricePickerStack.push({id, name, driveId: driveId || parentDrive});
-  loadPricePickerLevel();
-};
-window.pricePickerUp = function(){
-  if(pricePickerStack.length>1){ pricePickerStack.pop(); loadPricePickerLevel(); }
-};
-window.selectPriceFile = async function(itemId, name, driveId){
-  const row = await dbUpdate('sites', pricePickerSiteId, {price_onedrive_item_id:itemId, price_onedrive_drive_id: driveId||null});
-  if(row){
-    const idx = SITES.findIndex(s=>s.id===pricePickerSiteId);
-    if(idx>-1) SITES[idx] = row;
-    toast(`"${name}" set as the price source — it'll sync each time the Price tile is opened.`);
-    go(`#/site/${pricePickerSiteId}/team`);
+    if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
+    window.open(d.url, '_blank');
+    return;
   }
-};
-/* ---- Price tile viewer — pulls the latest copy from OneDrive (if linked) via a
-   signed URL from the price-file-access edge function, which is the only
-   thing allowed to touch the private price-files bucket. ---- */
-let priceViewState = {siteId:null, loading:false, error:null, sheetHtml:null, updatedAt:null};
-async function loadPriceView(siteId, refresh){
-  priceViewState = {siteId, loading:true, error:null, sheetHtml:priceViewState.siteId===siteId?priceViewState.sheetHtml:null, updatedAt:priceViewState.siteId===siteId?priceViewState.updatedAt:null};
+  priceFilePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
   render();
   try{
-    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, refresh:!!refresh})});
+    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
-    if(!res.ok || d.error){ priceViewState = {siteId, loading:false, error: d.error || 'Could not load the price file.', sheetHtml:null, updatedAt:null}; render(); return; }
-    if(!d.url){ priceViewState = {siteId, loading:false, error:null, sheetHtml:null, updatedAt:null}; render(); return; }
-    if(typeof XLSX==='undefined'){ priceViewState = {siteId, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null, updatedAt:null}; render(); return; }
+    if(!res.ok || d.error || !d.url){ priceFilePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
+    if(typeof XLSX==='undefined'){ priceFilePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
     const buf = await (await fetch(d.url)).arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
     const firstSheet = wb.Sheets[wb.SheetNames[0]];
     const html = XLSX.utils.sheet_to_html(firstSheet, {id:'priceSheetTable'});
-    priceViewState = {siteId, loading:false, error:null, sheetHtml:html, updatedAt:d.updated_at};
+    priceFilePreview = {path:storagePath, filename, loading:false, error:null, sheetHtml:html};
   }catch(e){
-    priceViewState = {siteId, loading:false, error:'Could not open the price file.', sheetHtml:null, updatedAt:null};
+    priceFilePreview = {path:storagePath, filename, loading:false, error:'Could not open the file.', sheetHtml:null};
   }
   render();
-}
-async function renderPriceTile(siteId){
+};
+window.closePriceFilePreview = function(){ priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null}; render(); };
+let additionalWorksFormOpen = false; // "Variation to Price Request" add-form toggle
+let priceFilesSectionOpen = null; // Price Sheet ddrow — null = not yet toggled (auto-open while empty); true/false once the user has clicked it, which always wins even with zero files
+let variationSectionOpen = null; // Variation to Price ddrow — same null-until-toggled pattern, auto-open while no requests exist
+let awRevisingId = null; // id of the additional_works_requests row currently being revised by a PM, or null
+window.submitAdditionalWorksRequest = async function(siteId){
+  const amtInput = document.getElementById('awAmount');
+  const noteInput = document.getElementById('awNote');
+  const amount = Number(amtInput ? amtInput.value : '');
+  const note = String(noteInput ? noteInput.value : '').trim();
+  if(!amount || isNaN(amount) || amount<=0){ toast('Enter an amount'); return; }
+  if(!note){ toast('Explain the variation'); return; }
+  const rows = await dbInsert('additional_works_requests', {site_id:siteId, amount, note, requested_by:ME.id});
+  if(!rows) return;
   const site = SITES.find(s=>s.id===siteId);
-  if(priceViewState.siteId !== siteId){
-    loadPriceView(siteId, true);
+  const fmt = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  postSystemMessage(siteId, 'additional_works_requested', `${site?site.name:''}: Variation to price requested for ${fmt(amount)} — needs approval.`);
+  toast('Request added');
+  render();
+};
+window.approveAdditionalWorks = async function(siteId, id){
+  const row = await dbUpdate('additional_works_requests', id, {status:'approved', approved_by:ME.id, approved_at:new Date().toISOString()});
+  if(row){ toast('Approved'); render(); }
+};
+window.rejectAdditionalWorks = async function(siteId, id){
+  const row = await dbUpdate('additional_works_requests', id, {status:'rejected', approved_by:ME.id, approved_at:new Date().toISOString()});
+  if(row){ toast('Rejected'); render(); }
+};
+window.startReviseAdditionalWorks = function(id){ awRevisingId = id; render(); };
+window.cancelReviseAdditionalWorks = function(){ awRevisingId = null; render(); };
+window.saveRevisedAdditionalWorks = async function(siteId, id){
+  const amtInput = document.getElementById('awReviseAmount');
+  const noteInput = document.getElementById('awReviseNote');
+  const amount = Number(amtInput ? amtInput.value : '');
+  const note = String(noteInput ? noteInput.value : '').trim();
+  if(!amount || isNaN(amount) || amount<=0){ toast('Enter an amount'); return; }
+  if(!note){ toast('Explain the variation'); return; }
+  // A revision resets status to pending — the changed value needs a fresh
+  // approve/reject decision, so the previous approval sign-off is cleared.
+  const row = await dbUpdate('additional_works_requests', id, {amount, note, status:'pending', approved_by:null, approved_at:null});
+  if(!row) return;
+  awRevisingId = null;
+  toast('Revised — awaiting approval');
+  render();
+};
+window.deleteAdditionalWorksRequest = async function(siteId, id){
+  if(!await customConfirm('Remove this variation request?')) return;
+  const ok = await dbDelete('additional_works_requests', id);
+  if(ok){ if(awRevisingId===id) awRevisingId=null; toast('Request removed'); render(); }
+};
+window.savePriceField = async function(siteId, field, rawValue){
+  const v = String(rawValue||'').trim();
+  const patch = {};
+  if(v===''){
+    patch[field] = null;
+  } else {
+    const n = Number(v);
+    if(isNaN(n)){ toast('Enter a number'); render(); return; }
+    patch[field] = n;
+  }
+  const row = await dbUpdate('sites', siteId, patch);
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+  }
+  render();
+};
+window.savePriceNote = async function(siteId, field, rawValue){
+  const row = await dbUpdate('sites', siteId, {[field]: rawValue.trim() || null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+  }
+};
+window.savePriceWeek = async function(siteId, weekNumber, rawValue){
+  const v = String(rawValue||'').trim();
+  if(v===''){
+    const res = await sbFetch('/rest/v1/price_weeks?site_id=eq.'+siteId+'&week_number=eq.'+weekNumber, {method:'DELETE'});
+    if(!res.ok){ toast('Could not clear — '+(await safeErr(res))); }
+    render();
     return;
   }
-  const canManage = isManager(ME);
-  document.getElementById('app').innerHTML = shell(`
-    ${canManage ? `<button class="ghostbtn" style="margin-bottom:12px;" ${priceViewState.loading?'disabled':''} onclick="loadPriceView('${siteId}', true)">↻ Refresh from OneDrive</button>` : ''}
-    ${priceViewState.updatedAt ? `<p class="stub" style="margin:0 0 10px;">Last synced ${new Date(priceViewState.updatedAt).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>` : ''}
-    ${priceViewState.loading ? `<p class="stub">Loading price file…</p>`
-      : priceViewState.error ? `<div class="empty">${escapeHtml(priceViewState.error)}</div>`
-      : !priceViewState.sheetHtml ? `<div class="empty">No price file uploaded yet${canManage ? ' — add one from Settings & Admin › Price.' : '.'}</div>`
-      : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceViewState.sheetHtml}</div>`}
-  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
-}
-async function renderPriceFilePicker(siteId){
+  const amount = Number(v);
+  if(isNaN(amount)){ toast('Enter a number'); render(); return; }
+  const res = await sbFetch('/rest/v1/price_weeks?on_conflict=site_id,week_number', {
+    method:'POST',
+    headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
+    body: JSON.stringify({site_id:siteId, week_number:weekNumber, amount})
+  });
+  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); }
+  render();
+};
+async function renderPriceTile(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  if(!pricePickerStack || pricePickerSiteId!==siteId){ go(`#/site/${siteId}/team`); return; }
-  const current = pricePickerStack[pricePickerStack.length-1];
+  const canManage = isManager(ME);
+  let canSeeLabourInvoices = canManage;
+  if(!canSeeLabourInvoices){
+    const grant = await dbSelect('site_labour_invoice_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+    canSeeLabourInvoices = grant.length>0;
+  }
+  const [weeksRows, priceFiles, labourFiles, labourOperatives, labourAccessRows, awRows] = await Promise.all([
+    dbSelect('price_weeks', 'site_id=eq.'+siteId+'&order=week_number.asc'),
+    dbSelect('price_files', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+    canSeeLabourInvoices ? dbSelect('labour_invoices', 'site_id=eq.'+siteId+'&order=uploaded_at.desc') : Promise.resolve([]),
+    canManage ? loadAllProfiles().then(()=>Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))) : Promise.resolve([]),
+    canManage ? dbSelect('site_labour_invoice_access', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+  ]);
+  const labourAccessIds = new Set(labourAccessRows.map(a=>a.user_id));
+  const weekMap = {};
+  let maxWeek = 0;
+  weeksRows.forEach(w=>{ weekMap[w.week_number] = w.amount; if(w.week_number>maxWeek) maxWeek = w.week_number; });
+  const autoBookedIn = weeksRows.reduce((sum,w)=>sum+Number(w.amount||0), 0);
+  const hasOverride = site.price_booked_override !== null && site.price_booked_override !== undefined;
+  const bookedIn = hasOverride ? Number(site.price_booked_override) : autoBookedIn;
+  const priceTotal = Number(site.price_total||0);
+  // Variations to price: pending + rejected requests feed the "Variations
+  // Not Approved" row (a provision — the cost is at risk until it's formally
+  // agreed, so it's held back out of the balance). Once a PM approves a
+  // request it moves out of that row and into "Agreed Variation Costs"
+  // instead, which adds to the Price Total — a rejected request stays
+  // counted as not-approved rather than dropping out of the calculation.
+  const awNotApprovedTotal = awRows.filter(r=>r.status!=='approved').reduce((sum,r)=>sum+Number(r.amount||0), 0);
+  const awApprovedTotal = awRows.filter(r=>r.status==='approved').reduce((sum,r)=>sum+Number(r.amount||0), 0);
+  const balance = (priceTotal + awApprovedTotal) - bookedIn - awNotApprovedTotal;
+  const fmt = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  // Always show one field beyond the last-filled week, so entering a value
+  // grows the list by one — but if manager clears the last week, don't keep
+  // stacking blank rows beyond that.
+  const weeksToShow = canManage ? (maxWeek + 1) : maxWeek;
+
+  const filesOpen = priceFilesSectionOpen===null ? priceFiles.length===0 : priceFilesSectionOpen;
+  const variationOpen = variationSectionOpen===null ? awRows.length===0 : variationSectionOpen;
+
   document.getElementById('app').innerHTML = shell(`
-    <div class="stub" style="margin:0 0 10px;">${pricePickerStack.map(f=>escapeHtml(f.name)).join(' › ')}</div>
-    ${pricePickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="pricePickerUp()">‹ Up one level</button>` : ''}
-    ${pricePickerError ? `<div class="empty">${escapeHtml(pricePickerError)}</div>` : pricePickerBusy ? `<p class="stub">Loading…</p>` : `
-      ${pricePickerFolders.map(f=>`
-        <div class="sitecard" style="cursor:pointer;" onclick="openPricePickerFolder('${f.id}','${jsAttr(f.name)}','${f.driveId||''}')">
-          <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+    <div class="card" style="margin-bottom:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Price</p>
+      <div class="formfield">
+        <label class="field-label">Price Total</label>
+        ${canManage
+          ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${site.price_total!=null?site.price_total:''}" placeholder="0.00" onblur="savePriceField('${siteId}','price_total',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
+          : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(priceTotal)}</p>`}
+      </div>
+      ${(canManage || awApprovedTotal>0) ? `
+      <div class="formfield">
+        <label class="field-label">Agreed Variation Costs</label>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awApprovedTotal)}</p>
+        <p class="stub" style="margin:4px 0 0;font-size:11px;">Total of approved variation requests below. Adds to the Price Total. Can't be edited directly — approve requests below instead.</p>
+      </div>
+      ` : ''}
+      <div class="formfield">
+        <label class="field-label">Booked in</label>
+        ${canManage
+          ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${hasOverride?site.price_booked_override:''}" placeholder="${autoBookedIn.toFixed(2)} (auto)" onblur="savePriceField('${siteId}','price_booked_override',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
+          : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(bookedIn)}</p>`}
+        ${canManage ? `<p class="stub" style="margin:4px 0 0;font-size:11px;">Leave blank to auto-total the weekly figures below (currently ${fmt(autoBookedIn)}). Enter a value here to override it.</p>` : ''}
+      </div>
+      <div class="formfield">
+        <label class="field-label">Variations Not Approved <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(currently allocated to price labour)</span></label>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awNotApprovedTotal)}</p>
+        <p class="stub" style="margin:4px 0 0;font-size:11px;">Total of pending and rejected variation requests. Subtracted from the balance, the same as Booked in — moves out once a request is approved.</p>
+      </div>
+      <div class="formfield">
+        <label class="field-label">Balance</label>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${balance<0?'var(--brand1)':'var(--ink)'};">${fmt(balance)}</p>
+        ${balance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Booked in by week</p>
+      ${weeksToShow<1 ? `<p class="stub" style="margin:0;">${canManage?'Add a figure for Week 1 below.':'No weekly figures yet.'}</p>` : ''}
+      ${Array.from({length:Math.max(weeksToShow,0)}, (_,i)=>i+1).map(wk=>`
+        <div class="formfield">
+          <label class="field-label">Week ${wk}</label>
+          ${canManage
+            ? `<input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" onblur="savePriceWeek('${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
+            : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
         </div>
       `).join('')}
-      ${pricePickerFiles.map(f=>`
-        <div class="sitecard" style="cursor:pointer;" onclick="selectPriceFile('${f.id}','${jsAttr(f.name)}','${f.driveId||''}')">
-          <div class="info"><div class="name">📊 ${escapeHtml(f.name)}</div></div>
-          <button class="darkbtn" style="width:auto;padding:8px 12px;">Use this file</button>
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="variationSectionOpen=${!variationOpen};render()">
+        <span class="arrow">${variationOpen?'▼':'▶'}</span> Variation to Price
+      </p>
+      ${variationOpen ? `
+      <div style="padding:0 14px 14px;">
+      <div class="statusbtns" style="margin-bottom:${additionalWorksFormOpen?'10px':'0'};">
+        <div class="statusbtn" style="flex:1;background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);" onclick="additionalWorksFormOpen=!additionalWorksFormOpen;render()">Variation to Price Request</div>
+      </div>
+      ${additionalWorksFormOpen ? `
+      <div style="margin-bottom:14px;">
+        <div class="formfield" style="margin-top:0;">
+          <label class="field-label">Amount</label>
+          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awAmount" step="0.01" inputmode="decimal" placeholder="0.00"></div>
         </div>
-      `).join('')}
-      ${(!pricePickerFolders.length && !pricePickerFiles.length) ? `<div class="empty">Nothing here — no folders or spreadsheets.</div>` : ''}
-    `}
-  `, {title:'Choose Price File', subtitle:site.name, back:`#/site/${siteId}/team`, siteId, tabs:false});
+        <div class="formfield">
+          <label class="field-label">Explain the variation</label>
+          <textarea id="awNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;"></textarea>
+        </div>
+        <button class="darkbtn" onclick="submitAdditionalWorksRequest('${siteId}')">Add Request</button>
+      </div>
+      ` : ''}
+      ${awRows.length ? awRows.map(r=>`
+        <div class="sitecard" style="flex-wrap:wrap;margin-bottom:18px;">
+          ${awRevisingId===r.id ? `
+          <div class="info" style="width:100%;">
+            <div class="formfield" style="margin:0 0 8px;">
+              <label class="field-label">Amount</label>
+              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awReviseAmount" step="0.01" inputmode="decimal" value="${r.amount}"></div>
+            </div>
+            <div class="formfield" style="margin:0 0 8px;">
+              <label class="field-label">Explain the variation</label>
+              <textarea id="awReviseNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">${escapeHtml(r.note)}</textarea>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveRevisedAdditionalWorks('${siteId}','${r.id}')">Save Revision</button>
+              <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelReviseAdditionalWorks()">Cancel</button>
+            </div>
+          </div>
+          ` : `
+          <div class="info">
+            <div class="name">${fmt(r.amount)} <span class="statustag ${r.status==='approved'?'approved':r.status==='rejected'?'rejected':'pending'}" style="margin-left:4px;">${r.status==='approved'?'Approved':r.status==='rejected'?'Rejected':'Pending'}</span></div>
+            <div class="addr">${escapeHtml(r.note)} — requested by ${escapeHtml(nameOf(r.requested_by))}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="approveAdditionalWorks('${siteId}','${r.id}')">Approve</button>` : ''}
+            ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="rejectAdditionalWorks('${siteId}','${r.id}')">Rejected</button>` : ''}
+            ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}')">Revise</button>` : ''}
+            ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
+          </div>
+          `}
+        </div>
+      `).join('') : `<div class="empty">No variations requested yet.</div>`}
+      </div>
+      ` : ''}
+    </div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceFilesSectionOpen=${!filesOpen};render()">
+        <span class="arrow">${filesOpen?'▼':'▶'}</span> Price Sheet
+      </p>
+      ${filesOpen ? `
+      <div style="padding:0 14px 14px;">
+        ${canManage ? `
+        <div class="card" style="margin-bottom:14px;">
+          <p class="stub" style="margin:0 0 10px;">Only project managers and admins can upload price files. PDF or Excel — you can select more than one at a time.</p>
+          <div class="ghostbtn" style="text-align:center;cursor:pointer;" onclick="document.getElementById('priceFileUpload').click()">⬆ Upload files</div>
+          <input type="file" id="priceFileUpload" accept=".xlsx,.xls,.csv,.pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadPriceFiles('${siteId}', this)">
+        </div>
+        ` : ''}
+        ${priceFiles.length ? priceFiles.map(f=>`
+          <div class="sitecard">
+            <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':'📄'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewPriceFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+              ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deletePriceFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
+            </div>
+          </div>
+        `).join('') : `<div class="empty">No price files uploaded yet${canManage ? ' — add one above.' : '.'}</div>`}
+
+        ${priceFilePreview.path ? `
+        <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Preview — ${escapeHtml(priceFilePreview.filename||'')}</span>
+          <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closePriceFilePreview()">✕ Close</span>
+        </p>
+        ${priceFilePreview.loading ? `<p class="stub">Loading…</p>`
+          : priceFilePreview.error ? `<div class="empty">${escapeHtml(priceFilePreview.error)}</div>`
+          : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceFilePreview.sheetHtml}</div>`}
+        ` : ''}
+      </div>
+      ` : ''}
+    </div>
+
+    ${canSeeLabourInvoices ? `
+    <div class="card" style="padding:0;overflow:hidden;margin-top:18px;">
+      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesSectionOpen=!labourInvoicesSectionOpen;render()">
+        <span class="arrow">${labourInvoicesSectionOpen?'▼':'▶'}</span> Labour Invoices
+      </p>
+      ${labourInvoicesSectionOpen ? `
+      <div style="padding:8px 14px 14px;">
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+          <p class="ddrow" style="margin:0;padding:14px 14px 12px;line-height:1.5;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesListOpen=!labourInvoicesListOpen;render()">
+            <span class="arrow">${labourInvoicesListOpen?'▼':'▶'}</span> Invoices
+          </p>
+          ${labourInvoicesListOpen ? `
+          <div style="padding:0 14px 14px;">
+            ${canManage ? `
+            <p class="stub" style="margin:0 0 10px;">Upload any file type — you can select more than one at a time.</p>
+            <div class="ghostbtn" style="text-align:center;cursor:pointer;margin-bottom:10px;" onclick="document.getElementById('labourInvoiceUpload').click()">⬆ Upload files</div>
+            <input type="file" id="labourInvoiceUpload" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadLabourInvoices('${siteId}', this)">
+            ` : ''}
+            ${labourFiles.length ? labourFiles.map(f=>`
+              <div class="sitecard">
+                <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':/\.pdf$/i.test(f.filename)?'📄':'📎'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewLabourInvoice('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+                  ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteLabourInvoice('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
+                </div>
+              </div>
+            `).join('') : `<div class="empty">No invoices uploaded yet${canManage ? ' — add one above.' : '.'}</div>`}
+          </div>
+          ` : ''}
+        </div>
+
+        ${labourInvoicePreview.path ? `
+        <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Preview — ${escapeHtml(labourInvoicePreview.filename||'')}</span>
+          <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closeLabourInvoicePreview()">✕ Close</span>
+        </p>
+        ${labourInvoicePreview.loading ? `<p class="stub">Loading…</p>`
+          : labourInvoicePreview.error ? `<div class="empty">${escapeHtml(labourInvoicePreview.error)}</div>`
+          : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;margin-bottom:14px;"><style>#labourInvoiceSheetTable{border-collapse:collapse;font-size:12.5px;} #labourInvoiceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${labourInvoicePreview.sheetHtml}</div>`}
+        ` : ''}
+
+        ${canManage ? `
+        <div class="card" style="padding:0;overflow:hidden;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoiceAccessOpen=!labourInvoiceAccessOpen;render()">
+            <span class="arrow">${labourInvoiceAccessOpen?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(Gang Leader only recommended)</span>
+          </p>
+          ${labourInvoiceAccessOpen ? `
+          <div style="padding:0 14px 14px;">
+            <p class="stub" style="margin:0 0 10px;">Tick every operative who should be able to see Labour Invoices for this site. Project managers and admins can always see it.</p>
+            ${labourOperatives.map(p=>`
+              <div class="sitecard">
+                <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+                <button class="${labourAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleLabourInvoiceAccess('${siteId}','${p.id}',${labourAccessIds.has(p.id)})">
+                  ${labourAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
+                </button>
+              </div>
+            `).join('') || `<div class="empty">No operatives yet.</div>`}
+          </div>
+          ` : ''}
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
+    </div>
+    ` : ''}
+  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+  // Fire-and-forget: only a manager's own view can flip the flag (updating
+  // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
+  // just viewing the price. Only actually hits the DB on a state change —
+  // once notified it stays quiet until the balance recovers above -£50.
+  if(canManage) checkPriceOverbookedNotification(siteId, balance);
 }
+async function checkPriceOverbookedNotification(siteId, balance){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site) return;
+  const isOverbooked = balance <= -50;
+  if(isOverbooked && !site.overbooked_notified){
+    const row = await dbUpdate('sites', siteId, {overbooked_notified:true});
+    if(row){ const idx=SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx]=row; }
+    const fmt = n => '£' + Math.abs(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+    postSystemMessage(siteId, 'price_overbooked', `${site.name}: Price is overbooked by ${fmt(balance)} — please review as soon as possible.`);
+  } else if(!isOverbooked && site.overbooked_notified){
+    const row = await dbUpdate('sites', siteId, {overbooked_notified:false});
+    if(row){ const idx=SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx]=row; }
+  }
+}
+
+/* ================= LABOUR INVOICES ================= */
+// Lives as a dropdown at the bottom of the Price tile — visible to managers
+// always, and to an operative only once a PM ticks them on in the "Who can
+// see it" list below (a distinct grant from price access, kept separate
+// even though it now shares the Price page).
+let labourInvoicesSectionOpen = false; // outer "Labour Invoices" dropdown at the bottom of the Price tile
+let labourInvoicesListOpen = true;
+let labourInvoiceAccessOpen = false;
+let labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
+window.uploadLabourInvoices = async function(siteId, input){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  let uploaded = 0;
+  for(const file of files){
+    const path = siteId+'/invoices/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-_]/gi,'_');
+    const stored = await uploadToStorage('labour-invoices', path, file, file.type);
+    if(!stored) continue;
+    const rows = await dbInsert('labour_invoices', {site_id:siteId, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
+    if(rows) uploaded++;
+  }
+  input.value = '';
+  if(uploaded){ toast(uploaded===1 ? 'File uploaded' : uploaded+' files uploaded'); render(); }
+};
+window.deleteLabourInvoice = async function(siteId, fileId, storagePath){
+  if(!await customConfirm('Delete this invoice? This can\'t be undone.')) return;
+  try{ await sbFetch('/storage/v1/object/labour-invoices/'+storagePath, {method:'DELETE'}); }catch(e){}
+  const ok = await dbDelete('labour_invoices', fileId);
+  if(ok){
+    toast('Invoice deleted');
+    if(labourInvoicePreview.path===storagePath) labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
+    render();
+  }
+};
+window.viewLabourInvoice = async function(siteId, storagePath, filename){
+  const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
+  if(!isSheet){
+    const res = await sbFetch('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const d = await res.json();
+    if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
+    window.open(d.url, '_blank');
+    return;
+  }
+  labourInvoicePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
+  render();
+  try{
+    const res = await sbFetch('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const d = await res.json();
+    if(!res.ok || d.error || !d.url){ labourInvoicePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
+    if(typeof XLSX==='undefined'){ labourInvoicePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
+    const buf = await (await fetch(d.url)).arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const firstSheet = wb.Sheets[wb.SheetNames[0]];
+    const html = XLSX.utils.sheet_to_html(firstSheet, {id:'labourInvoiceSheetTable'});
+    labourInvoicePreview = {path:storagePath, filename, loading:false, error:null, sheetHtml:html};
+  }catch(e){
+    labourInvoicePreview = {path:storagePath, filename, loading:false, error:'Could not open the file.', sheetHtml:null};
+  }
+  render();
+};
+window.closeLabourInvoicePreview = function(){ labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null}; render(); };
+window.toggleLabourInvoiceAccess = async function(siteId, userId, hasAccess){
+  if(hasAccess){
+    const res = await sbFetch('/rest/v1/site_labour_invoice_access?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+    toast('Access removed');
+  } else {
+    const rows = await dbInsert('site_labour_invoice_access', {site_id:siteId, user_id:userId, granted_by:ME.id});
+    if(!rows) return;
+    toast('Access granted');
+  }
+  render();
+};
 
 /* ================= REPORT TEMPLATES (Company Admin builds; PM fills in) ================= */
 let editingTemplate = null; // deep-cloned template object being edited, or null
@@ -3563,9 +4098,10 @@ let reportFillDraft = null; // {submissionId, template_name, answers:{}, section
 let reportSubmitBusy = false;
 let reportSaveBusy = false;
 let reportsFilterTemplate = '';      // '' = all templates
-let selectedReportIds = new Set();   // checked rows, for bulk email/export
+let selectedReportIds = new Set();   // checked rows, for bulk email/export/delete
 let bulkEmailBusy = false;
 let bulkExportBusy = false;
+let bulkDeleteBusy = false;
 let reportPickerOpen = false;        // shows a template picker at the top of the Reports screen, to start a new inspection
 const REPORT_STATUS_LABEL = {in_progress:'In Progress', completed:'Completed'};
 const REPORT_STATUS_CLASS = {in_progress:'open', completed:'closed'};
@@ -3635,6 +4171,9 @@ async function renderSiteReports(siteId){
         <button class="darkbtn" style="flex:1;" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':`Email ${selectedReportIds.size} Selected`}</button>
         <button class="ghostbtn exportbtn reportsexportbtn" style="flex:1;" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('${siteId}')">${bulkExportBusy?'Building…':`Export ${selectedReportIds.size} Selected (PDF)`}</button>
       </div>
+      ${isManager(ME) ? `
+      <button class="ghostbtn" style="margin-bottom:10px;color:var(--warn);" ${bulkDeleteBusy?'disabled':''} onclick="deleteSelectedReports('${siteId}')">${bulkDeleteBusy?'Deleting…':`Delete ${selectedReportIds.size} Selected`}</button>
+      ` : ''}
     ` : ''}
     ${filtered.map(s=>`
       <div class="sitecard" style="flex-wrap:wrap;">
@@ -3721,6 +4260,23 @@ window.emailSelectedReports = async function(){
     else { toast(`${attachments.length} report(s) emailed to ${ME.email}`); selectedReportIds = new Set(); }
   }catch(e){ toast('Email failed — could not reach the server.'); }
   bulkEmailBusy = false; render();
+};
+window.deleteSelectedReports = async function(siteId){
+  if(!selectedReportIds.size) return;
+  const n = selectedReportIds.size;
+  if(!await customConfirm(`Delete ${n} report${n>1?'s':''}? This can't be undone.`)) return;
+  bulkDeleteBusy = true; render();
+  try{
+    const ids = Array.from(selectedReportIds);
+    let okCount = 0;
+    for(const id of ids){
+      const ok = await dbDelete('report_submissions', id);
+      if(ok) okCount++;
+    }
+    selectedReportIds = new Set();
+    toast(okCount ? `${okCount} report${okCount>1?'s':''} deleted` : 'Delete failed');
+  }catch(e){ toast('Delete failed.'); }
+  bulkDeleteBusy = false; render();
 };
 async function renderReportFill(siteId, submissionId, fromBriefing){
   const site = SITES.find(s=>s.id===siteId);
@@ -4575,7 +5131,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask){
               <button class="ghostbtn" style="margin-top:8px;" onclick="pendingCompleteTaskId=null;render()">‹ Back to In Progress</button>
             </div>
           ` : `
-            <div class="addphotobtn" style="cursor:pointer;" onclick="document.getElementById('taskPhotoInput-${t.id}').click()">📷 Add photo</div>
+            <div class="addphotobtn" style="cursor:pointer;${t.status==='done'?'color:var(--ink);':''}" onclick="document.getElementById('taskPhotoInput-${t.id}').click()">📷 Add photo</div>
             <input type="file" id="taskPhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="taskPhoto(this,'${siteId}','${t.id}')">
           `}
         </div>
@@ -4614,7 +5170,16 @@ async function renderSchedule(siteId){
       <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
       <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
     </div>
-    ${ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('')}
+    ${ungrouped.length ? (()=>{
+      const open = scheduleSectionsOpen['__ungrouped__'] !== false;
+      return `
+      <div class="card" style="padding:0;overflow:hidden;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('__ungrouped__')">
+          <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
+        </p>
+        ${open ? `<div style="padding:0 14px 14px;">${ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('')}</div>` : ''}
+      </div>
+    `;})() : ''}
     ${sections.map(sec=>{
       const secTasks = bySection[sec.id] || [];
       const open = scheduleSectionsOpen[sec.id] !== false;
@@ -6544,7 +7109,7 @@ async function renderMaterials(siteId){
 
   document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
-      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live</div>
+      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
     </div>
 
@@ -6572,11 +7137,10 @@ async function renderMaterials(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)} · Requested by ${escapeHtml(nameOf(m.requested_by))}</div></div>
+              <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)}</div><div class="qty">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;">
-              <span class="statustag ${m.status}">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
-              ${isPM && m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="width:auto;padding:6px 12px;font-size:10.5px;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
+              <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
               ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
             </div>
           </div>
@@ -6605,7 +7169,12 @@ async function renderMaterials(siteId){
             </div>`
             ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
           ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
-          ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>` : ''}
+          ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `
+          <div class="row-gap" style="margin-top:10px;">
+            ${m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
+            <button class="ghostbtn" style="flex:1;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
+          </div>
+          ` : ''}
           ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
             ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" onclick="openReemailPrompt('${siteId}','${m.id}')">Re-email order</button>` : ''}
@@ -6631,8 +7200,11 @@ async function renderMaterials(siteId){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
-      <div class="formfield"><input type="text" id="matQty" placeholder="Quantity"></div>
-      <button class="darkbtn" onclick="addMaterial('${siteId}')">Request</button>
+      <div class="row-gap">
+        <div class="formfield" style="flex:1;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
+        <div class="formfield" style="flex:1;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${new Date().toISOString().slice(0,10)}"></div>
+      </div>
+      <button class="darkbtn" onclick="addMaterial('${siteId}')">Request Material Order</button>
     </div>
     ` : ''}
     ${isPM ? `
@@ -6667,10 +7239,63 @@ async function renderMaterials(siteId){
     ` : ''}
   `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
 }
+// Supplier duplicate detection — company names get typed inconsistently
+// (case, punctuation, "Ltd"/"Limited", or plain typos), so a straight
+// string-equality check misses obvious dupes. Two tiers:
+//  - "blocked": normalized-identical, OR a 1-character edit apart on a
+//    reasonably long name (e.g. "Alltype" vs "altype") — this is almost
+//    certainly the same company typed slightly differently, so it's never
+//    allowed, no override.
+//  - "warn": more loosely similar (shared prefix/substring, or a modest
+//    edit distance) — flagged, but a PM can confirm and add it anyway as a
+//    genuinely different company.
+function normalizeSupplierName(name){
+  return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+}
+function levenshteinDistance(a,b){
+  const m=a.length, n=b.length;
+  if(!m) return n; if(!n) return m;
+  let prev = Array.from({length:n+1}, (_,j)=>j);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++){
+      cur[j] = a[i-1]===b[j-1] ? prev[j-1] : 1+Math.min(prev[j-1], prev[j], cur[j-1]);
+    }
+    prev=cur;
+  }
+  return prev[n];
+}
+function findSupplierConflict(name, suppliers, excludeId){
+  const norm = normalizeSupplierName(name);
+  if(!norm) return {blocked:null, warn:null};
+  let warn = null;
+  for(const s of suppliers){
+    if(excludeId && s.id===excludeId) continue;
+    const sNorm = normalizeSupplierName(s.name);
+    if(!sNorm) continue;
+    if(sNorm===norm) return {blocked:s, warn:null};
+    const dist = levenshteinDistance(norm, sNorm);
+    const shorter = Math.min(norm.length, sNorm.length);
+    if(shorter>=5 && dist<=1) return {blocked:s, warn:null};
+    if(!warn){
+      const maxLen = Math.max(norm.length, sNorm.length) || 1;
+      const ratio = 1 - dist/maxLen;
+      if(ratio>=0.6 || norm.includes(sNorm) || sNorm.includes(norm)) warn = s;
+    }
+  }
+  return {blocked:null, warn};
+}
 window.addSupplier = async function(siteId){
   const name = document.getElementById('supName').value.trim();
   const email = document.getElementById('supEmail').value.trim();
   if(!name || !email){ toast('Enter a supplier name and email.'); return; }
+  const existing = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name');
+  const conflict = findSupplierConflict(name, existing);
+  if(conflict.blocked){ customAlert(`"${escapeHtml(conflict.blocked.name)}" is already a supplier — that looks like the same company under a slightly different spelling, so it can't be added again.`); return; }
+  if(conflict.warn){
+    const ok = await customConfirm(`This looks similar to an existing supplier, "${conflict.warn.name}" — add "${name}" anyway as a separate supplier?`);
+    if(!ok) return;
+  }
   const rows = await dbInsert('suppliers', {org_id: ME.org_id, name, email, created_by: ME.id});
   if(rows){ toast('Supplier added'); supplierAddOpen = false; render(); }
 };
@@ -6678,6 +7303,15 @@ window.saveSupplierField = async function(input, supplierId, field){
   const val = input.value.trim();
   if(!val){ toast((field==='name'?'Supplier name':'Email')+' can\'t be empty.'); render(); return; }
   if(val === input.defaultValue) return;
+  if(field==='name'){
+    const existing = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name');
+    const conflict = findSupplierConflict(val, existing, supplierId);
+    if(conflict.blocked){ toast(`"${conflict.blocked.name}" already exists — not saved.`); render(); return; }
+    if(conflict.warn){
+      const ok = await customConfirm(`This looks similar to an existing supplier, "${conflict.warn.name}" — rename to "${val}" anyway?`);
+      if(!ok){ render(); return; }
+    }
+  }
   const row = await dbUpdate('suppliers', supplierId, {[field]:val});
   if(row) toast('Supplier updated');
 };
@@ -6702,17 +7336,36 @@ window.importSuppliersExcel = async function(input, siteId){
       startRow = 1;
     }
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Dedupe against suppliers already on file AND against rows already
+    // accepted earlier in this same import, so two near-identical rows in
+    // one spreadsheet don't both get added.
+    const seen = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name');
     const found = [];
+    let skippedDupe = 0; const skippedSimilar = [];
     for(let i=startRow;i<rows.length;i++){
       const r = rows[i]; if(!r) continue;
       const name = String(r[nameCol]!=null?r[nameCol]:'').trim();
       const email = String(r[emailCol]!=null?r[emailCol]:'').trim();
       if(!name || !EMAIL_RE.test(email)) continue;
+      const conflict = findSupplierConflict(name, seen);
+      if(conflict.blocked){ skippedDupe++; continue; }
+      if(conflict.warn){ skippedSimilar.push(name+' (like "'+conflict.warn.name+'")'); continue; }
       found.push({org_id:ME.org_id, name, email, created_by:ME.id});
+      seen.push({id:null, name});
     }
-    if(!found.length){ toast('Could not find any name + email pairs — check the file has Name/Email columns (or Name in column A, Email in column B).'); return; }
+    if(!found.length){
+      toast((skippedDupe || skippedSimilar.length) ? 'Nothing new to import — every row matched an existing (or similar) supplier.' : 'Could not find any name + email pairs — check the file has Name/Email columns (or Name in column A, Email in column B).');
+      return;
+    }
     const inserted = await dbInsert('suppliers', found);
-    if(inserted){ toast(`${found.length} supplier${found.length===1?'':'s'} imported`); supplierAddOpen = false; render(); }
+    if(inserted){
+      let msg = `${found.length} supplier${found.length===1?'':'s'} imported`;
+      if(skippedDupe) msg += `, ${skippedDupe} skipped (already exists)`;
+      if(skippedSimilar.length) msg += `, ${skippedSimilar.length} skipped as possible duplicates`;
+      toast(msg);
+      if(skippedSimilar.length) customAlert('Skipped as possible duplicates — add manually below if these are genuinely different companies: '+skippedSimilar.join(', '));
+      supplierAddOpen = false; render();
+    }
   }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
 };
 window.deleteSupplier = async function(siteId, supplierId){
@@ -6730,10 +7383,12 @@ window.cancelMaterial = async function(siteId, matId){
 window.addMaterial = async function(siteId){
   const item = document.getElementById('matItem').value.trim();
   const qty = document.getElementById('matQty').value.trim();
+  const requiredByEl = document.getElementById('matRequiredBy');
+  const requiredBy = requiredByEl ? requiredByEl.value : '';
   if(!item) return;
-  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', requested_by:ME.id, status:'pending'});
+  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending'});
   if(rows){
-    postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`);
+    postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`+(requiredBy?` — required by ${requiredBy}`:''));
     toast('Request added'); render();
   }
 };
@@ -7161,9 +7816,41 @@ function wrapPlainText(text, font, size, maxWidth){
 /* ================= DRAWINGS (PM/admin-managed folders of PDF drawings, per site) ================= */
 let drawingUploadOpen = false;
 let drawingNewFolderOpen = false;
+let drawingsLastFolderId; // undefined initially so the very first render always "changes"
+// "+" now asks Add Folder vs Add Drawings instead of jumping straight to
+// "new folder" — same geo-modal look used for confirm dialogs / PM pickers
+// elsewhere in the app.
+window.showDrawingAddMenu = function(siteId, folderId){
+  let ov = document.getElementById('confirmModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'confirmModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    document.body.appendChild(ov);
+  }
+  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';drawingNewFolderOpen=true;drawingUploadOpen=false;render()">📁 Add Folder</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';drawingUploadOpen=true;drawingNewFolderOpen=false;render()">📐 Add Drawings</button>
+      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
 async function renderDrawings(siteId, folderId){
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
+  // The "New folder" input and "Upload" panel are page-level toggles, not
+  // per-folder ones — without this reset, opening either while inside one
+  // folder left it stuck open after navigating into a different folder (or
+  // back to the top level), which read as "the new-folder box shows up in
+  // every drawings tab." Reset both whenever the folder actually changes.
+  if(drawingsLastFolderId !== (folderId||null)){
+    drawingNewFolderOpen = false;
+    drawingUploadOpen = false;
+    drawingsLastFolderId = folderId||null;
+  }
   let currentFolder = null;
   if(folderId){
     const rows = await dbSelect('drawing_folders', 'id=eq.'+folderId+'&select=*');
@@ -7187,7 +7874,7 @@ async function renderDrawings(siteId, folderId){
   document.getElementById('app').innerHTML = shell(`
     <div class="drawheaderrow">
       <span>File Name</span>
-      ${canManage ? `<div class="roundplusbtn" onclick="drawingNewFolderOpen=!drawingNewFolderOpen;render()">+</div>` : ''}
+      ${canManage ? `<div class="roundplusbtn" onclick="showDrawingAddMenu('${siteId}',${parentArg})">+</div>` : ''}
     </div>
     ${canManage && (isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
       <div class="card" style="margin-bottom:10px;">
@@ -7226,7 +7913,6 @@ async function renderDrawings(siteId, folderId){
     ${canManage ? `<div style="height:66px;"></div>` : ''}
 
     ${canManage ? `
-      <button class="${drawingUploadOpen?'darkbtn':'ghostbtn'}" style="margin-top:10px;" onclick="drawingUploadOpen=!drawingUploadOpen;render()">Upload Drawings</button>
       ${drawingUploadOpen ? `
         <div class="card" style="margin-top:10px;">
           <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
@@ -7234,6 +7920,7 @@ async function renderDrawings(siteId, folderId){
           <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
           <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
+          <button class="ghostbtn" style="margin-top:8px;" onclick="drawingUploadOpen=false;render()">Cancel</button>
         </div>
       ` : ''}
     ` : ''}
@@ -7478,11 +8165,11 @@ async function renderMessages(siteId){
   }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
 
-  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', message:null};
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', message:null};
   // Tapping a message that's about a specific thing (a material request,
   // variation, or closed snag) jumps straight to that tab — same routing
   // table used for push-notification taps in registerPushNotifications().
-  const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list'};
+  const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price'};
   const msgRow = m => {
     const dest = !msgSelectMode && m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
     const replies = repliesByParent[m.id] || [];
@@ -7651,7 +8338,7 @@ async function render(){
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
-    if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; todoAddOpen = false; todoFilter = 'live'; todoAssigneeEditId = null; }
+    if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId);
@@ -7706,7 +8393,6 @@ async function render(){
     }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
     if(page==='price') return renderPriceTile(siteId);
-    if(page==='price-picker') return renderPriceFilePicker(siteId);
   }
   renderSites();
 }
