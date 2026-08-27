@@ -1826,7 +1826,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteStartDateDraft=''; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -1860,6 +1860,7 @@ function siteCardHtml(s, canAdd, pmOptions){
           style="margin-left:4px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
       ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
+      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:6px;font-size:11px;white-space:nowrap;">Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}
       <span class="status ${statusKey}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
@@ -1889,6 +1890,7 @@ let newSiteStatus = null; // 'active' | 'upcoming' — must be explicitly chosen
 let newSiteNameDraft = '';
 let newSiteAddrDraft = '';
 let newSitePostcodeDraft = '';
+let newSiteStartDateDraft = '';
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
 // upcoming:null means "no explicit user choice yet" — renderSites resolves
@@ -1913,7 +1915,13 @@ window.confirmSetResponsiblePm = async function(siteId, pmId, pmName){
 };
 window.setSiteStatus = async function(siteId, status){
   siteStatusMenuOpenId = null;
-  const row = await dbUpdate('sites', siteId, {status});
+  // Stamp who/when a site was closed; clear the stamp if it's reopened
+  // (moved back to active/upcoming) so a re-closed job records the latest
+  // closer rather than showing stale info from a previous closure.
+  const patch = status==='closed'
+    ? {status, closed_at:new Date().toISOString(), closed_by:ME.id}
+    : {status, closed_at:null, closed_by:null};
+  const row = await dbUpdate('sites', siteId, patch);
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -1980,6 +1988,10 @@ async function renderSites(){
             <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
             <button type="button" class="${newSiteStatus==='upcoming'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='upcoming';render()">Upcoming</button>
           </div>
+          ${newSiteStatus==='upcoming' ? `
+            <p class="field-label" style="margin-bottom:6px;">Start date</p>
+            <div class="formfield"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value"></div>
+          ` : ''}
         ` : ''}
         <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Site</button>
       </div>
@@ -1998,11 +2010,12 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteStartDateDraft=''; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   const postcode = document.getElementById('newSitePostcode').value.trim();
+  const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
   if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
@@ -2013,10 +2026,10 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:newSiteStatus, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:newSiteStatus, start_date:startDate||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = '';
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteStartDateDraft = '';
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -3289,6 +3302,14 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
     ` : ''}
+
+    <p class="sectiontitle" style="margin-top:22px;">Site Info</p>
+    <div class="card">
+      <p class="stub" style="margin:0;">Created ${site.created_at ? new Date(site.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.created_by ? ' by '+escapeHtml(nameOf(site.created_by)) : ''}</p>
+      ${site.status==='closed' ? `
+        <p class="stub" style="margin:6px 0 0;">Closed ${site.closed_at ? new Date(site.closed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.closed_by ? ' by '+escapeHtml(nameOf(site.closed_by)) : ''}</p>
+      ` : ''}
+    </div>
   `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
 }
 let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
@@ -3946,10 +3967,24 @@ function renderTemplateItemEditor(si, ii, it){
           ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
         ` : ''}
       </div>
-      <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;gap:4px;">
+          <button class="ghostbtn" style="width:auto;padding:8px 10px;" ${ii===0?'disabled':''} title="Move up" onclick="moveTemplateItem(${si},${ii},-1)">▲</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 10px;" ${ii>=(editingTemplate.sections[si].items.length-1)?'disabled':''} title="Move down" onclick="moveTemplateItem(${si},${ii},1)">▼</button>
+        </div>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
+      </div>
     </div>
   `;
 }
+window.moveTemplateItem = function(si, ii, dir){
+  const items = editingTemplate.sections[si].items;
+  const target = ii + dir;
+  if(target<0 || target>=items.length) return;
+  const [moved] = items.splice(ii,1);
+  items.splice(target,0,moved);
+  render();
+};
 function renderMediaRequiredEditor(si, ii, it){
   const opts = itemOwnValueOptions(it);
   return `
@@ -4517,17 +4552,20 @@ async function buildReportPdf(submissionId){
     const INK = PDFLib.rgb(0.06,0.06,0.07);
     const SLATE = PDFLib.rgb(0.36,0.37,0.41);
     const LINE = PDFLib.rgb(0.88,0.88,0.90);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
     const HEADBAR = PDFLib.rgb(0.933,0.941,0.961);
     const GREEN = PDFLib.rgb(0.122,0.573,0.322);
     const RED = PDFLib.rgb(0.757,0.231,0.231);
     const GRAY = PDFLib.rgb(0.463,0.463,0.478);
     const BLUE = PDFLib.rgb(0.231,0.435,0.851);
     const GREENTXT = PDFLib.rgb(0.122,0.573,0.322);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
     const PAGE_W = 595.28, PAGE_H = 841.89;
     const MARGIN = 44;
     const CONTENT_W = PAGE_W - 2*MARGIN;
     const BAR_X = MARGIN + CONTENT_W*0.46; // colour bars start ~46% across, like the reference PDFs
     const BAR_W = PAGE_W - MARGIN - BAR_X;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
 
     let logoImg = null;
     const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
@@ -4536,12 +4574,35 @@ async function buildReportPdf(submissionId){
       if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
     }
 
+    // Same branded header-band / footer aesthetic as the Snagging PDF export
+    // (logo + colour band up top, "Generated via OpHUB" + page number footer)
+    // — kept identical across both exports so they read as one system.
     let page, y, pageNum = 0;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('INSPECTION REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      const titleText = sub.template_name.length>44 ? sub.template_name.slice(0,41)+'…' : sub.template_name;
+      page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+    }
     function newPage(){
       page = pdfDoc.addPage([PAGE_W, PAGE_H]);
       pageNum += 1;
-      page.drawText('Private & confidential', {x:MARGIN, y:26, size:8.5, font:reg, color:SLATE});
-      y = PAGE_H - MARGIN;
+      drawHeaderBand();
+      drawFooter();
+      y = PAGE_H - 118;
     }
     function ensureSpace(h){ if(y - h < 50) newPage(); }
     function wrapText(text, font, size, maxWidth){
@@ -4664,15 +4725,6 @@ async function buildReportPdf(submissionId){
 
     /* ---------- Page 1: title page ---------- */
     newPage();
-    if(logoImg){
-      const dim = logoImg.scale(1);
-      const sc = Math.min(96/dim.width, 96/dim.height, 1);
-      const w = dim.width*sc, h = dim.height*sc;
-      page.drawImage(logoImg, {x:MARGIN, y:y-96+(96-h)/2, width:w, height:h});
-    }
-    y -= (logoImg?110:0);
-    page.drawText(sub.template_name, {x:MARGIN, y:y-22, size:20, font:bold, color:INK});
-    y -= 40;
 
     const sections = sub.sections||[];
     const titleSection = isTitleSection(sections[0]) ? sections[0] : null;
