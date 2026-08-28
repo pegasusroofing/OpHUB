@@ -737,25 +737,30 @@ const K_SESSION = 'rtb-session-v1';
 /* ================= Supabase data layer ================= */
 let SESSION = null; // {access_token, refresh_token, expires_at, user:{id,email}}
 
-// A hung refresh call used to freeze the whole app forever on load (no
-// timeout meant a single stalled request — bad signal, a blocking
-// extension, whatever — left the page permanently stuck with nothing to
-// click and no error shown). An AbortController timeout means a stalled
-// request now fails the same way a rejected one already did: the stored
-// session is cleared and the app falls through to the sign-in screen
-// instead of hanging indefinitely.
+// Every network call in this app used to be a bare fetch() with no
+// timeout — one stalled request (bad signal, a blocking extension,
+// anything) could freeze that whole code path forever with nothing to
+// click and no error shown. This wraps fetch with an AbortController so a
+// stalled request fails the same way a rejected one already did, after a
+// bounded wait, instead of hanging indefinitely. Every fetch(SUPABASE_URL...)
+// call in the app goes through this now — see ensureFreshToken, sbFetch,
+// uploadToStorage, signUp and signIn below.
+function fetchWithTimeout(url, opts, ms){
+  opts = opts || {};
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), ms || 15000);
+  const merged = Object.assign({}, opts, {signal: controller.signal});
+  return fetch(url, merged).finally(()=>clearTimeout(timeout));
+}
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
-  const controller = new AbortController();
-  const timeout = setTimeout(()=>controller.abort(), 10000);
   try{
-    const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
+    const res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body: JSON.stringify({refresh_token: SESSION.refresh_token}),
-      signal: controller.signal
-    });
+      body: JSON.stringify({refresh_token: SESSION.refresh_token})
+    }, 10000);
     if(res.ok){
       const d = await res.json();
       SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
@@ -764,7 +769,6 @@ async function ensureFreshToken(){
       SESSION = null; ME = null; await sdelete(K_SESSION, false);
     }
   }catch(e){ SESSION = null; ME = null; }
-  finally{ clearTimeout(timeout); }
 }
 async function sbFetch(path, opts){
   opts = opts || {};
@@ -774,7 +778,7 @@ async function sbFetch(path, opts){
     'Authorization': 'Bearer ' + (SESSION ? SESSION.access_token : SUPABASE_ANON_KEY),
     'Content-Type': 'application/json'
   }, opts.headers||{});
-  return fetch(SUPABASE_URL + path, Object.assign({}, opts, {headers}));
+  return fetchWithTimeout(SUPABASE_URL + path, Object.assign({}, opts, {headers}), 20000);
 }
 async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
 
@@ -802,7 +806,7 @@ async function dbDelete(table, id){
 }
 async function uploadToStorage(bucket, path, blobOrFile, contentType){
   await ensureFreshToken();
-  const res = await fetch(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
+  const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
     method:'POST',
     headers:{
       'apikey': SUPABASE_ANON_KEY,
@@ -811,7 +815,7 @@ async function uploadToStorage(bucket, path, blobOrFile, contentType){
       'x-upsert':'true'
     },
     body: blobOrFile
-  });
+  }, 60000); // photos/PDFs can be a few MB — give uploads more room than a plain API call
   if(!res.ok){ toast('Upload failed — '+(await safeErr(res))); return null; }
   return path;
 }
@@ -879,11 +883,14 @@ async function deliverExcelFile(wb, filename){
 // table and resolves org_id/role from THAT row — anything else sent here
 // (e.g. a role) is display-only and is never trusted by the backend.
 async function signUp(email, password, extra){
-  const res = await fetch(SUPABASE_URL+'/auth/v1/signup', {
-    method:'POST',
-    headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-    body: JSON.stringify({email, password, data: extra||{}})
-  });
+  let res;
+  try{
+    res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/signup', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email, password, data: extra||{}})
+    }, 15000);
+  }catch(e){ return {error:'Could not reach the server — check your connection and try again.'}; }
   const d = await res.json();
   if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign up failed'};
   if(d.access_token){
@@ -900,11 +907,14 @@ async function getInviteInfo(inviteId){
   return rows && rows[0] ? rows[0] : null;
 }
 async function signIn(email, password){
-  const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
-    method:'POST',
-    headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-    body: JSON.stringify({email, password})
-  });
+  let res;
+  try{
+    res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
+      method:'POST',
+      headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+      body: JSON.stringify({email, password})
+    }, 15000);
+  }catch(e){ return {error:'Could not reach the server — check your connection and try again.'}; }
   const d = await res.json();
   if(!res.ok) return {error: d.msg||d.error_description||d.error||'Sign in failed'};
   SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:{id:d.user.id, email:d.user.email}};
