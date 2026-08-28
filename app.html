@@ -167,8 +167,8 @@
     border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   .sitecard:active{transform:scale(.99);}
   .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
-    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
-    color:var(--brand2);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
+    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand1-text);display:flex;align-items:center;justify-content:center;
+    color:var(--brand1-text);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
   .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
   .sitecard .info{flex:1;min-width:0;}
   .sitecard .info .name{font-weight:800;font-size:14.5px;}
@@ -1280,6 +1280,7 @@ document.addEventListener('click', function(e){
   if(pmFilterOpen && !e.target.closest('[data-pmfilter-root]')){ pmFilterOpen = false; changed = true; }
   if(siteStatusMenuOpenId && !e.target.closest('.status, .statusmenu')){ siteStatusMenuOpenId = null; changed = true; }
   if(sitePmPickerOpenId && !e.target.closest('.rolechip, .statusmenu')){ sitePmPickerOpenId = null; changed = true; }
+  if(checkinLogOperativeFilterOpen && !e.target.closest('[data-checkinopfilter-root]')){ checkinLogOperativeFilterOpen = false; changed = true; }
   if(changed) render();
 });
 // Custom confirmation dialog, replacing the native window.confirm(). On this
@@ -1917,17 +1918,20 @@ function siteCardHtml(s, canAdd, pmOptions){
   // Admin Centre lets a company choose what the tile itself shows — job
   // number and postcode both fall back to the initials when a site simply
   // doesn't have one set yet, rather than showing an empty tile.
-  const tileMode = (ORG && ORG.site_tile_mode) || 'initials';
+  const tileMode = (ORG && ORG.site_tile_mode) || 'jobnumber';
   const swatchText = tileMode==='jobnumber' ? (s.job_number || initials)
     : tileMode==='postcode' ? (s.postcode || initials)
     : initials;
+  // Long job numbers/postcodes won't fit the fixed-size tile at the normal
+  // initials font size — shrink proportionally to length instead of
+  // truncating or overflowing.
+  const swatchFontSize = swatchText.length<=3 ? 15 : swatchText.length<=5 ? 11 : swatchText.length<=7 ? 9 : 7.5;
   return `
     <div class="sitecard" onclick="go('#/site/${s.id}/home')">
-      <div class="swatch">${escapeHtml(swatchText)}</div>
+      <div class="swatch" style="font-size:${swatchFontSize}px;">${escapeHtml(swatchText)}</div>
       <div class="info">
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
-        ${s.job_number ? `<div class="addr" style="opacity:.75;">Job #${escapeHtml(s.job_number)}</div>` : ''}
       </div>
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
@@ -2281,12 +2285,13 @@ async function renderTeam(){
   const reportTemplates = iAmAdmin ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const suppliers = isManager(ME) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
+  const havsTools = isManager(ME) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
   let checkinLogRows = [];
   if(isManager(ME) && teamSectionOpen.checkinlogs){
-    const range = checkinLogRange(checkinLogMode, checkinLogOffset);
+    const range = checkinLogEffectiveRange();
     checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
   }
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
@@ -2410,6 +2415,37 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('havstools')"><span class="arrow">${teamSectionOpen.havstools?'▼':'▶'}</span> HAVS Tools</p>
+    ${teamSectionOpen.havstools ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">The vibration magnitude (m/s²) used to calculate everyone's HAVS exposure points. These are sensible starting defaults — update them if you have proper manufacturer or measured figures.</p>
+      ${havsTools.map(t=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(t.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveHavsToolField(this,'${t.id}','name')">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="stub" style="margin:0;">Magnitude</span>
+              <input type="number" step="0.1" min="0.1" value="${t.vibration_magnitude}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveHavsToolField(this,'${t.id}','vibration_magnitude')">
+              <span class="stub" style="margin:0;">m/s²</span>
+            </div>
+          </div>
+          <div class="taskicon danger" onclick="deleteHavsTool('${t.id}','${jsAttr(t.name)}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No tools yet — add your first one below.</div>`}
+      ${havsToolAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="havsToolName" placeholder="Tool name"></div>
+        <div class="formfield"><input type="number" step="0.1" min="0.1" id="havsToolMag" placeholder="Vibration magnitude (m/s²)"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addHavsTool()">Add Tool</button>
+          <button class="ghostbtn" style="flex:1;" onclick="havsToolAddOpen=false;render()">Cancel</button>
+        </div>
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="havsToolAddOpen=true;render()">+ Add Tool</button>
+      `}
+    </div>
+    ` : ''}
+    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
     <div class="card">
@@ -2446,17 +2482,42 @@ async function renderTeam(){
     ${teamSectionOpen.checkinlogs ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Every operative's check-in / check-out times, across all sites.</p>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <button class="${checkinLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setCheckinLogMode('weekly')">Weekly</button>
-        <button class="${checkinLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setCheckinLogMode('monthly')">Monthly</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;">
+        <div style="display:flex;gap:6px;">
+          <button class="${checkinLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setCheckinLogMode('weekly')">Weekly</button>
+          <button class="${checkinLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setCheckinLogMode('monthly')">Monthly</button>
+        </div>
+        <div style="position:relative;" data-checkinopfilter-root>
+          <button type="button" onclick="event.stopPropagation();toggleCheckinLogOperativeFilterOpen()" title="Filter by operative" style="width:auto;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${checkinLogOperativeIds.length?'var(--brand1)':'#fff'};color:${checkinLogOperativeIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+            ${checkinLogOperativeIds.length ? (checkinLogOperativeIds.length===1 ? escapeHtml((nameOf(checkinLogOperativeIds[0])||'1 selected')) : checkinLogOperativeIds.length+' selected') : 'All operatives'} ${checkinLogOperativeFilterOpen?'▲':'▼'}
+          </button>
+          ${checkinLogOperativeFilterOpen ? `
+            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;max-height:220px;overflow-y:auto;">
+              ${people.filter(p=>p.role==='operative').map(p=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--ink);cursor:pointer;">
+                  <input type="checkbox" ${checkinLogOperativeIds.includes(p.id)?'checked':''} onchange="toggleCheckinLogOperativeId('${p.id}')">
+                  ${escapeHtml(p.name)}
+                </label>
+              `).join('')}
+              ${checkinLogOperativeIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearCheckinLogOperativeFilter()">Clear</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <span class="taskicon" onclick="shiftCheckinLog(-1)">‹</span>
-        <span style="font-weight:800;font-size:13px;">${escapeHtml(checkinLogRange(checkinLogMode, checkinLogOffset).label)}</span>
-        <span class="taskicon" style="${checkinLogOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftCheckinLog(1)">›</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span class="taskicon" style="${checkinLogFromDate&&checkinLogToDate?'opacity:.35;pointer-events:none;':''}" onclick="shiftCheckinLog(-1)">‹</span>
+        <span style="font-weight:800;font-size:13px;">${escapeHtml(checkinLogEffectiveRange().label)}</span>
+        <span class="taskicon" style="${(checkinLogOffset>=0)||(checkinLogFromDate&&checkinLogToDate)?'opacity:.35;pointer-events:none;':''}" onclick="shiftCheckinLog(1)">›</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--slate);font-weight:700;">From</span>
+        <input type="date" value="${escapeHtml(checkinLogFromDate)}" onchange="setCheckinLogFromDate(this.value)" style="width:auto;padding:4px 6px;font-size:11px;">
+        <span style="font-size:11px;color:var(--slate);font-weight:700;">To</span>
+        <input type="date" value="${escapeHtml(checkinLogToDate)}" onchange="setCheckinLogToDate(this.value)" style="width:auto;padding:4px 6px;font-size:11px;">
+        ${checkinLogFromDate||checkinLogToDate ? `<span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearCheckinLogDateFilter()">Clear</span>` : ''}
       </div>
       ${(()=>{
-        const operatives = people.filter(p=>p.role==='operative');
+        const operatives = people.filter(p=>p.role==='operative' && (!checkinLogOperativeIds.length || checkinLogOperativeIds.includes(p.id)));
         if(!operatives.length) return `<div class="empty" style="padding:10px;">No operatives yet.</div>`;
         return operatives.map(op=>{
           const rows = checkinLogRows.filter(c=>c.user_id===op.id);
@@ -2575,7 +2636,7 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, invites:false, users:false};
 // Check-In Logs (Admin Centre) — a weekly or monthly view of every
 // operative's check-in/out times across every site, for PMs and Admins.
 let checkinLogMode = 'weekly'; // 'weekly' | 'monthly'
@@ -2602,6 +2663,32 @@ function checkinLogRange(mode, offset){
 }
 window.setCheckinLogMode = function(mode){ checkinLogMode = mode; checkinLogOffset = 0; render(); };
 window.shiftCheckinLog = function(dir){ checkinLogOffset += dir; render(); };
+// Optional custom date range — when both ends are set it overrides the
+// Weekly/Monthly quick view entirely; clearing either goes straight back
+// to the standard week/month behaviour above.
+let checkinLogFromDate = '';
+let checkinLogToDate = '';
+window.setCheckinLogFromDate = function(v){ checkinLogFromDate = v; render(); };
+window.setCheckinLogToDate = function(v){ checkinLogToDate = v; render(); };
+window.clearCheckinLogDateFilter = function(){ checkinLogFromDate = ''; checkinLogToDate = ''; render(); };
+function checkinLogEffectiveRange(){
+  if(checkinLogFromDate && checkinLogToDate){
+    const start = new Date(checkinLogFromDate+'T00:00:00').getTime();
+    const end = new Date(checkinLogToDate+'T00:00:00').getTime() + 24*60*60*1000;
+    const label = `${new Date(checkinLogFromDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} – ${new Date(checkinLogToDate+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+    return {start, end, label, custom:true};
+  }
+  return checkinLogRange(checkinLogMode, checkinLogOffset);
+}
+// Multi-select operative filter — empty selection means "everyone".
+let checkinLogOperativeIds = [];
+let checkinLogOperativeFilterOpen = false;
+window.toggleCheckinLogOperativeFilterOpen = function(){ checkinLogOperativeFilterOpen = !checkinLogOperativeFilterOpen; render(); };
+window.toggleCheckinLogOperativeId = function(id){
+  checkinLogOperativeIds = checkinLogOperativeIds.includes(id) ? checkinLogOperativeIds.filter(x=>x!==id) : [...checkinLogOperativeIds, id];
+  render();
+};
+window.clearCheckinLogOperativeFilter = function(){ checkinLogOperativeIds = []; render(); };
 // Pairs up each operative's raw in/out rows (oldest first) into
 // {inTs, outTs, hours} sessions per calendar day. A dangling check-in with
 // no matching check-out yet (still on site, or they forgot to check out)
@@ -2943,8 +3030,11 @@ async function renderSiteHome(siteId){
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
-      <span>${escapeHtml(ME.name)}</span>
-      ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+      <span>${site.job_number ? 'Job No: '+escapeHtml(site.job_number) : ''}</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span>${escapeHtml(ME.name)}</span>
+        ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+      </span>
     </div>
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
@@ -6757,8 +6847,295 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
         <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
+        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
+        <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
+      </div>
     </div>
   `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+
+/* ================= HAVS (Hand-Arm Vibration exposure) =================
+   Real HSE formula (matches the government HAVS calculator, not the old
+   spreadsheet's ambiguous multiplier): for a tool with vibration magnitude
+   D (m/s²) used for M minutes, partial daily exposure A(8) = D x
+   sqrt(M/480) (480 minutes = a full 8-hour reference day), and that
+   converts to "points" as A(8)^2 x 100/6.25 — 100 points = the 2.5 m/s²
+   Exposure Action Value (EAV), 400 points = the 5 m/s² Exposure Limit
+   Value (ELV). Multiple tools/sessions in the same day combine by simply
+   summing their points (equivalent to root-sum-squaring the A(8) values,
+   the HSE-approved combination method). An operative can only log entries
+   against himself; a PM/Admin can log for any operative assigned to the
+   site, one after another, same as the old spreadsheet's multi-operative
+   weekly grid — just with a real tool picker and a real per-day duration
+   instead of a flat multiplier. */
+function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); }
+function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
+const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+let havsWeekOffset = 0;
+let havsDraft = {}; // userId -> {day: 0-4, toolId, minutes}
+window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
+function havsWeekDates(offset){
+  const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
+  return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
+}
+function havsDraftFor(userId){
+  if(!havsDraft[userId]) havsDraft[userId] = {day:0, toolId:'', minutes:''};
+  return havsDraft[userId];
+}
+window.setHavsDraft = function(userId, field, value){ havsDraftFor(userId)[field] = value; render(); };
+window.addHavsEntry = async function(siteId, userId){
+  const d = havsDraftFor(userId);
+  const minutes = parseInt(d.minutes, 10);
+  if(!d.toolId){ toast('Choose a tool.'); return; }
+  if(!minutes || minutes<=0 || minutes>480){ toast('Enter minutes between 1 and 480.'); return; }
+  const date = havsWeekDates(havsWeekOffset)[d.day];
+  const entry_date = date.toISOString().slice(0,10);
+  const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:d.toolId, minutes, created_by:ME.id});
+  if(rows){ havsDraft[userId] = {day:d.day, toolId:'', minutes:''}; toast('Entry added'); render(); }
+};
+window.deleteHavsEntry = async function(entryId){
+  if(!await customConfirm('Remove this HAVS entry?')) return;
+  const ok = await dbDelete('havs_entries', entryId);
+  if(ok){ toast('Entry removed'); render(); }
+};
+async function renderHavs(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  const days = havsWeekDates(havsWeekOffset);
+  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const dateFrom = days[0].toISOString().slice(0,10);
+  const dateTo = days[4].toISOString().slice(0,10);
+
+  const [tools, assignedRows] = await Promise.all([
+    dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc'),
+    canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+  ]);
+  await loadAllProfiles();
+  const operativeIds = canManage
+    ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
+    : [ME.id];
+  const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+  const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
+  const entries = operatives.length ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
+
+  function daySessions(userId, dateStr){
+    return entries.filter(e=>e.user_id===userId && e.entry_date===dateStr).map(e=>{
+      const tool = toolById[e.tool_id];
+      return {id:e.id, toolName: tool?tool.name:'(removed tool)', minutes:e.minutes, points: tool?havsPoints(tool.vibration_magnitude, e.minutes):0};
+    });
+  }
+  function statusChip(points){
+    if(points>=400) return `<span class="status closed" style="background:#FBE1DE;color:var(--brand1);">ELV EXCEEDED</span>`;
+    if(points>=100) return `<span class="status upcoming">ACTION NEEDED</span>`;
+    return `<span class="status live">OK</span>`;
+  }
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span class="taskicon" onclick="shiftHavsWeek(-1)">‹</span>
+      <span style="font-weight:800;font-size:13.5px;">${escapeHtml(weekLabel)}</span>
+      <span class="taskicon" style="${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1)">›</span>
+    </div>
+    <p class="stub" style="text-align:center;margin:0 0 14px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
+    ${operatives.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportHavsCollective('${siteId}')">Export All (PDF)</button>` : ''}
+    ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
+    ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">No HAVS tools set up yet — add some in Admin Centre → HAVS Tools.</div>` : ''}
+    ${operatives.map(op=>{
+      let weeklyPoints = 0;
+      const dayBlocks = days.map((d,di)=>{
+        const dateStr = d.toISOString().slice(0,10);
+        const sessions = daySessions(op.id, dateStr);
+        const dayPoints = sessions.reduce((s,x)=>s+x.points,0);
+        weeklyPoints += dayPoints;
+        const canEditThis = canManage || op.id===ME.id;
+        return `
+          <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-weight:700;font-size:12px;">${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span></span>
+              ${sessions.length ? statusChip(dayPoints) : ''}
+            </div>
+            ${sessions.map(s=>`
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--slate);margin-top:4px;">
+                <span>${escapeHtml(s.toolName)} · ${s.minutes} min · ${s.points.toFixed(0)} pts</span>
+                ${canEditThis ? `<span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }).join('');
+      const draft = havsDraftFor(op.id);
+      const canEdit = (canManage || op.id===ME.id) && tools.length;
+      return `
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <p class="sectiontitle" style="margin:0;">${escapeHtml(op.name)}</p>
+            <span class="rolechip" style="margin:0;" title="Sum of this week's daily points — informational; the EAV/ELV limits themselves are daily, not weekly.">${weeklyPoints.toFixed(0)} pts/wk</span>
+          </div>
+          ${dayBlocks}
+          ${canEdit ? `
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+              <select style="flex:1;min-width:110px;" onchange="setHavsDraft('${op.id}','day',this.value)">
+                ${HAVS_DAY_LABELS.map((lbl,i)=>`<option value="${i}" ${draft.day==i?'selected':''}>${lbl}</option>`).join('')}
+              </select>
+              <select style="flex:2;min-width:140px;" onchange="setHavsDraft('${op.id}','toolId',this.value)">
+                <option value="">Tool…</option>
+                ${tools.map(t=>`<option value="${t.id}" ${draft.toolId===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}
+              </select>
+              <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 70px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft('${op.id}','minutes',this.value)">
+              <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;" onclick="addHavsEntry('${siteId}','${op.id}')">Add</button>
+            </div>
+          ` : ''}
+          <button class="ghostbtn" style="margin-top:10px;" onclick="exportHavsIndividual('${siteId}','${op.id}')">Export PDF</button>
+        </div>
+      `;
+    }).join('')}
+  `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+}
+
+/* ---- HAVS PDF export — a real calculator table (Tool / Magnitude / Time /
+   Partial A(8) / Points) per day, matching the government HAVS calculator's
+   own layout, not just a bare log. Shared by both the individual export and
+   the collective one — collective just calls the same page-drawing routine
+   once per operative into the SAME document, so everyone lands in one PDF
+   one after another, exactly like the old spreadsheet's single-file export. */
+async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, op, tools, toolById, entries){
+  const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
+  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const MARGIN = 44;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  const COLS = [ // [label, width]
+    ['Day', 62], ['Tool', 148], ['Magnitude m/s²', 82], ['Minutes', 60], ['Partial A(8) m/s²', 92], ['Points', TABLE_W-62-148-82-60-92]
+  ];
+  const ROW_H = 16, HEADER_H = 20;
+  let page, y;
+  function colX(i){ let x = MARGIN; for(let j=0;j<i;j++) x += COLS[j][1]; return x; }
+  function drawHeaderBand(){
+    page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
+    page.drawText('HAVS EXPOSURE REPORT', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
+    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
+    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9});
+  }
+  function drawFooter(){
+    page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
+    page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+    page.drawText('EAV (action) = 100 pts/day · ELV (limit) = 400 pts/day', {x:PAGE_W-MARGIN-220, y:20, size:8, font:reg, color:SLATE});
+  }
+  function drawTableHeader(){
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+6, size:8, font:bold, color:INK}));
+    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+    y -= HEADER_H;
+  }
+  function newPage(){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    drawHeaderBand();
+    drawFooter();
+    y = PAGE_H - 100;
+    drawTableHeader();
+  }
+  function ensureRoom(h){ if(y - h < 60){ newPage(); } }
+  function drawRow(cells, opts){
+    opts = opts || {};
+    ensureRoom(ROW_H);
+    if(opts.fill) page.drawRectangle({x:MARGIN, y:y-ROW_H, width:TABLE_W, height:ROW_H, color:opts.fill});
+    cells.forEach((txt,i)=>page.drawText(String(txt), {x:colX(i)+6, y:y-ROW_H+5, size:8.5, font:opts.bold?bold:reg, color:opts.color||INK}));
+    page.drawLine({start:{x:MARGIN,y:y-ROW_H}, end:{x:MARGIN+TABLE_W,y:y-ROW_H}, thickness:0.5, color:LINE});
+    y -= ROW_H;
+  }
+
+  newPage();
+  let weeklyPoints = 0;
+  for(let di=0; di<days.length; di++){
+    const d = days[di];
+    const dateStr = d.toISOString().slice(0,10);
+    const sessions = entries.filter(e=>e.user_id===op.id && e.entry_date===dateStr);
+    const dayLabel = HAVS_DAY_LABELS[di] + ' ' + d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    if(!sessions.length){
+      drawRow([dayLabel, 'No tool use logged', '—', '—', '—', '—'], {color:SLATE});
+      continue;
+    }
+    let dayPoints = 0;
+    sessions.forEach((e,i)=>{
+      const tool = toolById[e.tool_id];
+      const mag = tool ? tool.vibration_magnitude : 0;
+      const a8 = havsA8(mag, e.minutes);
+      const pts = havsPoints(mag, e.minutes);
+      dayPoints += pts;
+      drawRow([i===0?dayLabel:'', tool?tool.name:'(removed tool)', mag.toFixed(1), e.minutes, a8.toFixed(2), pts.toFixed(0)]);
+    });
+    weeklyPoints += dayPoints;
+    const dayColor = dayPoints>=400 ? RED : dayPoints>=100 ? AMBER : GREEN;
+    drawRow(['', '', '', '', 'Daily total:', dayPoints.toFixed(0)+' pts'], {bold:true, color:dayColor});
+  }
+  ensureRoom(ROW_H+6);
+  y -= 6;
+  page.drawLine({start:{x:MARGIN,y}, end:{x:MARGIN+TABLE_W,y}, thickness:1, color:INK});
+  y -= 4;
+  drawRow(['', '', '', '', 'Weekly total:', weeklyPoints.toFixed(0)+' pts (informational — limits are daily)'], {bold:true});
+}
+window.exportHavsIndividual = async function(siteId, userId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const op = PROFILES[userId];
+  if(!op){ toast('Could not find that operative.'); return; }
+  const days = havsWeekDates(havsWeekOffset);
+  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
+  const [tools, entries] = await Promise.all([
+    dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
+    dbSelect('havs_entries', `site_id=eq.${siteId}&user_id=eq.${userId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`),
+  ]);
+  const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+  const bytes = await pdfDoc.save();
+  await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+op.name+' - '+weekLabel, 'pdf'));
+};
+window.exportHavsCollective = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const canManage = isManager(ME);
+  const days = havsWeekDates(havsWeekOffset);
+  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
+  const [tools, assignedRows] = await Promise.all([
+    dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
+    canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+  ]);
+  const operativeIds = canManage
+    ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
+    : [ME.id];
+  const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!operatives.length){ toast('No operatives to export.'); return; }
+  const entries = await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`);
+  const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  for(const op of operatives){
+    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+  }
+  const bytes = await pdfDoc.save();
+  await deliverPdf(bytes, exportFilename(site.name, 'HAVS - All Operatives - '+weekLabel, 'pdf'));
+};
+async function havsPdfFonts(pdfDoc){
+  return {
+    bold: await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold),
+    reg: await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica),
+    INK: PDFLib.rgb(0.06,0.06,0.07),
+    SLATE: PDFLib.rgb(0.36,0.37,0.41),
+    LINE: PDFLib.rgb(0.85,0.85,0.85),
+    HEADBG: PDFLib.rgb(0.95,0.94,0.91),
+    RED: PDFLib.rgb(0.757,0.231,0.231),
+    AMBER: PDFLib.rgb(0.80,0.53,0.02),
+    GREEN: PDFLib.rgb(0.122,0.573,0.322),
+    BRAND: pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1),
+    WHITE: PDFLib.rgb(1,1,1),
+  };
 }
 
 /* ================= DAILY BRIEFINGS =================
@@ -7660,6 +8037,32 @@ window.deleteSupplier = async function(siteId, supplierId){
   if(!await customConfirm('Remove this supplier?')) return;
   const ok = await dbDelete('suppliers', supplierId);
   if(ok){ toast('Supplier removed'); render(); }
+};
+let havsToolAddOpen = false;
+window.saveHavsToolField = async function(input, toolId, field){
+  const raw = input.value.trim();
+  if(!raw){ toast((field==='name'?'Tool name':'Magnitude')+" can't be empty."); render(); return; }
+  const val = field==='vibration_magnitude' ? parseFloat(raw) : raw;
+  if(field==='vibration_magnitude' && (!isFinite(val) || val<=0)){ toast('Enter a magnitude greater than 0.'); render(); return; }
+  if(String(val) === input.defaultValue) return;
+  const row = await dbUpdate('havs_tools', toolId, {[field]:val});
+  if(row) toast('Tool updated');
+};
+window.addHavsTool = async function(){
+  const name = document.getElementById('havsToolName').value.trim();
+  const mag = parseFloat(document.getElementById('havsToolMag').value);
+  if(!name){ toast('Enter a tool name.'); return; }
+  if(!isFinite(mag) || mag<=0){ toast('Enter a vibration magnitude greater than 0.'); return; }
+  const rows = await dbInsert('havs_tools', {org_id:ME.org_id, name, vibration_magnitude:mag, sort_order:999});
+  if(rows){ havsToolAddOpen = false; toast('Tool added'); render(); }
+};
+window.deleteHavsTool = async function(toolId, name){
+  if(!await customConfirm(`Remove "${name}"? Past HAVS entries using it are kept, but it won't be selectable for new entries.`)) return;
+  // Tools are referenced by past entries (ON DELETE RESTRICT), so
+  // deactivate rather than hard-delete — keeps historical exposure records
+  // intact while taking it out of the picker for new entries.
+  const row = await dbUpdate('havs_tools', toolId, {active:false});
+  if(row){ toast('Tool removed'); render(); }
 };
 window.cancelMaterial = async function(siteId, matId){
   const reason = prompt('Why are you cancelling this request? This will be visible to your Project Manager.');
@@ -8671,6 +9074,7 @@ async function render(){
         if(bsub==='view' && parts[5]) return renderReportView(siteId, parts[5], true);
         return renderDailyBriefings(siteId);
       }
+      if(sub==='havs') return renderHavs(siteId);
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
