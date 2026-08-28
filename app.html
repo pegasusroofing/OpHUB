@@ -2423,7 +2423,7 @@ async function renderTeam(){
       ${havsTools.map(t=>`
         <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
           <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
-            <input type="text" value="${escapeHtml(t.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveHavsToolField(this,'${t.id}','name')">
+            <input type="text" value="${escapeHtml(titleCaseWords(t.name))}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveHavsToolField(this,'${t.id}','name')">
             <div style="display:flex;align-items:center;gap:6px;">
               <span class="stub" style="margin:0;">Magnitude</span>
               <input type="number" step="0.1" min="0.1" value="${t.vibration_magnitude}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveHavsToolField(this,'${t.id}','vibration_magnitude')">
@@ -6871,6 +6871,12 @@ async function renderHealthSafety(siteId){
    site, one after another, same as the old spreadsheet's multi-operative
    weekly grid — just with a real tool picker and a real per-day duration
    instead of a flat multiplier. */
+// Capitalises the first letter of every word in a tool name (e.g. "circular
+// saw" -> "Circular Saw") without touching the rest of each word, so
+// existing acronyms like "SDS" are left alone. Applied whenever a tool
+// name is saved, and again at display time as a safety net for any older
+// data that predates this.
+function titleCaseWords(str){ return String(str||'').replace(/\b\w/g, c=>c.toUpperCase()); }
 function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); }
 function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
 const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
@@ -7042,7 +7048,7 @@ window.toggleSiteHavsTool = async function(siteId, toolId, isOn){
 window.toggleHavsNewToolForm = function(){ havsNewToolFormOpen = !havsNewToolFormOpen; render(); };
 window.setHavsNewToolDraft = function(field, value){ havsNewToolDraft[field] = value; };
 window.addHavsToolInline = async function(siteId){
-  const name = (havsNewToolDraft.name||'').trim();
+  const name = titleCaseWords((havsNewToolDraft.name||'').trim());
   const mag = parseFloat(havsNewToolDraft.magnitude);
   if(!name){ toast('Enter a tool name.'); return; }
   if(!isFinite(mag) || mag<=0){ toast('Enter a magnitude greater than 0.'); return; }
@@ -7144,7 +7150,7 @@ async function renderHavs(siteId){
       ${allTools.length ? allTools.map(t=>`
         <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);">
           <input type="checkbox" ${siteToolIds.has(t.id)?'checked':''} onchange="toggleSiteHavsTool('${siteId}','${t.id}',${siteToolIds.has(t.id)})">
-          ${escapeHtml(t.name)} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span>
+          ${escapeHtml(titleCaseWords(t.name))} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span>
         </label>
       `).join('') : `<div class="empty">No HAVS tools set up yet.</div>`}
       ${canManage ? (havsNewToolFormOpen ? `
@@ -7182,28 +7188,15 @@ async function renderHavs(siteId){
           </div>`;
         }).join('')}
       </div>
-    </div>
-    ` : ''}
-    <p class="ddrow" style="margin-top:0;margin-bottom:8px;pointer-events:none;">Export &amp; Email — ${escapeHtml(weekLabel)}</p>
-    <div class="card" style="margin-bottom:8px;">
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);">
         <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsExportAllBusy?'disabled':''} onclick="exportHavsCollective('${siteId}')">${havsExportAllBusy?'Building…':'Export All Operatives Weekly HAVS'}</button>
         <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsEmailAllBusy?'disabled':''} onclick="emailHavsCollective('${siteId}')">${havsEmailAllBusy?'Sending…':'Email All Operatives Weekly HAVS'}</button>
       </div>
       ${havsExportSelectedIds.length ? `
       <button class="ghostbtn" style="width:100%;margin-top:8px;padding:7px 6px;font-size:11px;" onclick="exportHavsSelected('${siteId}')">Export Selected (${havsExportSelectedIds.length})</button>
       ` : ''}
-      ${canManage ? `
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
-        ${weekCompletion ? `
-          <p class="stub" style="margin:0 0 6px;">✓ Marked complete ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
-          <button class="ghostbtn" style="width:100%;padding:7px 6px;font-size:11px;" ${havsMarkCompleteBusy?'disabled':''} onclick="reopenHavsWeek('${weekCompletion.id}')">Reopen This Week</button>
-        ` : `
-          <button class="ghostbtn" style="width:100%;padding:7px 6px;font-size:11px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
-        `}
-      </div>
-      ` : ''}
     </div>
+    ` : ''}
     ` : ''}
 
     ${tools.length && operatives.length ? days.map((d,di)=>{
@@ -7238,7 +7231,7 @@ async function renderHavs(siteId){
             return `
             <div style="border:1px solid var(--line);border-radius:8px;padding:8px 8px;grid-column:span 1;min-width:0;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
-                <span style="font-weight:700;font-size:11.5px;overflow-wrap:anywhere;">${escapeHtml(tool.name)}</span>
+                <span style="font-weight:700;font-size:11.5px;overflow-wrap:anywhere;">${escapeHtml(titleCaseWords(tool.name))}</span>
                 <span class="stub" style="font-weight:400;font-size:10px;flex:0 0 auto;">${tool.vibration_magnitude} m/s²</span>
               </div>
               ${sessions.map(s=>`
@@ -7290,6 +7283,16 @@ async function renderHavs(siteId){
       </div>
       ` : ''}`;
     }).join('') : ''}
+    ${canManage && operatives.length ? `
+    <div class="card" style="margin-top:14px;">
+      ${weekCompletion ? `
+        <p class="stub" style="margin:0 0 6px;">✓ Marked complete ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
+        <button class="ghostbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="reopenHavsWeek('${weekCompletion.id}')">Reopen This Week</button>
+      ` : `
+        <button class="ghostbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
+      `}
+    </div>
+    ` : ''}
   `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
@@ -7375,112 +7378,8 @@ function pdfWrapText(font, size, text, maxWidth){
   if(cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
-/* HAVS Register page — a single landscape summary page styled after the
-   government/insurer-format HAVS register spreadsheet RTB's clients
-   require: one row per operative, hours logged per tool per day across the
-   week, a weekly points total, and a colour-coded EAV/ELV status column.
-   Drawn FIRST in every export, ahead of the per-operative detail pages. */
-async function drawHavsRegisterPage(pdfDoc, fonts, orgName, siteName, weekLabel, days, operatives, tools, toolById, entries, logoImg){
-  const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
-  const PAGE_W = 841.89, PAGE_H = 595.28; // landscape A4, matching the wide Excel register
-  const MARGIN = 28;
-  const TABLE_W = PAGE_W - 2*MARGIN;
-  const NAME_W = 92, TOTAL_W = 58, STATUS_W = 66;
-  const dayBlockW = (TABLE_W - NAME_W - TOTAL_W - STATUS_W) / 5;
-  const nTools = Math.max(1, tools.length);
-  const toolColW = dayBlockW / nTools;
-  const HEADER_ROW_A_H = 20, HEADER_ROW_B_H = 16, ROW_H = 20;
-
-  function colXForDayTool(dayIdx, toolIdx){ return MARGIN + NAME_W + dayIdx*dayBlockW + toolIdx*toolColW; }
-  function totalColX(){ return MARGIN + NAME_W + 5*dayBlockW; }
-  function statusColX(){ return totalColX() + TOTAL_W; }
-
-  let page;
-  function drawHeaderBand(cont){
-    page.drawRectangle({x:0, y:PAGE_H-64, width:PAGE_W, height:64, color:BRAND});
-    if(logoImg){
-      const dim = logoImg.scale(1);
-      const s = 38/Math.max(dim.width, dim.height);
-      const w = dim.width*s, h = dim.height*s;
-      page.drawRectangle({x:PAGE_W-MARGIN-40, y:PAGE_H-58, width:40, height:40, color:WHITE});
-      page.drawImage(logoImg, {x:PAGE_W-MARGIN-40+(40-w)/2, y:PAGE_H-58+(40-h)/2, width:w, height:h});
-    }
-    page.drawText((orgName||'RTB ROOFING').toUpperCase()+' HAVS REGISTER'+(cont?' (cont.)':''), {x:MARGIN, y:PAGE_H-30, size:14, font:bold, color:WHITE});
-    page.drawText(`${siteName} · Week ${weekLabel}`, {x:MARGIN, y:PAGE_H-48, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-100});
-  }
-  function drawTableHeader(){
-    const y0 = PAGE_H - 84;
-    page.drawRectangle({x:MARGIN, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H, width:TABLE_W, height:HEADER_ROW_A_H+HEADER_ROW_B_H, color:HEADBG});
-    page.drawText('Name', {x:MARGIN+6, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+8, size:8, font:bold, color:INK});
-    days.forEach((d,di)=>{
-      const x = MARGIN+NAME_W+di*dayBlockW;
-      page.drawText(HAVS_DAY_LABELS[di].slice(0,3).toUpperCase()+' '+d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}), {x:x+4, y:y0-14, size:7, font:bold, color:INK, maxWidth:dayBlockW-6});
-      page.drawLine({start:{x, y:y0}, end:{x, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
-      tools.forEach((t,ti)=>{
-        const tx = x+ti*toolColW;
-        page.drawText((t.name||'').slice(0,3), {x:tx+3, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+6, size:6.2, font:reg, color:SLATE, maxWidth:toolColW-4});
-        if(ti>0) page.drawLine({start:{x:tx,y:y0-HEADER_ROW_A_H}, end:{x:tx,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.4, color:LINE});
-      });
-    });
-    page.drawLine({start:{x:totalColX(),y:y0}, end:{x:totalColX(),y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
-    page.drawText('Total', {x:totalColX()+4, y:y0-14, size:7, font:bold, color:INK});
-    page.drawText('points', {x:totalColX()+4, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+8, size:6.2, font:reg, color:SLATE});
-    page.drawLine({start:{x:statusColX(),y:y0}, end:{x:statusColX(),y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
-    page.drawText('Status', {x:statusColX()+4, y:y0-14, size:7, font:bold, color:INK});
-    page.drawLine({start:{x:MARGIN,y:y0-HEADER_ROW_A_H}, end:{x:MARGIN+TABLE_W,y:y0-HEADER_ROW_A_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, end:{x:MARGIN+TABLE_W,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:1, color:INK});
-    return y0-HEADER_ROW_A_H-HEADER_ROW_B_H;
-  }
-  function newPage(cont){
-    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
-    drawHeaderBand(cont);
-    return drawTableHeader();
-  }
-
-  let y = newPage(false);
-  operatives.forEach(op=>{
-    if(y - ROW_H < 70){ y = newPage(true); }
-    const top = y;
-    page.drawText(op.name, {x:MARGIN+6, y:top-13, size:8, font:bold, color:INK, maxWidth:NAME_W-10});
-    let weekPts = 0;
-    const byDay = [0,0,0,0,0];
-    days.forEach((d,di)=>{
-      const dateStr = d.toISOString().slice(0,10);
-      tools.forEach((t,ti)=>{
-        const mins = entries.filter(e=>e.user_id===op.id && e.entry_date===dateStr && e.tool_id===t.id).reduce((s,e)=>s+(Number(e.minutes)||0),0);
-        if(mins>0){
-          const hrs = Math.round((mins/60)*100)/100;
-          page.drawText(String(hrs), {x:colXForDayTool(di,ti)+3, y:top-13, size:7, font:reg, color:INK, maxWidth:toolColW-4});
-          const pts = havsPoints(Number(t.vibration_magnitude)||0, mins);
-          weekPts += pts;
-          byDay[di] += pts;
-        }
-      });
-    });
-    page.drawText(weekPts.toFixed(0), {x:totalColX()+4, y:top-13, size:8, font:bold, color:INK});
-    const maxDay = Math.max(...byDay);
-    const status = maxDay>=400 ? {t:'ELV', c:RED, bg:PDFLib.rgb(0.98,0.90,0.89)}
-      : maxDay>=100 ? {t:'EAV', c:AMBER, bg:PDFLib.rgb(1,0.95,0.87)}
-      : weekPts>0 ? {t:'OK', c:GREEN, bg:PDFLib.rgb(0.91,0.97,0.93)}
-      : {t:'', c:SLATE, bg:null};
-    if(status.bg) page.drawRectangle({x:statusColX()+3, y:top-17, width:STATUS_W-9, height:13, color:status.bg});
-    if(status.t) page.drawText(status.t, {x:statusColX()+7, y:top-13, size:7.5, font:bold, color:status.c});
-    page.drawLine({start:{x:MARGIN,y:top-ROW_H}, end:{x:MARGIN+TABLE_W,y:top-ROW_H}, thickness:0.4, color:LINE});
-    y = top - ROW_H;
-  });
-  if(!operatives.length){
-    page.drawText('No operatives to report for this week.', {x:MARGIN+6, y:y-14, size:9, font:reg, color:SLATE});
-    y -= 22;
-  }
-  if(y - 40 < 40){ y = newPage(true); }
-  y -= 10;
-  page.drawLine({start:{x:MARGIN,y}, end:{x:MARGIN+TABLE_W,y}, thickness:0.75, color:LINE});
-  y -= 16;
-  page.drawText('Week Ending: '+days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}), {x:MARGIN, y, size:9, font:bold, color:INK});
-  page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:y-14, size:7.5, font:reg, color:SLATE});
-}
 async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, op, tools, toolById, entries, logoImg){
-  const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
+  const {bold, reg, italic, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 44;
   const TABLE_W = PAGE_W - 2*MARGIN;
@@ -7561,17 +7460,29 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
       const a8 = havsA8(mag, e.minutes);
       const pts = havsPoints(mag, e.minutes);
       dayPoints += pts;
-      drawRow([i===0?dayLabel:'', tool?tool.name:'(removed tool)', mag.toFixed(1), e.minutes, a8.toFixed(2), pts.toFixed(0)]);
+      drawRow([i===0?dayLabel:'', tool?titleCaseWords(tool.name):'(removed tool)', mag.toFixed(1), e.minutes, a8.toFixed(2), pts.toFixed(1)]);
     });
     weeklyPoints += dayPoints;
     const dayColor = dayPoints>=400 ? RED : dayPoints>=100 ? AMBER : GREEN;
-    drawRow(['', '', '', '', 'Daily total:', dayPoints.toFixed(0)+' pts'], {bold:true, color:dayColor});
+    drawRow(['', '', '', '', 'Daily total:', dayPoints.toFixed(1)+' pts'], {bold:true, color:dayColor});
   }
   ensureRoom(ROW_H+6);
   y -= 6;
   page.drawLine({start:{x:MARGIN,y}, end:{x:MARGIN+TABLE_W,y}, thickness:1, color:INK});
   y -= 4;
-  drawRow(['', '', '', '', 'Weekly total:', weeklyPoints.toFixed(0)+' pts (informational — limits are daily)'], {bold:true});
+  drawRow(['', '', '', '', 'Weekly Total:', weeklyPoints.toFixed(1)+' pts'], {bold:true});
+  // Note is drawn at half the normal row text size, in italics, directly
+  // under the weekly total.
+  ensureRoom(12);
+  page.drawText('(informational — limits are daily)', {x:colX(4)+6, y:y-6, size:4.25, font:italic, color:SLATE});
+  y -= 12;
+  if(weeklyPoints < 500){
+    ensureRoom(20);
+    const boxH = 18;
+    page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:PDFLib.rgb(0.91,0.97,0.93)});
+    page.drawText('Exposure likely to be below 2.5m/s²A(8) EAV (100 points daily)', {x:MARGIN+8, y:y-boxH+6, size:8.5, font:bold, color:GREEN, maxWidth:TABLE_W-16});
+    y -= boxH;
+  }
 }
 /* HSE HAND-ARM VIBRATION CALCULATOR reference page — a single page,
    prepended to every export, that shows the government trigger-time
@@ -7633,7 +7544,7 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
     const ptsPerHour = 2 * mag * mag;
     const eavHours = ptsPerHour>0 ? 100/ptsPerHour : Infinity;
     const elvHours = ptsPerHour>0 ? 400/ptsPerHour : Infinity;
-    const nameLines = pdfWrapText(reg, 8.5, t.name, COLS[0][1]-12);
+    const nameLines = pdfWrapText(reg, 8.5, titleCaseWords(t.name), COLS[0][1]-12);
     const rh = Math.max(ROW_H, nameLines.length*LINE_H + 7);
     ensureRoom(rh);
     const top = y;
@@ -7680,8 +7591,9 @@ async function buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilenam
   const pdfDoc = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(pdfDoc);
   const logoImg = await havsFetchLogoImg(pdfDoc);
-  const orgName = (ORG && ORG.name) || site.name;
-  await drawHavsRegisterPage(pdfDoc, fonts, orgName, site.name, weekLabel, days, operatives, tools, toolById, entries, logoImg);
+  // Per-operative day-by-day pages first (the original report design),
+  // HSE Tool Exposure Reference last — the register-grid page tried in an
+  // earlier revision has been dropped per feedback.
   for(const op of operatives){
     await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries, logoImg);
   }
@@ -7795,6 +7707,7 @@ async function havsPdfFonts(pdfDoc){
   return {
     bold: await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold),
     reg: await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica),
+    italic: await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique),
     INK: PDFLib.rgb(0.06,0.06,0.07),
     SLATE: PDFLib.rgb(0.36,0.37,0.41),
     LINE: PDFLib.rgb(0.85,0.85,0.85),
@@ -8711,14 +8624,14 @@ let havsToolAddOpen = false;
 window.saveHavsToolField = async function(input, toolId, field){
   const raw = input.value.trim();
   if(!raw){ toast((field==='name'?'Tool name':'Magnitude')+" can't be empty."); render(); return; }
-  const val = field==='vibration_magnitude' ? parseFloat(raw) : raw;
+  const val = field==='vibration_magnitude' ? parseFloat(raw) : titleCaseWords(raw);
   if(field==='vibration_magnitude' && (!isFinite(val) || val<=0)){ toast('Enter a magnitude greater than 0.'); render(); return; }
   if(String(val) === input.defaultValue) return;
   const row = await dbUpdate('havs_tools', toolId, {[field]:val});
   if(row) toast('Tool updated');
 };
 window.addHavsTool = async function(){
-  const name = document.getElementById('havsToolName').value.trim();
+  const name = titleCaseWords(document.getElementById('havsToolName').value.trim());
   const mag = parseFloat(document.getElementById('havsToolMag').value);
   if(!name){ toast('Enter a tool name.'); return; }
   if(!isFinite(mag) || mag<=0){ toast('Enter a vibration magnitude greater than 0.'); return; }
