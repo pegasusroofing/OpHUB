@@ -737,14 +737,24 @@ const K_SESSION = 'rtb-session-v1';
 /* ================= Supabase data layer ================= */
 let SESSION = null; // {access_token, refresh_token, expires_at, user:{id,email}}
 
+// A hung refresh call used to freeze the whole app forever on load (no
+// timeout meant a single stalled request — bad signal, a blocking
+// extension, whatever — left the page permanently stuck with nothing to
+// click and no error shown). An AbortController timeout means a stalled
+// request now fails the same way a rejected one already did: the stored
+// session is cleared and the app falls through to the sign-in screen
+// instead of hanging indefinitely.
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(()=>controller.abort(), 10000);
   try{
     const res = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body: JSON.stringify({refresh_token: SESSION.refresh_token})
+      body: JSON.stringify({refresh_token: SESSION.refresh_token}),
+      signal: controller.signal
     });
     if(res.ok){
       const d = await res.json();
@@ -754,6 +764,7 @@ async function ensureFreshToken(){
       SESSION = null; ME = null; await sdelete(K_SESSION, false);
     }
   }catch(e){ SESSION = null; ME = null; }
+  finally{ clearTimeout(timeout); }
 }
 async function sbFetch(path, opts){
   opts = opts || {};
