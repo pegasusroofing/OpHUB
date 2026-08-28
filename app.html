@@ -1424,6 +1424,7 @@ function tabbar(siteId, active){
 
 /* ================= LOGIN ================= */
 let authBusy = false;
+let authBusyLabel = null; // shown on the Sign In button while authBusy — kept up to date at each stage so a slow step never just looks frozen on "Please wait…"
 let authError = null;
 function renderLogin(){
   const app = document.getElementById('app');
@@ -1440,7 +1441,7 @@ function renderLogin(){
       </div>
       <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email & password on this device</label>
       <button class="primarybtn" ${authBusy?'disabled':''} onclick="doSignIn()">
-        ${authBusy ? '<span class="spinner"></span>Please wait…' : 'Sign In'}
+        ${authBusy ? '<span class="spinner"></span>'+escapeHtml(authBusyLabel||'Please wait…') : 'Sign In'}
       </button>
       <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves it on this device only, so only use it on a phone/computer that's yours alone.</p>
       <p class="stub" style="margin-top:14px;">New team member? You'll need an invite link from your Project Manager to create an account — sign-up isn't open to the public.</p>
@@ -1479,36 +1480,57 @@ window.doSignIn = async function(){
     if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password}));
     else localStorage.removeItem('ophub_remember');
   }catch(e){}
-  authBusy = true; authError = null; render();
-  const r = await signIn(email, password);
-  authBusy = false;
-  if(r.error){ authError = r.error; render(); return; }
-  await loadProfile();
-  if(!ME || (!ME.org_id && ME.role!=='superadmin')){
-    authError = 'Your account isn\'t linked to a company yet. Contact your Project Manager for an invite.';
-    await doSignOut();
-    return;
-  }
-  if(ME.role==='superadmin'){ go('#/'); return; }
-  if(ME.role==='operative'){
-    const lock = await checkDeviceLock();
-    if(!lock.ok){
-      authError = lock.error==='device_locked'
-        ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your admin to unlock it in Admin Centre if this is wrong.`
-        : 'Could not verify this device — check your connection and try again.';
+  // authBusy stays true (and the button stays showing progress) for the
+  // WHOLE sign-in sequence, not just the initial password check — it used
+  // to flip back to false the moment the password check passed, but with
+  // no render() call there to show it, so the button just sat on "Please
+  // wait…" unchanged through several more network calls afterwards
+  // (profile, device lock, org, team, sites). Any one of those being slow
+  // looked exactly like a permanent freeze even though it was still
+  // working. Now every stage updates authBusyLabel and re-renders, and the
+  // whole thing is wrapped in try/catch/finally so a failure anywhere
+  // always leaves the button clickable again with a real error, instead of
+  // stuck.
+  authBusy = true; authBusyLabel = 'Signing in…'; authError = null; render();
+  try{
+    const r = await signIn(email, password);
+    if(r.error){ authError = r.error; return; }
+    authBusyLabel = 'Loading your account…'; render();
+    await loadProfile();
+    if(!ME || (!ME.org_id && ME.role!=='superadmin')){
+      authError = 'Your account isn\'t linked to a company yet. Contact your Project Manager for an invite.';
       await doSignOut();
       return;
     }
+    if(ME.role==='superadmin'){ go('#/'); return; }
+    if(ME.role==='operative'){
+      authBusyLabel = 'Checking this device…'; render();
+      const lock = await checkDeviceLock();
+      if(!lock.ok){
+        authError = lock.error==='device_locked'
+          ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your admin to unlock it in Admin Centre if this is wrong.`
+          : 'Could not verify this device — check your connection and try again.';
+        await doSignOut();
+        return;
+      }
+    }
+    authBusyLabel = 'Getting your sites…'; render();
+    // These three don't depend on each other, so run them together instead
+    // of stacking three separate timeouts one after another.
+    const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
+    SITES = sites;
+    registerPushNotifications();
+    go('#/sites');
+  }catch(e){
+    authError = 'Something went wrong signing you in — check your connection and try again.';
+  }finally{
+    authBusy = false; authBusyLabel = null; render();
   }
-  await loadOrg();
-  await loadAllProfiles();
-  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
-  registerPushNotifications();
-  go('#/sites');
 };
 
 /* ================= JOIN (invite-only account creation) ================= */
 let joinBusy = false;
+let joinBusyLabel = null;
 let joinError = null;
 let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
 async function renderJoin(inviteId){
@@ -1549,7 +1571,7 @@ async function renderJoin(inviteId){
         <input type="password" id="joinPassword" placeholder="••••••••">
       </div>
       <button class="primarybtn" ${joinBusy?'disabled':''} onclick="doJoin('${inviteId}')">
-        ${joinBusy ? '<span class="spinner"></span>Please wait…' : 'Join Team'}
+        ${joinBusy ? '<span class="spinner"></span>'+escapeHtml(joinBusyLabel||'Please wait…') : 'Join Team'}
       </button>
     </div>
     <div style="text-align:center;margin-top:22px;">
@@ -1563,27 +1585,36 @@ window.doJoin = async function(inviteId){
   const password = document.getElementById('joinPassword').value;
   if(!email || !password || !name){ joinError='Fill in every field.'; render(); return; }
   if(password.length < 6){ joinError='Password needs to be at least 6 characters.'; render(); return; }
-  joinBusy = true; joinError = null; render();
-  const r = await signUp(email, password, {name, invite_id: inviteId});
-  joinBusy = false;
-  if(r.error){ joinError = r.error; render(); return; }
-  if(r.confirmed){
-    await loadProfile();
-    if(!ME || !ME.org_id){
-      joinError = 'That invite couldn\'t be applied to your account — it may have just been used by someone else. Contact your Project Manager.';
-      await doSignOut();
-      return;
+  // Same fix as doSignIn: keep the button's busy state accurate through the
+  // whole multi-step chain (instead of it silently going stale the moment
+  // the account is created) and wrap it so a failure anywhere shows a real
+  // error rather than leaving "Please wait…" stuck on screen forever.
+  joinBusy = true; joinBusyLabel = 'Creating your account…'; joinError = null; render();
+  try{
+    const r = await signUp(email, password, {name, invite_id: inviteId});
+    if(r.error){ joinError = r.error; return; }
+    if(r.confirmed){
+      joinBusyLabel = 'Loading your account…'; render();
+      await loadProfile();
+      if(!ME || !ME.org_id){
+        joinError = 'That invite couldn\'t be applied to your account — it may have just been used by someone else. Contact your Project Manager.';
+        await doSignOut();
+        return;
+      }
+      joinInfo = undefined;
+      joinBusyLabel = 'Getting your sites…'; render();
+      const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
+      SITES = sites;
+      go('#/sites');
+    } else {
+      joinInfo = undefined;
+      location.hash = '';
+      authError = 'Account created — check your email to confirm it, then sign in.';
     }
-    joinInfo = undefined;
-    await loadOrg();
-    await loadAllProfiles();
-    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
-    go('#/sites');
-  } else {
-    joinInfo = undefined;
-    location.hash = '';
-    authError = 'Account created — check your email to confirm it, then sign in.';
-    render();
+  }catch(e){
+    joinError = 'Something went wrong creating your account — check your connection and try again.';
+  }finally{
+    joinBusy = false; joinBusyLabel = null; render();
   }
 };
 
