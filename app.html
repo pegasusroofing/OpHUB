@@ -7738,7 +7738,13 @@ window.exportHavsSelected = async function(siteId){
 window.markHavsWeekComplete = async function(siteId, weekStart){
   havsMarkCompleteBusy = true; render();
   const row = await dbInsert('havs_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
-  if(row) toast('Week marked complete');
+  if(row){
+    toast('Week marked complete');
+    // Jump the "This Week" view on to the week after the one just marked
+    // complete — whatever week that was, not necessarily the real current
+    // week — so logging can carry straight on without an extra tap.
+    havsWeekOffset += 1;
+  }
   havsMarkCompleteBusy = false; render();
 };
 window.reopenHavsWeek = async function(completionId){
