@@ -6889,8 +6889,7 @@ window.toggleHavsDay = function(di){ havsDayOpen[di] = !havsDayOpen[di]; render(
 // there is no separate "Add" step. An operative just types his own minutes
 // the same way. Key = `${dayIdx}|${toolId}`.
 let havsDraft2 = {};
-// Starts open so a PM/operative can pick tools straight away; auto-closes
-// itself the first time any HAVS entry is logged (see commitHavsDraftEntry).
+// Starts open so a PM/operative can pick tools straight away.
 let havsSiteToolPickerOpen = true;
 let havsNewToolFormOpen = false;
 let havsNewToolDraft = {name:'', magnitude:''};
@@ -6899,10 +6898,32 @@ let havsEntryEditingId = null;
 let havsEntryEditDraft = {};
 // Which operatives are ticked for the "Export Selected" button up top.
 let havsExportSelectedIds = [];
+// 'weekly' = the normal editable current/past-week view, 'completed' = the
+// read-only list of weeks a manager has marked done.
+let havsActiveTab = 'weekly';
+window.setHavsTab = function(tab){ havsActiveTab = tab; render(); };
+// Weekly Summary is a dropdown now — auto-expanded only the first time a
+// given week is viewed AND it actually has entries logged; keyed by the
+// week's Monday date so it re-evaluates correctly as the user pages weeks.
+let havsWeeklySummaryOpenByWeek = {};
+window.toggleHavsWeeklySummary = function(weekKey){ havsWeeklySummaryOpenByWeek[weekKey] = !havsWeeklySummaryOpenByWeek[weekKey]; render(); };
+let havsMarkCompleteBusy = false;
+let havsExportAllBusy = false;
+let havsEmailAllBusy = false;
 window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
 function havsWeekDates(offset){
   const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
   return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
+}
+// Same as havsWeekDates but from an explicit Monday (YYYY-MM-DD) rather than
+// an offset from today — used by the Completed HAVS tab to re-export/email
+// an arbitrary past week regardless of where havsWeekOffset currently is.
+function havsWeekDatesFromStart(weekStartISO){
+  const ms = new Date(weekStartISO+'T00:00:00').getTime();
+  return [0,1,2,3,4].map(i => new Date(ms + i*86400000));
+}
+function havsWeekLabelFor(days){
+  return `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
 }
 function havsDraft2For(dayIdx, toolId){
   const key = dayIdx+'|'+toolId;
@@ -6965,10 +6986,9 @@ async function notifyIfHavsThresholdCrossed(siteId, userId, entryDate, justToolI
   }catch(e){ /* best-effort — never blocks entry logging */ }
 }
 // Commits one operative's entry the moment a valid whole-number minutes
-// value is tabbed/blurred out of — no "Add" button. On success the first
-// time this fires, the Tools On This Site picker auto-collapses, and if
-// this entry pushed the operative over the EAV/ELV threshold for the day
-// a message is auto-posted to the PM/admin.
+// value is tabbed/blurred out of — no "Add" button. If this entry pushed
+// the operative over the EAV/ELV threshold for the day, a message is
+// auto-posted to the PM/admin.
 window.commitHavsDraftEntry = async function(siteId, dayIdx, toolId, userId){
   const d = havsDraft2For(dayIdx, toolId);
   const check = havsWholeMinutes(d.minutesByUser[userId]);
@@ -6979,7 +6999,6 @@ window.commitHavsDraftEntry = async function(siteId, dayIdx, toolId, userId){
   const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes:check.minutes, created_by:ME.id});
   if(rows){
     delete d.minutesByUser[userId];
-    if(havsSiteToolPickerOpen) havsSiteToolPickerOpen = false;
     toast('Entry added');
     notifyIfHavsThresholdCrossed(siteId, userId, entry_date, toolId, check.minutes);
     render();
@@ -7041,15 +7060,22 @@ async function renderHavs(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   const days = havsWeekDates(havsWeekOffset);
-  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  const weekLabel = havsWeekLabelFor(days);
   const dateFrom = days[0].toISOString().slice(0,10);
   const dateTo = days[4].toISOString().slice(0,10);
 
-  const [allTools, assignedRows, siteToolRows] = await Promise.all([
+  if(havsActiveTab==='completed'){
+    await renderHavsCompletedTab(siteId, site, canManage, __gen);
+    return;
+  }
+
+  const [allTools, assignedRows, siteToolRows, weekCompletionRows] = await Promise.all([
     dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc'),
     canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
     dbSelect('site_havs_tools', 'site_id=eq.'+siteId+'&select=tool_id'),
+    dbSelect('havs_weekly_completions', `site_id=eq.${siteId}&week_start=eq.${dateFrom}&select=id,completed_at,completed_by`),
   ]);
+  const weekCompletion = weekCompletionRows[0] || null;
   const siteToolIds = new Set(siteToolRows.map(r=>r.tool_id));
   // Only the tools this site has been set up to use appear as boxes — an
   // org might have a dozen HAVS tools registered but only two or three are
@@ -7072,6 +7098,11 @@ async function renderHavs(siteId){
   // Days default to expanded — never override a day the user has already
   // opened or closed themselves.
   days.forEach((d,di)=>{ if(havsDayOpen[di]===undefined) havsDayOpen[di] = true; });
+  // Auto-expand the Weekly Summary dropdown the first time this week is
+  // seen, but only when it actually has something in it — after that it's
+  // the user's own toggle to keep or collapse.
+  if(havsWeeklySummaryOpenByWeek[dateFrom]===undefined) havsWeeklySummaryOpenByWeek[dateFrom] = entries.length>0;
+  const weeklySummaryOpen = havsWeeklySummaryOpenByWeek[dateFrom];
 
   // Per-operative day/week point totals for the summary strip — HAVS limits
   // are personal (per body), so this still needs rolling up per operative
@@ -7094,24 +7125,22 @@ async function renderHavs(siteId){
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="${havsActiveTab==='weekly'?'darkbtn':'ghostbtn'}" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('weekly')">This Week</button>
+      <button class="${havsActiveTab==='completed'?'darkbtn':'ghostbtn'}" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('completed')">Completed HAVS</button>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <span class="taskicon" onclick="shiftHavsWeek(-1)">‹</span>
       <span style="font-weight:800;font-size:13.5px;">${escapeHtml(weekLabel)}</span>
       <span class="taskicon" style="${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1)">›</span>
     </div>
-    ${operatives.length ? `
-    <div style="display:flex;gap:8px;border:2px solid var(--brand2);border-radius:12px;padding:6px;margin-bottom:10px;">
-      <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11.5px;" onclick="exportHavsSelected('${siteId}')">Export Selected (${havsExportSelectedIds.length})</button>
-      <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11.5px;" onclick="exportHavsCollective('${siteId}')">Export All</button>
-    </div>
-    ` : ''}
     <p class="stub" style="text-align:center;margin:0 0 14px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
     ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
 
     <p class="ddrow" style="margin-top:0;${havsSiteToolPickerOpen?'':'margin-bottom:14px;'}" onclick="toggleHavsSiteToolPicker()"><span class="arrow">${havsSiteToolPickerOpen?'▼':'▶'}</span> Tools On This Site (${tools.length})</p>
     ${havsSiteToolPickerOpen ? `
     <div class="card" style="margin-bottom:14px;">
-      <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below. This closes automatically once an entry has been logged.</p>
+      <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below.</p>
       ${allTools.length ? allTools.map(t=>`
         <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);">
           <input type="checkbox" ${siteToolIds.has(t.id)?'checked':''} onchange="toggleSiteHavsTool('${siteId}','${t.id}',${siteToolIds.has(t.id)})">
@@ -7130,9 +7159,10 @@ async function renderHavs(siteId){
     ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">${canManage ? 'No tools selected for this site yet — tick some above.' : 'No HAVS tools have been set up for this site yet — ask your PM or admin.'}</div>` : ''}
 
     ${operatives.length ? `
+    <p class="ddrow" style="margin-top:10px;${weeklySummaryOpen?'':'margin-bottom:14px;'}" onclick="toggleHavsWeeklySummary('${dateFrom}')"><span class="arrow">${weeklySummaryOpen?'▼':'▶'}</span> Weekly Summary${entries.length?` (${entries.length} entr${entries.length===1?'y':'ies'})`:''}</p>
+    ${weeklySummaryOpen ? `
     <div class="card" style="margin-bottom:14px;">
-      <p class="sectiontitle" style="margin:0 0 8px;">Weekly Summary</p>
-      <p class="stub" style="margin:0 0 8px;">Tick an operative to include them in Export Selected above.</p>
+      <p class="stub" style="margin:0 0 8px;">Tick an operative to include them in Export Selected below.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         ${operatives.map(op=>{
           const st = opStats[op.id] || {byDay:[0,0,0,0,0], week:0};
@@ -7152,6 +7182,27 @@ async function renderHavs(siteId){
           </div>`;
         }).join('')}
       </div>
+    </div>
+    ` : ''}
+    <p class="ddrow" style="margin-top:0;margin-bottom:8px;pointer-events:none;">Export &amp; Email — ${escapeHtml(weekLabel)}</p>
+    <div class="card" style="margin-bottom:8px;">
+      <div style="display:flex;gap:8px;">
+        <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsExportAllBusy?'disabled':''} onclick="exportHavsCollective('${siteId}')">${havsExportAllBusy?'Building…':'Export All Operatives Weekly HAVS'}</button>
+        <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsEmailAllBusy?'disabled':''} onclick="emailHavsCollective('${siteId}')">${havsEmailAllBusy?'Sending…':'Email All Operatives Weekly HAVS'}</button>
+      </div>
+      ${havsExportSelectedIds.length ? `
+      <button class="ghostbtn" style="width:100%;margin-top:8px;padding:7px 6px;font-size:11px;" onclick="exportHavsSelected('${siteId}')">Export Selected (${havsExportSelectedIds.length})</button>
+      ` : ''}
+      ${canManage ? `
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+        ${weekCompletion ? `
+          <p class="stub" style="margin:0 0 6px;">✓ Marked complete ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
+          <button class="ghostbtn" style="width:100%;padding:7px 6px;font-size:11px;" ${havsMarkCompleteBusy?'disabled':''} onclick="reopenHavsWeek('${weekCompletion.id}')">Reopen This Week</button>
+        ` : `
+          <button class="ghostbtn" style="width:100%;padding:7px 6px;font-size:11px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
+        `}
+      </div>
+      ` : ''}
     </div>
     ` : ''}
 
@@ -7242,6 +7293,66 @@ async function renderHavs(siteId){
   `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
+// Read-only list of weeks a manager has marked done, with Export/Email
+// still available per week (re-generated from that week's stored dates,
+// regardless of where the live "This Week" nav currently sits) plus a
+// Reopen action to send a week back to the active tab.
+let havsCompletedBusyAction = null; // `${weekStart}|export` etc, disables just that row's buttons
+async function renderHavsCompletedTab(siteId, site, canManage, __gen){
+  const rows = await dbSelect('havs_weekly_completions', `site_id=eq.${siteId}&select=id,week_start,completed_at,completed_by&order=week_start.desc`);
+  if(rows.length) await loadAllProfiles();
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('weekly')">This Week</button>
+      <button class="darkbtn" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('completed')">Completed HAVS</button>
+    </div>
+    ${!rows.length ? `<div class="empty">No weeks marked complete yet — use "Mark This Week Complete" on the This Week tab once a week's HAVS register is finished.</div>` : rows.map(r=>{
+      const days = havsWeekDatesFromStart(r.week_start);
+      const weekLabel = havsWeekLabelFor(days);
+      const completedBy = r.completed_by && PROFILES[r.completed_by] ? PROFILES[r.completed_by].name : null;
+      const busyKeyExport = r.week_start+'|export', busyKeyEmail = r.week_start+'|email', busyKeyReopen = r.week_start+'|reopen';
+      return `
+      <div class="card" style="margin-bottom:10px;">
+        <p style="font-weight:800;font-size:13px;margin:0 0 2px;">${escapeHtml(weekLabel)}</p>
+        <p class="stub" style="margin:0 0 10px;">Completed ${new Date(r.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${completedBy?' by '+escapeHtml(completedBy):''}</p>
+        <div style="display:flex;gap:8px;">
+          <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsCompletedBusyAction===busyKeyExport?'disabled':''} onclick="exportHavsCompletedWeek('${siteId}','${r.week_start}')">${havsCompletedBusyAction===busyKeyExport?'Building…':'Export'}</button>
+          <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsCompletedBusyAction===busyKeyEmail?'disabled':''} onclick="emailHavsCompletedWeek('${siteId}','${r.week_start}')">${havsCompletedBusyAction===busyKeyEmail?'Sending…':'Email'}</button>
+          ${canManage ? `<button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${havsCompletedBusyAction===busyKeyReopen?'disabled':''} onclick="reopenHavsWeek('${r.id}')">Reopen</button>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+  `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+}
+window.exportHavsCompletedWeek = async function(siteId, weekStart){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  havsCompletedBusyAction = weekStart+'|export'; render();
+  try{
+    const days = havsWeekDatesFromStart(weekStart);
+    const weekLabel = havsWeekLabelFor(days);
+    const operatives = await havsResolveAllOperatives(siteId);
+    await havsExportOperativeSet(siteId, operatives, 'All Operatives', days, weekLabel);
+  }catch(err){
+    console.error('HAVS completed-week export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  havsCompletedBusyAction = null; render();
+};
+window.emailHavsCompletedWeek = async function(siteId, weekStart){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  havsCompletedBusyAction = weekStart+'|email'; render();
+  try{
+    const days = havsWeekDatesFromStart(weekStart);
+    const weekLabel = havsWeekLabelFor(days);
+    const operatives = await havsResolveAllOperatives(siteId);
+    await havsEmailOperativeSet(siteId, operatives, 'All Operatives', days, weekLabel);
+  }catch(err){
+    console.error('HAVS completed-week email failed', err);
+    toast('Email failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  havsCompletedBusyAction = null; render();
+};
+
 /* ---- HAVS PDF export — a real calculator table (Tool / Magnitude / Time /
    Partial A(8) / Points) per day, matching the government HAVS calculator's
    own layout, not just a bare log. Shared by both the individual export and
@@ -7264,7 +7375,111 @@ function pdfWrapText(font, size, text, maxWidth){
   if(cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
-async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, op, tools, toolById, entries){
+/* HAVS Register page — a single landscape summary page styled after the
+   government/insurer-format HAVS register spreadsheet RTB's clients
+   require: one row per operative, hours logged per tool per day across the
+   week, a weekly points total, and a colour-coded EAV/ELV status column.
+   Drawn FIRST in every export, ahead of the per-operative detail pages. */
+async function drawHavsRegisterPage(pdfDoc, fonts, orgName, siteName, weekLabel, days, operatives, tools, toolById, entries, logoImg){
+  const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
+  const PAGE_W = 841.89, PAGE_H = 595.28; // landscape A4, matching the wide Excel register
+  const MARGIN = 28;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  const NAME_W = 92, TOTAL_W = 58, STATUS_W = 66;
+  const dayBlockW = (TABLE_W - NAME_W - TOTAL_W - STATUS_W) / 5;
+  const nTools = Math.max(1, tools.length);
+  const toolColW = dayBlockW / nTools;
+  const HEADER_ROW_A_H = 20, HEADER_ROW_B_H = 16, ROW_H = 20;
+
+  function colXForDayTool(dayIdx, toolIdx){ return MARGIN + NAME_W + dayIdx*dayBlockW + toolIdx*toolColW; }
+  function totalColX(){ return MARGIN + NAME_W + 5*dayBlockW; }
+  function statusColX(){ return totalColX() + TOTAL_W; }
+
+  let page;
+  function drawHeaderBand(cont){
+    page.drawRectangle({x:0, y:PAGE_H-64, width:PAGE_W, height:64, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1);
+      const s = 38/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:PAGE_W-MARGIN-40, y:PAGE_H-58, width:40, height:40, color:WHITE});
+      page.drawImage(logoImg, {x:PAGE_W-MARGIN-40+(40-w)/2, y:PAGE_H-58+(40-h)/2, width:w, height:h});
+    }
+    page.drawText((orgName||'RTB ROOFING').toUpperCase()+' HAVS REGISTER'+(cont?' (cont.)':''), {x:MARGIN, y:PAGE_H-30, size:14, font:bold, color:WHITE});
+    page.drawText(`${siteName} · Week ${weekLabel}`, {x:MARGIN, y:PAGE_H-48, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-100});
+  }
+  function drawTableHeader(){
+    const y0 = PAGE_H - 84;
+    page.drawRectangle({x:MARGIN, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H, width:TABLE_W, height:HEADER_ROW_A_H+HEADER_ROW_B_H, color:HEADBG});
+    page.drawText('Name', {x:MARGIN+6, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+8, size:8, font:bold, color:INK});
+    days.forEach((d,di)=>{
+      const x = MARGIN+NAME_W+di*dayBlockW;
+      page.drawText(HAVS_DAY_LABELS[di].slice(0,3).toUpperCase()+' '+d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}), {x:x+4, y:y0-14, size:7, font:bold, color:INK, maxWidth:dayBlockW-6});
+      page.drawLine({start:{x, y:y0}, end:{x, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
+      tools.forEach((t,ti)=>{
+        const tx = x+ti*toolColW;
+        page.drawText((t.name||'').slice(0,3), {x:tx+3, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+6, size:6.2, font:reg, color:SLATE, maxWidth:toolColW-4});
+        if(ti>0) page.drawLine({start:{x:tx,y:y0-HEADER_ROW_A_H}, end:{x:tx,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.4, color:LINE});
+      });
+    });
+    page.drawLine({start:{x:totalColX(),y:y0}, end:{x:totalColX(),y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
+    page.drawText('Total', {x:totalColX()+4, y:y0-14, size:7, font:bold, color:INK});
+    page.drawText('points', {x:totalColX()+4, y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H+8, size:6.2, font:reg, color:SLATE});
+    page.drawLine({start:{x:statusColX(),y:y0}, end:{x:statusColX(),y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:0.5, color:LINE});
+    page.drawText('Status', {x:statusColX()+4, y:y0-14, size:7, font:bold, color:INK});
+    page.drawLine({start:{x:MARGIN,y:y0-HEADER_ROW_A_H}, end:{x:MARGIN+TABLE_W,y:y0-HEADER_ROW_A_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, end:{x:MARGIN+TABLE_W,y:y0-HEADER_ROW_A_H-HEADER_ROW_B_H}, thickness:1, color:INK});
+    return y0-HEADER_ROW_A_H-HEADER_ROW_B_H;
+  }
+  function newPage(cont){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    drawHeaderBand(cont);
+    return drawTableHeader();
+  }
+
+  let y = newPage(false);
+  operatives.forEach(op=>{
+    if(y - ROW_H < 70){ y = newPage(true); }
+    const top = y;
+    page.drawText(op.name, {x:MARGIN+6, y:top-13, size:8, font:bold, color:INK, maxWidth:NAME_W-10});
+    let weekPts = 0;
+    const byDay = [0,0,0,0,0];
+    days.forEach((d,di)=>{
+      const dateStr = d.toISOString().slice(0,10);
+      tools.forEach((t,ti)=>{
+        const mins = entries.filter(e=>e.user_id===op.id && e.entry_date===dateStr && e.tool_id===t.id).reduce((s,e)=>s+(Number(e.minutes)||0),0);
+        if(mins>0){
+          const hrs = Math.round((mins/60)*100)/100;
+          page.drawText(String(hrs), {x:colXForDayTool(di,ti)+3, y:top-13, size:7, font:reg, color:INK, maxWidth:toolColW-4});
+          const pts = havsPoints(Number(t.vibration_magnitude)||0, mins);
+          weekPts += pts;
+          byDay[di] += pts;
+        }
+      });
+    });
+    page.drawText(weekPts.toFixed(0), {x:totalColX()+4, y:top-13, size:8, font:bold, color:INK});
+    const maxDay = Math.max(...byDay);
+    const status = maxDay>=400 ? {t:'ELV', c:RED, bg:PDFLib.rgb(0.98,0.90,0.89)}
+      : maxDay>=100 ? {t:'EAV', c:AMBER, bg:PDFLib.rgb(1,0.95,0.87)}
+      : weekPts>0 ? {t:'OK', c:GREEN, bg:PDFLib.rgb(0.91,0.97,0.93)}
+      : {t:'', c:SLATE, bg:null};
+    if(status.bg) page.drawRectangle({x:statusColX()+3, y:top-17, width:STATUS_W-9, height:13, color:status.bg});
+    if(status.t) page.drawText(status.t, {x:statusColX()+7, y:top-13, size:7.5, font:bold, color:status.c});
+    page.drawLine({start:{x:MARGIN,y:top-ROW_H}, end:{x:MARGIN+TABLE_W,y:top-ROW_H}, thickness:0.4, color:LINE});
+    y = top - ROW_H;
+  });
+  if(!operatives.length){
+    page.drawText('No operatives to report for this week.', {x:MARGIN+6, y:y-14, size:9, font:reg, color:SLATE});
+    y -= 22;
+  }
+  if(y - 40 < 40){ y = newPage(true); }
+  y -= 10;
+  page.drawLine({start:{x:MARGIN,y}, end:{x:MARGIN+TABLE_W,y}, thickness:0.75, color:LINE});
+  y -= 16;
+  page.drawText('Week Ending: '+days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'}), {x:MARGIN, y, size:9, font:bold, color:INK});
+  page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:y-14, size:7.5, font:reg, color:SLATE});
+}
+async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, op, tools, toolById, entries, logoImg){
   const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 44;
@@ -7281,9 +7496,16 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   function colX(i){ let x = MARGIN; for(let j=0;j<i;j++) x += COLS[j][1]; return x; }
   function drawHeaderBand(){
     page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1);
+      const s = 36/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:PAGE_W-MARGIN-38, y:PAGE_H-72, width:38, height:38, color:WHITE});
+      page.drawImage(logoImg, {x:PAGE_W-MARGIN-38+(38-w)/2, y:PAGE_H-72+(38-h)/2, width:w, height:h});
+    }
     page.drawText('HAVS EXPOSURE REPORT', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
-    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN});
-    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN});
+    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
+    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
@@ -7358,7 +7580,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
    tallies with the same magnitudes used to score the log itself: points
    per hour = A(8)^2 x 100/6.25 at M=60 = 2 x magnitude^2, so trigger time
    to reach N points = N / (2 x magnitude^2) hours. */
-async function drawHavsCalculatorPage(pdfDoc, fonts, tools){
+async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
   const {bold, reg, INK, SLATE, LINE, HEADBG, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 44;
@@ -7376,9 +7598,16 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools){
   }
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
+  if(logoImg){
+    const dim = logoImg.scale(1);
+    const s = 36/Math.max(dim.width, dim.height);
+    const w = dim.width*s, h = dim.height*s;
+    page.drawRectangle({x:PAGE_W-MARGIN-38, y:PAGE_H-72, width:38, height:38, color:WHITE});
+    page.drawImage(logoImg, {x:PAGE_W-MARGIN-38+(38-w)/2, y:PAGE_H-72+(38-h)/2, width:w, height:h});
+  }
   page.drawText('HSE HAND-ARM VIBRATION CALCULATOR', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
   page.drawText('Tool Exposure Reference', {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
-  page.drawText('Trigger times to the Exposure Action Value (EAV) and Exposure Limit Value (ELV), per HSE methodology', {x:MARGIN, y:PAGE_H-70, size:8.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN});
+  page.drawText('Trigger times to the Exposure Action Value (EAV) and Exposure Limit Value (ELV), per HSE methodology', {x:MARGIN, y:PAGE_H-70, size:8.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
   let y = PAGE_H - 100;
   page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
   COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+7, size:7.5, font:bold, color:INK}));
@@ -7421,40 +7650,27 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools){
   const note = 'Points/hour and trigger times are calculated from each tool\'s recorded vibration magnitude using the HSE exposure-points method: A(8) = magnitude x sqrt(minutes / 480); points = A(8)^2 x 100 / 6.25. Update a tool\'s magnitude in Admin Centre - HAVS Tools and this page updates to match.';
   page.drawText(note, {x:MARGIN, y, size:7.5, font:reg, color:SLATE, maxWidth:TABLE_W, lineHeight:10});
 }
-window.exportHavsIndividual = async function(siteId, userId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+// Fetches the org logo once per export and embeds it into the given
+// PDFDocument — every HAVS page header draws it top-right (per RTB's
+// request; the app's other exports put it top-left).
+async function havsFetchLogoImg(pdfDoc){
   try{
-    const site = SITES.find(s=>s.id===siteId);
-    await loadAllProfiles();
-    const op = PROFILES[userId];
-    if(!op){ toast('Could not find that operative.'); return; }
-    const days = havsWeekDates(havsWeekOffset);
-    const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-    const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
-    const [tools, entries] = await Promise.all([
-      dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
-      dbSelect('havs_entries', `site_id=eq.${siteId}&user_id=eq.${userId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`),
-    ]);
-    const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
-    const pdfDoc = await PDFLib.PDFDocument.create();
-    const fonts = await havsPdfFonts(pdfDoc);
-    await drawHavsCalculatorPage(pdfDoc, fonts, tools);
-    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
-    const bytes = await pdfDoc.save();
-    await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+op.name+' - '+weekLabel, 'pdf'));
-  }catch(err){
-    console.error('HAVS individual export failed', err);
-    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
-  }
-};
-// Shared by "Export All" and "Export Selected" — both put one operative
-// after another into the same PDF (each on their own page-set, after one
-// shared HSE calculator reference page), just with a different starting
-// operative list.
-async function havsExportOperativeSet(siteId, operatives, labelForFilename){
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(!logoUrl) return null;
+    const bytes = await pdfFetchImageBytes(logoUrl);
+    if(!bytes) return null;
+    try{ return await pdfDoc.embedJpg(bytes); }catch(e){ try{ return await pdfDoc.embedPng(bytes); }catch(e2){ return null; } }
+  }catch(e){ return null; }
+}
+// Builds one HAVS PDF for an explicit week (days[0..4]) and operative list:
+// Register page (matching the client's required Excel layout) first, then
+// each operative's day-by-day detail pages, then the HSE calculator
+// reference page last. Shared by every export/email path — current-week
+// buttons pass havsWeekDates(havsWeekOffset); the Completed HAVS tab passes
+// the stored week's dates instead so a past week can be re-exported exactly
+// as it was.
+async function buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename){
   const site = SITES.find(s=>s.id===siteId);
-  const days = havsWeekDates(havsWeekOffset);
-  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
   const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
   const [tools, entries] = await Promise.all([
     dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
@@ -7463,29 +7679,92 @@ async function havsExportOperativeSet(siteId, operatives, labelForFilename){
   const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
   const pdfDoc = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(pdfDoc);
-  await drawHavsCalculatorPage(pdfDoc, fonts, tools);
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const orgName = (ORG && ORG.name) || site.name;
+  await drawHavsRegisterPage(pdfDoc, fonts, orgName, site.name, weekLabel, days, operatives, tools, toolById, entries, logoImg);
   for(const op of operatives){
-    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries, logoImg);
   }
+  await drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg);
   const bytes = await pdfDoc.save();
-  await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+labelForFilename+' - '+weekLabel, 'pdf'));
+  const filename = exportFilename(site.name, 'HAVS - '+labelForFilename+' - '+weekLabel, 'pdf');
+  return {bytes, filename};
 }
-window.exportHavsCollective = async function(siteId){
+function havsBytesToBase64(bytes){
+  let binary=''; const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+  return btoa(binary);
+}
+window.exportHavsIndividual = async function(siteId, userId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   try{
     await loadAllProfiles();
-    const canManage = isManager(ME);
-    const assignedRows = canManage ? await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : [];
-    const operativeIds = canManage
-      ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
-      : [ME.id];
-    const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    const op = PROFILES[userId];
+    if(!op){ toast('Could not find that operative.'); return; }
+    const days = havsWeekDates(havsWeekOffset);
+    const weekLabel = havsWeekLabelFor(days);
+    const {bytes, filename} = await buildHavsPdf(siteId, days, weekLabel, [op], op.name);
+    await deliverPdf(bytes, filename);
+  }catch(err){
+    console.error('HAVS individual export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+};
+// Shared by "Export All" and "Export Selected" — both build the same
+// register + per-operative + calculator PDF, just with a different
+// starting operative list and (for the Completed tab) an explicit past
+// week instead of the current one.
+async function havsExportOperativeSet(siteId, operatives, labelForFilename, daysOverride, weekLabelOverride){
+  const days = daysOverride || havsWeekDates(havsWeekOffset);
+  const weekLabel = weekLabelOverride || havsWeekLabelFor(days);
+  const {bytes, filename} = await buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename);
+  await deliverPdf(bytes, filename);
+}
+async function havsEmailOperativeSet(siteId, operatives, labelForFilename, daysOverride, weekLabelOverride){
+  const days = daysOverride || havsWeekDates(havsWeekOffset);
+  const weekLabel = weekLabelOverride || havsWeekLabelFor(days);
+  const {bytes, filename} = await buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename);
+  const content_base64 = havsBytesToBase64(bytes);
+  const res = await sbFetch('/functions/v1/send-havs-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel})});
+  const d = await res.json();
+  if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return false; }
+  toast('HAVS register emailed to '+ME.email);
+  return true;
+}
+async function havsResolveAllOperatives(siteId){
+  await loadAllProfiles();
+  const canManage = isManager(ME);
+  const assignedRows = canManage ? await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : [];
+  const operativeIds = canManage
+    ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
+    : [ME.id];
+  return operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+}
+window.exportHavsCollective = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  havsExportAllBusy = true; render();
+  try{
+    const operatives = await havsResolveAllOperatives(siteId);
     if(!operatives.length){ toast('No operatives to export.'); return; }
     await havsExportOperativeSet(siteId, operatives, 'All Operatives');
   }catch(err){
     console.error('HAVS collective export failed', err);
     toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
   }
+  havsExportAllBusy = false; render();
+};
+window.emailHavsCollective = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  havsEmailAllBusy = true; render();
+  try{
+    const operatives = await havsResolveAllOperatives(siteId);
+    if(!operatives.length){ toast('No operatives to email.'); return; }
+    await havsEmailOperativeSet(siteId, operatives, 'All Operatives');
+  }catch(err){
+    console.error('HAVS collective email failed', err);
+    toast('Email failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  havsEmailAllBusy = false; render();
 };
 window.exportHavsSelected = async function(siteId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -7499,6 +7778,18 @@ window.exportHavsSelected = async function(siteId){
     console.error('HAVS selected export failed', err);
     toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
   }
+};
+window.markHavsWeekComplete = async function(siteId, weekStart){
+  havsMarkCompleteBusy = true; render();
+  const row = await dbInsert('havs_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
+  if(row) toast('Week marked complete');
+  havsMarkCompleteBusy = false; render();
+};
+window.reopenHavsWeek = async function(completionId){
+  havsMarkCompleteBusy = true; render();
+  const ok = await dbDelete('havs_weekly_completions', completionId);
+  if(ok) toast('Week reopened');
+  havsMarkCompleteBusy = false; render();
 };
 async function havsPdfFonts(pdfDoc){
   return {
