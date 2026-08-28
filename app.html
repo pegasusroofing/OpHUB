@@ -167,7 +167,7 @@
     border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   .sitecard:active{transform:scale(.99);}
   .sitecard .swatch{width:56px;height:48px;border-radius:10px;flex:0 0 56px;
-    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb, var(--brand2) 50%, transparent);border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
     color:var(--brand1-text);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
   .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
   .sitecard .info{flex:1;min-width:0;}
@@ -1281,6 +1281,9 @@ document.addEventListener('click', function(e){
   if(siteStatusMenuOpenId && !e.target.closest('.status, .statusmenu')){ siteStatusMenuOpenId = null; changed = true; }
   if(sitePmPickerOpenId && !e.target.closest('.rolechip, .statusmenu')){ sitePmPickerOpenId = null; changed = true; }
   if(checkinLogOperativeFilterOpen && !e.target.closest('[data-checkinopfilter-root]')){ checkinLogOperativeFilterOpen = false; changed = true; }
+  if(typeof havsDraft2!=='undefined' && !e.target.closest('[data-havsopfilter-root]')){
+    Object.keys(havsDraft2).forEach(k=>{ if(havsDraft2[k].open){ havsDraft2[k].open = false; changed = true; } });
+  }
   if(changed) render();
 });
 // Custom confirmation dialog, replacing the native window.confirm(). On this
@@ -3542,12 +3545,13 @@ async function renderAssignTeam(siteId){
   const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address</p>
+    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
     <div class="card">
       <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}"></div>
       <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}"></div>
-      <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save Address</button>
+      <div class="formfield"><label class="field-label">Job Number</label><input type="text" id="editSiteJobNumber" placeholder="Optional" value="${escapeHtml(site.job_number||'')}"></div>
+      <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
     ` : ''}
     ${odCompanyConnected ? `
@@ -3624,11 +3628,12 @@ window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTe
 window.saveSiteAddress = async function(siteId){
   const address = document.getElementById('editSiteAddress').value.trim();
   const postcode = document.getElementById('editSitePostcode').value.trim();
-  const row = await dbUpdate('sites', siteId, {address: address||null, postcode: postcode||null});
+  const jobNumber = document.getElementById('editSiteJobNumber').value.trim();
+  const row = await dbUpdate('sites', siteId, {address: address||null, postcode: postcode||null, job_number: jobNumber||null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
-    toast('Address updated');
+    toast('Details updated');
     render();
   }
 };
@@ -6872,12 +6877,20 @@ async function renderHealthSafety(siteId){
 function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); }
 function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
 const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const HAVS_MINUTE_OPTIONS = [15,30,45,60,90,120,150,180,210,240,270,300,330,360,390,420,450,480];
 let havsWeekOffset = 0;
-// Entry drafts are now keyed per day+tool (each tool is a preset box on
-// every day) rather than per operative — a manager picks who the entry is
-// for from a dropdown inside that tool's box; an operative just adds
-// minutes against himself. Key = `${dayIdx}|${toolId}`.
+// Which days are expanded — a manager works through the week day by day,
+// closing one as they finish it and opening the next, so this needs to
+// persist across renders rather than reset every time.
+let havsDayOpen = {};
+window.toggleHavsDay = function(di){ havsDayOpen[di] = !havsDayOpen[di]; render(); };
+// Entry drafts are keyed per day+tool (each relevant tool is a preset box
+// on every day). A manager can multi-select several operatives at once
+// inside a tool's box, each with their own minutes dropdown, and add them
+// all in one go; an operative just picks his own minutes and adds for
+// himself. Key = `${dayIdx}|${toolId}`.
 let havsDraft2 = {};
+let havsSiteToolPickerOpen = false;
 window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
 function havsWeekDates(offset){
   const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
@@ -6885,25 +6898,64 @@ function havsWeekDates(offset){
 }
 function havsDraft2For(dayIdx, toolId){
   const key = dayIdx+'|'+toolId;
-  if(!havsDraft2[key]) havsDraft2[key] = {userId:'', minutes:''};
+  if(!havsDraft2[key]) havsDraft2[key] = {open:false, userIds:[], minutesByUser:{}};
   return havsDraft2[key];
 }
-window.setHavsDraft2 = function(dayIdx, toolId, field, value){ havsDraft2For(dayIdx, toolId)[field] = value; render(); };
-window.addHavsEntry2 = async function(siteId, dayIdx, toolId, selfUserId){
+window.toggleHavsToolOpDropdown = function(dayIdx, toolId){
   const d = havsDraft2For(dayIdx, toolId);
-  const userId = selfUserId || d.userId;
-  if(!userId){ toast('Choose an operative.'); return; }
-  const minutes = parseInt(d.minutes, 10);
-  if(!minutes || minutes<=0 || minutes>480){ toast('Enter minutes between 1 and 480.'); return; }
+  d.open = !d.open;
+  render();
+};
+window.toggleHavsDraftUser = function(dayIdx, toolId, userId){
+  const d = havsDraft2For(dayIdx, toolId);
+  const i = d.userIds.indexOf(userId);
+  if(i>-1){ d.userIds.splice(i,1); delete d.minutesByUser[userId]; }
+  else { d.userIds.push(userId); d.minutesByUser[userId] = '60'; }
+  render();
+};
+window.setHavsDraftMinutes = function(dayIdx, toolId, userId, value){
+  havsDraft2For(dayIdx, toolId).minutesByUser[userId] = value;
+  render();
+};
+window.setHavsSelfEntry = function(dayIdx, toolId, userId, value){
+  const d = havsDraft2For(dayIdx, toolId);
+  d.userIds = [userId];
+  d.minutesByUser[userId] = value;
+  render();
+};
+window.addHavsEntries = async function(siteId, dayIdx, toolId){
+  const d = havsDraft2For(dayIdx, toolId);
+  if(!d.userIds.length){ toast('Choose at least one operative.'); return; }
   const date = havsWeekDates(havsWeekOffset)[dayIdx];
   const entry_date = date.toISOString().slice(0,10);
-  const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes, created_by:ME.id});
-  if(rows){ havsDraft2[dayIdx+'|'+toolId] = {userId:'', minutes:''}; toast('Entry added'); render(); }
+  const rows = [];
+  for(const uid of d.userIds){
+    const minutes = parseInt(d.minutesByUser[uid], 10);
+    if(!minutes || minutes<=0 || minutes>480){ toast('Choose minutes for every selected operative.'); return; }
+    rows.push({org_id:ME.org_id, site_id:siteId, user_id:uid, entry_date, tool_id:toolId, minutes, created_by:ME.id});
+  }
+  const inserted = await dbInsert('havs_entries', rows);
+  if(inserted){
+    havsDraft2[dayIdx+'|'+toolId] = {open:false, userIds:[], minutesByUser:{}};
+    toast(rows.length>1?'Entries added':'Entry added');
+    render();
+  }
 };
 window.deleteHavsEntry = async function(entryId){
   if(!await customConfirm('Remove this HAVS entry?')) return;
   const ok = await dbDelete('havs_entries', entryId);
   if(ok){ toast('Entry removed'); render(); }
+};
+window.toggleHavsSiteToolPicker = function(){ havsSiteToolPickerOpen = !havsSiteToolPickerOpen; render(); };
+window.toggleSiteHavsTool = async function(siteId, toolId, isOn){
+  if(isOn){
+    const res = await sbFetch('/rest/v1/site_havs_tools?site_id=eq.'+siteId+'&tool_id=eq.'+toolId, {method:'DELETE'});
+    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+  } else {
+    const rows = await dbInsert('site_havs_tools', {site_id:siteId, tool_id:toolId});
+    if(!rows) return;
+  }
+  render();
 };
 async function renderHavs(siteId){
   const __gen = RENDER_GEN;
@@ -6914,10 +6966,16 @@ async function renderHavs(siteId){
   const dateFrom = days[0].toISOString().slice(0,10);
   const dateTo = days[4].toISOString().slice(0,10);
 
-  const [tools, assignedRows] = await Promise.all([
+  const [allTools, assignedRows, siteToolRows] = await Promise.all([
     dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc'),
     canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    dbSelect('site_havs_tools', 'site_id=eq.'+siteId+'&select=tool_id'),
   ]);
+  const siteToolIds = new Set(siteToolRows.map(r=>r.tool_id));
+  // Only the tools this site has been set up to use appear as boxes — an
+  // org might have a dozen HAVS tools registered but only two or three are
+  // relevant to any one job.
+  const tools = allTools.filter(t=>siteToolIds.has(t.id));
   await loadAllProfiles();
   const operativeIds = canManage
     ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
@@ -6926,18 +6984,19 @@ async function renderHavs(siteId){
   const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
   // Managers can see everyone's entries; an operative only ever sees (and
   // can only ever log against) himself — enforced here, not just in the UI.
-  const rawEntries = operatives.length ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
+  const rawEntries = (operatives.length && tools.length) ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
   const entries = canManage ? rawEntries : rawEntries.filter(e=>e.user_id===ME.id);
 
-  function statusChip(points){
-    if(points>=400) return `<span class="status closed" style="background:#FBE1DE;color:var(--brand1);">ELV EXCEEDED</span>`;
-    if(points>=100) return `<span class="status upcoming">ACTION NEEDED</span>`;
-    return `<span class="status live">OK</span>`;
-  }
+  // Default today's weekday open the first time this week's view is drawn
+  // so a manager isn't staring at five collapsed rows — but never override
+  // a day the user has already opened or closed themselves.
+  const jsDay = new Date().getDay();
+  const todayIdx = (jsDay>=1 && jsDay<=5) ? jsDay-1 : -1;
+  days.forEach((d,di)=>{ if(havsDayOpen[di]===undefined) havsDayOpen[di] = (havsWeekOffset===0 && di===todayIdx); });
 
   // Per-operative day/week point totals for the summary strip — HAVS limits
   // are personal (per body), so this still needs rolling up per operative
-  // even though entry is now organised by day/tool instead.
+  // even though entry is organised by day/tool.
   const opStats = {};
   operatives.forEach(op=>{ opStats[op.id] = {byDay:[0,0,0,0,0], week:0}; });
   entries.forEach(e=>{
@@ -6951,6 +7010,13 @@ async function renderHavs(siteId){
     opStats[e.user_id].week += pts;
   });
 
+  function minuteSelect(onchangeJs, selected){
+    return `<select style="width:auto;flex:0 0 92px;padding:4px 6px;font-size:11.5px;" onchange="${onchangeJs}">
+      <option value="">Mins…</option>
+      ${HAVS_MINUTE_OPTIONS.map(m=>`<option value="${m}" ${String(selected)===String(m)?'selected':''}>${m} min</option>`).join('')}
+    </select>`;
+  }
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
       <span class="taskicon" onclick="shiftHavsWeek(-1)">‹</span>
@@ -6960,7 +7026,23 @@ async function renderHavs(siteId){
     <p class="stub" style="text-align:center;margin:0 0 14px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
     ${operatives.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportHavsCollective('${siteId}')">Export All (PDF)</button>` : ''}
     ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
-    ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">No HAVS tools set up yet — add some in Admin Centre → HAVS Tools.</div>` : ''}
+
+    ${canManage ? `
+    <p class="ddrow" style="margin-top:0;" onclick="toggleHavsSiteToolPicker()"><span class="arrow">${havsSiteToolPickerOpen?'▼':'▶'}</span> Tools On This Site (${tools.length})</p>
+    ${havsSiteToolPickerOpen ? `
+    <div class="card" style="margin-bottom:14px;">
+      <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below.</p>
+      ${allTools.length ? allTools.map(t=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);">
+          <input type="checkbox" ${siteToolIds.has(t.id)?'checked':''} onchange="toggleSiteHavsTool('${siteId}','${t.id}',${siteToolIds.has(t.id)})">
+          ${escapeHtml(t.name)} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span>
+        </label>
+      `).join('') : `<div class="empty">No HAVS tools set up yet — add some in Admin Centre → HAVS Tools.</div>`}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">${canManage ? 'No tools selected for this site yet — tick some above.' : 'No HAVS tools have been set up for this site yet — ask your PM or admin.'}</div>` : ''}
+
     ${operatives.length ? `
     <div class="card" style="margin-bottom:14px;">
       <p class="sectiontitle" style="margin:0 0 8px;">Weekly Summary</p>
@@ -6978,49 +7060,77 @@ async function renderHavs(siteId){
       }).join('')}
     </div>
     ` : ''}
-    ${tools.length ? days.map((d,di)=>{
+
+    ${tools.length && operatives.length ? days.map((d,di)=>{
       const dateStr = d.toISOString().slice(0,10);
+      const isOpen = !!havsDayOpen[di];
+      const dayTotalPts = tools.reduce((sum,tool)=>sum + entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).reduce((s,e)=>s+havsPoints(tool.vibration_magnitude, e.minutes),0), 0);
       return `
-      <div class="card" style="margin-bottom:14px;">
-        <p class="sectiontitle" style="margin:0 0 8px;">${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span></p>
-        ${tools.map(tool=>{
-          const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
-            const pts = havsPoints(tool.vibration_magnitude, e.minutes);
-            const opName = (PROFILES[e.user_id] && PROFILES[e.user_id].name) || '(removed)';
-            const canEditThis = canManage || e.user_id===ME.id;
-            return {id:e.id, opName, minutes:e.minutes, pts, canEditThis};
-          });
-          const draft = havsDraft2For(di, tool.id);
-          return `
-          <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-weight:700;font-size:12px;">${escapeHtml(tool.name)}</span>
-              <span class="stub" style="font-weight:400;">${tool.vibration_magnitude} m/s²</span>
-            </div>
-            ${sessions.map(s=>`
-              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--slate);margin-top:4px;gap:8px;">
-                <span>${escapeHtml(s.opName)} · ${s.minutes} min · ${s.pts.toFixed(0)} pts</span>
-                ${s.canEditThis ? `<span class="taskicon danger" style="width:20px;height:20px;font-size:10px;flex:0 0 auto;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
+      <p class="ddrow" style="margin-top:${di===0?0:10}px;" onclick="toggleHavsDay(${di})">
+        <span class="arrow">${isOpen?'▼':'▶'}</span> ${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
+        ${dayTotalPts>0 ? `<span style="float:right;">${dayTotalPts>=400?`<span class="status closed" style="background:#FBE1DE;color:var(--brand1);">ELV EXCEEDED</span>`:dayTotalPts>=100?`<span class="status upcoming">ACTION NEEDED</span>`:`<span class="status live">OK</span>`}</span>` : ''}
+      </p>
+      ${isOpen ? `
+      <div class="card" style="margin-bottom:4px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          ${tools.map(tool=>{
+            const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
+              const pts = havsPoints(tool.vibration_magnitude, e.minutes);
+              const opName = (PROFILES[e.user_id] && PROFILES[e.user_id].name) || '(removed)';
+              const canEditThis = canManage || e.user_id===ME.id;
+              return {id:e.id, opName, minutes:e.minutes, pts, canEditThis};
+            });
+            const draft = havsDraft2For(di, tool.id);
+            return `
+            <div style="border:1px solid var(--line);border-radius:8px;padding:8px 8px;grid-column:span 1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+                <span style="font-weight:700;font-size:11.5px;overflow-wrap:anywhere;">${escapeHtml(tool.name)}</span>
+                <span class="stub" style="font-weight:400;font-size:10px;flex:0 0 auto;">${tool.vibration_magnitude} m/s²</span>
               </div>
-            `).join('')}
-            ${canManage && operatives.length ? `
-              <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                <select style="flex:2;min-width:120px;" onchange="setHavsDraft2(${di},'${tool.id}','userId',this.value)">
-                  <option value="">Operative…</option>
-                  ${operatives.map(op=>`<option value="${op.id}" ${draft.userId===op.id?'selected':''}>${escapeHtml(op.name)}</option>`).join('')}
-                </select>
-                <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 70px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft2(${di},'${tool.id}','minutes',this.value)">
-                <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px;" onclick="addHavsEntry2('${siteId}',${di},'${tool.id}')">Add</button>
-              </div>
-            ` : (!canManage && operatives.length) ? `
-              <div style="display:flex;gap:6px;margin-top:8px;">
-                <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 90px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft2(${di},'${tool.id}','minutes',this.value)">
-                <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px;" onclick="addHavsEntry2('${siteId}',${di},'${tool.id}','${ME.id}')">Add for myself</button>
-              </div>
-            ` : ''}
-          </div>`;
-        }).join('')}
-      </div>`;
+              ${sessions.map(s=>`
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--slate);margin-top:4px;gap:6px;">
+                  <span style="overflow-wrap:anywhere;">${escapeHtml(s.opName)} · ${s.minutes}m · ${s.pts.toFixed(0)}pts</span>
+                  ${s.canEditThis ? `<span class="taskicon danger" style="width:18px;height:18px;font-size:9px;flex:0 0 auto;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
+                </div>
+              `).join('')}
+              ${canManage && operatives.length ? `
+                <div style="position:relative;margin-top:8px;" data-havsopfilter-root>
+                  <button type="button" onclick="event.stopPropagation();toggleHavsToolOpDropdown(${di},'${tool.id}')" style="width:100%;padding:5px 8px;font-size:10.5px;font-weight:700;border-radius:14px;border:1px solid var(--line);background:${draft.userIds.length?'var(--brand1)':'#fff'};color:${draft.userIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+                    ${draft.userIds.length ? draft.userIds.length+' selected' : 'Add operative(s)'} ${draft.open?'▲':'▼'}
+                  </button>
+                  ${draft.open ? `
+                    <div style="position:absolute;left:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;max-height:200px;overflow-y:auto;">
+                      ${operatives.map(op=>`
+                        <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap;">
+                          <input type="checkbox" ${draft.userIds.includes(op.id)?'checked':''} onchange="toggleHavsDraftUser(${di},'${tool.id}','${op.id}')">
+                          ${escapeHtml(op.name)}
+                        </label>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+                ${draft.userIds.length ? `
+                  <div style="margin-top:6px;">
+                    ${draft.userIds.map(uid=>`
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;">
+                        <span style="font-size:11px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(nameOf(uid))}</span>
+                        ${minuteSelect(`setHavsDraftMinutes(${di},'${tool.id}','${uid}',this.value)`, draft.minutesByUser[uid])}
+                      </div>
+                    `).join('')}
+                    <button class="darkbtn" style="width:100%;padding:6px 8px;font-size:11.5px;margin-top:6px;" onclick="addHavsEntries('${siteId}',${di},'${tool.id}')">Add</button>
+                  </div>
+                ` : ''}
+              ` : (!canManage && operatives.length) ? `
+                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                  ${minuteSelect(`setHavsSelfEntry(${di},'${tool.id}','${ME.id}',this.value)`, draft.minutesByUser[ME.id])}
+                  <button class="darkbtn" style="flex:1;min-width:90px;padding:6px 8px;font-size:11px;" onclick="addHavsEntries('${siteId}',${di},'${tool.id}')">Add for myself</button>
+                </div>
+              ` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      ` : ''}`;
     }).join('') : ''}
   `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
@@ -7118,7 +7228,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
     let dayPoints = 0;
     sessions.forEach((e,i)=>{
       const tool = toolById[e.tool_id];
-      const mag = tool ? tool.vibration_magnitude : 0;
+      const mag = tool ? (Number(tool.vibration_magnitude) || 0) : 0;
       const a8 = havsA8(mag, e.minutes);
       const pts = havsPoints(mag, e.minutes);
       dayPoints += pts;
