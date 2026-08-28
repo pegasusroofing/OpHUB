@@ -167,8 +167,8 @@
     border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   .sitecard:active{transform:scale(.99);}
   .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
-    background:var(--brand1);border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
-    color:var(--brand1-text);font-weight:800;font-size:15px;box-sizing:border-box;}
+    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
+    color:var(--brand2);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
   .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
   .sitecard .info{flex:1;min-width:0;}
   .sitecard .info .name{font-weight:800;font-size:14.5px;}
@@ -1891,7 +1891,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteStartDateDraft=''; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -1913,12 +1913,21 @@ function siteCardHtml(s, canAdd, pmOptions){
   const canChangePm = ME.role==='admin' || ME.role==='superadmin';
   const canSetPm = canAdd && (!pmLocked || canChangePm);
   const pmInitials = pmLocked ? (nameOf(s.responsible_pm_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase() : '–';
+  const initials = s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+  // Admin Centre lets a company choose what the tile itself shows — job
+  // number and postcode both fall back to the initials when a site simply
+  // doesn't have one set yet, rather than showing an empty tile.
+  const tileMode = (ORG && ORG.site_tile_mode) || 'initials';
+  const swatchText = tileMode==='jobnumber' ? (s.job_number || initials)
+    : tileMode==='postcode' ? (s.postcode || initials)
+    : initials;
   return `
     <div class="sitecard" onclick="go('#/site/${s.id}/home')">
-      <div class="swatch">${escapeHtml(s.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+      <div class="swatch">${escapeHtml(swatchText)}</div>
       <div class="info">
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
+        ${s.job_number ? `<div class="addr" style="opacity:.75;">Job #${escapeHtml(s.job_number)}</div>` : ''}
       </div>
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
@@ -1955,6 +1964,7 @@ let newSiteStatus = null; // 'active' | 'upcoming' — must be explicitly chosen
 let newSiteNameDraft = '';
 let newSiteAddrDraft = '';
 let newSitePostcodeDraft = '';
+let newSiteJobNumberDraft = '';
 let newSiteStartDateDraft = '';
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
@@ -2049,6 +2059,7 @@ async function renderSites(){
           <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="newSiteNameDraft=this.value"></div>
           <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="newSiteAddrDraft=this.value"></div>
           <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="newSitePostcodeDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number (optional)" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
           <p class="field-label" style="margin-bottom:6px;">Status</p>
           <div class="row-gap" style="margin-bottom:14px;">
             <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
@@ -2076,11 +2087,12 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteStartDateDraft=''; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   const postcode = document.getElementById('newSitePostcode').value.trim();
+  const jobNumber = document.getElementById('newSiteJobNumber').value.trim();
   const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
   if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
@@ -2092,10 +2104,10 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, status:newSiteStatus, start_date:startDate||null, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteStartDateDraft = '';
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = '';
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -2269,6 +2281,14 @@ async function renderTeam(){
   const reportTemplates = iAmAdmin ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
   const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const suppliers = isManager(ME) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
+  // Only queried while the section is actually open — the range can span a
+  // whole month across every site, no need to pull it on every Admin Centre
+  // visit if nobody's looking at it.
+  let checkinLogRows = [];
+  if(isManager(ME) && teamSectionOpen.checkinlogs){
+    const range = checkinLogRange(checkinLogMode, checkinLogOffset);
+    checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
+  }
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -2316,6 +2336,16 @@ async function renderTeam(){
         <button class="darkbtn" ${themeBusy?'disabled':''} onclick="saveCompanyTheme()">${themeBusy?'Saving…':'Save Theme'}</button>
         <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
       </div>
+    </div>
+    <p class="sectiontitle">Site Tile Label</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Choose what shows on each site's tile on the main sites page.</p>
+      <div class="row-gap">
+        ${[['initials','Initials'],['jobnumber','Job Number'],['postcode','Postcode']].map(([val,lbl])=>`
+          <button class="${(ORG && ORG.site_tile_mode||'initials')===val?'darkbtn':'ghostbtn'}" style="flex:1;" ${siteTileModeBusy?'disabled':''} onclick="setSiteTileMode('${val}')">${lbl}</button>
+        `).join('')}
+      </div>
+      ${(ORG && ORG.site_tile_mode)==='jobnumber' ? `<p class="stub" style="margin:8px 0 0;">Sites without a job number set will fall back to showing initials.</p>` : (ORG && ORG.site_tile_mode)==='postcode' ? `<p class="stub" style="margin:8px 0 0;">Sites without a postcode set will fall back to showing initials.</p>` : ''}
     </div>
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
@@ -2411,6 +2441,63 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
+    ${teamSectionOpen.checkinlogs ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Every operative's check-in / check-out times, across all sites.</p>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="${checkinLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setCheckinLogMode('weekly')">Weekly</button>
+        <button class="${checkinLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setCheckinLogMode('monthly')">Monthly</button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span class="taskicon" onclick="shiftCheckinLog(-1)">‹</span>
+        <span style="font-weight:800;font-size:13px;">${escapeHtml(checkinLogRange(checkinLogMode, checkinLogOffset).label)}</span>
+        <span class="taskicon" style="${checkinLogOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftCheckinLog(1)">›</span>
+      </div>
+      ${(()=>{
+        const operatives = people.filter(p=>p.role==='operative');
+        if(!operatives.length) return `<div class="empty" style="padding:10px;">No operatives yet.</div>`;
+        return operatives.map(op=>{
+          const rows = checkinLogRows.filter(c=>c.user_id===op.id);
+          if(!rows.length) return `
+            <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+              <div class="name" style="font-weight:800;">${escapeHtml(op.name)}</div>
+              <div class="stub" style="margin-top:2px;">No check-ins this ${checkinLogMode==='weekly'?'week':'month'}.</div>
+            </div>`;
+          const sessions = pairCheckinSessions(rows);
+          // Group sessions by calendar day so a week/month reads as a list
+          // of days rather than one long undifferentiated feed.
+          const byDay = {};
+          sessions.forEach(s=>{
+            const dayKey = new Date(s.inTs||s.outTs).toLocaleDateString('en-GB');
+            (byDay[dayKey] = byDay[dayKey]||[]).push(s);
+          });
+          let totalMs = 0;
+          const dayRows = Object.keys(byDay).map(dayKey=>{
+            const daySessions = byDay[dayKey];
+            const parts = daySessions.map(s=>{
+              const inStr = s.inTs ? new Date(s.inTs).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : '—';
+              const outStr = s.outTs ? new Date(s.outTs).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : 'still on site';
+              if(s.inTs && s.outTs) totalMs += (new Date(s.outTs) - new Date(s.inTs));
+              return `${inStr} – ${outStr}`;
+            });
+            return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px solid var(--line);"><span>${dayKey}</span><span style="color:var(--slate);">${parts.join(', ')}</span></div>`;
+          });
+          const totalHrs = (totalMs/3600000).toFixed(1);
+          return `
+            <div class="sitecard" style="padding:10px;flex-direction:column;align-items:stretch;margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <div class="name" style="font-weight:800;">${escapeHtml(op.name)}</div>
+                <span class="rolechip" style="margin:0;">${totalHrs}h</span>
+              </div>
+              ${dayRows.join('')}
+            </div>`;
+        }).join('');
+      })()}
+    </div>
+    ` : ''}
+    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
     ${teamSectionOpen.invites ? `
     <div class="card">
@@ -2488,7 +2575,53 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, invites:false, users:false};
+// Check-In Logs (Admin Centre) — a weekly or monthly view of every
+// operative's check-in/out times across every site, for PMs and Admins.
+let checkinLogMode = 'weekly'; // 'weekly' | 'monthly'
+let checkinLogOffset = 0; // 0 = current week/month, -1 = previous, etc.
+function startOfMonth(d, monthOffset){
+  const dt = new Date(d);
+  dt.setDate(1); dt.setHours(0,0,0,0);
+  dt.setMonth(dt.getMonth() + (monthOffset||0));
+  return dt.getTime();
+}
+function checkinLogRange(mode, offset){
+  if(mode==='monthly'){
+    const start = startOfMonth(Date.now(), offset);
+    const end = startOfMonth(Date.now(), offset+1);
+    const label = new Date(start).toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+    return {start, end, label};
+  }
+  const thisWeekStart = startOfWeek(Date.now());
+  const start = thisWeekStart + offset*7*24*60*60*1000;
+  const end = start + 7*24*60*60*1000;
+  const endDisplay = new Date(end - 24*60*60*1000);
+  const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
+  return {start, end, label};
+}
+window.setCheckinLogMode = function(mode){ checkinLogMode = mode; checkinLogOffset = 0; render(); };
+window.shiftCheckinLog = function(dir){ checkinLogOffset += dir; render(); };
+// Pairs up each operative's raw in/out rows (oldest first) into
+// {inTs, outTs, hours} sessions per calendar day. A dangling check-in with
+// no matching check-out yet (still on site, or they forgot to check out)
+// is shown with outTs:null rather than silently dropped.
+function pairCheckinSessions(rows){
+  const sorted = [...rows].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const sessions = [];
+  let openIn = null;
+  for(const r of sorted){
+    if(r.type==='in'){
+      if(openIn) sessions.push({inTs:openIn.ts, outTs:null, siteId:openIn.site_id});
+      openIn = r;
+    } else if(r.type==='out'){
+      if(openIn){ sessions.push({inTs:openIn.ts, outTs:r.ts, siteId:openIn.site_id}); openIn = null; }
+      else sessions.push({inTs:null, outTs:r.ts, siteId:r.site_id});
+    }
+  }
+  if(openIn) sessions.push({inTs:openIn.ts, outTs:null, siteId:openIn.site_id});
+  return sessions;
+}
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
@@ -2536,6 +2669,18 @@ window.resetCompanyTheme = async function(){
   ORG.color_primary = null; ORG.color_secondary = null; ORG.header_text_color = null;
   applyTheme(ORG);
   toast('Company theme reset to default.');
+  render();
+};
+let siteTileModeBusy = false;
+window.setSiteTileMode = async function(mode){
+  if(!ME || ME.role!=='admin' || !ORG) return;
+  if((ORG.site_tile_mode||'initials')===mode) return;
+  siteTileModeBusy = true; render();
+  const row = await dbUpdate('organizations', ME.org_id, {site_tile_mode: mode});
+  siteTileModeBusy = false;
+  if(!row){ toast('Could not save — try again.'); render(); return; }
+  ORG.site_tile_mode = mode;
+  toast('Site tile label updated');
   render();
 };
 window.connectOneDrive = async function(){
@@ -8452,7 +8597,7 @@ async function render(){
   if(ME.role==='admin' && ORG && !ORG.logo_path){ renderCompanySetup(); return; }
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
