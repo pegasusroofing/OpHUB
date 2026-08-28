@@ -166,8 +166,8 @@
   .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
     border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   .sitecard:active{transform:scale(.99);}
-  .sitecard .swatch{width:44px;height:44px;border-radius:9px;flex:0 0 44px;
-    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand1-text);display:flex;align-items:center;justify-content:center;
+  .sitecard .swatch{width:56px;height:48px;border-radius:10px;flex:0 0 56px;
+    background:linear-gradient(135deg, var(--brand1), var(--brand2));border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
     color:var(--brand1-text);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
   .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
   .sitecard .info{flex:1;min-width:0;}
@@ -6873,26 +6873,32 @@ function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); 
 function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
 const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
 let havsWeekOffset = 0;
-let havsDraft = {}; // userId -> {day: 0-4, toolId, minutes}
+// Entry drafts are now keyed per day+tool (each tool is a preset box on
+// every day) rather than per operative — a manager picks who the entry is
+// for from a dropdown inside that tool's box; an operative just adds
+// minutes against himself. Key = `${dayIdx}|${toolId}`.
+let havsDraft2 = {};
 window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
 function havsWeekDates(offset){
   const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
   return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
 }
-function havsDraftFor(userId){
-  if(!havsDraft[userId]) havsDraft[userId] = {day:0, toolId:'', minutes:''};
-  return havsDraft[userId];
+function havsDraft2For(dayIdx, toolId){
+  const key = dayIdx+'|'+toolId;
+  if(!havsDraft2[key]) havsDraft2[key] = {userId:'', minutes:''};
+  return havsDraft2[key];
 }
-window.setHavsDraft = function(userId, field, value){ havsDraftFor(userId)[field] = value; render(); };
-window.addHavsEntry = async function(siteId, userId){
-  const d = havsDraftFor(userId);
+window.setHavsDraft2 = function(dayIdx, toolId, field, value){ havsDraft2For(dayIdx, toolId)[field] = value; render(); };
+window.addHavsEntry2 = async function(siteId, dayIdx, toolId, selfUserId){
+  const d = havsDraft2For(dayIdx, toolId);
+  const userId = selfUserId || d.userId;
+  if(!userId){ toast('Choose an operative.'); return; }
   const minutes = parseInt(d.minutes, 10);
-  if(!d.toolId){ toast('Choose a tool.'); return; }
   if(!minutes || minutes<=0 || minutes>480){ toast('Enter minutes between 1 and 480.'); return; }
-  const date = havsWeekDates(havsWeekOffset)[d.day];
+  const date = havsWeekDates(havsWeekOffset)[dayIdx];
   const entry_date = date.toISOString().slice(0,10);
-  const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:d.toolId, minutes, created_by:ME.id});
-  if(rows){ havsDraft[userId] = {day:d.day, toolId:'', minutes:''}; toast('Entry added'); render(); }
+  const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes, created_by:ME.id});
+  if(rows){ havsDraft2[dayIdx+'|'+toolId] = {userId:'', minutes:''}; toast('Entry added'); render(); }
 };
 window.deleteHavsEntry = async function(entryId){
   if(!await customConfirm('Remove this HAVS entry?')) return;
@@ -6918,19 +6924,32 @@ async function renderHavs(siteId){
     : [ME.id];
   const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
   const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
-  const entries = operatives.length ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
+  // Managers can see everyone's entries; an operative only ever sees (and
+  // can only ever log against) himself — enforced here, not just in the UI.
+  const rawEntries = operatives.length ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
+  const entries = canManage ? rawEntries : rawEntries.filter(e=>e.user_id===ME.id);
 
-  function daySessions(userId, dateStr){
-    return entries.filter(e=>e.user_id===userId && e.entry_date===dateStr).map(e=>{
-      const tool = toolById[e.tool_id];
-      return {id:e.id, toolName: tool?tool.name:'(removed tool)', minutes:e.minutes, points: tool?havsPoints(tool.vibration_magnitude, e.minutes):0};
-    });
-  }
   function statusChip(points){
     if(points>=400) return `<span class="status closed" style="background:#FBE1DE;color:var(--brand1);">ELV EXCEEDED</span>`;
     if(points>=100) return `<span class="status upcoming">ACTION NEEDED</span>`;
     return `<span class="status live">OK</span>`;
   }
+
+  // Per-operative day/week point totals for the summary strip — HAVS limits
+  // are personal (per body), so this still needs rolling up per operative
+  // even though entry is now organised by day/tool instead.
+  const opStats = {};
+  operatives.forEach(op=>{ opStats[op.id] = {byDay:[0,0,0,0,0], week:0}; });
+  entries.forEach(e=>{
+    const tool = toolById[e.tool_id];
+    if(!tool) return;
+    const di = days.findIndex(d=>d.toISOString().slice(0,10)===e.entry_date);
+    if(di<0) return;
+    if(!opStats[e.user_id]) opStats[e.user_id] = {byDay:[0,0,0,0,0], week:0};
+    const pts = havsPoints(tool.vibration_magnitude, e.minutes);
+    opStats[e.user_id].byDay[di] += pts;
+    opStats[e.user_id].week += pts;
+  });
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
@@ -6942,55 +6961,67 @@ async function renderHavs(siteId){
     ${operatives.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportHavsCollective('${siteId}')">Export All (PDF)</button>` : ''}
     ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
     ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">No HAVS tools set up yet — add some in Admin Centre → HAVS Tools.</div>` : ''}
-    ${operatives.map(op=>{
-      let weeklyPoints = 0;
-      const dayBlocks = days.map((d,di)=>{
-        const dateStr = d.toISOString().slice(0,10);
-        const sessions = daySessions(op.id, dateStr);
-        const dayPoints = sessions.reduce((s,x)=>s+x.points,0);
-        weeklyPoints += dayPoints;
-        const canEditThis = canManage || op.id===ME.id;
+    ${operatives.length ? `
+    <div class="card" style="margin-bottom:14px;">
+      <p class="sectiontitle" style="margin:0 0 8px;">Weekly Summary</p>
+      ${operatives.map(op=>{
+        const st = opStats[op.id] || {byDay:[0,0,0,0,0], week:0};
         return `
-          <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);gap:8px;flex-wrap:wrap;">
+          <span style="font-weight:700;font-size:12px;flex:1;min-width:90px;">${escapeHtml(op.name)}</span>
+          <div style="display:flex;gap:4px;">
+            ${st.byDay.map((pts,i)=>`<span title="${HAVS_DAY_LABELS[i]}: ${pts.toFixed(0)} pts" style="width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;background:${pts>=400?'#FBE1DE':pts>=100?'#FFF3E0':'#E9F7EF'};color:${pts>=400?'var(--brand1)':pts>=100?'#B85C00':'#1E9E52'};">${HAVS_DAY_LABELS[i][0]}</span>`).join('')}
+          </div>
+          <span class="rolechip" style="margin:0;" title="Sum of this week's daily points — informational; the EAV/ELV limits themselves are daily, not weekly.">${st.week.toFixed(0)} pts/wk</span>
+          <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:11px;" onclick="exportHavsIndividual('${siteId}','${op.id}')">Export</button>
+        </div>`;
+      }).join('')}
+    </div>
+    ` : ''}
+    ${tools.length ? days.map((d,di)=>{
+      const dateStr = d.toISOString().slice(0,10);
+      return `
+      <div class="card" style="margin-bottom:14px;">
+        <p class="sectiontitle" style="margin:0 0 8px;">${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span></p>
+        ${tools.map(tool=>{
+          const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
+            const pts = havsPoints(tool.vibration_magnitude, e.minutes);
+            const opName = (PROFILES[e.user_id] && PROFILES[e.user_id].name) || '(removed)';
+            const canEditThis = canManage || e.user_id===ME.id;
+            return {id:e.id, opName, minutes:e.minutes, pts, canEditThis};
+          });
+          const draft = havsDraft2For(di, tool.id);
+          return `
+          <div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span style="font-weight:700;font-size:12px;">${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span></span>
-              ${sessions.length ? statusChip(dayPoints) : ''}
+              <span style="font-weight:700;font-size:12px;">${escapeHtml(tool.name)}</span>
+              <span class="stub" style="font-weight:400;">${tool.vibration_magnitude} m/s²</span>
             </div>
             ${sessions.map(s=>`
-              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--slate);margin-top:4px;">
-                <span>${escapeHtml(s.toolName)} · ${s.minutes} min · ${s.points.toFixed(0)} pts</span>
-                ${canEditThis ? `<span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--slate);margin-top:4px;gap:8px;">
+                <span>${escapeHtml(s.opName)} · ${s.minutes} min · ${s.pts.toFixed(0)} pts</span>
+                ${s.canEditThis ? `<span class="taskicon danger" style="width:20px;height:20px;font-size:10px;flex:0 0 auto;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
               </div>
             `).join('')}
-          </div>
-        `;
-      }).join('');
-      const draft = havsDraftFor(op.id);
-      const canEdit = (canManage || op.id===ME.id) && tools.length;
-      return `
-        <div class="card" style="margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <p class="sectiontitle" style="margin:0;">${escapeHtml(op.name)}</p>
-            <span class="rolechip" style="margin:0;" title="Sum of this week's daily points — informational; the EAV/ELV limits themselves are daily, not weekly.">${weeklyPoints.toFixed(0)} pts/wk</span>
-          </div>
-          ${dayBlocks}
-          ${canEdit ? `
-            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-              <select style="flex:1;min-width:110px;" onchange="setHavsDraft('${op.id}','day',this.value)">
-                ${HAVS_DAY_LABELS.map((lbl,i)=>`<option value="${i}" ${draft.day==i?'selected':''}>${lbl}</option>`).join('')}
-              </select>
-              <select style="flex:2;min-width:140px;" onchange="setHavsDraft('${op.id}','toolId',this.value)">
-                <option value="">Tool…</option>
-                ${tools.map(t=>`<option value="${t.id}" ${draft.toolId===t.id?'selected':''}>${escapeHtml(t.name)}</option>`).join('')}
-              </select>
-              <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 70px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft('${op.id}','minutes',this.value)">
-              <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;" onclick="addHavsEntry('${siteId}','${op.id}')">Add</button>
-            </div>
-          ` : ''}
-          <button class="ghostbtn" style="margin-top:10px;" onclick="exportHavsIndividual('${siteId}','${op.id}')">Export PDF</button>
-        </div>
-      `;
-    }).join('')}
+            ${canManage && operatives.length ? `
+              <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                <select style="flex:2;min-width:120px;" onchange="setHavsDraft2(${di},'${tool.id}','userId',this.value)">
+                  <option value="">Operative…</option>
+                  ${operatives.map(op=>`<option value="${op.id}" ${draft.userId===op.id?'selected':''}>${escapeHtml(op.name)}</option>`).join('')}
+                </select>
+                <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 70px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft2(${di},'${tool.id}','minutes',this.value)">
+                <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px;" onclick="addHavsEntry2('${siteId}',${di},'${tool.id}')">Add</button>
+              </div>
+            ` : (!canManage && operatives.length) ? `
+              <div style="display:flex;gap:6px;margin-top:8px;">
+                <input type="number" min="1" max="480" placeholder="Mins" style="flex:0 0 90px;" value="${escapeHtml(draft.minutes)}" oninput="setHavsDraft2(${di},'${tool.id}','minutes',this.value)">
+                <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:12px;" onclick="addHavsEntry2('${siteId}',${di},'${tool.id}','${ME.id}')">Add for myself</button>
+              </div>
+            ` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('') : ''}
   `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
@@ -7000,22 +7031,42 @@ async function renderHavs(siteId){
    the collective one — collective just calls the same page-drawing routine
    once per operative into the SAME document, so everyone lands in one PDF
    one after another, exactly like the old spreadsheet's single-file export. */
+function pdfWrapText(font, size, text, maxWidth){
+  const words = String(text==null?'':text).split(' ');
+  const lines = [];
+  let cur = '';
+  words.forEach(w=>{
+    const test = cur ? cur+' '+w : w;
+    if(cur && font.widthOfTextAtSize(test, size) > maxWidth){
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = test;
+    }
+  });
+  if(cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
 async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, op, tools, toolById, entries){
   const {bold, reg, INK, SLATE, LINE, HEADBG, RED, AMBER, GREEN, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 44;
   const TABLE_W = PAGE_W - 2*MARGIN;
+  // Widened Tool column (and shortened header labels) — long tool names
+  // like "4in battery grinder (Dewalt or Makita)" were overrunning into the
+  // Magnitude column at the old 148pt width and overlapping the numbers.
+  // Rows now also wrap and grow in height instead of letting text run on.
   const COLS = [ // [label, width]
-    ['Day', 62], ['Tool', 148], ['Magnitude m/s²', 82], ['Minutes', 60], ['Partial A(8) m/s²', 92], ['Points', TABLE_W-62-148-82-60-92]
+    ['Day', 56], ['Tool', 168], ['Mag (m/s²)', 74], ['Mins', 48], ['Partial A(8)', 84], ['Points', TABLE_W-56-168-74-48-84]
   ];
-  const ROW_H = 16, HEADER_H = 20;
+  const ROW_H = 16, HEADER_H = 20, LINE_H = 10.5;
   let page, y;
   function colX(i){ let x = MARGIN; for(let j=0;j<i;j++) x += COLS[j][1]; return x; }
   function drawHeaderBand(){
     page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
     page.drawText('HAVS EXPOSURE REPORT', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
-    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
-    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN});
+    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
@@ -7024,7 +7075,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   }
   function drawTableHeader(){
     page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
-    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+6, size:8, font:bold, color:INK}));
+    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+6, size:7.5, font:bold, color:INK}));
     page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
     y -= HEADER_H;
   }
@@ -7038,11 +7089,19 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   function ensureRoom(h){ if(y - h < 60){ newPage(); } }
   function drawRow(cells, opts){
     opts = opts || {};
-    ensureRoom(ROW_H);
-    if(opts.fill) page.drawRectangle({x:MARGIN, y:y-ROW_H, width:TABLE_W, height:ROW_H, color:opts.fill});
-    cells.forEach((txt,i)=>page.drawText(String(txt), {x:colX(i)+6, y:y-ROW_H+5, size:8.5, font:opts.bold?bold:reg, color:opts.color||INK}));
-    page.drawLine({start:{x:MARGIN,y:y-ROW_H}, end:{x:MARGIN+TABLE_W,y:y-ROW_H}, thickness:0.5, color:LINE});
-    y -= ROW_H;
+    const size = opts.size || 8.5;
+    const font = opts.bold ? bold : reg;
+    const wrapped = cells.map((txt,i)=>pdfWrapText(font, size, txt, COLS[i][1]-12));
+    const nLines = Math.max(1, ...wrapped.map(w=>w.length));
+    const rh = Math.max(ROW_H, nLines*LINE_H + 7);
+    ensureRoom(rh);
+    const top = y;
+    if(opts.fill) page.drawRectangle({x:MARGIN, y:top-rh, width:TABLE_W, height:rh, color:opts.fill});
+    wrapped.forEach((lines,i)=>{
+      lines.forEach((ln,li)=>page.drawText(ln, {x:colX(i)+6, y:top-12-li*LINE_H, size, font, color:opts.color||INK}));
+    });
+    page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:0.5, color:LINE});
+    y = top - rh;
   }
 
   newPage();
@@ -7075,6 +7134,76 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   y -= 4;
   drawRow(['', '', '', '', 'Weekly total:', weeklyPoints.toFixed(0)+' pts (informational — limits are daily)'], {bold:true});
 }
+/* HSE HAND-ARM VIBRATION CALCULATOR reference page — a single page,
+   prepended to every export, that shows the government trigger-time
+   calculation for each tool currently set up in Admin Centre → HAVS Tools.
+   Derived straight from the HSE exposure-points formula so it always
+   tallies with the same magnitudes used to score the log itself: points
+   per hour = A(8)^2 x 100/6.25 at M=60 = 2 x magnitude^2, so trigger time
+   to reach N points = N / (2 x magnitude^2) hours. */
+async function drawHavsCalculatorPage(pdfDoc, fonts, tools){
+  const {bold, reg, INK, SLATE, LINE, HEADBG, BRAND, WHITE} = fonts;
+  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const MARGIN = 44;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  const COLS = [ // [label, width]
+    ['Tool', 210], ['Mag (m/s²)', 80], ['Pts / hour', 75], ['Time to EAV (100pts)', 75], ['Time to ELV (400pts)', TABLE_W-210-80-75-75]
+  ];
+  const ROW_H = 18, HEADER_H = 22, LINE_H = 10.5;
+  function colX(i){ let x = MARGIN; for(let j=0;j<i;j++) x += COLS[j][1]; return x; }
+  function fmtHrs(h){
+    if(!isFinite(h) || h<=0) return '—';
+    const totalMin = Math.round(h*60);
+    const hh = Math.floor(totalMin/60), mm = totalMin%60;
+    return (hh?hh+'h ':'') + mm+'m';
+  }
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
+  page.drawText('HSE HAND-ARM VIBRATION CALCULATOR', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
+  page.drawText('Tool Exposure Reference', {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
+  page.drawText('Trigger times to the Exposure Action Value (EAV) and Exposure Limit Value (ELV), per HSE methodology', {x:MARGIN, y:PAGE_H-70, size:8.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN});
+  let y = PAGE_H - 100;
+  page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+  COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+7, size:7.5, font:bold, color:INK}));
+  page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+  y -= HEADER_H;
+  function ensureRoom(h){ if(y - h < 90){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    page.drawRectangle({x:0, y:PAGE_H-50, width:PAGE_W, height:50, color:BRAND});
+    page.drawText('HSE HAND-ARM VIBRATION CALCULATOR (cont.)', {x:MARGIN, y:PAGE_H-30, size:11, font:bold, color:WHITE});
+    y = PAGE_H - 70;
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+7, size:7.5, font:bold, color:INK}));
+    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+    y -= HEADER_H;
+  } }
+  if(!tools.length){
+    ensureRoom(ROW_H);
+    page.drawText('No HAVS tools set up yet.', {x:MARGIN+6, y:y-13, size:9, font:reg, color:SLATE});
+    y -= ROW_H;
+  }
+  tools.forEach(t=>{
+    const mag = Number(t.vibration_magnitude) || 0;
+    const ptsPerHour = 2 * mag * mag;
+    const eavHours = ptsPerHour>0 ? 100/ptsPerHour : Infinity;
+    const elvHours = ptsPerHour>0 ? 400/ptsPerHour : Infinity;
+    const nameLines = pdfWrapText(reg, 8.5, t.name, COLS[0][1]-12);
+    const rh = Math.max(ROW_H, nameLines.length*LINE_H + 7);
+    ensureRoom(rh);
+    const top = y;
+    nameLines.forEach((ln,li)=>page.drawText(ln, {x:colX(0)+6, y:top-12-li*LINE_H, size:8.5, font:reg, color:INK}));
+    page.drawText(mag.toFixed(1), {x:colX(1)+6, y:top-12, size:8.5, font:reg, color:INK});
+    page.drawText(ptsPerHour.toFixed(1), {x:colX(2)+6, y:top-12, size:8.5, font:reg, color:INK});
+    page.drawText(fmtHrs(eavHours), {x:colX(3)+6, y:top-12, size:8.5, font:reg, color:INK});
+    page.drawText(fmtHrs(elvHours), {x:colX(4)+6, y:top-12, size:8.5, font:reg, color:INK});
+    page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:0.5, color:LINE});
+    y = top - rh;
+  });
+  ensureRoom(48);
+  y -= 10;
+  const note = 'Points/hour and trigger times are calculated from each tool’s recorded vibration magnitude using the HSE exposure-points method: A(8) = magnitude × √(minutes÷480); points = A(8)² × 100÷6.25. Update a tool’s magnitude in Admin Centre → HAVS Tools and this page updates to match.';
+  page.drawText(note, {x:MARGIN, y, size:7.5, font:reg, color:SLATE, maxWidth:TABLE_W, lineHeight:10});
+}
 window.exportHavsIndividual = async function(siteId, userId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
@@ -7091,6 +7220,7 @@ window.exportHavsIndividual = async function(siteId, userId){
   const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
   const pdfDoc = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(pdfDoc);
+  await drawHavsCalculatorPage(pdfDoc, fonts, tools);
   await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
   const bytes = await pdfDoc.save();
   await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+op.name+' - '+weekLabel, 'pdf'));
@@ -7116,6 +7246,7 @@ window.exportHavsCollective = async function(siteId){
   const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
   const pdfDoc = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(pdfDoc);
+  await drawHavsCalculatorPage(pdfDoc, fonts, tools);
   for(const op of operatives){
     await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
   }
