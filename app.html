@@ -6877,20 +6877,26 @@ async function renderHealthSafety(siteId){
 function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); }
 function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
 const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
-const HAVS_MINUTE_OPTIONS = [15,30,45,60,90,120,150,180,210,240,270,300,330,360,390,420,450,480];
 let havsWeekOffset = 0;
-// Which days are expanded — a manager works through the week day by day,
-// closing one as they finish it and opening the next, so this needs to
-// persist across renders rather than reset every time.
+// Days default to expanded — a manager can collapse one as they finish it,
+// but that's a per-day choice they make, not something we start closed.
 let havsDayOpen = {};
 window.toggleHavsDay = function(di){ havsDayOpen[di] = !havsDayOpen[di]; render(); };
 // Entry drafts are keyed per day+tool (each relevant tool is a preset box
-// on every day). A manager can multi-select several operatives at once
-// inside a tool's box, each with their own minutes dropdown, and add them
-// all in one go; an operative just picks his own minutes and adds for
-// himself. Key = `${dayIdx}|${toolId}`.
+// on every day). A manager can tick several operatives at once inside a
+// tool's box, each with their own minutes field; typing a whole number and
+// tabbing/blurring out of it commits that one entry immediately — there is
+// no separate "Add" step. An operative just types his own minutes the same
+// way. Key = `${dayIdx}|${toolId}`.
 let havsDraft2 = {};
-let havsSiteToolPickerOpen = false;
+// Starts open so a PM/operative can pick tools straight away; auto-closes
+// itself the first time any HAVS entry is logged (see commitHavsDraftEntry).
+let havsSiteToolPickerOpen = true;
+let havsNewToolFormOpen = false;
+let havsNewToolDraft = {name:'', magnitude:''};
+// Inline editing of an already-logged entry's minutes.
+let havsEntryEditingId = null;
+let havsEntryEditDraft = {};
 window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
 function havsWeekDates(offset){
   const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
@@ -6901,6 +6907,14 @@ function havsDraft2For(dayIdx, toolId){
   if(!havsDraft2[key]) havsDraft2[key] = {open:false, userIds:[], minutesByUser:{}};
   return havsDraft2[key];
 }
+function havsWholeMinutes(raw){
+  const s = (raw==null?'':String(raw)).trim();
+  if(!s) return {ok:false, empty:true};
+  if(!/^\d+$/.test(s)){ toast('Whole numbers only.'); return {ok:false}; }
+  const n = parseInt(s, 10);
+  if(n<=0 || n>480){ toast('Enter minutes between 1 and 480.'); return {ok:false}; }
+  return {ok:true, minutes:n};
+}
 window.toggleHavsToolOpDropdown = function(dayIdx, toolId){
   const d = havsDraft2For(dayIdx, toolId);
   d.open = !d.open;
@@ -6910,36 +6924,46 @@ window.toggleHavsDraftUser = function(dayIdx, toolId, userId){
   const d = havsDraft2For(dayIdx, toolId);
   const i = d.userIds.indexOf(userId);
   if(i>-1){ d.userIds.splice(i,1); delete d.minutesByUser[userId]; }
-  else { d.userIds.push(userId); d.minutesByUser[userId] = '60'; }
+  else { d.userIds.push(userId); d.minutesByUser[userId] = ''; }
   render();
 };
 window.setHavsDraftMinutes = function(dayIdx, toolId, userId, value){
   havsDraft2For(dayIdx, toolId).minutesByUser[userId] = value;
-  render();
 };
-window.setHavsSelfEntry = function(dayIdx, toolId, userId, value){
+// Commits one operative's entry the moment a valid whole-number minutes
+// value is tabbed/blurred out of — no "Add" button. On success that
+// operative drops off the pending list (their entry now shows in the
+// logged sessions below instead) and, the first time this fires, the
+// Tools On This Site picker auto-collapses.
+window.commitHavsDraftEntry = async function(siteId, dayIdx, toolId, userId){
   const d = havsDraft2For(dayIdx, toolId);
-  d.userIds = [userId];
-  d.minutesByUser[userId] = value;
-  render();
-};
-window.addHavsEntries = async function(siteId, dayIdx, toolId){
-  const d = havsDraft2For(dayIdx, toolId);
-  if(!d.userIds.length){ toast('Choose at least one operative.'); return; }
+  const check = havsWholeMinutes(d.minutesByUser[userId]);
+  if(check.empty) return;
+  if(!check.ok) return;
   const date = havsWeekDates(havsWeekOffset)[dayIdx];
   const entry_date = date.toISOString().slice(0,10);
-  const rows = [];
-  for(const uid of d.userIds){
-    const minutes = parseInt(d.minutesByUser[uid], 10);
-    if(!minutes || minutes<=0 || minutes>480){ toast('Choose minutes for every selected operative.'); return; }
-    rows.push({org_id:ME.org_id, site_id:siteId, user_id:uid, entry_date, tool_id:toolId, minutes, created_by:ME.id});
-  }
-  const inserted = await dbInsert('havs_entries', rows);
-  if(inserted){
-    havsDraft2[dayIdx+'|'+toolId] = {open:false, userIds:[], minutesByUser:{}};
-    toast(rows.length>1?'Entries added':'Entry added');
+  const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes:check.minutes, created_by:ME.id});
+  if(rows){
+    d.userIds = d.userIds.filter(id=>id!==userId);
+    delete d.minutesByUser[userId];
+    if(havsSiteToolPickerOpen) havsSiteToolPickerOpen = false;
+    toast('Entry added');
     render();
   }
+};
+window.startEditHavsEntry = function(entryId, currentMinutes){
+  havsEntryEditingId = entryId;
+  havsEntryEditDraft[entryId] = String(currentMinutes);
+  render();
+};
+window.setHavsEntryEditDraft = function(entryId, value){ havsEntryEditDraft[entryId] = value; };
+window.saveHavsEntryEdit = async function(entryId){
+  if(havsEntryEditingId!==entryId) return; // already saved/cancelled
+  const check = havsWholeMinutes(havsEntryEditDraft[entryId]);
+  if(check.empty){ havsEntryEditingId = null; render(); return; }
+  if(!check.ok) return;
+  const row = await dbUpdate('havs_entries', entryId, {minutes:check.minutes});
+  if(row){ havsEntryEditingId = null; toast('Entry updated'); render(); }
 };
 window.deleteHavsEntry = async function(entryId){
   if(!await customConfirm('Remove this HAVS entry?')) return;
@@ -6955,6 +6979,22 @@ window.toggleSiteHavsTool = async function(siteId, toolId, isOn){
     const rows = await dbInsert('site_havs_tools', {site_id:siteId, tool_id:toolId});
     if(!rows) return;
   }
+  render();
+};
+window.toggleHavsNewToolForm = function(){ havsNewToolFormOpen = !havsNewToolFormOpen; render(); };
+window.setHavsNewToolDraft = function(field, value){ havsNewToolDraft[field] = value; };
+window.addHavsToolInline = async function(siteId){
+  const name = (havsNewToolDraft.name||'').trim();
+  const mag = parseFloat(havsNewToolDraft.magnitude);
+  if(!name){ toast('Enter a tool name.'); return; }
+  if(!isFinite(mag) || mag<=0){ toast('Enter a magnitude greater than 0.'); return; }
+  const rows = await dbInsert('havs_tools', {org_id:ME.org_id, name, vibration_magnitude:mag, sort_order:999});
+  if(!rows) return;
+  const linked = await dbInsert('site_havs_tools', {site_id:siteId, tool_id:rows[0].id});
+  if(!linked) return;
+  havsNewToolDraft = {name:'', magnitude:''};
+  havsNewToolFormOpen = false;
+  toast('Tool added to the HAVS register and this site');
   render();
 };
 async function renderHavs(siteId){
@@ -6987,12 +7027,9 @@ async function renderHavs(siteId){
   const rawEntries = (operatives.length && tools.length) ? await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`) : [];
   const entries = canManage ? rawEntries : rawEntries.filter(e=>e.user_id===ME.id);
 
-  // Default today's weekday open the first time this week's view is drawn
-  // so a manager isn't staring at five collapsed rows — but never override
-  // a day the user has already opened or closed themselves.
-  const jsDay = new Date().getDay();
-  const todayIdx = (jsDay>=1 && jsDay<=5) ? jsDay-1 : -1;
-  days.forEach((d,di)=>{ if(havsDayOpen[di]===undefined) havsDayOpen[di] = (havsWeekOffset===0 && di===todayIdx); });
+  // Days default to expanded — never override a day the user has already
+  // opened or closed themselves.
+  days.forEach((d,di)=>{ if(havsDayOpen[di]===undefined) havsDayOpen[di] = true; });
 
   // Per-operative day/week point totals for the summary strip — HAVS limits
   // are personal (per body), so this still needs rolling up per operative
@@ -7010,11 +7047,8 @@ async function renderHavs(siteId){
     opStats[e.user_id].week += pts;
   });
 
-  function minuteSelect(onchangeJs, selected){
-    return `<select style="width:auto;flex:0 0 92px;padding:4px 6px;font-size:11.5px;" onchange="${onchangeJs}">
-      <option value="">Mins…</option>
-      ${HAVS_MINUTE_OPTIONS.map(m=>`<option value="${m}" ${String(selected)===String(m)?'selected':''}>${m} min</option>`).join('')}
-    </select>`;
+  function minuteInput(entryKey, onblurJs, currentVal){
+    return `<input type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="Mins" value="${escapeHtml(currentVal||'')}" style="width:70px;flex:0 0 70px;padding:4px 6px;font-size:11.5px;" data-havs-entry-input="${entryKey}" oninput="${onblurJs.oninput}" onblur="${onblurJs.onblur}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -7024,22 +7058,26 @@ async function renderHavs(siteId){
       <span class="taskicon" style="${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1)">›</span>
     </div>
     <p class="stub" style="text-align:center;margin:0 0 14px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
-    ${operatives.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportHavsCollective('${siteId}')">Export All (PDF)</button>` : ''}
     ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
 
-    ${canManage ? `
     <p class="ddrow" style="margin-top:0;" onclick="toggleHavsSiteToolPicker()"><span class="arrow">${havsSiteToolPickerOpen?'▼':'▶'}</span> Tools On This Site (${tools.length})</p>
     ${havsSiteToolPickerOpen ? `
     <div class="card" style="margin-bottom:14px;">
-      <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below.</p>
+      <p class="stub" style="margin:0 0 10px;">Tick which HAVS tools are relevant to this site — only these show up as entry boxes below. This closes automatically once an entry has been logged.</p>
       ${allTools.length ? allTools.map(t=>`
         <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);">
           <input type="checkbox" ${siteToolIds.has(t.id)?'checked':''} onchange="toggleSiteHavsTool('${siteId}','${t.id}',${siteToolIds.has(t.id)})">
           ${escapeHtml(t.name)} <span class="stub" style="margin:0;">(${t.vibration_magnitude} m/s²)</span>
         </label>
-      `).join('') : `<div class="empty">No HAVS tools set up yet — add some in Admin Centre → HAVS Tools.</div>`}
+      `).join('') : `<div class="empty">No HAVS tools set up yet.</div>`}
+      ${canManage ? (havsNewToolFormOpen ? `
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+          <input type="text" placeholder="Tool name" style="flex:2;min-width:120px;" value="${escapeHtml(havsNewToolDraft.name)}" oninput="setHavsNewToolDraft('name',this.value)">
+          <input type="number" step="0.1" min="0.1" placeholder="Mag (m/s²)" style="flex:0 0 100px;" value="${escapeHtml(havsNewToolDraft.magnitude)}" oninput="setHavsNewToolDraft('magnitude',this.value)">
+          <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;" onclick="addHavsToolInline('${siteId}')">Save</button>
+        </div>
+      ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="toggleHavsNewToolForm()">+ Add Tool</button>`) : ''}
     </div>
-    ` : ''}
     ` : ''}
     ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">${canManage ? 'No tools selected for this site yet — tick some above.' : 'No HAVS tools have been set up for this site yet — ask your PM or admin.'}</div>` : ''}
 
@@ -7059,6 +7097,7 @@ async function renderHavs(siteId){
         </div>`;
       }).join('')}
     </div>
+    ${operatives.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="exportHavsCollective('${siteId}')">Export All Operatives (PDF)</button>` : ''}
     ` : ''}
 
     ${tools.length && operatives.length ? days.map((d,di)=>{
@@ -7089,13 +7128,21 @@ async function renderHavs(siteId){
               </div>
               ${sessions.map(s=>`
                 <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--slate);margin-top:4px;gap:6px;">
-                  <span style="overflow-wrap:anywhere;">${escapeHtml(s.opName)} · ${s.minutes}m · ${s.pts.toFixed(0)}pts</span>
-                  ${s.canEditThis ? `<span class="taskicon danger" style="width:18px;height:18px;font-size:9px;flex:0 0 auto;" onclick="deleteHavsEntry('${s.id}')">🗑</span>` : ''}
+                  ${havsEntryEditingId===s.id ? `
+                    <input type="number" min="1" max="480" step="1" inputmode="numeric" value="${escapeHtml(havsEntryEditDraft[s.id]!==undefined?havsEntryEditDraft[s.id]:s.minutes)}" style="width:56px;flex:0 0 56px;padding:2px 4px;font-size:11px;" oninput="setHavsEntryEditDraft('${s.id}',this.value)" onblur="saveHavsEntryEdit('${s.id}')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+                    <span style="overflow-wrap:anywhere;flex:1;">${escapeHtml(s.opName)} · ${s.pts.toFixed(0)}pts</span>
+                  ` : `
+                    <span style="overflow-wrap:anywhere;">${escapeHtml(s.opName)} · ${s.minutes}m · ${s.pts.toFixed(0)}pts</span>
+                  `}
+                  ${s.canEditThis && havsEntryEditingId!==s.id ? `
+                    <span class="taskicon" style="width:18px;height:18px;font-size:9px;flex:0 0 auto;" onclick="startEditHavsEntry('${s.id}',${s.minutes})">✎</span>
+                    <span class="taskicon danger" style="width:18px;height:18px;font-size:9px;flex:0 0 auto;" onclick="deleteHavsEntry('${s.id}')">🗑</span>
+                  ` : ''}
                 </div>
               `).join('')}
               ${canManage && operatives.length ? `
                 <div style="position:relative;margin-top:8px;" data-havsopfilter-root>
-                  <button type="button" onclick="event.stopPropagation();toggleHavsToolOpDropdown(${di},'${tool.id}')" style="width:100%;padding:5px 8px;font-size:10.5px;font-weight:700;border-radius:14px;border:1px solid var(--line);background:${draft.userIds.length?'var(--brand1)':'#fff'};color:${draft.userIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+                  <button type="button" onclick="event.stopPropagation();toggleHavsToolOpDropdown(${di},'${tool.id}')" style="width:100%;padding:5px 8px;font-size:10.5px;font-weight:700;border-radius:14px;border:1px solid ${draft.userIds.length?'var(--brand1)':'var(--line)'};background:${draft.userIds.length?'color-mix(in srgb, var(--brand1) 14%, #fff)':'#fff'};color:${draft.userIds.length?'var(--brand1)':'var(--slate)'};cursor:pointer;">
                     ${draft.userIds.length ? draft.userIds.length+' selected' : 'Add operative(s)'} ${draft.open?'▲':'▼'}
                   </button>
                   ${draft.open ? `
@@ -7114,16 +7161,14 @@ async function renderHavs(siteId){
                     ${draft.userIds.map(uid=>`
                       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;">
                         <span style="font-size:11px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(nameOf(uid))}</span>
-                        ${minuteSelect(`setHavsDraftMinutes(${di},'${tool.id}','${uid}',this.value)`, draft.minutesByUser[uid])}
+                        ${minuteInput(di+'|'+tool.id+'|'+uid, {oninput:`setHavsDraftMinutes(${di},'${tool.id}','${uid}',this.value)`, onblur:`commitHavsDraftEntry('${siteId}',${di},'${tool.id}','${uid}')`}, draft.minutesByUser[uid])}
                       </div>
                     `).join('')}
-                    <button class="darkbtn" style="width:100%;padding:6px 8px;font-size:11.5px;margin-top:6px;" onclick="addHavsEntries('${siteId}',${di},'${tool.id}')">Add</button>
                   </div>
                 ` : ''}
               ` : (!canManage && operatives.length) ? `
-                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                  ${minuteSelect(`setHavsSelfEntry(${di},'${tool.id}','${ME.id}',this.value)`, draft.minutesByUser[ME.id])}
-                  <button class="darkbtn" style="flex:1;min-width:90px;padding:6px 8px;font-size:11px;" onclick="addHavsEntries('${siteId}',${di},'${tool.id}')">Add for myself</button>
+                <div style="margin-top:8px;">
+                  ${minuteInput(di+'|'+tool.id+'|'+ME.id, {oninput:`setHavsDraftMinutes(${di},'${tool.id}','${ME.id}',this.value)`, onblur:`commitHavsDraftEntry('${siteId}',${di},'${tool.id}','${ME.id}')`}, draft.minutesByUser[ME.id])}
                 </div>
               ` : ''}
             </div>`;
@@ -7316,52 +7361,62 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools){
 }
 window.exportHavsIndividual = async function(siteId, userId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
-  const site = SITES.find(s=>s.id===siteId);
-  await loadAllProfiles();
-  const op = PROFILES[userId];
-  if(!op){ toast('Could not find that operative.'); return; }
-  const days = havsWeekDates(havsWeekOffset);
-  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-  const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
-  const [tools, entries] = await Promise.all([
-    dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
-    dbSelect('havs_entries', `site_id=eq.${siteId}&user_id=eq.${userId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`),
-  ]);
-  const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
-  const pdfDoc = await PDFLib.PDFDocument.create();
-  const fonts = await havsPdfFonts(pdfDoc);
-  await drawHavsCalculatorPage(pdfDoc, fonts, tools);
-  await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
-  const bytes = await pdfDoc.save();
-  await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+op.name+' - '+weekLabel, 'pdf'));
+  try{
+    const site = SITES.find(s=>s.id===siteId);
+    await loadAllProfiles();
+    const op = PROFILES[userId];
+    if(!op){ toast('Could not find that operative.'); return; }
+    const days = havsWeekDates(havsWeekOffset);
+    const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+    const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
+    const [tools, entries] = await Promise.all([
+      dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
+      dbSelect('havs_entries', `site_id=eq.${siteId}&user_id=eq.${userId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`),
+    ]);
+    const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const fonts = await havsPdfFonts(pdfDoc);
+    await drawHavsCalculatorPage(pdfDoc, fonts, tools);
+    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+    const bytes = await pdfDoc.save();
+    await deliverPdf(bytes, exportFilename(site.name, 'HAVS - '+op.name+' - '+weekLabel, 'pdf'));
+  }catch(err){
+    console.error('HAVS individual export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
 };
 window.exportHavsCollective = async function(siteId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
-  const site = SITES.find(s=>s.id===siteId);
-  await loadAllProfiles();
-  const canManage = isManager(ME);
-  const days = havsWeekDates(havsWeekOffset);
-  const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-  const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
-  const [tools, assignedRows] = await Promise.all([
-    dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
-    canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
-  ]);
-  const operativeIds = canManage
-    ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
-    : [ME.id];
-  const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
-  if(!operatives.length){ toast('No operatives to export.'); return; }
-  const entries = await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`);
-  const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
-  const pdfDoc = await PDFLib.PDFDocument.create();
-  const fonts = await havsPdfFonts(pdfDoc);
-  await drawHavsCalculatorPage(pdfDoc, fonts, tools);
-  for(const op of operatives){
-    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+  try{
+    const site = SITES.find(s=>s.id===siteId);
+    await loadAllProfiles();
+    const canManage = isManager(ME);
+    const days = havsWeekDates(havsWeekOffset);
+    const weekLabel = `${days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${days[4].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+    const dateFrom = days[0].toISOString().slice(0,10), dateTo = days[4].toISOString().slice(0,10);
+    const [tools, assignedRows] = await Promise.all([
+      dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&select=*'),
+      canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    ]);
+    const operativeIds = canManage
+      ? assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative')
+      : [ME.id];
+    const operatives = operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    if(!operatives.length){ toast('No operatives to export.'); return; }
+    const entries = await dbSelect('havs_entries', `site_id=eq.${siteId}&entry_date=gte.${dateFrom}&entry_date=lte.${dateTo}&order=entry_date.asc`);
+    const toolById = {}; tools.forEach(t=>toolById[t.id]=t);
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const fonts = await havsPdfFonts(pdfDoc);
+    await drawHavsCalculatorPage(pdfDoc, fonts, tools);
+    for(const op of operatives){
+      await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries);
+    }
+    const bytes = await pdfDoc.save();
+    await deliverPdf(bytes, exportFilename(site.name, 'HAVS - All Operatives - '+weekLabel, 'pdf'));
+  }catch(err){
+    console.error('HAVS collective export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
   }
-  const bytes = await pdfDoc.save();
-  await deliverPdf(bytes, exportFilename(site.name, 'HAVS - All Operatives - '+weekLabel, 'pdf'));
 };
 async function havsPdfFonts(pdfDoc){
   return {
