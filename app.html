@@ -6880,6 +6880,12 @@ function titleCaseWords(str){ return String(str||'').replace(/\b\w/g, c=>c.toUpp
 function havsA8(magnitude, minutes){ return magnitude * Math.sqrt(minutes/480); }
 function havsPoints(magnitude, minutes){ const a8 = havsA8(magnitude, minutes); return (a8*a8)*100/6.25; }
 const HAVS_DAY_LABELS = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+// Shared logo geometry for every HAVS PDF page header — fixed to the
+// original (narrower) page width so the logo lands at the same horizontal
+// position on every page even where a page (e.g. the calculator page) has
+// been widened for its own table.
+const HAVS_LOGO_SIZE = 46; // 1.2x the previous 38pt box
+const HAVS_LOGO_RIGHT_X = 595.28 - 44 - HAVS_LOGO_SIZE;
 let havsWeekOffset = 0;
 // Days default to expanded — a manager can collapse one as they finish it,
 // but that's a per-day choice they make, not something we start closed.
@@ -7159,7 +7165,7 @@ async function renderHavs(siteId){
           <input type="number" step="0.1" min="0.1" placeholder="Mag (m/s²)" style="flex:0 0 100px;" value="${escapeHtml(havsNewToolDraft.magnitude)}" oninput="setHavsNewToolDraft('magnitude',this.value)">
           <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;" onclick="addHavsToolInline('${siteId}')">Save</button>
         </div>
-      ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="toggleHavsNewToolForm()">+ Add Tool</button>`) : ''}
+      ` : `<button class="ghostbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="toggleHavsNewToolForm()">+ Add Tool</button>`) : ''}
     </div>
     ` : ''}
     ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">${canManage ? 'No tools selected for this site yet — tick some above.' : 'No HAVS tools have been set up for this site yet — ask your PM or admin.'}</div>` : ''}
@@ -7289,7 +7295,7 @@ async function renderHavs(siteId){
         <p class="stub" style="margin:0 0 6px;">✓ Marked complete ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
         <button class="ghostbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="reopenHavsWeek('${weekCompletion.id}')">Reopen This Week</button>
       ` : `
-        <button class="ghostbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
+        <button class="darkbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
       `}
     </div>
     ` : ''}
@@ -7397,14 +7403,14 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
     page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
     if(logoImg){
       const dim = logoImg.scale(1);
-      const s = 36/Math.max(dim.width, dim.height);
+      const s = HAVS_LOGO_SIZE/Math.max(dim.width, dim.height);
       const w = dim.width*s, h = dim.height*s;
-      page.drawRectangle({x:PAGE_W-MARGIN-38, y:PAGE_H-72, width:38, height:38, color:WHITE});
-      page.drawImage(logoImg, {x:PAGE_W-MARGIN-38+(38-w)/2, y:PAGE_H-72+(38-h)/2, width:w, height:h});
+      page.drawRectangle({x:HAVS_LOGO_RIGHT_X, y:PAGE_H-72, width:HAVS_LOGO_SIZE, height:HAVS_LOGO_SIZE, color:WHITE});
+      page.drawImage(logoImg, {x:HAVS_LOGO_RIGHT_X+(HAVS_LOGO_SIZE-w)/2, y:PAGE_H-72+(HAVS_LOGO_SIZE-h)/2, width:w, height:h});
     }
     page.drawText('HAVS EXPOSURE REPORT', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
-    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
-    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
+    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
+    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
@@ -7413,7 +7419,12 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   }
   function drawTableHeader(){
     page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
-    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+6, size:7.5, font:bold, color:INK}));
+    COLS.forEach((c,i)=>{
+      const centered = i>=2;
+      const tw = centered ? bold.widthOfTextAtSize(c[0], 7.5) : 0;
+      const x = centered ? colX(i) + (COLS[i][1]-tw)/2 : colX(i)+6;
+      page.drawText(c[0], {x, y:y-HEADER_H+6, size:7.5, font:bold, color:INK});
+    });
     page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
     y -= HEADER_H;
   }
@@ -7436,7 +7447,14 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
     const top = y;
     if(opts.fill) page.drawRectangle({x:MARGIN, y:top-rh, width:TABLE_W, height:rh, color:opts.fill});
     wrapped.forEach((lines,i)=>{
-      lines.forEach((ln,li)=>page.drawText(ln, {x:colX(i)+6, y:top-12-li*LINE_H, size, font, color:opts.color||INK}));
+      // Every column is centre-aligned except Day (0) and Tool (1), which
+      // stay left-aligned since they carry the longer, wrapped text.
+      const centered = i>=2;
+      lines.forEach((ln,li)=>{
+        const tw = centered ? font.widthOfTextAtSize(ln, size) : 0;
+        const x = centered ? colX(i) + (COLS[i][1]-tw)/2 : colX(i)+6;
+        page.drawText(ln, {x, y:top-12-li*LINE_H, size, font, color:opts.color||INK});
+      });
     });
     page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:0.5, color:LINE});
     y = top - rh;
@@ -7492,12 +7510,16 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
    per hour = A(8)^2 x 100/6.25 at M=60 = 2 x magnitude^2, so trigger time
    to reach N points = N / (2 x magnitude^2) hours. */
 async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
-  const {bold, reg, INK, SLATE, LINE, HEADBG, BRAND, WHITE} = fonts;
-  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const {bold, reg, italic, INK, SLATE, LINE, HEADBG, BRAND, WHITE} = fonts;
+  // Widened slightly versus the other HAVS pages — the "(100pts)"/"(400pts)"
+  // note text was pushing the Time to EAV/ELV columns too tight to fit.
+  const PAGE_W = 660.28, PAGE_H = 841.89;
   const MARGIN = 44;
   const TABLE_W = PAGE_W - 2*MARGIN;
-  const COLS = [ // [label, width]
-    ['Tool', 210], ['Mag (m/s²)', 80], ['Pts / hour', 75], ['Time to EAV (100pts)', 75], ['Time to ELV (400pts)', TABLE_W-210-80-75-75]
+  const TIME_COL_W = (TABLE_W - 210 - 80 - 75) / 2;
+  const COLS = [ // [label, width, note]
+    ['Tool', 210, null], ['Mag (m/s²)', 80, null], ['Pts / hour', 75, null],
+    ['Time to EAV', TIME_COL_W, '(100pts)'], ['Time to ELV', TIME_COL_W, '(400pts)']
   ];
   const ROW_H = 18, HEADER_H = 22, LINE_H = 10.5;
   function colX(i){ let x = MARGIN; for(let j=0;j<i;j++) x += COLS[j][1]; return x; }
@@ -7507,21 +7529,37 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
     const hh = Math.floor(totalMin/60), mm = totalMin%60;
     return (hh?hh+'h ':'') + mm+'m';
   }
+  // Header cells are centred (except Tool) and, where a column has a note
+  // (the "(100pts)"/"(400pts)" qualifiers), the note is drawn smaller and
+  // in italics right after the main label — both centred as one unit.
+  function drawHeaderCell(i, headerY){
+    const [label, w, note] = COLS[i];
+    const mainW = bold.widthOfTextAtSize(label, 7.5);
+    const noteSize = 7.5*0.85;
+    const noteW = note ? italic.widthOfTextAtSize(' '+note, noteSize) : 0;
+    if(i===0){
+      page.drawText(label, {x:colX(i)+6, y:headerY, size:7.5, font:bold, color:INK});
+      return;
+    }
+    const x0 = colX(i) + (w-mainW-noteW)/2;
+    page.drawText(label, {x:x0, y:headerY, size:7.5, font:bold, color:INK});
+    if(note) page.drawText(' '+note, {x:x0+mainW, y:headerY, size:noteSize, font:italic, color:SLATE});
+  }
   let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
   if(logoImg){
     const dim = logoImg.scale(1);
-    const s = 36/Math.max(dim.width, dim.height);
+    const s = HAVS_LOGO_SIZE/Math.max(dim.width, dim.height);
     const w = dim.width*s, h = dim.height*s;
-    page.drawRectangle({x:PAGE_W-MARGIN-38, y:PAGE_H-72, width:38, height:38, color:WHITE});
-    page.drawImage(logoImg, {x:PAGE_W-MARGIN-38+(38-w)/2, y:PAGE_H-72+(38-h)/2, width:w, height:h});
+    page.drawRectangle({x:HAVS_LOGO_RIGHT_X, y:PAGE_H-72, width:HAVS_LOGO_SIZE, height:HAVS_LOGO_SIZE, color:WHITE});
+    page.drawImage(logoImg, {x:HAVS_LOGO_RIGHT_X+(HAVS_LOGO_SIZE-w)/2, y:PAGE_H-72+(HAVS_LOGO_SIZE-h)/2, width:w, height:h});
   }
   page.drawText('HSE HAND-ARM VIBRATION CALCULATOR', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
   page.drawText('Tool Exposure Reference', {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
-  page.drawText('Trigger times to the Exposure Action Value (EAV) and Exposure Limit Value (ELV), per HSE methodology', {x:MARGIN, y:PAGE_H-70, size:8.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?46:0)});
+  page.drawText('Trigger times to the Exposure Action Value (EAV) and Exposure Limit Value (ELV), per HSE methodology', {x:MARGIN, y:PAGE_H-70, size:8.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
   let y = PAGE_H - 100;
   page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
-  COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+7, size:7.5, font:bold, color:INK}));
+  COLS.forEach((c,i)=>drawHeaderCell(i, y-HEADER_H+7));
   page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
   y -= HEADER_H;
   function ensureRoom(h){ if(y - h < 90){
@@ -7530,7 +7568,7 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
     page.drawText('HSE HAND-ARM VIBRATION CALCULATOR (cont.)', {x:MARGIN, y:PAGE_H-30, size:11, font:bold, color:WHITE});
     y = PAGE_H - 70;
     page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
-    COLS.forEach((c,i)=>page.drawText(c[0], {x:colX(i)+6, y:y-HEADER_H+7, size:7.5, font:bold, color:INK}));
+    COLS.forEach((c,i)=>drawHeaderCell(i, y-HEADER_H+7));
     page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
     y -= HEADER_H;
   } }
@@ -7538,6 +7576,12 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
     ensureRoom(ROW_H);
     page.drawText('No HAVS tools set up yet.', {x:MARGIN+6, y:y-13, size:9, font:reg, color:SLATE});
     y -= ROW_H;
+  }
+  // Every data column is centred except Tool, which stays left-aligned
+  // since it carries the longer, wrapped tool name.
+  function drawCentered(text, i, ty, size){
+    const w = reg.widthOfTextAtSize(text, size);
+    page.drawText(text, {x:colX(i)+(COLS[i][1]-w)/2, y:ty, size, font:reg, color:INK});
   }
   tools.forEach(t=>{
     const mag = Number(t.vibration_magnitude) || 0;
@@ -7549,10 +7593,10 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
     ensureRoom(rh);
     const top = y;
     nameLines.forEach((ln,li)=>page.drawText(ln, {x:colX(0)+6, y:top-12-li*LINE_H, size:8.5, font:reg, color:INK}));
-    page.drawText(mag.toFixed(1), {x:colX(1)+6, y:top-12, size:8.5, font:reg, color:INK});
-    page.drawText(ptsPerHour.toFixed(1), {x:colX(2)+6, y:top-12, size:8.5, font:reg, color:INK});
-    page.drawText(fmtHrs(eavHours), {x:colX(3)+6, y:top-12, size:8.5, font:reg, color:INK});
-    page.drawText(fmtHrs(elvHours), {x:colX(4)+6, y:top-12, size:8.5, font:reg, color:INK});
+    drawCentered(mag.toFixed(1), 1, top-12, 8.5);
+    drawCentered(ptsPerHour.toFixed(1), 2, top-12, 8.5);
+    drawCentered(fmtHrs(eavHours), 3, top-12, 8.5);
+    drawCentered(fmtHrs(elvHours), 4, top-12, 8.5);
     page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:0.5, color:LINE});
     y = top - rh;
   });
