@@ -1217,6 +1217,15 @@ const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
 // navigation) with a short timeout fallback for the case where go() is
 // called with the hash unchanged, which never fires hashchange at all.
 let SELF_NAV = false;
+// RENDER_GEN guards against a second, related race: navigating quickly
+// (e.g. tapping into a site, then straight into a sub-screen before the
+// first screen has finished loading its own data) could leave a slower,
+// now-stale render() call finishing AFTER a newer one and overwriting the
+// screen back to the old page — the URL hash showing the new screen while
+// the content silently shows the old one. Every render*() function reads
+// this counter when it starts and only paints the screen if it's still the
+// most recent render pass by the time its data has loaded.
+let RENDER_GEN = 0;
 function go(hash){ SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300); location.hash = hash; }
 window.addEventListener('hashchange', function(){ SELF_NAV = false; render(); });
 // Edge-swipe-to-go-back (left edge, swiping left→right), like the native iOS
@@ -1427,8 +1436,9 @@ let authBusy = false;
 let authBusyLabel = null; // shown on the Sign In button while authBusy — kept up to date at each stage so a slow step never just looks frozen on "Please wait…"
 let authError = null;
 function renderLogin(){
+  const __gen = RENDER_GEN;
   const app = document.getElementById('app');
-  app.innerHTML = shell(`
+  if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div class="card">
       ${authError ? `<div class="errbox">${escapeHtml(authError)}</div>` : ''}
       <div class="formfield">
@@ -1449,7 +1459,7 @@ function renderLogin(){
     <div style="display:flex;justify-content:center;margin-top:22px;">
       <img src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:226.8px;height:226.8px;border-radius:32.4px;object-fit:cover;box-shadow:0 3.6px 16.2px rgba(0,0,0,0.12);max-width:75vw;max-height:75vw;">
     </div>
-  `, {centerTitle:true, tabs:false});
+  `, {centerTitle:true, tabs:false}); }
 }
 window.maybeAutoSignIn = function(ev){
   // Only Enter submits — a bare "fields look filled" trigger caused false
@@ -1534,27 +1544,28 @@ let joinBusyLabel = null;
 let joinError = null;
 let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
 async function renderJoin(inviteId){
+  const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   if(joinInfo === undefined){
-    app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false});
+    if(__gen === RENDER_GEN){ app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false}); }
     joinInfo = await getInviteInfo(inviteId);
     render();
     return;
   }
   if(!joinInfo || !joinInfo.is_valid){
-    app.innerHTML = shell(`
+    if(__gen === RENDER_GEN){ app.innerHTML = shell(`
       <div class="card">
         <p class="stub" style="margin-top:0;">This invite link isn't valid — it may have already been used or expired. Ask your Project Manager for a new one.</p>
         <button class="ghostbtn" onclick="joinInfo=undefined;go('#/')">Back to Sign In</button>
       </div>
-    `, {title:'Invite not valid', tabs:false});
+    `, {title:'Invite not valid', tabs:false}); }
     return;
   }
   // Preview the inviting company's own branding on this screen — falls back
   // to the generic OpHUB mark/colours if they haven't finished company setup yet.
   ORG = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
   applyTheme(ORG);
-  app.innerHTML = shell(`
+  if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div class="card">
       <p class="stub" style="margin:0 0 12px;">You've been invited to join <b>${escapeHtml(joinInfo.org_name)}</b> on OpHUB.</p>
       ${joinError ? `<div class="errbox">${escapeHtml(joinError)}</div>` : ''}
@@ -1577,7 +1588,7 @@ async function renderJoin(inviteId){
     <div style="text-align:center;margin-top:22px;">
       <img src="${orgLogoUrl(joinInfo)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:64px;height:64px;border-radius:14px;object-fit:cover;">
     </div>
-  `, {title:'Join OpHUB', tabs:false});
+  `, {title:'Join OpHUB', tabs:false}); }
 }
 window.doJoin = async function(inviteId){
   const name = document.getElementById('joinName').value.trim();
@@ -1625,8 +1636,9 @@ let setupLogoDataUrl = null; // preview + upload source
 let setupColor1 = DEFAULT_BRAND1;
 let setupColor2 = DEFAULT_BRAND2;
 function renderCompanySetup(){
+  const __gen = RENDER_GEN;
   const app = document.getElementById('app');
-  app.innerHTML = shell(`
+  if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div class="card">
       <p class="stub" style="margin:0 0 12px;">Before you get started, set up <b>${escapeHtml(ORG.name)}</b>'s branding — this is shown throughout the app and on your team's invite link.</p>
       ${setupError ? `<div class="errbox">${escapeHtml(setupError)}</div>` : ''}
@@ -1649,7 +1661,7 @@ function renderCompanySetup(){
         ${setupBusy ? '<span class="spinner"></span>Saving…' : 'Save & Continue'}
       </button>
     </div>
-  `, {title:'Set Up Your Company', tabs:false});
+  `, {title:'Set Up Your Company', tabs:false}); }
   document.documentElement.style.setProperty('--brand1', setupColor1);
   document.documentElement.style.setProperty('--brand2', setupColor2);
   document.documentElement.style.setProperty('--brand1-text', readableTextColor(setupColor1));
@@ -1702,6 +1714,7 @@ let adminExpandedOrg = null; // org id currently expanded to show its members
 let newCompanyInvite = null; // {org_name, invite_link} after creating a company
 let newCompanyBusy = false;
 async function renderAdmin(){
+  const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   const [orgs, subs, allProfiles] = await Promise.all([
     dbSelect('organizations', 'select=*&order=created_at.desc'),
@@ -1712,7 +1725,7 @@ async function renderAdmin(){
   const peopleByOrg = {};
   allProfiles.forEach(p=>{ if(!p.org_id) return; (peopleByOrg[p.org_id] = peopleByOrg[p.org_id]||[]).push(p); });
 
-  app.innerHTML = shell(`
+  if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <p class="sectiontitle">My Account</p>
     <div class="card">
       <div class="sitecard" style="margin:0;">
@@ -1787,7 +1800,7 @@ async function renderAdmin(){
     <p style="text-align:center;margin-top:8px;">
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false});
+  `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false}); }
 }
 window.setOrgPlanTier = async function(orgId, tier){
   const row = await dbUpdate('organizations', orgId, {plan_tier: tier});
@@ -1983,6 +1996,7 @@ window.setSiteStatus = async function(siteId, status){
 };
 window.toggleSiteSection = function(key){ siteSectionOpen[key] = !siteSectionOpen[key]; render(); };
 async function renderSites(){
+  const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   const canAdd = isManager(ME);
   await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
@@ -1999,7 +2013,7 @@ async function renderSites(){
       </div>
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
-  app.innerHTML = shell(`
+  if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
       ${canAdd && pmOptions.length ? `
@@ -2054,7 +2068,7 @@ async function renderSites(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {tabs:false, centerHeader:true, showRefresh:true});
+  `, {tabs:false, centerHeader:true, showRefresh:true}); }
 }
 window.setSiteFilterPm = function(pmIds){ siteFilterPmIds = pmIds || []; render(); };
 window.togglePmFilterOpen = function(){ pmFilterOpen = !pmFilterOpen; render(); };
@@ -2122,7 +2136,8 @@ window.deleteSite = async function(siteId, name){
 /* ================= MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ================= */
 let sigHasDrawn = false;
 function renderSignaturePad(){
-  document.getElementById('app').innerHTML = shell(`
+  const __gen = RENDER_GEN;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Your signature</p>
       ${ME.signature_path ? `
@@ -2138,7 +2153,7 @@ function renderSignaturePad(){
         <button class="darkbtn" onclick="saveSignaturePad()">Save Signature</button>
       </div>
     </div>
-  `, {title:'My Signature', subtitle:ME.name, back:'#/sites', tabs:false});
+  `, {title:'My Signature', subtitle:ME.name, back:'#/sites', tabs:false}); }
   attachSignatureCanvas();
 }
 let sigCtx = null;
@@ -2240,6 +2255,7 @@ let invitesBusy = false;
 let inviteEmailBusy = false;
 let permanentInviteBusy = false;
 async function renderTeam(){
+  const __gen = RENDER_GEN;
   await loadAllProfiles();
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
   const [pendingInvites, permanentInviteRows] = await Promise.all([
@@ -2255,7 +2271,7 @@ async function renderTeam(){
   const suppliers = isManager(ME) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
     ${teamSectionOpen.branding ? `
@@ -2470,7 +2486,7 @@ async function renderTeam(){
     `).join('') || `<div class="empty">No operatives yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can switch someone between Operative and Project Manager here — promoting or demoting a Company Admin is still done by the OpHUB platform admin.</p>
     ` : ''}
-  `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true});
+  `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
 let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, invites:false, users:false};
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
@@ -2613,6 +2629,7 @@ async function loadOdPickerFolders(){
   }catch(e){ odPickerError = 'Could not reach OneDrive.'; odPickerFolders = []; }
 }
 async function renderOneDriveFolderPicker(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
@@ -2622,7 +2639,7 @@ async function renderOneDriveFolderPicker(siteId){
     : current.id===SITES_ROOT_ID ? 'No SharePoint sites found for this account.'
     : current.isSite ? 'No document libraries in this site.'
     : 'No subfolders here.';
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
     ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Back a folder</button>` : ''}
     ${odPickerError ? `
@@ -2636,7 +2653,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/team`, siteId, tabs:false});
+  `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/team`, siteId, tabs:false}); }
 }
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -2749,6 +2766,7 @@ window.unlockDevice = async function(deviceId){
 
 /* ================= SITE HOME ================= */
 async function renderSiteHome(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
@@ -2778,7 +2796,7 @@ async function renderSiteHome(siteId){
       canSeePrice = grant.length>0;
     }
   }
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${escapeHtml(ME.name)}</span>
       ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
@@ -2836,7 +2854,7 @@ async function renderSiteHome(siteId){
     ${isManager(ME) ? `
       <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
     ` : ''}
-  `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
+  `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'}); }
 }
 async function loadPMList(){
   await loadAllProfiles();
@@ -2942,6 +2960,7 @@ window.confirmEmailTodoList = async function(siteId){
   }catch(e){ console.error(e); toast('Could not send email.'); if(btn){ btn.disabled=false; btn.textContent='Send'; } }
 };
 async function renderTodoList(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [allTodos, pmList] = await Promise.all([
     dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
@@ -2975,7 +2994,7 @@ async function renderTodoList(siteId){
       </div>
       <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
   `;
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${todoFilter==='live'?'active':''}" onclick="todoFilter='live';render()">Live</div>
       <div class="filterchip ${todoFilter==='closed'?'active':''}" onclick="todoFilter='closed';render()">Closed</div>
@@ -3054,7 +3073,7 @@ async function renderTodoList(siteId){
     ${todoFilter==='live' && todos.length ? `
       <button class="ghostbtn exportbtn" style="margin-top:14px;" onclick="openTodoEmailPicker('${siteId}')">Email To Do List</button>
     ` : ''}
-  `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'});
+  `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
 }
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
@@ -3274,6 +3293,7 @@ window.saveManualGeo = async function(siteId){
 
 /* ================= ASSIGN TEAM (per-site — PM allocates operatives to this job) ================= */
 async function renderAssignTeam(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
@@ -3286,7 +3306,7 @@ async function renderAssignTeam(siteId){
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
   const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address</p>
     ${siteTeamSectionOpen.address ? `
     <div class="card">
@@ -3362,7 +3382,7 @@ async function renderAssignTeam(siteId){
         <p class="stub" style="margin:6px 0 0;">Closed ${site.closed_at ? new Date(site.closed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.closed_by ? ' by '+escapeHtml(nameOf(site.closed_by)) : ''}</p>
       ` : ''}
     </div>
-  `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false});
+  `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false}); }
 }
 let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
@@ -3558,6 +3578,7 @@ window.savePriceWeek = async function(siteId, weekNumber, rawValue){
   render();
 };
 async function renderPriceTile(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   let canSeeLabourInvoices = canManage;
@@ -3599,7 +3620,7 @@ async function renderPriceTile(siteId){
   const filesOpen = priceFilesSectionOpen===null ? priceFiles.length===0 : priceFilesSectionOpen;
   const variationOpen = variationSectionOpen===null ? awRows.length===0 : variationSectionOpen;
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:14px;">
       <p class="sectiontitle" style="margin-top:0;">Price</p>
       <div class="formfield">
@@ -3806,7 +3827,7 @@ async function renderPriceTile(siteId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
   // Fire-and-forget: only a manager's own view can flip the flag (updating
   // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
   // just viewing the price. Only actually hits the DB on a state change —
@@ -3910,8 +3931,9 @@ let templateBusy = false;
 let templatesReturnSiteId = null;
 let templatesReturnPath = null; // overrides templatesReturnSiteId's default path when set (e.g. Daily Briefings tile)
 async function renderReportTemplates(){
+  const __gen = RENDER_GEN;
   const rows = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=created_at.desc');
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">Report Templates</p>
     <p class="stub" style="margin:0 0 14px;">Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report.</p>
     ${rows.map(t=>`
@@ -3924,7 +3946,7 @@ async function renderReportTemplates(){
       </div>
     `).join('') || `<div class="empty">No templates yet — create your first one below.</div>`}
     <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>
-  `, {title:'Report Templates', back:'#/sites', tabs:false});
+  `, {title:'Report Templates', back:'#/sites', tabs:false}); }
 }
 window.createNewTemplate = async function(siteId, returnPath){
   templatesReturnSiteId = siteId || null;
@@ -3961,6 +3983,7 @@ window.deleteTemplate = async function(id, name){
   if(ok){ toast('Template deleted'); render(); }
 };
 async function renderTemplateEditor(templateId){
+  const __gen = RENDER_GEN;
   if(!editingTemplate || editingTemplate.id !== templateId){
     const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
     if(!rows[0]){ toast('Template not found'); go('#/templates'); return; }
@@ -3968,7 +3991,7 @@ async function renderTemplateEditor(templateId){
     if(!editingTemplate.sections || !editingTemplate.sections.length) editingTemplate.sections = [{id:uid(), title:'Section 1', items:[]}];
   }
   const t = editingTemplate;
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="formfield" style="margin-top:0;"><label class="field-label">Template Name</label><input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name=this.value"></div>
     <div class="formfield"><label class="field-label">Description (optional)</label><textarea oninput="editingTemplate.description=this.value">${escapeHtml(t.description||'')}</textarea></div>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:-6px 0 14px;">
@@ -3987,7 +4010,7 @@ async function renderTemplateEditor(templateId){
     `).join('')}
     <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
-  `, {title:'Edit Template', back: templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates'), tabs:false});
+  `, {title:'Edit Template', back: templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates'), tabs:false}); }
 }
 function renderTemplateItemEditor(si, ii, it){
   return `
@@ -4197,10 +4220,11 @@ const REPORT_STATUS_CLASS = {in_progress:'open', completed:'closed'};
 // access level — editing a template never changes inspections already
 // started from it.
 async function renderSiteReportTemplates(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canEdit = isManager(ME);
   const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc');
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${canEdit ? `<p class="stub" style="margin:0 0 10px;">Build and manage templates here. Editing a template never changes inspections already started from it.</p>` : ''}
     ${templates.map(t=>`
       <div class="sitecard">
@@ -4214,12 +4238,13 @@ async function renderSiteReportTemplates(siteId){
       </div>
     `).join('') || `<div class="empty">No report templates yet${canEdit?'.':' — ask a Project Manager to create one.'}</div>`}
     ${canEdit ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
-  `, {title:'Report Templates', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+  `, {title:'Report Templates', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 // Reports tile: inspections list for this site, plus a template picker for
 // starting a new one — the "start a report" flow that used to live inside
 // the combined Templates/Inspections screen.
 async function renderSiteReports(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [templates, submissions] = await Promise.all([
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
@@ -4229,7 +4254,7 @@ async function renderSiteReports(siteId){
   const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
   const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isManager(ME) ? `
       <button class="darkbtn" style="margin-bottom:10px;" onclick="reportPickerOpen=!reportPickerOpen;render()">${reportPickerOpen?'Cancel':'+ New Report'}</button>
       ${reportPickerOpen ? `
@@ -4272,7 +4297,7 @@ async function renderSiteReports(siteId){
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
     `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
-  `, {title:'Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+  `, {title:'Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.startReport = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
@@ -4366,6 +4391,7 @@ window.deleteSelectedReports = async function(siteId){
   bulkDeleteBusy = false; render();
 };
 async function renderReportFill(siteId, submissionId, fromBriefing){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
   if(!reportFillDraft || reportFillDraft.submissionId !== submissionId){
@@ -4376,7 +4402,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
     reportFillDraft = {submissionId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing};
   }
   const sc = scoreSections(reportFillDraft.sections, reportFillDraft.answers);
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(reportFillDraft.template_name)}</p>
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${(reportFillDraft.sections||[]).map(s=>`
@@ -4392,7 +4418,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
       <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, back:listPath, siteId, activeTab:'more'});
+  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, back:listPath, siteId, activeTab:'more'}); }
 }
 window.saveReportProgress = async function(siteId){
   reportSaveBusy = true; render();
@@ -4519,6 +4545,7 @@ window.submitReport = async function(siteId){
   } else { toast('Could not submit — check your connection and try again.'); render(); }
 };
 async function renderReportView(siteId, submissionId, fromBriefing){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
@@ -4529,7 +4556,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
   if(fromBriefing) sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
   const mine = sigs.find(s=>s.user_id===ME.id);
   const sc = scoreSections(sub.sections, sub.answers);
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
     <p class="stub">${fromBriefing?'Completed':'Submitted'} ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
@@ -4556,7 +4583,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       <button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}')">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, back:listPath, siteId, activeTab:'more'});
+  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, back:listPath, siteId, activeTab:'more'}); }
 }
 function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
@@ -4949,15 +4976,16 @@ window.emailReportPDF = async function(submissionId){
 
 /* ================= MORE ================= */
 function renderMore(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
     </div>
-  `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= CHECK IN/OUT ================= */
@@ -4998,6 +5026,7 @@ function checkinDayLabel(ts){
   return d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 }
 async function renderCheckin(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   const [mine, teamAll] = await Promise.all([
@@ -5113,7 +5142,7 @@ async function renderCheckin(siteId){
       <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
     ` : ''}
   `;
-  document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'});
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
 window.doCheckAction = async function(siteId, type){
   checkinError = null;
@@ -5248,6 +5277,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask){
   `;
 }
 async function renderSchedule(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const [allTasks, sections] = await Promise.all([
@@ -5268,7 +5298,7 @@ async function renderSchedule(siteId){
   const bySection = {};
   tasks.forEach(t=>{ if(t.section_id){ (bySection[t.section_id]=bySection[t.section_id]||[]).push(t); } });
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
       <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
@@ -5359,7 +5389,7 @@ async function renderSchedule(siteId){
       ` : ''}
     ` : ''}
     ${allTasks.length ? `<button class="ghostbtn exportbtn sowexportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
-  `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'});
+  `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 }
 window.toggleScheduleSection = function(sectionId){
   const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
@@ -5590,12 +5620,13 @@ window.confirmPdfImport = async function(siteId){
 
 /* ================= SNAGGING / VARIATIONS (folder: Snagging + Variations) ================= */
 async function renderSnaggingFolder(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [openSnags, liveVariations] = await Promise.all([
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
   ]);
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging/list')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
@@ -5607,7 +5638,7 @@ async function renderSnaggingFolder(siteId){
       </div>
       ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div></div>` : ''}
     </div>
-  `, {title:snaggingFolderLabel(), subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:snaggingFolderLabel(), subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= SNAGGING ================= */
@@ -5644,12 +5675,13 @@ function snagCardBody(siteId, s, canAdd){
   `;
 }
 async function renderSnagging(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const status = snagFilter==='live' ? 'open' : 'closed';
   const snags = await dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.'+status+'&order=created_at.desc');
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${snagFilter==='live'?'active':''}" onclick="snagFilter='live';render()">Live</div>
       <div class="filterchip ${snagFilter==='closed'?'active':''}" onclick="snagFilter='closed';render()">Closed</div>
@@ -5699,7 +5731,7 @@ async function renderSnagging(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed (PDF)</button>
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','both')">Export all (PDF)</button>
     </div>
-  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.snagAddPhoto = async function(input){
   const files = input.files && Array.from(input.files); if(!files || !files.length) return;
@@ -6289,6 +6321,7 @@ async function fetchRamsData(siteId){
 }
 let ramsUploadOpen = false;
 async function renderRams(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   await loadAllProfiles();
@@ -6302,7 +6335,7 @@ async function renderRams(siteId){
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
   `;
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
     ${canAdd ? (docs.length ? `
@@ -6314,7 +6347,7 @@ async function renderRams(siteId){
         ${uploadForm}
       </div>
     `) : ''}
-  `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+  `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
   ramsPollTimer = setInterval(async ()=>{
@@ -6435,6 +6468,7 @@ async function fetchCoshhData(siteId){
 }
 let coshhUploadOpen = false;
 async function renderCoshh(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   await loadAllProfiles();
@@ -6448,7 +6482,7 @@ async function renderCoshh(siteId){
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
   `;
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
     ${canAdd ? (docs.length ? `
@@ -6460,7 +6494,7 @@ async function renderCoshh(siteId){
         ${uploadForm}
       </div>
     `) : ''}
-  `, {title:'COSHH', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+  `, {title:'COSHH', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(coshhPollTimer) clearInterval(coshhPollTimer);
   coshhPollTimer = setInterval(async ()=>{
@@ -6546,6 +6580,7 @@ window.deleteCoshh = async function(coshhId, storagePath){
 
 /* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
 async function renderHealthSafety(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
@@ -6559,7 +6594,7 @@ async function renderHealthSafety(siteId){
     const briefings = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id,issued_at');
     briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
   }
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
@@ -6578,7 +6613,7 @@ async function renderHealthSafety(siteId){
         <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
       </div>
     </div>
-  `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= DAILY BRIEFINGS =================
@@ -6593,6 +6628,7 @@ async function renderHealthSafety(siteId){
 let briefingPickerOpen = false;
 let briefingTemplatesManageOpen = false;
 async function renderDailyBriefings(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   const allTemplates = canManage ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
@@ -6609,7 +6645,7 @@ async function renderDailyBriefings(siteId){
     const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=in.('+subIds+')');
     sigs.forEach(s=>{ (sigsBySubmission[s.submission_id]=sigsBySubmission[s.submission_id]||[]).push(s); });
   }
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
       <div class="ddrow" style="margin-top:0;" onclick="briefingTemplatesManageOpen=!briefingTemplatesManageOpen;render()"><span class="arrow">${briefingTemplatesManageOpen?'▼':'▶'}</span> Daily Briefing Templates (${templates.length})</div>
       ${briefingTemplatesManageOpen ? `
@@ -6657,7 +6693,7 @@ async function renderDailyBriefings(siteId){
         <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
       ` : ''}
     `;}).join('') || `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
-  `, {title:'Daily Briefings', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+  `, {title:'Daily Briefings', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 window.deleteBriefingSubmission = async function(siteId, submissionId){
   if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
@@ -6743,6 +6779,7 @@ window.toggleTbtSelect = function(id){
 const TBT_STATUS_LABEL = {bank:'BANK', live:'LIVE', completed:'COMPLETED'};
 const TBT_STATUS_CLASS = {bank:'pending', live:'open', completed:'closed'};
 async function renderToolboxTalks(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&order=created_at.desc');
@@ -6754,7 +6791,7 @@ async function renderToolboxTalks(siteId){
     sigs.forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; });
   }
   const visibleTalks = isPM ? talks.filter(t=>t.status===tbtFilter) : talks;
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isPM ? `
     <div class="filterrow">
       <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';selectedTbtIds=new Set();render()">Bank TBT</div>
@@ -6791,7 +6828,7 @@ async function renderToolboxTalks(siteId){
       <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
     </div>
     ` : ''}
-  `, {title:'Toolbox Talks', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+  `, {title:'Toolbox Talks', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let tbtReplaceFileOpen = null;
 let tbtReplaceBusy = false;
@@ -6828,6 +6865,7 @@ window.addToolboxTalk = async function(siteId){
   if(rows){ tbtFilter='bank'; toast('Toolbox talk uploaded to Bank TBT'); render(); }
 };
 async function renderToolboxTalkView(siteId, tbtId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
@@ -6838,7 +6876,7 @@ async function renderToolboxTalkView(siteId, tbtId){
   const mine = sigs.find(s=>s.user_id===ME.id);
   const isLive = talk.status==='live';
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <p class="sectiontitle" style="margin-top:0;">${escapeHtml(talk.title)}</p>
@@ -6878,7 +6916,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
     </div>
     ` : ''}
-  `, {title:talk.title, subtitle:site.name, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'});
+  `, {title:talk.title, subtitle:site.name, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
 }
 window.signToolboxTalk = async function(siteId, tbtId){
   if(!ME.signature_path){
@@ -7201,6 +7239,7 @@ function supplierPickerHtml(pickerKey, suppliers, selectedId){
     </div>`;
 }
 async function renderMaterials(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
@@ -7211,7 +7250,7 @@ async function renderMaterials(siteId){
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
@@ -7341,7 +7380,7 @@ async function renderMaterials(siteId){
     </div>
     ` : ''}
     ` : ''}
-  `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'});
+  `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 // Supplier duplicate detection — company names get typed inconsistently
 // (case, punctuation, "Ltd"/"Limited", or plain typos), so a straight
@@ -7680,11 +7719,12 @@ window.toggleVariationExpand = function(id){
   render();
 };
 async function renderVariations(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   varDraft = varDraft || {photo:null, desc:''};
   const variations = await dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.'+varFilter+'&order=created_at.desc');
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${varFilter==='live'?'active':''}" onclick="varFilter='live';render()">Live</div>
       <div class="filterchip ${varFilter==='closed'?'active':''}" onclick="varFilter='closed';render()">Closed</div>
@@ -7736,7 +7776,7 @@ async function renderVariations(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','closed')">Export closed (PDF)</button>
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','both')">Export all (PDF)</button>
     </div>
-  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'});
+  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.varPhoto = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -7943,6 +7983,7 @@ window.showDrawingAddMenu = function(siteId, folderId){
   ov.style.display = 'flex';
 };
 async function renderDrawings(siteId, folderId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   // The "New folder" input and "Upload" panel are page-level toggles, not
@@ -7975,7 +8016,7 @@ async function renderDrawings(siteId, folderId){
   // that's meant to apply once there's anything in the folder.
   const isDrawingsFolderEmpty = subfolders.length===0 && files.length===0;
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="drawheaderrow">
       <span>File Name</span>
       ${canManage ? `<div class="roundplusbtn" onclick="showDrawingAddMenu('${siteId}',${parentArg})">+</div>` : ''}
@@ -8028,7 +8069,7 @@ async function renderDrawings(siteId, folderId){
         </div>
       ` : ''}
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'});
+  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createDrawingFolder = async function(siteId, folderId){
   const input = document.getElementById('newDrawingFolderName');
@@ -8164,10 +8205,11 @@ window.importSelectedDrawings = async function(){
   go(`#/site/${drawingImportSiteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`);
 };
 async function renderDrawingImportPicker(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!drawingImportStack || drawingImportSiteId!==siteId){ go(`#/site/${siteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`); return; }
   const backHref = `#/site/${siteId}/drawings${drawingImportTargetFolderId?'/'+drawingImportTargetFolderId:''}`;
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="stub" style="margin:0 0 10px;">${drawingImportStack.map(f=>escapeHtml(f.name)).join(' › ')}</div>
     ${drawingImportStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="drawingImportUp()">‹ Up one level</button>` : ''}
     ${drawingImportError ? `<div class="empty">${escapeHtml(drawingImportError)}</div>` : drawingImportBusy ? `<p class="stub">Loading…</p>` : `
@@ -8188,7 +8230,7 @@ async function renderDrawingImportPicker(siteId){
       ${(!drawingImportFolders.length && !drawingImportFiles.length) ? `<div class="empty">Nothing here.</div>` : ''}
     `}
     ${drawingImportSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedDrawings()">Import ${drawingImportSelected.size} Selected</button>` : ''}
-  `, {title:'Import from OneDrive', subtitle:site.name, back:backHref, siteId, tabs:false});
+  `, {title:'Import from OneDrive', subtitle:site.name, back:backHref, siteId, tabs:false}); }
 }
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!await customConfirm('Delete this drawing? This can\'t be undone.')) return;
@@ -8234,6 +8276,7 @@ let msgReplyDraft = '';
 let msgSelectMode = false;
 let msgSelectedIds = new Set();
 async function renderMessages(siteId){
+  const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
   const mgr = isManager(ME);
@@ -8316,7 +8359,7 @@ async function renderMessages(siteId){
     </div>`;
   };
 
-  document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${mgr ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Send a message</p>
@@ -8343,7 +8386,7 @@ async function renderMessages(siteId){
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
-  `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'});
+  `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
 }
 window.toggleMsgSelectMode = function(){
   msgSelectMode = !msgSelectMode;
@@ -8400,6 +8443,7 @@ window.sendMessageReply = async function(siteId, parentId, audience, targetSiteI
 
 /* ================= router / render ================= */
 async function render(){
+  RENDER_GEN++; // this render pass now supersedes any still-loading one
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
