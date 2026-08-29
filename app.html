@@ -3047,7 +3047,7 @@ async function renderSiteHome(siteId){
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
-      <span>${site.job_number ? 'Job No: '+escapeHtml(site.job_number) : ''}</span>
+      <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="display:flex;align-items:center;gap:8px;">
         <span>${escapeHtml(ME.name)}</span>
         ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
