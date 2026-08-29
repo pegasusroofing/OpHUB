@@ -2302,6 +2302,33 @@ async function renderTeam(){
   if(isManager(ME) && teamSectionOpen.coshhlibrary){
     coshhLibraryHtmlBlock = await coshhLibraryBrowserHtml();
   }
+  // Same "only when the section is actually open" pattern — Operative Tools
+  // is a per-operative nested browser, no need to pull every operative's
+  // tool list on every Admin Centre visit if nobody's looking at it.
+  let operativeToolsHtmlBlock = '';
+  if(isManager(ME) && teamSectionOpen.operativetools){
+    const allTools = await dbSelect('operative_tools', 'org_id=eq.'+ME.org_id+'&order=created_at.asc');
+    const toolsByUser = {};
+    allTools.forEach(t=>{ (toolsByUser[t.user_id]=toolsByUser[t.user_id]||[]).push(t); });
+    const operativesList = people.filter(p=>p.role==='operative');
+    operativeToolsHtmlBlock = operativesList.map(p=>{
+      const tools = toolsByUser[p.id]||[];
+      return `
+        <p class="ddrow" style="margin-top:0;" onclick="toggleOperativeToolsUser('${p.id}')"><span class="arrow">${operativeToolsOpenByUser[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} (${tools.length})</p>
+        ${operativeToolsOpenByUser[p.id] ? `
+          <div class="card" style="margin-bottom:10px;">
+            ${tools.map(t=>`
+              <div class="sitecard" style="padding:8px 10px;">
+                ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
+                <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.serial_number?`<div class="addr">Serial: ${escapeHtml(t.serial_number)}</div>`:''}</div>
+                <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:10px;">No tools logged yet.</div>`}
+          </div>
+        ` : ''}
+      `;
+    }).join('') || `<div class="empty">No operatives yet.</div>`;
+  }
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -2460,6 +2487,15 @@ async function renderTeam(){
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">One master COSHH library for the whole company, organised by element of works and manufacturer. Sites can pick documents straight from here instead of re-uploading them.</p>
       ${coshhLibraryHtmlBlock}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('operativetools')"><span class="arrow">${teamSectionOpen.operativetools?'▼':'▶'}</span> Operative Tools</p>
+    ${teamSectionOpen.operativetools ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Each operative's own logged power tools — name, serial/item number, and photo. Used to auto-populate PUWER Tool Inspections.</p>
+      ${operativeToolsHtmlBlock}
     </div>
     ` : ''}
     ` : ''}
@@ -2653,7 +2689,9 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false};
+let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
+window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
 // Check-In Logs (Admin Centre) — a weekly or monthly view of every
 // operative's check-in/out times across every site, for PMs and Admins.
 let checkinLogMode = 'weekly'; // 'weekly' | 'monthly'
@@ -7020,7 +7058,12 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
         <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
+        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
+        <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
+      </div>
     </div>
+    <div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>
   `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
@@ -7935,6 +7978,441 @@ async function havsPdfFonts(pdfDoc){
     BRAND: pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1),
     WHITE: PDFLib.rgb(1,1,1),
   };
+}
+
+/* ================= OPERATIVE TOOLS (personal tool register) =================
+   Every operative's own log of the power tools they use — name, serial/item
+   number, and a photo. Never its own H&S tile: the entry point is a small
+   "My Tools" link inside H&S (always about the current user's own tools),
+   plus an "Operative Tools" browse section in Admin Centre for PM/Admin
+   oversight of everyone's. PUWER Tool Inspections snapshot from here at
+   fill time, so a tool renamed/removed later doesn't rewrite past reports. */
+let myToolsAddOpen = false;
+let myToolsPhotoFile = null; // File staged for the add-tool form until Save is tapped
+window.onMyToolPhotoChosen = function(input){
+  myToolsPhotoFile = (input.files && input.files[0]) || null;
+  render();
+};
+window.addMyTool = async function(){
+  const name = document.getElementById('myToolName').value.trim();
+  const serial = document.getElementById('myToolSerial').value.trim();
+  if(!name){ toast('Enter a tool name.'); return; }
+  let photoPath = null;
+  if(myToolsPhotoFile){
+    const path = ME.org_id+'/'+ME.id+'/'+uid()+'-'+myToolsPhotoFile.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    photoPath = await uploadToStorage('operative-tools', path, myToolsPhotoFile, myToolsPhotoFile.type||'image/jpeg');
+  }
+  const rows = await dbInsert('operative_tools', {org_id:ME.org_id, user_id:ME.id, name, serial_number:serial||null, photo_path:photoPath, created_by:ME.id});
+  if(rows){ toast('Tool added'); myToolsAddOpen=false; myToolsPhotoFile=null; render(); }
+};
+// Shared by "My Tools" (deleting your own) and Admin Centre's Operative
+// Tools browser (PM/Admin deleting anyone's) — RLS allows both.
+window.deleteOperativeTool = async function(toolId, photoPath){
+  if(!await customConfirm('Delete this tool? This can\'t be undone.')) return;
+  const ok = await dbDelete('operative_tools', toolId);
+  if(ok){
+    if(photoPath){ try{ await sbFetch('/storage/v1/object/operative-tools/'+photoPath, {method:'DELETE'}); }catch(e){} }
+    toast('Tool deleted');
+    render();
+  }
+};
+async function renderMyTools(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const tools = await dbSelect('operative_tools', 'user_id=eq.'+ME.id+'&order=created_at.asc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Your own power tools — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.</p>
+    ${tools.map(t=>`
+      <div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;">
+        ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:48px;height:48px;object-fit:cover;border-radius:8px;flex:0 0 48px;border:1px solid var(--line);">` : `<div class="swatch" style="flex:0 0 48px;width:48px;height:48px;">🔧</div>`}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;">${escapeHtml(t.name)}</div>
+          ${t.serial_number ? `<div class="stub" style="margin:2px 0 0;">Serial: ${escapeHtml(t.serial_number)}</div>` : ''}
+        </div>
+        <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
+      </div>
+    `).join('') || `<div class="empty">No tools added yet.</div>`}
+    ${myToolsAddOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="sectiontitle" style="margin-top:0;">Add a Tool</p>
+        <div class="formfield" style="margin-top:0;"><input type="text" id="myToolName" placeholder="Tool name, e.g. Impact Driver"></div>
+        <div class="formfield"><input type="text" id="myToolSerial" placeholder="Serial / item number"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('myToolPhotoInput').click()">${myToolsPhotoFile ? 'Photo chosen: '+escapeHtml(myToolsPhotoFile.name) : 'Choose Photo'}</div>
+        <input type="file" id="myToolPhotoInput" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onMyToolPhotoChosen(this)">
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addMyTool()">Save Tool</button>
+          <button class="ghostbtn" style="flex:1;" onclick="myToolsAddOpen=false;myToolsPhotoFile=null;render()">Cancel</button>
+        </div>
+      </div>
+    ` : `
+      <button class="darkbtn" style="margin-top:10px;" onclick="myToolsAddOpen=true;render()">+ Add Tool</button>
+    `}
+  `, {title:'My Tools', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, tabs:false}); }
+}
+
+/* ================= PUWER TOOL INSPECTION =================
+   Weekly, per-operative record mirroring the HAVS week-based cadence: pick
+   an operative, the matrix auto-populates one column per tool from their
+   Operative Tools log, the five PUWER pass/fail questions as rows. Ticking
+   defaults to UNTICKED when an operative fills their own (they must
+   actively confirm each pass) and TICKED when a PM/Admin fills it on
+   someone else's behalf. Un-ticking any box pops a warning that the tool
+   can't be used until brought back in line with PUWER; a tool with every
+   box ticked shows a green "acceptable" line. Exports as a PDF in the same
+   house style as HAVS/RAMS, with a tool photo summary (photo + serial
+   "Item ID") at the end. */
+const PUWER_QUESTIONS = [
+  {key:'q_suitability', label:'Suitability', text:'Is the tool or machine right for the specific job you are using it for?'},
+  {key:'q_guarding', label:'Guarding', text:'Are all safety guards, interlocks, and protective devices present, secure, and working properly?'},
+  {key:'q_controls', label:'Controls', text:'Do the start, stop, and speed controls function correctly, and are emergency stop buttons easy to reach?'},
+  {key:'q_maintenance', label:'Maintenance & Condition', text:'Is there any sign of damage, excessive wear, corrosion, leaks, or electrical faults?'},
+  {key:'q_markings', label:'Markings & Warnings', text:'Are all safety signs, operational instructions, and warning labels clear and easy to read?'},
+];
+let puwerWeekOffset = 0;
+window.shiftPuwerWeek = function(dir){ puwerWeekOffset += dir; render(); };
+function puwerWeekStartDate(offset){ return new Date(startOfWeek(Date.now()) + offset*7*24*60*60*1000); }
+function puwerWeekStartISO(offset){ return puwerWeekStartDate(offset).toISOString().slice(0,10); }
+function puwerWeekLabel(offset){
+  const start = puwerWeekStartDate(offset);
+  const end = new Date(start.getTime() + 4*86400000);
+  return start.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + end.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+let puwerMarkCompleteBusy = false;
+async function renderPuwer(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  await loadAllProfiles();
+  const weekStartISO = puwerWeekStartISO(puwerWeekOffset);
+  const [assignedRows, inspections, completionRows] = await Promise.all([
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&week_start=eq.'+weekStartISO+'&select=id,user_id'),
+    dbSelect('puwer_weekly_completions', 'site_id=eq.'+siteId+'&week_start=eq.'+weekStartISO+'&select=id,completed_at,completed_by'),
+  ]);
+  const completion = completionRows[0] || null;
+  const operatives = canManage
+    ? assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))
+    : [ME];
+  const inspectedIds = new Set(inspections.map(i=>i.user_id));
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="row-gap" style="align-items:center;margin-bottom:14px;">
+      <span class="taskicon" onclick="shiftPuwerWeek(-1)">‹</span>
+      <span style="flex:1;text-align:center;font-weight:700;font-size:13px;">${puwerWeekLabel(puwerWeekOffset)}</span>
+      <span class="taskicon" style="${puwerWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftPuwerWeek(1)">›</span>
+    </div>
+    ${completion ? `<div class="card" style="margin-bottom:14px;background:var(--ok-bg);"><p class="stub" style="margin:0;color:var(--ok);font-weight:700;">✓ Week marked complete — ${new Date(completion.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</p></div>` : ''}
+    ${operatives.map(op=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/puwer/${op.id}')">
+        <div class="swatch personswatch">${escapeHtml((op.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}</div></div>
+        <div class="status ${inspectedIds.has(op.id)?'active':'upcoming'}">${inspectedIds.has(op.id)?'Done':'Pending'}</div>
+      </div>
+    `).join('') || `<div class="empty">No operatives assigned to this site.</div>`}
+    ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
+    ${canManage && completion ? `<button class="ghostbtn" style="margin-top:18px;" onclick="reopenPuwerWeek('${completion.id}')">Reopen This Week</button>` : ''}
+  `, {title:'PUWER Tool Inspection', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+}
+window.markPuwerWeekComplete = async function(siteId, weekStart){
+  puwerMarkCompleteBusy = true; render();
+  const row = await dbInsert('puwer_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
+  if(row){ toast('Week marked complete'); puwerWeekOffset += 1; }
+  puwerMarkCompleteBusy = false; render();
+};
+window.reopenPuwerWeek = async function(completionId){
+  puwerMarkCompleteBusy = true; render();
+  const ok = await dbDelete('puwer_weekly_completions', completionId);
+  if(ok) toast('Week reopened');
+  puwerMarkCompleteBusy = false; render();
+};
+let puwerFillDraft = null; // {siteId, userId, weekStart, inspectionId, comments, tools:[{dbId, toolId, name, serial_number, photo_path, q_suitability,...}]}
+let puwerFillSaving = false;
+async function loadPuwerFillDraft(siteId, userId, weekStart){
+  const insp = (await dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&week_start=eq.'+weekStart+'&select=*'))[0] || null;
+  let existingTools = [];
+  if(insp) existingTools = await dbSelect('puwer_inspection_tools', 'inspection_id=eq.'+insp.id+'&order=sort_order.asc');
+  const ownedTools = await dbSelect('operative_tools', 'user_id=eq.'+userId+'&order=created_at.asc');
+  const defaultChecked = isManager(ME);
+  const existingByToolId = {};
+  existingTools.forEach(t=>{ if(t.tool_id) existingByToolId[t.tool_id] = t; });
+  const tools = [];
+  // Keep every already-answered row, even for a tool since removed from the
+  // operative's log — the inspection is a historical record, not a live view.
+  existingTools.forEach(t=>{
+    tools.push({dbId:t.id, toolId:t.tool_id, name:t.name, serial_number:t.serial_number, photo_path:t.photo_path,
+      q_suitability:t.q_suitability, q_guarding:t.q_guarding, q_controls:t.q_controls, q_maintenance:t.q_maintenance, q_markings:t.q_markings});
+  });
+  // Append any tool logged since that isn't in the inspection yet.
+  ownedTools.forEach(ot=>{
+    if(existingByToolId[ot.id]) return;
+    tools.push({dbId:null, toolId:ot.id, name:ot.name, serial_number:ot.serial_number, photo_path:ot.photo_path,
+      q_suitability:defaultChecked, q_guarding:defaultChecked, q_controls:defaultChecked, q_maintenance:defaultChecked, q_markings:defaultChecked});
+  });
+  puwerFillDraft = {siteId, userId, weekStart, inspectionId: insp?insp.id:null, comments: insp?(insp.comments||''):'', tools};
+}
+window.togglePuwerAnswer = function(idx, qKey){
+  if(!puwerFillDraft) return;
+  const t = puwerFillDraft.tools[idx];
+  t[qKey] = !t[qKey];
+  if(!t[qKey]) customAlert('This tool cannot be used until brought in line with PUWER regulations.');
+  render();
+};
+window.setPuwerComments = function(val){ if(puwerFillDraft) puwerFillDraft.comments = val; };
+async function renderPuwerFill(siteId, userId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const op = PROFILES[userId];
+  if(!op){ go(`#/site/${siteId}/hs/puwer`); return; }
+  const weekStart = puwerWeekStartISO(puwerWeekOffset);
+  if(!puwerFillDraft || puwerFillDraft.siteId!==siteId || puwerFillDraft.userId!==userId || puwerFillDraft.weekStart!==weekStart){
+    await loadPuwerFillDraft(siteId, userId, weekStart);
+  }
+  const draft = puwerFillDraft;
+  const canEdit = isManager(ME) || ME.id===userId;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Week of ${puwerWeekLabel(puwerWeekOffset)}</p>
+    ${!draft.tools.length ? `
+      <div class="empty">${escapeHtml(op.name)} hasn't logged any tools yet.${op.id===ME.id ? ` <span style="color:var(--brand1);cursor:pointer;font-weight:700;" onclick="go('#/site/${siteId}/hs/mytools')">Add one in My Tools</span>` : ' Ask them to add their tools via My Tools first.'}</div>
+    ` : `
+      <div style="overflow-x:auto;margin-bottom:14px;">
+        <table style="border-collapse:collapse;width:100%;min-width:${220+draft.tools.length*130}px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);font-size:11px;color:var(--slate);text-transform:uppercase;letter-spacing:.03em;">Question</th>
+              ${draft.tools.map(t=>`<th style="text-align:center;padding:8px 10px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--ink);min-width:120px;">${escapeHtml(t.name)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${PUWER_QUESTIONS.map(q=>`
+              <tr>
+                <td style="padding:10px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--ink);max-width:180px;">${escapeHtml(q.label)}<div class="stub" style="margin:2px 0 0;font-size:10.5px;">${escapeHtml(q.text)}</div></td>
+                ${draft.tools.map((t,idx)=>`
+                  <td style="text-align:center;padding:10px;border-bottom:1px solid var(--line);">
+                    <input type="checkbox" style="width:20px;height:20px;" ${t[q.key]?'checked':''} ${canEdit?'':'disabled'} onclick="togglePuwerAnswer(${idx},'${q.key}')">
+                  </td>
+                `).join('')}
+              </tr>
+            `).join('')}
+            <tr>
+              <td style="padding:10px;font-size:11px;color:var(--slate);text-transform:uppercase;letter-spacing:.03em;">Status</td>
+              ${draft.tools.map(t=>{
+                const pass = PUWER_QUESTIONS.every(q=>t[q.key]);
+                return `<td style="text-align:center;padding:10px;">${pass ? `<span style="color:var(--ok);font-weight:700;font-size:11.5px;">✓ Acceptable</span>` : `<span style="color:var(--warn);font-weight:700;font-size:11.5px;">✗ Cannot be used</span>`}</td>`;
+              }).join('')}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `}
+    <p class="sectiontitle">Any Other Comments</p>
+    <div class="card">
+      <textarea id="puwerComments" rows="3" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);resize:vertical;" placeholder="Optional" ${canEdit?'':'disabled'} oninput="setPuwerComments(this.value)">${escapeHtml(draft.comments)}</textarea>
+    </div>
+    ${canEdit && draft.tools.length ? `<button class="darkbtn" style="margin-top:14px;" ${puwerFillSaving?'disabled':''} onclick="savePuwerInspection()">${puwerFillSaving?'Saving…':(draft.inspectionId?'Save Changes':'Save Inspection')}</button>` : ''}
+    ${draft.inspectionId ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportPuwerInspection('${siteId}','${userId}')">Export PDF</button>` : ''}
+  `, {title: op.name, subtitle:'PUWER Tool Inspection', back:`#/site/${siteId}/hs/puwer`, siteId, tabs:false}); }
+}
+window.savePuwerInspection = async function(){
+  if(!puwerFillDraft) return;
+  puwerFillSaving = true; render();
+  const {siteId, userId, weekStart, tools, comments} = puwerFillDraft;
+  let inspectionId = puwerFillDraft.inspectionId;
+  if(!inspectionId){
+    const rows = await dbInsert('puwer_inspections', {org_id:ME.org_id, site_id:siteId, user_id:userId, week_start:weekStart, inspected_by:ME.id, comments:comments||null});
+    if(!rows){ puwerFillSaving=false; render(); return; }
+    inspectionId = rows[0].id;
+    puwerFillDraft.inspectionId = inspectionId;
+  } else {
+    await dbUpdate('puwer_inspections', inspectionId, {comments:comments||null, inspected_by:ME.id, updated_at:new Date().toISOString()});
+  }
+  for(let i=0;i<tools.length;i++){
+    const t = tools[i];
+    const payload = {q_suitability:t.q_suitability, q_guarding:t.q_guarding, q_controls:t.q_controls, q_maintenance:t.q_maintenance, q_markings:t.q_markings, sort_order:i};
+    if(t.dbId){
+      await dbUpdate('puwer_inspection_tools', t.dbId, payload);
+    } else {
+      const rows = await dbInsert('puwer_inspection_tools', Object.assign({inspection_id:inspectionId, tool_id:t.toolId, name:t.name, serial_number:t.serial_number, photo_path:t.photo_path}, payload));
+      if(rows) t.dbId = rows[0].id;
+    }
+  }
+  toast('Inspection saved');
+  puwerFillSaving = false;
+  render();
+};
+window.exportPuwerInspection = async function(siteId, userId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
+  toast('Building PDF…');
+  try{
+    await loadAllProfiles();
+    const op = PROFILES[userId];
+    const site = SITES.find(s=>s.id===siteId);
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const fonts = await havsPdfFonts(pdfDoc);
+    const logoImg = await havsFetchLogoImg(pdfDoc);
+    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, puwerWeekLabel(puwerWeekOffset), op, puwerFillDraft.tools, puwerFillDraft.comments, ME.name, logoImg);
+    const bytes = await pdfDoc.save();
+    const filename = exportFilename(site.name, 'PUWER - '+op.name+' - '+puwerWeekLabel(puwerWeekOffset), 'pdf');
+    await deliverPdf(bytes, filename);
+  }catch(err){
+    console.error('PUWER export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+};
+// House-style PDF page — header band + logo top-right like HAVS/RAMS, a
+// question x tool matrix, comments, then a Tool Photo Summary (photo +
+// serial "Item ID") per tool at the end, mirroring the layout of RTB's
+// existing PUWER export.
+async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, tools, comments, inspectedByName, logoImg){
+  const {bold, reg, italic, INK, SLATE, LINE, HEADBG, RED, GREEN, BRAND, WHITE} = fonts;
+  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const MARGIN = 44;
+  const TABLE_W = PAGE_W - 2*MARGIN;
+  let page, y;
+  function drawHeaderBand(){
+    page.drawRectangle({x:0, y:PAGE_H-80, width:PAGE_W, height:80, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1);
+      const s = HAVS_LOGO_SIZE/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:HAVS_LOGO_RIGHT_X, y:PAGE_H-72, width:HAVS_LOGO_SIZE, height:HAVS_LOGO_SIZE, color:WHITE});
+      page.drawImage(logoImg, {x:HAVS_LOGO_RIGHT_X+(HAVS_LOGO_SIZE-w)/2, y:PAGE_H-72+(HAVS_LOGO_SIZE-h)/2, width:w, height:h});
+    }
+    page.drawText('PUWER TOOL INSPECTION', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
+    page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
+    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
+  }
+  function drawFooter(){
+    page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
+    page.drawText('Generated via OpHUB · ' + new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+  }
+  function newPage(){
+    page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    drawHeaderBand();
+    drawFooter();
+    y = PAGE_H - 100;
+  }
+  function ensureRoom(h){ if(y - h < 60){ newPage(); } }
+  newPage();
+
+  const QCOL_W = 150;
+  const toolColW = tools.length ? (TABLE_W - QCOL_W)/tools.length : 0;
+  const HEADER_H = 28;
+  function colX(i){ return i===0 ? MARGIN : MARGIN + QCOL_W + (i-1)*toolColW; }
+
+  if(tools.length){
+    ensureRoom(HEADER_H+10);
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, color:HEADBG});
+    page.drawText('Question', {x:MARGIN+6, y:y-HEADER_H+10, size:8, font:bold, color:INK});
+    tools.forEach((t,i)=>{
+      const wrapped = pdfWrapText(bold, 8, t.name, toolColW-10).slice(0,2);
+      wrapped.forEach((ln,li)=>{
+        const tw = bold.widthOfTextAtSize(ln, 8);
+        page.drawText(ln, {x:colX(i+1)+(toolColW-tw)/2, y:y-HEADER_H+18-li*10, size:8, font:bold, color:INK});
+      });
+    });
+    page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
+    y -= HEADER_H;
+
+    PUWER_QUESTIONS.forEach(q=>{
+      const wrapped = pdfWrapText(reg, 7.5, q.text, QCOL_W-12);
+      const rh = Math.max(24, 12 + wrapped.length*9.5);
+      ensureRoom(rh);
+      const top = y;
+      page.drawText(q.label, {x:MARGIN+6, y:top-11, size:8.5, font:bold, color:INK});
+      wrapped.forEach((ln,li)=>{ page.drawText(ln, {x:MARGIN+6, y:top-22-li*9.5, size:7.5, font:reg, color:SLATE}); });
+      tools.forEach((t,i)=>{
+        const mark = t[q.key] ? '✓' : '✗';
+        const markColor = t[q.key] ? GREEN : RED;
+        const tw = bold.widthOfTextAtSize(mark, 11);
+        page.drawText(mark, {x:colX(i+1)+(toolColW-tw)/2, y:top-rh/2-4, size:11, font:bold, color:markColor});
+      });
+      page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:0.5, color:LINE});
+      y = top - rh;
+    });
+    {
+      const rh = 26;
+      ensureRoom(rh);
+      const top = y;
+      page.drawText('Status', {x:MARGIN+6, y:top-16, size:8.5, font:bold, color:INK});
+      tools.forEach((t,i)=>{
+        const pass = PUWER_QUESTIONS.every(q=>t[q.key]);
+        const label = pass ? 'Acceptable' : 'Cannot be used';
+        const color = pass ? GREEN : RED;
+        const tw = bold.widthOfTextAtSize(label, 7.5);
+        page.drawText(label, {x:colX(i+1)+(toolColW-tw)/2, y:top-16, size:7.5, font:bold, color});
+      });
+      page.drawLine({start:{x:MARGIN,y:top-rh}, end:{x:MARGIN+TABLE_W,y:top-rh}, thickness:1, color:INK});
+      y = top - rh;
+    }
+    const allPass = tools.every(t=>PUWER_QUESTIONS.every(q=>t[q.key]));
+    y -= 6;
+    ensureRoom(20);
+    const boxH = 18;
+    if(allPass){
+      page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:PDFLib.rgb(0.91,0.97,0.93)});
+      page.drawText('All tools inspected are acceptable for use.', {x:MARGIN+8, y:y-boxH+6, size:8.5, font:bold, color:GREEN});
+    } else {
+      page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:PDFLib.rgb(0.98,0.92,0.92)});
+      page.drawText('One or more tools cannot be used until brought in line with PUWER regulations.', {x:MARGIN+8, y:y-boxH+6, size:8.5, font:bold, color:RED, maxWidth:TABLE_W-16});
+    }
+    y -= boxH;
+  }
+
+  y -= 14;
+  ensureRoom(24);
+  page.drawText('Any Other Comments', {x:MARGIN, y, size:9, font:bold, color:INK});
+  y -= 14;
+  const commentLines = pdfWrapText(reg, 8.5, comments || '—', TABLE_W);
+  commentLines.forEach(ln=>{ ensureRoom(12); page.drawText(ln, {x:MARGIN, y, size:8.5, font:reg, color:INK}); y -= 12; });
+
+  y -= 10;
+  ensureRoom(20);
+  page.drawText('Inspected by ' + inspectedByName + ' · ' + new Date().toLocaleDateString('en-GB'), {x:MARGIN, y, size:8.5, font:italic, color:SLATE});
+  y -= 20;
+
+  if(tools.length){
+    ensureRoom(24);
+    page.drawText('TOOL PHOTO SUMMARY', {x:MARGIN, y, size:11, font:bold, color:INK});
+    y -= 18;
+    for(let i=0;i<tools.length;i++){
+      const t = tools[i];
+      const pass = PUWER_QUESTIONS.every(q=>t[q.key]);
+      ensureRoom(160);
+      page.drawText('Tool '+(i+1)+': '+t.name, {x:MARGIN, y, size:10, font:bold, color:INK});
+      y -= 14;
+      page.drawText('Item ID: '+(t.serial_number||'—'), {x:MARGIN, y, size:8.5, font:reg, color:SLATE});
+      y -= 12;
+      let imgH = 0;
+      if(t.photo_path){
+        try{
+          const bytes = await pdfFetchImageBytes(publicUrl('operative-tools', t.photo_path));
+          if(bytes){
+            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+            const dim = img.scale(1);
+            const maxW = 140, maxH = 105;
+            const s = Math.min(maxW/dim.width, maxH/dim.height, 1);
+            const w = dim.width*s, h = dim.height*s;
+            ensureRoom(h+10);
+            page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
+            imgH = h;
+          }
+        }catch(e){}
+      }
+      const boxY = y - Math.max(imgH, 20);
+      const boxW = 200, boxH2 = 16;
+      page.drawRectangle({x:MARGIN+160, y:y-boxH2, width:boxW, height:boxH2, color: pass ? GREEN : RED});
+      page.drawText(pass ? 'Compliant' : 'Non-Compliant', {x:MARGIN+168, y:y-boxH2+5, size:8.5, font:bold, color:WHITE});
+      y = boxY - 14;
+      if(!pass){
+        const warnLines = pdfWrapText(italic, 7.5, 'Cannot be used until brought in line with PUWER regulations.', TABLE_W);
+        warnLines.forEach(ln=>{ ensureRoom(10); page.drawText(ln, {x:MARGIN, y, size:7.5, font:italic, color:RED}); y -= 10; });
+      }
+      y -= 8;
+      page.drawLine({start:{x:MARGIN,y}, end:{x:MARGIN+TABLE_W,y}, thickness:0.5, color:LINE});
+      y -= 10;
+    }
+  }
 }
 
 /* ================= DAILY BRIEFINGS =================
@@ -10163,6 +10641,12 @@ async function render(){
         return renderDailyBriefings(siteId);
       }
       if(sub==='havs') return renderHavs(siteId);
+      if(sub==='puwer'){
+        const puwerUserId = parts[4];
+        if(puwerUserId) return renderPuwerFill(siteId, puwerUserId);
+        return renderPuwer(siteId);
+      }
+      if(sub==='mytools') return renderMyTools(siteId);
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
