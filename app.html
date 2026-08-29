@@ -1064,6 +1064,7 @@ const REPORT_FIELD_TYPES = [
   {k:'multichoice', lbl:'Multiple Choice (tick many)'},
   {k:'checkbox', lbl:'Yes / No'},
   {k:'photo', lbl:'Photo(s)'},
+  {k:'operatives', lbl:'Operatives On Site'},
   {k:'date', lbl:'Date'},
   {k:'signature', lbl:'Signature'},
   {k:'instruction', lbl:'Instruction Text (no answer)'},
@@ -1155,7 +1156,7 @@ function scoreLabel(sc){
 // admin can still switch it off per-question in the template builder.
 function itemAllowsMedia(it){
   if(!it) return false;
-  if(it.type==='photo' || it.type==='signature' || it.type==='instruction') return false;
+  if(it.type==='photo' || it.type==='signature' || it.type==='instruction' || it.type==='operatives') return false;
   if(it.autofill) return false;
   if(it.allowMedia===false) return false;
   return true;
@@ -2294,6 +2295,13 @@ async function renderTeam(){
     const range = checkinLogEffectiveRange();
     checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
   }
+  // Same "only when the section is actually open" pattern as Check-In Logs —
+  // the library can be several levels deep, no need to query it on every
+  // Admin Centre visit if nobody has expanded it.
+  let coshhLibraryHtmlBlock = '';
+  if(isManager(ME) && teamSectionOpen.coshhlibrary){
+    coshhLibraryHtmlBlock = await coshhLibraryBrowserHtml();
+  }
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -2443,6 +2451,15 @@ async function renderTeam(){
       ` : `
         <button class="darkbtn" style="margin-top:10px;" onclick="havsToolAddOpen=true;render()">+ Add Tool</button>
       `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('coshhlibrary')"><span class="arrow">${teamSectionOpen.coshhlibrary?'▼':'▶'}</span> COSHH Library</p>
+    ${teamSectionOpen.coshhlibrary ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">One master COSHH library for the whole company, organised by element of works and manufacturer. Sites can pick documents straight from here instead of re-uploading them.</p>
+      ${coshhLibraryHtmlBlock}
     </div>
     ` : ''}
     ` : ''}
@@ -2636,7 +2653,7 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, invites:false, users:false};
 // Check-In Logs (Admin Centre) — a weekly or monthly view of every
 // operative's check-in/out times across every site, for PMs and Admins.
 let checkinLogMode = 'weekly'; // 'weekly' | 'monthly'
@@ -4636,8 +4653,13 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
     const sub = rows[0];
     if(!sub){ toast('Inspection not found'); go(listPath); return; }
     if(sub.status==='completed'){ go(`${listPath}/view/${submissionId}`); return; }
-    reportFillDraft = {submissionId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing};
+    reportFillDraft = {submissionId, siteId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing};
   }
+  // Operatives-on-site items auto-populate from the site's assigned
+  // operatives the first time this draft is opened — done here (not in the
+  // synchronous render) since it needs a roster fetch.
+  const operativeItems = (reportFillDraft.sections||[]).flatMap(s=>(s.items||[])).filter(it=>it.type==='operatives');
+  for(const it of operativeItems){ await ensureReportOperativesDefault(it.id, siteId); }
   const sc = scoreSections(reportFillDraft.sections, reportFillDraft.answers);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(reportFillDraft.template_name)}</p>
@@ -4670,6 +4692,56 @@ window.saveReportProgress = async function(siteId){
     reportFillDraft = null;
     go(fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`);
   } else { toast('Could not save — check your connection and try again.'); render(); }
+};
+// One-time default for an "Operatives On Site" item: every operative
+// assigned to the site, ticked (included) by default. A manager can untick
+// anyone who isn't actually on site today, or use "+ Add Operative" for
+// someone not in the app at all. Only runs once per submission — after
+// that the list is whatever the user has edited.
+async function ensureReportOperativesDefault(itemId, siteId){
+  if(reportFillDraft.answers[itemId] !== undefined) return;
+  const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  await loadAllProfiles();
+  const list = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative')
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .map(p=>({id:uid(), userId:p.id, name:p.name, role:'', included:true}));
+  reportFillDraft.answers[itemId] = list;
+}
+let reportOperativeManualDraft = {};
+window.setReportOperativeIncluded = function(itemId, idx, checked){
+  const list = reportFillDraft.answers[itemId] || [];
+  if(list[idx]) list[idx].included = checked;
+};
+window.setReportOperativeRole = function(itemId, idx, value){
+  const list = reportFillDraft.answers[itemId] || [];
+  if(list[idx]) list[idx].role = value;
+};
+window.removeReportOperativeRow = function(itemId, idx){
+  const list = reportFillDraft.answers[itemId] || [];
+  list.splice(idx,1);
+  reportFillDraft.answers[itemId] = list;
+  render();
+};
+window.toggleReportOperativeManualAdd = function(itemId){
+  const d = reportOperativeManualDraft[itemId] || {open:false, name:''};
+  d.open = !d.open;
+  reportOperativeManualDraft[itemId] = d;
+  render();
+};
+window.setReportOperativeManualDraft = function(itemId, value){
+  const d = reportOperativeManualDraft[itemId] || {open:true, name:''};
+  d.name = value;
+  reportOperativeManualDraft[itemId] = d;
+};
+window.commitManualReportOperative = function(itemId){
+  const draft = reportOperativeManualDraft[itemId];
+  const name = ((draft && draft.name) || '').trim();
+  if(!name){ toast('Enter a name.'); return; }
+  const list = reportFillDraft.answers[itemId] || [];
+  list.push({id:uid(), userId:null, name, role:'', included:true});
+  reportFillDraft.answers[itemId] = list;
+  reportOperativeManualDraft[itemId] = {open:false, name:''};
+  render();
 };
 function renderPhotoArrayWidget(key, arr, opts){
   opts = opts || {};
@@ -4706,6 +4778,27 @@ function renderReportFillItem(it){
   if(it.type==='photo'){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
     return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${renderPhotoArrayWidget(it.id, arr)}</div>`;
+  }
+  if(it.type==='operatives'){
+    const list = Array.isArray(val) ? val : [];
+    const draft = reportOperativeManualDraft[it.id] || {open:false, name:''};
+    return `<div class="formfield">
+      <label class="field-label">${escapeHtml(it.label)}${reqStar}</label>
+      ${list.length ? list.map((row,idx)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);">
+          <input type="checkbox" style="width:auto;flex:0 0 auto;" ${row.included?'checked':''} onchange="setReportOperativeIncluded('${it.id}',${idx},this.checked)">
+          <span style="flex:1 1 40%;min-width:0;font-weight:700;font-size:12.5px;overflow-wrap:anywhere;">${escapeHtml(row.name)}</span>
+          <input type="text" placeholder="Role on site" value="${escapeHtml(row.role||'')}" style="flex:1 1 40%;min-width:0;padding:6px 8px;font-size:12px;" oninput="setReportOperativeRole('${it.id}',${idx},this.value)">
+          ${row.userId ? '' : `<span class="taskicon danger" style="width:20px;height:20px;font-size:10px;flex:0 0 auto;" onclick="removeReportOperativeRow('${it.id}',${idx})">✕</span>`}
+        </div>
+      `).join('') : `<p class="stub">No operatives assigned to this site yet.</p>`}
+      ${draft.open ? `
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <input type="text" placeholder="Name" style="flex:1;" value="${escapeHtml(draft.name)}" oninput="setReportOperativeManualDraft('${it.id}',this.value)">
+          <button type="button" class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;" onclick="commitManualReportOperative('${it.id}')">Add</button>
+        </div>
+      ` : `<button type="button" class="ghostbtn" style="margin-top:8px;padding:8px 6px;font-size:12px;" onclick="toggleReportOperativeManualAdd('${it.id}')">+ Add Operative</button>`}
+    </div>`;
   }
   if(it.type==='signature'){
     if(!ME.signature_path) return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><p class="stub" style="color:var(--warn);">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before submitting.</p></div>`;
@@ -4750,6 +4843,8 @@ window.submitReport = async function(siteId){
         const v = reportFillDraft.answers[it.id];
         if(it.type==='photo' || it.type==='multichoice'){
           if(!Array.isArray(v) || !v.length){ toast(`"${it.label}" is required.`); return; }
+        } else if(it.type==='operatives'){
+          if(!Array.isArray(v) || !v.some(r=>r.included)){ toast(`"${it.label}" needs at least one operative on site.`); return; }
         } else if(it.type==='signature'){
           if(!ME.signature_path){ toast('Adopt your signature before submitting.'); return; }
           if(!v){ toast(`Tap to sign "${it.label}" before submitting.`); return; }
@@ -4832,6 +4927,10 @@ function renderReportViewItem(it, val, answers){
     return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">${arr.map(u=>`<img src="${u}" style="width:140px;height:140px;object-fit:cover;border-radius:8px;">`).join('')}</div>`;
   }
   if(it.type==='signature' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${publicUrl('signatures', val)}" style="height:44px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:10px;">`;
+  if(it.type==='operatives'){
+    const list = Array.isArray(val) ? val.filter(r=>r.included) : [];
+    return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p>${list.length ? list.map(r=>`<p style="margin:2px 0;font-weight:700;font-size:13px;">${escapeHtml(r.name)}${r.role?` <span style="font-weight:400;color:var(--slate);">— ${escapeHtml(r.role)}</span>`:''}</p>`).join('') : `<p style="margin:0;font-weight:700;font-size:13.5px;">—</p>`}</div>`;
+  }
   let display = '—';
   if(it.type==='checkbox') display = val===true ? 'Yes' : (val===false ? 'No' : '—');
   else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
@@ -5106,6 +5205,22 @@ async function buildReportPdf(submissionId){
           ensureSpace(24);
           page.drawText(it.label, {x:MARGIN, y:y-12, size:10.5, font:bold, color:INK}); y -= 20;
           await drawPhotoGrid(collectPhotos(arr));
+          continue;
+        }
+        if(it.type==='operatives'){
+          const list = Array.isArray(val) ? val.filter(r=>r.included) : [];
+          ensureSpace(24);
+          page.drawText(it.label, {x:MARGIN, y:y-14, size:10.5, font:bold, color:INK}); y -= 20;
+          if(!list.length){
+            page.drawText('None recorded', {x:MARGIN, y:y-10, size:10, font:reg, color:SLATE}); y -= 14;
+          } else {
+            list.forEach(r=>{
+              ensureSpace(14);
+              const line = r.role ? `${r.name} — ${r.role}` : r.name;
+              page.drawText(line, {x:MARGIN, y:y-10, size:10, font:reg, color:INK}); y -= 14;
+            });
+          }
+          y -= 8;
           continue;
         }
         if(it.type==='signature'){
@@ -6530,10 +6645,10 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
     return `
     <div class="ramsdoc">
       <div class="taskrowtop">
-        <div class="name">${escapeHtml(r.name)}</div>
+        <div class="name">${escapeHtml(r.name)} <span class="rolechip" style="margin-left:4px;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
         ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
-      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
+      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}</div>
       <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
       <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
@@ -6544,8 +6659,9 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
 async function fetchRamsData(siteId){
-  const [docs, assigned] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+  const [docs, superseded, assigned] = await Promise.all([
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&order=uploaded_at.desc'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.superseded&order=uploaded_at.desc'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
   ]);
   let sigsByDoc = {};
@@ -6554,17 +6670,26 @@ async function fetchRamsData(siteId){
     const sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
     sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
   }
-  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
+  return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
 }
 let ramsUploadOpen = false;
+let ramsSupersededOpen = false;
+const RAMS_DOC_TYPES = ['Risk Assessment','Method Statement','RAMS'];
 async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   await loadAllProfiles();
-  const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+  const {docs, superseded, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
+        <div class="formfield"><label class="field-label">Document Type</label>
+          <select id="ramsDocType">${RAMS_DOC_TYPES.map(t=>`<option value="${t}" ${t==='RAMS'?'selected':''}>${t}</option>`).join('')}</select>
+        </div>
+        ${docs.length ? `<div class="formfield"><label class="field-label">Supersedes (optional)</label>
+          <select id="ramsSupersedes"><option value="">— New document, doesn't replace anything —</option>${docs.map(d=>`<option value="${d.id}">${escapeHtml(d.name)} (${escapeHtml(d.doc_type||'RAMS')})</option>`).join('')}</select>
+          <p class="stub" style="margin:4px 0 0;">Picking one keeps the old version on file (marked Superseded) and requires everyone to sign the new one again.</p>
+        </div>` : ''}
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
         <input type="file" accept="application/pdf" id="ramsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('ramsFileName').textContent=this.files[0]?this.files[0].name:''">
         <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;"></p>
@@ -6584,6 +6709,16 @@ async function renderRams(siteId){
         ${uploadForm}
       </div>
     `) : ''}
+    ${superseded.length ? `
+    <p class="ddrow" onclick="ramsSupersededOpen=!ramsSupersededOpen;render()"><span class="arrow">${ramsSupersededOpen?'▼':'▶'}</span> Superseded Documents (${superseded.length})</p>
+    ${ramsSupersededOpen ? `<div class="card">${superseded.map(r=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</span><span class="rolechip" style="margin:0;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
+        <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
+      </div>
+    `).join('')}</div>` : ''}
+    ` : ''}
   `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
@@ -6599,12 +6734,19 @@ window.addRams = async function(siteId){
   const name = document.getElementById('ramsName').value.trim();
   const fileInput = document.getElementById('ramsFile');
   const file = fileInput.files && fileInput.files[0];
+  const docType = document.getElementById('ramsDocType') ? document.getElementById('ramsDocType').value : 'RAMS';
+  const supersedesEl = document.getElementById('ramsSupersedes');
+  const supersedesId = supersedesEl ? supersedesEl.value : '';
   if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
   const path = siteId+'/rams/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
-  const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
-  if(rows){ toast('RAMS uploaded'); ramsUploadOpen = false; render(); }
+  const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:docType, supersedes: supersedesId||null});
+  if(rows){
+    if(supersedesId) await dbUpdate('rams_docs', supersedesId, {status:'superseded', superseded_by:rows[0].id});
+    toast('RAMS uploaded');
+    ramsUploadOpen = false; render();
+  }
 };
 window.signRams = async function(siteId, ramsId){
   if(!ME.signature_path){
@@ -6678,7 +6820,12 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
     <div class="ramsdoc">
       <div class="taskrowtop">
         <div class="name">${escapeHtml(r.name)}</div>
-        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
+        ${canAdd ? `<div class="taskicons">
+          <input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">
+          <div class="taskicon" title="Replace this file (resets signatures)" onclick="document.getElementById('coshhReplaceInput-${r.id}').click()">🔁</div>
+          <div class="taskicon" title="Save to Admin Centre COSHH" onclick="startCoshhSaveToLibrary('${siteId}','${r.id}','${jsAttr(r.name)}','${jsAttr(r.storage_path)}')">⬆️</div>
+          <div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div>
+        </div>` : ''}
       </div>
       <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
       <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
@@ -6722,6 +6869,8 @@ async function renderCoshh(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
+    ${canAdd ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>` : ''}
+
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="coshhUploadOpen=!coshhUploadOpen;render()"><span class="arrow">${coshhUploadOpen?'▼':'▶'}</span> Upload COSHH</div>
       ${coshhUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
@@ -6752,6 +6901,24 @@ window.addCoshh = async function(siteId){
   if(!stored) return;
   const rows = await dbInsert('coshh_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
   if(rows){ toast('COSHH uploaded'); coshhUploadOpen = false; render(); }
+};
+// Replaces a COSHH document's file in place (an edit, not a new document —
+// unlike RAMS "supersede" this doesn't keep the old file). Resets every
+// existing signature on it so operatives sign the replacement afresh.
+window.replaceCoshhFile = async function(input, siteId, coshhId, oldStoragePath){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  if(!await customConfirm('Replace this COSHH document with a new file? Everyone who has already signed will need to sign again.')){ input.value=''; return; }
+  const path = siteId+'/coshh/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('coshh-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const row = await dbUpdate('coshh_docs', coshhId, {storage_path: stored, uploaded_by:ME.id, uploaded_at: new Date().toISOString()});
+  if(row){
+    try{ await sbFetch('/rest/v1/coshh_signatures?coshh_id=eq.'+coshhId, {method:'DELETE'}); }catch(e){}
+    try{ if(oldStoragePath && oldStoragePath!==stored) await sbFetch('/storage/v1/object/coshh-docs/'+oldStoragePath, {method:'DELETE'}); }catch(e){}
+    toast('COSHH document replaced — signatures reset');
+    render();
+  }
 };
 window.signCoshh = async function(siteId, coshhId){
   if(!ME.signature_path){
@@ -9432,6 +9599,305 @@ window.renameDrawingFile = async function(fileId, currentName){
   if(row){ toast('Drawing renamed'); render(); }
 };
 
+/* ================= COSHH LIBRARY (Admin Centre, org-scoped master library) =================
+   Same folder/file tree pattern as Drawings above, but org-scoped instead of
+   site-scoped (org_id instead of site_id) and browsed inline inside the Admin
+   Centre "COSHH Library" row rather than as its own routed page. */
+let coshhLibFolderId = null; // current folder in the Admin Centre browser (null = top level)
+let coshhLibNewFolderOpen = false;
+let coshhLibUploadOpen = false;
+window.showCoshhLibraryAddMenu = function(folderId){
+  let ov = document.getElementById('confirmModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'confirmModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    document.body.appendChild(ov);
+  }
+  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';coshhLibNewFolderOpen=true;coshhLibUploadOpen=false;render()">📁 Add Folder</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';coshhLibUploadOpen=true;coshhLibNewFolderOpen=false;render()">📄 Add PDF(s)</button>
+      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.jumpCoshhLibraryFolder = function(folderId){
+  coshhLibFolderId = folderId || null;
+  coshhLibNewFolderOpen = false;
+  coshhLibUploadOpen = false;
+  render();
+};
+async function coshhLibraryBrowserHtml(){
+  let currentFolder = null;
+  if(coshhLibFolderId){
+    const rows = await dbSelect('coshh_library_folders', 'id=eq.'+coshhLibFolderId+'&select=*');
+    currentFolder = rows[0] || null;
+    if(!currentFolder) coshhLibFolderId = null;
+  }
+  const [subfolders, files, topFolders] = await Promise.all([
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhLibFolderId?'parent_id=eq.'+coshhLibFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
+    dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&'+(coshhLibFolderId?'folder_id=eq.'+coshhLibFolderId:'folder_id=is.null')+'&order=name.asc'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&parent_id=is.null&order=position.asc.nullslast,name.asc'),
+  ]);
+  const parentArg = coshhLibFolderId ? `'${coshhLibFolderId}'` : 'null';
+  const isEmpty = subfolders.length===0 && files.length===0;
+  return `
+    <div class="drawheaderrow">
+      <span>${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</span>
+      <div class="roundplusbtn" onclick="showCoshhLibraryAddMenu(${parentArg})">+</div>
+    </div>
+    <div class="row-gap" style="margin-bottom:10px;flex-wrap:wrap;">
+      <select onchange="jumpCoshhLibraryFolder(this.value)" style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);">
+        <option value="">Filter: jump to element of works…</option>
+        ${topFolders.map(f=>`<option value="${f.id}" ${coshhLibFolderId===f.id?'selected':''}>${escapeHtml(f.name)}</option>`).join('')}
+      </select>
+      ${currentFolder ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="jumpCoshhLibraryFolder('${currentFolder.parent_id||''}')">⬅ Up a level</button>` : ''}
+    </div>
+    ${isEmpty || coshhLibNewFolderOpen ? `
+      <div class="card" style="margin-bottom:10px;">
+        <div class="row-gap">
+          <input type="text" id="newCoshhLibFolderName" placeholder="e.g. Bauder">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createCoshhLibraryFolder(${parentArg})">Create Folder</button>
+        </div>
+      </div>
+    ` : ''}
+    ${subfolders.length || files.length ? `
+      ${subfolders.map((f,idx)=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="jumpCoshhLibraryFolder('${f.id}')">
+          <div class="swatch">📁</div>
+          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          <div class="taskicons">
+            <div class="taskicon" style="${idx===0?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveCoshhLibraryFolder(${parentArg},'${f.id}',-1)">▲</div>
+            <div class="taskicon" style="${idx===subfolders.length-1?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveCoshhLibraryFolder(${parentArg},'${f.id}',1)">▼</div>
+            <div class="taskicon" onclick="event.stopPropagation();renameCoshhLibraryFolder('${f.id}','${jsAttr(f.name)}')">✏️</div>
+            <div class="taskicon danger" onclick="event.stopPropagation();deleteCoshhLibraryFolder('${f.id}')">🗑</div>
+          </div>
+        </div>
+      `).join('')}
+      ${files.map(f=>`
+        <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
+          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📄</div>
+          <div style="flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-library', f.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(f.name)?f.name:f.name+'.pdf')}')">View</div>
+          <div class="taskicon" onclick="renameCoshhLibraryFile('${f.id}','${jsAttr(f.name)}')">✏️</div>
+          <div class="taskicon danger" onclick="deleteCoshhLibraryFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
+        </div>
+      `).join('')}
+    ` : `<div class="empty">Nothing here yet.</div>`}
+    ${coshhLibUploadOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="sectiontitle" style="margin-top:0;">Upload COSHH document (PDF)</p>
+        <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}.</p>
+        <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="coshhLibUploadLabel" onclick="document.getElementById('coshhLibUploadInput').click()">Choose file(s)</div>
+        <input type="file" id="coshhLibUploadInput" accept="application/pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadCoshhLibraryFile(this,${parentArg})">
+        <button class="ghostbtn" style="margin-top:8px;" onclick="coshhLibUploadOpen=false;render()">Cancel</button>
+      </div>
+    ` : ''}
+  `;
+}
+window.createCoshhLibraryFolder = async function(folderId){
+  const input = document.getElementById('newCoshhLibFolderName');
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter a folder name.'); return; }
+  const rows = await dbInsert('coshh_library_folders', {org_id:ME.org_id, parent_id:folderId||null, name, created_by:ME.id});
+  if(rows){ toast('Folder created'); coshhLibNewFolderOpen = false; render(); }
+};
+window.renameCoshhLibraryFolder = async function(folderId, currentName){
+  const next = prompt('Rename folder', currentName);
+  if(next==null) return;
+  const trimmed = next.trim();
+  if(!trimmed || trimmed===currentName) return;
+  const row = await dbUpdate('coshh_library_folders', folderId, {name: trimmed});
+  if(row){ toast('Folder renamed'); render(); }
+};
+window.moveCoshhLibraryFolder = async function(parentFolderId, folderId, dir){
+  const siblings = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('coshh_library_folders', f.id, {position:idx}) : null));
+  const idx = siblings.findIndex(f=>f.id===folderId);
+  const swapIdx = idx + dir;
+  if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
+  await Promise.all([
+    dbUpdate('coshh_library_folders', siblings[idx].id, {position:swapIdx}),
+    dbUpdate('coshh_library_folders', siblings[swapIdx].id, {position:idx}),
+  ]);
+  render();
+};
+window.deleteCoshhLibraryFolder = async function(folderId){
+  if(!await customConfirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
+  const ok = await dbDelete('coshh_library_folders', folderId);
+  if(ok){ toast('Folder deleted'); render(); }
+};
+window.uploadCoshhLibraryFile = async function(input, folderId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  const label = document.getElementById('coshhLibUploadLabel');
+  let uploaded = 0, skipped = 0;
+  for(let i=0; i<files.length; i++){
+    const file = files[i];
+    if(file.type !== 'application/pdf'){ skipped++; continue; }
+    if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
+    const path = ME.org_id+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('coshh-library', path, file, file.type);
+    if(!stored) continue;
+    const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
+    if(rows) uploaded++;
+  }
+  if(uploaded){ toast(uploaded===1 ? 'Document uploaded' : `${uploaded} documents uploaded`+(skipped?`, ${skipped} skipped (PDF only)`:'')); coshhLibUploadOpen = false; }
+  else if(skipped) toast('Please choose PDF files.');
+  render();
+};
+window.renameCoshhLibraryFile = async function(fileId, currentName){
+  const next = prompt('Rename document', currentName);
+  if(next==null) return;
+  const trimmed = next.trim();
+  if(!trimmed || trimmed===currentName) return;
+  const row = await dbUpdate('coshh_library_files', fileId, {name: trimmed});
+  if(row){ toast('Document renamed'); render(); }
+};
+window.deleteCoshhLibraryFile = async function(fileId, storagePath){
+  if(!await customConfirm('Delete this document from the library? This can\'t be undone.')) return;
+  const ok = await dbDelete('coshh_library_files', fileId);
+  if(ok){
+    try{ await sbFetch('/storage/v1/object/coshh-library/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
+    toast('Document deleted');
+    render();
+  }
+};
+
+/* ---- "Add from Library" — multi-pick COSHH docs from the org library straight
+   into a site's COSHH tile. Physically copies the file bytes from the
+   coshh-library bucket into coshh-docs at a site-specific path and inserts a
+   normal coshh_docs row, so the picked file behaves exactly like any other
+   site COSHH document (sign/export/replace/delete all work unchanged). ---- */
+let coshhPickFolderId = null; // current folder while picking (null = top level)
+let coshhPickSelected = new Set(); // library file ids selected to copy in
+window.startCoshhLibraryPick = function(siteId){
+  coshhPickFolderId = null;
+  coshhPickSelected = new Set();
+  go(`#/site/${siteId}/hs/coshh-pick`);
+};
+window.openCoshhPickFolder = function(folderId){
+  coshhPickFolderId = folderId || null;
+  render();
+};
+window.toggleCoshhPickSelect = function(fileId){
+  if(coshhPickSelected.has(fileId)) coshhPickSelected.delete(fileId); else coshhPickSelected.add(fileId);
+  render();
+};
+async function renderCoshhLibraryPick(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  let currentFolder = null;
+  if(coshhPickFolderId){
+    const rows = await dbSelect('coshh_library_folders', 'id=eq.'+coshhPickFolderId+'&select=*');
+    currentFolder = rows[0] || null;
+    if(!currentFolder) coshhPickFolderId = null;
+  }
+  const [subfolders, files] = await Promise.all([
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhPickFolderId?'parent_id=eq.'+coshhPickFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
+    dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&'+(coshhPickFolderId?'folder_id=eq.'+coshhPickFolderId:'folder_id=is.null')+'&order=name.asc'),
+  ]);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="stub" style="margin:0 0 10px;font-weight:600;">${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</div>
+    ${currentFolder ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="openCoshhPickFolder('${currentFolder.parent_id||''}')">‹ Up one level</button>` : ''}
+    ${subfolders.map(f=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="openCoshhPickFolder('${f.id}')">
+        <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+      </div>
+    `).join('')}
+    ${files.map(f=>{
+      const checked = coshhPickSelected.has(f.id);
+      return `
+      <div class="sitecard" style="cursor:pointer;" onclick="toggleCoshhPickSelect('${f.id}')">
+        <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${checked?'checked':''} onclick="event.stopPropagation();toggleCoshhPickSelect('${f.id}')">
+        <div class="info"><div class="name">📄 ${escapeHtml(f.name)}</div></div>
+      </div>`;
+    }).join('')}
+    ${(!subfolders.length && !files.length) ? `<div class="empty">Nothing here.</div>` : ''}
+    ${coshhPickSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedCoshhFromLibrary('${siteId}')">Add ${coshhPickSelected.size} Selected</button>` : ''}
+  `, {title:'Add from Library', subtitle:site.name, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+}
+window.importSelectedCoshhFromLibrary = async function(siteId){
+  if(!coshhPickSelected.size) return;
+  const ids = Array.from(coshhPickSelected);
+  const files = await dbSelect('coshh_library_files', 'id=in.('+ids.join(',')+')&select=*');
+  let added = 0, failed = 0;
+  for(const f of files){
+    try{
+      const srcRes = await fetch(publicUrl('coshh-library', f.storage_path));
+      const blob = await srcRes.blob();
+      const path = siteId+'/coshh/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
+      const stored = await uploadToStorage('coshh-docs', path, blob, 'application/pdf');
+      if(!stored){ failed++; continue; }
+      const rows = await dbInsert('coshh_docs', {site_id:siteId, name:f.name, storage_path:stored, uploaded_by:ME.id});
+      if(rows) added++; else failed++;
+    }catch(e){ failed++; }
+  }
+  toast(added ? `${added} document${added===1?'':'s'} added from the library`+(failed?`, ${failed} failed`:'') : 'Could not add — try again.');
+  coshhPickSelected = new Set();
+  go(`#/site/${siteId}/hs/coshh`);
+};
+
+/* ---- "Save to Admin Centre COSHH" — copies one site COSHH document's bytes
+   up into the org library at a chosen folder, inserting a coshh_library_files
+   row. The site document itself is untouched — this is a copy, not a move. ---- */
+let coshhSaveFolderId = null; // current folder while choosing where to save
+let coshhSaveDocId = null;
+let coshhSaveDocName = '';
+let coshhSaveDocStoragePath = '';
+window.startCoshhSaveToLibrary = function(siteId, docId, docName, storagePath){
+  coshhSaveFolderId = null;
+  coshhSaveDocId = docId;
+  coshhSaveDocName = docName;
+  coshhSaveDocStoragePath = storagePath;
+  go(`#/site/${siteId}/hs/coshh-save`);
+};
+window.openCoshhSaveFolder = function(folderId){
+  coshhSaveFolderId = folderId || null;
+  render();
+};
+async function renderCoshhSaveToLibrary(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!coshhSaveDocId){ go(`#/site/${siteId}/hs/coshh`); return; }
+  let currentFolder = null;
+  if(coshhSaveFolderId){
+    const rows = await dbSelect('coshh_library_folders', 'id=eq.'+coshhSaveFolderId+'&select=*');
+    currentFolder = rows[0] || null;
+    if(!currentFolder) coshhSaveFolderId = null;
+  }
+  const subfolders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhSaveFolderId?'parent_id=eq.'+coshhSaveFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 10px;">Choose where to save "${escapeHtml(coshhSaveDocName)}" in the Admin Centre COSHH Library.</p>
+    <div class="stub" style="margin:0 0 10px;font-weight:600;">${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</div>
+    ${currentFolder ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="openCoshhSaveFolder('${currentFolder.parent_id||''}')">‹ Up one level</button>` : ''}
+    ${subfolders.map(f=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="openCoshhSaveFolder('${f.id}')">
+        <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+      </div>
+    `).join('')}
+    ${!subfolders.length ? `<div class="empty">No subfolders here.</div>` : ''}
+    <button class="darkbtn" style="margin-top:14px;" onclick="saveCoshhToLibraryHere('${siteId}')">Save to ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}</button>
+  `, {title:'Save to Admin Centre COSHH', subtitle:site.name, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+}
+window.saveCoshhToLibraryHere = async function(siteId){
+  if(!coshhSaveDocId) return;
+  try{
+    const srcRes = await fetch(publicUrl('coshh-docs', coshhSaveDocStoragePath));
+    const blob = await srcRes.blob();
+    const path = ME.org_id+'/'+(coshhSaveFolderId||'root')+'/'+uid()+'-'+coshhSaveDocName.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('coshh-library', path, blob, 'application/pdf');
+    if(!stored){ toast('Could not save — try again.'); return; }
+    const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:coshhSaveFolderId||null, name:coshhSaveDocName, storage_path:stored, uploaded_by:ME.id});
+    if(rows){ toast('Saved to Admin Centre COSHH Library'); coshhSaveDocId = null; go(`#/site/${siteId}/hs/coshh`); }
+    else toast('Could not save — try again.');
+  }catch(e){ toast('Could not save — try again.'); }
+};
+
 /* ================= MESSAGES ================= */
 // One-way announcements: PMs/Admins post down to operatives (per-site or
 // whole company); operative actions elsewhere (material requests, snag
@@ -9695,6 +10161,8 @@ async function render(){
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams') return renderRams(siteId);
       if(sub==='coshh') return renderCoshh(siteId);
+      if(sub==='coshh-pick') return renderCoshhLibraryPick(siteId);
+      if(sub==='coshh-save') return renderCoshhSaveToLibrary(siteId);
       if(sub==='tbt'){
         const tbtId = parts[4];
         if(tbtId) return renderToolboxTalkView(siteId, tbtId);
