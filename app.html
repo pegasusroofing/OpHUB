@@ -1934,12 +1934,12 @@ function siteCardHtml(s, canAdd, pmOptions){
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
+      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;">Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
           style="margin-left:4px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
       ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
-      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:6px;font-size:11px;white-space:nowrap;">Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}
       <span class="status ${statusKey}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
@@ -2132,6 +2132,29 @@ async function preloadTbtBankForSite(site){
     await dbInsert('toolbox_talks', rows);
   }catch(e){ console.error('Could not preload TBT bank for new site', e); }
 }
+// Pulls any Admin Centre TBT template into this site's Bank TBT that isn't
+// there yet — matched on title+file so nothing duplicates. Covers sites
+// created before a template existed (preloadTbtBankForSite only runs once,
+// at site-creation time) and any template added to the library since.
+let tbtSyncBusy = false;
+window.syncTbtBankFromLibrary = async function(siteId){
+  tbtSyncBusy = true; render();
+  try{
+    const [templates, existing] = await Promise.all([
+      dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id),
+      dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&select=title,storage_path'),
+    ]);
+    const existingKeys = new Set(existing.map(t=>t.title+'|'+t.storage_path));
+    const missing = templates.filter(t=>!existingKeys.has(t.title+'|'+t.storage_path));
+    if(!missing.length){ toast('Bank TBT is already up to date with the library.'); }
+    else{
+      const rows = missing.map(t=>({site_id:siteId, org_id:ME.org_id, title:t.title, storage_path:t.storage_path, status:'bank', created_by:ME.id}));
+      const inserted = await dbInsert('toolbox_talks', rows);
+      toast(inserted ? `${missing.length} template${missing.length===1?'':'s'} added to Bank TBT` : 'Could not sync — try again.');
+    }
+  }catch(e){ console.error('TBT library sync failed', e); toast('Could not sync — try again.'); }
+  tbtSyncBusy = false; render();
+};
 window.deleteSite = async function(siteId, name){
   if(!await customConfirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
   siteStatusMenuOpenId = null;
@@ -6887,9 +6910,9 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
       outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>${notSigned.map(id=>`<div style="display:flex;align-items:center;gap:8px;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>`;
     }
     return `
-    <div class="ramsdoc">
+    <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
-        <div class="name">${escapeHtml(r.name)}</div>
+        <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)}</div>
         ${canAdd ? `<div class="taskicons">
           <input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">
           <div class="taskicon" title="Replace this file (resets signatures)" onclick="document.getElementById('coshhReplaceInput-${r.id}').click()">🔁</div>
@@ -6897,13 +6920,14 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
           <div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div>
         </div>` : ''}
       </div>
-      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>
-      <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
-      <div class="siglinebox coshhsigbox ${mine?'signed':''}">
-        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet — use "Sign All" above'}
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <div class="siglinebox coshhsigbox ${mine?'signed':''}" style="flex:1;margin-top:0;">
+          ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet'}
+        </div>
+        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedCoshh('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
-      ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="margin-top:10px;" onclick="exportSignedCoshh('${r.id}')">Export PDF with all signatures</button>` : ''}
     </div>`;
   }).join('') || `<div class="empty">No COSHH uploaded.</div>`;
 }
@@ -8808,6 +8832,7 @@ async function renderToolboxTalks(siteId){
     `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
 
     ${isPM && tbtFilter==='bank' ? `
+    <button class="ghostbtn" style="margin-bottom:10px;" ${tbtSyncBusy?'disabled':''} onclick="syncTbtBankFromLibrary('${siteId}')">${tbtSyncBusy?'Syncing…':'🔄 Sync Bank TBT from Admin Centre Library'}</button>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Upload a toolbox talk</p>
       <div class="formfield"><input type="text" id="tbtTitle" placeholder="Title, e.g. Week 24 — Manual Handling"></div>
@@ -10445,6 +10470,28 @@ window.toggleCoshhPickSelect = function(fileId){
   if(coshhPickSelected.has(fileId)) coshhPickSelected.delete(fileId); else coshhPickSelected.add(fileId);
   render();
 };
+// Recursively collects every file id under a library folder (including
+// nested subfolders, e.g. a manufacturer folder under Liquid Roofing) —
+// lets "Select Folder" tick a whole element-of-works folder in one tap
+// instead of ticking each document inside it individually.
+async function collectCoshhLibraryFolderFileIds(folderId){
+  const [files, subfolders] = await Promise.all([
+    dbSelect('coshh_library_files', 'folder_id=eq.'+folderId+'&select=id'),
+    dbSelect('coshh_library_folders', 'parent_id=eq.'+folderId+'&select=id'),
+  ]);
+  let ids = files.map(f=>f.id);
+  for(const sf of subfolders){
+    ids = ids.concat(await collectCoshhLibraryFolderFileIds(sf.id));
+  }
+  return ids;
+}
+window.selectCoshhPickFolder = async function(folderId, folderName){
+  const ids = await collectCoshhLibraryFolderFileIds(folderId);
+  if(!ids.length){ toast('No documents found in "'+folderName+'".'); return; }
+  ids.forEach(id=>coshhPickSelected.add(id));
+  toast(ids.length+' document'+(ids.length===1?'':'s')+' selected from "'+folderName+'"');
+  render();
+};
 async function renderCoshhLibraryPick(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -10461,9 +10508,11 @@ async function renderCoshhLibraryPick(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="stub" style="margin:0 0 10px;font-weight:600;">${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</div>
     ${currentFolder ? `<button class="ghostbtn" style="margin-bottom:12px;" onclick="openCoshhPickFolder('${currentFolder.parent_id||''}')">‹ Up one level</button>` : ''}
+    ${subfolders.length ? `<p class="stub" style="margin:0 0 8px;">Tap a folder to open it, or "Select Folder" to select every document inside it (including subfolders) at once.</p>` : ''}
     ${subfolders.map(f=>`
       <div class="sitecard" style="cursor:pointer;" onclick="openCoshhPickFolder('${f.id}')">
         <div class="info"><div class="name">📁 ${escapeHtml(f.name)}</div></div>
+        <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:6px 10px;font-size:10.5px;" onclick="event.stopPropagation();selectCoshhPickFolder('${f.id}','${jsAttr(f.name)}')">Select Folder</button>
       </div>
     `).join('')}
     ${files.map(f=>{
