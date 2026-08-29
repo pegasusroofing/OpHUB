@@ -129,7 +129,7 @@
   }
   .primarybtn:active,.darkbtn:active,.ghostbtn:active{transform:scale(.98);opacity:.92;}
   .primarybtn{background:var(--brand1);color:#fff;}
-  .exportbtn{padding:10px;font-size:12px;border-radius:9px !important;border-width:1px !important;}
+  .exportbtn{padding:7px;font-size:12px;border-radius:9px !important;border-width:1px !important;}
   .ramsexportbtn{padding:11.5px;font-size:14px;}
   .sowexportbtn{padding:11px;font-size:13px;}
   .reportsexportbtn{padding:11.5px;font-size:14px;}
@@ -291,8 +291,10 @@
     flex-direction:column;gap:2px;padding:8px;text-align:center;}
   .siglinebox.signed{border-style:solid;border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
   .siglinebox.signed .name{font-family:'Segoe Script','Brush Script MT',cursive;font-size:20px;}
-  .coshhsigbox{min-height:38px;padding:5px;margin-top:8px;font-size:10.5px;}
-  .coshhsigbox.signed .name{font-size:15px;}
+  .coshhsigbox{min-height:30px;padding:4px;margin-top:8px;font-size:10px;}
+  .coshhsigbox.signed .name{font-size:14px;}
+  .ramssigbox{min-height:30px;padding:4px;font-size:10px;}
+  .ramssigbox.signed .name{font-size:14px;}
   .signerlist{margin-top:10px;font-size:11px;color:var(--slate);}
   .signerlist div{padding:3px 0;}
 
@@ -979,7 +981,7 @@ async function registerPushNotifications(){
       try{
         const data = (action && action.notification && action.notification.data) || {};
         if(!data.site_id) return;
-        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages' };
+        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh' };
         const dest = routes[data.kind] || 'messages';
         go(`#/site/${data.site_id}/${dest}`);
       }catch(e){ console.error('Push notification routing failed', e); }
@@ -6733,21 +6735,25 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
     } else if(!notSigned.length){
       outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ RAMS signed by all operatives</div></div>`;
     } else {
-      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>${notSigned.map(id=>`<div style="display:flex;align-items:center;gap:8px;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>`;
+      // Grouped three-to-a-row so a long roster doesn't stretch the card tall.
+      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>
+        <div style="display:flex;flex-wrap:wrap;">${notSigned.map(id=>`<div style="flex:0 0 33.333%;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:3px 4px 3px 0;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>
+      </div>`;
     }
     return `
-    <div class="ramsdoc">
+    <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
-        <div class="name">${escapeHtml(r.name)} <span class="rolechip" style="margin-left:4px;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
+        <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)} <span class="rolechip" style="margin-left:4px;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
         ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
-      <div class="meta">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}</div>
-      <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
-      <div class="siglinebox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="${mine?'':'cursor:pointer;'}">
-        ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
+          ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+        </div>
+        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn ramsexportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
-      ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn ramsexportbtn" style="margin-top:10px;" onclick="exportSignedRams('${r.id}')">Export PDF with all signatures</button>` : ''}
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
@@ -6792,6 +6798,8 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
+
+    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="sendRamsSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Upload RAMS</div>
@@ -6885,6 +6893,25 @@ window.deleteRams = async function(ramsId, storagePath){
   const ok = await dbDelete('rams_docs', ramsId);
   if(ok){ toast('RAMS document deleted'); render(); }
 };
+// PM/admin-only: pushes a "please sign" notification to every operative on
+// this site who is still missing a signature on at least one current RAMS
+// document — nobody who has already signed everything gets pinged. The
+// eligible list is worked out fresh here (not from a stale render) and the
+// edge function re-checks it server-side too.
+window.sendRamsSignReminder = async function(siteId){
+  const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+  if(!docs.length){ toast('No RAMS documents to sign.'); return; }
+  const roster = assignedIds||[];
+  const outstanding = roster.filter(uid => docs.some(d => !(sigsByDoc[d.id]||[]).some(s=>s.user_id===uid)));
+  if(!outstanding.length){ toast('Everyone on this site has signed all RAMS documents.'); return; }
+  if(!await customConfirm(`Send a sign-reminder notification to ${outstanding.length} operative${outstanding.length===1?'':'s'} who still have RAMS to sign?`)) return;
+  try{
+    const res = await sbFetch('/functions/v1/send-sign-reminder', {method:'POST', body: JSON.stringify({site_id:siteId, doc_type:'rams', user_ids: outstanding})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not send reminder — '+(d.error||res.status)); return; }
+    toast(d.sent ? `Reminder sent to ${d.sent} device${d.sent===1?'':'s'}.` : 'No registered devices to notify yet.');
+  }catch(e){ console.error(e); toast('Could not send reminder.'); }
+};
 
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
@@ -6964,6 +6991,7 @@ async function renderCoshh(siteId){
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
     ${canAdd ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>` : ''}
+    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="sendCoshhSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="coshhUploadOpen=!coshhUploadOpen;render()"><span class="arrow">${coshhUploadOpen?'▼':'▶'}</span> Upload COSHH</div>
@@ -7074,6 +7102,21 @@ window.deleteCoshh = async function(coshhId, storagePath){
   try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('coshh_docs', coshhId);
   if(ok){ toast('COSHH document deleted'); render(); }
+};
+// PM/admin-only: same "Ask Outstanding to Sign" push as RAMS, but for COSHH.
+window.sendCoshhSignReminder = async function(siteId){
+  const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
+  if(!docs.length){ toast('No COSHH documents to sign.'); return; }
+  const roster = assignedIds||[];
+  const outstanding = roster.filter(uid => docs.some(d => !(sigsByDoc[d.id]||[]).some(s=>s.user_id===uid)));
+  if(!outstanding.length){ toast('Everyone on this site has signed all COSHH documents.'); return; }
+  if(!await customConfirm(`Send a sign-reminder notification to ${outstanding.length} operative${outstanding.length===1?'':'s'} who still have COSHH to sign?`)) return;
+  try{
+    const res = await sbFetch('/functions/v1/send-sign-reminder', {method:'POST', body: JSON.stringify({site_id:siteId, doc_type:'coshh', user_ids: outstanding})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not send reminder — '+(d.error||res.status)); return; }
+    toast(d.sent ? `Reminder sent to ${d.sent} device${d.sent===1?'':'s'}.` : 'No registered devices to notify yet.');
+  }catch(e){ console.error(e); toast('Could not send reminder.'); }
 };
 
 /* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
