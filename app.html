@@ -9636,7 +9636,7 @@ async function coshhLibraryBrowserHtml(){
       <span>${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</span>
       <div style="display:flex;align-items:center;gap:6px;">
         ${currentFolder ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;" title="Up a level" onclick="jumpCoshhLibraryFolder('${currentFolder.parent_id||''}')">‹</div>` : ''}
-        <div class="roundplusbtn" title="Add Folder" onclick="coshhLibNewFolderOpen=true;coshhLibUploadOpen=false;render()">+</div>
+        <div class="roundplusbtn" style="background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text,#fff);" title="Add Folder" onclick="coshhLibNewFolderOpen=true;coshhLibUploadOpen=false;render()">+</div>
       </div>
     </div>
     <div class="row-gap" style="margin-bottom:10px;flex-wrap:wrap;">
@@ -9684,7 +9684,7 @@ async function coshhLibraryBrowserHtml(){
         ${!isEmpty ? `<button class="ghostbtn" style="margin-top:8px;" onclick="coshhLibUploadOpen=false;render()">Cancel</button>` : ''}
       </div>
     ` : `
-      <button class="darkbtn" style="margin-top:10px;" onclick="coshhLibUploadOpen=true;render()">+ Add Document</button>
+      <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="coshhLibUploadOpen=true;render()">+ Add Document</button>
     `}
   `;
 }
