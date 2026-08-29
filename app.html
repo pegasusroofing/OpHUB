@@ -9606,24 +9606,6 @@ window.renameDrawingFile = async function(fileId, currentName){
 let coshhLibFolderId = null; // current folder in the Admin Centre browser (null = top level)
 let coshhLibNewFolderOpen = false;
 let coshhLibUploadOpen = false;
-window.showCoshhLibraryAddMenu = function(folderId){
-  let ov = document.getElementById('confirmModalOverlay');
-  if(!ov){
-    ov = document.createElement('div');
-    ov.id = 'confirmModalOverlay';
-    ov.className = 'geo-modal-overlay';
-    document.body.appendChild(ov);
-  }
-  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `
-    <div class="geo-modal-card">
-      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';coshhLibNewFolderOpen=true;coshhLibUploadOpen=false;render()">📁 Add Folder</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';coshhLibUploadOpen=true;coshhLibNewFolderOpen=false;render()">📄 Add PDF(s)</button>
-      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
-    </div>`;
-  ov.style.display = 'flex';
-};
 window.jumpCoshhLibraryFolder = function(folderId){
   coshhLibFolderId = folderId || null;
   coshhLibNewFolderOpen = false;
@@ -9644,34 +9626,39 @@ async function coshhLibraryBrowserHtml(){
   ]);
   const parentArg = coshhLibFolderId ? `'${coshhLibFolderId}'` : 'null';
   const isEmpty = subfolders.length===0 && files.length===0;
+  // Upload is the default action now — the folder-create form only shows once
+  // the "+" (Add Folder) button has been tapped, rather than the other way
+  // round, since most visits here are "add another document", not "add
+  // another folder".
+  const showUploadForm = coshhLibUploadOpen || (isEmpty && !coshhLibNewFolderOpen);
   return `
     <div class="drawheaderrow">
       <span>${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</span>
-      <div class="roundplusbtn" onclick="showCoshhLibraryAddMenu(${parentArg})">+</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        ${currentFolder ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;" title="Up a level" onclick="jumpCoshhLibraryFolder('${currentFolder.parent_id||''}')">‹</div>` : ''}
+        <div class="roundplusbtn" title="Add Folder" onclick="coshhLibNewFolderOpen=true;coshhLibUploadOpen=false;render()">+</div>
+      </div>
     </div>
     <div class="row-gap" style="margin-bottom:10px;flex-wrap:wrap;">
       <select onchange="jumpCoshhLibraryFolder(this.value)" style="flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);">
         <option value="">Filter: jump to element of works…</option>
         ${topFolders.map(f=>`<option value="${f.id}" ${coshhLibFolderId===f.id?'selected':''}>${escapeHtml(f.name)}</option>`).join('')}
       </select>
-      ${currentFolder ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="jumpCoshhLibraryFolder('${currentFolder.parent_id||''}')">⬅ Up a level</button>` : ''}
     </div>
-    ${isEmpty || coshhLibNewFolderOpen ? `
+    ${coshhLibNewFolderOpen ? `
       <div class="card" style="margin-bottom:10px;">
         <div class="row-gap">
           <input type="text" id="newCoshhLibFolderName" placeholder="e.g. Bauder">
           <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createCoshhLibraryFolder(${parentArg})">Create Folder</button>
         </div>
+        <button class="ghostbtn" style="margin-top:8px;" onclick="coshhLibNewFolderOpen=false;render()">Cancel</button>
       </div>
     ` : ''}
     ${subfolders.length || files.length ? `
-      ${subfolders.map((f,idx)=>`
-        <div class="sitecard" style="cursor:pointer;" onclick="jumpCoshhLibraryFolder('${f.id}')">
-          <div class="swatch">📁</div>
-          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+      ${subfolders.map(f=>`
+        <div class="sitecard" style="cursor:pointer;padding:8px 10px;" onclick="jumpCoshhLibraryFolder('${f.id}')">
+          <div class="info"><div class="name" style="font-weight:700;font-size:13px;white-space:normal;word-break:break-word;">📁 ${escapeHtml(f.name)}</div></div>
           <div class="taskicons">
-            <div class="taskicon" style="${idx===0?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveCoshhLibraryFolder(${parentArg},'${f.id}',-1)">▲</div>
-            <div class="taskicon" style="${idx===subfolders.length-1?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveCoshhLibraryFolder(${parentArg},'${f.id}',1)">▼</div>
             <div class="taskicon" onclick="event.stopPropagation();renameCoshhLibraryFolder('${f.id}','${jsAttr(f.name)}')">✏️</div>
             <div class="taskicon danger" onclick="event.stopPropagation();deleteCoshhLibraryFolder('${f.id}')">🗑</div>
           </div>
@@ -9681,22 +9668,24 @@ async function coshhLibraryBrowserHtml(){
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📄</div>
           <div style="flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-library', f.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(f.name)?f.name:f.name+'.pdf')}')">View</div>
+          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-library', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.name)}, '${jsAttr(f.name)}')">View</div>
           <div class="taskicon" onclick="renameCoshhLibraryFile('${f.id}','${jsAttr(f.name)}')">✏️</div>
           <div class="taskicon danger" onclick="deleteCoshhLibraryFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
-    ${coshhLibUploadOpen ? `
+    ${showUploadForm ? `
       <div class="card" style="margin-top:10px;">
-        <p class="sectiontitle" style="margin-top:0;">Upload COSHH document (PDF)</p>
-        <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}.</p>
+        <p class="sectiontitle" style="margin-top:0;">Upload document</p>
+        <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}. Any document type is accepted.</p>
         <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="coshhLibUploadLabel" onclick="document.getElementById('coshhLibUploadInput').click()">Choose file(s)</div>
-        <input type="file" id="coshhLibUploadInput" accept="application/pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadCoshhLibraryFile(this,${parentArg})">
-        <button class="ghostbtn" style="margin-top:8px;" onclick="coshhLibUploadOpen=false;render()">Cancel</button>
+        <input type="file" id="coshhLibUploadInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadCoshhLibraryFile(this,${parentArg})">
+        ${!isEmpty ? `<button class="ghostbtn" style="margin-top:8px;" onclick="coshhLibUploadOpen=false;render()">Cancel</button>` : ''}
       </div>
-    ` : ''}
+    ` : `
+      <button class="darkbtn" style="margin-top:10px;" onclick="coshhLibUploadOpen=true;render()">+ Add Document</button>
+    `}
   `;
 }
 window.createCoshhLibraryFolder = async function(folderId){
@@ -9735,19 +9724,18 @@ window.uploadCoshhLibraryFile = async function(input, folderId){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
   const label = document.getElementById('coshhLibUploadLabel');
-  let uploaded = 0, skipped = 0;
+  let uploaded = 0;
   for(let i=0; i<files.length; i++){
     const file = files[i];
-    if(file.type !== 'application/pdf'){ skipped++; continue; }
     if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
     const path = ME.org_id+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-    const stored = await uploadToStorage('coshh-library', path, file, file.type);
+    const stored = await uploadToStorage('coshh-library', path, file, file.type || 'application/octet-stream');
     if(!stored) continue;
     const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
     if(rows) uploaded++;
   }
-  if(uploaded){ toast(uploaded===1 ? 'Document uploaded' : `${uploaded} documents uploaded`+(skipped?`, ${skipped} skipped (PDF only)`:'')); coshhLibUploadOpen = false; }
-  else if(skipped) toast('Please choose PDF files.');
+  if(uploaded){ toast(uploaded===1 ? 'Document uploaded' : `${uploaded} documents uploaded`); coshhLibUploadOpen = false; }
+  else toast('Upload failed — try again.');
   render();
 };
 window.renameCoshhLibraryFile = async function(fileId, currentName){
