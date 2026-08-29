@@ -2324,6 +2324,18 @@ async function renderTeam(){
                 <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
               </div>
             `).join('') || `<div class="empty" style="padding:10px;">No tools logged yet.</div>`}
+            ${operativeToolsAddOpenFor===p.id ? `
+              <div class="formfield" style="margin-top:10px;"><input type="text" id="opToolName-${p.id}" placeholder="Tool name, e.g. Impact Driver"></div>
+              <div class="formfield"><input type="text" id="opToolSerial-${p.id}" placeholder="Serial / item number"></div>
+              <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('opToolPhotoInput-${p.id}').click()">${operativeToolsPhotoFile ? 'Photo chosen: '+escapeHtml(operativeToolsPhotoFile.name) : 'Choose Photo'}</div>
+              <input type="file" id="opToolPhotoInput-${p.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsPhotoChosen(this)">
+              <div class="row-gap">
+                <button class="darkbtn" style="flex:1;" onclick="addOperativeToolFor('${p.id}')">Save Tool</button>
+                <button class="ghostbtn" style="flex:1;" onclick="operativeToolsAddOpenFor=null;operativeToolsPhotoFile=null;render()">Cancel</button>
+              </div>
+            ` : `
+              <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${p.id}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
+            `}
           </div>
         ` : ''}
       `;
@@ -2692,6 +2704,26 @@ async function renderTeam(){
 let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false};
 let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
 window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
+// PM/Admin adding a tool on an operative's behalf, from Admin Centre —
+// only one operative's "+ Add Tool" form is open at a time.
+let operativeToolsAddOpenFor = null; // operative user_id, or null
+let operativeToolsPhotoFile = null;
+window.onOperativeToolsPhotoChosen = function(input){
+  operativeToolsPhotoFile = (input.files && input.files[0]) || null;
+  render();
+};
+window.addOperativeToolFor = async function(userId){
+  const name = document.getElementById('opToolName-'+userId).value.trim();
+  const serial = document.getElementById('opToolSerial-'+userId).value.trim();
+  if(!name){ toast('Enter a tool name.'); return; }
+  let photoPath = null;
+  if(operativeToolsPhotoFile){
+    const path = ME.org_id+'/'+userId+'/'+uid()+'-'+operativeToolsPhotoFile.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    photoPath = await uploadToStorage('operative-tools', path, operativeToolsPhotoFile, operativeToolsPhotoFile.type||'image/jpeg');
+  }
+  const rows = await dbInsert('operative_tools', {org_id:ME.org_id, user_id:userId, name, serial_number:serial||null, photo_path:photoPath, created_by:ME.id});
+  if(rows){ toast('Tool added'); operativeToolsAddOpenFor=null; operativeToolsPhotoFile=null; render(); }
+};
 // Check-In Logs (Admin Centre) — a weekly or monthly view of every
 // operative's check-in/out times across every site, for PMs and Admins.
 let checkinLogMode = 'weekly'; // 'weekly' | 'monthly'
@@ -7063,7 +7095,7 @@ async function renderHealthSafety(siteId){
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
       </div>
     </div>
-    <div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>
+    ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
   `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
@@ -8101,17 +8133,37 @@ async function renderPuwer(siteId){
       <span class="taskicon" style="${puwerWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftPuwerWeek(1)">›</span>
     </div>
     ${completion ? `<div class="card" style="margin-bottom:14px;background:var(--ok-bg);"><p class="stub" style="margin:0;color:var(--ok);font-weight:700;">✓ Week marked complete — ${new Date(completion.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</p></div>` : ''}
+    ${canManage ? `<p class="stub" style="margin:0 0 8px;">Tick an operative to include them in Export Selected below.</p>` : ''}
     ${operatives.map(op=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/puwer/${op.id}')">
+        ${canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${puwerExportSelectedIds.includes(op.id)?'checked':''} onclick="event.stopPropagation();togglePuwerExportSelected('${op.id}')">` : ''}
         <div class="swatch personswatch">${escapeHtml((op.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}</div></div>
         <div class="status ${inspectedIds.has(op.id)?'active':'upcoming'}">${inspectedIds.has(op.id)?'Done':'Pending'}</div>
+        ${canManage && inspectedIds.has(op.id) ? `<div class="ghostbtn" style="flex:0 0 auto;width:auto;padding:4px 8px;font-size:10px;" onclick="event.stopPropagation();exportPuwerIndividual('${siteId}','${op.id}')">Export</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No operatives assigned to this site.</div>`}
-    ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
+    ${canManage && operatives.length ? `
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${puwerExportAllBusy?'disabled':''} onclick="exportPuwerCollective('${siteId}')">${puwerExportAllBusy?'Building…':'Export All Operatives Weekly PUWER'}</button>
+        <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${puwerEmailAllBusy?'disabled':''} onclick="emailPuwerCollective('${siteId}')">${puwerEmailAllBusy?'Sending…':'Email All Operatives Weekly PUWER'}</button>
+      </div>
+      ${puwerExportSelectedIds.length ? `
+      <button class="ghostbtn" style="width:100%;margin-top:8px;padding:7px 6px;font-size:11px;" onclick="exportPuwerSelected('${siteId}')">Export Selected (${puwerExportSelectedIds.length})</button>
+      ` : ''}
+    ` : ''}
+    ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;padding:8px 6px;font-size:11.5px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
     ${canManage && completion ? `<button class="ghostbtn" style="margin-top:18px;" onclick="reopenPuwerWeek('${completion.id}')">Reopen This Week</button>` : ''}
   `, {title:'PUWER Tool Inspection', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
+let puwerExportSelectedIds = [];
+let puwerExportAllBusy = false;
+let puwerEmailAllBusy = false;
+window.togglePuwerExportSelected = function(userId){
+  const i = puwerExportSelectedIds.indexOf(userId);
+  if(i>-1) puwerExportSelectedIds.splice(i,1); else puwerExportSelectedIds.push(userId);
+  render();
+};
 window.markPuwerWeekComplete = async function(siteId, weekStart){
   puwerMarkCompleteBusy = true; render();
   const row = await dbInsert('puwer_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
@@ -8209,7 +8261,12 @@ async function renderPuwerFill(siteId, userId){
       <textarea id="puwerComments" rows="3" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);resize:vertical;" placeholder="Optional" ${canEdit?'':'disabled'} oninput="setPuwerComments(this.value)">${escapeHtml(draft.comments)}</textarea>
     </div>
     ${canEdit && draft.tools.length ? `<button class="darkbtn" style="margin-top:14px;" ${puwerFillSaving?'disabled':''} onclick="savePuwerInspection()">${puwerFillSaving?'Saving…':(draft.inspectionId?'Save Changes':'Save Inspection')}</button>` : ''}
-    ${draft.inspectionId ? `<button class="ghostbtn" style="margin-top:10px;" onclick="exportPuwerInspection('${siteId}','${userId}')">Export PDF</button>` : ''}
+    ${draft.inspectionId ? `
+      <div class="row-gap" style="margin-top:10px;">
+        <button class="darkbtn" style="flex:1;" onclick="exportPuwerInspection('${siteId}','${userId}')">Export PDF</button>
+        ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${puwerEmailBusy?'disabled':''} onclick="emailPuwerInspection('${siteId}','${userId}')">${puwerEmailBusy?'Sending…':'Email PUWER Report'}</button>` : ''}
+      </div>
+    ` : ''}
   `, {title: op.name, subtitle:'PUWER Tool Inspection', back:`#/site/${siteId}/hs/puwer`, siteId, tabs:false}); }
 }
 window.savePuwerInspection = async function(){
@@ -8239,23 +8296,150 @@ window.savePuwerInspection = async function(){
   puwerFillSaving = false;
   render();
 };
+let puwerEmailBusy = false;
+// Shared by Export PDF and Email PUWER Report — both build the exact same
+// PDF, just differ in what happens to the bytes afterwards.
+async function buildPuwerPdf(siteId, userId){
+  await loadAllProfiles();
+  const op = PROFILES[userId];
+  const site = SITES.find(s=>s.id===siteId);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const weekLabel = puwerWeekLabel(puwerWeekOffset);
+  await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, puwerFillDraft.tools, puwerFillDraft.comments, ME.name, logoImg);
+  const bytes = await pdfDoc.save();
+  const filename = exportFilename(site.name, 'PUWER - '+op.name+' - '+weekLabel, 'pdf');
+  return {bytes, filename, site, op, weekLabel};
+}
 window.exportPuwerInspection = async function(siteId, userId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
   toast('Building PDF…');
   try{
-    await loadAllProfiles();
-    const op = PROFILES[userId];
-    const site = SITES.find(s=>s.id===siteId);
-    const pdfDoc = await PDFLib.PDFDocument.create();
-    const fonts = await havsPdfFonts(pdfDoc);
-    const logoImg = await havsFetchLogoImg(pdfDoc);
-    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, puwerWeekLabel(puwerWeekOffset), op, puwerFillDraft.tools, puwerFillDraft.comments, ME.name, logoImg);
-    const bytes = await pdfDoc.save();
-    const filename = exportFilename(site.name, 'PUWER - '+op.name+' - '+puwerWeekLabel(puwerWeekOffset), 'pdf');
+    const {bytes, filename} = await buildPuwerPdf(siteId, userId);
     await deliverPdf(bytes, filename);
   }catch(err){
     console.error('PUWER export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+};
+window.emailPuwerInspection = async function(siteId, userId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
+  puwerEmailBusy = true; render();
+  toast('Building PDF…');
+  try{
+    const {bytes, filename, site, op, weekLabel} = await buildPuwerPdf(siteId, userId);
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+    const content_base64 = btoa(binary);
+    const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, operative_name:op.name})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else toast('PUWER report emailed to '+ME.email);
+  }catch(err){
+    console.error('PUWER email failed', err);
+    toast('Email failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  puwerEmailBusy = false; render();
+};
+// Read-only fetch of one operative's saved inspection for a given week —
+// used by the multi-operative exports below, which build straight from the
+// database rather than from puwerFillDraft (which only ever holds one
+// operative at a time).
+async function loadPuwerInspectionForExport(siteId, userId, weekStart){
+  const insp = (await dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&week_start=eq.'+weekStart+'&select=*'))[0] || null;
+  if(!insp) return {tools:[], comments:'', hasInspection:false};
+  const tools = await dbSelect('puwer_inspection_tools', 'inspection_id=eq.'+insp.id+'&order=sort_order.asc');
+  return {tools, comments: insp.comments||'', hasInspection:true};
+}
+// Shared by "Export All", "Export Selected" and per-row Export — builds one
+// PDF with one operative's inspection page-set per operative, mirroring
+// buildHavsPdf's multi-operative loop.
+async function buildPuwerCollectivePdf(siteId, operatives, labelForFilename){
+  const site = SITES.find(s=>s.id===siteId);
+  const weekStart = puwerWeekStartISO(puwerWeekOffset);
+  const weekLabel = puwerWeekLabel(puwerWeekOffset);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  for(const op of operatives){
+    const {tools, comments, hasInspection} = await loadPuwerInspectionForExport(siteId, op.id, weekStart);
+    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, tools, comments, ME.name, logoImg, hasInspection);
+  }
+  const bytes = await pdfDoc.save();
+  const filename = exportFilename(site.name, 'PUWER - '+labelForFilename+' - '+weekLabel, 'pdf');
+  return {bytes, filename, weekLabel};
+}
+async function puwerResolveAllOperatives(siteId){
+  await loadAllProfiles();
+  const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const operativeIds = assignedRows.map(r=>r.user_id).filter(id => PROFILES[id] && PROFILES[id].role==='operative');
+  return operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+}
+window.exportPuwerIndividual = async function(siteId, userId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  try{
+    await loadAllProfiles();
+    const op = PROFILES[userId];
+    if(!op){ toast('Could not find that operative.'); return; }
+    const {bytes, filename} = await buildPuwerCollectivePdf(siteId, [op], op.name);
+    await deliverPdf(bytes, filename);
+  }catch(err){
+    console.error('PUWER individual export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+};
+window.exportPuwerCollective = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  puwerExportAllBusy = true; render();
+  try{
+    const operatives = await puwerResolveAllOperatives(siteId);
+    if(!operatives.length){ toast('No operatives to export.'); }
+    else{
+      const {bytes, filename} = await buildPuwerCollectivePdf(siteId, operatives, 'All Operatives');
+      await deliverPdf(bytes, filename);
+    }
+  }catch(err){
+    console.error('PUWER collective export failed', err);
+    toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  puwerExportAllBusy = false; render();
+};
+window.emailPuwerCollective = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  puwerEmailAllBusy = true; render();
+  try{
+    const operatives = await puwerResolveAllOperatives(siteId);
+    if(!operatives.length){ toast('No operatives to email.'); }
+    else{
+      const {bytes, filename, weekLabel} = await buildPuwerCollectivePdf(siteId, operatives, 'All Operatives');
+      let binary=''; const chunk=0x8000;
+      for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+      const content_base64 = btoa(binary);
+      const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel})});
+      const d = await res.json();
+      if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+      else toast('PUWER register emailed to '+ME.email);
+    }
+  }catch(err){
+    console.error('PUWER collective email failed', err);
+    toast('Email failed — '+(err && err.message ? err.message : 'unknown error'));
+  }
+  puwerEmailAllBusy = false; render();
+};
+window.exportPuwerSelected = async function(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!puwerExportSelectedIds.length){ toast('Tick at least one operative to export.'); return; }
+  try{
+    await loadAllProfiles();
+    const operatives = puwerExportSelectedIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
+    if(!operatives.length){ toast('Could not find those operatives.'); return; }
+    const {bytes, filename} = await buildPuwerCollectivePdf(siteId, operatives, 'Selected Operatives');
+    await deliverPdf(bytes, filename);
+  }catch(err){
+    console.error('PUWER selected export failed', err);
     toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
   }
 };
@@ -8263,7 +8447,8 @@ window.exportPuwerInspection = async function(siteId, userId){
 // question x tool matrix, comments, then a Tool Photo Summary (photo +
 // serial "Item ID") per tool at the end, mirroring the layout of RTB's
 // existing PUWER export.
-async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, tools, comments, inspectedByName, logoImg){
+async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, tools, comments, inspectedByName, logoImg, hasInspection){
+  if(hasInspection === undefined) hasInspection = true;
   const {bold, reg, italic, INK, SLATE, LINE, HEADBG, RED, GREEN, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 44;
@@ -8294,6 +8479,12 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
   }
   function ensureRoom(h){ if(y - h < 60){ newPage(); } }
   newPage();
+
+  if(!hasInspection){
+    ensureRoom(20);
+    page.drawText('No PUWER inspection recorded this week.', {x:MARGIN, y, size:10, font:italic, color:SLATE});
+    return;
+  }
 
   const QCOL_W = 150;
   const toolColW = tools.length ? (TABLE_W - QCOL_W)/tools.length : 0;
