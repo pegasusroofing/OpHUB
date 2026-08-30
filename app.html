@@ -2088,6 +2088,8 @@ async function renderSites(){
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>
+      <div style="display:flex;align-items:center;gap:8px;">
+      ${ME.role==='admin' ? `<button type="button" onclick="go('#/dashboard')" style="width:auto;flex:none;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:#fff;color:var(--slate);cursor:pointer;">📊 Dashboard</button>` : ''}
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;margin-top:-9px;" data-pmfilter-root>
           <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
@@ -2106,6 +2108,7 @@ async function renderSites(){
           ` : ''}
         </div>
       ` : ''}
+      </div>
     </div>
     ${canAdd ? `
       ${siteSection('live','Live Projects',liveSites,true)}
@@ -2244,6 +2247,121 @@ window.deleteSite = async function(siteId, name){
   // already succeeded. Call render() directly instead of relying on go().
   render();
 };
+
+/* ================= COMPANY DASHBOARD (admin-only, management overview across every live project) ================= */
+async function renderDashboard(){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const liveSites = SITES.filter(s=>s.status==='active');
+  const upcomingSites = SITES.filter(s=>s.status==='upcoming');
+  const closedSites = SITES.filter(s=>s.status==='closed');
+  const liveIds = liveSites.map(s=>s.id);
+  const liveIdsCsv = liveIds.join(',');
+
+  const [openSnags, ramsDocs, coshhDocs, assignments, scheduleTasks, incidentsRecent] = await Promise.all([
+    liveIds.length ? dbSelect('snags', 'status=eq.open&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
+    liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
+    liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status') : [],
+    dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
+  ]);
+  const ramsIds = ramsDocs.map(d=>d.id).join(',');
+  const coshhIds = coshhDocs.map(d=>d.id).join(',');
+  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+    ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : [],
+    coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : [],
+  ]);
+  // Same 12-month resign-cycle filter used on the RAMS/COSHH pages
+  // themselves (every site here is live, so the cycle always applies).
+  const ramsSigs = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
+  const coshhSigs = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
+
+  const rosterBySite = {};
+  assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
+  function outstandingBySite(docs, sigs, fk){
+    const signedByDoc = {};
+    sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
+    const bySite = {};
+    docs.forEach(d=>{
+      const roster = rosterBySite[d.site_id]||[];
+      const missing = roster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length;
+      bySite[d.site_id] = (bySite[d.site_id]||0) + missing;
+    });
+    return bySite;
+  }
+  const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id');
+  const coshhOutstandingBySite = outstandingBySite(coshhDocs, coshhSigs, 'coshh_id');
+  const snagsBySite = {};
+  openSnags.forEach(s=>{ snagsBySite[s.site_id] = (snagsBySite[s.site_id]||0)+1; });
+  const scheduleBySite = {};
+  scheduleTasks.forEach(t=>{
+    const b = scheduleBySite[t.site_id] = scheduleBySite[t.site_id] || {todo:0, in_progress:0, complete:0, total:0};
+    b.total++; if(t.status==='todo') b.todo++; else if(t.status==='in_progress') b.in_progress++; else if(t.status==='complete') b.complete++;
+  });
+
+  const totalOpenSnags = openSnags.length;
+  const totalRamsOutstanding = Object.values(ramsOutstandingBySite).reduce((a,b)=>a+b,0);
+  const totalCoshhOutstanding = Object.values(coshhOutstandingBySite).reduce((a,b)=>a+b,0);
+  const scheduleTotals = Object.values(scheduleBySite).reduce((acc,b)=>{ acc.total+=b.total; acc.complete+=b.complete; acc.in_progress+=b.in_progress; acc.todo+=b.todo; return acc; }, {total:0, complete:0, in_progress:0, todo:0});
+  const completionPct = scheduleTotals.total ? Math.round(scheduleTotals.complete/scheduleTotals.total*100) : 0;
+  const thirtyDaysAgo = Date.now() - 30*86400000;
+  const incidentsThisMonth = incidentsRecent.filter(r=>new Date(r.created_at).getTime()>=thirtyDaysAgo);
+  const riddorCount = incidentsRecent.filter(r=>r.riddor_reportable).length;
+
+  const topSites = (bySiteMap, count) => liveSites
+    .map(s=>({site:s, count: bySiteMap[s.id]||0}))
+    .filter(x=>x.count>0)
+    .sort((a,b)=>b.count-a.count)
+    .slice(0, count===undefined?5:count);
+
+  const statCard = (label, value, sub) => `
+    <div class="card" style="flex:1;min-width:130px;text-align:center;">
+      <div style="font-size:26px;font-weight:800;color:var(--ink);">${value}</div>
+      <div class="meta" style="margin-top:2px;">${escapeHtml(label)}</div>
+      ${sub ? `<div class="stub" style="margin-top:4px;">${sub}</div>` : ''}
+    </div>`;
+
+  const siteListBlock = (title, list, href) => `
+    <p class="sectiontitle" style="margin-top:20px;">${title}</p>
+    ${list.length ? list.map(x=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${href(x.site.id)}')">
+        <div class="swatch">${(x.site.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
+        <div class="info"><div class="name">${escapeHtml(x.site.name)}</div><div class="addr">${x.count}</div></div>
+      </div>
+    `).join('') : `<div class="empty">Nothing outstanding.</div>`}`;
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
+      ${statCard('Live Projects', liveSites.length)}
+      ${statCard('Upcoming', upcomingSites.length)}
+      ${statCard('Closed', closedSites.length)}
+    </div>
+    <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
+      ${statCard('Open Snags', totalOpenSnags, 'across live projects')}
+      ${statCard('RAMS Outstanding', totalRamsOutstanding, 'signatures needed')}
+      ${statCard('COSHH Outstanding', totalCoshhOutstanding, 'signatures needed')}
+    </div>
+    <div class="row-gap" style="flex-wrap:wrap;margin-bottom:6px;">
+      ${statCard('Schedule Complete', completionPct+'%', scheduleTotals.total+' tasks across live projects')}
+      ${statCard('Incidents (30 days)', incidentsThisMonth.length)}
+      ${statCard('RIDDOR Reportable', riddorCount, 'most recent 500 reports')}
+    </div>
+
+    ${siteListBlock('Live Projects With Open Snags', topSites(snagsBySite), id=>`#/site/${id}/snagging`)}
+    ${siteListBlock('Live Projects With RAMS Outstanding', topSites(ramsOutstandingBySite), id=>`#/site/${id}/hs/rams`)}
+    ${siteListBlock('Live Projects With COSHH Outstanding', topSites(coshhOutstandingBySite), id=>`#/site/${id}/hs/coshh`)}
+
+    <p class="sectiontitle" style="margin-top:20px;">Recent Accident / Incident Reports</p>
+    ${incidentsRecent.slice(0,8).length ? incidentsRecent.slice(0,8).map(r=>{
+      const s = SITES.find(x=>x.id===r.site_id);
+      return `<div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${r.site_id}/hs/incidents/${r.id}')">
+        <div class="swatch">⚠️</div>
+        <div class="info"><div class="name">${escapeHtml((s&&s.name)||'Unknown project')}</div><div class="addr">${escapeHtml(r.location||'')} · ${new Date(r.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.riddor_reportable?' · RIDDOR':''}</div></div>
+      </div>`;
+    }).join('') : `<div class="empty">No accidents, incidents or near misses reported recently.</div>`}
+  `, {title:'Company Dashboard', back:'#/sites', tabs:false}); }
+}
 
 /* ================= MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ================= */
 let sigHasDrawn = false;
@@ -2750,10 +2868,18 @@ async function renderTeam(){
     ${teamSectionOpen.users ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
-      <div class="sitecard">
+      <div class="sitecard" style="flex-wrap:wrap;">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+        ${p.id!==ME.id && iAmAdmin ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${people.filter(x=>x.role==='admin').length>1 ? `
+              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
+              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
+            ` : ''}
+            <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+          </div>
+        ` : ''}
       </div>
     `).join('') || `<div class="empty">No other admins yet.</div>`}
 
@@ -2765,6 +2891,7 @@ async function renderTeam(){
         ${p.id!==ME.id && isManager(ME) ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
             ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
           </div>
         ` : ''}
@@ -2778,11 +2905,12 @@ async function renderTeam(){
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
           <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
         </div>
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
-    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can switch someone between Operative and Project Manager here — promoting or demoting a Company Admin is still done by the OpHUB platform admin.</p>
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first).</p>
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
@@ -6847,7 +6975,7 @@ window.exportSchedulePDF = async function(siteId){
 
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
-function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
+function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
   const roster = assignedIds||[];
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
@@ -6870,7 +6998,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
         <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)} <span class="rolechip" style="margin-left:4px;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
         ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
-      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
           ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
@@ -6881,7 +7009,31 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
+// Shared by RAMS + COSHH: every document must be re-signed by everyone once
+// 12 months have passed since it was last "reset" (resign_cycle_start,
+// defaults to upload date) — but only while the project is still active/live.
+// A closed project freezes whatever signatures it already has; nobody gets
+// chased for a re-sign on a finished job. The daily resign-check cron is
+// what actually advances resign_cycle_start (and notifies) when a doc goes
+// overdue on a live site — see the resign-check-daily edge function.
+function resignCycleStart(doc){ return doc.resign_cycle_start || doc.uploaded_at; }
+function resignDueLabel(doc, site){
+  if(!site || site.status!=='active') return '';
+  const due = new Date(resignCycleStart(doc));
+  due.setFullYear(due.getFullYear()+1);
+  return ` · Re-sign due ${due.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}`;
+}
+// Drops any signature that predates the document's current resign cycle —
+// on an active site that means anyone who signed before the last annual
+// reset shows up as "not signed" again, forcing a genuine re-sign. Closed
+// sites skip this filter entirely so old signatures stay valid forever.
+function filterCurrentCycleSigs(sigs, docs, docKeyField, site){
+  if(!site || site.status!=='active') return sigs;
+  const cycleStart = {}; docs.forEach(d=>{ cycleStart[d.id] = new Date(resignCycleStart(d)); });
+  return sigs.filter(s => new Date(s.signed_at) >= (cycleStart[s[docKeyField]] || 0));
+}
 async function fetchRamsData(siteId){
+  const site = SITES.find(s=>s.id===siteId);
   const [docs, superseded, assigned] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&order=uploaded_at.desc'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.superseded&order=uploaded_at.desc'),
@@ -6890,7 +7042,8 @@ async function fetchRamsData(siteId){
   let sigsByDoc = {};
   if(docs.length){
     const ids = docs.map(d=>d.id).join(',');
-    const sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
+    let sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
+    sigs = filterCurrentCycleSigs(sigs, docs, 'rams_id', site);
     sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
   }
   return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
@@ -6923,7 +7076,7 @@ async function renderRams(siteId){
   const unsignedRamsCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
+    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site)}</div>
 
     ${docs.length ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
@@ -6959,7 +7112,7 @@ async function renderRams(siteId){
     if(!el){ clearInterval(ramsPollTimer); ramsPollTimer = null; return; }
     const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
     const freshEl = document.getElementById('ramsDocsList');
-    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds);
+    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
   }, 7000);
 }
 window.addRams = async function(siteId){
@@ -7061,7 +7214,7 @@ window.sendRamsSignReminder = async function(siteId){
 
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
-function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
+function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
   const roster = assignedIds||[];
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
@@ -7086,7 +7239,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
           <div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div>
         </div>` : ''}
       </div>
-      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         <div class="siglinebox coshhsigbox ${mine?'signed':''}" style="flex:1;margin-top:0;">
           ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet'}
@@ -7098,6 +7251,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
   }).join('') || `<div class="empty">No COSHH uploaded.</div>`;
 }
 async function fetchCoshhData(siteId){
+  const site = SITES.find(s=>s.id===siteId);
   const [docs, assigned] = await Promise.all([
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -7105,7 +7259,8 @@ async function fetchCoshhData(siteId){
   let sigsByDoc = {};
   if(docs.length){
     const ids = docs.map(d=>d.id).join(',');
-    const sigs = await dbSelect('coshh_signatures', 'coshh_id=in.('+ids+')');
+    let sigs = await dbSelect('coshh_signatures', 'coshh_id=in.('+ids+')');
+    sigs = filterCurrentCycleSigs(sigs, docs, 'coshh_id', site);
     sigs.forEach(s=>{ (sigsByDoc[s.coshh_id]=sigsByDoc[s.coshh_id]||[]).push(s); });
   }
   return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
@@ -7130,7 +7285,7 @@ async function renderCoshh(siteId){
   `;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
+    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site)}</div>
 
     ${docs.length ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedCoshhCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
@@ -7157,7 +7312,7 @@ async function renderCoshh(siteId){
     if(!el){ clearInterval(coshhPollTimer); coshhPollTimer = null; return; }
     const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
     const freshEl = document.getElementById('coshhDocsList');
-    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds);
+    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
   }, 7000);
 }
 window.addCoshh = async function(siteId){
@@ -7185,7 +7340,8 @@ window.replaceCoshhFile = async function(input, siteId, coshhId, oldStoragePath)
   const path = siteId+'/coshh/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('coshh-docs', path, file, 'application/pdf');
   if(!stored) return;
-  const row = await dbUpdate('coshh_docs', coshhId, {storage_path: stored, uploaded_by:ME.id, uploaded_at: new Date().toISOString()});
+  const nowIso = new Date().toISOString();
+  const row = await dbUpdate('coshh_docs', coshhId, {storage_path: stored, uploaded_by:ME.id, uploaded_at: nowIso, resign_cycle_start: nowIso, last_resign_notified_at: null});
   if(row){
     try{ await sbFetch('/rest/v1/coshh_signatures?coshh_id=eq.'+coshhId, {method:'DELETE'}); }catch(e){}
     try{ if(oldStoragePath && oldStoragePath!==stored) await sbFetch('/storage/v1/object/coshh-docs/'+oldStoragePath, {method:'DELETE'}); }catch(e){}
@@ -7311,11 +7467,12 @@ window.sendCoshhSignReminder = async function(siteId){
 async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates] = await Promise.all([
+  const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates, incidentCount] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
+    dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
   ]);
   let briefingSub = 'None yet';
   if(briefingTemplates.length){
@@ -7348,6 +7505,10 @@ async function renderHealthSafety(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
+        <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
+        <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
       </div>
     </div>
     ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
@@ -8861,6 +9022,384 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
   }
 }
 
+/* ================= ACCIDENT / INCIDENT / NEAR MISS REPORTING =================
+   Modelled directly on RTB Roofing's paper "Accident, Incident & Near Miss
+   Report" form. Anyone with site access can file one (near misses need
+   reporting by whoever's there, not just PMs) — reports are permanent once
+   signed, matching a filed safety record; only a PM/admin can delete one.
+*/
+function newIncidentDraft(){
+  return {
+    witnesses:'', medicalRequired:'', injuryOccurred:'', injuryFurtherTreatment:'',
+    damageOccurred:'', damageSeverity:'', potentialSeverity:'', reoccurrence:'', riddor:'',
+    areaPhotos:[], damagePhotos:[],
+  };
+}
+let incidentDraft = null;
+let incidentPhotoBusy = false;
+function incidentToggleRow(field, value, options){
+  return `<div class="row-gap" style="margin-bottom:14px;flex-wrap:wrap;">${options.map(opt=>`<button type="button" class="${value===opt.v?'darkbtn':'ghostbtn'}" style="flex:1;min-width:70px;" onclick="setIncidentField('${field}','${opt.v}')">${opt.l}</button>`).join('')}</div>`;
+}
+window.setIncidentField = function(field, value){ if(incidentDraft) incidentDraft[field] = value; render(); };
+window.uploadIncidentPhoto = async function(input, siteId, field){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length || !incidentDraft) return;
+  incidentPhotoBusy = true; render();
+  for(const file of files){
+    const path = siteId+'/incidents/tmp/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('incident-photos', path, file, file.type);
+    if(stored) incidentDraft[field].push(stored);
+  }
+  incidentPhotoBusy = false; render();
+};
+window.removeIncidentPhoto = function(field, idx){ if(!incidentDraft) return; incidentDraft[field].splice(idx,1); render(); };
+async function renderIncidents(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const reports = await dbSelect('incident_reports', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  const canDelete = isManager(ME);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <button class="darkbtn" style="margin-bottom:14px;" onclick="incidentDraft=newIncidentDraft();go('#/site/${siteId}/hs/incidents/new')">⚠️ Report Accident / Incident / Near Miss</button>
+    ${reports.length ? reports.map(r=>`
+      <div class="sitecard" style="cursor:pointer;align-items:flex-start;" onclick="go('#/site/${siteId}/hs/incidents/${r.id}')">
+        <div class="swatch">⚠️</div>
+        <div class="info">
+          <div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(r.location||'Location not given')}</div>
+          <div class="addr">${r.incident_date ? new Date(r.incident_date).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : new Date(r.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · Filed by ${escapeHtml(r.filed_by_name || nameOf(r.created_by))}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">
+            ${r.riddor_reportable ? `<span class="rolechip" style="background:#FDECEA;color:var(--red);">RIDDOR</span>` : ''}
+            ${r.injury_occurred ? `<span class="rolechip">Injury</span>` : ''}
+            ${r.damage_occurred ? `<span class="rolechip">Damage</span>` : ''}
+            ${!r.injury_occurred && !r.damage_occurred && !r.riddor_reportable ? `<span class="rolechip">Near miss</span>` : ''}
+          </div>
+        </div>
+        ${canDelete ? `<div class="taskicons"><div class="taskicon danger" onclick="event.stopPropagation();deleteIncidentReport('${r.id}','${siteId}')">🗑</div></div>` : ''}
+      </div>
+    `).join('') : `<div class="empty">No accidents, incidents or near misses reported for this project.</div>`}
+  `, {title:'Accident / Incident', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+}
+window.deleteIncidentReport = async function(reportId, siteId){
+  if(!await customConfirm('Delete this report? This can\'t be undone.')) return;
+  const ok = await dbDelete('incident_reports', reportId);
+  if(ok){ toast('Report deleted'); render(); }
+};
+function renderIncidentFill(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!incidentDraft) incidentDraft = newIncidentDraft();
+  const d = incidentDraft;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Fill in what you can — the more detail the better. Fields marked * are required.</p>
+
+    <div class="formfield" style="margin-top:0;"><label class="field-label">Location of incident</label><input type="text" id="incLocation"></div>
+    <div class="formfield"><label class="field-label">Date of incident</label><input type="date" id="incDate" value="${new Date().toISOString().slice(0,10)}"></div>
+    <div class="formfield"><label class="field-label">Operatives involved</label><input type="text" id="incOperatives"></div>
+    <div class="formfield"><label class="field-label">Form filed by</label><input type="text" id="incFiledBy" value="${escapeHtml(ME.name)}"></div>
+
+    <div class="formfield"><label class="field-label">* Detail of the incident</label><textarea id="incDetail" rows="4" style="width:100%;box-sizing:border-box;"></textarea></div>
+
+    <label class="field-label">Photo of area of incident</label>
+    <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:6px;" onclick="document.getElementById('incAreaPhotoInput').click()">${incidentPhotoBusy ? 'Uploading…' : '📷 Add Photo(s)'}</div>
+    <input type="file" accept="image/jpeg,image/png" multiple id="incAreaPhotoInput" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadIncidentPhoto(this,'${siteId}','areaPhotos')">
+    ${d.areaPhotos.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${d.areaPhotos.map((p,i)=>`<div style="position:relative;"><img src="${publicUrl('incident-photos',p)}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;" onclick="removeIncidentPhoto('areaPhotos',${i})">✕</div></div>`).join('')}</div>` : `<div style="margin-bottom:14px;"></div>`}
+
+    <div class="formfield"><label class="field-label">Date and time of incident</label><input type="datetime-local" id="incDateTime"></div>
+    <div class="formfield"><label class="field-label">Date and time incident was reported</label><input type="datetime-local" id="incReportedDateTime"></div>
+    <div class="formfield"><label class="field-label">To whom was the incident reported?</label><input type="text" id="incReportedTo"></div>
+
+    <label class="field-label">Was there any witness(es)?</label>
+    ${incidentToggleRow('witnesses', d.witnesses, [{v:'yes',l:'Yes'},{v:'no',l:'No'},{v:'na',l:'N/A'}])}
+    ${d.witnesses==='yes' ? `<div class="formfield"><label class="field-label">Witness name(s)</label><input type="text" id="incWitnessNames"></div>` : ''}
+
+    <label class="field-label">* Operative requires further medical treatment</label>
+    ${incidentToggleRow('medicalRequired', d.medicalRequired, [{v:'yes',l:'Yes'},{v:'no',l:'No'}])}
+    ${d.medicalRequired==='yes' ? `<div class="formfield"><label class="field-label">What medical treatment is required/advised?</label><textarea id="incMedicalDetail" rows="2" style="width:100%;box-sizing:border-box;"></textarea></div>` : ''}
+
+    <p class="sectiontitle">Details of injury, if applicable</p>
+    <label class="field-label">* Any injuries occurred?</label>
+    ${incidentToggleRow('injuryOccurred', d.injuryOccurred, [{v:'yes',l:'Yes'},{v:'no',l:'No'}])}
+    ${d.injuryOccurred==='yes' ? `
+      <div class="formfield"><label class="field-label">Injury to who?</label><input type="text" id="incInjuryTo"></div>
+      <div class="formfield"><label class="field-label">Description of injury</label><textarea id="incInjuryDescription" rows="2" style="width:100%;box-sizing:border-box;"></textarea></div>
+      <label class="field-label">Further medical treatment required</label>
+      ${incidentToggleRow('injuryFurtherTreatment', d.injuryFurtherTreatment, [{v:'yes',l:'Yes'},{v:'no',l:'No'}])}
+    ` : ''}
+
+    <p class="sectiontitle">Details of damage</p>
+    <label class="field-label">Did any damage occur to any property or plant?</label>
+    ${incidentToggleRow('damageOccurred', d.damageOccurred, [{v:'yes',l:'Yes'},{v:'no',l:'No'}])}
+    ${d.damageOccurred==='yes' ? `
+      <label class="field-label">What damage occurred?</label>
+      ${incidentToggleRow('damageSeverity', d.damageSeverity, [{v:'minor',l:'Minor'},{v:'serious',l:'Serious'},{v:'major',l:'Major'}])}
+      <label class="field-label">Photo of damage</label>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:6px;" onclick="document.getElementById('incDamagePhotoInput').click()">${incidentPhotoBusy ? 'Uploading…' : '📷 Add Photo(s)'}</div>
+      <input type="file" accept="image/jpeg,image/png" multiple id="incDamagePhotoInput" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadIncidentPhoto(this,'${siteId}','damagePhotos')">
+      ${d.damagePhotos.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">${d.damagePhotos.map((p,i)=>`<div style="position:relative;"><img src="${publicUrl('incident-photos',p)}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;" onclick="removeIncidentPhoto('damagePhotos',${i})">✕</div></div>`).join('')}</div>` : ''}
+      <div class="formfield"><label class="field-label">Detailed description of how the incident happened, and what happened</label><textarea id="incDamageDescription" rows="3" style="width:100%;box-sizing:border-box;"></textarea></div>
+    ` : ''}
+
+    <p class="sectiontitle">Analysis</p>
+    <div class="formfield" style="margin-top:0;"><label class="field-label">Any contributing factors to incident?</label><textarea id="incContributingFactors" rows="2" style="width:100%;box-sizing:border-box;"></textarea></div>
+    <div class="formfield"><label class="field-label">Corrective action (include detail of action and person(s) responsible)</label><textarea id="incCorrectiveAction" rows="3" style="width:100%;box-sizing:border-box;"></textarea></div>
+    <label class="field-label">What was the potential for severity?</label>
+    ${incidentToggleRow('potentialSeverity', d.potentialSeverity, [{v:'minor',l:'Minor'},{v:'serious',l:'Serious'},{v:'major',l:'Major'}])}
+    <div class="formfield"><label class="field-label">What could have potentially happened?</label><textarea id="incPotentialOutcome" rows="2" style="width:100%;box-sizing:border-box;"></textarea></div>
+    <label class="field-label">What is the probability of reoccurrence?</label>
+    ${incidentToggleRow('reoccurrence', d.reoccurrence, [{v:'remote',l:'Remote'},{v:'improbable',l:'Improbable'},{v:'probable',l:'Probable'}])}
+
+    <label class="field-label">* Riddor reportable?</label>
+    ${incidentToggleRow('riddor', d.riddor, [{v:'yes',l:'Yes'},{v:'no',l:'No'}])}
+
+    <p class="stub">Submitting signs this report with your adopted signature — the same one used on RAMS and Toolbox Talks.</p>
+    <button class="darkbtn" style="width:100%;" onclick="submitIncidentReport('${siteId}')">Sign &amp; Submit Report</button>
+  `, {title:'New Report', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false}); }
+}
+window.submitIncidentReport = async function(siteId){
+  if(!incidentDraft) return;
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const detail = val('incDetail');
+  const d = incidentDraft;
+  if(!detail){ toast('Please describe what happened.'); return; }
+  if(!d.medicalRequired){ toast('Please answer: does the operative require further medical treatment?'); return; }
+  if(!d.injuryOccurred){ toast('Please answer: did any injuries occur?'); return; }
+  if(!d.riddor){ toast('Please answer: is this RIDDOR reportable?'); return; }
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const payload = {
+    org_id: ME.org_id, site_id: siteId, created_by: ME.id,
+    location: val('incLocation')||null,
+    incident_date: val('incDate')||null,
+    operatives_involved: val('incOperatives')||null,
+    filed_by_name: val('incFiledBy')||ME.name,
+    detail,
+    area_photo_paths: d.areaPhotos,
+    incident_datetime: val('incDateTime') ? new Date(val('incDateTime')).toISOString() : null,
+    reported_datetime: val('incReportedDateTime') ? new Date(val('incReportedDateTime')).toISOString() : null,
+    reported_to: val('incReportedTo')||null,
+    witnesses: d.witnesses||null,
+    witness_names: val('incWitnessNames')||null,
+    medical_treatment_required: d.medicalRequired==='yes',
+    medical_treatment_detail: val('incMedicalDetail')||null,
+    injury_occurred: d.injuryOccurred==='yes',
+    injury_to: val('incInjuryTo')||null,
+    injury_description: val('incInjuryDescription')||null,
+    injury_further_treatment: d.injuryFurtherTreatment==='yes',
+    damage_occurred: d.damageOccurred==='yes',
+    damage_severity: d.damageSeverity||null,
+    damage_photo_paths: d.damagePhotos,
+    damage_description: val('incDamageDescription')||null,
+    contributing_factors: val('incContributingFactors')||null,
+    corrective_action: val('incCorrectiveAction')||null,
+    potential_severity: d.potentialSeverity||null,
+    potential_outcome: val('incPotentialOutcome')||null,
+    reoccurrence_probability: d.reoccurrence||null,
+    riddor_reportable: d.riddor==='yes',
+    signature_image_path: ME.signature_path,
+    signed_at: new Date().toISOString(),
+  };
+  const rows = await dbInsert('incident_reports', payload);
+  if(rows){
+    incidentDraft = null;
+    toast('Report submitted');
+    go(`#/site/${siteId}/hs/incidents/${rows[0].id}`);
+  }
+};
+function incidentFieldRow(label, value){
+  if(value===null || value===undefined || value==='') return '';
+  return `<div style="margin-bottom:10px;"><div class="meta">${escapeHtml(label)}</div><div style="font-size:14px;color:var(--ink);white-space:pre-wrap;word-break:break-word;">${escapeHtml(String(value))}</div></div>`;
+}
+function incidentYesNo(v){ return v===true ? 'Yes' : (v===false ? 'No' : ''); }
+async function renderIncidentView(siteId, reportId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const rows = await dbSelect('incident_reports', 'id=eq.'+reportId+'&select=*');
+  const r = rows[0];
+  if(!r){ go(`#/site/${siteId}/hs/incidents`); return; }
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+        ${r.riddor_reportable ? `<span class="rolechip" style="background:#FDECEA;color:var(--red);">RIDDOR Reportable</span>` : ''}
+        ${r.injury_occurred ? `<span class="rolechip">Injury</span>` : ''}
+        ${r.damage_occurred ? `<span class="rolechip">Damage</span>` : ''}
+      </div>
+      ${incidentFieldRow('Location of incident', r.location)}
+      ${incidentFieldRow('Date of incident', r.incident_date ? new Date(r.incident_date).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '')}
+      ${incidentFieldRow('Operatives involved', r.operatives_involved)}
+      ${incidentFieldRow('Form filed by', r.filed_by_name)}
+      ${incidentFieldRow('Detail of the incident', r.detail)}
+      ${r.area_photo_paths && r.area_photo_paths.length ? `<div class="meta">Photo of area of incident</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.area_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')">`).join('')}</div>` : ''}
+      ${incidentFieldRow('Date and time of incident', r.incident_datetime ? new Date(r.incident_datetime).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '')}
+      ${incidentFieldRow('Date and time incident was reported', r.reported_datetime ? new Date(r.reported_datetime).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '')}
+      ${incidentFieldRow('Reported to', r.reported_to)}
+      ${incidentFieldRow('Witnesses', r.witnesses==='na'?'N/A':(r.witnesses ? r.witnesses.charAt(0).toUpperCase()+r.witnesses.slice(1) : ''))}
+      ${incidentFieldRow('Witness name(s)', r.witness_names)}
+      ${incidentFieldRow('Operative requires further medical treatment', incidentYesNo(r.medical_treatment_required))}
+      ${incidentFieldRow('Medical treatment required/advised', r.medical_treatment_detail)}
+      ${incidentFieldRow('Any injuries occurred', incidentYesNo(r.injury_occurred))}
+      ${incidentFieldRow('Injury to who', r.injury_to)}
+      ${incidentFieldRow('Description of injury', r.injury_description)}
+      ${incidentFieldRow('Further medical treatment required', incidentYesNo(r.injury_further_treatment))}
+      ${incidentFieldRow('Damage to property/plant', incidentYesNo(r.damage_occurred))}
+      ${incidentFieldRow('Damage severity', r.damage_severity ? r.damage_severity.charAt(0).toUpperCase()+r.damage_severity.slice(1) : '')}
+      ${r.damage_photo_paths && r.damage_photo_paths.length ? `<div class="meta">Photo of damage</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.damage_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')">`).join('')}</div>` : ''}
+      ${incidentFieldRow('How the incident happened', r.damage_description)}
+      ${incidentFieldRow('Contributing factors', r.contributing_factors)}
+      ${incidentFieldRow('Corrective action', r.corrective_action)}
+      ${incidentFieldRow('Potential severity', r.potential_severity ? r.potential_severity.charAt(0).toUpperCase()+r.potential_severity.slice(1) : '')}
+      ${incidentFieldRow('What could have potentially happened', r.potential_outcome)}
+      ${incidentFieldRow('Probability of reoccurrence', r.reoccurrence_probability ? r.reoccurrence_probability.charAt(0).toUpperCase()+r.reoccurrence_probability.slice(1) : '')}
+      ${incidentFieldRow('RIDDOR reportable', incidentYesNo(r.riddor_reportable))}
+      <div class="meta" style="margin-top:10px;">Signed by ${escapeHtml(nameOf(r.created_by))} · ${r.signed_at ? new Date(r.signed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+      ${r.signature_image_path ? `<img src="${publicUrl('signatures', r.signature_image_path)}" style="height:28px;object-fit:contain;margin-top:4px;">` : ''}
+    </div>
+    <div class="row-gap">
+      <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportIncidentPdf('${reportId}')">Export PDF</button>
+      <button class="ghostbtn exportbtn" style="flex:1;" onclick="emailIncidentReport('${siteId}','${reportId}')">Email PDF</button>
+    </div>
+    ${isManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;color:var(--red);" onclick="deleteIncidentReport('${reportId}','${siteId}')">Delete Report</button>` : ''}
+  `, {title:'Incident Report', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false}); }
+}
+async function buildIncidentPdf(reportId){
+  const rows = await dbSelect('incident_reports', 'id=eq.'+reportId+'&select=*');
+  const r = rows[0]; if(!r) return null;
+  await loadAllProfiles();
+  const site = SITES.find(s=>s.id===r.site_id);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const {bold, reg, INK, SLATE, LINE} = fonts;
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 44, CONTENT_W = PAGE_W-2*MARGIN;
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+  const WHITE = PDFLib.rgb(1,1,1);
+  let page, y;
+  function drawHeader(){
+    page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1); const s = 40/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+      page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+    }
+    const textX = logoImg ? MARGIN+52 : MARGIN;
+    page.drawText('ACCIDENT / INCIDENT / NEAR MISS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+    page.drawText(r.location || site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+    page.drawText(site.name + ' · ' + (r.incident_date ? new Date(r.incident_date).toLocaleDateString('en-GB') : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+  }
+  function drawFooter(){
+    page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
+    page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+  }
+  function newPage(){ page = pdfDoc.addPage([PAGE_W,PAGE_H]); drawHeader(); drawFooter(); y = PAGE_H-118; }
+  function ensureSpace(h){ if(y-h<50) newPage(); }
+  function wrapText(text, font, size, maxWidth){
+    const words = String(text).split(/\s+/); const lines=[]; let line='';
+    words.forEach(w=>{ const test = line?line+' '+w:w; if(font.widthOfTextAtSize(test,size)>maxWidth && line){ lines.push(line); line=w; } else line=test; });
+    if(line) lines.push(line);
+    return lines;
+  }
+  function drawRow(label, value){
+    if(value===null || value===undefined || value==='') return;
+    ensureSpace(30);
+    page.drawText(String(label), {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+    y -= 13;
+    const lines = wrapText(String(value), reg, 11, CONTENT_W);
+    lines.forEach(ln=>{ ensureSpace(15); page.drawText(ln, {x:MARGIN, y, size:11, font:reg, color:INK}); y -= 15; });
+    y -= 6;
+    page.drawLine({start:{x:MARGIN,y:y+2}, end:{x:PAGE_W-MARGIN,y:y+2}, thickness:0.5, color:LINE});
+    y -= 8;
+  }
+  async function drawPhotos(label, paths){
+    if(!paths || !paths.length) return;
+    ensureSpace(24);
+    page.drawText(label, {x:MARGIN, y, size:9.5, font:bold, color:SLATE}); y -= 8;
+    let x = MARGIN; const size = 90;
+    for(const p of paths){
+      if(x + size > PAGE_W-MARGIN){ x = MARGIN; y -= (size+8); }
+      ensureSpace(size+8);
+      try{
+        const bytes = await pdfFetchImageBytes(publicUrl('incident-photos', p));
+        if(bytes){
+          let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+          page.drawImage(img, {x, y:y-size, width:size, height:size});
+        }
+      }catch(e){}
+      x += size+8;
+    }
+    y -= (size+14);
+  }
+  newPage();
+  const fmtDT = v => v ? new Date(v).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  const cap = v => v ? v.charAt(0).toUpperCase()+v.slice(1) : '';
+  drawRow('Location of incident', r.location);
+  drawRow('Date of incident', r.incident_date ? new Date(r.incident_date).toLocaleDateString('en-GB') : '');
+  drawRow('Operatives involved', r.operatives_involved);
+  drawRow('Form filed by', r.filed_by_name);
+  drawRow('Detail of the incident', r.detail);
+  await drawPhotos('Photo of area of incident', r.area_photo_paths);
+  drawRow('Date and time of incident', fmtDT(r.incident_datetime));
+  drawRow('Date and time incident was reported', fmtDT(r.reported_datetime));
+  drawRow('To whom was the incident reported', r.reported_to);
+  drawRow('Witnesses', r.witnesses==='na'?'N/A':cap(r.witnesses));
+  drawRow('Witness name(s)', r.witness_names);
+  drawRow('Operative requires further medical treatment', incidentYesNo(r.medical_treatment_required));
+  drawRow('Medical treatment required/advised', r.medical_treatment_detail);
+  drawRow('Any injuries occurred', incidentYesNo(r.injury_occurred));
+  drawRow('Injury to who', r.injury_to);
+  drawRow('Description of injury', r.injury_description);
+  drawRow('Further medical treatment required', incidentYesNo(r.injury_further_treatment));
+  drawRow('Damage to property or plant', incidentYesNo(r.damage_occurred));
+  drawRow('Damage severity', cap(r.damage_severity));
+  await drawPhotos('Photo of damage', r.damage_photo_paths);
+  drawRow('How the incident happened', r.damage_description);
+  drawRow('Contributing factors', r.contributing_factors);
+  drawRow('Corrective action', r.corrective_action);
+  drawRow('Potential severity', cap(r.potential_severity));
+  drawRow('What could have potentially happened', r.potential_outcome);
+  drawRow('Probability of reoccurrence', cap(r.reoccurrence_probability));
+  drawRow('RIDDOR reportable', incidentYesNo(r.riddor_reportable));
+  ensureSpace(60);
+  page.drawText('Signed by '+nameOf(r.created_by)+' · '+fmtDT(r.signed_at), {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+  y -= 20;
+  if(r.signature_image_path){
+    try{
+      const bytes = await pdfFetchImageBytes(publicUrl('signatures', r.signature_image_path));
+      if(bytes){ let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); } const dim = img.scale(1); const s = 28/dim.height; page.drawImage(img, {x:MARGIN, y:y-28, width:dim.width*s, height:28}); }
+    }catch(e){}
+  }
+  const bytes = await pdfDoc.save();
+  const filename = exportFilename(site.name, 'Incident Report - '+(r.location||'')+' - '+(r.incident_date||''), 'pdf');
+  return {bytes, filename};
+}
+window.exportIncidentPdf = async function(reportId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building PDF…');
+  try{
+    const built = await buildIncidentPdf(reportId);
+    if(!built){ toast('Report not found.'); return; }
+    await deliverPdf(built.bytes, built.filename);
+  }catch(e){ console.error('Incident PDF export failed', e); toast('Export failed — '+(e && e.message ? e.message : 'unknown error')); }
+};
+window.emailIncidentReport = async function(siteId, reportId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building PDF…');
+  try{
+    const built = await buildIncidentPdf(reportId);
+    if(!built){ toast('Report not found.'); return; }
+    let binary=''; const chunk=0x8000; const bytes = built.bytes;
+    for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+    const content_base64 = btoa(binary);
+    const res = await sbFetch('/functions/v1/send-incident-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename: built.filename, content_base64})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return; }
+    toast('Incident report emailed to '+ME.email);
+  }catch(e){ console.error('Incident email failed', e); toast('Email failed — '+(e && e.message ? e.message : 'unknown error')); }
+};
+
 /* ================= DAILY BRIEFINGS =================
    Uses the same templated Report system as Reports (a template with
    sections/items, filled per site — see SITE REPORTS below) but any
@@ -10284,6 +10823,7 @@ function wrapPlainText(text, font, size, maxWidth){
 let drawingUploadOpen = false;
 let drawingNewFolderOpen = false;
 let drawingsLastFolderId; // undefined initially so the very first render always "changes"
+let drawingSupersededOpen = false;
 // "+" now asks Add Folder vs Add Drawings instead of jumping straight to
 // "new folder" — same geo-modal look used for confirm dialogs / PM pickers
 // elsewhere in the app.
@@ -10317,6 +10857,7 @@ async function renderDrawings(siteId, folderId){
   if(drawingsLastFolderId !== (folderId||null)){
     drawingNewFolderOpen = false;
     drawingUploadOpen = false;
+    drawingSupersededOpen = false;
     drawingsLastFolderId = folderId||null;
   }
   let currentFolder = null;
@@ -10325,9 +10866,10 @@ async function renderDrawings(siteId, folderId){
     currentFolder = rows[0] || null;
     if(!currentFolder){ go(`#/site/${siteId}/drawings`); return; }
   }
-  let [subfolders, files] = await Promise.all([
+  let [subfolders, files, supersededFiles] = await Promise.all([
     dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
-    dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=name.asc'),
+    dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.current&order=name.asc'),
+    dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.superseded&order=uploaded_at.desc'),
   ]);
   // "Specification" is one of the two preset top-level folders (see
   // preloadDrawingFoldersForSite). Operatives shouldn't see it cluttering
@@ -10396,13 +10938,27 @@ async function renderDrawings(siteId, folderId){
       ${files.map(f=>`
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
-          <div style="flex:1;min-width:0;font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+            ${f.supersedes ? `<div class="meta">Supersedes an earlier version</div>` : ''}
+          </div>
           <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
           ${canManage ? `<div class="taskicon" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
           ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
       `).join('')}
     ` : `<div class="empty">Nothing here yet.</div>`}
+
+    ${supersededFiles.length ? `
+    <p class="ddrow" onclick="drawingSupersededOpen=!drawingSupersededOpen;render()"><span class="arrow">${drawingSupersededOpen?'▼':'▶'}</span> Superseded Documents (${supersededFiles.length})</p>
+    ${drawingSupersededOpen ? `<div class="card">${supersededFiles.map(f=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(f.name)}</div>
+        <div class="meta">Uploaded ${new Date(f.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View document ↗</div>
+      </div>
+    `).join('')}</div>` : ''}
+    ` : ''}
 
     ${canManage ? `<div style="height:66px;"></div>` : ''}
 
@@ -10412,6 +10968,10 @@ async function renderDrawings(siteId, folderId){
           <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
           <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
           <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
+          ${files.length ? `<div class="formfield" style="margin-top:0;"><label class="field-label">Supersedes (optional)</label>
+            <select id="drawingSupersedes"><option value="">— New document, doesn't replace anything —</option>${files.map(f=>`<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('')}</select>
+            <p class="stub" style="margin:4px 0 0;">Only applies if you choose a single file below — keeps the old version on file, marked Superseded.</p>
+          </div>` : ''}
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
           <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
           <button class="ghostbtn" style="margin-top:8px;" onclick="drawingUploadOpen=false;render()">Cancel</button>
@@ -10459,6 +11019,13 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
   if(!files.length) return;
   const allowed = {'application/pdf':true, 'image/jpeg':true, 'image/png':true};
   const label = document.getElementById('drawingUploadLabel');
+  // Supersedes only ever applies to a single-file upload — picking several
+  // files at once and also choosing a document to supersede would be
+  // ambiguous about which new file replaces it, so it's silently ignored
+  // (with a toast) for a multi-file batch.
+  const supersedesEl = document.getElementById('drawingSupersedes');
+  const supersedesId = (supersedesEl && files.length===1) ? supersedesEl.value : '';
+  if(supersedesEl && supersedesEl.value && files.length>1) toast('Supersedes only applies when uploading a single file — uploaded as new documents instead.');
   let uploaded = 0, skipped = 0;
   for(let i=0; i<files.length; i++){
     const file = files[i];
@@ -10467,8 +11034,11 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
     const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('drawings', path, file, file.type);
     if(!stored) continue;
-    const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
-    if(rows) uploaded++;
+    const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id, supersedes: supersedesId||null});
+    if(rows){
+      uploaded++;
+      if(supersedesId) await dbUpdate('drawing_files', supersedesId, {status:'superseded', superseded_by:rows[0].id});
+    }
     pushDrawingToOneDrive(siteId, file);
   }
   if(uploaded){ toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
@@ -11126,6 +11696,10 @@ async function render(){
     return renderTeam();
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='dashboard'){
+    if(!ME || ME.role!=='admin'){ go('#/sites'); return; }
+    return renderDashboard();
+  }
   if(parts[0]==='templates'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1]) return renderTemplateEditor(parts[1]);
@@ -11198,6 +11772,12 @@ async function render(){
         return renderPuwer(siteId);
       }
       if(sub==='mytools') return renderMyTools(siteId);
+      if(sub==='incidents'){
+        const isub = parts[4];
+        if(isub==='new') return renderIncidentFill(siteId);
+        if(isub) return renderIncidentView(siteId, isub);
+        return renderIncidents(siteId);
+      }
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
