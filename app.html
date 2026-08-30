@@ -216,7 +216,7 @@
     cursor:pointer;line-height:1;}
 
   .status-strip{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;background:var(--card);
-    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;}
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
   .status-strip>span:first-child{text-align:left;justify-self:start;}
   .status-strip>span:nth-child(2){text-align:center;justify-self:center;}
   .status-strip>span:last-child{text-align:right;justify-self:end;}
@@ -240,6 +240,17 @@
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
   .tile .lbl{font-size:15.94px;font-weight:800;line-height:1.2;font-family:Calibri,'Open Sans',sans-serif;}
   .tile .sub{font-size:13.39px;color:var(--slate-light);font-family:Calibri,'Open Sans',sans-serif;}
+  /* Site Home's tile grid specifically, scaled to ~0.9x of the standard tile
+     sizing above (used everywhere else in the app) so the whole page of
+     tiles fits on one screen without scrolling. Scoped to .hometiles only —
+     every other tile grid in the app (Materials, Snagging, H&S, etc.) keeps
+     the normal size. */
+  .hometiles{gap:9px;}
+  .hometiles .tile{padding:12.6px 10.8px;gap:7.2px;min-height:101px;}
+  .hometiles .tile-wide{min-height:65px;}
+  .hometiles .tile .icon{width:27px;height:27px;font-size:13.5px;}
+  .hometiles .tile .lbl{font-size:14.35px;}
+  .hometiles .tile .sub{font-size:12.05px;}
   .badge-count{background:var(--red);color:#fff;font-size:10.5px;
     font-weight:800;min-width:17px;height:17px;border-radius:8.5px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1;}
   .tile .badge-count{position:absolute;top:10px;right:10px;font-size:11.5px;min-width:19px;height:19px;border-radius:9.5px;}
@@ -1453,6 +1464,23 @@ async function init(){
     applyTheme(null);
   }
   render();
+}
+
+// Site Home's status strip has Job No on the left and an on-site pill on the
+// right, both shrink-wrapped to their own text — so they naturally end up
+// different widths despite sitting in equal 1fr grid tracks. This forces the
+// pill's box to match the Job No text's rendered width exactly, run after
+// every Site Home paint (see renderSiteHome).
+function equalizeStatusStripWidths(){
+  try{
+    const strip = document.querySelector('.status-strip');
+    if(!strip) return;
+    const first = strip.children[0], last = strip.children[2];
+    if(!first || !last) return;
+    last.style.width = '';
+    const w = Math.ceil(first.getBoundingClientRect().width);
+    last.style.width = w>0 ? w+'px' : '';
+  }catch(e){ /* non-fatal — cosmetic only */ }
 }
 
 /* ================= shell ================= */
@@ -3407,10 +3435,10 @@ async function renderSiteHome(siteId){
       <span>${escapeHtml(ME.name)}</span>
       <span style="transform:scale(.9);transform-origin:right center;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
-    <div class="tilegrid">
+    <div class="tilegrid hometiles">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
-        <div><div class="lbl" style="font-size:15.94px;">Check In / Out</div><div class="sub">Tap to log time</div></div>
+        <div><div class="lbl">Check In / Out</div><div class="sub">Tap to log time</div></div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
@@ -3453,14 +3481,13 @@ async function renderSiteHome(siteId){
       ` : `
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
         <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
-        <div><div class="lbl" style="font-size:15.94px;">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
+        <div><div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
       </div>
       `) : ''}
     </div>
-    ${isManager(ME) ? `
-      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
-    ` : ''}
-  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'}); }
+  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
+    requestAnimationFrame(equalizeStatusStripWidths);
+  }
 }
 async function loadPMList(){
   await loadAllProfiles();
@@ -5722,6 +5749,9 @@ function renderMore(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings &amp; Specifications</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
     </div>
+    ${isManager(ME) ? `
+      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
+    ` : ''}
   `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
@@ -5731,7 +5761,7 @@ let checkinError = null;
 let checkinGeofenceOpen = false;
 let checkinHistoryOpen = false;
 let checkinRecentOpen = false;
-let checkinPmRecentOpen = false;
+let checkinPmLoginsOpen = false;
 // Pairs up each operative's raw in/out log (chronological, ascending) into
 // sessions of {user_id, in, out} — out:null means still on site. An "in"
 // with no prior open session starts a new one; a stray "out" with nothing
@@ -5854,7 +5884,7 @@ async function renderCheckin(siteId){
       `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
     ` : ''}
     ${isPM ? `
-      <div class="ddrow" style="margin-top:18px;" onclick="checkinHistoryOpen=!checkinHistoryOpen;render()"><span class="arrow">${checkinHistoryOpen?'▼':'▶'}</span> Recent Check-ins — All Operatives</div>
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinHistoryOpen=!checkinHistoryOpen;render()"><span class="arrow">${checkinHistoryOpen?'▼':'▶'}</span> All Operatives / PM Logins</div>
       ${checkinHistoryOpen ? `<div style="margin-top:10px;">${dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
         <div style="margin-bottom:14px;">
           <div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;">${checkinDayLabel(dayKey)}</div>
@@ -5868,15 +5898,16 @@ async function renderCheckin(siteId){
             </div>
           `).join('')}
         </div>
-      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}</div>` : ''}
-    ` : ''}
-    ${isAdmin ? `
-      <div class="ddrow" style="margin-top:18px;" onclick="checkinPmRecentOpen=!checkinPmRecentOpen;render()"><span class="arrow">${checkinPmRecentOpen?'▼':'▶'}</span> Project Manager — Recent Check-ins</div>
-      ${checkinPmRecentOpen ? `<div style="margin-top:10px;">${pmMine.length ? pmMine.slice(0,4).map(c=>`
-        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
-          <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-        </div>
-      `).join('') : `<div class="empty">${site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</div>`}</div>` : ''}
+      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}
+      ${isAdmin ? `
+        <div class="ddrow" style="margin-top:10px;" onclick="checkinPmLoginsOpen=!checkinPmLoginsOpen;render()"><span class="arrow">${checkinPmLoginsOpen?'▼':'▶'}</span> PM Logins</div>
+        ${checkinPmLoginsOpen ? `<div style="margin-top:10px;">${pmMine.length ? pmMine.slice(0,4).map(c=>`
+          <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+            <div style="font-size:12.5px;"><b>${escapeHtml(nameOf(site.responsible_pm_id))}</b> — ${c.type==='in'?'Checked in':'Checked out'} · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+        `).join('') : `<div class="empty">${site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</div>`}</div>` : ''}
+      ` : ''}
+      </div>` : ''}
     ` : ''}
     ${ME.role==='operative' ? `
       <div class="ddrow" style="margin-top:18px;" onclick="checkinRecentOpen=!checkinRecentOpen;render()"><span class="arrow">${checkinRecentOpen?'▼':'▶'}</span> Recent</div>
@@ -11808,7 +11839,8 @@ async function markMessagesRead(ids){
   }catch(e){ /* silent */ }
 }
 let msgDraft = '';
-let msgSectionsOpen = {fromTeam:true, sent:true}; // collapsible, but open by default — not collapsed on load
+let msgSectionsOpen = {fromTeam:false, sent:false}; // collapsible — auto-opened only while holding something unread, see renderMessages
+let msgLastSiteId = null, msgLastUnreadFromTeam = null, msgLastUnreadSent = null;
 let msgReplyOpenId = null; // message id whose inline reply box is showing
 let msgReplyDraft = '';
 let msgSelectedIds = new Set();
@@ -11848,6 +11880,26 @@ async function renderMessages(siteId){
     markMessagesRead(allIds);
   }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
+
+  // Auto-manage the two dropdowns: open only while they hold something new/
+  // unread, otherwise stay collapsed. Only reapplies when the site changes
+  // or the unread state actually flips — a manager who's manually opened a
+  // dropdown to browse (with nothing unread in it) doesn't get it yanked
+  // shut on the next render.
+  if(mgr){
+    const fromTeamUnread = fromTeam.some(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id)));
+    const sentUnread = broadcasts.some(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id)));
+    if(msgLastSiteId !== siteId){
+      msgLastSiteId = siteId;
+      msgLastUnreadFromTeam = fromTeamUnread;
+      msgLastUnreadSent = sentUnread;
+      msgSectionsOpen = {fromTeam:fromTeamUnread, sent:sentUnread};
+    } else if(msgLastUnreadFromTeam !== fromTeamUnread || msgLastUnreadSent !== sentUnread){
+      msgLastUnreadFromTeam = fromTeamUnread;
+      msgLastUnreadSent = sentUnread;
+      msgSectionsOpen = {fromTeam:fromTeamUnread, sent:sentUnread};
+    }
+  }
 
   const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', message:null};
   // Tapping a message that's about a specific thing (a material request,
