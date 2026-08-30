@@ -209,7 +209,7 @@
     display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
     cursor:pointer;line-height:1;}
 
-  .status-strip{display:flex;align-items:center;justify-content:space-between;background:var(--card);
+  .status-strip{display:flex;align-items:center;justify-content:space-evenly;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
     text-transform:uppercase;padding:5px 9px;border-radius:999px;}
@@ -376,6 +376,22 @@ function getDeviceId(){
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Live-formats a text input as the user types: capitalises the first letter
+// of every word (leaves the rest of each word's casing alone so acronyms
+// etc aren't mangled) — used on site name/address fields. Cursor position is
+// preserved since the transform never changes the string's length.
+function applyTitleCase(el){
+  const pos = el.selectionStart;
+  el.value = el.value.replace(/(^|\s)([a-z])/g, (m,p1,p2)=>p1+p2.toUpperCase());
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
+// Live-uppercases a text input as the user types (digits/spaces pass
+// through untouched) — used on postcode fields.
+function applyUpperCase(el){
+  const pos = el.selectionStart;
+  el.value = el.value.toUpperCase();
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
 // Consistent, readable export filenames across every PDF/Excel export:
 // "Site Name - Export Name - DD-MM-YY.ext" (a literal "/" isn't allowed in
 // filenames on iOS/Mac/Windows, so the date uses dashes instead of slashes).
@@ -1193,7 +1209,8 @@ function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
 // Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
-function snaggingFolderLabel(){ return isManager(ME) ? 'Snagging &amp; Reports' : 'Snagging / Variations'; }
+function snaggingFolderLabel(){ return isManager(ME) ? 'Reports &amp; Snagging' : 'Snagging &amp; Variations'; }
+function materialsTileLabel(){ return isManager(ME) ? 'Material Orders & Requests' : 'Material Requests'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
   return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
@@ -1341,6 +1358,41 @@ function customAlert(message){
     </div>`;
   ov.style.display = 'flex';
 }
+// Same overlay again, text-input variant — replaces window.prompt() (which
+// the Capacitor native WebView doesn't reliably implement; on the phone app
+// it can silently return null with no dialog ever appearing at all — this is
+// why "rename" actions like Drawings looked broken on the app specifically).
+let _promptResolve = null;
+function customPrompt(message, defaultValue){
+  return new Promise(resolve=>{
+    _promptResolve = resolve;
+    let ov = document.getElementById('confirmModalOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'confirmModalOverlay';
+      ov.className = 'geo-modal-overlay';
+      document.body.appendChild(ov);
+    }
+    ov.onclick = (e)=>{ if(e.target===ov) window._promptAnswer(null); };
+    ov.innerHTML = `
+      <div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 10px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+        <div class="formfield" style="margin-top:0;"><input type="text" id="customPromptInput" value="${escapeHtml(defaultValue||'')}" onkeyup="if(event.key==='Enter')window._promptAnswer(document.getElementById('customPromptInput').value);"></div>
+        <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswer(document.getElementById('customPromptInput').value)">OK</button>
+        <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+    const input = document.getElementById('customPromptInput');
+    if(input){ input.focus(); input.select(); }
+  });
+}
+window._promptAnswer = function(result){
+  const ov = document.getElementById('confirmModalOverlay');
+  if(ov) ov.style.display = 'none';
+  const resolve = _promptResolve;
+  _promptResolve = null;
+  if(resolve) resolve(result);
+};
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
@@ -1404,8 +1456,8 @@ function shell(innerHtml, opts){
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div style="flex:1;min-width:0;min-height:66px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
-            <h2>${opts.title||''}</h2>
-            ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
+            <h2 ${opts.titleIsSiteName ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
+            ${opts.subtitle ? `<div class="meta" ${opts.siteNameSubtitle ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.subtitle}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
@@ -1840,7 +1892,7 @@ window.setUserRole = async function(userId, role){
   if(row){ toast(`Role changed to ${roleLabel(role)}`); render(); }
 };
 window.resetUserPassword = async function(email){
-  const custom = prompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
+  const custom = await customPrompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
   if(custom === null) return; // cancelled
   const newPassword = custom.trim();
   if(newPassword && newPassword.length < 8){ toast('Password must be at least 8 characters.'); return; }
@@ -1921,7 +1973,10 @@ function siteCardHtml(s, canAdd, pmOptions){
   // Admin Centre lets a company choose what the tile itself shows — job
   // number and postcode both fall back to the initials when a site simply
   // doesn't have one set yet, rather than showing an empty tile.
-  const tileMode = (ORG && ORG.site_tile_mode) || 'jobnumber';
+  // The Site Tile Label picker has been removed from Admin Centre — every
+  // company's tiles show the job number now, regardless of any preference
+  // stored from when the picker still existed.
+  const tileMode = 'jobnumber';
   const swatchText = tileMode==='jobnumber' ? (s.job_number || initials)
     : tileMode==='postcode' ? (s.postcode || initials)
     : initials;
@@ -2032,7 +2087,7 @@ async function renderSites(){
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <p class="sectiontitle" style="margin:4px 0 10px;">Your Sites</p>
+      <p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;margin-top:-9px;" data-pmfilter-root>
           <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
@@ -2053,20 +2108,20 @@ async function renderSites(){
       ` : ''}
     </div>
     ${canAdd ? `
-      ${siteSection('live','Live Jobs',liveSites,true)}
-      ${siteSection('upcoming','Upcoming Jobs',upcomingSites)}
-      ${siteSection('closed','Closed Jobs',closedSites)}
+      ${siteSection('live','Live Projects',liveSites,true)}
+      ${siteSection('upcoming','Upcoming Projects',upcomingSites)}
+      ${siteSection('closed','Closed Projects',closedSites)}
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
     ${canAdd ? `
       <div class="card" style="margin-top:20px;background:var(--paper);">
-        <p class="sectiontitle" style="margin-top:0;">Add a site</p>
+        <p class="sectiontitle" style="margin-top:0;">Add a Project</p>
         ${addSiteFormOpen ? `
-          <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="newSiteNameDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="newSiteAddrDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="newSitePostcodeDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number (optional)" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="applyTitleCase(this);newSiteNameDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
           <p class="field-label" style="margin-bottom:6px;">Status</p>
           <div class="row-gap" style="margin-bottom:14px;">
             <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
@@ -2077,7 +2132,7 @@ async function renderSites(){
             <div class="formfield"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value"></div>
           ` : ''}
         ` : ''}
-        <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Site</button>
+        <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Project</button>
       </div>
       <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
     ` : ''}
@@ -2102,6 +2157,7 @@ window.addSite = async function(){
   const jobNumber = document.getElementById('newSiteJobNumber').value.trim();
   const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
+  if(!jobNumber){ toast('Enter a job number.'); return; }
   if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
   // Prefer: return=representation) — Postgres has a known quirk where a
@@ -2118,10 +2174,24 @@ window.addSite = async function(){
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
+  await preloadDrawingFoldersForSite(newSite);
   addSiteFormOpen = false;
   toast('Site created');
   render();
 };
+// Every new site gets two preset top-level Drawings folders — "Drawings"
+// and "Specification" — so PMs don't have to set that structure up by hand
+// each time. "Specification" is hidden from operatives while it's empty
+// (see renderDrawings); PMs always see both, even empty.
+async function preloadDrawingFoldersForSite(site){
+  if(!site) return;
+  try{
+    await dbInsert('drawing_folders', [
+      {site_id:site.id, parent_id:null, name:'Drawings', position:0, created_by:ME.id},
+      {site_id:site.id, parent_id:null, name:'Specification', position:1, created_by:ME.id},
+    ]);
+  }catch(e){ console.error('Could not preload drawing folders for new site', e); }
+}
 // Pre-loads every company-wide Toolbox Talk template into this new site's
 // Bank TBT, so standard talks are already there without a PM re-uploading
 // them on every job.
@@ -2413,16 +2483,6 @@ async function renderTeam(){
         <button class="darkbtn" ${themeBusy?'disabled':''} onclick="saveCompanyTheme()">${themeBusy?'Saving…':'Save Theme'}</button>
         <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="resetCompanyTheme()">Reset to Default</button>
       </div>
-    </div>
-    <p class="sectiontitle">Site Tile Label</p>
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Choose what shows on each site's tile on the main sites page.</p>
-      <div class="row-gap">
-        ${[['initials','Initials'],['jobnumber','Job Number'],['postcode','Postcode']].map(([val,lbl])=>`
-          <button class="${(ORG && ORG.site_tile_mode||'initials')===val?'darkbtn':'ghostbtn'}" style="flex:1;" ${siteTileModeBusy?'disabled':''} onclick="setSiteTileMode('${val}')">${lbl}</button>
-        `).join('')}
-      </div>
-      ${(ORG && ORG.site_tile_mode)==='jobnumber' ? `<p class="stub" style="margin:8px 0 0;">Sites without a job number set will fall back to showing initials.</p>` : (ORG && ORG.site_tile_mode)==='postcode' ? `<p class="stub" style="margin:8px 0 0;">Sites without a postcode set will fall back to showing initials.</p>` : ''}
     </div>
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
@@ -2931,11 +2991,17 @@ const SITES_ROOT_ID = '__SITES__';
 let odPickerStack = null; // array of {id, name, driveId, isSite} — first entry is always the OneDrive root
 let odPickerFolders = [];
 let odPickerError = null;
+// This same picker is reused for two different site-level folder links —
+// 'progress' (photo sync + Drawings import, the original use) and
+// 'materials' (Material Orders auto-sync). The target decides which columns
+// get written and which page "Use this folder" sends you back to.
+let odPickerTarget = 'progress';
 window.onedriveFolderAction = function(siteId, action){
-  if(action==='change') startOneDriveFolderPicker(siteId);
+  if(action==='change') startOneDriveFolderPicker(siteId, 'progress');
   else if(action==='unlink') unlinkOneDriveFolder(siteId);
 };
-window.startOneDriveFolderPicker = function(siteId){
+window.startOneDriveFolderPicker = function(siteId, target){
+  odPickerTarget = target || 'progress';
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];
   odPickerError = null;
@@ -2997,7 +3063,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title:'Choose OneDrive Folder', subtitle:site.name, back:`#/site/${siteId}/team`, siteId, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? 'Choose Material Orders Folder' : 'Choose OneDrive Folder', subtitle:site.name, siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : `#/site/${siteId}/team`, siteId, tabs:false}); }
 }
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -3008,18 +3074,36 @@ window.odPickerUp = function(){
   render();
 };
 window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
-  const row = await dbUpdate('sites', siteId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null});
+  const patch = odPickerTarget==='materials'
+    ? {material_orders_folder_id: folderId, material_orders_folder_name: folderName, material_orders_drive_id: driveId || null}
+    : {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null};
+  const row = await dbUpdate('sites', siteId, patch);
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
     odPickerStack = null;
-    toast('Folder linked — photos for this site will sync there from now on');
-    go(`#/site/${siteId}/team`);
+    if(odPickerTarget==='materials'){
+      toast('Folder linked — material orders will sync from there daily');
+      go(`#/site/${siteId}/materialorders`);
+    } else {
+      toast('Folder linked — photos for this site will sync there from now on');
+      go(`#/site/${siteId}/team`);
+    }
   }
 };
 window.unlinkOneDriveFolder = async function(siteId){
   if(!await customConfirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
   const row = await dbUpdate('sites', siteId, {onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Folder unlinked');
+    render();
+  }
+};
+window.unlinkMaterialOrdersFolder = async function(siteId){
+  if(!await customConfirm('Unlink this Material Orders folder? Daily sync will stop until you link a new one.')) return;
+  const row = await dbUpdate('sites', siteId, {material_orders_folder_id: null, material_orders_folder_name: null, material_orders_drive_id: null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -3143,10 +3227,8 @@ async function renderSiteHome(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
-      <span style="display:flex;align-items:center;gap:8px;">
-        <span>${escapeHtml(ME.name)}</span>
-        ${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
-      </span>
+      <span>${escapeHtml(ME.name)}</span>
+      <span style="transform:scale(.9);transform-origin:right center;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
     <div class="tilegrid">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
@@ -3164,12 +3246,18 @@ async function renderSiteHome(siteId){
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')">
         <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
-        <div class="lbl">Drawings</div><div class="sub">View &amp; upload</div>
+        <div class="lbl">Drawings &amp; Specifications</div><div class="sub">View &amp; upload</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-        <div class="lbl">Material Requests</div><div class="sub">${pendingMat.length} pending</div>
+        <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
       </div>
+      ${isManager(ME) ? `
+      <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
+        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
+        <div class="lbl">Material Orders</div><div class="sub">Synced daily</div>
+      </div>
+      ` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/snagging')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
         <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
@@ -3201,7 +3289,7 @@ async function renderSiteHome(siteId){
     ${isManager(ME) ? `
       <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
     ` : ''}
-  `, {title:site.name, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'}); }
+  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'}); }
 }
 async function loadPMList(){
   await loadAllProfiles();
@@ -3306,9 +3394,26 @@ window.confirmEmailTodoList = async function(siteId){
     window.closeTodoEmailPicker();
   }catch(e){ console.error(e); toast('Could not send email.'); if(btn){ btn.disabled=false; btn.textContent='Send'; } }
 };
+let todoListLastSiteId; // undefined initially so the very first render always "changes"
 async function renderTodoList(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Every piece of to-do UI state below (which filter tab, which row is mid-
+  // edit, the draft new-todo fields, the email picker's ticked recipients)
+  // was only ever reset when leaving the To Do List page entirely — not when
+  // jumping straight from one site's To Do List to a DIFFERENT site's To Do
+  // List (e.g. via a notification, or the tab staying on "todos" while the
+  // URL's site id changes). That gap could leave things like an in-progress
+  // edit or a stuck filter pointing at state that doesn't belong to the site
+  // now on screen. The list itself was always fetched fresh and scoped by
+  // site_id, but reset all of this whenever the site actually changes too,
+  // not just on page change, so nothing can look like it "carried over".
+  if(todoListLastSiteId !== siteId){
+    todoListLastSiteId = siteId;
+    newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = '';
+    todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null;
+    todoEmailRecipientIds = []; todoEmailFilterText = '';
+  }
   const [allTodos, pmList] = await Promise.all([
     dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
     loadPMList(),
@@ -3420,7 +3525,7 @@ async function renderTodoList(siteId){
     ${todoFilter==='live' && todos.length ? `
       <button class="ghostbtn exportbtn" style="margin-top:14px;" onclick="openTodoEmailPicker('${siteId}')">Email To Do List</button>
     ` : ''}
-  `, {title:'To Do List', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
+  `, {title:'To Do List', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
 }
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
@@ -3657,8 +3762,8 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
     <div class="card">
-      <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}"></div>
-      <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}"></div>
+      <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}" oninput="applyTitleCase(this)"></div>
+      <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}" oninput="applyUpperCase(this)"></div>
       <div class="formfield"><label class="field-label">Job Number</label><input type="text" id="editSiteJobNumber" placeholder="Optional" value="${escapeHtml(site.job_number||'')}"></div>
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
@@ -3730,7 +3835,7 @@ async function renderAssignTeam(siteId){
         <p class="stub" style="margin:6px 0 0;">Closed ${site.closed_at ? new Date(site.closed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.closed_by ? ' by '+escapeHtml(nameOf(site.closed_by)) : ''}</p>
       ` : ''}
     </div>
-  `, {title:'Settings & Admin', subtitle:site.name, back:`#/site/${siteId}/home`, tabs:false}); }
+  `, {title:'Settings & Admin', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
 let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
@@ -4176,7 +4281,7 @@ async function renderPriceTile(siteId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:'Price', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
+  `, {title:'Price', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
   // Fire-and-forget: only a manager's own view can flip the flag (updating
   // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
   // just viewing the price. Only actually hits the DB on a state change —
@@ -4587,7 +4692,7 @@ async function renderSiteReportTemplates(siteId){
       </div>
     `).join('') || `<div class="empty">No report templates yet${canEdit?'.':' — ask a Project Manager to create one.'}</div>`}
     ${canEdit ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
-  `, {title:'Report Templates', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Report Templates', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 // Reports tile: inspections list for this site, plus a template picker for
 // starting a new one — the "start a report" flow that used to live inside
@@ -4646,7 +4751,7 @@ async function renderSiteReports(siteId){
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
     `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
-  `, {title:'Reports', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Reports', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.startReport = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
@@ -4772,7 +4877,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
       <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, back:listPath, siteId, activeTab:'more'}); }
+  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
 window.saveReportProgress = async function(siteId){
   reportSaveBusy = true; render();
@@ -5010,7 +5115,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       <button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}')">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, back:listPath, siteId, activeTab:'more'}); }
+  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
 function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
@@ -5429,10 +5534,11 @@ function renderMore(siteId){
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">Material Requests</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings &amp; Specifications</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
+      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/materialorders')"><div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div><div class="lbl">Material Orders</div></div>` : ''}
     </div>
-  `, {title:'More', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= CHECK IN/OUT ================= */
@@ -5589,7 +5695,7 @@ async function renderCheckin(siteId){
       <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
     ` : ''}
   `;
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
 window.doCheckAction = async function(siteId, type){
   checkinError = null;
@@ -5659,6 +5765,8 @@ window.exportCheckins = async function(siteId, scope){
 /* ================= SCHEDULE OF WORKS ================= */
 let editingTaskId = null;
 let scheduleFilter = 'all';
+let scheduleLastSiteId; // undefined initially so the first render always sets a default
+let scheduleLastAnyStarted = null;
 // A task moving to "Complete" isn't saved as done straight away — it sits
 // here as a pending completion until at least one completion photo is
 // uploaded, so nobody can mark a job done with no evidence attached. They
@@ -5732,6 +5840,24 @@ async function renderSchedule(siteId){
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
   ]);
   scheduleSectionsCache = sections;
+  // Once anything on this schedule has actually started, "All" moves out of
+  // pole position — To Do becomes the default view (what's left to start),
+  // with In Progress/Complete as the middle tab, and All pushed to the end.
+  // Before anything has started, the original All/To Do/In Progress order
+  // stays, defaulting to All. The default only re-applies the moment this
+  // site's started/not-started state actually flips (or on first load),
+  // so it doesn't fight a tab the user has deliberately picked otherwise.
+  const anyStarted = allTasks.some(t=>t.status==='progress'||t.status==='done');
+  if(scheduleLastSiteId !== siteId){
+    scheduleLastSiteId = siteId;
+    scheduleLastAnyStarted = anyStarted;
+    scheduleFilter = anyStarted ? 'todo' : 'all';
+  } else if(scheduleLastAnyStarted !== anyStarted){
+    scheduleLastAnyStarted = anyStarted;
+    scheduleFilter = anyStarted ? 'todo' : 'all';
+  }
+  const scheduleTabOrder = anyStarted ? ['todo','progress','all'] : ['all','todo','progress'];
+  const scheduleTabLabel = {all:'All', todo:'To Do', progress:'In Progress / Complete'};
   const tasks = scheduleFilter==='all' ? allTasks
     : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
     : allTasks.filter(t=>t.status===scheduleFilter);
@@ -5747,9 +5873,7 @@ async function renderSchedule(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
-      <div class="filterchip ${scheduleFilter==='all'?'active':''}" onclick="scheduleFilter='all';render()">All</div>
-      <div class="filterchip ${scheduleFilter==='todo'?'active':''}" onclick="scheduleFilter='todo';render()">To Do</div>
-      <div class="filterchip ${scheduleFilter==='progress'?'active':''}" onclick="scheduleFilter='progress';render()">In Progress / Complete</div>
+      ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
     ${ungrouped.length ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
@@ -5778,8 +5902,8 @@ async function renderSchedule(siteId){
             ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
             ${canAdd && scheduleFilter==='all' ? `
               <div class="row-gap" style="margin-top:10px;">
-                <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;">
-                <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
+                <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
+                <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
               </div>
             ` : ''}
           </div>
@@ -5797,13 +5921,13 @@ async function renderSchedule(siteId){
         </div>
         ${scheduleAddMode==='task' ? `
           <div class="row-gap">
-            <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;">
-            <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addTask('${siteId}')">Add</button>
+            <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
+            <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
           </div>
         ` : `
           <div class="row-gap">
-            <input type="text" id="newSectionName" placeholder="e.g. Roof Level 1" style="flex:2;">
-            <button class="darkbtn" style="flex:1;padding:10px 16px;" onclick="addSection('${siteId}')">Add</button>
+            <input type="text" id="newSectionName" placeholder="e.g. Roof Level 1" style="flex:2;padding:8px 10px;font-size:12px;">
+            <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addSection('${siteId}')">Add</button>
           </div>
         `}
       </div>
@@ -5836,7 +5960,7 @@ async function renderSchedule(siteId){
       ` : ''}
     ` : ''}
     ${allTasks.length ? `<button class="ghostbtn exportbtn sowexportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
-  `, {title:'Schedule of Works', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  `, {title:'Schedule of Works', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 }
 window.toggleScheduleSection = function(sectionId){
   const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
@@ -5856,7 +5980,7 @@ window.addSection = async function(siteId){
 };
 window.renameSection = async function(siteId, sectionId){
   const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
-  const name = prompt('Section name', sec ? sec.name : '');
+  const name = await customPrompt('Section name', sec ? sec.name : '');
   if(name===null) return;
   const trimmed = name.trim();
   if(!trimmed){ toast('Section name can\'t be empty.'); return; }
@@ -6085,7 +6209,7 @@ async function renderSnaggingFolder(siteId){
       </div>
       ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div></div>` : ''}
     </div>
-  `, {title:snaggingFolderLabel(), subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:snaggingFolderLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= SNAGGING ================= */
@@ -6178,7 +6302,7 @@ async function renderSnagging(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','closed')">Export closed (PDF)</button>
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','both')">Export all (PDF)</button>
     </div>
-  `, {title:'Snagging', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Snagging', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.snagAddPhoto = async function(input){
   const files = input.files && Array.from(input.files); if(!files || !files.length) return;
@@ -6751,7 +6875,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
         <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
           ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
         </div>
-        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn ramsexportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
+        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
     </div>`;
@@ -6796,10 +6920,17 @@ async function renderRams(siteId){
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
   `;
 
+  const unsignedRamsCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
-    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="sendRamsSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
+    ${docs.length ? `
+      <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
+        ${unsignedRamsCount ? `Sign All RAMS Documents (${unsignedRamsCount} unsigned)` : 'All RAMS documents signed'}
+      </button>
+    ` : ''}
+    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;padding:8px 6px;font-size:11.5px;" onclick="sendRamsSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Upload RAMS</div>
@@ -6820,7 +6951,7 @@ async function renderRams(siteId){
       </div>
     `).join('')}</div>` : ''}
     ` : ''}
-  `, {title:'RAMS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'RAMS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
   ramsPollTimer = setInterval(async ()=>{
@@ -6857,6 +6988,21 @@ window.signRams = async function(siteId, ramsId){
   }
   const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, signature_image_path:ME.signature_path});
   if(rows){ toast('Signed — archived automatically'); render(); }
+};
+// One tap signs every current RAMS document at this site the user hasn't
+// already signed — mirrors signAllCoshh. Each document stays its own
+// separate record, so exportSignedRams still produces one PDF per document.
+window.signAllRams = async function(siteId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const {docs, sigsByDoc} = await fetchRamsData(siteId);
+  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
+  if(!toSign.length){ toast('Already signed everything.'); render(); return; }
+  const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
+  if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
 window.exportSignedRams = async function(ramsId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -6917,14 +7063,7 @@ window.sendRamsSignReminder = async function(siteId){
 let coshhPollTimer = null;
 function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds){
   const roster = assignedIds||[];
-  const unsignedCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
-  const signAllRow = docs.length ? `
-    <button class="darkbtn" style="margin-bottom:14px;" ${unsignedCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
-      ${unsignedCount ? `Sign All COSHH Documents (${unsignedCount} unsigned)` : 'All COSHH documents signed'}
-    </button>
-    <p class="stub" style="margin:-8px 0 14px;">One tap signs every COSHH document below at once — each one still exports as its own separate PDF with its own signature page.</p>
-  ` : '';
-  return signAllRow + docs.map(r=>{
+  return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
     const mine = sigs.find(s=>s.user_id===ME.id);
     const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
@@ -6978,20 +7117,28 @@ async function renderCoshh(siteId){
   const canAdd = isManager(ME);
   await loadAllProfiles();
   const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
+  const unsignedCoshhCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+  const signedCoshhCount = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0).length;
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
         <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('coshhFileName').textContent=this.files[0]?this.files[0].name:''">
         <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;"></p>
-        <button class="darkbtn" onclick="addCoshh('${siteId}')">Upload</button>
+        <button class="darkbtn" style="padding:8px 6px;font-size:11.5px;" onclick="addCoshh('${siteId}')">Upload</button>
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
+        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>
   `;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds)}</div>
 
-    ${canAdd ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>` : ''}
-    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="sendCoshhSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
+    ${docs.length ? `
+      <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedCoshhCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
+        ${unsignedCoshhCount ? `Sign All COSHH Documents (${unsignedCoshhCount} unsigned)` : 'All COSHH documents signed'}
+      </button>
+    ` : ''}
+    ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="sendCoshhSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
+    ${canAdd && signedCoshhCount ? `<button class="ghostbtn" style="margin-bottom:14px;padding:8px 6px;font-size:11.5px;" ${coshhEmailAllBusy?'disabled':''} onclick="emailAllSignedCoshh('${siteId}')">${coshhEmailAllBusy?'Building & sending…':`✉️ Email All Signed COSHH (${signedCoshhCount})`}</button>` : ''}
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="coshhUploadOpen=!coshhUploadOpen;render()"><span class="arrow">${coshhUploadOpen?'▼':'▶'}</span> Upload COSHH</div>
@@ -7002,7 +7149,7 @@ async function renderCoshh(siteId){
         ${uploadForm}
       </div>
     `) : ''}
-  `, {title:'COSHH', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'COSHH', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(coshhPollTimer) clearInterval(coshhPollTimer);
   coshhPollTimer = setInterval(async ()=>{
@@ -7022,7 +7169,11 @@ window.addCoshh = async function(siteId){
   const stored = await uploadToStorage('coshh-docs', path, file, 'application/pdf');
   if(!stored) return;
   const rows = await dbInsert('coshh_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
-  if(rows){ toast('COSHH uploaded'); coshhUploadOpen = false; render(); }
+  // Deliberately leaves the Upload COSHH dropdown open — closing it after
+  // every upload made it awkward to add several documents in a row. It only
+  // needs collapsing once the operative(s) have actually signed, which
+  // happens naturally the next time the page is opened fresh.
+  if(rows){ toast('COSHH uploaded'); render(); }
 };
 // Replaces a COSHH document's file in place (an edit, not a new document —
 // unlike RAMS "supersede" this doesn't keep the old file). Resets every
@@ -7068,14 +7219,18 @@ window.signAllCoshh = async function(siteId){
   const rows = await dbInsert('coshh_signatures', toSign.map(r=>({coshh_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
-window.exportSignedCoshh = async function(coshhId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
-  toast('Building signed PDF…');
+// Shared PDF builder behind both the single "Export Signed PDF" button and
+// the bulk "Email All Signed COSHH" action — builds the signed PDF for one
+// COSHH document and returns its bytes/base64/filename, or null if there's
+// nothing to build (no doc, no signatures, or PDFLib not ready). Doesn't
+// toast on the "nothing to build" cases so a bulk caller can just skip it.
+async function buildSignedCoshhPdf(coshhId){
+  if(typeof PDFLib==='undefined') return null;
   const docs = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=*');
   const doc = docs[0];
-  if(!doc){ toast('Document not found.'); return; }
+  if(!doc) return null;
   const sigs = await dbSelect('coshh_signatures', 'coshh_id=eq.'+coshhId+'&order=signed_at.asc');
-  if(!sigs.length){ toast('No signatures yet.'); return; }
+  if(!sigs.length) return null;
   try{
     const srcBytes = await (await fetch(publicUrl('coshh-docs', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
@@ -7091,11 +7246,44 @@ window.exportSignedCoshh = async function(coshhId){
     const filename = exportFilename(coshhSite?coshhSite.name:'', doc.name+' (Signed)', 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    await deliverPdf(outBytes, filename);
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
+    const base64 = btoa(binary);
+    return {bytes: outBytes, base64, filename, doc};
   }catch(e){
     console.error(e);
-    toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+    return null;
   }
+}
+window.exportSignedCoshh = async function(coshhId){
+  toast('Building signed PDF…');
+  const built = await buildSignedCoshhPdf(coshhId);
+  if(!built){ toast('Could not build the signed PDF — check there are signatures and the source file is a valid PDF.'); return; }
+  await deliverPdf(built.bytes, built.filename);
+};
+// Emails every currently-signed COSHH document at this site as its own
+// separate PDF attachment, all on a single email — as opposed to Export
+// Signed PDF which downloads one document at a time.
+let coshhEmailAllBusy = false;
+window.emailAllSignedCoshh = async function(siteId){
+  coshhEmailAllBusy = true; render();
+  toast('Building PDFs…');
+  try{
+    const {docs, sigsByDoc} = await fetchCoshhData(siteId);
+    const signedDocs = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0);
+    if(!signedDocs.length){ toast('No signed COSHH documents to email yet.'); coshhEmailAllBusy=false; render(); return; }
+    const attachments = [];
+    for(const d of signedDocs){
+      const built = await buildSignedCoshhPdf(d.id);
+      if(built) attachments.push({filename: built.filename, content_base64: built.base64});
+    }
+    if(!attachments.length){ toast('Could not build any of the signed COSHH documents.'); coshhEmailAllBusy=false; render(); return; }
+    const res = await sbFetch('/functions/v1/send-coshh-email', {method:'POST', body: JSON.stringify({site_id:siteId, attachments})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else toast(`${attachments.length} signed COSHH document${attachments.length===1?'':'s'} emailed to ${ME.email}`);
+  }catch(e){ console.error(e); toast('Email failed — could not reach the server.'); }
+  coshhEmailAllBusy = false; render();
 };
 window.deleteCoshh = async function(coshhId, storagePath){
   if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
@@ -7163,7 +7351,7 @@ async function renderHealthSafety(siteId){
       </div>
     </div>
     ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
-  `, {title:'Health & Safety', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:'Health & Safety', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= HAVS (Hand-Arm Vibration exposure) =================
@@ -7608,7 +7796,7 @@ async function renderHavs(siteId){
       `}
     </div>
     ` : ''}
-  `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
 // Read-only list of weeks a manager has marked done, with Export/Email
@@ -7640,7 +7828,7 @@ async function renderHavsCompletedTab(siteId, site, canManage, __gen){
         </div>
       </div>`;
     }).join('')}
-  `, {title:'HAVS', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 window.exportHavsCompletedWeek = async function(siteId, weekStart){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -8146,7 +8334,7 @@ async function renderMyTools(siteId){
     ` : `
       <button class="darkbtn" style="margin-top:10px;" onclick="myToolsAddOpen=true;render()">+ Add Tool</button>
     `}
-  `, {title:'My Tools', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, tabs:false}); }
+  `, {title:'My Tools', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, tabs:false}); }
 }
 
 /* ================= PUWER TOOL INSPECTION =================
@@ -8221,7 +8409,7 @@ async function renderPuwer(siteId){
     ` : ''}
     ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;padding:8px 6px;font-size:11.5px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
     ${canManage && completion ? `<button class="ghostbtn" style="margin-top:18px;" onclick="reopenPuwerWeek('${completion.id}')">Reopen This Week</button>` : ''}
-  `, {title:'PUWER Tool Inspection', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'PUWER Tool Inspection', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let puwerExportSelectedIds = [];
 let puwerExportAllBusy = false;
@@ -8750,7 +8938,7 @@ async function renderDailyBriefings(siteId){
         <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
       ` : ''}
     `;}).join('') || `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
-  `, {title:'Daily Briefings', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Daily Briefings', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 window.deleteBriefingSubmission = async function(siteId, submissionId){
   if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
@@ -8886,12 +9074,12 @@ async function renderToolboxTalks(siteId){
       <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
     </div>
     ` : ''}
-  `, {title:'Toolbox Talks', subtitle:site.name, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Toolbox Talks', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let tbtReplaceFileOpen = null;
 let tbtReplaceBusy = false;
 window.renameToolboxTalk = async function(tbtId, currentTitle){
-  const next = prompt('Rename toolbox talk', currentTitle);
+  const next = await customPrompt('Rename toolbox talk', currentTitle);
   if(next==null) return;
   const trimmed = next.trim();
   if(!trimmed || trimmed===currentTitle) return;
@@ -8974,7 +9162,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
     </div>
     ` : ''}
-  `, {title:talk.title, subtitle:site.name, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
+  `, {title:talk.title, subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
 }
 window.signToolboxTalk = async function(siteId, tbtId){
   if(!ME.signature_path){
@@ -9438,7 +9626,7 @@ async function renderMaterials(siteId){
     </div>
     ` : ''}
     ` : ''}
-  `, {title:'Material Requests', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 // Supplier duplicate detection — company names get typed inconsistently
 // (case, punctuation, "Ltd"/"Limited", or plain typos), so a straight
@@ -9601,7 +9789,7 @@ window.deleteHavsTool = async function(toolId, name){
   if(row){ toast('Tool removed'); render(); }
 };
 window.cancelMaterial = async function(siteId, matId){
-  const reason = prompt('Why are you cancelling this request? This will be visible to your Project Manager.');
+  const reason = await customPrompt('Why are you cancelling this request? This will be visible to your Project Manager.');
   if(reason === null) return;
   if(!reason.trim()){ toast('A reason is required to cancel.'); return; }
   const row = await dbUpdate('materials', matId, {status:'cancelled', cancel_reason: reason.trim(), cancelled_by: ME.id});
@@ -9794,6 +9982,57 @@ window.deleteMaterial = async function(siteId, matId){
   if(ok){ toast('Material request deleted'); render(); }
 };
 
+/* ================= MATERIAL ORDERS (PM-only — auto-synced daily from a linked OneDrive folder) ================= */
+let materialOrdersSyncBusy = false;
+async function renderMaterialOrders(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
+  const files = await dbSelect('material_order_files', 'site_id=eq.'+siteId+'&order=synced_at.desc');
+  const linked = !!site.material_orders_folder_id;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      ${linked ? `
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Synced daily from "${escapeHtml(site.material_orders_folder_name||'')}"</p>
+        <div class="row-gap">
+          <button class="ghostbtn" style="flex:1;" ${materialOrdersSyncBusy?'disabled':''} onclick="syncMaterialOrdersNow('${siteId}')">${materialOrdersSyncBusy?'Syncing…':'🔄 Sync Now'}</button>
+          <button class="ghostbtn" style="flex:1;" onclick="startOneDriveFolderPicker('${siteId}','materials')">Change Folder</button>
+        </div>
+        <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkMaterialOrdersFolder('${siteId}')">Unlink Folder</button>
+      ` : `
+        <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and any files placed in it will sync here automatically once a day — no need to upload anything by hand. You can also sync on demand any time.</p>
+        <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','materials')">Link OneDrive Folder</button>
+      `}
+    </div>
+    ${files.length ? files.map(f=>`
+      <div class="ramsdoc" style="padding:10px 12px;">
+        <div class="taskrowtop">
+          <div class="name" style="font-size:14.5px;font-weight:800;">${escapeHtml(f.name)}</div>
+        </div>
+        <div class="meta" style="margin-top:3px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document ↗</span></div>
+      </div>
+    `).join('') : `<div class="empty">${linked ? 'Nothing synced yet — tap Sync Now, or wait for the daily sync.' : 'No material order files yet.'}</div>`}
+  `, {title:'Material Orders', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+window.syncMaterialOrdersNow = async function(siteId){
+  materialOrdersSyncBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/sync-material-orders', {method:'POST', body: JSON.stringify({site_id:siteId})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); }
+    else toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}` : 'Already up to date.');
+  }catch(e){ console.error(e); toast('Sync failed — could not reach the server.'); }
+  materialOrdersSyncBusy = false; render();
+};
+window.viewMaterialOrderFile = async function(siteId, storagePath, name){
+  try{
+    const res = await sbFetch('/functions/v1/material-order-file-access', {method:'POST', body: JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
+    viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
+  }catch(e){ toast('Could not open file.'); }
+};
+
 /* ================= VARIATIONS ================= */
 let varDraft = null;
 let varFilter = 'live';
@@ -9860,7 +10099,7 @@ async function renderVariations(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','closed')">Export closed (PDF)</button>
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','both')">Export all (PDF)</button>
     </div>
-  `, {title:'Variations', subtitle:site.name, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Variations', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.varPhoto = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -10061,7 +10300,7 @@ window.showDrawingAddMenu = function(siteId, folderId){
     <div class="geo-modal-card">
       <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';drawingNewFolderOpen=true;drawingUploadOpen=false;render()">📁 Add Folder</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';drawingUploadOpen=true;drawingNewFolderOpen=false;render()">📐 Add Drawings</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';drawingUploadOpen=true;drawingNewFolderOpen=false;render()">📄 Add Document</button>
       <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
     </div>`;
   ov.style.display = 'flex';
@@ -10086,10 +10325,26 @@ async function renderDrawings(siteId, folderId){
     currentFolder = rows[0] || null;
     if(!currentFolder){ go(`#/site/${siteId}/drawings`); return; }
   }
-  const [subfolders, files] = await Promise.all([
+  let [subfolders, files] = await Promise.all([
     dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=name.asc'),
   ]);
+  // "Specification" is one of the two preset top-level folders (see
+  // preloadDrawingFoldersForSite). Operatives shouldn't see it cluttering
+  // the list while it's genuinely empty — PMs always see it, even empty,
+  // since they're the ones who'd add something to it.
+  if(!folderId && !canManage){
+    const specFolder = subfolders.find(f=>f.name==='Specification');
+    if(specFolder){
+      const [specSub, specFiles] = await Promise.all([
+        dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=eq.'+specFolder.id+'&select=id&limit=1'),
+        dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+specFolder.id+'&select=id&limit=1'),
+      ]);
+      if(!specSub.length && !specFiles.length){
+        subfolders = subfolders.filter(f=>f.id!==specFolder.id);
+      }
+    }
+  }
   const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : `#/site/${siteId}/drawings`) : `#/site/${siteId}/home`;
   const parentArg = folderId ? `'${folderId}'` : 'null';
   // Was gated on subfolders.length alone, so any folder holding drawing
@@ -10098,13 +10353,23 @@ async function renderDrawings(siteId, folderId){
   // default only while the folder is genuinely empty of both, and collapses
   // as soon as either a sub-folder or a drawing is added, matching the rule
   // that's meant to apply once there's anything in the folder.
-  const isDrawingsFolderEmpty = subfolders.length===0 && files.length===0;
+  // Only auto-opens the create-folder box for an empty SUB-folder — the
+  // top level now has its own explicit "Upload Document"/"Create Folder"
+  // chooser row instead, so nothing should pop open there uninvited.
+  const isDrawingsFolderEmpty = !!currentFolder && subfolders.length===0 && files.length===0;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="drawheaderrow">
-      <span>File Name</span>
-      ${canManage ? `<div class="roundplusbtn" onclick="showDrawingAddMenu('${siteId}',${parentArg})">+</div>` : ''}
-    </div>
+    ${canManage ? (currentFolder ? `
+      <div class="drawheaderrow">
+        <span>File Name</span>
+        <div class="roundplusbtn" onclick="showDrawingAddMenu('${siteId}',${parentArg})">+</div>
+      </div>
+    ` : `
+      <div class="row-gap" style="margin-bottom:10px;">
+        <button class="darkbtn" style="flex:1;" onclick="drawingUploadOpen=true;drawingNewFolderOpen=false;render()">📄 Upload Document</button>
+        <button class="ghostbtn" style="flex:1;" onclick="drawingNewFolderOpen=true;drawingUploadOpen=false;render()">📁 Create Folder</button>
+      </div>
+    `) : ''}
     ${canManage && (isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
       <div class="card" style="margin-bottom:10px;">
         <div class="row-gap">
@@ -10153,7 +10418,7 @@ async function renderDrawings(siteId, folderId){
         </div>
       ` : ''}
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, back:backHref, siteId, activeTab:'more'}); }
+  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createDrawingFolder = async function(siteId, folderId){
   const input = document.getElementById('newDrawingFolderName');
@@ -10163,7 +10428,7 @@ window.createDrawingFolder = async function(siteId, folderId){
   if(rows){ toast('Folder created'); drawingNewFolderOpen = false; render(); }
 };
 window.renameDrawingFolder = async function(folderId, currentName){
-  const next = prompt('Rename folder', currentName);
+  const next = await customPrompt('Rename folder', currentName);
   if(next==null) return;
   const trimmed = next.trim();
   if(!trimmed || trimmed===currentName) return;
@@ -10314,7 +10579,7 @@ async function renderDrawingImportPicker(siteId){
       ${(!drawingImportFolders.length && !drawingImportFiles.length) ? `<div class="empty">Nothing here.</div>` : ''}
     `}
     ${drawingImportSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedDrawings()">Import ${drawingImportSelected.size} Selected</button>` : ''}
-  `, {title:'Import from OneDrive', subtitle:site.name, back:backHref, siteId, tabs:false}); }
+  `, {title:'Import from OneDrive', subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, tabs:false}); }
 }
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!await customConfirm('Delete this drawing? This can\'t be undone.')) return;
@@ -10328,7 +10593,7 @@ window.deleteDrawingFile = async function(fileId, storagePath){
 // Renames just the display title — the underlying stored file/link is left
 // exactly where it is, so the PDF/image itself never moves.
 window.renameDrawingFile = async function(fileId, currentName){
-  const next = prompt('Rename drawing', currentName);
+  const next = await customPrompt('Rename drawing', currentName);
   if(next==null) return;
   const trimmed = next.trim();
   if(!trimmed || trimmed===currentName) return;
@@ -10433,7 +10698,7 @@ window.createCoshhLibraryFolder = async function(folderId){
   if(rows){ toast('Folder created'); coshhLibNewFolderOpen = false; render(); }
 };
 window.renameCoshhLibraryFolder = async function(folderId, currentName){
-  const next = prompt('Rename folder', currentName);
+  const next = await customPrompt('Rename folder', currentName);
   if(next==null) return;
   const trimmed = next.trim();
   if(!trimmed || trimmed===currentName) return;
@@ -10476,7 +10741,7 @@ window.uploadCoshhLibraryFile = async function(input, folderId){
   render();
 };
 window.renameCoshhLibraryFile = async function(fileId, currentName){
-  const next = prompt('Rename document', currentName);
+  const next = await customPrompt('Rename document', currentName);
   if(next==null) return;
   const trimmed = next.trim();
   if(!trimmed || trimmed===currentName) return;
@@ -10568,7 +10833,7 @@ async function renderCoshhLibraryPick(siteId){
     }).join('')}
     ${(!subfolders.length && !files.length) ? `<div class="empty">Nothing here.</div>` : ''}
     ${coshhPickSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedCoshhFromLibrary('${siteId}')">Add ${coshhPickSelected.size} Selected</button>` : ''}
-  `, {title:'Add from Library', subtitle:site.name, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+  `, {title:'Add from Library', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
 }
 window.importSelectedCoshhFromLibrary = async function(siteId){
   if(!coshhPickSelected.size) return;
@@ -10631,7 +10896,7 @@ async function renderCoshhSaveToLibrary(siteId){
     `).join('')}
     ${!subfolders.length ? `<div class="empty">No subfolders here.</div>` : ''}
     <button class="darkbtn" style="margin-top:14px;" onclick="saveCoshhToLibraryHere('${siteId}')">Save to ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}</button>
-  `, {title:'Save to Admin Centre COSHH', subtitle:site.name, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+  `, {title:'Save to Admin Centre COSHH', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
 }
 window.saveCoshhToLibraryHere = async function(siteId){
   if(!coshhSaveDocId) return;
@@ -10781,7 +11046,7 @@ async function renderMessages(siteId){
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
-  `, {title:'Messages', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
+  `, {title:'Messages', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
 }
 window.toggleMsgSelectMode = function(){
   msgSelectMode = !msgSelectMode;
@@ -10893,6 +11158,9 @@ async function render(){
       if(sub==='variations') return renderVariations(siteId);
       if(sub==='templates') return renderSiteReportTemplates(siteId);
       if(sub==='reports'){
+        // Reporting is a PM/admin-only tile — gate the route too, not just
+        // the tile, so it can't be reached by a direct link/bookmark either.
+        if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/snagging`); return; }
         const rsub = parts[4];
         if(rsub==='fill' && parts[5]) return renderReportFill(siteId, parts[5]);
         if(rsub==='view' && parts[5]) return renderReportView(siteId, parts[5]);
@@ -10933,6 +11201,7 @@ async function render(){
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='materialorders') return renderMaterialOrders(siteId);
     if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
     if(page==='team'){
