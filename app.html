@@ -3435,7 +3435,7 @@ async function renderSiteHome(siteId){
       <span>${escapeHtml(ME.name)}</span>
       <span style="transform:scale(.9);transform-origin:right center;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
-    <div class="tilegrid hometiles">
+    <div class="tilegrid hometiles" style="margin-bottom:-16px;">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
         <div><div class="lbl">Check In / Out</div><div class="sub">Tap to log time</div></div>
