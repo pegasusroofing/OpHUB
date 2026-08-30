@@ -215,8 +215,11 @@
     display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
     cursor:pointer;line-height:1;}
 
-  .status-strip{display:flex;align-items:center;justify-content:space-evenly;background:var(--card);
-    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
+  .status-strip{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;}
+  .status-strip>span:first-child{text-align:left;justify-self:start;}
+  .status-strip>span:nth-child(2){text-align:center;justify-self:center;}
+  .status-strip>span:last-child{text-align:right;justify-self:end;}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
     text-transform:uppercase;padding:5px 9px;border-radius:999px;}
   .pill.on{background:var(--ok-bg);color:var(--ok);}
@@ -2125,7 +2128,6 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>
       <div style="display:flex;align-items:center;gap:8px;">
-      ${ME.role==='admin' ? `<button type="button" onclick="go('#/dashboard')" style="width:auto;flex:none;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:#fff;color:var(--slate);cursor:pointer;">📊 Dashboard</button>` : ''}
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;margin-top:-9px;" data-pmfilter-root>
           <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
@@ -2594,6 +2596,7 @@ async function renderTeam(){
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
+    <p class="ddrow" style="margin-top:0;" onclick="go('#/dashboard')">📊 Dashboard</p>
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
@@ -3603,16 +3606,18 @@ async function renderTodoList(siteId){
         <label class="field-label">Comments (optional)</label>
         <textarea id="newTodoComment" placeholder="Add any notes…" oninput="newTodoCommentDraft=this.value">${escapeHtml(newTodoCommentDraft)}</textarea>
       </div>
-      <div class="formfield">
-        <label class="field-label">Date required by (optional)</label>
-        <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value">
-      </div>
-      <div class="formfield">
-        <label class="field-label">Assign to a project manager (optional)</label>
-        <select id="newTodoAssignee" onchange="newTodoAssigneeDraft=this.value">
-          <option value="">Unassigned</option>
-          ${pmList.map(p=>`<option value="${p.id}" ${newTodoAssigneeDraft===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
+      <div class="row-gap">
+        <div class="formfield" style="flex:1;">
+          <label class="field-label">Date required by (optional)</label>
+          <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value">
+        </div>
+        <div class="formfield" style="flex:1;">
+          <label class="field-label">Assign to a PM (optional)</label>
+          <select id="newTodoAssignee" onchange="newTodoAssigneeDraft=this.value">
+            <option value="">Unassigned</option>
+            ${pmList.map(p=>`<option value="${p.id}" ${newTodoAssigneeDraft===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+          </select>
+        </div>
       </div>
       <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
   `;
@@ -5726,6 +5731,7 @@ let checkinError = null;
 let checkinGeofenceOpen = false;
 let checkinHistoryOpen = false;
 let checkinRecentOpen = false;
+let checkinPmRecentOpen = false;
 // Pairs up each operative's raw in/out log (chronological, ascending) into
 // sessions of {user_id, in, out} — out:null means still on site. An "in"
 // with no prior open session starts a new one; a stray "out" with nothing
@@ -5761,12 +5767,17 @@ async function renderCheckin(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const [mine, teamAll] = await Promise.all([
+  const isAdmin = ME.role==='admin';
+  const [mine, teamAll, pmMine] = await Promise.all([
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
     // PMs/admins get the whole site's check-in history (ascending, so it can
     // be paired into in/out sessions and grouped by day below) so they can
     // see every operative's activity, not just their own.
     isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500') : Promise.resolve([]),
+    // Admins get the site's responsible PM's own sign-in/out history as its
+    // own standalone section — a separate concern from the combined "All
+    // Operatives" history above, which mixes everyone together.
+    (isAdmin && site.responsible_pm_id) ? dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+site.responsible_pm_id+'&order=ts.desc&limit=5') : Promise.resolve([]),
   ]);
   const last = mine[0];
   const status = (last && last.type==='in') ? 'in' : 'out';
@@ -5844,7 +5855,7 @@ async function renderCheckin(siteId){
     ` : ''}
     ${isPM ? `
       <div class="ddrow" style="margin-top:18px;" onclick="checkinHistoryOpen=!checkinHistoryOpen;render()"><span class="arrow">${checkinHistoryOpen?'▼':'▶'}</span> Recent Check-ins — All Operatives</div>
-      ${checkinHistoryOpen ? (dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
+      ${checkinHistoryOpen ? `<div style="margin-top:10px;">${dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
         <div style="margin-bottom:14px;">
           <div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;">${checkinDayLabel(dayKey)}</div>
           ${dayGroups[dayKey].map(s=>`
@@ -5857,14 +5868,24 @@ async function renderCheckin(siteId){
             </div>
           `).join('')}
         </div>
-      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`) : ''}
+      `).join('') : `<div class="empty">No check-ins recorded for this site yet.</div>`}</div>` : ''}
     ` : ''}
-    <div class="ddrow" style="margin-top:18px;" onclick="checkinRecentOpen=!checkinRecentOpen;render()"><span class="arrow">${checkinRecentOpen?'▼':'▶'}</span> Recent</div>
-    ${checkinRecentOpen ? (mine.slice(0,4).map(c=>`
-      <div class="card" style="padding:10px 12px;margin-bottom:8px;">
-        <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-      </div>
-    `).join('') || `<div class="empty">No check-ins yet.</div>`) : ''}
+    ${isAdmin ? `
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinPmRecentOpen=!checkinPmRecentOpen;render()"><span class="arrow">${checkinPmRecentOpen?'▼':'▶'}</span> Project Manager — Recent Check-ins</div>
+      ${checkinPmRecentOpen ? `<div style="margin-top:10px;">${pmMine.length ? pmMine.slice(0,4).map(c=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      `).join('') : `<div class="empty">${site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</div>`}</div>` : ''}
+    ` : ''}
+    ${ME.role==='operative' ? `
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinRecentOpen=!checkinRecentOpen;render()"><span class="arrow">${checkinRecentOpen?'▼':'▶'}</span> Recent</div>
+      ${checkinRecentOpen ? `<div style="margin-top:10px;">${mine.slice(0,4).map(c=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      `).join('') || `<div class="empty">No check-ins yet.</div>`}</div>` : ''}
+    ` : ''}
     ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Reports</p>
       <div class="row-gap">
@@ -6381,9 +6402,10 @@ window.confirmPdfImport = async function(siteId){
 async function renderSnaggingFolder(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const [openSnags, liveVariations] = await Promise.all([
+  const [openSnags, liveVariations, reportTemplateRows] = await Promise.all([
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('variations', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
+    isManager(ME) ? dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id') : Promise.resolve([]),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
@@ -6395,7 +6417,7 @@ async function renderSnaggingFolder(siteId){
         <div class="icon" style="background:#F0E4F5;color:#6B3F86;">✎</div>
         <div class="lbl">Variations</div><div class="sub">${liveVariations.length} live</div>
       </div>
-      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div></div>` : ''}
+      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div><div class="sub">${reportTemplateRows.length} template${reportTemplateRows.length===1?'':'s'}</div></div>` : ''}
     </div>
   `, {title:snaggingFolderLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
@@ -7541,7 +7563,7 @@ async function renderHealthSafety(siteId){
     briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid">
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
@@ -9167,7 +9189,8 @@ function renderIncidentFill(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Fill in what you can — the more detail the better. Fields marked * are required.</p>
 
-    <div class="formfield" style="margin-top:0;"><label class="field-label">Location of incident</label><input type="text" id="incLocation"></div>
+    <div class="formfield" style="margin-top:0;"><label class="field-label">Site of accident / incident / near miss</label><input type="text" id="incSiteAddress" value="${escapeHtml(site.name + (fullSiteAddress(site) ? ', '+fullSiteAddress(site) : ''))}"></div>
+    <div class="formfield"><label class="field-label">Location of incident</label><input type="text" id="incLocation"></div>
     <div class="formfield"><label class="field-label">Date of incident</label><input type="date" id="incDate" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="formfield"><label class="field-label">Operatives involved</label><input type="text" id="incOperatives"></div>
     <div class="formfield"><label class="field-label">Form filed by</label><input type="text" id="incFiledBy" value="${escapeHtml(ME.name)}"></div>
@@ -9246,6 +9269,7 @@ window.submitIncidentReport = async function(siteId){
   }
   const payload = {
     org_id: ME.org_id, site_id: siteId, created_by: ME.id,
+    site_address: val('incSiteAddress')||null,
     location: val('incLocation')||null,
     incident_date: val('incDate')||null,
     operatives_involved: val('incOperatives')||null,
@@ -9302,6 +9326,7 @@ async function renderIncidentView(siteId, reportId){
         ${r.injury_occurred ? `<span class="rolechip">Injury</span>` : ''}
         ${r.damage_occurred ? `<span class="rolechip">Damage</span>` : ''}
       </div>
+      ${incidentFieldRow('Site of accident / incident / near miss', r.site_address)}
       ${incidentFieldRow('Location of incident', r.location)}
       ${incidentFieldRow('Date of incident', r.incident_date ? new Date(r.incident_date).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '')}
       ${incidentFieldRow('Operatives involved', r.operatives_involved)}
@@ -9410,6 +9435,7 @@ async function buildIncidentPdf(reportId){
   newPage();
   const fmtDT = v => v ? new Date(v).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
   const cap = v => v ? v.charAt(0).toUpperCase()+v.slice(1) : '';
+  drawRow('Site of accident / incident / near miss', r.site_address);
   drawRow('Location of incident', r.location);
   drawRow('Date of incident', r.incident_date ? new Date(r.incident_date).toLocaleDateString('en-GB') : '');
   drawRow('Operatives involved', r.operatives_involved);
@@ -9630,6 +9656,7 @@ window.exportDailyBriefingPDF = async function(submissionId){
    signature as RAMS, and once complete a PM can export a signed PDF just like
    RAMS. */
 let tbtFilter = 'live'; // PM tab state: bank | live | completed
+let tbtLastSiteId = null, tbtLastHasLive = null; // tracks when to auto-reapply the default tab (see renderToolboxTalks)
 let selectedTbtIds = new Set(); // ticked toolbox talks in the Completed tab, for a combined email
 window.toggleTbtSelect = function(id){
   if(selectedTbtIds.has(id)) selectedTbtIds.delete(id); else selectedTbtIds.add(id);
@@ -9648,6 +9675,15 @@ async function renderToolboxTalks(siteId){
     const ids = talks.map(t=>t.id).join(',');
     const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id');
     sigs.forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; });
+  }
+  if(isPM){
+    // Default to the Live tab whenever there's a live talk to sign; otherwise
+    // default to Bank TBT, since there's nothing live to show. Only reapplies
+    // when the site changes or the live/no-live state actually flips, so a PM
+    // who's deliberately browsing Completed doesn't get yanked out of it.
+    const hasLive = talks.some(t=>t.status==='live');
+    if(tbtLastSiteId !== siteId){ tbtLastSiteId = siteId; tbtLastHasLive = hasLive; tbtFilter = hasLive ? 'live' : 'bank'; }
+    else if(tbtLastHasLive !== hasLive){ tbtLastHasLive = hasLive; tbtFilter = hasLive ? 'live' : 'bank'; }
   }
   const visibleTalks = isPM ? talks.filter(t=>t.status===tbtFilter) : talks;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -11592,7 +11628,6 @@ let msgDraft = '';
 let msgSectionsOpen = {fromTeam:true, sent:true}; // collapsible, but open by default — not collapsed on load
 let msgReplyOpenId = null; // message id whose inline reply box is showing
 let msgReplyDraft = '';
-let msgSelectMode = false;
 let msgSelectedIds = new Set();
 async function renderMessages(siteId){
   const __gen = RENDER_GEN;
@@ -11637,7 +11672,7 @@ async function renderMessages(siteId){
   // table used for push-notification taps in registerPushNotifications().
   const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price'};
   const msgRow = m => {
-    const dest = !msgSelectMode && m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
+    const dest = m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
     const replies = repliesByParent[m.id] || [];
     const replyAudience = m.audience==='operatives' ? 'managers' : 'operatives';
     const selected = msgSelectedIds.has(m.id);
@@ -11646,13 +11681,13 @@ async function renderMessages(siteId){
     <div class="card" style="padding:10px 12px;margin-bottom:8px;${dest?'cursor:pointer;':''}${isUnread?'border-left:4px solid var(--brand1);background:color-mix(in srgb, var(--brand1) 7%, var(--card));':''}" ${dest?`onclick="go('${dest}')"`:''}>
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
         <div style="display:flex;align-items:flex-start;gap:8px;flex:1;min-width:0;">
-          ${(mgr && msgSelectMode) ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:1px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMsgSelect('${m.id}')">` : ''}
+          ${mgr ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:1px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMsgSelect('${m.id}')">` : ''}
           <div style="min-width:0;">
             <div style="font-size:12px;color:var(--slate);margin-bottom:4px;">${isUnread?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--brand1);margin-right:5px;"></span>`:''}${escapeHtml(nameOf(m.sender_id))} · ${new Date(m.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${!m.site_id?' · All sites':''}${kindLabel[m.kind]?` · <span style="color:var(--blue);">${kindLabel[m.kind]}</span>`:''}</div>
             <div style="font-size:13.5px;${isUnread?'font-weight:700;':''}">${escapeHtml(m.body)}</div>
           </div>
         </div>
-        ${(mgr && !msgSelectMode) ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="event.stopPropagation();deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
+        ${mgr ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="event.stopPropagation();deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
       </div>
       ${replies.length ? `
         <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
@@ -11664,17 +11699,15 @@ async function renderMessages(siteId){
           `).join('')}
         </div>
       ` : ''}
-      ${!msgSelectMode ? (
-        msgReplyOpenId===m.id ? `
-          <div style="margin-top:8px;" onclick="event.stopPropagation();">
-            <textarea style="min-height:60px;" placeholder="Write a reply..." oninput="msgReplyDraft=this.value">${escapeHtml(msgReplyDraft)}</textarea>
-            <div class="row-gap" style="margin-top:6px;">
-              <button class="darkbtn" style="flex:1;" onclick="sendMessageReply('${siteId}','${m.id}','${replyAudience}','${m.site_id||siteId}')">Send Reply</button>
-              <button class="ghostbtn" style="flex:1;" onclick="msgReplyOpenId=null;msgReplyDraft='';render()">Cancel</button>
-            </div>
+      ${msgReplyOpenId===m.id ? `
+        <div style="margin-top:8px;" onclick="event.stopPropagation();">
+          <textarea style="min-height:60px;" placeholder="Write a reply..." oninput="msgReplyDraft=this.value">${escapeHtml(msgReplyDraft)}</textarea>
+          <div class="row-gap" style="margin-top:6px;">
+            <button class="darkbtn" style="flex:1;" onclick="sendMessageReply('${siteId}','${m.id}','${replyAudience}','${m.site_id||siteId}')">Send Reply</button>
+            <button class="ghostbtn" style="flex:1;" onclick="msgReplyOpenId=null;msgReplyDraft='';render()">Cancel</button>
           </div>
-        ` : `<div class="stub" style="margin:8px 0 0;color:var(--blue);cursor:pointer;" onclick="event.stopPropagation();msgReplyOpenId='${m.id}';msgReplyDraft='';render()">↩ Reply</div>`
-      ) : ''}
+        </div>
+      ` : `<div class="stub" style="margin:8px 0 0;color:var(--blue);cursor:pointer;" onclick="event.stopPropagation();msgReplyOpenId='${m.id}';msgReplyDraft='';render()">↩ Reply</div>`}
     </div>`;
   };
 
@@ -11693,25 +11726,17 @@ async function renderMessages(siteId){
         <button class="darkbtn" onclick="sendBroadcast('${siteId}')">Send</button>
       </div>
 
-      <div style="display:flex;justify-content:flex-end;margin:14px 0 0;">
-        <button class="ghostbtn" style="width:auto;padding:6px 12px;font-size:12.5px;" onclick="toggleMsgSelectMode()">${msgSelectMode?'Cancel select':'Select messages'}</button>
-      </div>
-      ${msgSelectMode && msgSelectedIds.size ? `<button class="darkbtn" style="margin-top:8px;" onclick="deleteSelectedMessages('${siteId}')">Delete ${msgSelectedIds.size} Selected</button>` : ''}
+      ${msgSelectedIds.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="deleteSelectedMessages('${siteId}')">Delete ${msgSelectedIds.size} Selected</button>` : ''}
 
       <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.fromTeam=!msgSectionsOpen.fromTeam;render()"><span class="arrow">${msgSectionsOpen.fromTeam?'▼':'▶'}</span> From your team</p>
-      ${msgSectionsOpen.fromTeam ? (fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`) : ''}
+      ${msgSectionsOpen.fromTeam ? `<div style="margin-top:10px;">${fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`}</div>` : ''}
       <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.sent=!msgSectionsOpen.sent;render()"><span class="arrow">${msgSectionsOpen.sent?'▼':'▶'}</span> Sent to operatives</p>
-      ${msgSectionsOpen.sent ? (broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`) : ''}
+      ${msgSectionsOpen.sent ? `<div style="margin-top:10px;">${broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`}</div>` : ''}
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
   `, {title:'Messages', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
 }
-window.toggleMsgSelectMode = function(){
-  msgSelectMode = !msgSelectMode;
-  msgSelectedIds = new Set();
-  render();
-};
 window.toggleMsgSelect = function(id){
   if(msgSelectedIds.has(id)) msgSelectedIds.delete(id); else msgSelectedIds.add(id);
   render();
@@ -11723,7 +11748,7 @@ window.deleteSelectedMessages = async function(siteId){
   const res = await sbFetch('/rest/v1/messages?id=in.('+ids.join(',')+')', {method:'DELETE'});
   if(res.ok){
     toast('Messages deleted');
-    msgSelectMode = false; msgSelectedIds = new Set();
+    msgSelectedIds = new Set();
     render();
   } else toast('Could not delete — '+(await safeErr(res)));
 };
