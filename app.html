@@ -1219,7 +1219,7 @@ function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
 function snaggingFolderLabel(){ return isManager(ME) ? 'Reports &amp; Snagging' : 'Snagging &amp; Variations'; }
-function materialsTileLabel(){ return isManager(ME) ? 'Material Orders & Requests' : 'Material Requests'; }
+function materialsTileLabel(){ return isManager(ME) ? "Material PO's & Requests" : 'Material Requests'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
   return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
@@ -3240,7 +3240,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? 'Choose Material Orders Folder' : 'Choose OneDrive Folder', subtitle:site.name, siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : `#/site/${siteId}/team`, siteId, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : 'Choose OneDrive Folder', subtitle:site.name, siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : `#/site/${siteId}/team`, siteId, tabs:false}); }
 }
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -3260,7 +3260,7 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
     if(idx>-1) SITES[idx] = row;
     odPickerStack = null;
     if(odPickerTarget==='materials'){
-      toast('Folder linked — material orders will sync from there daily');
+      toast("Folder linked — Material PO's will sync from there daily");
       go(`#/site/${siteId}/materialorders`);
     } else {
       toast('Folder linked — photos for this site will sync there from now on');
@@ -3279,7 +3279,7 @@ window.unlinkOneDriveFolder = async function(siteId){
   }
 };
 window.unlinkMaterialOrdersFolder = async function(siteId){
-  if(!await customConfirm('Unlink this Material Orders folder? Daily sync will stop until you link a new one.')) return;
+  if(!await customConfirm("Unlink this Material PO's folder? Daily sync will stop until you link a new one.")) return;
   const row = await dbUpdate('sites', siteId, {material_orders_folder_id: null, material_orders_folder_name: null, material_orders_drive_id: null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
@@ -10138,29 +10138,40 @@ async function renderMaterials(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
-  const [materials, suppliers, pendingCount, orderFileCount] = await Promise.all([
-    dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
-    isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
-    isPM ? dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id') : Promise.resolve([]),
-    isPM ? dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id') : Promise.resolve([]),
+  // Operatives only ever have one thing to see here (their requests), so
+  // skip the folder tiles and go straight to the content — the tiles are a
+  // PM/admin-only navigation aid between Requests and PO's.
+  if(!isPM) return renderMaterialRequests(siteId);
+  const [pendingCount, orderFileCount] = await Promise.all([
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+    dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id'),
   ]);
-  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
-  const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
-
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${isPM ? `
-    <div class="tilegrid" style="margin-bottom:14px;">
-      <div class="tile" style="cursor:default;background:var(--paper);">
+    <div class="tilegrid">
+      <div class="tile" onclick="go('#/site/${siteId}/materialrequests')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
         <div class="lbl">Material Requests</div><div class="sub">${pendingCount.length} pending</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
         <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
-        <div class="lbl">Material Orders</div><div class="sub">${orderFileCount.length ? orderFileCount.length+' synced' : 'Synced daily'}</div>
+        <div class="lbl">Material PO's</div><div class="sub">${orderFileCount.length ? orderFileCount.length+' synced' : 'Synced daily'}</div>
       </div>
     </div>
-    ` : ''}
+  `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+}
+async function renderMaterialRequests(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
+  const [materials, suppliers] = await Promise.all([
+    dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
+    isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+  ]);
+  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
@@ -10290,7 +10301,7 @@ async function renderMaterials(siteId){
     </div>
     ` : ''}
     ` : ''}
-  `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material Requests', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 // Supplier duplicate detection — company names get typed inconsistently
 // (case, punctuation, "Ltd"/"Limited", or plain typos), so a straight
@@ -10646,45 +10657,222 @@ window.deleteMaterial = async function(siteId, matId){
   if(ok){ toast('Material request deleted'); render(); }
 };
 
-/* ================= MATERIAL ORDERS (PM-only — auto-synced daily from a linked OneDrive folder) ================= */
+/* ================= MATERIAL PO's (PM/admin-managed folders of order files, per site — the main
+   folder is auto-synced daily from a linked OneDrive folder for PMs; synced files can then be
+   moved into sub-folders by anyone who can manage them) ================= */
 let materialOrdersSyncBusy = false;
-async function renderMaterialOrders(siteId){
+let matOrderUploadOpen = false;
+let matOrderNewFolderOpen = false;
+let matOrdersLastFolderId; // undefined initially so the very first render always "changes"
+let matOrderMoveOpenId = null; // file id whose "move to folder" picker is showing
+function materialOrderFolderPath(folders, id){
+  const byId = {}; folders.forEach(f=>byId[f.id]=f);
+  const parts = []; let cur = byId[id]; let guard = 0;
+  while(cur && guard++<10){ parts.unshift(cur.name); cur = cur.parent_id ? byId[cur.parent_id] : null; }
+  return parts.join(' / ');
+}
+// "+" asks Add Folder vs Add Document — PMs (the only ones who see the OneDrive
+// sync section itself) also get a third option to change the synced folder,
+// so that control lives in the same place as everything else that touches
+// this folder's contents, rather than a separate card only they can see.
+window.showMaterialOrderAddMenu = function(siteId, folderId, isPmView){
+  let ov = document.getElementById('confirmModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'confirmModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    document.body.appendChild(ov);
+  }
+  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';matOrderNewFolderOpen=true;matOrderUploadOpen=false;render()">📁 Add Folder</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';matOrderUploadOpen=true;matOrderNewFolderOpen=false;render()">📄 Add Document</button>
+      ${isPmView ? `<button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';startOneDriveFolderPicker('${siteId}','materials')">🔗 Change OneDrive Sync Folder</button>` : ''}
+      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+async function renderMaterialOrders(siteId, folderId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
-  const files = await dbSelect('material_order_files', 'site_id=eq.'+siteId+'&order=synced_at.desc');
+  // Only PMs see the OneDrive sync controls — admins can still browse, add
+  // documents, and organize into folders, they just don't manage the link.
+  const isPmView = ME.role==='pm';
+  if(matOrdersLastFolderId !== (folderId||null)){
+    matOrderNewFolderOpen = false;
+    matOrderUploadOpen = false;
+    matOrderMoveOpenId = null;
+    matOrdersLastFolderId = folderId||null;
+  }
+  let currentFolder = null;
+  if(folderId){
+    const rows = await dbSelect('material_order_folders', 'id=eq.'+folderId+'&select=*');
+    currentFolder = rows[0] || null;
+    if(!currentFolder){ go(`#/site/${siteId}/materialorders`); return; }
+  }
+  const [subfolders, files, allFolders] = await Promise.all([
+    dbSelect('material_order_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
+    dbSelect('material_order_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=synced_at.desc'),
+    dbSelect('material_order_folders', 'site_id=eq.'+siteId+'&order=name.asc'),
+  ]);
   const linked = !!site.material_orders_folder_id;
+  const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/materialorders/${currentFolder.parent_id}` : `#/site/${siteId}/materialorders`) : `#/site/${siteId}/materials`;
+  const parentArg = folderId ? `'${folderId}'` : 'null';
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${!currentFolder && isPmView ? `
     <div class="card">
       ${linked ? `
-        <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Synced daily from "${escapeHtml(site.material_orders_folder_name||'')}"</p>
+        <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Synced daily from "${escapeHtml(site.material_orders_folder_name||'')}" into this main folder</p>
         <div class="row-gap">
           <button class="ghostbtn" style="flex:1;" ${materialOrdersSyncBusy?'disabled':''} onclick="syncMaterialOrdersNow('${siteId}')">${materialOrdersSyncBusy?'Syncing…':'🔄 Sync Now'}</button>
-          <button class="ghostbtn" style="flex:1;" onclick="startOneDriveFolderPicker('${siteId}','materials')">Change Folder</button>
         </div>
         <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkMaterialOrdersFolder('${siteId}')">Unlink Folder</button>
       ` : `
-        <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and any files placed in it will sync here automatically once a day — no need to upload anything by hand. You can also sync on demand any time.</p>
+        <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and any files placed in it will sync here automatically once a day into this main folder — no need to upload anything by hand. You can also sync on demand any time, and move synced files into folders below once they've come in.</p>
         <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','materials')">Link OneDrive Folder</button>
       `}
     </div>
-    ${files.length ? files.map(f=>`
-      <div class="ramsdoc" style="padding:10px 12px;">
-        <div class="taskrowtop">
-          <div class="name" style="font-size:14.5px;font-weight:800;">${escapeHtml(f.name)}</div>
+    ` : ''}
+    <div class="drawheaderrow">
+      <span>Folder/File Name</span>
+      <div class="roundplusbtn" onclick="showMaterialOrderAddMenu('${siteId}',${parentArg},${isPmView})">+</div>
+    </div>
+    ${matOrderNewFolderOpen ? `
+      <div class="card" style="margin-bottom:10px;">
+        <div class="row-gap">
+          <input type="text" id="newMaterialOrderFolderName" placeholder="e.g. Week Commencing 12 Aug">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="createMaterialOrderFolder('${siteId}',${parentArg})">Create Folder</button>
         </div>
-        <div class="meta" style="margin-top:3px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document ↗</span></div>
       </div>
-    `).join('') : `<div class="empty">${linked ? 'Nothing synced yet — tap Sync Now, or wait for the daily sync.' : 'No material order files yet.'}</div>`}
-  `, {title:'Material Orders', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/materials`, siteId, activeTab:'more'}); }
+    ` : ''}
+    ${subfolders.length || files.length ? `
+      ${subfolders.map((f,idx)=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/materialorders/${f.id}')">
+          <div class="swatch">📁</div>
+          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          <div class="taskicons">
+            <div class="taskicon" style="${idx===0?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveMaterialOrderFolder('${siteId}',${parentArg},'${f.id}',-1)">▲</div>
+            <div class="taskicon" style="${idx===subfolders.length-1?'opacity:.3;pointer-events:none;':''}" onclick="event.stopPropagation();moveMaterialOrderFolder('${siteId}',${parentArg},'${f.id}',1)">▼</div>
+            <div class="taskicon" onclick="event.stopPropagation();renameMaterialOrderFolder('${f.id}','${jsAttr(f.name)}')">✏️</div>
+            <div class="taskicon danger" onclick="event.stopPropagation();deleteMaterialOrderFolder('${f.id}')">🗑</div>
+          </div>
+        </div>
+      `).join('')}
+      ${files.map(f=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📦</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+              ${f.synced_at ? `<div class="meta" style="margin-top:2px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
+            </div>
+          </div>
+          <div class="row-gap" style="margin-top:8px;">
+            <button class="ghostbtn" style="flex:1;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document</button>
+            <button class="ghostbtn" style="flex:1;" onclick="toggleMoveMaterialOrderFile('${f.id}')">${matOrderMoveOpenId===f.id?'Cancel':'Move to folder'}</button>
+            <div class="taskicon danger" onclick="deleteMaterialOrderFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
+          </div>
+          ${matOrderMoveOpenId===f.id ? `
+            <div class="formfield" style="margin-top:8px;">
+              <select onchange="moveMaterialOrderFileToFolder('${siteId}','${f.id}',this.value)">
+                <option value="">— Main Material PO folder —</option>
+                ${allFolders.map(af=>`<option value="${af.id}" ${f.folder_id===af.id?'selected':''}>${escapeHtml(materialOrderFolderPath(allFolders, af.id))}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+        </div>
+      `).join('')}
+    ` : `<div class="empty">${folderId ? 'Nothing in this folder yet.' : (linked ? 'Nothing synced yet — tap Sync Now, or wait for the daily sync.' : 'No material order files yet.')}</div>`}
+
+    ${matOrderUploadOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="sectiontitle" style="margin-top:0;">Add document</p>
+        <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the main Material PO folder'}.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="matOrderUploadLabel" onclick="document.getElementById('matOrderUploadInput').click()">Choose file(s)</div>
+        <input type="file" id="matOrderUploadInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadMaterialOrderDocument(this,'${siteId}',${parentArg})">
+        <button class="ghostbtn" style="margin-top:8px;" onclick="matOrderUploadOpen=false;render()">Cancel</button>
+      </div>
+    ` : ''}
+  `, {title: currentFolder ? currentFolder.name : "Material PO's", subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
+window.createMaterialOrderFolder = async function(siteId, folderId){
+  const input = document.getElementById('newMaterialOrderFolderName');
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter a folder name.'); return; }
+  const rows = await dbInsert('material_order_folders', {site_id:siteId, parent_id:folderId||null, name, created_by:ME.id});
+  if(rows){ toast('Folder created'); matOrderNewFolderOpen = false; render(); }
+};
+window.renameMaterialOrderFolder = async function(folderId, currentName){
+  const next = await customPrompt('Rename folder', currentName);
+  if(next==null) return;
+  const trimmed = next.trim();
+  if(!trimmed || trimmed===currentName) return;
+  const row = await dbUpdate('material_order_folders', folderId, {name: trimmed});
+  if(row){ toast('Folder renamed'); render(); }
+};
+window.moveMaterialOrderFolder = async function(siteId, parentFolderId, folderId, dir){
+  const siblings = await dbSelect('material_order_folders', 'site_id=eq.'+siteId+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('material_order_folders', f.id, {position:idx}) : null));
+  const idx = siblings.findIndex(f=>f.id===folderId);
+  const swapIdx = idx + dir;
+  if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
+  await Promise.all([
+    dbUpdate('material_order_folders', siblings[idx].id, {position:swapIdx}),
+    dbUpdate('material_order_folders', siblings[swapIdx].id, {position:idx}),
+  ]);
+  render();
+};
+window.deleteMaterialOrderFolder = async function(folderId){
+  if(!await customConfirm('Delete this folder? Any documents inside will move back to the main Material PO folder — nothing is deleted.')) return;
+  await sbFetch('/rest/v1/material_order_files?folder_id=eq.'+folderId, {method:'PATCH', body: JSON.stringify({folder_id:null})});
+  const ok = await dbDelete('material_order_folders', folderId);
+  if(ok){ toast('Folder deleted'); render(); }
+};
+window.toggleMoveMaterialOrderFile = function(fileId){
+  matOrderMoveOpenId = matOrderMoveOpenId===fileId ? null : fileId;
+  render();
+};
+window.moveMaterialOrderFileToFolder = async function(siteId, fileId, folderId){
+  const row = await dbUpdate('material_order_files', fileId, {folder_id: folderId||null});
+  if(row){ toast('Moved'); matOrderMoveOpenId = null; render(); }
+};
+window.deleteMaterialOrderFile = async function(siteId, fileId, storagePath){
+  if(!await customConfirm('Delete this document? This can\'t be undone — if it\'s still in the linked OneDrive folder it won\'t be re-synced automatically.')) return;
+  const ok = await dbDelete('material_order_files', fileId);
+  if(ok){
+    if(storagePath){ try{ await sbFetch('/storage/v1/object/material-orders/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
+    toast('Document deleted');
+    render();
+  }
+};
+window.uploadMaterialOrderDocument = async function(input, siteId, folderId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  const label = document.getElementById('matOrderUploadLabel');
+  let uploaded = 0;
+  for(let i=0;i<files.length;i++){
+    const file = files[i];
+    if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
+    const path = siteId+'/manual/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('material-orders', path, file, file.type||'application/octet-stream');
+    if(!stored) continue;
+    const rows = await dbInsert('material_order_files', {site_id:siteId, org_id:ME.org_id, folder_id:folderId||null, name:file.name, storage_path:stored, size:file.size||null});
+    if(rows) uploaded++;
+  }
+  if(uploaded){ toast(uploaded===1 ? 'Document added' : `${uploaded} documents added`); matOrderUploadOpen = false; }
+  render();
+};
 window.syncMaterialOrdersNow = async function(siteId){
   materialOrdersSyncBusy = true; render();
   try{
     const res = await sbFetch('/functions/v1/sync-material-orders', {method:'POST', body: JSON.stringify({site_id:siteId})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); }
-    else toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}` : 'Already up to date.');
+    else toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}`+(d.dupSkipped?` (${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped)`:'') : (d.dupSkipped ? `Already up to date — ${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped.` : 'Already up to date.'));
   }catch(e){ console.error(e); toast('Sync failed — could not reach the server.'); }
   materialOrdersSyncBusy = false; render();
 };
@@ -11026,17 +11214,12 @@ async function renderDrawings(siteId, folderId){
   const isDrawingsFolderEmpty = !!currentFolder && subfolders.length===0 && files.length===0;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${canManage ? (currentFolder ? `
+    ${canManage ? `
       <div class="drawheaderrow">
-        <span>File Name</span>
+        <span>Folder/File Name</span>
         <div class="roundplusbtn" onclick="showDrawingAddMenu('${siteId}',${parentArg})">+</div>
       </div>
-    ` : `
-      <div class="row-gap" style="margin-bottom:10px;">
-        <button class="darkbtn" style="flex:1;" onclick="drawingUploadOpen=true;drawingNewFolderOpen=false;render()">📄 Upload Document</button>
-        <button class="ghostbtn" style="flex:1;" onclick="drawingNewFolderOpen=true;drawingUploadOpen=false;render()">📁 Create Folder</button>
-      </div>
-    `) : ''}
+    ` : ''}
     ${canManage && (isDrawingsFolderEmpty || drawingNewFolderOpen) ? `
       <div class="card" style="margin-bottom:10px;">
         <div class="row-gap">
@@ -11895,7 +12078,11 @@ async function render(){
       return renderHealthSafety(siteId);
     }
     if(page==='materials') return renderMaterials(siteId);
-    if(page==='materialorders') return renderMaterialOrders(siteId);
+    if(page==='materialrequests') return renderMaterialRequests(siteId);
+    if(page==='materialorders'){
+      const matFolderId = parts[3] || null;
+      return renderMaterialOrders(siteId, matFolderId);
+    }
     if(page==='messages') return renderMessages(siteId);
     if(page==='variations') return renderVariations(siteId);
     if(page==='team'){
