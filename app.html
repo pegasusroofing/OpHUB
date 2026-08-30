@@ -122,9 +122,15 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(16,17,20,.04);}
   .sectiontitle{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--slate);margin:4px 0 10px;}
 
+  /* Normal row height — the compact sizing already used deliberately
+     throughout the app (Sign All RAMS, Ask Outstanding to Sign, Add Task,
+     etc.) is now the default for every button/ghost-button, not just the
+     ones that had an inline override for it. Anything that still looks
+     "big" somewhere was relying on this base size — this one change is
+     the app-wide fix, so new buttons are normal-sized by default too. */
   .primarybtn,.darkbtn,.ghostbtn{
-    display:block;width:100%;padding:13px;border-radius:11px;border:none;
-    font-weight:800;font-size:13.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
+    display:block;width:100%;padding:8px 6px;border-radius:9px;border:none;
+    font-weight:800;font-size:11.5px;letter-spacing:.02em;text-transform:uppercase;text-align:center;
     transition:opacity .15s ease,transform .15s ease;
   }
   .primarybtn:active,.darkbtn:active,.ghostbtn:active{transform:scale(.98);opacity:.92;}
@@ -1247,7 +1253,30 @@ let SELF_NAV = false;
 // most recent render pass by the time its data has loaded.
 let RENDER_GEN = 0;
 function go(hash){ SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300); location.hash = hash; }
-window.addEventListener('hashchange', function(){ SELF_NAV = false; render(); });
+// Scroll position on navigation: the actual scrolling element is the
+// window/body (see .scrollarea's CSS comment — #app is min-height:100vh,
+// not height-capped, so it's the page itself that scrolls), and swapping
+// #app's innerHTML on render() does NOT reset that scroll position on its
+// own. Left alone, tapping into a new tile/folder from a page you'd
+// scrolled down on landed you "mid-page" on the new screen too. Every real
+// navigation (a hash change) now scrolls to the top of the new page by
+// default — except when returning to a route you'd previously scrolled
+// within during this session (e.g. stepping back into a long folder list),
+// which restores exactly where you left it instead.
+let scrollPositionByHash = {};
+let lastScrollHash = location.hash;
+window.addEventListener('hashchange', function(){
+  const fromHash = lastScrollHash, toHash = location.hash;
+  if(fromHash !== toHash) scrollPositionByHash[fromHash] = window.scrollY;
+  lastScrollHash = toHash;
+  SELF_NAV = false;
+  const pending = render();
+  if(pending && pending.then){
+    pending.then(function(){
+      requestAnimationFrame(function(){ window.scrollTo(0, scrollPositionByHash[toHash] || 0); });
+    });
+  }
+});
 // Edge-swipe-to-go-back (left edge, swiping left→right), like the native iOS
 // gesture. This deliberately goes up one folder level (whatever the current
 // screen's own '‹' back arrow points to — CURRENT_BACK_HASH, kept in sync by
@@ -1456,8 +1485,8 @@ function shell(innerHtml, opts){
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div style="flex:1;min-width:0;min-height:66px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
-            <h2 ${opts.titleIsSiteName ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
-            ${opts.subtitle ? `<div class="meta" ${opts.siteNameSubtitle ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.subtitle}</div>` : ''}
+            <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
+            ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
@@ -1984,8 +2013,15 @@ function siteCardHtml(s, canAdd, pmOptions){
   // initials font size — shrink proportionally to length instead of
   // truncating or overflowing.
   const swatchFontSize = swatchText.length<=3 ? 15 : swatchText.length<=5 ? 11 : swatchText.length<=7 ? 9 : 7.5;
+  // The status/PM dropdowns are absolutely positioned and spill down over
+  // the next row in the list — without an elevated stacking context here,
+  // a tap on the dropdown (e.g. "Delete permanently") could land on the
+  // row underneath instead, since neither row otherwise sets a z-index.
+  // Only the row whose dropdown is actually open gets bumped, so this
+  // never affects normal layout/stacking anywhere else in the list.
+  const menuOpenHere = canAdd && (siteStatusMenuOpenId===s.id || sitePmPickerOpenId===s.id);
   return `
-    <div class="sitecard" onclick="go('#/site/${s.id}/home')">
+    <div class="sitecard" style="${menuOpenHere?'position:relative;z-index:70;':''}" onclick="go('#/site/${s.id}/home')">
       <div class="swatch" style="font-size:${swatchFontSize}px;">${escapeHtml(swatchText)}</div>
       <div class="info">
         <div class="name">${escapeHtml(s.name)}</div>
@@ -2936,6 +2972,16 @@ window.addOperativeToolFor = async function(userId){
   }
   const rows = await dbInsert('operative_tools', {org_id:ME.org_id, user_id:userId, name, serial_number:serial||null, photo_path:photoPath, created_by:ME.id});
   if(rows){ toast('Tool added'); operativeToolsAddOpenFor=null; operativeToolsPhotoFile=null; render(); }
+  return !!rows;
+};
+// PM/admin adding a tool for this operative directly from their PUWER
+// inspection page — same shared insert as Admin Centre's Operative Tools
+// (so it lands in the operative's own tool file / My Tools too), just
+// followed by a re-pull of this page's draft so the new tool shows up in
+// the inspection table immediately instead of needing a re-visit.
+window.addPuwerOperativeTool = async function(siteId, userId){
+  const ok = await addOperativeToolFor(userId);
+  if(ok && puwerFillDraft){ await loadPuwerFillDraft(siteId, userId, puwerFillDraft.weekStart); render(); }
 };
 // Check-In Logs (Admin Centre) — a weekly or monthly view of every
 // operative's check-in/out times across every site, for PMs and Admins.
@@ -3380,12 +3426,6 @@ async function renderSiteHome(siteId){
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
         <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
       </div>
-      ${isManager(ME) ? `
-      <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
-        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
-        <div class="lbl">Material Orders</div><div class="sub">Synced daily</div>
-      </div>
-      ` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/snagging')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
         <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
@@ -3458,6 +3498,8 @@ let todoEditId = null; // id of the to-do whose text/date is being edited
 let todoEditTextDraft = '';
 let todoEditDateDraft = '';
 let todoCommentDraft = {}; // todoId -> draft comment text
+let todoClosedCommentsOpen = {}; // todoId -> whether a completed to-do's collapsed comments are expanded
+window.toggleTodoCommentsOpen = function(todoId){ todoClosedCommentsOpen[todoId] = !todoClosedCommentsOpen[todoId]; render(); };
 // Email picker — themed HTML email (same look as material order emails)
 // listing the live to-dos, sent to whichever project managers are ticked.
 // The modal is a persistent DOM node appended outside #app (same pattern as
@@ -3540,7 +3582,7 @@ async function renderTodoList(siteId){
     todoListLastSiteId = siteId;
     newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = '';
     todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null;
-    todoEmailRecipientIds = []; todoEmailFilterText = '';
+    todoEmailRecipientIds = []; todoEmailFilterText = ''; todoClosedCommentsOpen = {};
   }
   const [allTodos, pmList] = await Promise.all([
     dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
@@ -3600,7 +3642,11 @@ async function renderTodoList(siteId){
               <div style="font-size:16.5px;font-weight:600;${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
               ${t.date_required_by ? `<div style="margin-top:7px;font-size:11.7px;color:var(--slate);">Required by ${new Date(t.date_required_by+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
             `}
-            ${todoAssigneeEditId===t.id ? `
+            ${t.done ? `
+              <div style="margin-top:6px;font-size:10.8px;font-style:italic;color:var(--slate);">
+                ${t.assigned_to ? 'Assigned to <b style="font-style:normal;">'+escapeHtml(nameOf(t.assigned_to))+'</b>' : 'Unassigned'}
+              </div>
+            ` : todoAssigneeEditId===t.id ? `
               <div style="margin-top:5px;display:flex;align-items:center;gap:5px;">
                 <select id="todoAssigneeSelect_${t.id}" style="width:auto;flex:1;padding:4.5px 7px;font-size:10.8px;">
                   <option value="">Unassigned</option>
@@ -3623,8 +3669,13 @@ async function renderTodoList(siteId){
             </div>
           </div>
         </div>
+        ${t.done && !todoClosedCommentsOpen[t.id] ? `
         <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
-          <p class="field-label" style="margin:0 0 6px;font-size:9px;">Comments</p>
+          <p class="ddrow" style="margin:0;" onclick="toggleTodoCommentsOpen('${t.id}')"><span class="arrow">▶</span> Comments${(commentsByTodo[t.id]||[]).length ? ' ('+(commentsByTodo[t.id]||[]).length+')' : ''}</p>
+        </div>
+        ` : `
+        <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
+          ${t.done ? `<p class="ddrow" style="margin:0 0 6px;" onclick="toggleTodoCommentsOpen('${t.id}')"><span class="arrow">▼</span> Comments</p>` : `<p class="field-label" style="margin:0 0 6px;font-size:9px;">Comments</p>`}
           ${(commentsByTodo[t.id]||[]).map(c=>`
             <div style="margin-bottom:6px;font-size:11.3px;">
               <b>${escapeHtml(nameOf(c.created_by))}</b> <span style="color:var(--slate);font-size:9.9px;">${new Date(c.created_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
@@ -3636,6 +3687,7 @@ async function renderTodoList(siteId){
             <button class="ghostbtn" style="flex:1;padding:6px 10px;font-size:11.3px;" onclick="addTodoComment('${siteId}','${t.id}')">Comment</button>
           </div>
         </div>
+        `}
       </div>
     `).join('') : `<div class="empty">No ${todoFilter} to-dos.</div>`}
 
@@ -5664,7 +5716,6 @@ function renderMore(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings &amp; Specifications</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
-      ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/materialorders')"><div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div><div class="lbl">Material Orders</div></div>` : ''}
     </div>
   `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
@@ -5895,6 +5946,7 @@ let editingTaskId = null;
 let scheduleFilter = 'all';
 let scheduleLastSiteId; // undefined initially so the first render always sets a default
 let scheduleLastAnyStarted = null;
+let scheduleLastNoTodoLeft = null;
 // A task moving to "Complete" isn't saved as done straight away — it sits
 // here as a pending completion until at least one completion photo is
 // uploaded, so nobody can mark a job done with no evidence attached. They
@@ -5976,15 +6028,23 @@ async function renderSchedule(siteId){
   // site's started/not-started state actually flips (or on first load),
   // so it doesn't fight a tab the user has deliberately picked otherwise.
   const anyStarted = allTasks.some(t=>t.status==='progress'||t.status==='done');
+  // Once every task has moved past "to do" (none left at all, and there's
+  // at least one task), In Progress/Complete becomes the default view too —
+  // there's nothing left to start, so that's the tab with anything relevant
+  // in it. Re-applies the moment this flips, same as the anyStarted default
+  // below, so it doesn't fight a tab the user picked deliberately otherwise.
+  const noTodoLeft = allTasks.length>0 && !allTasks.some(t=>t.status==='todo');
   if(scheduleLastSiteId !== siteId){
     scheduleLastSiteId = siteId;
     scheduleLastAnyStarted = anyStarted;
-    scheduleFilter = anyStarted ? 'todo' : 'all';
-  } else if(scheduleLastAnyStarted !== anyStarted){
+    scheduleLastNoTodoLeft = noTodoLeft;
+    scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
+  } else if(scheduleLastAnyStarted !== anyStarted || scheduleLastNoTodoLeft !== noTodoLeft){
     scheduleLastAnyStarted = anyStarted;
-    scheduleFilter = anyStarted ? 'todo' : 'all';
+    scheduleLastNoTodoLeft = noTodoLeft;
+    scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
   }
-  const scheduleTabOrder = anyStarted ? ['todo','progress','all'] : ['all','todo','progress'];
+  const scheduleTabOrder = noTodoLeft ? ['progress','todo','all'] : (anyStarted ? ['todo','progress','all'] : ['all','todo','progress']);
   const scheduleTabLabel = {all:'All', todo:'To Do', progress:'In Progress / Complete'};
   const tasks = scheduleFilter==='all' ? allTasks
     : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
@@ -8672,6 +8732,21 @@ async function renderPuwerFill(siteId, userId){
         </table>
       </div>
     `}
+    ${isManager(ME) ? `
+      ${operativeToolsAddOpenFor===userId ? `
+        <div class="card" style="margin-bottom:14px;">
+          <p class="sectiontitle" style="margin-top:0;">Add Tool for ${escapeHtml(op.name)}</p>
+          <div class="formfield" style="margin-top:0;"><input type="text" id="opToolName-${userId}" placeholder="Tool name, e.g. Impact Driver"></div>
+          <div class="formfield"><input type="text" id="opToolSerial-${userId}" placeholder="Serial / item number"></div>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('opToolPhotoInput-${userId}').click()">${operativeToolsPhotoFile ? 'Photo chosen: '+escapeHtml(operativeToolsPhotoFile.name) : 'Choose Photo'}</div>
+          <input type="file" id="opToolPhotoInput-${userId}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsPhotoChosen(this)">
+          <div class="row-gap">
+            <button class="darkbtn" style="flex:1;" onclick="addPuwerOperativeTool('${siteId}','${userId}')">Save Tool</button>
+            <button class="ghostbtn" style="flex:1;" onclick="operativeToolsAddOpenFor=null;operativeToolsPhotoFile=null;render()">Cancel</button>
+          </div>
+        </div>
+      ` : `<button class="ghostbtn" style="margin-bottom:14px;" onclick="operativeToolsAddOpenFor='${userId}';operativeToolsPhotoFile=null;render()">+ Add Tool for ${escapeHtml(op.name)}</button>`}
+    ` : ''}
     <p class="sectiontitle">Any Other Comments</p>
     <div class="card">
       <textarea id="puwerComments" rows="3" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);resize:vertical;" placeholder="Optional" ${canEdit?'':'disabled'} oninput="setPuwerComments(this.value)">${escapeHtml(draft.comments)}</textarea>
@@ -10028,14 +10103,28 @@ async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
-  const [materials, suppliers] = await Promise.all([
+  const [materials, suppliers, pendingCount, orderFileCount] = await Promise.all([
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+    isPM ? dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id') : Promise.resolve([]),
+    isPM ? dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id') : Promise.resolve([]),
   ]);
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${isPM ? `
+    <div class="tilegrid" style="margin-bottom:14px;">
+      <div class="tile" style="cursor:default;background:var(--paper);">
+        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+        <div class="lbl">Material Requests</div><div class="sub">${pendingCount.length} pending</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
+        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
+        <div class="lbl">Material Orders</div><div class="sub">${orderFileCount.length ? orderFileCount.length+' synced' : 'Synced daily'}</div>
+      </div>
+    </div>
+    ` : ''}
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
@@ -10551,7 +10640,7 @@ async function renderMaterialOrders(siteId){
         <div class="meta" style="margin-top:3px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document ↗</span></div>
       </div>
     `).join('') : `<div class="empty">${linked ? 'Nothing synced yet — tap Sync Now, or wait for the daily sync.' : 'No material order files yet.'}</div>`}
-  `, {title:'Material Orders', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:'Material Orders', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/materials`, siteId, activeTab:'more'}); }
 }
 window.syncMaterialOrdersNow = async function(siteId){
   materialOrdersSyncBusy = true; render();
@@ -11677,11 +11766,11 @@ async function render(){
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
-  if(!SESSION || !ME){ renderLogin(); return; }
+  if(!SESSION || !ME){ return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
-  if(ME.role==='admin' && ORG && !ORG.logo_path){ renderCompanySetup(); return; }
+  if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   const parts = parseRoute();
-  if(!parts.length || parts[0]==='sites'){ renderSites(); return; }
+  if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
