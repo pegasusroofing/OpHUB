@@ -354,25 +354,20 @@
   /* Fixed to the viewport bottom (not just wherever the flex column happens
      to end) so it stays visible while scrolling, on every page — matches
      the mobile #app width so it sits exactly under the phone-card content. */
-  .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;align-items:flex-end;padding:8px 3px 12px;
-    padding-bottom:calc(12px + env(safe-area-inset-bottom));
+  .tabbar{flex:0 0 auto;display:flex;justify-content:space-around;align-items:flex-end;padding:7.2px 2.7px 10.8px;
+    padding-bottom:calc(10.8px + env(safe-area-inset-bottom));
     background:#fff;border-top:1px solid var(--line);
     position:fixed;left:0;right:0;bottom:0;max-width:460px;margin:0 auto;z-index:40;}
-  .tb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:8.5px;font-weight:700;
-    color:var(--slate-light);padding:4px 5px;border-radius:10px;}
+  .tb{display:flex;flex-direction:column;align-items:center;gap:1.8px;font-size:7.65px;font-weight:700;
+    color:var(--slate-light);padding:3.6px 4.5px;border-radius:10px;}
   .tb.active{color:var(--brand1);}
-  .tabicon{font-size:15px;}
-  .tb.tb-emph{border:1.5px solid var(--line);padding:6px 9px;margin:-4px 0;background:var(--paper);font-size:9.5px;}
-  .tb.tb-emph .tabicon{font-size:19px;}
+  .tabicon{font-size:13.5px;}
+  .tb.tb-emph{border:1.5px solid var(--line);padding:5.4px 8.1px;margin:-3.6px 0;background:var(--paper);font-size:8.55px;}
+  .tb.tb-emph .tabicon{font-size:17.1px;}
   .tb.tb-emph.active{border-color:var(--brand1);}
-  /* Home screen's bottom bar — same bar, much shorter (~80% less height)
-     than the per-site tabbar: tighter padding, smaller icons/labels, and
-     icon+label sit side by side instead of stacked. */
-  .tabbar-home{padding:3.3px 3.3px;padding-bottom:calc(3.3px + env(safe-area-inset-bottom));align-items:center;}
-  .tabbar-home .tb{flex-direction:row;gap:4.4px;padding:3.3px 4.4px;font-size:8.25px;}
-  .tabbar-home .tabicon{font-size:13.2px;}
-  .tabbar-home .tb.tb-emph{padding:4.4px 19.8px;margin:0;font-size:8.8px;}
-  .tabbar-home .tb.tb-emph .tabicon{font-size:14.3px;}
+  /* Home screen's bottom bar uses the exact same .tabbar/.tb styling as the
+     per-site tabbar above — same size, same stacked icon-over-label look —
+     just with its own 5-item set (see homeBottomBar()). */
 
   .toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:13px 16px;
     border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);
@@ -1613,7 +1608,7 @@ function shell(innerHtml, opts){
         </div>
         `}
       </div>
-      <div class="scrollarea" ${opts.homeBar ? 'style="padding-bottom:42px;"' : ''}>${innerHtml}</div>
+      <div class="scrollarea">${innerHtml}</div>
       ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
@@ -1652,7 +1647,7 @@ function homeBottomBar(canAdd){
     // Operatives (no Admin Centre) go to the lighter Account page instead.
     {ic:'⚙️', lbl:'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
   ];
-  return `<div class="tabbar tabbar-home">${items.map(t=>`
+  return `<div class="tabbar">${items.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''}" ${t.branded?`style="background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);"`:''} onclick="${t.onclick}">
       <span class="tabicon">${t.ic}</span>${t.lbl}
     </div>`).join('')}</div>`;
@@ -2261,6 +2256,7 @@ window.setSiteStatus = async function(siteId, status){
   render();
 };
 window.toggleSiteSection = function(key){ siteSectionOpen[key] = !siteSectionOpen[key]; render(); };
+window.goSitesSection = function(key){ siteSectionOpen[key] = true; go('#/sites'); };
 async function renderSites(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
@@ -2354,9 +2350,11 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
-    <p style="text-align:center;margin-top:8px;">
-      <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span>
-    </p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">
+      <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
+      <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
+      <span class="stub" style="margin:0;text-align:right;color:var(--warn);cursor:pointer;text-decoration:underline;flex:0 0 auto;" onclick="doSignOut()">Sign out</span>
+    </div>
   `, {homeBar:true, homeBarCanAdd:canAdd, centerHeader:true, showRefresh:true}); }
 }
 window.setSiteFilterPm = function(pmIds){ siteFilterPmIds = pmIds || []; render(); };
@@ -2467,13 +2465,19 @@ window.deleteSite = async function(siteId, name){
 // bottom bar, not just admins. Managers see everyone's outstanding items
 // across every live site; operatives see only their own, on sites they're
 // assigned to.
+let outstandingPmId = null; // company admin only — null = "my own", else a specific PM's id
 async function renderOutstandingTasks(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
   const manager = isManager(ME);
+  const isAdmin = ME.role==='admin';
+  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const viewingPmId = isAdmin ? (outstandingPmId || ME.id) : ME.id;
   let sites;
-  if(manager){
-    sites = SITES.filter(s=>s.status==='active');
+  if(isAdmin){
+    sites = SITES.filter(s=>s.status==='active' && s.responsible_pm_id===viewingPmId);
+  } else if(manager){
+    sites = SITES.filter(s=>s.status==='active' && s.responsible_pm_id===ME.id);
   } else {
     const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
     const ids = new Set(assignments.map(a=>a.site_id));
@@ -2488,12 +2492,13 @@ async function renderOutstandingTasks(){
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
   const sigFilter = manager ? '' : ('&user_id=eq.'+ME.id);
-  const [ramsSigsRaw, coshhSigsRaw, assignments, scheduleTasks, openSnags] = await Promise.all([
+  const [ramsSigsRaw, coshhSigsRaw, assignments, scheduleTasks, openSnags, pendingMaterials] = await Promise.all([
     ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')'+sigFilter+'&select=rams_id,user_id,signed_at') : Promise.resolve([]),
     coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')'+sigFilter+'&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&status=neq.done&select=site_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
+    manager && idsCsv ? dbSelect('materials', 'status=eq.pending&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
   ]);
   const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
   const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
@@ -2501,6 +2506,10 @@ async function renderOutstandingTasks(){
   assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
   const tasksBySite = {}; scheduleTasks.forEach(t=>{ tasksBySite[t.site_id] = (tasksBySite[t.site_id]||0)+1; });
   const snagsBySite = {}; openSnags.forEach(s=>{ snagsBySite[s.site_id] = (snagsBySite[s.site_id]||0)+1; });
+  const materialsBySite = {}; pendingMaterials.forEach(m=>{ materialsBySite[m.site_id] = (materialsBySite[m.site_id]||0)+1; });
+  // RAMS/COSHH are only "complete" once every operative assigned to the
+  // site has signed the current document — for managers this counts every
+  // still-missing (site, operative, doc) combination, not just per-doc.
   function unsignedCount(siteId, docs, sigs, fk){
     const docsHere = docs.filter(d=>d.site_id===siteId);
     if(manager){
@@ -2519,15 +2528,26 @@ async function renderOutstandingTasks(){
     const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id');
     const tasks = tasksBySite[s.id]||0;
     const snags = snagsBySite[s.id]||0;
+    const materialsPending = materialsBySite[s.id]||0;
     const items = [];
     if(rams) items.push({lbl:`RAMS to sign (${rams})`, href:`#/site/${s.id}/hs/rams`});
     if(coshh) items.push({lbl:`COSHH to sign (${coshh})`, href:`#/site/${s.id}/hs/coshh`});
+    if(manager && materialsPending) items.push({lbl:`Material requests pending (${materialsPending})`, href:`#/site/${s.id}/materials`});
     if(manager && tasks) items.push({lbl:`Schedule tasks open (${tasks})`, href:`#/site/${s.id}/schedule`});
     if(manager && snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
     return {site:s, items};
   }).filter(r=>r.items.length);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${manager ? 'Outstanding items across your live projects — tap one to go straight to it.' : 'Outstanding items on your sites — tap one to go straight to it.'}</p>
+    ${isAdmin && pmOptions.length ? `
+      <div class="formfield" style="margin-bottom:14px;">
+        <label class="field-label">Viewing outstanding items for</label>
+        <select onchange="outstandingPmId=this.value||null;render()">
+          <option value="" ${!outstandingPmId?'selected':''}>Me (${escapeHtml(ME.name)})</option>
+          ${pmOptions.filter(p=>p.id!==ME.id).map(p=>`<option value="${p.id}" ${outstandingPmId===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
+        </select>
+      </div>
+    ` : ''}
     ${rows.length ? rows.map(r=>`
       <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(r.site.name)}</p>
       ${r.items.map(it=>`
@@ -2677,44 +2697,48 @@ async function renderDashboard(){
     .sort((a,b)=>b.count-a.count)
     .slice(0, count===undefined?5:count);
 
-  const statCard = (label, value, sub) => `
-    <div class="card" style="flex:1;min-width:130px;text-align:center;">
+  const statCard = (label, value, sub, onclick) => `
+    <div class="card" style="flex:1;min-width:130px;text-align:center;${onclick?'cursor:pointer;':''}" ${onclick?`onclick="${onclick}"`:''}>
       <div style="font-size:26px;font-weight:800;color:var(--ink);">${value}</div>
       <div class="meta" style="margin-top:2px;">${escapeHtml(label)}</div>
       ${sub ? `<div class="stub" style="margin-top:4px;">${sub}</div>` : ''}
+      ${onclick ? `<div class="stub" style="margin-top:4px;color:var(--blue);">Tap to open ›</div>` : ''}
     </div>`;
 
-  const siteListBlock = (title, list, href) => `
-    <p class="sectiontitle" style="margin-top:20px;">${title}</p>
+  // No "top 5" cap here any more — a tile that says "12 outstanding" should
+  // open to all 12 projects, not just the busiest 5.
+  const siteListBlock = (id, title, list, href) => `
+    <p class="sectiontitle" id="${id}" style="margin-top:20px;scroll-margin-top:14px;">${title}</p>
     ${list.length ? list.map(x=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('${href(x.site.id)}')">
         <div class="swatch">${(x.site.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
         <div class="info"><div class="name">${escapeHtml(x.site.name)}</div><div class="addr">${x.count}</div></div>
       </div>
     `).join('') : `<div class="empty">Nothing outstanding.</div>`}`;
+  const scrollTo = id => `document.getElementById('${id}').scrollIntoView({behavior:'smooth'})`;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
-      ${statCard('Live Projects', liveSites.length)}
-      ${statCard('Upcoming', upcomingSites.length)}
-      ${statCard('Closed', closedSites.length)}
+      ${statCard('Live Projects', liveSites.length, null, "go('#/sites')")}
+      ${statCard('Upcoming', upcomingSites.length, null, "goSitesSection('upcoming')")}
+      ${statCard('Closed', closedSites.length, null, "goSitesSection('closed')")}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
-      ${statCard('Open Snags', totalOpenSnags, 'across live projects')}
-      ${statCard('RAMS Outstanding', totalRamsOutstanding, 'signatures needed')}
-      ${statCard('COSHH Outstanding', totalCoshhOutstanding, 'signatures needed')}
+      ${statCard('Open Snags', totalOpenSnags, 'across live projects', scrollTo('dash-snags'))}
+      ${statCard('RAMS Outstanding', totalRamsOutstanding, 'signatures needed', scrollTo('dash-rams'))}
+      ${statCard('COSHH Outstanding', totalCoshhOutstanding, 'signatures needed', scrollTo('dash-coshh'))}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:6px;">
       ${statCard('Schedule Complete', completionPct+'%', scheduleTotals.total+' tasks across live projects')}
-      ${statCard('Incidents (30 days)', incidentsThisMonth.length)}
-      ${statCard('RIDDOR Reportable', riddorCount, 'most recent 500 reports')}
+      ${statCard('Incidents (30 days)', incidentsThisMonth.length, null, scrollTo('dash-incidents'))}
+      ${statCard('RIDDOR Reportable', riddorCount, 'most recent 500 reports', scrollTo('dash-incidents'))}
     </div>
 
-    ${siteListBlock('Live Projects With Open Snags', topSites(snagsBySite), id=>`#/site/${id}/snagging`)}
-    ${siteListBlock('Live Projects With RAMS Outstanding', topSites(ramsOutstandingBySite), id=>`#/site/${id}/hs/rams`)}
-    ${siteListBlock('Live Projects With COSHH Outstanding', topSites(coshhOutstandingBySite), id=>`#/site/${id}/hs/coshh`)}
+    ${siteListBlock('dash-snags', 'Live Projects With Open Snags', topSites(snagsBySite, 999), id=>`#/site/${id}/snagging`)}
+    ${siteListBlock('dash-rams', 'Live Projects With RAMS Outstanding', topSites(ramsOutstandingBySite, 999), id=>`#/site/${id}/hs/rams`)}
+    ${siteListBlock('dash-coshh', 'Live Projects With COSHH Outstanding', topSites(coshhOutstandingBySite, 999), id=>`#/site/${id}/hs/coshh`)}
 
-    <p class="sectiontitle" style="margin-top:20px;">Recent Accident / Incident Reports</p>
+    <p class="sectiontitle" id="dash-incidents" style="margin-top:20px;scroll-margin-top:14px;">Recent Accident / Incident Reports</p>
     ${incidentsRecent.slice(0,8).length ? incidentsRecent.slice(0,8).map(r=>{
       const s = SITES.find(x=>x.id===r.site_id);
       return `<div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${r.site_id}/hs/incidents/${r.id}')">
@@ -11522,9 +11546,9 @@ async function renderMaterialRequests(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div><div class="name">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)}</div><div class="qty">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
+              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)}</div><div class="qty">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;">
+            <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
               ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
             </div>
