@@ -365,6 +365,14 @@
   .tb.tb-emph{border:1.5px solid var(--line);padding:6px 9px;margin:-4px 0;background:var(--paper);font-size:9.5px;}
   .tb.tb-emph .tabicon{font-size:19px;}
   .tb.tb-emph.active{border-color:var(--brand1);}
+  /* Home screen's bottom bar — same bar, much shorter (~80% less height)
+     than the per-site tabbar: tighter padding, smaller icons/labels, and
+     icon+label sit side by side instead of stacked. */
+  .tabbar-home{padding:3px 3px;padding-bottom:calc(3px + env(safe-area-inset-bottom));align-items:center;}
+  .tabbar-home .tb{flex-direction:row;gap:4px;padding:3px 4px;font-size:7.5px;}
+  .tabbar-home .tabicon{font-size:12px;}
+  .tabbar-home .tb.tb-emph{padding:4px 18px;margin:0;font-size:8px;}
+  .tabbar-home .tb.tb-emph .tabicon{font-size:13px;}
 
   .toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:13px 16px;
     border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);
@@ -1605,7 +1613,7 @@ function shell(innerHtml, opts){
         </div>
         `}
       </div>
-      <div class="scrollarea">${innerHtml}</div>
+      <div class="scrollarea" ${opts.homeBar ? 'style="padding-bottom:38px;"' : ''}>${innerHtml}</div>
       ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
@@ -1644,7 +1652,7 @@ function homeBottomBar(canAdd){
     // Operatives (no Admin Centre) go to the lighter Account page instead.
     {ic:'⚙️', lbl:'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
   ];
-  return `<div class="tabbar">${items.map(t=>`
+  return `<div class="tabbar tabbar-home">${items.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''}" ${t.branded?`style="background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);"`:''} onclick="${t.onclick}">
       <span class="tabicon">${t.ic}</span>${t.lbl}
     </div>`).join('')}</div>`;
