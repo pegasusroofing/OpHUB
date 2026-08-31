@@ -115,8 +115,9 @@
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
   .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
-    font-family:Calibri,'Open Sans',sans-serif;padding:3px 6.75px;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;}
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.02px;font-weight:800;
+    font-family:Calibri,'Open Sans',sans-serif;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;
+    width:18px;height:12.6px;flex:0 0 18px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
 
   /* Bottom padding is generous enough to clear the now-fixed tabbar (see
      .tabbar below) so the last card/row is never hidden behind it — the
@@ -174,18 +175,18 @@
     background:#fff;font-weight:800;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
   .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
 
-  .sitecard{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
-    border-radius:14px;padding:12px;margin-bottom:10px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
+  .sitecard{display:flex;align-items:center;gap:10.8px;background:var(--card);border:1px solid var(--line);
+    border-radius:12.6px;padding:10.8px;margin-bottom:9px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   .sitecard:active{transform:scale(.99);}
-  .sitecard .swatch{width:56px;height:48px;border-radius:10px;flex:0 0 56px;
-    background:var(--brand1);border:2px solid var(--brand2);display:flex;align-items:center;justify-content:center;
-    color:var(--brand1-text);font-weight:800;font-size:11px;line-height:1.15;text-align:center;padding:2px;box-sizing:border-box;}
-  .sitecard .swatch.personswatch{width:55px;height:55px;border-radius:11px;flex:0 0 55px;font-size:18.75px;}
+  .sitecard .swatch{width:50.4px;height:43.2px;border-radius:9px;flex:0 0 50.4px;
+    background:var(--brand1);border:1.8px solid var(--brand2);display:flex;align-items:center;justify-content:center;
+    color:var(--brand1-text);font-weight:800;font-size:9.9px;line-height:1.15;text-align:center;padding:1.8px;box-sizing:border-box;}
+  .sitecard .swatch.personswatch{width:49.5px;height:49.5px;border-radius:9.9px;flex:0 0 49.5px;font-size:16.875px;}
   .sitecard .info{flex:1;min-width:0;}
-  .sitecard .info .name{font-weight:800;font-size:14.5px;}
-  .sitecard .info .addr{font-size:12px;color:var(--slate);margin-top:1px;}
-  .sitecard .status{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
-    padding:3px 8px;border-radius:999px;flex:0 0 auto;}
+  .sitecard .info .name{font-weight:800;font-size:13.05px;}
+  .sitecard .info .addr{font-size:10.8px;color:var(--slate);margin-top:0.9px;}
+  .sitecard .status{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    padding:2.7px 7.2px;border-radius:999px;flex:0 0 auto;}
   .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
   .sitecard .status.live{background:var(--ok-bg);color:var(--ok);}
   .sitecard .status.upcoming{background:var(--warn-bg);color:var(--warn);}
@@ -362,7 +363,7 @@
     color:var(--slate-light);padding:3.6px 4.5px;border-radius:10px;}
   .tb.active{color:var(--brand1);}
   .tabicon{font-size:13.5px;}
-  .tb.tb-emph{border:1.5px solid var(--line);padding:5.4px 8.1px;margin:-3.6px 0;background:var(--paper);font-size:8.55px;}
+  .tb.tb-emph{border:1.5px solid var(--line);padding:5.4px 15.3px;margin:-3.6px 0;background:var(--paper);font-size:8.55px;}
   .tb.tb-emph .tabicon{font-size:17.1px;}
   .tb.tb-emph.active{border-color:var(--brand1);}
   /* Home screen's bottom bar uses the exact same .tabbar/.tb styling as the
@@ -2145,6 +2146,12 @@ function fullSiteAddress(s){
   return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
 }
 const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
+// Site list status badge shows a symbol instead of the text label for
+// Active/Upcoming (same badge colour/shade as before — see .status.live /
+// .status.upcoming CSS) — currently Active='✓' tick, Upcoming='🕐' clock.
+// Closed keeps its text label. Swap these two values here if the mapping
+// ever needs reversing.
+const SITE_STATUS_ICON = {live:'✓', upcoming:'🕐'};
 function siteCardHtml(s, canAdd, pmOptions){
   const statusKey = s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
   const pmLocked = !!s.responsible_pm_id;
@@ -2165,7 +2172,7 @@ function siteCardHtml(s, canAdd, pmOptions){
   // Long job numbers/postcodes won't fit the fixed-size tile at the normal
   // initials font size — shrink proportionally to length instead of
   // truncating or overflowing.
-  const swatchFontSize = swatchText.length<=3 ? 15 : swatchText.length<=5 ? 11 : swatchText.length<=7 ? 9 : 7.5;
+  const swatchFontSize = swatchText.length<=3 ? 13.5 : swatchText.length<=5 ? 9.9 : swatchText.length<=7 ? 8.1 : 6.75;
   // The status/PM dropdowns are absolutely positioned and spill down over
   // the next row in the list — without an elevated stacking context here,
   // a tap on the dropdown (e.g. "Delete permanently") could land on the
@@ -2186,7 +2193,7 @@ function siteCardHtml(s, canAdd, pmOptions){
           style="margin-left:4px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
       ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
-      <span class="status ${statusKey}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
+      <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_ICON[statusKey] || SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
           ${statusKey!=='live' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','live')">Set Active</div>` : ''}
@@ -4082,7 +4089,10 @@ window.setResponsiblePM = async function(siteId, pmId){
 };
 async function unreadCountForSite(siteId){
   const audience = isManager(ME) ? 'managers' : 'operatives';
-  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&select=id`);
+  // Exclude your own sends/raises — you already know about those. You still
+  // get counted in on anything else in the thread (someone else's reply or
+  // action), since those are separate rows authored by someone other than you.
+  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&sender_id=neq.${ME.id}&select=id`);
   if(!msgs.length) return 0;
   const ids = msgs.map(m=>m.id);
   const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${ids.join(',')})&select=message_id`);
@@ -4104,6 +4114,8 @@ let todoEditTextDraft = '';
 let todoEditDateDraft = '';
 let todoCommentDraft = {}; // todoId -> draft comment text
 let todoClosedCommentsOpen = {}; // todoId -> whether a completed to-do's collapsed comments are expanded
+let newTodoFilesDraft = []; // File objects picked before the to-do exists — uploaded right after addTodo() creates the row
+let todoAttachUploadOpenId = null; // todo id whose "add photo/document" picker is showing
 window.toggleTodoCommentsOpen = function(todoId){ todoClosedCommentsOpen[todoId] = !todoClosedCommentsOpen[todoId]; render(); };
 // Email picker — themed HTML email (same look as material order emails)
 // listing the live to-dos, sent to whichever project managers are ticked.
@@ -4185,20 +4197,24 @@ async function renderTodoList(siteId){
   // not just on page change, so nothing can look like it "carried over".
   if(todoListLastSiteId !== siteId){
     todoListLastSiteId = siteId;
-    newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = '';
+    newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; newTodoFilesDraft = [];
     todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null;
-    todoEmailRecipientIds = []; todoEmailFilterText = ''; todoClosedCommentsOpen = {};
+    todoEmailRecipientIds = []; todoEmailFilterText = ''; todoClosedCommentsOpen = {}; todoAttachUploadOpenId = null;
   }
   const [allTodos, pmList] = await Promise.all([
     dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
     loadPMList(),
   ]);
   const todos = allTodos.filter(t => todoFilter==='live' ? !t.done : t.done);
-  let commentsByTodo = {};
+  let commentsByTodo = {}, attachmentsByTodo = {};
   if(todos.length){
     const ids = todos.map(t=>t.id).join(',');
-    const comments = await dbSelect('todo_comments', 'todo_id=in.('+ids+')&order=created_at.asc');
+    const [comments, attachments] = await Promise.all([
+      dbSelect('todo_comments', 'todo_id=in.('+ids+')&order=created_at.asc'),
+      dbSelect('todo_attachments', 'todo_id=in.('+ids+')&order=uploaded_at.asc'),
+    ]);
     comments.forEach(c=>{ (commentsByTodo[c.todo_id]=commentsByTodo[c.todo_id]||[]).push(c); });
+    attachments.forEach(a=>{ (attachmentsByTodo[a.todo_id]=attachmentsByTodo[a.todo_id]||[]).push(a); });
   }
   const addForm = `
       <div class="formfield">
@@ -4208,18 +4224,29 @@ async function renderTodoList(siteId){
         <label class="field-label">Comments (optional)</label>
         <textarea id="newTodoComment" placeholder="Add any notes…" oninput="newTodoCommentDraft=this.value">${escapeHtml(newTodoCommentDraft)}</textarea>
       </div>
-      <div class="row-gap">
-        <div class="formfield" style="flex:1;">
+      <div class="row-gap" style="align-items:flex-start;">
+        <div class="formfield" style="flex:1 1 0;min-width:0;">
           <label class="field-label">Date required by (optional)</label>
-          <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value">
+          <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value" style="width:100%;box-sizing:border-box;">
         </div>
-        <div class="formfield" style="flex:1;">
+        <div class="formfield" style="flex:1 1 0;min-width:0;">
           <label class="field-label">Assign to a PM (optional)</label>
-          <select id="newTodoAssignee" onchange="newTodoAssigneeDraft=this.value">
+          <select id="newTodoAssignee" onchange="newTodoAssigneeDraft=this.value" style="width:100%;box-sizing:border-box;">
             <option value="">Unassigned</option>
             ${pmList.map(p=>`<option value="${p.id}" ${newTodoAssigneeDraft===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
           </select>
         </div>
+      </div>
+      <div class="formfield">
+        <label class="field-label">Photos / documents (optional)</label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('newTodoFilesInput').click()">Choose file(s)</div>
+        <input type="file" id="newTodoFilesInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addNewTodoFiles(this)">
+        ${newTodoFilesDraft.length ? newTodoFilesDraft.map((f,i)=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
+            <span class="stub" style="margin:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</span>
+            <span style="cursor:pointer;color:var(--warn);font-size:11.5px;font-weight:700;" onclick="removeNewTodoFile(${i})">Remove</span>
+          </div>
+        `).join('') : ''}
       </div>
       <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
   `;
@@ -4276,6 +4303,20 @@ async function renderTodoList(siteId){
             </div>
           </div>
         </div>
+        <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
+          ${(attachmentsByTodo[t.id]||[]).map(a=>`
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+              <span style="font-size:11.5px;cursor:pointer;text-decoration:underline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="viewTodoAttachment('${t.id}','${jsAttr(a.storage_path)}','${jsAttr(a.name)}')">📎 ${escapeHtml(a.name)}</span>
+              <span style="cursor:pointer;color:var(--warn);font-size:11px;" onclick="deleteTodoAttachment('${a.id}','${jsAttr(a.storage_path)}')">🗑</span>
+            </div>
+          `).join('')}
+          ${todoAttachUploadOpenId===t.id ? `
+            <div style="margin-bottom:6px;">
+              <div class="ghostbtn" style="cursor:pointer;text-align:center;padding:6px;font-size:11.5px;" onclick="document.getElementById('todoAttachInput_${t.id}').click()">Choose file(s)</div>
+              <input type="file" id="todoAttachInput_${t.id}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadTodoAttachmentNow(this,'${siteId}','${t.id}')">
+            </div>
+          ` : `<p class="stub" style="margin:0 0 6px;font-size:11px;cursor:pointer;text-decoration:underline;" onclick="toggleTodoAttachUpload('${t.id}')">+ Add photo/document</p>`}
+        </div>
         ${t.done && !todoClosedCommentsOpen[t.id] ? `
         <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
           <p class="ddrow" style="margin:0;" onclick="toggleTodoCommentsOpen('${t.id}')"><span class="arrow">▶</span> Comments${(commentsByTodo[t.id]||[]).length ? ' ('+(commentsByTodo[t.id]||[]).length+')' : ''}</p>
@@ -4314,6 +4355,22 @@ async function renderTodoList(siteId){
     ` : ''}
   `, {title:'To Do List', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
 }
+window.addNewTodoFiles = function(input){
+  const files = input.files ? Array.from(input.files) : [];
+  newTodoFilesDraft = newTodoFilesDraft.concat(files);
+  render();
+};
+window.removeNewTodoFile = function(idx){
+  newTodoFilesDraft.splice(idx, 1);
+  render();
+};
+async function uploadTodoAttachment(todoId, file){
+  const path = todoId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('todo-attachments', path, file, file.type||'application/octet-stream');
+  if(!stored) return false;
+  const rows = await dbInsert('todo_attachments', {todo_id:todoId, name:file.name, storage_path:stored, size:file.size||null, uploaded_by:ME.id});
+  return !!rows;
+}
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
   if(!text){ toast('Enter what needs doing first.'); return; }
@@ -4321,6 +4378,9 @@ window.addTodo = async function(siteId){
   if(row){
     const comment = (newTodoCommentDraft||'').trim();
     if(comment) await dbInsert('todo_comments', {todo_id:row.id, body:comment, created_by:ME.id});
+    if(newTodoFilesDraft.length){
+      for(const f of newTodoFilesDraft){ await uploadTodoAttachment(row.id, f); }
+    }
     if(newTodoAssigneeDraft){
       const site = SITES.find(s=>s.id===siteId);
       postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'New to-do assigned to '+nameOf(newTodoAssigneeDraft)+': '+text);
@@ -4329,8 +4389,38 @@ window.addTodo = async function(siteId){
     newTodoAssigneeDraft = '';
     newTodoDateDraft = '';
     newTodoCommentDraft = '';
+    newTodoFilesDraft = [];
     todoAddOpen = false; // collapse the Add To Do dropdown once a to-do has been created
     toast('Added to the to-do list');
+    render();
+  }
+};
+window.toggleTodoAttachUpload = function(todoId){
+  todoAttachUploadOpenId = todoAttachUploadOpenId===todoId ? null : todoId;
+  render();
+};
+window.uploadTodoAttachmentNow = async function(input, siteId, todoId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  let uploaded = 0;
+  for(const f of files){ if(await uploadTodoAttachment(todoId, f)) uploaded++; }
+  if(uploaded){ toast(uploaded===1?'Attachment added':uploaded+' attachments added'); todoAttachUploadOpenId = null; }
+  render();
+};
+window.viewTodoAttachment = async function(todoId, storagePath, name){
+  try{
+    const res = await sbFetch('/functions/v1/todo-attachment-access', {method:'POST', body: JSON.stringify({todo_id:todoId, storage_path:storagePath})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
+    viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
+  }catch(e){ toast('Could not open file.'); }
+};
+window.deleteTodoAttachment = async function(id, storagePath){
+  if(!await customConfirm('Delete this attachment? This can\'t be undone.')) return;
+  const ok = await dbDelete('todo_attachments', id);
+  if(ok){
+    if(storagePath){ try{ await sbFetch('/storage/v1/object/todo-attachments/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
+    toast('Attachment deleted');
     render();
   }
 };
@@ -4546,9 +4636,10 @@ async function renderAssignTeam(siteId){
   const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Address &amp; Job Number</p>
+    <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
     <div class="card">
+      <div class="formfield"><label class="field-label">Site Name</label><input type="text" id="editSiteName" value="${escapeHtml(site.name||'')}"></div>
       <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}" oninput="applyTitleCase(this)"></div>
       <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}" oninput="applyUpperCase(this)"></div>
       <div class="formfield"><label class="field-label">Job Number</label><input type="text" id="editSiteJobNumber" placeholder="Optional" value="${escapeHtml(site.job_number||'')}"></div>
@@ -4581,10 +4672,10 @@ async function renderAssignTeam(siteId){
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
     ${operatives.map(p=>`
-      <div class="sitecard">
-        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
+      <div class="sitecard" style="padding:7px 9px;gap:8px;">
+        <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
+        <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
           ${assignedIds.has(p.id) ? 'Assigned ✓' : 'Assign'}
         </button>
       </div>
@@ -4603,10 +4694,10 @@ async function renderAssignTeam(siteId){
       <p class="sectiontitle" style="margin-top:14px;">Who can see it</p>
       <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this project's price. The project admin and this site's responsible PM can always see it.</p>
       ${operatives.map(p=>`
-        <div class="sitecard">
-          <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-          <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-          <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="togglePriceAccess('${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
+        <div class="sitecard" style="padding:7px 9px;gap:8px;">
+          <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+          <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
+          <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="togglePriceAccess('${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
             ${priceAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
           </button>
         </div>
@@ -4627,10 +4718,12 @@ async function renderAssignTeam(siteId){
 let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.saveSiteAddress = async function(siteId){
+  const name = document.getElementById('editSiteName').value.trim();
   const address = document.getElementById('editSiteAddress').value.trim();
   const postcode = document.getElementById('editSitePostcode').value.trim();
   const jobNumber = document.getElementById('editSiteJobNumber').value.trim();
-  const row = await dbUpdate('sites', siteId, {address: address||null, postcode: postcode||null, job_number: jobNumber||null});
+  if(!name){ toast('Site name cannot be blank.'); return; }
+  const row = await dbUpdate('sites', siteId, {name, address: address||null, postcode: postcode||null, job_number: jobNumber||null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -12006,6 +12099,7 @@ window.deleteMaterial = async function(siteId, matId){
    folder is auto-synced daily from a linked OneDrive folder for PMs; synced files can then be
    moved into sub-folders by anyone who can manage them) ================= */
 let materialOrdersSyncBusy = false;
+const autoSyncedMaterialSites = new Set(); // site ids already auto-synced this session, avoids re-checking every render
 let matOrderUploadOpen = false;
 let matOrderNewFolderOpen = false;
 let matOrdersLastFolderId; // undefined initially so the very first render always "changes"
@@ -12021,7 +12115,7 @@ function materialOrderFolderPath(folders, id){
 // synced folder, so that control lives in the same place as everything else
 // that touches this folder's contents, rather than a separate card only they
 // can see.
-window.showMaterialOrderAddMenu = function(siteId, folderId, isPmView){
+window.showMaterialOrderAddMenu = function(siteId, folderId, isPmView, linked){
   let ov = document.getElementById('confirmModalOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -12035,7 +12129,9 @@ window.showMaterialOrderAddMenu = function(siteId, folderId, isPmView){
       <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';matOrderNewFolderOpen=true;matOrderUploadOpen=false;render()">📁 Add Folder</button>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';matOrderUploadOpen=true;matOrderNewFolderOpen=false;render()">📄 Add Document</button>
-      ${isPmView ? `<button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';startOneDriveFolderPicker('${siteId}','materials')">🔗 Change OneDrive Sync Folder</button>` : ''}
+      ${isPmView && linked ? `<button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';syncMaterialOrdersNow('${siteId}')">🔄 Sync Now</button>` : ''}
+      ${isPmView ? `<button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';startOneDriveFolderPicker('${siteId}','materials')">🔗 ${linked?'Change':'Link'} OneDrive Sync Folder</button>` : ''}
+      ${isPmView && linked ? `<button class="darkbtn" style="width:100%;margin-bottom:8px;background:var(--warn);border-color:var(--warn);" onclick="document.getElementById('confirmModalOverlay').style.display='none';unlinkMaterialOrdersFolder('${siteId}')">🔓 Unlink Folder</button>` : ''}
       <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
     </div>`;
   ov.style.display = 'flex';
@@ -12062,10 +12158,22 @@ async function renderMaterialOrders(siteId, folderId){
   }
   const [subfolders, files, allFolders] = await Promise.all([
     dbSelect('material_order_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
-    dbSelect('material_order_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=synced_at.desc'),
+    dbSelect('material_order_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&order=position.asc.nullslast,synced_at.desc'),
     dbSelect('material_order_folders', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   const linked = !!site.material_orders_folder_id;
+  // Auto-refresh the synced folder when a PM/admin opens the main Material
+  // PO folder — but only once per calendar day (checked against the site's
+  // last-synced timestamp), so we're not hammering the sync function on
+  // every visit. Fires quietly in the background; syncMaterialOrdersNow
+  // itself already skips/no-ops server-side if nothing has changed.
+  if(isPmView && linked && !currentFolder && !autoSyncedMaterialSites.has(siteId)){
+    autoSyncedMaterialSites.add(siteId);
+    const lastSync = site.material_orders_last_synced_at ? new Date(site.material_orders_last_synced_at) : null;
+    if(!lastSync || (Date.now() - lastSync.getTime()) > 24*60*60*1000){
+      syncMaterialOrdersNow(siteId, true);
+    }
+  }
   const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/materialorders/${currentFolder.parent_id}` : `#/site/${siteId}/materialorders`) : `#/site/${siteId}/materials`;
   const parentArg = folderId ? `'${folderId}'` : 'null';
 
@@ -12073,11 +12181,7 @@ async function renderMaterialOrders(siteId, folderId){
     ${!currentFolder && isPmView ? `
     <div class="card">
       ${linked ? `
-        <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Synced daily from "${escapeHtml(site.material_orders_folder_name||'')}" into this main folder</p>
-        <div class="row-gap">
-          <button class="ghostbtn" style="flex:1;" ${materialOrdersSyncBusy?'disabled':''} onclick="syncMaterialOrdersNow('${siteId}')">${materialOrdersSyncBusy?'Syncing…':'🔄 Sync Now'}</button>
-        </div>
-        <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="unlinkMaterialOrdersFolder('${siteId}')">Unlink Folder</button>
+        <p class="stub" style="margin:0;color:var(--ok);">📁 Synced daily from "${escapeHtml(site.material_orders_folder_name||'')}" into this main folder${materialOrdersSyncBusy?' — syncing…':''}</p>
       ` : `
         <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and any files placed in it will sync here automatically once a day into this main folder — no need to upload anything by hand. You can also sync on demand any time, and move synced files into folders below once they've come in.</p>
         <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','materials')">Link OneDrive Folder</button>
@@ -12086,7 +12190,7 @@ async function renderMaterialOrders(siteId, folderId){
     ` : ''}
     <div class="drawheaderrow">
       <span>Folder/File Name</span>
-      <div class="roundplusbtn" onclick="showMaterialOrderAddMenu('${siteId}',${parentArg},${isPmView})">+</div>
+      <div class="roundplusbtn" onclick="showMaterialOrderAddMenu('${siteId}',${parentArg},${isPmView},${linked})">+</div>
     </div>
     ${matOrderNewFolderOpen ? `
       <div class="card" style="margin-bottom:10px;">
@@ -12109,19 +12213,21 @@ async function renderMaterialOrders(siteId, folderId){
           </div>
         </div>
       `).join('')}
-      ${files.map(f=>`
+      ${files.map((f,fidx)=>`
         <div class="card" style="padding:10px 12px;margin-bottom:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📦</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-              ${f.synced_at ? `<div class="meta" style="margin-top:2px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
+              ${f.synced_at ? `<div class="meta" style="margin-top:2px;font-size:9.5px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
             </div>
           </div>
-          <div class="row-gap" style="margin-top:8px;">
-            <button class="ghostbtn" style="flex:1;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document</button>
-            <button class="ghostbtn" style="flex:1;" onclick="toggleMoveMaterialOrderFile('${f.id}')">${matOrderMoveOpenId===f.id?'Cancel':'Move to folder'}</button>
-            <div class="taskicon danger" onclick="deleteMaterialOrderFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+            <button class="darkbtn" style="flex:1;width:auto;padding:8px 10px;" onclick="viewMaterialOrderFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document</button>
+            <div class="taskicon" style="${fidx===0?'opacity:.3;pointer-events:none;':''}" title="Move up" onclick="moveMaterialOrderFile('${siteId}',${parentArg},'${f.id}',-1)">▲</div>
+            <div class="taskicon" style="${fidx===files.length-1?'opacity:.3;pointer-events:none;':''}" title="Move down" onclick="moveMaterialOrderFile('${siteId}',${parentArg},'${f.id}',1)">▼</div>
+            <div class="taskicon" title="Move to folder" onclick="toggleMoveMaterialOrderFile('${f.id}')">📁</div>
+            <div class="taskicon danger" title="Delete" onclick="deleteMaterialOrderFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
           </div>
           ${matOrderMoveOpenId===f.id ? `
             <div class="formfield" style="margin-top:8px;">
@@ -12179,6 +12285,18 @@ window.deleteMaterialOrderFolder = async function(folderId){
   const ok = await dbDelete('material_order_folders', folderId);
   if(ok){ toast('Folder deleted'); render(); }
 };
+window.moveMaterialOrderFile = async function(siteId, parentFolderId, fileId, dir){
+  const siblings = await dbSelect('material_order_files', 'site_id=eq.'+siteId+'&'+(parentFolderId?'folder_id=eq.'+parentFolderId:'folder_id=is.null')+'&order=position.asc.nullslast,synced_at.desc');
+  await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('material_order_files', f.id, {position:idx}) : null));
+  const idx = siblings.findIndex(f=>f.id===fileId);
+  const swapIdx = idx + dir;
+  if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
+  await Promise.all([
+    dbUpdate('material_order_files', siblings[idx].id, {position:swapIdx}),
+    dbUpdate('material_order_files', siblings[swapIdx].id, {position:idx}),
+  ]);
+  render();
+};
 window.toggleMoveMaterialOrderFile = function(fileId){
   matOrderMoveOpenId = matOrderMoveOpenId===fileId ? null : fileId;
   render();
@@ -12213,14 +12331,19 @@ window.uploadMaterialOrderDocument = async function(input, siteId, folderId){
   if(uploaded){ toast(uploaded===1 ? 'Document added' : `${uploaded} documents added`); matOrderUploadOpen = false; }
   render();
 };
-window.syncMaterialOrdersNow = async function(siteId){
-  materialOrdersSyncBusy = true; render();
+window.syncMaterialOrdersNow = async function(siteId, silent){
+  materialOrdersSyncBusy = true; if(!silent) render();
   try{
     const res = await sbFetch('/functions/v1/sync-material-orders', {method:'POST', body: JSON.stringify({site_id:siteId})});
     const d = await res.json();
-    if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); }
-    else toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}`+(d.dupSkipped?` (${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped)`:'') : (d.dupSkipped ? `Already up to date — ${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped.` : 'Already up to date.'));
-  }catch(e){ console.error(e); toast('Sync failed — could not reach the server.'); }
+    if(!res.ok || d.error){ if(!silent) toast('Sync failed — '+(d.error||res.status)); }
+    else{
+      if(!silent) toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}`+(d.dupSkipped?` (${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped)`:'') : (d.dupSkipped ? `Already up to date — ${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped.` : 'Already up to date.'));
+      const nowIso = new Date().toISOString();
+      dbUpdate('sites', siteId, {material_orders_last_synced_at: nowIso});
+      const s = SITES.find(x=>x.id===siteId); if(s) s.material_orders_last_synced_at = nowIso;
+    }
+  }catch(e){ console.error(e); if(!silent) toast('Sync failed — could not reach the server.'); }
   materialOrdersSyncBusy = false; render();
 };
 window.viewMaterialOrderFile = async function(siteId, storagePath, name){
@@ -13199,10 +13322,13 @@ async function renderMessages(siteId){
     const ids = topLevel.map(m=>m.id).join(',');
     const replies = await dbSelect('messages', `parent_id=in.(${ids})&order=created_at.asc`);
     replies.forEach(r=>{ (repliesByParent[r.parent_id]=repliesByParent[r.parent_id]||[]).push(r); });
-    const allIds = [...topLevel, ...replies].map(m=>m.id);
+    const allMsgs = [...topLevel, ...replies];
+    const allIds = allMsgs.map(m=>m.id);
     const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${allIds.join(',')})&select=message_id`);
     const readSet = new Set(reads.map(r=>r.message_id));
-    unreadMsgIds = new Set(allIds.filter(id=>!readSet.has(id)));
+    // Your own sends/raises never highlight as "unread" for you — you
+    // already know about those. Anything authored by someone else still does.
+    unreadMsgIds = new Set(allMsgs.filter(m=>m.sender_id!==ME.id && !readSet.has(m.id)).map(m=>m.id));
     markMessagesRead(allIds);
   }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
