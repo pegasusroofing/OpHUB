@@ -18,6 +18,7 @@
   :root{
     --brand1:#4E8FD1;
     --brand2:#101114;
+    --brand1-header:#4E8FD1;
     --brand1-text:#fff;
     --red:#C8102E;
     --ink:#101114;
@@ -78,7 +79,7 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1);color:var(--brand1-text);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;}
+  .appbar{background:var(--brand1-header);color:var(--brand1-text);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;}
   .appbar .row{display:flex;align-items:center;gap:12.825px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
@@ -305,11 +306,13 @@
   .ramsdoc .name{font-size:13.5px;font-weight:800;}
   .ramsdoc .meta{font-size:11px;color:var(--slate);margin-top:3px;}
   .ramsdoc .viewlink{font-size:11.5px;color:var(--blue);font-weight:700;text-decoration:underline;}
-  .siglinebox{margin-top:12px;border:1.5px dashed var(--line);border-radius:8px;min-height:56px;
-    display:flex;align-items:center;justify-content:center;color:var(--slate-light);font-size:12px;font-weight:600;
-    flex-direction:column;gap:2px;padding:8px;text-align:center;}
-  .siglinebox.signed{border-style:solid;border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
+  .siglinebox{margin-top:12px;border:2px solid var(--warn);border-radius:8px;min-height:56px;
+    display:flex;align-items:center;justify-content:center;color:var(--warn);font-size:12.5px;font-weight:800;
+    flex-direction:column;gap:2px;padding:8px;text-align:center;background:var(--warn-bg);
+    animation:pulseSign 1.8s ease-in-out infinite;}
+  .siglinebox.signed{border:1.5px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:600;animation:none;}
   .siglinebox.signed .name{font-family:'Segoe Script','Brush Script MT',cursive;font-size:20px;}
+  @keyframes pulseSign{0%,100%{box-shadow:0 0 0 0 rgba(212,140,0,.28);}50%{box-shadow:0 0 0 6px rgba(212,140,0,0);}}
   .coshhsigbox{min-height:30px;padding:4px;margin-top:8px;font-size:10px;}
   .coshhsigbox.signed .name{font-size:14px;}
   .ramssigbox{min-height:30px;padding:4px;font-size:10px;}
@@ -1056,6 +1059,13 @@ let PROFILES = {}; // id -> {name,email,role}
 
 const OPHUB_LOGO = 'assets/ophub-logo.png?v=2';
 const DEFAULT_BRAND1 = '#4E8FD1';
+// The real public web address invite links must always point at — NOT
+// location.origin, which inside the native app is the WebView's internal
+// capacitor://localhost scheme and produces a link nobody outside the app
+// can open. send-invite-email (server-side) already builds its link this
+// same way; this constant just brings the client-side Copy Link buttons in
+// line with it.
+const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 const DEFAULT_BRAND2 = '#101114';
 // Inline SVG, can never 404 — the last-resort fallback so a missing/slow
 // asset never causes an onerror retry loop (which shows as a "flashing" broken image).
@@ -1078,11 +1088,24 @@ function readableTextColor(hex){
   const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
   return luminance > 0.72 ? '#101114' : '#fff';
 }
+function hexToRgba(hex, opacityPct){
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex||'');
+  if(!m) return hex;
+  const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
+  const a = (opacityPct==null ? 100 : opacityPct) / 100;
+  return `rgba(${r},${g},${b},${a})`;
+}
 function applyTheme(org){
   const root = document.documentElement.style;
   const brand1 = (org && org.color_primary) || DEFAULT_BRAND1;
   root.setProperty('--brand1', brand1);
   root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
+  // Header/banner background can be dialled down to a see-through tint of the
+  // primary colour (some dark brand colours read as too harsh solid) — this
+  // only affects the app bar background, never buttons/badges/chips, which
+  // stay solid --brand1 so their text stays legible.
+  const opacity = (org && org.color_primary_opacity!=null) ? org.color_primary_opacity : 100;
+  root.setProperty('--brand1-header', hexToRgba(brand1, opacity));
   // Header text colour: uses the company's chosen colour if they've set one,
   // otherwise falls back to auto black/white based on how light the primary
   // theme colour is (readableTextColor).
@@ -1230,16 +1253,29 @@ function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
 function snaggingFolderLabel(){ return isManager(ME) ? 'Reports &amp; Snagging' : 'Snagging &amp; Variations'; }
-function materialsTileLabel(){ return isManager(ME) ? "Material PO's & Requests" : 'Material Requests'; }
+function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
   return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
 }
 
-async function loadAllProfiles(){
+// loadAllProfiles() is called from nearly every render() — almost every
+// screen shows someone's name — so it was re-fetching the entire profiles
+// table over the network on every single navigation, including the back
+// button, which is what made back feel slow: the destination screen sat
+// waiting on a full profiles re-fetch before it could even start painting.
+// Names/roles don't change from tap to tap, so cache for a short TTL and
+// only force a real re-fetch when something that changes this data just ran
+// (see setUserRole/removeTeamMember, which also patch PROFILES in place so
+// they don't need to wait on this at all).
+let profilesLoadedAt = 0;
+const PROFILES_TTL_MS = 45000;
+async function loadAllProfiles(force){
+  if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return;
   const rows = await dbSelect('profiles', 'select=id,name,email,role');
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
+  profilesLoadedAt = Date.now();
 }
 function nameOf(userId){ return (PROFILES[userId] && PROFILES[userId].name) || 'Unknown'; }
 
@@ -1356,6 +1392,7 @@ document.addEventListener('click', function(e){
   if(siteStatusMenuOpenId && !e.target.closest('.status, .statusmenu')){ siteStatusMenuOpenId = null; changed = true; }
   if(sitePmPickerOpenId && !e.target.closest('.rolechip, .statusmenu')){ sitePmPickerOpenId = null; changed = true; }
   if(checkinLogOperativeFilterOpen && !e.target.closest('[data-checkinopfilter-root]')){ checkinLogOperativeFilterOpen = false; changed = true; }
+  if(ppeLogOperativeFilterOpen && !e.target.closest('[data-ppelogopfilter-root]')){ ppeLogOperativeFilterOpen = false; changed = true; }
   if(changed) render();
 });
 // Custom confirmation dialog, replacing the native window.confirm(). On this
@@ -1561,7 +1598,7 @@ function shell(innerHtml, opts){
         `}
       </div>
       <div class="scrollarea">${innerHtml}</div>
-      ${opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab)}
+      ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
 }
@@ -1581,6 +1618,27 @@ function tabbar(siteId, active){
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;
 }
+// Home screen ("Your Projects") bottom bar — same visual design as the
+// per-site tabbar (.tabbar/.tb/.tb-emph), but with its own 3 items:
+// Outstanding Tasks (left), Add Project (middle, emphasized — replaces the
+// old inline "Add a Project" card), Settings (right — replaces the old
+// inline "Admin Centre" button). Sticky to the bottom of the page.
+function homeBottomBar(canAdd){
+  const items = [
+    {ic:'📌', lbl:'Outstanding', onclick:"go('#/outstanding')"},
+    ...(canAdd ? [{ic:'+', lbl:'Add', emph:true, onclick:"openHomeAddProject()"}] : []),
+    {ic:'⚙️', lbl:'Settings', onclick:"go('#/account')"},
+  ];
+  return `<div class="tabbar">${items.map(t=>`
+    <div class="tb ${t.emph?'tb-emph':''}" onclick="${t.onclick}">
+      <span class="tabicon">${t.ic}</span>${t.lbl}
+    </div>`).join('')}</div>`;
+}
+window.openHomeAddProject = function(){
+  addSiteFormOpen = true;
+  render();
+  requestAnimationFrame(()=>window.scrollTo(0,0));
+};
 
 /* ================= LOGIN ================= */
 let authBusy = false;
@@ -1967,7 +2025,7 @@ window.createCompanyInvite = async function(){
     const d = await res.json();
     newCompanyBusy = false;
     if(!res.ok || d.error){ toast('Could not create company — '+(d.error||res.status)); render(); return; }
-    newCompanyInvite = {org_name: company_name, invite_link: location.origin + location.pathname + '#/join/' + d.invite_id};
+    newCompanyInvite = {org_name: company_name, invite_link: OPHUB_WEB_URL + '#/join/' + d.invite_id};
     toast('Company created');
     render();
   }catch(e){ newCompanyBusy=false; toast('Could not reach the server.'); render(); }
@@ -1984,7 +2042,10 @@ window.toggleAdminOrg = function(orgId){
 window.setUserRole = async function(userId, role){
   if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)) return;
   const row = await dbUpdate('profiles', userId, {role});
-  if(row){ toast(`Role changed to ${roleLabel(role)}`); render(); }
+  if(row){
+    if(PROFILES[userId]) PROFILES[userId].role = role; // keep the cache correct without a re-fetch
+    toast(`Role changed to ${roleLabel(role)}`); render();
+  }
 };
 window.resetUserPassword = async function(email){
   const custom = await customPrompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
@@ -2177,7 +2238,17 @@ async function renderSites(){
   const pmOptions = Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
   const filtered = (canAdd && siteFilterPmIds.length) ? SITES.filter(s=>siteFilterPmIds.includes(s.responsible_pm_id)) : SITES;
   const statusOf = s => s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
-  const liveSites = filtered.filter(s=>statusOf(s)==='live');
+  // Live jobs: alphabetical by site name, with the demo site ("Andy's House")
+  // permanently pinned to the top regardless of alphabetical order — remove
+  // this special-case once the demo site itself is deleted.
+  const isDemoSite = s => /andy'?s house/i.test(s.name||'');
+  const alphaSort = (a,b) => (a.name||'').localeCompare(b.name||'', undefined, {sensitivity:'base'});
+  const liveSites = filtered.filter(s=>statusOf(s)==='live').sort((a,b)=>{
+    const ad = isDemoSite(a), bd = isDemoSite(b);
+    if(ad && !bd) return -1;
+    if(bd && !ad) return 1;
+    return alphaSort(a,b);
+  });
   const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
   const closedSites = filtered.filter(s=>statusOf(s)==='closed');
   if(siteSectionOpen.upcoming===null) siteSectionOpen.upcoming = upcomingSites.length>0;
@@ -2211,6 +2282,28 @@ async function renderSites(){
       ` : ''}
       </div>
     </div>
+    ${canAdd && addSiteFormOpen ? `
+      <div class="card" style="margin-bottom:20px;background:var(--paper);">
+        <p class="sectiontitle" style="margin-top:0;">Add a Project</p>
+        <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="applyTitleCase(this);newSiteNameDraft=this.value"></div>
+        <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
+        <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
+        <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
+        <p class="field-label" style="margin-bottom:6px;">Status</p>
+        <div class="row-gap" style="margin-bottom:14px;">
+          <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
+          <button type="button" class="${newSiteStatus==='upcoming'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='upcoming';render()">Upcoming</button>
+        </div>
+        ${newSiteStatus==='upcoming' ? `
+          <p class="field-label" style="margin-bottom:6px;">Start date</p>
+          <div class="formfield"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value"></div>
+        ` : ''}
+        <div style="display:flex;gap:8px;">
+          <button class="darkbtn" style="flex:1;" onclick="addSite()">Create Project</button>
+          <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleAddSiteForm()">Cancel</button>
+        </div>
+      </div>
+    ` : ''}
     ${canAdd ? `
       ${siteSection('live','Live Projects',liveSites,true)}
       ${siteSection('upcoming','Upcoming Projects',upcomingSites)}
@@ -2218,34 +2311,10 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
-    ${canAdd ? `
-      <div class="card" style="margin-top:20px;background:var(--paper);">
-        <p class="sectiontitle" style="margin-top:0;">Add a Project</p>
-        ${addSiteFormOpen ? `
-          <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="applyTitleCase(this);newSiteNameDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
-          <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
-          <p class="field-label" style="margin-bottom:6px;">Status</p>
-          <div class="row-gap" style="margin-bottom:14px;">
-            <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
-            <button type="button" class="${newSiteStatus==='upcoming'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='upcoming';render()">Upcoming</button>
-          </div>
-          ${newSiteStatus==='upcoming' ? `
-            <p class="field-label" style="margin-bottom:6px;">Start date</p>
-            <div class="formfield"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value"></div>
-          ` : ''}
-        ` : ''}
-        <button class="darkbtn" onclick="${addSiteFormOpen ? 'addSite()' : 'toggleAddSiteForm()'}">Create Project</button>
-      </div>
-      <button class="ghostbtn" onclick="go('#/team')">Admin Centre</button>
-    ` : ''}
     <p style="text-align:center;margin-top:8px;">
-      <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
-      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
-      <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+      <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span>
     </p>
-  `, {tabs:false, centerHeader:true, showRefresh:true}); }
+  `, {homeBar:true, homeBarCanAdd:canAdd, centerHeader:true, showRefresh:true}); }
 }
 window.setSiteFilterPm = function(pmIds){ siteFilterPmIds = pmIds || []; render(); };
 window.togglePmFilterOpen = function(){ pmFilterOpen = !pmFilterOpen; render(); };
@@ -2349,6 +2418,106 @@ window.deleteSite = async function(siteId, name){
   render();
 };
 
+/* ================= OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ================= */
+// A lighter, personal, site-by-site version of the admin Dashboard's
+// outstanding-items lists — reachable by every role from the Home screen's
+// bottom bar, not just admins. Managers see everyone's outstanding items
+// across every live site; operatives see only their own, on sites they're
+// assigned to.
+async function renderOutstandingTasks(){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const manager = isManager(ME);
+  let sites;
+  if(manager){
+    sites = SITES.filter(s=>s.status==='active');
+  } else {
+    const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
+    const ids = new Set(assignments.map(a=>a.site_id));
+    sites = SITES.filter(s=>ids.has(s.id) && s.status==='active');
+  }
+  const siteIds = sites.map(s=>s.id);
+  const idsCsv = siteIds.join(',');
+  const [ramsDocs, coshhDocs] = await Promise.all([
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+  ]);
+  const ramsIds = ramsDocs.map(d=>d.id).join(',');
+  const coshhIds = coshhDocs.map(d=>d.id).join(',');
+  const sigFilter = manager ? '' : ('&user_id=eq.'+ME.id);
+  const [ramsSigsRaw, coshhSigsRaw, assignments, scheduleTasks, openSnags] = await Promise.all([
+    ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')'+sigFilter+'&select=rams_id,user_id,signed_at') : Promise.resolve([]),
+    coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')'+sigFilter+'&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+    manager && idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
+    manager && idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&status=neq.done&select=site_id') : Promise.resolve([]),
+    manager && idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
+  ]);
+  const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
+  const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
+  const rosterBySite = {};
+  assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
+  const tasksBySite = {}; scheduleTasks.forEach(t=>{ tasksBySite[t.site_id] = (tasksBySite[t.site_id]||0)+1; });
+  const snagsBySite = {}; openSnags.forEach(s=>{ snagsBySite[s.site_id] = (snagsBySite[s.site_id]||0)+1; });
+  function unsignedCount(siteId, docs, sigs, fk){
+    const docsHere = docs.filter(d=>d.site_id===siteId);
+    if(manager){
+      const roster = rosterBySite[siteId]||[];
+      const signedByDoc = {};
+      sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
+      let missing = 0;
+      docsHere.forEach(d=>{ missing += roster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length; });
+      return missing;
+    }
+    const signedIds = new Set(sigs.map(s=>s[fk]));
+    return docsHere.filter(d=>!signedIds.has(d.id)).length;
+  }
+  const rows = sites.map(s=>{
+    const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+    const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id');
+    const tasks = tasksBySite[s.id]||0;
+    const snags = snagsBySite[s.id]||0;
+    const items = [];
+    if(rams) items.push({lbl:`RAMS to sign (${rams})`, href:`#/site/${s.id}/hs/rams`});
+    if(coshh) items.push({lbl:`COSHH to sign (${coshh})`, href:`#/site/${s.id}/hs/coshh`});
+    if(manager && tasks) items.push({lbl:`Schedule tasks open (${tasks})`, href:`#/site/${s.id}/schedule`});
+    if(manager && snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
+    return {site:s, items};
+  }).filter(r=>r.items.length);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">${manager ? 'Outstanding items across your live projects — tap one to go straight to it.' : 'Outstanding items on your sites — tap one to go straight to it.'}</p>
+    ${rows.length ? rows.map(r=>`
+      <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(r.site.name)}</p>
+      ${r.items.map(it=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
+          <div class="swatch" style="background:var(--warn-bg);color:var(--warn);">!</div>
+          <div class="info"><div class="name">${escapeHtml(it.lbl)}</div></div>
+        </div>
+      `).join('')}
+    `).join('') : `<div class="empty">Nothing outstanding — nice work.</div>`}
+  `, {title:'Outstanding Tasks', back:'#/sites', tabs:false}); }
+}
+
+/* ================= ACCOUNT / SETTINGS (Home bottom bar — everyone) ================= */
+function renderAccountSettings(){
+  const __gen = RENDER_GEN;
+  const canAdmin = isManager(ME);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canAdmin ? `
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Admin Centre</p>
+        <p class="stub" style="margin:0 0 10px;">Manage your team, branding, integrations and company-wide settings.</p>
+        <button class="darkbtn" onclick="go('#/team')">Open Admin Centre</button>
+      </div>
+    ` : ''}
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Your Account</p>
+      <p class="stub" style="margin:0 0 10px;">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</p>
+      <button class="ghostbtn" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</button>
+      <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="doSignOut()">Sign out</button>
+    </div>
+  `, {title:'Settings', back:'#/sites', tabs:false}); }
+}
+
 /* ================= COMPANY DASHBOARD (admin-only, management overview across every live project) ================= */
 async function renderDashboard(){
   const __gen = RENDER_GEN;
@@ -2398,7 +2567,11 @@ async function renderDashboard(){
   const scheduleBySite = {};
   scheduleTasks.forEach(t=>{
     const b = scheduleBySite[t.site_id] = scheduleBySite[t.site_id] || {todo:0, in_progress:0, complete:0, total:0};
-    b.total++; if(t.status==='todo') b.todo++; else if(t.status==='in_progress') b.in_progress++; else if(t.status==='complete') b.complete++;
+    // NOTE: schedule_tasks statuses are actually 'todo'/'progress'/'done'
+    // (see renderSchedule) — this previously checked 'in_progress'/'complete',
+    // which never matched, so "Schedule Complete" always read 0%. Fixed to
+    // match the real enum.
+    b.total++; if(t.status==='todo') b.todo++; else if(t.status==='progress') b.in_progress++; else if(t.status==='done') b.complete++;
   });
 
   const totalOpenSnags = openSnags.length;
@@ -2690,13 +2863,16 @@ async function renderTeam(){
       <div style="display:flex;gap:12px;margin-bottom:10px;">
         <div style="flex:1;">
           <label class="stub" style="display:block;margin-bottom:4px;">Primary colour</label>
-          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);document.documentElement.style.setProperty('--brand1-text',readableTextColor(this.value));" style="width:100%;height:44px;padding:4px;">
+          <input type="color" id="themeColor1" value="${escapeHtml((ORG && ORG.color_primary) || DEFAULT_BRAND1)}" oninput="document.documentElement.style.setProperty('--brand1',this.value);document.documentElement.style.setProperty('--brand1-text',readableTextColor(this.value));document.documentElement.style.setProperty('--brand1-header', hexToRgba(this.value, document.getElementById('themeOpacity').value));" style="width:100%;height:44px;padding:4px;">
         </div>
         <div style="flex:1;">
           <label class="stub" style="display:block;margin-bottom:4px;">Secondary colour</label>
           <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
         </div>
       </div>
+      <label class="stub" style="display:block;margin-bottom:4px;">Header banner opacity <span id="themeOpacityVal">${(ORG && ORG.color_primary_opacity!=null) ? ORG.color_primary_opacity : 100}%</span></label>
+      <input type="range" id="themeOpacity" min="20" max="100" step="5" value="${(ORG && ORG.color_primary_opacity!=null) ? ORG.color_primary_opacity : 100}" oninput="document.getElementById('themeOpacityVal').textContent=this.value+'%';document.documentElement.style.setProperty('--brand1-header', hexToRgba(document.getElementById('themeColor1').value, this.value));" style="width:100%;margin-bottom:6px;">
+      <p class="stub" style="margin:0 0 10px;">Makes the header banner a see-through tint instead of a solid block — useful if your primary colour reads as too dark or harsh. Buttons and badges stay full-strength.</p>
       <label class="stub" style="display:block;margin-bottom:4px;">Header text colour</label>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
         <input type="color" id="themeHeaderText" value="${escapeHtml((ORG && ORG.header_text_color) || readableTextColor((ORG && ORG.color_primary) || DEFAULT_BRAND1))}" oninput="document.documentElement.style.setProperty('--brand1-text',this.value);document.getElementById('themeHeaderTextAuto').checked=false;" style="width:60px;height:40px;padding:2px;flex:0 0 auto;">
@@ -2723,6 +2899,24 @@ async function renderTeam(){
         <p class="stub" style="margin:0 0 8px;">Connect your company's OneDrive so schedule progress photos upload there automatically.</p>
         <button class="darkbtn" ${odBusy?'disabled':''} onclick="connectOneDrive()">${odBusy?'Connecting…':'Connect OneDrive'}</button>
       `}
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <p class="sectiontitle" style="margin-top:0;">Synced per site</p>
+      <p class="stub" style="margin:0 0 10px;">Every site with a OneDrive folder linked — for photos/Drawings import, or for Material PO's auto-sync.</p>
+      ${(()=>{
+        const syncedSites = SITES.filter(s=>s.onedrive_folder_id || s.material_orders_folder_id);
+        if(!syncedSites.length) return `<div class="empty">No sites have a OneDrive folder linked yet.</div>`;
+        return syncedSites.map(s=>`
+          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+            <div style="font-weight:700;font-size:13px;">${escapeHtml(s.name)}</div>
+            ${s.onedrive_folder_id ? `<div class="meta">📁 Photos &amp; Drawings import — "${escapeHtml(s.onedrive_folder_name||'linked folder')}"</div>` : ''}
+            ${s.material_orders_folder_id ? `<div class="meta">📦 Material PO's — "${escapeHtml(s.material_orders_folder_name||'linked folder')}"</div>` : ''}
+            <div style="display:flex;gap:6px;margin-top:6px;">
+              <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="go('#/site/${s.id}/team')">Open Site Admin</button>
+            </div>
+          </div>
+        `).join('');
+      })()}
     </div>
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('reporttemplates')"><span class="arrow">${teamSectionOpen.reporttemplates?'▼':'▶'}</span> Report Templates</p>
@@ -2843,22 +3037,154 @@ async function renderTeam(){
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
-    ` : ''}
-    </div>
-    ` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
-    ${teamSectionOpen.devicelocks ? `
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('ppelog')"><span class="arrow">${teamSectionOpen.ppelog?'▼':'▶'}</span> PPE Log</p>
+    ${teamSectionOpen.ppelog ? `
     <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
-      ${deviceLocks.length ? deviceLocks.map(d=>`
-        <div class="sitecard" style="padding:8px 10px;">
-          <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
+      <p class="stub" style="margin:0 0 10px;">PPE issued across every site, for whichever period and operative(s) you choose.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;">
+          <button class="${ppeLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('weekly')">Weekly</button>
+          <button class="${ppeLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('monthly')">Monthly</button>
+          <button class="${ppeLogMode==='yearly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('yearly')">Yearly</button>
         </div>
-      `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
+        <div style="position:relative;" data-ppelogopfilter-root>
+          <button type="button" onclick="event.stopPropagation();togglePpeLogOperativeFilterOpen()" title="Filter by operative" style="width:auto;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${ppeLogOperativeIds.length?'var(--brand1)':'#fff'};color:${ppeLogOperativeIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+            ${ppeLogOperativeIds.length ? (ppeLogOperativeIds.length===1 ? escapeHtml((nameOf(ppeLogOperativeIds[0])||'1 selected')) : ppeLogOperativeIds.length+' selected') : 'All operatives'} ${ppeLogOperativeFilterOpen?'▲':'▼'}
+          </button>
+          ${ppeLogOperativeFilterOpen ? `
+            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;max-height:220px;overflow-y:auto;">
+              ${people.filter(p=>p.role==='operative').map(p=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--ink);cursor:pointer;">
+                  <input type="checkbox" ${ppeLogOperativeIds.includes(p.id)?'checked':''} onchange="togglePpeLogOperativeId('${p.id}')">
+                  ${escapeHtml(p.name)}
+                </label>
+              `).join('')}
+              ${ppeLogOperativeIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeLogOperativeFilter()">Clear</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span class="taskicon" onclick="shiftPpeLog(-1)">‹</span>
+        <span style="font-weight:800;font-size:13px;">${escapeHtml(ppeLogRange(ppeLogMode, ppeLogOffset).label)}</span>
+        <span class="taskicon" style="${ppeLogOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftPpeLog(1)">›</span>
+      </div>
+      ${(()=>{
+        const rows = (ppeLogOperativeIds.length ? ppeLogRows.filter(r=>ppeLogOperativeIds.includes(r.user_id)) : ppeLogRows);
+        if(!rows.length) return `<div class="empty" style="padding:10px;">No PPE issued in this period.</div>`;
+        return rows.map(r=>{
+          const site = SITES.find(s=>s.id===r.site_id);
+          return `
+          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span class="name" style="font-weight:800;">${escapeHtml(nameOf(r.user_id))}</span>
+              <span class="pill ${r.status==='signed'?'on':'off'}">${r.status==='signed'?'Signed':'Pending'}</span>
+            </div>
+            <div class="addr">${(r.items||[]).map(escapeHtml).join(', ')}</div>
+            <div class="meta">${site?escapeHtml(site.name):''} · ${new Date(r.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
+          </div>`;
+        }).join('');
+      })()}
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="darkbtn" style="flex:1;" onclick="exportPpeLog()">Export to Excel</button>
+        <button class="darkbtn" style="flex:1;" onclick="exportPpeLogPdf()">Export to PDF</button>
+      </div>
     </div>
     ` : ''}
     ` : ''}
+    ` : ''}
+    </div>
+    ` : ''}
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invitesusers')"><span class="arrow">${teamSectionOpen.invitesusers?'▼':'▶'}</span> Invites &amp; Users</p>
+    ${teamSectionOpen.invitesusers ? `
+    <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
+    ${teamSectionOpen.invites ? `
+    <div class="card">
+      ${permanentInvite ? `
+        <p class="stub" style="margin:0 0 8px;">Share this one link with as many operatives as you like — it never expires and can be used more than once. Used ${permanentInvite.use_count} time${permanentInvite.use_count===1?'':'s'} so far.</p>
+        <input type="text" readonly value="${escapeHtml(OPHUB_WEB_URL + '#/join/' + permanentInvite.id)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <button class="ghostbtn" onclick="copyPermanentInviteLink('${permanentInvite.id}')">Copy Link</button>
+        <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="revokePermanentInvite('${permanentInvite.id}')">Revoke &amp; Create New Link</button>
+      ` : `
+        <p class="stub" style="margin:0 0 8px;">Create one link you can share with your whole team at once — in a group chat, on a noticeboard, or as a QR code — instead of sending a separate link to each operative.</p>
+        <button class="darkbtn" ${permanentInviteBusy?'disabled':''} onclick="createPermanentInvite()">${permanentInviteBusy?'Creating…':'Create Permanent Invite Link'}</button>
+      `}
+      <p class="sectiontitle" style="margin-top:16px;">One-time invite</p>
+      ${newInviteLink ? `
+        <p class="stub" style="margin:0 0 8px;">Share this link — it works once, for the next 14 days:</p>
+        <input type="text" readonly value="${escapeHtml(newInviteLink)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
+        <button class="ghostbtn" onclick="copyInviteLink()">Copy Link</button>
+        <p class="sectiontitle" style="margin-top:16px;">Or email it to them</p>
+        <p class="stub" style="margin:0 0 8px;">We'll send a nicely branded invite email with a button that takes them straight to sign-up.</p>
+        <div class="formfield"><input type="email" id="inviteEmailInput" placeholder="operative@example.com"></div>
+        <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
+      ` : `
+        <p class="stub" style="margin:0 0 8px;">Prefer a single-use link for one person instead of the permanent link above?</p>
+        <button class="ghostbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate One-Time Invite Link'}</button>
+        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative — a Company Admin can promote them to Project Manager below once they've joined.</p>
+      `}
+      ${pendingInvites.length ? `
+        <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
+        ${pendingInvites.map(i=>`
+          <div class="sitecard" style="padding:8px 10px;">
+            <div class="info">${i.email ? `<div class="name">${escapeHtml(i.email)}</div>` : ''}<div class="addr">Created ${new Date(i.created_at).toLocaleDateString('en-GB')} · expires ${new Date(i.expires_at).toLocaleDateString('en-GB')}</div></div>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="revokeInvite('${i.id}')">Revoke</button>
+          </div>
+        `).join('')}
+      ` : ''}
+    </div>
+    ` : ''}
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
+    ${teamSectionOpen.users ? `
+    <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
+    ${people.filter(p=>p.role==='admin').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && iAmAdmin ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && iAmAdmin ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${p.id!==ME.id && iAmAdmin && userActionsOpenFor[p.id] ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+            ${people.filter(x=>x.role==='admin').length>1 ? `
+              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
+              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
+            ` : ''}
+            <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No other admins yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
+    ${people.filter(p=>p.role==='pm').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${p.id!==ME.id && isManager(ME) && userActionsOpenFor[p.id] ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+            ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No project managers yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
+    ${people.filter(p=>p.role==='operative').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${userActionsOpenFor[p.id] ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+          ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
+          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+        </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No operatives yet.</div>`}
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first).</p>
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
     ${teamSectionOpen.checkinlogs ? `
@@ -2941,147 +3267,29 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    ${isManager(ME) ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('ppelog')"><span class="arrow">${teamSectionOpen.ppelog?'▼':'▶'}</span> PPE Log</p>
-    ${teamSectionOpen.ppelog ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
+    ${teamSectionOpen.devicelocks ? `
     <div class="card">
-      <p class="stub" style="margin:0 0 10px;">PPE issued across every site, for whichever period and operative(s) you choose.</p>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-        <div style="display:flex;gap:6px;">
-          <button class="${ppeLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('weekly')">Weekly</button>
-          <button class="${ppeLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('monthly')">Monthly</button>
-          <button class="${ppeLogMode==='yearly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('yearly')">Yearly</button>
+      <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
+      ${deviceLocks.length ? deviceLocks.map(d=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
         </div>
-        <div style="position:relative;">
-          <button type="button" onclick="event.stopPropagation();togglePpeLogOperativeFilterOpen()" title="Filter by operative" style="width:auto;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${ppeLogOperativeIds.length?'var(--brand1)':'#fff'};color:${ppeLogOperativeIds.length?'#fff':'var(--slate)'};cursor:pointer;">
-            ${ppeLogOperativeIds.length ? (ppeLogOperativeIds.length===1 ? escapeHtml((nameOf(ppeLogOperativeIds[0])||'1 selected')) : ppeLogOperativeIds.length+' selected') : 'All operatives'} ${ppeLogOperativeFilterOpen?'▲':'▼'}
-          </button>
-          ${ppeLogOperativeFilterOpen ? `
-            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;max-height:220px;overflow-y:auto;">
-              ${people.filter(p=>p.role==='operative').map(p=>`
-                <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--ink);cursor:pointer;">
-                  <input type="checkbox" ${ppeLogOperativeIds.includes(p.id)?'checked':''} onchange="togglePpeLogOperativeId('${p.id}')">
-                  ${escapeHtml(p.name)}
-                </label>
-              `).join('')}
-              ${ppeLogOperativeIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeLogOperativeFilter()">Clear</span></div>` : ''}
-            </div>
-          ` : ''}
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <span class="taskicon" onclick="shiftPpeLog(-1)">‹</span>
-        <span style="font-weight:800;font-size:13px;">${escapeHtml(ppeLogRange(ppeLogMode, ppeLogOffset).label)}</span>
-        <span class="taskicon" style="${ppeLogOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftPpeLog(1)">›</span>
-      </div>
-      ${(()=>{
-        const rows = (ppeLogOperativeIds.length ? ppeLogRows.filter(r=>ppeLogOperativeIds.includes(r.user_id)) : ppeLogRows);
-        if(!rows.length) return `<div class="empty" style="padding:10px;">No PPE issued in this period.</div>`;
-        return rows.map(r=>{
-          const site = SITES.find(s=>s.id===r.site_id);
-          return `
-          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
-            <div style="display:flex;justify-content:space-between;gap:8px;">
-              <span class="name" style="font-weight:800;">${escapeHtml(nameOf(r.user_id))}</span>
-              <span class="pill ${r.status==='signed'?'on':'off'}">${r.status==='signed'?'Signed':'Pending'}</span>
-            </div>
-            <div class="addr">${(r.items||[]).map(escapeHtml).join(', ')}</div>
-            <div class="meta">${site?escapeHtml(site.name):''} · ${new Date(r.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
-          </div>`;
-        }).join('');
-      })()}
-      <button class="darkbtn" style="margin-top:10px;" onclick="exportPpeLog()">Export to Excel</button>
+      `).join('') : `<div class="empty" style="padding:10px;">No devices locked yet.</div>`}
     </div>
     ` : ''}
     ` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
-    ${teamSectionOpen.invites ? `
-    <div class="card">
-      ${permanentInvite ? `
-        <p class="stub" style="margin:0 0 8px;">Share this one link with as many operatives as you like — it never expires and can be used more than once. Used ${permanentInvite.use_count} time${permanentInvite.use_count===1?'':'s'} so far.</p>
-        <input type="text" readonly value="${escapeHtml(location.origin + location.pathname + '#/join/' + permanentInvite.id)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
-        <button class="ghostbtn" onclick="copyPermanentInviteLink('${permanentInvite.id}')">Copy Link</button>
-        <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="revokePermanentInvite('${permanentInvite.id}')">Revoke &amp; Create New Link</button>
-      ` : `
-        <p class="stub" style="margin:0 0 8px;">Create one link you can share with your whole team at once — in a group chat, on a noticeboard, or as a QR code — instead of sending a separate link to each operative.</p>
-        <button class="darkbtn" ${permanentInviteBusy?'disabled':''} onclick="createPermanentInvite()">${permanentInviteBusy?'Creating…':'Create Permanent Invite Link'}</button>
-      `}
-      <p class="sectiontitle" style="margin-top:16px;">One-time invite</p>
-      ${newInviteLink ? `
-        <p class="stub" style="margin:0 0 8px;">Share this link — it works once, for the next 14 days:</p>
-        <input type="text" readonly value="${escapeHtml(newInviteLink)}" style="font-size:11.5px;margin-bottom:8px;" onclick="this.select()">
-        <button class="ghostbtn" onclick="copyInviteLink()">Copy Link</button>
-        <p class="sectiontitle" style="margin-top:16px;">Or email it to them</p>
-        <p class="stub" style="margin:0 0 8px;">We'll send a nicely branded invite email with a button that takes them straight to sign-up.</p>
-        <div class="formfield"><input type="email" id="inviteEmailInput" placeholder="operative@example.com"></div>
-        <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
-      ` : `
-        <p class="stub" style="margin:0 0 8px;">Prefer a single-use link for one person instead of the permanent link above?</p>
-        <button class="ghostbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate One-Time Invite Link'}</button>
-        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative — a Company Admin can promote them to Project Manager below once they've joined.</p>
-      `}
-      ${pendingInvites.length ? `
-        <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
-        ${pendingInvites.map(i=>`
-          <div class="sitecard" style="padding:8px 10px;">
-            <div class="info">${i.email ? `<div class="name">${escapeHtml(i.email)}</div>` : ''}<div class="addr">Created ${new Date(i.created_at).toLocaleDateString('en-GB')} · expires ${new Date(i.expires_at).toLocaleDateString('en-GB')}</div></div>
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="revokeInvite('${i.id}')">Revoke</button>
-          </div>
-        `).join('')}
-      ` : ''}
     </div>
     ` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('users')"><span class="arrow">${teamSectionOpen.users?'▼':'▶'}</span> Users</p>
-    ${teamSectionOpen.users ? `
-    <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
-    ${people.filter(p=>p.role==='admin').map(p=>`
-      <div class="sitecard" style="flex-wrap:wrap;">
-        <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            ${people.filter(x=>x.role==='admin').length>1 ? `
-              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
-              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
-            ` : ''}
-            <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
-          </div>
-        ` : ''}
-      </div>
-    `).join('') || `<div class="empty">No other admins yet.</div>`}
-
-    <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
-    ${people.filter(p=>p.role==='pm').map(p=>`
-      <div class="sitecard" style="flex-wrap:wrap;">
-        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && isManager(ME) ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
-          </div>
-        ` : ''}
-      </div>
-    `).join('') || `<div class="empty">No project managers yet.</div>`}
-
-    <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
-    ${people.filter(p=>p.role==='operative').map(p=>`
-      <div class="sitecard" style="flex-wrap:wrap;">
-        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
-          ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
-        </div>
-      </div>
-    `).join('') || `<div class="empty">No operatives yet.</div>`}
-    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first).</p>
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false};
+// Users list in Admin Centre: role-change/remove buttons are hidden until
+// the person's row is tapped, so the list isn't cluttered with buttons by default.
+let userActionsOpenFor = {};
+window.toggleUserActions = function(userId){ userActionsOpenFor[userId] = !userActionsOpenFor[userId]; render(); };
 let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
 window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
 // PM/Admin adding a tool on an operative's behalf, from Admin Centre —
@@ -3253,6 +3461,83 @@ window.exportPpeLog = async function(){
   XLSX.utils.book_append_sheet(wb, ws, 'PPE Log');
   await deliverExcelFile(wb, exportFilename('', 'PPE Log ('+range.label+')', 'xlsx'));
 };
+window.exportPpeLogPdf = async function(){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  await loadAllProfiles();
+  const range = ppeLogRange(ppeLogMode, ppeLogOffset);
+  let rows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.asc&select=*');
+  if(ppeLogOperativeIds.length) rows = rows.filter(r=>ppeLogOperativeIds.includes(r.user_id));
+  if(!rows.length){ toast('No PPE issued in that range.'); return; }
+  const lines = [];
+  rows.forEach(r=>{
+    const site = SITES.find(s=>s.id===r.site_id);
+    (r.items||['—']).forEach(item=>{
+      lines.push({
+        operative: nameOf(r.user_id), item,
+        site: site ? site.name : '',
+        date: new Date(r.issued_at).toLocaleDateString('en-GB'),
+        status: r.status==='signed' ? 'Signed' : 'Pending',
+        by: nameOf(r.issued_by),
+      });
+    });
+  });
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const {bold, reg, INK, SLATE, LINE} = fonts;
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const PAGE_W = 841.89, PAGE_H = 595.28, MARGIN = 40, CONTENT_W = PAGE_W-2*MARGIN;
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+  const WHITE = PDFLib.rgb(1,1,1);
+  const cols = [
+    {key:'operative', label:'Operative', w:0.19},
+    {key:'item', label:'Item', w:0.18},
+    {key:'site', label:'Site', w:0.19},
+    {key:'date', label:'Issued Date', w:0.13},
+    {key:'status', label:'Status', w:0.12},
+    {key:'by', label:'Issued By', w:0.19},
+  ];
+  let page, y;
+  function drawHeader(){
+    page.drawRectangle({x:0, y:PAGE_H-70, width:PAGE_W, height:70, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1); const s = 32/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:MARGIN, y:PAGE_H-52, width:32, height:32, color:WHITE});
+      page.drawImage(logoImg, {x:MARGIN+(32-w)/2, y:PAGE_H-52+(32-h)/2, width:w, height:h});
+    }
+    const textX = logoImg ? MARGIN+42 : MARGIN;
+    page.drawText('PPE ISSUE REGISTER', {x:textX, y:PAGE_H-30, size:9, font:bold, color:WHITE, opacity:0.85});
+    page.drawText(((ORG && ORG.name) || '') + ' · ' + range.label, {x:textX, y:PAGE_H-48, size:13, font:bold, color:WHITE});
+  }
+  function drawFooter(){
+    page.drawLine({start:{x:MARGIN,y:26}, end:{x:PAGE_W-MARGIN,y:26}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
+    page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:14, size:8, font:reg, color:SLATE});
+  }
+  function drawColHeaders(){
+    let x = MARGIN;
+    cols.forEach(c=>{ page.drawText(c.label, {x, y, size:9, font:bold, color:SLATE}); x += c.w*CONTENT_W; });
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:LINE});
+    y -= 14;
+  }
+  function newPage(){ page = pdfDoc.addPage([PAGE_W,PAGE_H]); drawHeader(); drawFooter(); y = PAGE_H-92; drawColHeaders(); }
+  function ensureSpace(h){ if(y-h<40) newPage(); }
+  newPage();
+  lines.forEach(ln=>{
+    ensureSpace(16);
+    let x = MARGIN;
+    cols.forEach(c=>{
+      let val = String(ln[c.key]||'');
+      const maxChars = Math.floor((c.w*CONTENT_W)/5.2);
+      if(val.length>maxChars) val = val.slice(0,maxChars-1)+'…';
+      page.drawText(val, {x, y, size:9, font:reg, color:INK});
+      x += c.w*CONTENT_W;
+    });
+    y -= 15;
+  });
+  const bytes = await pdfDoc.save();
+  await deliverPdf(bytes, exportFilename('', 'PPE Log ('+range.label+')', 'pdf'));
+};
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
@@ -3280,13 +3565,14 @@ window.saveCompanyTheme = async function(){
   if(!ME || ME.role!=='admin' || !ORG) return;
   const c1 = document.getElementById('themeColor1').value;
   const c2 = document.getElementById('themeColor2').value;
+  const opacity = parseInt(document.getElementById('themeOpacity').value, 10) || 100;
   const autoHeaderText = document.getElementById('themeHeaderTextAuto').checked;
   const headerText = autoHeaderText ? null : document.getElementById('themeHeaderText').value;
   themeBusy = true; render();
-  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2, header_text_color: headerText});
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: c1, color_secondary: c2, color_primary_opacity: opacity, header_text_color: headerText});
   themeBusy = false;
   if(!row){ toast('Could not save theme — try again.'); render(); return; }
-  ORG.color_primary = c1; ORG.color_secondary = c2; ORG.header_text_color = headerText;
+  ORG.color_primary = c1; ORG.color_secondary = c2; ORG.color_primary_opacity = opacity; ORG.header_text_color = headerText;
   applyTheme(ORG);
   toast('Company theme saved.');
   render();
@@ -3294,10 +3580,10 @@ window.saveCompanyTheme = async function(){
 window.resetCompanyTheme = async function(){
   if(!ME || ME.role!=='admin' || !ORG) return;
   themeBusy = true; render();
-  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null, header_text_color: null});
+  const row = await dbUpdate('organizations', ME.org_id, {color_primary: null, color_secondary: null, color_primary_opacity: null, header_text_color: null});
   themeBusy = false;
   if(!row){ toast('Could not reset theme — try again.'); render(); return; }
-  ORG.color_primary = null; ORG.color_secondary = null; ORG.header_text_color = null;
+  ORG.color_primary = null; ORG.color_secondary = null; ORG.color_primary_opacity = null; ORG.header_text_color = null;
   applyTheme(ORG);
   toast('Company theme reset to default.');
   render();
@@ -3507,14 +3793,15 @@ window.generateInvite = async function(){
   invitesBusy = false;
   if(rows && rows[0]){
     newInviteId = rows[0].id;
-    newInviteLink = location.origin + location.pathname + '#/join/' + rows[0].id;
+    newInviteLink = OPHUB_WEB_URL + '#/join/' + rows[0].id;
     toast('Invite link created');
   }
   render();
 };
 window.copyInviteLink = async function(){
   if(!newInviteLink) return;
-  try{ await navigator.clipboard.writeText(newInviteLink); toast('Link copied'); }
+  const label = `${(ORG && ORG.name) || 'Company'} x OpHUB Invite Link`;
+  try{ await navigator.clipboard.writeText(label+'\n'+newInviteLink); toast('Link copied'); }
   catch(e){ toast('Could not copy — select and copy the link manually.'); }
 };
 window.sendInviteEmail = async function(){
@@ -3548,8 +3835,9 @@ window.createPermanentInvite = async function(){
   if(rows){ toast('Permanent invite link created'); render(); }
 };
 window.copyPermanentInviteLink = async function(inviteId){
-  const link = location.origin + location.pathname + '#/join/' + inviteId;
-  try{ await navigator.clipboard.writeText(link); toast('Link copied'); }
+  const link = OPHUB_WEB_URL + '#/join/' + inviteId;
+  const label = `${(ORG && ORG.name) || 'Company'} x OpHUB Invite Link`;
+  try{ await navigator.clipboard.writeText(label+'\n'+link); toast('Link copied'); }
   catch(e){ toast('Could not copy — tap and hold the link above to copy it manually.'); }
 };
 window.revokePermanentInvite = async function(inviteId){
@@ -3597,9 +3885,9 @@ async function renderSiteHome(siteId){
     }
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;margin-bottom:8px;">
       <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
-      <span class="stub" style="margin:0;">${escapeHtml((ORG && ORG.name) || '')}</span>
+      ${(ORG && ORG.name) ? `<span class="stub" style="margin:0;">-</span><span class="stub" style="margin:0;">${escapeHtml(ORG.name)}</span>` : ''}
     </div>
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
@@ -6077,6 +6365,12 @@ async function renderCheckin(siteId){
           </div>
         `).join('') : `<div class="empty">${site.responsible_pm_id ? 'No check-ins yet.' : 'No project manager assigned to this project yet.'}</div>`}</div>` : ''}
       ` : ''}
+      <p class="sectiontitle" style="margin-top:18px;">Reports</p>
+      <div class="row-gap">
+        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
+        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
+      </div>
+      <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
       </div>` : ''}
     ` : ''}
     ${ME.role==='operative' ? `
@@ -6086,14 +6380,6 @@ async function renderCheckin(siteId){
           <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
         </div>
       `).join('') || `<div class="empty">No check-ins yet.</div>`}</div>` : ''}
-    ` : ''}
-    ${isPM ? `
-      <p class="sectiontitle" style="margin-top:18px;">Reports</p>
-      <div class="row-gap">
-        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','week')">Export this week (Excel)</button>
-        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportCheckins('${siteId}','all')">Export full history (Excel)</button>
-      </div>
-      <p class="stub">Weekly auto-email needs a scheduled backend job — flagged for the next phase.</p>
     ` : ''}
   `;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
@@ -6181,6 +6467,30 @@ let pdfImportText = '';
 let scheduleSectionsOpen = {};
 let scheduleAddMode = 'task'; // 'task' | 'section'
 let scheduleUploadOpen = false;
+// Add is now a single "+" menu at the top of the page (works from any tab)
+// instead of a big always-there card at the bottom — this tracks which of
+// the three panels it opened, if any. null = nothing open.
+let scheduleAddPanel = null; // null | 'task' | 'section' | 'upload'
+window.showScheduleAddMenu = function(siteId){
+  let ov = document.getElementById('confirmModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'confirmModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    document.body.appendChild(ov);
+  }
+  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='task';render()">➕ Add Task</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='section';render()">📁 Add Section</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='variation';render()">📐 Add Variation Work</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='upload';render()">📤 Upload Schedule</button>
+      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
 let scheduleSectionsCache = [];
 function taskRowHtml(siteId, t, canAdd, photosByTask){
   // Per the "allow all rows in whilst they're in to do to be editable text"
@@ -6282,9 +6592,61 @@ async function renderSchedule(siteId){
   tasks.forEach(t=>{ if(t.section_id){ (bySection[t.section_id]=bySection[t.section_id]||[]).push(t); } });
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canAdd ? `
+      <div class="drawheaderrow">
+        <span>Schedule of Works</span>
+        <div class="roundplusbtn" onclick="showScheduleAddMenu('${siteId}')">+</div>
+      </div>
+    ` : ''}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
+    ${canAdd && scheduleAddPanel==='task' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Add Task</p>
+        <div class="row-gap">
+          <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
+          <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
+        </div>
+        <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
+      </div>
+    ` : ''}
+    ${canAdd && scheduleAddPanel==='section' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Add Section</p>
+        <div class="row-gap">
+          <input type="text" id="newSectionName" placeholder="e.g. Roof Level 1" style="flex:2;padding:8px 10px;font-size:12px;">
+          <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addSection('${siteId}')">Add</button>
+        </div>
+        <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
+      </div>
+    ` : ''}
+    ${canAdd && scheduleAddPanel==='variation' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Add Variation Work</p>
+        <p class="stub" style="margin:0 0 8px;">Creates a new "Variation N" section at the bottom of the schedule (auto-numbered) with this as its first task — same behaviour as any other section.</p>
+        <div class="row-gap">
+          <input type="text" id="newVariationTaskName" placeholder="e.g. Additional lead flashing to bay window" style="flex:2;padding:8px 10px;font-size:12px;">
+          <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addVariationWorkFromSchedule('${siteId}')">Add</button>
+        </div>
+        <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
+      </div>
+    ` : ''}
+    ${canAdd && scheduleAddPanel==='upload' ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload schedule</p>
+        <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:14px;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
+        <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
+        <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
+          <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
+        </label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
+        <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
+        <button class="ghostbtn" style="margin-top:14px;" onclick="scheduleAddPanel=null;render()">Close</button>
+      </div>
+    ` : ''}
     ${ungrouped.length ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
       return `
@@ -6303,6 +6665,7 @@ async function renderSchedule(siteId){
         <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('${sec.id}')">
           <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}
           ${canAdd ? `<span style="margin-left:auto;display:flex;gap:4px;" onclick="event.stopPropagation()">
+            <span class="taskicon" title="Duplicate section" onclick="duplicateSection('${siteId}','${sec.id}')">⧉</span>
             <span class="taskicon" onclick="renameSection('${siteId}','${sec.id}')">✎</span>
             <span class="taskicon danger" onclick="deleteSection('${siteId}','${sec.id}')">🗑</span>
           </span>` : ''}
@@ -6322,42 +6685,7 @@ async function renderSchedule(siteId){
     `;}).join('')}
     ${!ungrouped.length && !sections.length ? `<div class="empty">No tasks yet.</div>` : ''}
 
-    ${canAdd && scheduleFilter==='all' ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Add</p>
-        <div class="filterrow" style="margin-bottom:10px;">
-          <div class="filterchip ${scheduleAddMode==='task'?'active':''}" onclick="scheduleAddMode='task';render()">Add Task</div>
-          <div class="filterchip ${scheduleAddMode==='section'?'active':''}" onclick="scheduleAddMode='section';render()">Add Section</div>
-        </div>
-        ${scheduleAddMode==='task' ? `
-          <div class="row-gap">
-            <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
-            <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
-          </div>
-        ` : `
-          <div class="row-gap">
-            <input type="text" id="newSectionName" placeholder="e.g. Roof Level 1" style="flex:2;padding:8px 10px;font-size:12px;">
-            <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addSection('${siteId}')">Add</button>
-          </div>
-        `}
-      </div>
-      <div class="card" style="padding:0;overflow:hidden;">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="scheduleUploadOpen=!scheduleUploadOpen;render()"><span class="arrow">${scheduleUploadOpen?'▼':'▶'}</span> Upload schedule</p>
-        ${scheduleUploadOpen ? `
-        <div style="padding:0 14px 14px;">
-          <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A, skips row 1 as a header — one task name per row.</p>
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:14px;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
-          <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
-          <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
-          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
-            <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
-          </label>
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
-          <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
-        </div>
-        ` : ''}
-      </div>
-      ${pdfImportSiteId===siteId ? `
+    ${pdfImportSiteId===siteId ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Review extracted tasks</p>
         <p class="stub" style="margin:0 0 8px;">One task per line — edit, delete, or add lines, then import. Nothing is added until you confirm.</p>
@@ -6368,7 +6696,6 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
-    ` : ''}
     ${allTasks.length ? `<button class="ghostbtn exportbtn sowexportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 }
@@ -6386,7 +6713,49 @@ window.addSection = async function(siteId){
   const name = input.value.trim(); if(!name) return;
   const position = await nextSectionPosition(siteId);
   const rows = await dbInsert('schedule_sections', {site_id:siteId, name, position, created_by:ME.id});
-  if(rows){ toast('Section added'); scheduleAddMode='task'; render(); }
+  if(rows){ toast('Section added'); render(); }
+};
+// Shared by "Add to Schedule of Works" on an approved variation, and the
+// direct "Add Variation Work" option in the Schedule "+" menu — both create
+// a new "Variation N" section (auto-numbered, next after any existing ones)
+// with a single task in it, then leave it auto-expanded like every other
+// section (sections default open unless explicitly collapsed).
+async function addVariationSection(siteId, taskName){
+  const existing = await dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&select=name');
+  let maxN = 0;
+  existing.forEach(s=>{
+    const m = /^Variation (\d+)$/i.exec((s.name||'').trim());
+    if(m) maxN = Math.max(maxN, parseInt(m[1],10));
+  });
+  const secName = 'Variation ' + (maxN+1);
+  const secPosition = await nextSectionPosition(siteId);
+  const newSecRows = await dbInsert('schedule_sections', {site_id:siteId, name:secName, position:secPosition, created_by:ME.id});
+  const newSection = newSecRows && newSecRows[0];
+  if(!newSection) return null;
+  const taskPosition = await nextTaskPosition(siteId);
+  await dbInsert('schedule_tasks', {site_id:siteId, section_id:newSection.id, name:taskName||secName, status:'todo', position:taskPosition});
+  scheduleSectionsOpen[newSection.id] = true; // auto-expanded, same behaviour as any other new section
+  return newSection;
+}
+window.addVariationWorkFromSchedule = async function(siteId){
+  const input = document.getElementById('newVariationTaskName');
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter what the variation work is.'); return; }
+  const newSection = await addVariationSection(siteId, name);
+  if(!newSection){ toast('Could not add — try again.'); return; }
+  scheduleAddPanel = null;
+  toast(`Added as "${newSection.name}"`);
+  render();
+};
+window.addVariationToSchedule = async function(siteId, variationId){
+  const rows = await dbSelect('variations', 'id=eq.'+variationId+'&select=*');
+  const v = rows[0]; if(!v) return;
+  if(v.schedule_section_id){ toast('Already added to the schedule.'); return; }
+  const newSection = await addVariationSection(siteId, v.description||'Variation work');
+  if(!newSection){ toast('Could not add to the schedule — try again.'); return; }
+  await dbUpdate('variations', variationId, {schedule_section_id: newSection.id});
+  toast(`Added to Schedule of Works as "${newSection.name}"`);
+  go(`#/site/${siteId}/schedule`);
 };
 window.renameSection = async function(siteId, sectionId){
   const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
@@ -6401,6 +6770,33 @@ window.deleteSection = async function(siteId, sectionId){
   if(!await customConfirm('Delete this section? Its tasks move back to the ungrouped list — they are not deleted.')) return;
   const ok = await dbDelete('schedule_sections', sectionId);
   if(ok){ toast('Section deleted'); render(); }
+};
+// Duplicates a section's task LIST (names only) into a brand new section —
+// handy for repeating the same set of tasks across plots on a scheme (e.g.
+// "Plot 1" → "Plot 2"..."Plot 10"). The new section is always fresh: every
+// task starts back at To Commence with no completed date and no photos
+// (photos aren't copied — a new task row means a new id with nothing
+// attached to it yet), regardless of how far along the original tasks were.
+window.duplicateSection = async function(siteId, sectionId){
+  const original = scheduleSectionsCache.find(s=>s.id===sectionId);
+  if(!original) return;
+  const suggested = original.name + ' (Copy)';
+  const name = await customPrompt('Name the new section', suggested);
+  if(name===null) return;
+  const trimmed = name.trim();
+  if(!trimmed){ toast('Section name can\'t be empty.'); return; }
+  const tasksToCopy = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&section_id=eq.'+sectionId+'&order=position.asc.nullslast,created_at.asc&select=name');
+  const secPosition = await nextSectionPosition(siteId);
+  const newSecRows = await dbInsert('schedule_sections', {site_id:siteId, name:trimmed, position:secPosition, created_by:ME.id});
+  const newSection = newSecRows && newSecRows[0];
+  if(!newSection){ toast('Could not create the new section — try again.'); return; }
+  if(tasksToCopy.length){
+    let pos = await nextTaskPosition(siteId);
+    const newTaskRows = tasksToCopy.map(t=>({site_id:siteId, section_id:newSection.id, name:t.name, status:'todo', position:pos++}));
+    await dbInsert('schedule_tasks', newTaskRows);
+  }
+  toast(`"${trimmed}" created with ${tasksToCopy.length} task${tasksToCopy.length===1?'':'s'} — fresh, nothing carried over`);
+  render();
 };
 window.saveTaskNameInline = async function(input, siteId, taskId){
   const name = input.value.trim();
@@ -7334,12 +7730,49 @@ async function fetchRamsData(siteId){
 let ramsUploadOpen = false;
 let ramsSupersededOpen = false;
 const RAMS_DOC_TYPES = ['Risk Assessment','Method Statement','RAMS'];
+// The H&S Policy (org-wide, see fetchHsPolicyData/signHsPolicy above) now
+// lives inside RAMS as a collapsible section rather than its own tile —
+// auto-expanded while the current user hasn't signed it yet, collapsed once
+// they have. hsPolicyInRamsOverride tracks a manual toggle so a signed user
+// can still reopen it to check the document; null means "follow signed
+// status automatically".
+let hsPolicyInRamsOverride = null;
+window.toggleHsPolicyInRams = function(){
+  hsPolicyInRamsOverride = !(hsPolicyInRamsOverride===null ? hsPolicyInRamsOpenDefault : hsPolicyInRamsOverride);
+  render();
+};
+let hsPolicyInRamsOpenDefault = true; // updated each render from actual signed status
+async function hsPolicySectionHtml(siteId){
+  const {doc, sigs} = await fetchHsPolicyData();
+  if(!doc) return '';
+  const validSigs = sigs.filter(s=>hsPolicySigStillValid(doc, s));
+  const mySig = validSigs.find(s=>s.user_id===ME.id);
+  const iSigned = !!mySig;
+  hsPolicyInRamsOpenDefault = !iSigned;
+  const isOpen = hsPolicyInRamsOverride===null ? hsPolicyInRamsOpenDefault : hsPolicyInRamsOverride;
+  const canManage = isManager(ME);
+  return `
+    <p class="ddrow" onclick="toggleHsPolicyInRams()"><span class="arrow">${isOpen?'▼':'▶'}</span> H&amp;S Policy ${iSigned?'':'<span class="badge-count" style="position:static;display:inline-block;margin-left:4px;">!</span>'}</p>
+    ${isOpen ? `
+    <div class="card">
+      <div style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</div>
+      <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+      <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
+      <div style="margin-top:12px;">
+        ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(mySig.signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<div class="siglinebox" style="margin-top:0;cursor:pointer;" onclick="signHsPolicy('${doc.id}')">Tap to confirm you've read and understood this policy</div>`}
+      </div>
+      ${canManage ? `<p class="stub" style="margin-top:12px;cursor:pointer;text-decoration:underline;" onclick="go('#/site/${siteId}/hs/policy')">Manage / upload a new version</p>` : ''}
+    </div>
+    ` : ''}
+  `;
+}
 async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+  const hsPolicyHtml = await hsPolicySectionHtml(siteId);
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
         <div class="formfield"><label class="field-label">Document Type</label>
@@ -7359,6 +7792,7 @@ async function renderRams(siteId){
   const unsignedRamsCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${hsPolicyHtml}
     <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site)}</div>
 
     ${docs.length ? `
@@ -7757,6 +8191,23 @@ async function renderHealthSafety(siteId){
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
   ]);
+  // How many of THIS user's RAMS/COSHH documents on this site are still
+  // outstanding — same "stale on rollover" cycle logic used everywhere else
+  // (filterCurrentCycleSigs), so this counts what actually still needs
+  // signing right now, not just the raw signature count.
+  async function pendingSignCount(table, docKeyField, docRows){
+    if(!docRows.length) return 0;
+    const ids = docRows.map(d=>d.id).join(',');
+    const mySigs = await dbSelect(table, 'user_id=eq.'+ME.id+'&'+docKeyField+'=in.('+ids+')&select='+docKeyField+',signed_at');
+    const validSigs = filterCurrentCycleSigs(mySigs, docRows, docKeyField, site);
+    return docRows.length - new Set(validSigs.map(s=>s[docKeyField])).size;
+  }
+  const ramsCurrentRows = await dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id,resign_cycle_start,uploaded_at');
+  const coshhCurrentRows = await dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id,resign_cycle_start,uploaded_at');
+  const [ramsUnsignedCount, coshhUnsignedCount] = await Promise.all([
+    pendingSignCount('rams_signatures', 'rams_id', ramsCurrentRows),
+    pendingSignCount('coshh_signatures', 'coshh_id', coshhCurrentRows),
+  ]);
   let hsPolicySigned = true;
   {
     const curPolicy = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc&limit=1');
@@ -7790,10 +8241,12 @@ async function renderHealthSafety(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
+        ${ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
         <div class="icon" style="background:#EAE6DC;color:var(--ink);">🧪</div>
         <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
+        ${coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
@@ -7807,22 +8260,16 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
         <div class="lbl">HAVS &amp; PUWER</div><div class="sub">Vibration &amp; tool checks</div>
       </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
-        <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/policy')">
-        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📜</div>
-        <div class="lbl">H&amp;S Policy</div><div class="sub">${hsPolicySigned ? 'Signed' : 'Sign to confirm'}</div>
-        ${hsPolicySigned?'':'<span class="badge-count">!</span>'}
-      </div>
       <div class="tile" onclick="go('#/site/${siteId}/ppe')">
         <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
         <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
         ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
       </div>
+      <div class="tile tile-wide" onclick="go('#/site/${siteId}/hs/incidents')">
+        <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
+        <div><div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div></div>
+      </div>
     </div>
-    ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
   `, {title:'Health & Safety', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 // HAVS and PUWER share one tile on the Health & Safety page now — this is
@@ -7831,6 +8278,14 @@ async function renderHealthSafety(siteId){
 async function renderHavsPuwer(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // My Tools moved here (operatives only) as its own sub-tile — a badge
+  // stays on it until at least one tool has been added, same "keep nagging
+  // until done" pattern as the RAMS/COSHH/PPE badges.
+  let myToolCount = 0;
+  if(!isManager(ME)){
+    const tools = await dbSelect('operative_tools', 'user_id=eq.'+ME.id+'&select=id');
+    myToolCount = tools.length;
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
@@ -7841,6 +8296,13 @@ async function renderHavsPuwer(siteId){
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
       </div>
+      ${!isManager(ME) ? `
+      <div class="tile" onclick="go('#/site/${siteId}/hs/mytools')">
+        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🔧</div>
+        <div class="lbl">My Tools</div><div class="sub">${myToolCount ? myToolCount+' tool'+(myToolCount===1?'':'s') : 'Add your tools'}</div>
+        ${myToolCount?'':'<span class="badge-count">!</span>'}
+      </div>
+      ` : ''}
     </div>
   `, {title:'HAVS & PUWER', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
@@ -8225,18 +8687,7 @@ async function renderPpe(siteId){
       `;
     }).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
 
-    <p class="ddrow" onclick="togglePpeExportFilterOpen()"><span class="arrow">${ppeExportFilterOpen?'▼':'▶'}</span> Export PPE Report (${escapeHtml(site.name)})</p>
-    ${ppeExportFilterOpen ? `<div class="card">
-      <p class="stub" style="margin:0 0 10px;">Choose which operatives to include — leave empty for everyone assigned to this site.</p>
-      ${siteOperatives.map(p=>`
-        <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;cursor:pointer;">
-          <input type="checkbox" ${ppeExportOperativeIds.includes(p.id)?'checked':''} onchange="togglePpeExportOperativeId('${p.id}')">
-          ${escapeHtml(p.name)}
-        </label>
-      `).join('') || `<div class="empty">No operatives assigned yet.</div>`}
-      ${ppeExportOperativeIds.length ? `<div style="text-align:center;margin:6px 0;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeExportOperativeFilter()">Clear</span></div>` : ''}
-      <button class="darkbtn" style="margin-top:8px;" onclick="exportPpeSiteReport('${siteId}')">Export to Excel</button>
-    </div>` : ''}
+    <p class="stub" style="margin-top:14px;font-style:italic;">A PPE register can be downloaded from the Admin Centre.</p>
   `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
 }
 function cap1(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
@@ -9347,7 +9798,7 @@ async function renderMyTools(siteId){
     ` : `
       <button class="darkbtn" style="margin-top:10px;" onclick="myToolsAddOpen=true;render()">+ Add Tool</button>
     `}
-  `, {title:'My Tools', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, tabs:false}); }
+  `, {title:'My Tools', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, tabs:false}); }
 }
 
 /* ================= PUWER TOOL INSPECTION =================
@@ -11694,7 +12145,12 @@ async function renderVariations(siteId){
           <div class="closurerow">
             <div class="stub" style="margin-top:0;">Closed${v.closed_at ? ' · '+new Date(v.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : ''}</div>
           </div>
-        ` : (isManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>` : '')}
+        ` : (isManager(ME) ? `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            ${v.schedule_section_id ? `<span class="stub" style="margin:0;color:var(--ok);align-self:center;">✓ In Schedule of Works</span>` : `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="addVariationToSchedule('${siteId}','${v.id}')">+ Add to Schedule of Works</button>`}
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>
+          </div>
+        ` : '')}
       </div>
       ` : ''}`;
     }).join('') || `<div class="empty">No ${varFilter} variations.</div>`}
@@ -12762,7 +13218,29 @@ window.sendMessageReply = async function(siteId, parentId, audience, targetSiteI
 };
 
 /* ================= router / render ================= */
+// Thin wrapper around the real router (renderRoute) so an uncaught error
+// anywhere in a page's render — a bad query, a missing field on some older
+// record, an admin-only section that hit an edge case — shows a recoverable
+// screen instead of silently leaving the DOM exactly as it was when the
+// error hit. Before this, that looked like the app "getting stuck": whatever
+// dropdown/card had just been expanded stayed frozen because the render()
+// call that was supposed to redraw it had thrown partway through and never
+// finished, and nothing on screen indicated anything had gone wrong.
 async function render(){
+  try{
+    await renderRoute();
+  }catch(e){
+    console.error('render() failed', e);
+    const el = document.getElementById('app');
+    if(el){
+      el.innerHTML = `<div style="max-width:420px;margin:60px auto;padding:24px;text-align:center;">
+        <p class="stub" style="margin-bottom:14px;">Something went wrong loading this page. Your data is safe — just tap below to try again.</p>
+        <button class="darkbtn" onclick="location.hash='';render()">Go to Home</button>
+      </div>`;
+    }
+  }
+}
+async function renderRoute(){
   RENDER_GEN++; // this render pass now supersedes any still-loading one
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
   const preParts = parseRoute();
@@ -12792,6 +13270,8 @@ async function render(){
     return renderTeam();
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
+  if(parts[0]==='account'){ return renderAccountSettings(); }
   if(parts[0]==='dashboard'){
     if(!ME || ME.role!=='admin'){ go('#/sites'); return; }
     return renderDashboard();
