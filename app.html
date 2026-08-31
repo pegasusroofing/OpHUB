@@ -973,6 +973,7 @@ async function checkDeviceLock(){
 window.doSignOut = async function(){
   try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
   SESSION = null; ME = null; ORG = null;
+  hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   applyTheme(null);
   await sdelete(K_SESSION, false);
   location.hash = '';
@@ -3595,21 +3596,8 @@ async function renderSiteHome(siteId){
       canSeePrice = grant.length>0;
     }
   }
-  // PPE tile summary: an operative sees how many of their own issuances are
-  // waiting on their signature; a PM/admin sees how many PPE requests from
-  // this site are still pending fulfilment.
-  let ppeTileSub = 'Issue & track PPE', ppeTileCount = 0;
-  if(isManager(ME)){
-    const pendingReqs = await dbSelect('ppe_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-    ppeTileCount = pendingReqs.length;
-    ppeTileSub = pendingReqs.length ? pendingReqs.length+' request'+(pendingReqs.length===1?'':'s') : 'Issue & track PPE';
-  } else {
-    const pendingSigs = await dbSelect('ppe_issuances', 'user_id=eq.'+ME.id+'&status=eq.pending_signature&select=id');
-    ppeTileCount = pendingSigs.length;
-    ppeTileSub = pendingSigs.length ? pendingSigs.length+' to sign' : 'My PPE';
-  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;margin-bottom:8px;">
       <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;">${escapeHtml((ORG && ORG.name) || '')}</span>
     </div>
@@ -3648,11 +3636,6 @@ async function renderSiteHome(siteId){
         <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
         <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
         ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/ppe')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
-        <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
-        ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
       </div>
       ${canSeePrice ? `
       <div class="tile" onclick="go('#/site/${siteId}/price')">
@@ -7778,8 +7761,8 @@ async function renderHealthSafety(siteId){
   {
     const curPolicy = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc&limit=1');
     if(curPolicy.length){
-      const mySig = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+curPolicy[0].id+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
-      hsPolicySigned = mySig.length>0;
+      const mySig = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+curPolicy[0].id+'&user_id=eq.'+ME.id+'&select=user_id,signed_at&limit=1');
+      hsPolicySigned = mySig.length>0 && hsPolicySigStillValid(curPolicy[0], mySig[0]);
     }
   }
   let briefingSub = 'None yet';
@@ -7787,6 +7770,20 @@ async function renderHealthSafety(siteId){
     const ids = briefingTemplates.map(t=>t.id).join(',');
     const briefings = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id,issued_at');
     briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
+  }
+  // PPE tile summary — moved here from Site Home so all H&S-adjacent tiles
+  // live together: an operative sees how many of their own issuances are
+  // waiting on their signature; a PM/admin sees how many PPE requests from
+  // this site are still pending fulfilment.
+  let ppeTileSub = 'Issue & track PPE', ppeTileCount = 0;
+  if(isManager(ME)){
+    const pendingReqs = await dbSelect('ppe_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
+    ppeTileCount = pendingReqs.length;
+    ppeTileSub = pendingReqs.length ? pendingReqs.length+' request'+(pendingReqs.length===1?'':'s') : 'Issue & track PPE';
+  } else {
+    const pendingSigs = await dbSelect('ppe_issuances', 'user_id=eq.'+ME.id+'&status=eq.pending_signature&select=id');
+    ppeTileCount = pendingSigs.length;
+    ppeTileSub = pendingSigs.length ? pendingSigs.length+' to sign' : 'My PPE';
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid" style="grid-auto-rows:1fr;">
@@ -7806,13 +7803,9 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
         <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
       </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
+      <div class="tile" onclick="go('#/site/${siteId}/hs/havspuwer')">
         <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
-        <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
-        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
-        <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
+        <div class="lbl">HAVS &amp; PUWER</div><div class="sub">Vibration &amp; tool checks</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
         <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
@@ -7823,18 +7816,62 @@ async function renderHealthSafety(siteId){
         <div class="lbl">H&amp;S Policy</div><div class="sub">${hsPolicySigned ? 'Signed' : 'Sign to confirm'}</div>
         ${hsPolicySigned?'':'<span class="badge-count">!</span>'}
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/ppe')">
+        <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
+        <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
+        ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
+      </div>
     </div>
     ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
   `, {title:'Health & Safety', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+// HAVS and PUWER share one tile on the Health & Safety page now — this is
+// just a small picker in between, matching the existing tile visual style,
+// so both stay their own full pages underneath (routes unchanged).
+async function renderHavsPuwer(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
+        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
+        <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
+        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
+        <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
+      </div>
+    </div>
+  `, {title:'HAVS & PUWER', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
 /* ================= H&S POLICY (org-wide document everyone signs) =================
    Mirrors the RAMS read-and-sign pattern, but there is exactly one current
    document per company (not per site) — uploading a replacement supersedes
    the old one and, same as RAMS, requires everyone to sign the new version
-   again. Reachable from every site's H&S file since it applies company-wide. */
+   again. Reachable from every site's H&S file since it applies company-wide,
+   and also gated compulsorily on sign-in (see checkHsPolicyGate/renderHsPolicyGate
+   below) so nobody can use the app at all with an outstanding signature.
+   One signature is valid for a full year and travels with the operative
+   between jobs — it's org-wide, not per-site, exactly like PPE. It only
+   needs signing again when: (a) a manager uploads a brand new version, or
+   (b) the document's own expiry_date is reached, which the resign-check-daily
+   cron advances automatically and notifies PMs/admins about ("Updated H&S
+   Policy required"). Both cases work the same way under the hood — they
+   push resign_cycle_start forward, which is what makes every existing
+   signature before that point read as stale (hsPolicySigStillValid below),
+   same mechanism as filterCurrentCycleSigs for RAMS/COSHH. */
 let hsPolicyUploadOpen = false;
 let hsPolicySupersededOpen = false;
+function defaultHsPolicyExpiry(){
+  const d = new Date(); d.setFullYear(d.getFullYear()+1);
+  return d.toISOString().slice(0,10);
+}
+function hsPolicySigStillValid(doc, sig){
+  if(!doc || !sig) return false;
+  const cycleStart = new Date(doc.resign_cycle_start || doc.uploaded_at);
+  return new Date(sig.signed_at) >= cycleStart;
+}
 async function fetchHsPolicyData(){
   const docs = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc');
   const superseded = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.superseded&order=uploaded_at.desc');
@@ -7849,11 +7886,16 @@ async function renderHsPolicy(siteId){
   const canManage = isManager(ME);
   await loadAllProfiles();
   const {doc, superseded, sigs} = await fetchHsPolicyData();
-  const signedIds = new Set(sigs.map(s=>s.user_id));
+  // Signatures from before the current resign cycle count as expired — same
+  // "stale on rollover" treatment RAMS/COSHH use, so an annual expiry (or a
+  // brand new upload) genuinely requires everyone to sign again.
+  const validSigs = doc ? sigs.filter(s=>hsPolicySigStillValid(doc, s)) : [];
+  const signedIds = new Set(validSigs.map(s=>s.user_id));
   const iSigned = doc ? signedIds.has(ME.id) : false;
   const allPeople = Object.values(PROFILES);
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="hsPolicyName" placeholder="Document name, e.g. Health & Safety Policy 2026" value="${doc?escapeHtml(doc.name):''}"></div>
+        <div class="formfield"><label class="field-label">Expiry date (everyone must re-sign once reached)</label><input type="date" id="hsPolicyExpiry" value="${escapeHtml(defaultHsPolicyExpiry())}"></div>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('hsPolicyFile').click()">Choose PDF</div>
         <input type="file" accept="application/pdf" id="hsPolicyFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('hsPolicyFileName').textContent=this.files[0]?this.files[0].name:''">
         <p class="stub" id="hsPolicyFileName" style="margin:-4px 0 10px;"></p>
@@ -7864,14 +7906,14 @@ async function renderHsPolicy(siteId){
     ${doc ? `
       <div class="card">
         <div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</span></div>
-        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}</div>
+        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
         <div style="margin-top:12px;">
-          ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(sigs.find(s=>s.user_id===ME.id).signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : `<button class="darkbtn" onclick="signHsPolicy('${doc.id}')">I have read and understood this policy — Sign</button>`}
+          ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(validSigs.find(s=>s.user_id===ME.id).signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<button class="darkbtn" onclick="signHsPolicy('${doc.id}')">I have read and understood this policy — Sign</button>`}
         </div>
       </div>
       ${canManage ? `
-      <p class="ddrow" onclick="toggleHsPolicySignedList()"><span class="arrow">${hsPolicySignedListOpen?'▼':'▶'}</span> Signed (${sigs.length} of ${allPeople.length})</p>
+      <p class="ddrow" onclick="toggleHsPolicySignedList()"><span class="arrow">${hsPolicySignedListOpen?'▼':'▶'}</span> Signed (${signedIds.size} of ${allPeople.length})</p>
       ${hsPolicySignedListOpen ? `<div class="card">
         ${allPeople.map(p=>`
           <div class="sitecard" style="padding:8px 10px;">
@@ -7908,18 +7950,23 @@ let hsPolicySignedListOpen = false;
 window.toggleHsPolicySignedList = function(){ hsPolicySignedListOpen = !hsPolicySignedListOpen; render(); };
 window.addHsPolicy = async function(siteId){
   const name = document.getElementById('hsPolicyName').value.trim();
+  const expiryInput = document.getElementById('hsPolicyExpiry');
+  const expiryDate = expiryInput ? expiryInput.value : defaultHsPolicyExpiry();
   const fileInput = document.getElementById('hsPolicyFile');
   const file = fileInput.files && fileInput.files[0];
   if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  if(!expiryDate){ toast('Set an expiry date.'); return; }
   const path = ME.org_id+'/hs-policy/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
   const {doc: oldDoc} = await fetchHsPolicyData();
-  const rows = await dbInsert('hs_policy_docs', {org_id:ME.org_id, name, storage_path:stored, uploaded_by:ME.id});
+  const rows = await dbInsert('hs_policy_docs', {org_id:ME.org_id, name, storage_path:stored, expiry_date:expiryDate, uploaded_by:ME.id});
   if(rows){
     if(oldDoc) await dbUpdate('hs_policy_docs', oldDoc.id, {status:'superseded', superseded_by:rows[0].id});
-    toast('H&S Policy uploaded');
-    hsPolicyUploadOpen = false; render();
+    toast('H&S Policy uploaded — everyone will need to sign it');
+    hsPolicyUploadOpen = false;
+    hsPolicyGateChecked = false; // re-check the compulsory gate now a new version exists
+    render();
   }
 };
 window.signHsPolicy = async function(policyId){
@@ -7929,7 +7976,68 @@ window.signHsPolicy = async function(policyId){
     return;
   }
   const rows = await dbInsert('hs_policy_signatures', {policy_id:policyId, user_id:ME.id, signature_image_path:ME.signature_path});
-  if(rows){ toast('Signed — thank you'); render(); }
+  if(rows){
+    toast('Signed — thank you');
+    hsPolicyGatePending = false;
+    render();
+  }
+};
+
+/* ---- Compulsory sign-in gate: nobody (any role bar superadmin) can use the
+   app with an outstanding H&S Policy signature. Checked once per app
+   load/session (not on every single render — that would mean an extra DB
+   round-trip on every navigation) and re-armed whenever something could
+   have changed the answer (a fresh upload, or the operative just signed). */
+let hsPolicyGateChecked = false;
+let hsPolicyGatePending = false;
+async function checkHsPolicyGate(){
+  if(hsPolicyGateChecked) return hsPolicyGatePending;
+  hsPolicyGateChecked = true;
+  try{
+    const {doc, sigs} = await fetchHsPolicyData();
+    if(!doc){ hsPolicyGatePending = false; return false; }
+    const mySig = sigs.find(s=>s.user_id===ME.id);
+    hsPolicyGatePending = !hsPolicySigStillValid(doc, mySig);
+  }catch(e){ hsPolicyGatePending = false; }
+  return hsPolicyGatePending;
+}
+async function renderHsPolicyGate(){
+  const __gen = RENDER_GEN;
+  const {doc} = await fetchHsPolicyData();
+  if(!doc){ hsPolicyGatePending = false; render(); return; } // shouldn't happen, but never trap someone with nothing to sign
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = `
+    <div style="max-width:480px;margin:0 auto;padding:28px 20px 40px;">
+      <div style="text-align:center;margin-bottom:18px;">
+        <img src="${orgLogoUrl(ORG)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="height:52px;object-fit:contain;">
+      </div>
+      <h2 style="text-align:center;margin:0 0 4px;">Health &amp; Safety Policy</h2>
+      <p class="stub" style="text-align:center;margin:0 0 20px;">Before you can use OpHUB, please read and sign the current company H&amp;S Policy. This is a one-off for the year and travels with you to every site.</p>
+      <div class="card">
+        <div style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</div>
+        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
+        <div style="margin-top:14px;">
+          ${ME.signature_path ? `
+            <button class="darkbtn" onclick="signHsPolicyGate('${doc.id}')">I have read and understood this policy — Sign</button>
+          ` : `
+            <p class="stub" style="color:var(--warn);margin:0 0 8px;">You haven't adopted a signature yet.</p>
+            <button class="darkbtn" onclick="go('#/signature')">Adopt Your Signature</button>
+          `}
+        </div>
+      </div>
+      <p class="stub" style="text-align:center;margin-top:16px;">Signed in as ${escapeHtml(ME.name)} · <span style="text-decoration:underline;cursor:pointer;" onclick="doSignOut()">Sign out</span></p>
+    </div>
+  `;
+}
+window.signHsPolicyGate = async function(policyId){
+  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+  const rows = await dbInsert('hs_policy_signatures', {policy_id:policyId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){
+    toast('Signed — thank you');
+    hsPolicyGatePending = false;
+    go('#/sites');
+  }
 };
 
 /* ================= PPE (issuance, requests, log) =================
@@ -8046,7 +8154,7 @@ async function renderPpe(siteId){
         </div>
       `).join('')}
       ` : ''}
-    `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+    `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
     return;
   }
 
@@ -8129,7 +8237,7 @@ async function renderPpe(siteId){
       ${ppeExportOperativeIds.length ? `<div style="text-align:center;margin:6px 0;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeExportOperativeFilter()">Clear</span></div>` : ''}
       <button class="darkbtn" style="margin-top:8px;" onclick="exportPpeSiteReport('${siteId}')">Export to Excel</button>
     </div>` : ''}
-  `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
 }
 function cap1(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
 window.submitPpeIssuance = async function(siteId){
@@ -8701,7 +8809,7 @@ async function renderHavs(siteId){
       `}
     </div>
     ` : ''}
-  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 
 // Read-only list of weeks a manager has marked done, with Export/Email
@@ -8733,7 +8841,7 @@ async function renderHavsCompletedTab(siteId, site, canManage, __gen){
         </div>
       </div>`;
     }).join('')}
-  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 window.exportHavsCompletedWeek = async function(siteId, weekStart){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -9314,7 +9422,7 @@ async function renderPuwer(siteId){
     ` : ''}
     ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;padding:8px 6px;font-size:11.5px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
     ${canManage && completion ? `<button class="ghostbtn" style="margin-top:18px;" onclick="reopenPuwerWeek('${completion.id}')">Reopen This Week</button>` : ''}
-  `, {title:'PUWER Tool Inspection', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'PUWER Tool Inspection', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 let puwerExportSelectedIds = [];
 let puwerExportAllBusy = false;
@@ -11333,10 +11441,11 @@ function materialOrderFolderPath(folders, id){
   while(cur && guard++<10){ parts.unshift(cur.name); cur = cur.parent_id ? byId[cur.parent_id] : null; }
   return parts.join(' / ');
 }
-// "+" asks Add Folder vs Add Document — PMs (the only ones who see the OneDrive
-// sync section itself) also get a third option to change the synced folder,
-// so that control lives in the same place as everything else that touches
-// this folder's contents, rather than a separate card only they can see.
+// "+" asks Add Folder vs Add Document — PMs and admins (the only ones who see
+// the OneDrive sync section itself) also get a third option to change the
+// synced folder, so that control lives in the same place as everything else
+// that touches this folder's contents, rather than a separate card only they
+// can see.
 window.showMaterialOrderAddMenu = function(siteId, folderId, isPmView){
   let ov = document.getElementById('confirmModalOverlay');
   if(!ov){
@@ -11360,9 +11469,10 @@ async function renderMaterialOrders(siteId, folderId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
-  // Only PMs see the OneDrive sync controls — admins can still browse, add
-  // documents, and organize into folders, they just don't manage the link.
-  const isPmView = ME.role==='pm';
+  // PMs and admins both see the OneDrive sync controls (company admins have
+  // full PM-level access to every site already, same as everywhere else in
+  // the app) — operatives don't reach this page at all (gated above).
+  const isPmView = isManager(ME);
   if(matOrdersLastFolderId !== (folderId||null)){
     matOrderNewFolderOpen = false;
     matOrderUploadOpen = false;
@@ -12660,6 +12770,12 @@ async function render(){
   if(!SESSION || !ME){ return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
+  // Compulsory H&S Policy sign-off — blocks the whole app for every role
+  // except superadmin until the current policy is signed (or re-signed,
+  // once its expiry rolls the cycle over). The signature route itself stays
+  // reachable so someone with no adopted signature yet can go set one up
+  // and come straight back.
+  if(preParts[0]!=='signature' && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
@@ -12745,6 +12861,7 @@ async function render(){
         if(bsub==='view' && parts[5]) return renderReportView(siteId, parts[5], true);
         return renderDailyBriefings(siteId);
       }
+      if(sub==='havspuwer') return renderHavsPuwer(siteId);
       if(sub==='havs') return renderHavs(siteId);
       if(sub==='puwer'){
         const puwerUserId = parts[4];
