@@ -2252,6 +2252,7 @@ async function renderSites(){
   const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
   const closedSites = filtered.filter(s=>statusOf(s)==='closed');
   if(siteSectionOpen.upcoming===null) siteSectionOpen.upcoming = upcomingSites.length>0;
+  const onboarding = await computeOnboardingChecklist();
   const siteSection = (key, label, list, isFirst) => canAdd ? `
       <div class="ddrow" style="margin-top:${isFirst?'0':'18px'};" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
@@ -2282,6 +2283,17 @@ async function renderSites(){
       ` : ''}
       </div>
     </div>
+    ${onboarding && !onboarding.allDone ? `
+      <div class="card" style="margin-bottom:16px;cursor:pointer;border-color:var(--warn);background:var(--warn-bg);" onclick="go('#/onboarding-checklist')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div>
+            <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
+            <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
+          </div>
+          <span style="font-size:20px;color:var(--warn);">›</span>
+        </div>
+      </div>
+    ` : ''}
     ${canAdd && addSiteFormOpen ? `
       <div class="card" style="margin-bottom:20px;background:var(--paper);">
         <p class="sectiontitle" style="margin-top:0;">Add a Project</p>
@@ -2495,6 +2507,51 @@ async function renderOutstandingTasks(){
       `).join('')}
     `).join('') : `<div class="empty">Nothing outstanding — nice work.</div>`}
   `, {title:'Outstanding Tasks', back:'#/sites', tabs:false}); }
+}
+
+/* ================= OPERATIVE ONBOARDING CHECKLIST ================= */
+// Only shown to operatives, and only once at least one live site is
+// assigned to them — self-hides for good once every step is ticked off.
+// Steps auto-tick from data that already exists elsewhere in the app
+// (signature, H&S Policy/RAMS/COSHH signatures, tool photos) except "viewed
+// the schedule of works", which is tracked with a new profiles column set
+// the first time renderSchedule() runs for that operative.
+async function computeOnboardingChecklist(){
+  if(isManager(ME)) return null;
+  const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
+  const assignedIds = new Set(assignments.map(a=>a.site_id));
+  const activeSites = SITES.filter(s=>assignedIds.has(s.id) && s.status==='active');
+  if(!activeSites.length) return null;
+  const firstSiteId = activeSites[0].id;
+  const [hsPolicyData, ramsSigs, coshhSigs, tools] = await Promise.all([
+    fetchHsPolicyData(),
+    dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=id&limit=1'),
+    dbSelect('coshh_signatures', 'user_id=eq.'+ME.id+'&select=id&limit=1'),
+    dbSelect('operative_tools', 'user_id=eq.'+ME.id+'&select=id&limit=1'),
+  ]);
+  const hsSigned = hsPolicyData.doc ? hsPolicyData.sigs.some(s=>s.user_id===ME.id && hsPolicySigStillValid(hsPolicyData.doc, s)) : false;
+  const items = [
+    {key:'signature', label:'Create your signature', done: !!ME.signature_path, href:'#/signature'},
+    {key:'hspolicy', label:'Sign the H&S Policy', done: hsSigned, href:`#/site/${firstSiteId}/hs/rams`},
+    {key:'rams', label:'Sign RAMS', done: ramsSigs.length>0, href:`#/site/${firstSiteId}/hs/rams`},
+    {key:'coshh', label:'Sign COSHH', done: coshhSigs.length>0, href:`#/site/${firstSiteId}/hs/coshh`},
+    {key:'tools', label:'Upload your tool photos', done: tools.length>0, href:`#/site/${firstSiteId}/hs/mytools`},
+    {key:'schedule', label:'Open and view the Schedule of Works', done: !!ME.viewed_schedule_at, href:`#/site/${firstSiteId}/schedule`},
+  ];
+  return {items, allDone: items.every(i=>i.done), firstSiteId};
+}
+async function renderOnboardingChecklist(){
+  const __gen = RENDER_GEN;
+  const data = await computeOnboardingChecklist();
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">A few quick steps to get fully set up — this disappears from your home screen once everything below is ticked off.</p>
+    ${data ? data.items.map(it=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
+        <div class="swatch" style="background:${it.done?'var(--ok-bg)':'var(--warn-bg)'};color:${it.done?'var(--ok)':'var(--warn)'};">${it.done?'✓':'○'}</div>
+        <div class="info"><div class="name" style="${it.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(it.label)}</div></div>
+      </div>
+    `).join('') : `<div class="empty">Nothing to do here right now.</div>`}
+  `, {title:'Getting Started', back:'#/sites', tabs:false}); }
 }
 
 /* ================= ACCOUNT / SETTINGS (Home bottom bar — everyone) ================= */
@@ -6547,6 +6604,13 @@ async function renderSchedule(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
+  // Onboarding checklist item "Open and view the Schedule of Works" — ticks
+  // the first time an operative actually opens this page. Fire-and-forget:
+  // never worth blocking the page paint on.
+  if(!canAdd && !ME.viewed_schedule_at){
+    ME.viewed_schedule_at = new Date().toISOString();
+    dbUpdate('profiles', ME.id, {viewed_schedule_at: ME.viewed_schedule_at});
+  }
   const [allTasks, sections] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
@@ -13036,11 +13100,16 @@ async function markMessagesRead(ids){
   }catch(e){ /* silent */ }
 }
 let msgDraft = '';
-let msgSectionsOpen = {fromTeam:false, sent:false}; // collapsible — auto-opened only while holding something unread, see renderMessages
-let msgLastSiteId = null, msgLastUnreadFromTeam = null, msgLastUnreadSent = null;
+// Manager view is now two tabs instead of two independently-collapsible
+// dropdowns — defaults to "From Team" every time a different site is opened,
+// but stays wherever the PM last left it while browsing the same site.
+let msgActiveTab = 'fromTeam'; // 'fromTeam' | 'sent'
+let msgLastSiteId = null;
 let msgReplyOpenId = null; // message id whose inline reply box is showing
 let msgReplyDraft = '';
 let msgSelectedIds = new Set();
+let msgReceiptsOpenId = null; // message id whose read-receipt breakdown is expanded (manager, "Sent to Operatives" tab)
+window.toggleMsgReceipts = function(id){ msgReceiptsOpenId = msgReceiptsOpenId===id ? null : id; render(); };
 async function renderMessages(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -13078,24 +13147,37 @@ async function renderMessages(siteId){
   }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
 
-  // Auto-manage the two dropdowns: open only while they hold something new/
-  // unread, otherwise stay collapsed. Only reapplies when the site changes
-  // or the unread state actually flips — a manager who's manually opened a
-  // dropdown to browse (with nothing unread in it) doesn't get it yanked
-  // shut on the next render.
-  if(mgr){
-    const fromTeamUnread = fromTeam.some(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id)));
-    const sentUnread = broadcasts.some(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id)));
-    if(msgLastSiteId !== siteId){
-      msgLastSiteId = siteId;
-      msgLastUnreadFromTeam = fromTeamUnread;
-      msgLastUnreadSent = sentUnread;
-      msgSectionsOpen = {fromTeam:fromTeamUnread, sent:sentUnread};
-    } else if(msgLastUnreadFromTeam !== fromTeamUnread || msgLastUnreadSent !== sentUnread){
-      msgLastUnreadFromTeam = fromTeamUnread;
-      msgLastUnreadSent = sentUnread;
-      msgSectionsOpen = {fromTeam:fromTeamUnread, sent:sentUnread};
-    }
+  // Default back to the "From Team" tab every time a different site is
+  // opened; otherwise leave the tab exactly where the PM last left it.
+  if(msgLastSiteId !== siteId){
+    msgLastSiteId = siteId;
+    msgActiveTab = 'fromTeam';
+  }
+  const fromTeamUnreadCount = fromTeam.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;
+  const sentUnreadCount = broadcasts.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;
+
+  // Read receipts (manager view, "Sent to Operatives" tab only) — who among
+  // the message's intended audience has actually opened it, and when. A
+  // message with a site_id was sent to that site's assigned operatives; a
+  // company-wide broadcast (site_id null) was sent to every operative.
+  let receiptsByMsg = {};
+  if(mgr && broadcasts.length){
+    const siteAssignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+    const siteOperativeIds = new Set(siteAssignments.map(a=>a.user_id));
+    const allOperativeIds = Object.values(PROFILES).filter(p=>p.role==='operative').map(p=>p.id);
+    const bIds = broadcasts.map(m=>m.id).join(',');
+    const allReads = bIds ? await dbSelect('message_reads', 'message_id=in.('+bIds+')&select=message_id,user_id,read_at') : [];
+    const readsByMsg = {};
+    allReads.forEach(r=>{ (readsByMsg[r.message_id]=readsByMsg[r.message_id]||[]).push(r); });
+    broadcasts.forEach(m=>{
+      const roster = (m.site_id ? [...siteOperativeIds] : allOperativeIds).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
+      const reads = readsByMsg[m.id]||[];
+      const readByIds = new Set(reads.map(r=>r.user_id));
+      receiptsByMsg[m.id] = {
+        read: reads.map(r=>({id:r.user_id, at:r.read_at})).sort((a,b)=>new Date(a.at)-new Date(b.at)),
+        unread: roster.filter(uid=>!readByIds.has(uid)),
+      };
+    });
   }
 
   const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', message:null};
@@ -13121,6 +13203,18 @@ async function renderMessages(siteId){
         </div>
         ${mgr ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="event.stopPropagation();deleteMessage('${siteId}','${m.id}')">🗑</div>` : ''}
       </div>
+      ${mgr && m.audience==='operatives' && receiptsByMsg[m.id] ? `
+        <div class="stub" style="margin:8px 0 0;cursor:pointer;color:var(--blue);" onclick="event.stopPropagation();toggleMsgReceipts('${m.id}')">
+          👁 ${receiptsByMsg[m.id].read.length} viewed${receiptsByMsg[m.id].unread.length?', '+receiptsByMsg[m.id].unread.length+' not yet':''} ${msgReceiptsOpenId===m.id?'▼':'▶'}
+        </div>
+        ${msgReceiptsOpenId===m.id ? `
+          <div style="margin:6px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);" onclick="event.stopPropagation();">
+            ${receiptsByMsg[m.id].read.map(r=>`<div style="font-size:11.5px;color:var(--ok);margin-bottom:2px;">✓ ${escapeHtml(nameOf(r.id))} — ${new Date(r.at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>`).join('')}
+            ${receiptsByMsg[m.id].unread.map(uid=>`<div style="font-size:11.5px;color:var(--slate);margin-bottom:2px;">○ ${escapeHtml(nameOf(uid))} — not yet viewed</div>`).join('')}
+            ${(!receiptsByMsg[m.id].read.length && !receiptsByMsg[m.id].unread.length) ? `<div class="stub" style="margin:0;">No operatives in this audience yet.</div>` : ''}
+          </div>
+        ` : ''}
+      ` : ''}
       ${replies.length ? `
         <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
           ${replies.map(r=>`
@@ -13160,10 +13254,15 @@ async function renderMessages(siteId){
 
       ${msgSelectedIds.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="deleteSelectedMessages('${siteId}')">Delete ${msgSelectedIds.size} Selected</button>` : ''}
 
-      <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.fromTeam=!msgSectionsOpen.fromTeam;render()"><span class="arrow">${msgSectionsOpen.fromTeam?'▼':'▶'}</span> From your team</p>
-      ${msgSectionsOpen.fromTeam ? `<div style="margin-top:10px;">${fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`}</div>` : ''}
-      <p class="ddrow" style="margin-top:18px;" onclick="msgSectionsOpen.sent=!msgSectionsOpen.sent;render()"><span class="arrow">${msgSectionsOpen.sent?'▼':'▶'}</span> Sent to operatives</p>
-      ${msgSectionsOpen.sent ? `<div style="margin-top:10px;">${broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`}</div>` : ''}
+      <div class="filterrow" style="margin-top:18px;">
+        <div class="filterchip ${msgActiveTab==='fromTeam'?'active':''}" onclick="msgActiveTab='fromTeam';render()">From Team${fromTeamUnreadCount?' ('+fromTeamUnreadCount+')':''}</div>
+        <div class="filterchip ${msgActiveTab==='sent'?'active':''}" onclick="msgActiveTab='sent';render()">Sent to Operatives${sentUnreadCount?' ('+sentUnreadCount+')':''}</div>
+      </div>
+      <div style="margin-top:10px;">
+        ${msgActiveTab==='fromTeam'
+          ? (fromTeam.map(msgRow).join('') || `<div class="empty">Nothing from the crew yet.</div>`)
+          : (broadcasts.map(msgRow).join('') || `<div class="empty">No messages sent yet.</div>`)}
+      </div>
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
@@ -13272,6 +13371,7 @@ async function renderRoute(){
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='account'){ return renderAccountSettings(); }
+  if(parts[0]==='onboarding-checklist'){ return renderOnboardingChecklist(); }
   if(parts[0]==='dashboard'){
     if(!ME || ME.role!=='admin'){ go('#/sites'); return; }
     return renderDashboard();
