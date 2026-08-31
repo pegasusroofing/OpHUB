@@ -59,7 +59,7 @@
     #app{
       max-width:1180px;box-shadow:none;
     }
-    .appbar{padding:19px 30.4px;padding-top:calc(19px + env(safe-area-inset-top));}
+    .appbar{padding:17.1px 27.36px;padding-top:calc(17.1px + env(safe-area-inset-top));}
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;}
   }
@@ -78,10 +78,10 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1);color:var(--brand1-text);padding:19.95px 22.8px 17.1px;padding-top:calc(19.95px + env(safe-area-inset-top));flex:0 0 auto;}
-  .appbar .row{display:flex;align-items:center;gap:14.25px;}
+  .appbar{background:var(--brand1);color:var(--brand1-text);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;}
+  .appbar .row{display:flex;align-items:center;gap:12.825px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
-  .brandmark{width:68.4px;height:68.4px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 68.4px;padding:3.8px;}
+  .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
   .brandline{font-size:14.25px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand1-text);opacity:.8;margin-bottom:1.5px;}
   .brandline.lg{font-size:21.375px;opacity:1;}
   .brandline.orgname{font-size:17.8125px;opacity:1;}
@@ -215,11 +215,10 @@
     display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
     cursor:pointer;line-height:1;}
 
-  .status-strip{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;background:var(--card);
+  .status-strip{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;background:var(--card);
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
   .status-strip>span:first-child{text-align:left;justify-self:start;}
-  .status-strip>span:nth-child(2){text-align:center;justify-self:center;}
-  .status-strip>span:last-child{text-align:right;justify-self:end;}
+  .status-strip>span:last-child{text-align:right;justify-self:end;white-space:nowrap;}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
     text-transform:uppercase;padding:5px 9px;border-radius:999px;}
   .pill.on{background:var(--ok-bg);color:var(--ok);}
@@ -229,7 +228,7 @@
   .tile-wide{grid-column:1 / -1;flex-direction:row;justify-content:center;align-items:center;min-height:72px;}
   .tile-wide .icon{margin-bottom:0;}
   .tile{background:var(--card);border:1.5px solid var(--line);border-radius:14px;padding:14px 12px;
-    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;min-height:112px;position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;min-height:112px;position:relative;
     box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
   /* Tile background reverted back to the plain card colour — only the
      border picks up the company's secondary theme colour, so the tile grid
@@ -1266,7 +1265,19 @@ let SELF_NAV = false;
 // this counter when it starts and only paints the screen if it's still the
 // most recent render pass by the time its data has loaded.
 let RENDER_GEN = 0;
-function go(hash){ SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300); location.hash = hash; }
+// Setting location.hash to the value it ALREADY holds does not fire a
+// hashchange event — so go() would silently no-op, leaving whatever was on
+// screen from an earlier, possibly-stale render() call (e.g. sign-in calls
+// render() directly several times while ME/ORG/SITES are still loading,
+// before finally calling go('#/sites') — if the hash was already '#/sites'
+// from before sign-in, that final call did nothing, leaving the operative
+// stuck on that earlier incomplete-data paint until they navigated away and
+// back). Detect the no-op case and force a render() directly instead.
+function go(hash){
+  SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300);
+  if(location.hash === hash){ render(); return; }
+  location.hash = hash;
+}
 // Scroll position on navigation: the actual scrolling element is the
 // window/body (see .scrollarea's CSS comment — #app is min-height:100vh,
 // not height-capped, so it's the page itself that scrolls), and swapping
@@ -1468,18 +1479,41 @@ async function init(){
 
 // Site Home's status strip has Job No on the left and an on-site pill on the
 // right, both shrink-wrapped to their own text — so they naturally end up
-// different widths despite sitting in equal 1fr grid tracks. This forces the
-// pill's box to match the Job No text's rendered width exactly, run after
-// every Site Home paint (see renderSiteHome).
+// different widths despite sitting in equal grid tracks. This equalizes
+// them to the WIDER of the two (never shrinking the pill below its own
+// natural single-line width, which would wrap "Not checked in" onto two
+// lines) — run after every Site Home paint (see renderSiteHome).
 function equalizeStatusStripWidths(){
   try{
     const strip = document.querySelector('.status-strip');
     if(!strip) return;
-    const first = strip.children[0], last = strip.children[2];
+    const first = strip.children[0], last = strip.children[1];
     if(!first || !last) return;
-    last.style.width = '';
-    const w = Math.ceil(first.getBoundingClientRect().width);
-    last.style.width = w>0 ? w+'px' : '';
+    first.style.width = ''; last.style.width = '';
+    const w = Math.ceil(Math.max(first.getBoundingClientRect().width, last.getBoundingClientRect().width));
+    if(w>0){ first.style.width = w+'px'; last.style.width = w+'px'; }
+  }catch(e){ /* non-fatal — cosmetic only */ }
+}
+// Site Home tile titles (e.g. "Drawings & Specifications") can be too long
+// for the half-width tile at the standard label size and wrap onto a second
+// line. Rather than wrapping, shrink that one label's font just enough to
+// spread across the tile on a single line, down to a readable floor — past
+// that it's left to wrap rather than becoming illegible. Run after every
+// Site Home paint (see renderSiteHome).
+function fitTileLabelsOneLine(){
+  try{
+    document.querySelectorAll('.hometiles .tile .lbl').forEach(el=>{
+      el.style.fontSize = '';
+      let guard = 0;
+      while(guard++ < 14){
+        const cs = getComputedStyle(el);
+        let lh = parseFloat(cs.lineHeight);
+        if(isNaN(lh)) lh = parseFloat(cs.fontSize)*1.2;
+        const size = parseFloat(cs.fontSize);
+        if(el.getBoundingClientRect().height <= lh*1.3 || size<=9.5) break;
+        el.style.fontSize = (size-0.5)+'px';
+      }
+    });
   }catch(e){ /* non-fatal — cosmetic only */ }
 }
 
@@ -1514,7 +1548,7 @@ function shell(innerHtml, opts){
         ` : `
         <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
-          <div style="flex:1;min-width:0;min-height:66px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
+          <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ''}</div>` : ''}
             <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
@@ -2574,6 +2608,13 @@ async function renderTeam(){
     const range = checkinLogEffectiveRange();
     checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
   }
+  // Same "only when open" pattern — the PPE log spans every site, no need
+  // to query it on every Admin Centre visit if nobody's looking at it.
+  let ppeLogRows = [];
+  if(isManager(ME) && teamSectionOpen.ppelog){
+    const range = ppeLogRange(ppeLogMode, ppeLogOffset);
+    ppeLogRows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.desc&select=*');
+  }
   // Same "only when the section is actually open" pattern as Check-In Logs —
   // the library can be several levels deep, no need to query it on every
   // Admin Centre visit if nobody has expanded it.
@@ -2732,6 +2773,9 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('healthsafety')"><span class="arrow">${teamSectionOpen.healthsafety?'▼':'▶'}</span> Health &amp; Safety</p>
+    ${teamSectionOpen.healthsafety ? `
+    <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('havstools')"><span class="arrow">${teamSectionOpen.havstools?'▼':'▶'}</span> HAVS Tools</p>
     ${teamSectionOpen.havstools ? `
@@ -2797,6 +2841,8 @@ async function renderTeam(){
       <input type="file" accept="application/pdf" id="tbtTemplateFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('tbtTemplateFileName').textContent=this.files[0]?this.files[0].name:''">
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
+    </div>
+    ` : ''}
     </div>
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
@@ -2894,6 +2940,59 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('ppelog')"><span class="arrow">${teamSectionOpen.ppelog?'▼':'▶'}</span> PPE Log</p>
+    ${teamSectionOpen.ppelog ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">PPE issued across every site, for whichever period and operative(s) you choose.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="display:flex;gap:6px;">
+          <button class="${ppeLogMode==='weekly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('weekly')">Weekly</button>
+          <button class="${ppeLogMode==='monthly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('monthly')">Monthly</button>
+          <button class="${ppeLogMode==='yearly'?'darkbtn':'ghostbtn'}" style="width:auto;padding:4px 10px;font-size:11px;" onclick="setPpeLogMode('yearly')">Yearly</button>
+        </div>
+        <div style="position:relative;">
+          <button type="button" onclick="event.stopPropagation();togglePpeLogOperativeFilterOpen()" title="Filter by operative" style="width:auto;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${ppeLogOperativeIds.length?'var(--brand1)':'#fff'};color:${ppeLogOperativeIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+            ${ppeLogOperativeIds.length ? (ppeLogOperativeIds.length===1 ? escapeHtml((nameOf(ppeLogOperativeIds[0])||'1 selected')) : ppeLogOperativeIds.length+' selected') : 'All operatives'} ${ppeLogOperativeFilterOpen?'▲':'▼'}
+          </button>
+          ${ppeLogOperativeFilterOpen ? `
+            <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;max-height:220px;overflow-y:auto;">
+              ${people.filter(p=>p.role==='operative').map(p=>`
+                <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--ink);cursor:pointer;">
+                  <input type="checkbox" ${ppeLogOperativeIds.includes(p.id)?'checked':''} onchange="togglePpeLogOperativeId('${p.id}')">
+                  ${escapeHtml(p.name)}
+                </label>
+              `).join('')}
+              ${ppeLogOperativeIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeLogOperativeFilter()">Clear</span></div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span class="taskicon" onclick="shiftPpeLog(-1)">‹</span>
+        <span style="font-weight:800;font-size:13px;">${escapeHtml(ppeLogRange(ppeLogMode, ppeLogOffset).label)}</span>
+        <span class="taskicon" style="${ppeLogOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftPpeLog(1)">›</span>
+      </div>
+      ${(()=>{
+        const rows = (ppeLogOperativeIds.length ? ppeLogRows.filter(r=>ppeLogOperativeIds.includes(r.user_id)) : ppeLogRows);
+        if(!rows.length) return `<div class="empty" style="padding:10px;">No PPE issued in this period.</div>`;
+        return rows.map(r=>{
+          const site = SITES.find(s=>s.id===r.site_id);
+          return `
+          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span class="name" style="font-weight:800;">${escapeHtml(nameOf(r.user_id))}</span>
+              <span class="pill ${r.status==='signed'?'on':'off'}">${r.status==='signed'?'Signed':'Pending'}</span>
+            </div>
+            <div class="addr">${(r.items||[]).map(escapeHtml).join(', ')}</div>
+            <div class="meta">${site?escapeHtml(site.name):''} · ${new Date(r.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>
+          </div>`;
+        }).join('');
+      })()}
+      <button class="darkbtn" style="margin-top:10px;" onclick="exportPpeLog()">Export to Excel</button>
+    </div>
+    ` : ''}
+    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invites')"><span class="arrow">${teamSectionOpen.invites?'▼':'▶'}</span> Invites</p>
     ${teamSectionOpen.invites ? `
     <div class="card">
@@ -2981,7 +3080,7 @@ async function renderTeam(){
     ` : ''}
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false};
 let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
 window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
 // PM/Admin adding a tool on an operative's behalf, from Admin Centre —
@@ -3086,6 +3185,73 @@ function pairCheckinSessions(rows){
   if(openIn) sessions.push({inTs:openIn.ts, outTs:null, siteId:openIn.site_id});
   return sessions;
 }
+// PPE Log (Admin Centre) — weekly/monthly/yearly view of PPE issued across
+// every site, filterable by operative(s). Mirrors the Check-In Logs
+// weekly/monthly pattern above, plus a Yearly option.
+let ppeLogMode = 'monthly';
+let ppeLogOffset = 0;
+function startOfYear(d, yearOffset){
+  const dt = new Date(d);
+  dt.setMonth(0,1); dt.setHours(0,0,0,0);
+  dt.setFullYear(dt.getFullYear() + (yearOffset||0));
+  return dt.getTime();
+}
+function ppeLogRange(mode, offset){
+  if(mode==='yearly'){
+    const start = startOfYear(Date.now(), offset);
+    const end = startOfYear(Date.now(), offset+1);
+    return {start, end, label: String(new Date(start).getFullYear())};
+  }
+  if(mode==='monthly'){
+    const start = startOfMonth(Date.now(), offset);
+    const end = startOfMonth(Date.now(), offset+1);
+    const label = new Date(start).toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+    return {start, end, label};
+  }
+  const thisWeekStart = startOfWeek(Date.now());
+  const start = thisWeekStart + offset*7*24*60*60*1000;
+  const end = start + 7*24*60*60*1000;
+  const endDisplay = new Date(end - 24*60*60*1000);
+  const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
+  return {start, end, label};
+}
+window.setPpeLogMode = function(mode){ ppeLogMode = mode; ppeLogOffset = 0; render(); };
+window.shiftPpeLog = function(dir){ ppeLogOffset += dir; render(); };
+let ppeLogOperativeIds = [];
+let ppeLogOperativeFilterOpen = false;
+window.togglePpeLogOperativeFilterOpen = function(){ ppeLogOperativeFilterOpen = !ppeLogOperativeFilterOpen; render(); };
+window.togglePpeLogOperativeId = function(id){
+  ppeLogOperativeIds = ppeLogOperativeIds.includes(id) ? ppeLogOperativeIds.filter(x=>x!==id) : [...ppeLogOperativeIds, id];
+  render();
+};
+window.clearPpeLogOperativeFilter = function(){ ppeLogOperativeIds = []; render(); };
+window.exportPpeLog = async function(){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  await loadAllProfiles();
+  const range = ppeLogRange(ppeLogMode, ppeLogOffset);
+  let rows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.asc&select=*');
+  if(ppeLogOperativeIds.length) rows = rows.filter(r=>ppeLogOperativeIds.includes(r.user_id));
+  if(!rows.length){ toast('No PPE issued in that range.'); return; }
+  const data = [];
+  rows.forEach(r=>{
+    const site = SITES.find(s=>s.id===r.site_id);
+    (r.items||['—']).forEach(item=>{
+      data.push({
+        Operative: nameOf(r.user_id),
+        Item: item,
+        Site: site ? site.name : '',
+        'Issued Date': new Date(r.issued_at).toLocaleDateString('en-GB'),
+        Status: r.status==='signed' ? 'Signed' : 'Pending Signature',
+        'Issued By': nameOf(r.issued_by),
+      });
+    });
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:16},{wch:18},{wch:12},{wch:16},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'PPE Log');
+  await deliverExcelFile(wb, exportFilename('', 'PPE Log ('+range.label+')', 'xlsx'));
+};
 window.toggleTeamSection = function(key){ teamSectionOpen[key] = !teamSectionOpen[key]; render(); };
 let odBusy = false;
 let themeBusy = false;
@@ -3429,11 +3595,27 @@ async function renderSiteHome(siteId){
       canSeePrice = grant.length>0;
     }
   }
+  // PPE tile summary: an operative sees how many of their own issuances are
+  // waiting on their signature; a PM/admin sees how many PPE requests from
+  // this site are still pending fulfilment.
+  let ppeTileSub = 'Issue & track PPE', ppeTileCount = 0;
+  if(isManager(ME)){
+    const pendingReqs = await dbSelect('ppe_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
+    ppeTileCount = pendingReqs.length;
+    ppeTileSub = pendingReqs.length ? pendingReqs.length+' request'+(pendingReqs.length===1?'':'s') : 'Issue & track PPE';
+  } else {
+    const pendingSigs = await dbSelect('ppe_issuances', 'user_id=eq.'+ME.id+'&status=eq.pending_signature&select=id');
+    ppeTileCount = pendingSigs.length;
+    ppeTileSub = pendingSigs.length ? pendingSigs.length+' to sign' : 'My PPE';
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 2px;margin-bottom:8px;">
+      <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
+      <span class="stub" style="margin:0;">${escapeHtml((ORG && ORG.name) || '')}</span>
+    </div>
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
-      <span>${escapeHtml(ME.name)}</span>
-      <span style="transform:scale(.9);transform-origin:right center;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
+      <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
     <div class="tilegrid hometiles" style="margin-bottom:-16px;">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
@@ -3467,6 +3649,11 @@ async function renderSiteHome(siteId){
         <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
         ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/ppe')">
+        <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
+        <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
+        ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
+      </div>
       ${canSeePrice ? `
       <div class="tile" onclick="go('#/site/${siteId}/price')">
         <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
@@ -3486,7 +3673,7 @@ async function renderSiteHome(siteId){
       `) : ''}
     </div>
   `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
-    requestAnimationFrame(equalizeStatusStripWidths);
+    requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
   }
 }
 async function loadPMList(){
@@ -5760,7 +5947,7 @@ let checkinBusy = false;
 let checkinError = null;
 let checkinGeofenceOpen = false;
 let checkinHistoryOpen = false;
-let checkinRecentOpen = false;
+let checkinRecentOpen = true; // this section only ever shows for operatives (their own sign-in) — open by default; PM/admin's "All Operatives / PM Logins" (checkinHistoryOpen) stays closed by default
 let checkinPmLoginsOpen = false;
 // Pairs up each operative's raw in/out log (chronological, ascending) into
 // sessions of {user_id, in, out} — out:null means still on site. An "in"
@@ -7587,6 +7774,14 @@ async function renderHealthSafety(siteId){
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
   ]);
+  let hsPolicySigned = true;
+  {
+    const curPolicy = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc&limit=1');
+    if(curPolicy.length){
+      const mySig = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+curPolicy[0].id+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+      hsPolicySigned = mySig.length>0;
+    }
+  }
   let briefingSub = 'None yet';
   if(briefingTemplates.length){
     const ids = briefingTemplates.map(t=>t.id).join(',');
@@ -7623,10 +7818,446 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
         <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs/policy')">
+        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📜</div>
+        <div class="lbl">H&amp;S Policy</div><div class="sub">${hsPolicySigned ? 'Signed' : 'Sign to confirm'}</div>
+        ${hsPolicySigned?'':'<span class="badge-count">!</span>'}
+      </div>
     </div>
     ${!isManager(ME) ? `<div class="ddrow" style="margin-top:14px;" onclick="go('#/site/${siteId}/hs/mytools')">My Tools</div>` : ''}
   `, {title:'Health & Safety', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
+
+/* ================= H&S POLICY (org-wide document everyone signs) =================
+   Mirrors the RAMS read-and-sign pattern, but there is exactly one current
+   document per company (not per site) — uploading a replacement supersedes
+   the old one and, same as RAMS, requires everyone to sign the new version
+   again. Reachable from every site's H&S file since it applies company-wide. */
+let hsPolicyUploadOpen = false;
+let hsPolicySupersededOpen = false;
+async function fetchHsPolicyData(){
+  const docs = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc');
+  const superseded = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.superseded&order=uploaded_at.desc');
+  const doc = docs[0] || null;
+  let sigs = [];
+  if(doc) sigs = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+doc.id+'&order=signed_at.asc');
+  return {doc, superseded, sigs};
+}
+async function renderHsPolicy(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  await loadAllProfiles();
+  const {doc, superseded, sigs} = await fetchHsPolicyData();
+  const signedIds = new Set(sigs.map(s=>s.user_id));
+  const iSigned = doc ? signedIds.has(ME.id) : false;
+  const allPeople = Object.values(PROFILES);
+  const uploadForm = `
+        <div class="formfield" style="margin-top:0;"><input type="text" id="hsPolicyName" placeholder="Document name, e.g. Health & Safety Policy 2026" value="${doc?escapeHtml(doc.name):''}"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('hsPolicyFile').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="hsPolicyFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('hsPolicyFileName').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="hsPolicyFileName" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" onclick="addHsPolicy('${siteId}')">${doc?'Upload New Version':'Upload'}</button>
+        ${doc?`<p class="stub">Uploading a new version keeps the old one on file (marked Superseded) and everyone — including those who already signed — will need to sign it again.</p>`:''}
+  `;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${doc ? `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</span></div>
+        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
+        <div style="margin-top:12px;">
+          ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(sigs.find(s=>s.user_id===ME.id).signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : `<button class="darkbtn" onclick="signHsPolicy('${doc.id}')">I have read and understood this policy — Sign</button>`}
+        </div>
+      </div>
+      ${canManage ? `
+      <p class="ddrow" onclick="toggleHsPolicySignedList()"><span class="arrow">${hsPolicySignedListOpen?'▼':'▶'}</span> Signed (${sigs.length} of ${allPeople.length})</p>
+      ${hsPolicySignedListOpen ? `<div class="card">
+        ${allPeople.map(p=>`
+          <div class="sitecard" style="padding:8px 10px;">
+            <div class="info"><div class="name">${escapeHtml(p.name)}</div></div>
+            ${signedIds.has(p.id) ? `<span class="pill on">Signed</span>` : `<span class="pill off">Outstanding</span>`}
+          </div>
+        `).join('') || `<div class="empty" style="padding:10px;">No one on the team yet.</div>`}
+      </div>` : ''}
+      ` : ''}
+    ` : `<div class="empty">No H&amp;S Policy document uploaded yet.</div>`}
+
+    ${canManage ? (doc ? `
+      <p class="ddrow" onclick="hsPolicyUploadOpen=!hsPolicyUploadOpen;render()"><span class="arrow">${hsPolicyUploadOpen?'▼':'▶'}</span> Upload New Version</p>
+      ${hsPolicyUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
+    ` : `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload H&amp;S Policy</p>
+        ${uploadForm}
+      </div>
+    `) : ''}
+    ${superseded.length ? `
+    <p class="ddrow" onclick="hsPolicySupersededOpen=!hsPolicySupersededOpen;render()"><span class="arrow">${hsPolicySupersededOpen?'▼':'▶'}</span> Superseded Versions (${superseded.length})</p>
+    ${hsPolicySupersededOpen ? `<div class="card">${superseded.map(d=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
+        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+      </div>
+    `).join('')}</div>` : ''}
+    ` : ''}
+  `, {title:'H&S Policy', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+}
+let hsPolicySignedListOpen = false;
+window.toggleHsPolicySignedList = function(){ hsPolicySignedListOpen = !hsPolicySignedListOpen; render(); };
+window.addHsPolicy = async function(siteId){
+  const name = document.getElementById('hsPolicyName').value.trim();
+  const fileInput = document.getElementById('hsPolicyFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = ME.org_id+'/hs-policy/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const {doc: oldDoc} = await fetchHsPolicyData();
+  const rows = await dbInsert('hs_policy_docs', {org_id:ME.org_id, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){
+    if(oldDoc) await dbUpdate('hs_policy_docs', oldDoc.id, {status:'superseded', superseded_by:rows[0].id});
+    toast('H&S Policy uploaded');
+    hsPolicyUploadOpen = false; render();
+  }
+};
+window.signHsPolicy = async function(policyId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('hs_policy_signatures', {policy_id:policyId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed — thank you'); render(); }
+};
+
+/* ================= PPE (issuance, requests, log) =================
+   PPE issuances are deliberately org-wide on SELECT (see RLS) rather than
+   filtered by has_site_access, because the whole point is that an
+   operative's current PPE list travels with them to whatever site they're
+   next assigned to, and a PM/admin needs to see it regardless of which site
+   originally issued it. Site of issue is still recorded (site_id) so it can
+   be filtered for a per-site export. */
+const PPE_STANDARD_ITEMS = ['Gloves','Hi-Vis Vest','Dust Mask','Hard Hat','Safety Boots'];
+let ppeIssueOpen = false;
+let ppeIssueOperativeId = '';
+let ppeIssueSelectedItems = [];
+let ppeIssueCustomItem = '';
+let ppeRequestOpen = false;
+let ppeRequestItem = '';
+let ppeRequestCustom = '';
+let ppeRequestDate = '';
+let ppeTeamOpenFor = {}; // operative id -> whether their issuance history is expanded (PM/admin view)
+let ppeRequestsOpen = true;
+let ppeExportOperativeIds = []; // empty = everyone
+let ppeExportFilterOpen = false;
+window.togglePpeIssueOpen = function(){ ppeIssueOpen = !ppeIssueOpen; if(ppeIssueOpen){ ppeIssueOperativeId=''; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; } render(); };
+window.togglePpeIssueItem = function(item){ ppeIssueSelectedItems = ppeIssueSelectedItems.includes(item) ? ppeIssueSelectedItems.filter(i=>i!==item) : [...ppeIssueSelectedItems, item]; render(); };
+window.setPpeIssueCustomItem = function(v){ ppeIssueCustomItem = v; };
+window.setPpeIssueOperative = function(v){ ppeIssueOperativeId = v; };
+window.togglePpeTeamOpenFor = function(id){ ppeTeamOpenFor[id] = !ppeTeamOpenFor[id]; render(); };
+window.togglePpeRequestsOpen = function(){ ppeRequestsOpen = !ppeRequestsOpen; render(); };
+window.togglePpeExportFilterOpen = function(){ ppeExportFilterOpen = !ppeExportFilterOpen; render(); };
+window.togglePpeExportOperativeId = function(id){ ppeExportOperativeIds = ppeExportOperativeIds.includes(id) ? ppeExportOperativeIds.filter(x=>x!==id) : [...ppeExportOperativeIds, id]; render(); };
+window.clearPpeExportOperativeFilter = function(){ ppeExportOperativeIds = []; render(); };
+window.togglePpeRequestOpen = function(){ ppeRequestOpen = !ppeRequestOpen; if(ppeRequestOpen){ ppeRequestItem=''; ppeRequestCustom=''; ppeRequestDate=''; } render(); };
+window.setPpeRequestItem = function(v){ ppeRequestItem = v; render(); };
+window.setPpeRequestCustom = function(v){ ppeRequestCustom = v; };
+window.setPpeRequestDate = function(v){ ppeRequestDate = v; };
+
+// A user's "current" PPE: for each distinct item name, the most recent
+// signed issuance that included it — matches "live update across sites",
+// since it's recomputed from the full org-wide issuance history, not tied
+// to any one site.
+function currentPpeForUser(issuances, userId){
+  const mine = issuances.filter(i=>i.user_id===userId && i.status==='signed').sort((a,b)=>new Date(b.issued_at)-new Date(a.issued_at));
+  const seen = {};
+  mine.forEach(i=>{ (i.items||[]).forEach(item=>{ if(!seen[item]) seen[item] = i.issued_at; }); });
+  return Object.keys(seen).sort();
+}
+async function renderPpe(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  await loadAllProfiles();
+  const allOperatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  // Site-assigned operatives (for the "issue to" picker and the team list) —
+  // everyone assigned to this site, PM/admin included on the list only if
+  // they're an operative-role account too (rare), so filter to role.
+  const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const assignedIds = new Set(assignedRows.map(a=>a.user_id));
+  const siteOperatives = allOperatives.filter(p=>assignedIds.has(p.id));
+
+  const [allIssuances, allRequests] = await Promise.all([
+    dbSelect('ppe_issuances', canManage ? 'order=issued_at.desc' : 'user_id=eq.'+ME.id+'&order=issued_at.desc'),
+    dbSelect('ppe_requests', canManage ? 'site_id=eq.'+siteId+'&order=created_at.desc' : 'user_id=eq.'+ME.id+'&order=created_at.desc'),
+  ]);
+
+  if(__gen !== RENDER_GEN) return;
+
+  if(!canManage){
+    // ===== Operative view: My PPE =====
+    const myCurrent = currentPpeForUser(allIssuances, ME.id);
+    const pending = allIssuances.filter(i=>i.user_id===ME.id && i.status==='pending_signature');
+    const myRequests = allRequests;
+    document.getElementById('app').innerHTML = shell(`
+      <p class="sectiontitle" style="margin-top:0;">My Current PPE</p>
+      <div class="card">
+        ${myCurrent.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${myCurrent.map(i=>`<span class="rolechip">${escapeHtml(i)}</span>`).join('')}</div>` : `<div class="empty">Nothing issued yet.</div>`}
+      </div>
+      ${pending.length ? `
+      <p class="sectiontitle">Awaiting Your Signature</p>
+      ${pending.map(i=>`
+        <div class="card">
+          <div style="font-weight:700;font-size:12.5px;">${(i.items||[]).map(escapeHtml).join(', ')}</div>
+          <div class="meta">Issued ${new Date(i.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(i.issued_by))}</div>
+          <button class="darkbtn" style="margin-top:8px;" onclick="signPpeIssuance('${i.id}')">I confirm receipt of this PPE — Sign</button>
+        </div>
+      `).join('')}
+      ` : ''}
+      <p class="sectiontitle">Request PPE</p>
+      ${ppeRequestOpen ? `
+      <div class="card">
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Item</label>
+          <select onchange="setPpeRequestItem(this.value)">
+            <option value="">— Choose —</option>
+            ${PPE_STANDARD_ITEMS.map(it=>`<option value="${escapeHtml(it)}" ${ppeRequestItem===it?'selected':''}>${escapeHtml(it)}</option>`).join('')}
+            <option value="__other" ${ppeRequestItem==='__other'?'selected':''}>Other…</option>
+          </select>
+        </div>
+        ${ppeRequestItem==='__other' ? `<div class="formfield"><input type="text" id="ppeRequestCustomInput" placeholder="Item name" value="${escapeHtml(ppeRequestCustom)}" oninput="setPpeRequestCustom(this.value)"></div>` : ''}
+        <div class="formfield"><label class="field-label">Date needed</label><input type="date" id="ppeRequestDateInput" value="${escapeHtml(ppeRequestDate)}" onchange="setPpeRequestDate(this.value)"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="submitPpeRequest('${siteId}')">Submit Request</button>
+          <button class="ghostbtn" style="flex:1;" onclick="togglePpeRequestOpen()">Cancel</button>
+        </div>
+      </div>
+      ` : `<button class="darkbtn" onclick="togglePpeRequestOpen()">+ Request PPE</button>`}
+      ${myRequests.length ? `
+      <p class="sectiontitle">My Requests</p>
+      ${myRequests.map(r=>`
+        <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <span class="name" style="font-weight:800;">${escapeHtml(r.item_name)}</span>
+            <span class="pill ${r.status==='fulfilled'?'on':(r.status==='cancelled'?'':'off')}">${cap1(r.status)}</span>
+          </div>
+          <div class="meta">${r.date_needed ? 'Needed by '+new Date(r.date_needed+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'No date given'}</div>
+        </div>
+      `).join('')}
+      ` : ''}
+    `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+    return;
+  }
+
+  // ===== PM/Admin view =====
+  const pendingReqs = allRequests.filter(r=>r.status==='pending');
+  document.getElementById('app').innerHTML = shell(`
+    ${ppeIssueOpen ? `
+    <p class="sectiontitle" style="margin-top:0;">Issue PPE</p>
+    <div class="card">
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Operative</label>
+        <select onchange="setPpeIssueOperative(this.value)">
+          <option value="">— Choose —</option>
+          ${siteOperatives.map(p=>`<option value="${p.id}" ${ppeIssueOperativeId===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+      </div>
+      <label class="field-label">Items</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        ${PPE_STANDARD_ITEMS.map(it=>`
+          <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:20px;font-size:12.5px;font-weight:700;cursor:pointer;background:${ppeIssueSelectedItems.includes(it)?'var(--brand1)':'#fff'};color:${ppeIssueSelectedItems.includes(it)?'#fff':'var(--ink)'};">
+            <input type="checkbox" style="margin:0;" ${ppeIssueSelectedItems.includes(it)?'checked':''} onchange="togglePpeIssueItem('${it}')"> ${escapeHtml(it)}
+          </label>
+        `).join('')}
+      </div>
+      <div class="formfield"><label class="field-label">Add another item</label><input type="text" id="ppeIssueCustomInput" placeholder="e.g. Safety Glasses" value="${escapeHtml(ppeIssueCustomItem)}" oninput="setPpeIssueCustomItem(this.value)"></div>
+      <div class="row-gap">
+        <button class="darkbtn" style="flex:1;" onclick="submitPpeIssuance('${siteId}')">Issue PPE</button>
+        <button class="ghostbtn" style="flex:1;" onclick="togglePpeIssueOpen()">Cancel</button>
+      </div>
+      <p class="stub">The operative signs to confirm receipt — this becomes a signed record, same as RAMS.</p>
+    </div>
+    ` : `<button class="darkbtn" style="margin-top:0;" onclick="togglePpeIssueOpen()">+ Issue PPE</button>`}
+
+    <p class="ddrow" onclick="togglePpeRequestsOpen()"><span class="arrow">${ppeRequestsOpen?'▼':'▶'}</span> PPE Requests ${pendingReqs.length?'('+pendingReqs.length+' pending)':''}</p>
+    ${ppeRequestsOpen ? `<div class="card">
+      ${allRequests.length ? allRequests.map(r=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info"><div class="name">${escapeHtml(nameOf(r.user_id))} — ${escapeHtml(r.item_name)}</div><div class="addr">${r.date_needed?'Needed by '+new Date(r.date_needed+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'No date given'}</div></div>
+          ${r.status==='pending' ? `
+          <div style="display:flex;gap:6px;">
+            <button class="darkbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="fulfillPpeRequest('${r.id}')">Fulfil</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="cancelPpeRequest('${r.id}')">Cancel</button>
+          </div>
+          ` : `<span class="pill ${r.status==='fulfilled'?'on':''}">${cap1(r.status)}</span>`}
+        </div>
+      `).join('') : `<div class="empty" style="padding:10px;">No requests yet.</div>`}
+    </div>` : ''}
+
+    <p class="sectiontitle">Team PPE — ${escapeHtml(site.name)}</p>
+    ${siteOperatives.length ? siteOperatives.map(p=>{
+      const current = currentPpeForUser(allIssuances, p.id);
+      const history = allIssuances.filter(i=>i.user_id===p.id);
+      const pendingCount = history.filter(i=>i.status==='pending_signature').length;
+      return `
+      <p class="ddrow" onclick="togglePpeTeamOpenFor('${p.id}')"><span class="arrow">${ppeTeamOpenFor[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} ${pendingCount?'<span class="badge-count" style="position:static;display:inline-block;margin-left:4px;">'+pendingCount+'</span>':''}</p>
+      ${ppeTeamOpenFor[p.id] ? `<div class="card">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${current.length?current.map(i=>`<span class="rolechip">${escapeHtml(i)}</span>`).join(''):'<span class="stub" style="margin:0;">Nothing issued yet.</span>'}</div>
+        ${history.map(i=>`
+          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span style="font-weight:700;font-size:12px;">${(i.items||[]).map(escapeHtml).join(', ')}</span>
+              <span class="pill ${i.status==='signed'?'on':'off'}">${i.status==='signed'?'Signed':'Pending'}</span>
+            </div>
+            <div class="meta">Issued ${new Date(i.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${i.status==='signed'?' · exportable':''}</div>
+            ${i.status==='signed' ? `<div class="viewlink" style="cursor:pointer;" onclick="exportPpeIssuancePdf('${i.id}')">Export signed PDF ↗</div>` : ''}
+          </div>
+        `).join('') || `<div class="empty" style="padding:10px;">No history yet.</div>`}
+      </div>` : ''}
+      `;
+    }).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
+
+    <p class="ddrow" onclick="togglePpeExportFilterOpen()"><span class="arrow">${ppeExportFilterOpen?'▼':'▶'}</span> Export PPE Report (${escapeHtml(site.name)})</p>
+    ${ppeExportFilterOpen ? `<div class="card">
+      <p class="stub" style="margin:0 0 10px;">Choose which operatives to include — leave empty for everyone assigned to this site.</p>
+      ${siteOperatives.map(p=>`
+        <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;cursor:pointer;">
+          <input type="checkbox" ${ppeExportOperativeIds.includes(p.id)?'checked':''} onchange="togglePpeExportOperativeId('${p.id}')">
+          ${escapeHtml(p.name)}
+        </label>
+      `).join('') || `<div class="empty">No operatives assigned yet.</div>`}
+      ${ppeExportOperativeIds.length ? `<div style="text-align:center;margin:6px 0;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="clearPpeExportOperativeFilter()">Clear</span></div>` : ''}
+      <button class="darkbtn" style="margin-top:8px;" onclick="exportPpeSiteReport('${siteId}')">Export to Excel</button>
+    </div>` : ''}
+  `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+function cap1(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
+window.submitPpeIssuance = async function(siteId){
+  const userId = ppeIssueOperativeId;
+  const customInput = document.getElementById('ppeIssueCustomInput');
+  const custom = customInput ? customInput.value.trim() : '';
+  const items = [...ppeIssueSelectedItems];
+  if(custom) items.push(custom);
+  if(!userId || !items.length){ toast('Choose an operative and at least one item.'); return; }
+  const rows = await dbInsert('ppe_issuances', {org_id:ME.org_id, site_id:siteId, user_id:userId, items, issued_by:ME.id});
+  if(rows){ toast('PPE issued — awaiting their signature'); ppeIssueOpen=false; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; ppeIssueOperativeId=''; render(); }
+};
+window.signPpeIssuance = async function(issuanceId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const row = await dbUpdate('ppe_issuances', issuanceId, {status:'signed', signed_at:new Date().toISOString(), signature_image_path:ME.signature_path});
+  if(row){ toast('Signed — thank you'); render(); }
+};
+window.submitPpeRequest = async function(siteId){
+  let itemName = ppeRequestItem;
+  if(itemName==='__other'){
+    const customInput = document.getElementById('ppeRequestCustomInput');
+    itemName = customInput ? customInput.value.trim() : '';
+  }
+  const dateInput = document.getElementById('ppeRequestDateInput');
+  const dateNeeded = dateInput ? dateInput.value : ppeRequestDate;
+  if(!itemName){ toast('Choose or type an item.'); return; }
+  const rows = await dbInsert('ppe_requests', {org_id:ME.org_id, site_id:siteId, user_id:ME.id, item_name:itemName, date_needed: dateNeeded||null});
+  if(rows){ toast('Request sent'); ppeRequestOpen=false; render(); }
+};
+window.fulfillPpeRequest = async function(requestId){
+  const row = await dbUpdate('ppe_requests', requestId, {status:'fulfilled', fulfilled_at:new Date().toISOString(), fulfilled_by:ME.id});
+  if(row){ toast('Marked fulfilled'); render(); }
+};
+window.cancelPpeRequest = async function(requestId){
+  const row = await dbUpdate('ppe_requests', requestId, {status:'cancelled', fulfilled_at:new Date().toISOString(), fulfilled_by:ME.id});
+  if(row){ toast('Request cancelled'); render(); }
+};
+window.exportPpeSiteReport = async function(siteId){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  await loadAllProfiles();
+  const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const assignedIds = new Set(assignedRows.map(a=>a.user_id));
+  let operatives = Object.values(PROFILES).filter(p=>p.role==='operative' && assignedIds.has(p.id));
+  if(ppeExportOperativeIds.length) operatives = operatives.filter(p=>ppeExportOperativeIds.includes(p.id));
+  if(!operatives.length){ toast('No operatives to export.'); return; }
+  const allIssuances = await dbSelect('ppe_issuances', 'order=issued_at.desc');
+  const data = [];
+  operatives.forEach(op=>{
+    const history = allIssuances.filter(i=>i.user_id===op.id);
+    if(!history.length){ data.push({Operative:op.name, Item:'', 'Issued Date':'', Status:'No PPE issued', 'Issued By':''}); return; }
+    history.forEach(i=>{
+      (i.items||['—']).forEach(item=>{
+        data.push({
+          Operative: op.name,
+          Item: item,
+          'Issued Date': new Date(i.issued_at).toLocaleDateString('en-GB'),
+          Status: i.status==='signed' ? 'Signed' : 'Pending Signature',
+          'Issued By': nameOf(i.issued_by),
+        });
+      });
+    });
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:20},{wch:16},{wch:12},{wch:16},{wch:18}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'PPE');
+  await deliverExcelFile(wb, exportFilename(site.name, 'PPE Report', 'xlsx'));
+};
+async function buildPpeIssuancePdf(issuanceId){
+  const rows = await dbSelect('ppe_issuances', 'id=eq.'+issuanceId+'&select=*');
+  const i = rows[0]; if(!i) return null;
+  await loadAllProfiles();
+  const site = SITES.find(s=>s.id===i.site_id);
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const {bold, reg, INK, SLATE, LINE} = fonts;
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const PAGE_W = 595.28, PAGE_H = 841.89, MARGIN = 44, CONTENT_W = PAGE_W-2*MARGIN;
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+  const WHITE = PDFLib.rgb(1,1,1);
+  const page = pdfDoc.addPage([PAGE_W,PAGE_H]);
+  page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+  if(logoImg){
+    const dim = logoImg.scale(1); const s = 40/Math.max(dim.width, dim.height);
+    const w = dim.width*s, h = dim.height*s;
+    page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+  }
+  const textX = logoImg ? MARGIN+52 : MARGIN;
+  page.drawText('PPE ISSUANCE RECORD', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+  page.drawText(nameOf(i.user_id), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+  page.drawText((site?site.name:'') + ' · ' + new Date(i.issued_at).toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+  let y = PAGE_H-130;
+  page.drawText('Items issued', {x:MARGIN, y, size:9.5, font:bold, color:SLATE}); y -= 16;
+  (i.items||[]).forEach(item=>{ page.drawText('• '+item, {x:MARGIN, y, size:11.5, font:reg, color:INK}); y -= 16; });
+  y -= 8;
+  page.drawLine({start:{x:MARGIN,y:y+8}, end:{x:PAGE_W-MARGIN,y:y+8}, thickness:0.5, color:LINE});
+  y -= 8;
+  page.drawText('Issued by '+nameOf(i.issued_by)+' on '+new Date(i.issued_at).toLocaleDateString('en-GB'), {x:MARGIN, y, size:10, font:reg, color:SLATE}); y -= 34;
+  page.drawText('I confirm I have received the above PPE items and will use/maintain them as instructed.', {x:MARGIN, y, size:9.5, font:reg, color:SLATE}); y -= 22;
+  page.drawText('Signed by '+nameOf(i.user_id)+' · '+(i.signed_at?new Date(i.signed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''), {x:MARGIN, y, size:9.5, font:bold, color:SLATE});
+  y -= 20;
+  if(i.signature_image_path){
+    try{
+      const bytes = await pdfFetchImageBytes(publicUrl('signatures', i.signature_image_path));
+      if(bytes){ let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); } const dim = img.scale(1); const s = 28/dim.height; page.drawImage(img, {x:MARGIN, y:y-28, width:dim.width*s, height:28}); }
+    }catch(e){}
+  }
+  page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
+  page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+  const bytes = await pdfDoc.save();
+  const filename = exportFilename(site?site.name:'', 'PPE - '+nameOf(i.user_id)+' - '+new Date(i.issued_at).toLocaleDateString('en-GB'), 'pdf');
+  return {bytes, filename};
+}
+window.exportPpeIssuancePdf = async function(issuanceId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building PDF…');
+  try{
+    const built = await buildPpeIssuancePdf(issuanceId);
+    if(!built){ toast('Record not found.'); return; }
+    await deliverPdf(built.bytes, built.filename);
+  }catch(e){ console.error('PPE PDF export failed', e); toast('Export failed — '+(e && e.message ? e.message : 'unknown error')); }
+};
 
 /* ================= HAVS (Hand-Arm Vibration exposure) =================
    Real HSE formula (matches the government HAVS calculator, not the old
@@ -12121,6 +12752,7 @@ async function render(){
         return renderPuwer(siteId);
       }
       if(sub==='mytools') return renderMyTools(siteId);
+      if(sub==='policy') return renderHsPolicy(siteId);
       if(sub==='incidents'){
         const isub = parts[4];
         if(isub==='new') return renderIncidentFill(siteId);
@@ -12129,6 +12761,7 @@ async function render(){
       }
       return renderHealthSafety(siteId);
     }
+    if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
     if(page==='materialrequests') return renderMaterialRequests(siteId);
     if(page==='materialorders'){
