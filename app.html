@@ -386,10 +386,15 @@
 <div id="app"></div>
 <div id="toastHost"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
+<!-- These three are only needed for exports (Excel/PDF) and PDF viewing, not
+     for the app's initial screens — deferred so they download in the
+     background instead of blocking first paint/login. Every call site
+     already checks `typeof XLSX/PDFLib/pdfjsLib==='undefined'` before use,
+     so a slow network just delays those specific buttons, not app load. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script defer>if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
 <script>
 /* ================= Supabase config ================= */
 const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
@@ -2954,6 +2959,18 @@ async function renderTeam(){
       `;
     }).join('') || `<div class="empty">No operatives yet.</div>`;
   }
+  // Same "only when open" pattern as PPE Log/Check-In Logs — Certifications
+  // is org-wide (flat list synced from OneDrive), no need to query it on
+  // every Admin Centre visit if nobody's looking at it.
+  let certificationFiles = [];
+  if(isManager(ME) && teamSectionOpen.certifications){
+    certificationFiles = await dbSelect('certification_files', 'org_id=eq.'+ME.org_id+'&order=synced_at.desc.nullslast,name.asc');
+    if(ORG && ORG.certifications_folder_id && !certificationsAutoSynced){
+      certificationsAutoSynced = true;
+      const lastSync = ORG.certifications_last_synced_at ? new Date(ORG.certifications_last_synced_at) : null;
+      if(!lastSync || (Date.now() - lastSync.getTime()) > 24*60*60*1000){ syncCertificationsNow(true); }
+    }
+  }
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -3215,6 +3232,41 @@ async function renderTeam(){
     ` : ''}
     </div>
     ` : ''}
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('certifications')"><span class="arrow">${teamSectionOpen.certifications?'▼':'▶'}</span> Certifications</p>
+    ${teamSectionOpen.certifications ? `
+    <div class="card">
+      ${ORG && ORG.certifications_folder_id ? `
+        <p class="stub" style="margin:0;color:var(--ok);">📁 Synced daily from "${escapeHtml(ORG.certifications_folder_name||'')}"${certificationsSyncBusy?' — syncing…':''}</p>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="darkbtn" style="flex:1;" ${certificationsSyncBusy?'disabled':''} onclick="syncCertificationsNow()">🔄 Sync Now</button>
+          <button class="ghostbtn" style="flex:1;" onclick="startCertificationsFolderPicker()">Change Folder</button>
+          <button class="ghostbtn" style="flex:1;" onclick="unlinkCertificationsFolder()">Unlink</button>
+        </div>
+      ` : `
+        <p class="stub" style="margin:0 0 10px;">Link the OneDrive folder that holds your operatives' certifications (CSCS, first aid, etc). Anything placed in it syncs here automatically once a day — no need to set up individual operatives first. You can also sync on demand any time.</p>
+        <button class="darkbtn" onclick="startCertificationsFolderPicker()">Link OneDrive Folder</button>
+      `}
+    </div>
+    <div class="card" style="margin-top:10px;">
+      <p class="sectiontitle" style="margin-top:0;">Synced Files (${certificationFiles.length})</p>
+      ${certificationFiles.length ? certificationFiles.map(f=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📋</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+              ${f.synced_at ? `<div class="meta" style="margin-top:2px;font-size:9.5px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+            <button class="darkbtn" style="flex:1;width:auto;padding:8px 10px;" onclick="viewCertificationFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View document</button>
+            <div class="taskicon danger" title="Delete" onclick="deleteCertificationFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
+          </div>
+        </div>
+      `).join('') : `<div class="empty">${(ORG&&ORG.certifications_folder_id) ? 'Nothing synced yet — tap Sync Now, or wait for the daily sync.' : 'No certification files yet.'}</div>`}
+      ${certificationFiles.length ? `<button class="darkbtn" style="margin-top:4px;" onclick="exportCertificationsPdf()">Export to PDF</button>` : ''}
+    </div>
+    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invitesusers')"><span class="arrow">${teamSectionOpen.invitesusers?'▼':'▶'}</span> Invites &amp; Users</p>
     ${teamSectionOpen.invitesusers ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
@@ -3409,7 +3461,9 @@ async function renderTeam(){
     </p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, certifications:false};
+let certificationsSyncBusy = false;
+let certificationsAutoSynced = false; // avoids re-checking the daily-sync threshold on every render, same as material orders
 // Users list in Admin Centre: role-change/remove buttons are hidden until
 // the person's row is tapped, so the list isn't cluttered with buttons by default.
 let userActionsOpenFor = {};
@@ -3789,6 +3843,16 @@ window.startOneDriveFolderPicker = function(siteId, target){
   odPickerError = null;
   go(`#/site/${siteId}/onedrive-folder`);
 };
+// Org-level variant — used only by Certifications, which isn't tied to any
+// one site. Same picker UI/logic, just no siteId in the route or in
+// selectOneDriveFolder's DB write.
+window.startCertificationsFolderPicker = function(){
+  odPickerTarget = 'certifications';
+  odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  odPickerFolders = [];
+  odPickerError = null;
+  go('#/certifications-onedrive-folder');
+};
 async function loadOdPickerFolders(){
   const current = odPickerStack[odPickerStack.length-1];
   try{
@@ -3822,7 +3886,7 @@ async function loadOdPickerFolders(){
 }
 async function renderOneDriveFolderPicker(siteId){
   const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
+  const site = siteId ? SITES.find(s=>s.id===siteId) : null;
   if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
   const current = odPickerStack[odPickerStack.length-1];
@@ -3837,7 +3901,7 @@ async function renderOneDriveFolderPicker(siteId){
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
-      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder('${siteId}','${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as this site's folder</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":'the Certifications folder'}</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
       ${odPickerFolders.map(f=>`
         <div class="sitecard" onclick="odPickerInto('${f.id}','${jsAttr(f.name)}','${f.driveId||''}',${f.isSite?'true':'false'})">
           <div class="swatch">${f.isSite?'🏢':f.virtual?'🔗':'📁'}</div>
@@ -3845,7 +3909,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : 'Choose OneDrive Folder', subtitle:site.name, siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : `#/site/${siteId}/team`, siteId, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='certifications' ? 'Choose Certifications Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='certifications' ? '#/team' : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -3856,6 +3920,16 @@ window.odPickerUp = function(){
   render();
 };
 window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
+  if(odPickerTarget==='certifications'){
+    const row = await dbUpdate('organizations', ORG.id, {certifications_folder_id: folderId, certifications_folder_name: folderName, certifications_drive_id: driveId || null});
+    if(row){
+      ORG = row;
+      odPickerStack = null;
+      toast('Folder linked — certifications will sync from there daily');
+      go('#/team');
+    }
+    return;
+  }
   const patch = odPickerTarget==='materials'
     ? {material_orders_folder_id: folderId, material_orders_folder_name: folderName, material_orders_drive_id: driveId || null}
     : {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null};
@@ -3872,6 +3946,105 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
       go(`#/site/${siteId}/team`);
     }
   }
+};
+window.unlinkCertificationsFolder = async function(){
+  if(!await customConfirm('Unlink the Certifications folder? Daily sync will stop until you link a new one.')) return;
+  const row = await dbUpdate('organizations', ORG.id, {certifications_folder_id: null, certifications_folder_name: null, certifications_drive_id: null});
+  if(row){ ORG = row; toast('Folder unlinked'); render(); }
+};
+window.syncCertificationsNow = async function(silent){
+  certificationsSyncBusy = true; if(!silent) render();
+  try{
+    const res = await sbFetch('/functions/v1/sync-certifications', {method:'POST'});
+    const d = await res.json();
+    if(!res.ok || d.error){ if(!silent) toast('Sync failed — '+(d.error||res.status)); }
+    else{
+      if(!silent) toast(d.synced ? `Synced ${d.synced} new file${d.synced===1?'':'s'}`+(d.dupSkipped?` (${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped)`:'') : (d.dupSkipped ? `Already up to date — ${d.dupSkipped} duplicate${d.dupSkipped===1?'':'s'} skipped.` : 'Already up to date.'));
+      const nowIso = new Date().toISOString();
+      if(ORG) ORG.certifications_last_synced_at = nowIso;
+    }
+  }catch(e){ console.error(e); if(!silent) toast('Sync failed — could not reach the server.'); }
+  certificationsSyncBusy = false; render();
+};
+window.viewCertificationFile = async function(storagePath, name){
+  try{
+    const res = await sbFetch('/functions/v1/certification-file-access', {method:'POST', body: JSON.stringify({storage_path:storagePath})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
+    viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
+  }catch(e){ toast('Could not open file.'); }
+};
+window.deleteCertificationFile = async function(fileId, storagePath){
+  if(!await customConfirm('Delete this file? This can\'t be undone — if it\'s still in the linked OneDrive folder it won\'t be re-synced automatically.')) return;
+  const ok = await dbDelete('certification_files', fileId);
+  if(ok){
+    if(storagePath){ try{ await sbFetch('/storage/v1/object/certifications/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
+    toast('File deleted');
+    render();
+  }
+};
+window.exportCertificationsPdf = async function(){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const rows = await dbSelect('certification_files', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  if(!rows.length){ toast('No certification files to report.'); return; }
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const fonts = await havsPdfFonts(pdfDoc);
+  const {bold, reg, INK, SLATE, LINE} = fonts;
+  const logoImg = await havsFetchLogoImg(pdfDoc);
+  const PAGE_W = 841.89, PAGE_H = 595.28, MARGIN = 40, CONTENT_W = PAGE_W-2*MARGIN;
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+  const WHITE = PDFLib.rgb(1,1,1);
+  const cols = [
+    {key:'name', label:'File', w:0.55},
+    {key:'synced', label:'Synced', w:0.20},
+    {key:'size', label:'Size', w:0.25},
+  ];
+  let page, y;
+  function drawHeader(){
+    page.drawRectangle({x:0, y:PAGE_H-70, width:PAGE_W, height:70, color:BRAND});
+    if(logoImg){
+      const dim = logoImg.scale(1); const s = 32/Math.max(dim.width, dim.height);
+      const w = dim.width*s, h = dim.height*s;
+      page.drawRectangle({x:MARGIN, y:PAGE_H-52, width:32, height:32, color:WHITE});
+      page.drawImage(logoImg, {x:MARGIN+(32-w)/2, y:PAGE_H-52+(32-h)/2, width:w, height:h});
+    }
+    const textX = logoImg ? MARGIN+42 : MARGIN;
+    page.drawText('CERTIFICATIONS REGISTER', {x:textX, y:PAGE_H-30, size:9, font:bold, color:WHITE, opacity:0.85});
+    page.drawText(((ORG && ORG.name) || ''), {x:textX, y:PAGE_H-48, size:13, font:bold, color:WHITE});
+  }
+  function drawFooter(){
+    page.drawLine({start:{x:MARGIN,y:26}, end:{x:PAGE_W-MARGIN,y:26}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
+    page.drawText('Generated via OpHUB · '+new Date().toLocaleString('en-GB'), {x:MARGIN, y:14, size:8, font:reg, color:SLATE});
+  }
+  function drawColHeaders(){
+    let x = MARGIN;
+    cols.forEach(c=>{ page.drawText(c.label, {x, y, size:9, font:bold, color:SLATE}); x += c.w*CONTENT_W; });
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:LINE});
+    y -= 14;
+  }
+  function newPage(){ page = pdfDoc.addPage([PAGE_W,PAGE_H]); drawHeader(); drawFooter(); y = PAGE_H-92; drawColHeaders(); }
+  function ensureSpace(h){ if(y-h<40) newPage(); }
+  newPage();
+  rows.forEach(r=>{
+    ensureSpace(16);
+    const line = {
+      name: r.name||'',
+      synced: r.synced_at ? new Date(r.synced_at).toLocaleDateString('en-GB') : '—',
+      size: r.size ? (r.size>1024*1024 ? (r.size/1024/1024).toFixed(1)+' MB' : Math.round(r.size/1024)+' KB') : '—',
+    };
+    let x = MARGIN;
+    cols.forEach(c=>{
+      let val = String(line[c.key]||'');
+      const maxChars = Math.floor((c.w*CONTENT_W)/5.2);
+      if(val.length>maxChars) val = val.slice(0,maxChars-1)+'…';
+      page.drawText(val, {x, y, size:9, font:reg, color:INK});
+      x += c.w*CONTENT_W;
+    });
+    y -= 15;
+  });
+  const bytes = await pdfDoc.save();
+  await deliverPdf(bytes, exportFilename('', 'Certifications Register', 'pdf'));
 };
 window.unlinkOneDriveFolder = async function(siteId){
   if(!await customConfirm('Unlink this OneDrive folder? Photos will go back to the generic OpHUB folder until you link a new one.')) return;
@@ -4009,7 +4182,7 @@ async function renderSiteHome(siteId){
     }
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;margin-bottom:7px;">
       <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
       ${(ORG && ORG.name) ? `<span class="stub" style="margin:0;">-</span><span class="stub" style="margin:0;">${escapeHtml(ORG.name)}</span>` : ''}
     </div>
@@ -4039,6 +4212,10 @@ async function renderSiteHome(siteId){
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
         <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
       </div>
+      <div class="tile" onclick="go('#/site/${siteId}/calendar')">
+        <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+        <div class="lbl">Calendar</div><div class="sub">Key dates</div>
+      </div>
       <div class="tile" onclick="go('#/site/${siteId}/snagging')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
         <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
@@ -4055,17 +4232,12 @@ async function renderSiteHome(siteId){
         <div class="lbl">Price</div><div class="sub">Restricted access</div>
       </div>
       ` : ''}
-      ${isManager(ME) ? (canSeePrice ? `
-      <div class="tile" onclick="go('#/site/${siteId}/todos')">
-        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
-        <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
-      </div>
-      ` : `
+      ${isManager(ME) ? `
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
         <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
         <div><div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
       </div>
-      `) : ''}
+      ` : ''}
     </div>
   `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
     requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
@@ -12355,6 +12527,126 @@ window.viewMaterialOrderFile = async function(siteId, storagePath, name){
   }catch(e){ toast('Could not open file.'); }
 };
 
+/* ================= SITE CALENDAR (rolling 2-week key-dates view — visible to
+   everyone with site access; private items are PM/admin-only, gated by RLS
+   as well as hidden client-side. PMs can pick people to email a same-day
+   reminder to — handled by the send-calendar-reminders daily cron.) ================= */
+let calAddOpen = false;
+let calDraft = {title:'', date:'', private:false, recipientIds:new Set()};
+let calEditId = null;
+function calResetDraft(defaultDate){
+  calDraft = {title:'', date:defaultDate||'', private:false, recipientIds:new Set()};
+}
+async function renderSiteCalendar(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const mgr = isManager(ME);
+  await loadAllProfiles();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i=0;i<14;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
+  const startStr = days[0].toISOString().slice(0,10);
+  const endStr = days[13].toISOString().slice(0,10);
+  const [events, assignments] = await Promise.all([
+    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+  ]);
+  const pmOptions = mgr ? await loadPMList() : [];
+  const operativeOptions = mgr ? Object.values(PROFILES).filter(p=>assignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const recipientOptions = [...pmOptions, ...operativeOptions];
+  const eventsByDate = {};
+  events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Next 14 days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+    ${mgr ? `
+      <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
+        <span>Add a key date</span>
+        <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
+      </div>
+      ${calAddOpen ? `
+        <div class="card" style="margin-bottom:14px;">
+          <div class="formfield"><label class="field-label">What's happening</label><input type="text" id="calTitle" placeholder="e.g. Scaffold delivery" value="${escapeHtml(calDraft.title)}" oninput="calDraft.title=this.value"></div>
+          <div class="formfield"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" max="${endStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
+          <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
+          ${recipientOptions.length ? `
+            <p class="field-label" style="margin:0 0 6px;">Email a reminder on the day to (optional)</p>
+            <div style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:12px;">
+              ${recipientOptions.map(p=>`
+                <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${calDraft.recipientIds.has(p.id)?'checked':''} onchange="toggleCalRecipient('${p.id}')">${escapeHtml(p.name)}${p.role!=='operative'?' ('+roleLabel(p.role)+')':''}</label>
+              `).join('')}
+            </div>
+          ` : ''}
+          <button class="darkbtn" onclick="${calEditId?`saveCalEventEdit('${siteId}')`:`addCalEvent('${siteId}')`}">${calEditId?'Save':'Add Key Date'}</button>
+        </div>
+      ` : ''}
+    ` : ''}
+    ${days.map(d=>{
+      const dStr = d.toISOString().slice(0,10);
+      const isToday = dStr===startStr;
+      const dayEvents = eventsByDate[dStr]||[];
+      return `
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
+          <div style="flex:0 0 52px;text-align:center;">
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':'var(--ink)'};">${d.getDate()}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            ${dayEvents.length ? dayEvents.map(e=>`
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
+                ${mgr ? `
+                  <span style="display:flex;gap:6px;flex:0 0 auto;">
+                    <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))})">✎</span>
+                    <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}')">🗑</span>
+                  </span>
+                ` : ''}
+              </div>
+            `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `, {title:'Calendar', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
+}
+window.toggleCalRecipient = function(id){
+  if(calDraft.recipientIds.has(id)) calDraft.recipientIds.delete(id); else calDraft.recipientIds.add(id);
+  render();
+};
+window.openCalEditEvent = function(id, title, date, isPrivate, recipientIds){
+  calEditId = id;
+  calAddOpen = true;
+  calDraft = {title, date, private:isPrivate, recipientIds:new Set(recipientIds||[])};
+  render();
+};
+window.addCalEvent = async function(siteId){
+  const title = (calDraft.title||'').trim();
+  if(!title){ toast('Enter what this date is for.'); return; }
+  if(!calDraft.date){ toast('Pick a date.'); return; }
+  const row = await dbInsert('site_calendar_events', {site_id:siteId, org_id:ME.org_id, title, event_date:calDraft.date, is_private:calDraft.private, reminder_recipient_ids:[...calDraft.recipientIds], created_by:ME.id});
+  if(row){
+    toast('Added to the calendar');
+    calAddOpen = false; calEditId = null; calResetDraft();
+    render();
+  }
+};
+window.saveCalEventEdit = async function(siteId){
+  const title = (calDraft.title||'').trim();
+  if(!title){ toast('Enter what this date is for.'); return; }
+  if(!calDraft.date){ toast('Pick a date.'); return; }
+  const row = await dbUpdate('site_calendar_events', calEditId, {title, event_date:calDraft.date, is_private:calDraft.private, reminder_recipient_ids:[...calDraft.recipientIds], reminder_sent:false});
+  if(row){
+    toast('Updated');
+    calAddOpen = false; calEditId = null; calResetDraft();
+    render();
+  }
+};
+window.deleteCalEvent = async function(siteId, id){
+  if(!await customConfirm('Delete this key date? This can\'t be undone.')) return;
+  const ok = await dbDelete('site_calendar_events', id);
+  if(ok){ toast('Deleted'); render(); }
+};
+
 /* ================= VARIATIONS ================= */
 let varDraft = null;
 let varFilter = 'live';
@@ -13570,6 +13862,10 @@ async function renderRoute(){
     if(parts[1]) return renderTemplateEditor(parts[1]);
     return renderReportTemplates();
   }
+  if(parts[0]==='certifications-onedrive-folder'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    return renderOneDriveFolderPicker(null);
+  }
   if(parts[0]==='site' && parts[1]){
     const siteId = parts[1];
     const page = parts[2] || 'home';
@@ -13666,6 +13962,7 @@ async function renderRoute(){
     }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
     if(page==='price') return renderPriceTile(siteId);
+    if(page==='calendar') return renderSiteCalendar(siteId);
   }
   renderSites();
 }
