@@ -368,11 +368,11 @@
   /* Home screen's bottom bar — same bar, much shorter (~80% less height)
      than the per-site tabbar: tighter padding, smaller icons/labels, and
      icon+label sit side by side instead of stacked. */
-  .tabbar-home{padding:3px 3px;padding-bottom:calc(3px + env(safe-area-inset-bottom));align-items:center;}
-  .tabbar-home .tb{flex-direction:row;gap:4px;padding:3px 4px;font-size:7.5px;}
-  .tabbar-home .tabicon{font-size:12px;}
-  .tabbar-home .tb.tb-emph{padding:4px 18px;margin:0;font-size:8px;}
-  .tabbar-home .tb.tb-emph .tabicon{font-size:13px;}
+  .tabbar-home{padding:3.3px 3.3px;padding-bottom:calc(3.3px + env(safe-area-inset-bottom));align-items:center;}
+  .tabbar-home .tb{flex-direction:row;gap:4.4px;padding:3.3px 4.4px;font-size:8.25px;}
+  .tabbar-home .tabicon{font-size:13.2px;}
+  .tabbar-home .tb.tb-emph{padding:4.4px 19.8px;margin:0;font-size:8.8px;}
+  .tabbar-home .tb.tb-emph .tabicon{font-size:14.3px;}
 
   .toast{position:fixed;left:16px;right:16px;bottom:16px;background:var(--ink);color:#fff;padding:13px 16px;
     border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);
@@ -1613,7 +1613,7 @@ function shell(innerHtml, opts){
         </div>
         `}
       </div>
-      <div class="scrollarea" ${opts.homeBar ? 'style="padding-bottom:38px;"' : ''}>${innerHtml}</div>
+      <div class="scrollarea" ${opts.homeBar ? 'style="padding-bottom:42px;"' : ''}>${innerHtml}</div>
       ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
