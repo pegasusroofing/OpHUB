@@ -35,7 +35,13 @@
     --blue-bg:#E7EDF5;
   }
   *{box-sizing:border-box;}
-  html,body{height:100%;}
+  html,body{height:100%;
+    /* Stops the browser/WebView's own native "swipe from the edge to go back
+       in history" gesture from firing (which replays raw history and can
+       land somewhere sideways) so our own touchstart/touchend handler below
+       — which follows CURRENT_BACK_HASH, i.e. "up one folder level", same as
+       the visible '‹' back arrow — is what actually handles the gesture. */
+    overscroll-behavior-x:none;}
   /* Lots of tiles/rows/buttons in this app are plain divs/spans with an
      onclick handler rather than real <button>/<a> elements, so the browser
      was showing its default text-select (I-beam) cursor over their text
@@ -117,6 +123,13 @@
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;
     width:20px;height:14px;flex:0 0 20px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
+  /* Plain-text alternative to .rolechip's dark pill — used wherever a small
+     status/role label should read as normal body text in the company's text
+     colour rather than a dark badge (Admin Centre header role label, PPE
+     item tags). */
+  .plaintag{background:none;color:var(--ink);font-size:11px;font-weight:700;
+    font-family:inherit;border-radius:0;letter-spacing:normal;text-transform:none;
+    width:auto;height:auto;flex:none;padding:0;display:inline-flex;align-items:center;overflow:visible;}
 
   /* Bottom padding is generous enough to clear the now-fixed tabbar (see
      .tabbar below) so the last card/row is never hidden behind it — the
@@ -1394,7 +1407,7 @@ window.addEventListener('hashchange', function(){
 // home → sites list), which is what this gesture is meant to feel like.
 (function(){
   let startX = 0, startY = 0, tracking = false;
-  const EDGE_PX = 24, SWIPE_PX = 80, MAX_VERTICAL = 60;
+  const EDGE_PX = 60, SWIPE_PX = 60, MAX_VERTICAL = 60;
   document.addEventListener('touchstart', function(e){
     if(!e.touches || e.touches.length !== 1){ tracking = false; return; }
     const t = e.touches[0];
@@ -1407,7 +1420,17 @@ window.addEventListener('hashchange', function(){
     const t = e.changedTouches && e.changedTouches[0];
     if(!t) return;
     const dx = t.clientX - startX, dy = t.clientY - startY;
-    if(dx > SWIPE_PX && Math.abs(dy) < MAX_VERTICAL && CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
+    if(dx <= SWIPE_PX || Math.abs(dy) >= MAX_VERTICAL || !CURRENT_BACK_HASH) return;
+    // Don't let this navigate the page underneath a full-screen viewer
+    // overlay (PDF/image) — without this guard, swiping while looking at a
+    // to-do attachment (or any other document) silently sent the page
+    // behind it back a level, so closing the overlay landed somewhere
+    // unexpected (e.g. site home) instead of back where you were.
+    const pdfOv = document.getElementById('pdfViewerOverlay');
+    if(pdfOv && pdfOv.style.display === 'flex') return;
+    const imgOv = document.getElementById('imgViewerOverlay') || document.querySelector('.img-viewer-overlay');
+    if(imgOv && getComputedStyle(imgOv).display !== 'none') return;
+    go(CURRENT_BACK_HASH);
   }, {passive:true});
 })();
 // Safety net for platforms where "swipe back" isn't caught by the manual
@@ -1663,7 +1686,7 @@ function shell(innerHtml, opts){
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
-            ${ME && opts.showRoleChip ? `<span class="rolechip">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
         `}
@@ -2755,10 +2778,13 @@ async function renderDashboard(){
     liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
   ]);
   const tbtIds = liveTbts.map(t=>t.id).join(',');
-  const tbtSigs = tbtIds ? await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+tbtIds+')&select=tbt_id,user_id') : [];
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
-  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+  // These three all depend on ids resolved from the first Promise.all above,
+  // so they can't join that batch — but they don't depend on EACH OTHER,
+  // so fire them together in one round-trip instead of one-then-two.
+  const [tbtSigs, ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+    tbtIds ? dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+tbtIds+')&select=tbt_id,user_id') : [],
     ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : [],
     coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : [],
   ]);
@@ -3994,6 +4020,46 @@ window.onedriveFolderAction = function(siteId, action){
   if(action==='change') startOneDriveFolderPicker(siteId, 'progress');
   else if(action==='unlink') unlinkOneDriveFolder(siteId);
 };
+let siteOdSyncBusy = null;
+// Manual two-way sync for a site's linked OneDrive folder: pulls in any
+// files sitting at the top level of the linked folder that aren't already
+// imported as Drawings (matched by name), and confirms the push side —
+// every Drawings upload already pushes out to this folder automatically
+// (see pushDrawingToOneDrive) — is caught up. One tap, no folder browsing.
+window.manualSyncSiteOneDrive = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site || !site.onedrive_folder_id) return;
+  siteOdSyncBusy = siteId; render();
+  try{
+    const body = {parent_id: site.onedrive_folder_id, drive_id: site.onedrive_drive_id||undefined, includeFiles:true};
+    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); siteOdSyncBusy=null; render(); return; }
+    const remoteFiles = d.files || [];
+    const existing = await dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=is.null&select=name');
+    const existingNames = new Set(existing.map(f=>f.name));
+    let pulled = 0, failed = 0;
+    for(const f of remoteFiles){
+      if(existingNames.has(f.name)) continue;
+      try{
+        const dres = await sbFetch('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
+        const dd = await dres.json();
+        if(!dres.ok || dd.error || !dd.content_base64){ failed++; continue; }
+        const bytes = Uint8Array.from(atob(dd.content_base64), c=>c.charCodeAt(0));
+        const blob = new Blob([bytes]);
+        const path = siteId+'/root/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
+        const stored = await uploadToStorage('drawings', path, blob, 'application/octet-stream');
+        if(!stored){ failed++; continue; }
+        const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:null, name:f.name, storage_path:stored, uploaded_by:ME.id});
+        if(rows) pulled++; else failed++;
+      }catch(e){ failed++; }
+    }
+    const row = await dbUpdate('sites', siteId, {onedrive_last_synced_at: new Date().toISOString()});
+    if(row){ const idx = SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx] = row; }
+    toast(`Synced — ${pulled} pulled in${failed?`, ${failed} failed`:''}. Uploads here already push out automatically.`);
+  }catch(e){ toast('Sync failed — could not reach the server.'); }
+  siteOdSyncBusy = null; render();
+};
 window.startOneDriveFolderPicker = function(siteId, target){
   odPickerTarget = target || 'progress';
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
@@ -4109,6 +4175,11 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
       toast('Folder linked — photos for this site will sync there from now on');
       go(`#/site/${siteId}/team`);
     }
+  } else {
+    // Previously failed silently here — the folder picker would close with
+    // no feedback at all, reading as "I linked a folder but it hasn't
+    // registered in the app." Always tell the user one way or the other.
+    toast('Could not link that folder — please try again.');
   }
 };
 window.unlinkOperativeFolder = async function(operativeId){
@@ -4171,8 +4242,9 @@ function operativeCertListHtml(certs, canManage){
             </div>
             ${canManage?`<div class="taskicon danger" title="Delete" onclick="deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>`:''}
           </div>
-          <div class="row-gap" style="margin-top:8px;">
-            <button class="darkbtn" style="flex:1;" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View</button>
+          <div class="row-gap" style="margin-top:8px;align-items:center;">
+            <button class="darkbtn" style="flex:1;padding:8px 6px;font-size:11.5px;" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View</button>
+            <span class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;font-size:11.5px;cursor:default;">${escapeHtml((f.name.split('.').pop()||'FILE').toUpperCase())}</span>
             ${canManage?`
               <select class="stub" style="flex:1;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);" onchange="changeOperativeCertCategory('${f.id}',this.value)">
                 ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
@@ -5316,14 +5388,16 @@ async function renderAssignTeam(siteId){
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
       ${site.onedrive_folder_id ? `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-          <span class="stub" style="margin:0;font-size:13px;color:var(--ok);">📁 Synced to "${escapeHtml(site.onedrive_folder_name||'')}"</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <span class="stub" style="margin:0;font-size:13px;color:var(--ok);">📁 Already synced to "${escapeHtml(site.onedrive_folder_name||'')}"</span>
           <select style="width:auto;flex:none;padding:6px 10px;font-size:13px;" onchange="onedriveFolderAction('${siteId}', this.value); this.selectedIndex=0;">
             <option value="" selected disabled>Folder ▾</option>
             <option value="change">Change folder</option>
             <option value="unlink">Unlink folder</option>
           </select>
         </div>
+        <button class="ghostbtn" style="margin-top:8px;" ${siteOdSyncBusy===siteId?'disabled':''} onclick="manualSyncSiteOneDrive('${siteId}')">${siteOdSyncBusy===siteId?'Syncing…':'🔄 Manual Sync (pull new files in, push local files out)'}</button>
+        ${site.onedrive_last_synced_at ? `<p class="stub" style="margin:4px 0 0;">Last synced ${new Date(site.onedrive_last_synced_at).toLocaleString('en-GB')}</p>` : ''}
       ` : `
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
           <span class="stub" style="margin:0;font-size:13px;">OneDrive folder not linked</span>
@@ -5480,6 +5554,7 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
     const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
+    if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
     window.open(d.url, '_blank');
     return;
   }
@@ -5903,6 +5978,7 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
     const res = await sbFetch('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
+    if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
     window.open(d.url, '_blank');
     return;
   }
@@ -6841,7 +6917,7 @@ async function buildReportPdf(submissionId){
     }
     async function drawPhotoGrid(urls){
       if(!urls.length) return;
-      const colW = (CONTENT_W-16)/2, boxH = 150, capH = 16;
+      const colW = (CONTENT_W-16)/2, boxH = 180, capH = 16;
       for(let i=0;i<urls.length;i+=2){
         ensureSpace(boxH+capH+10);
         const pair = urls.slice(i,i+2);
@@ -8200,7 +8276,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
     page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.5, color:LINE});
     y -= HEADER_H;
   }
-  function newPage(continued){
+  async function newPage(continued){
     page = pdfDoc.addPage([PAGE_W, PAGE_H]);
     y = PAGE_H - 60;
     page.drawText('Signature Record' + (continued ? ' (continued)' : ''), {x:MARGIN, y, size:18, font:bold, color:RED});
@@ -8215,12 +8291,34 @@ async function drawSignatureTablePages(pdfDoc, opts){
         y -= 13;
       });
       y -= 12;
+      // Optional standalone "Conducted by" row — a PM/admin who ran the
+      // session, kept separate from the operative signature grid below
+      // (used by the TBT export; other callers simply omit conductedBy).
+      if(opts.conductedBy){
+        const boxH = 40;
+        page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:HEADBG});
+        page.drawText('Conducted by: '+opts.conductedBy.name, {x:MARGIN+10, y:y-16, size:10.5, font:bold, color:INK});
+        if(opts.conductedBy.signaturePath){
+          try{
+            const bytes = await pdfFetchImageBytes(publicUrl('signatures', opts.conductedBy.signaturePath));
+            if(bytes){
+              let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+              const dim = img.scale(1);
+              const bh = 22, bw = 120;
+              const s2 = Math.min(bw/dim.width, bh/dim.height);
+              const w = dim.width*s2, h = dim.height*s2;
+              page.drawImage(img, {x:MARGIN+10, y:y-boxH+8, width:w, height:h});
+            }
+          }catch(e){}
+        }
+        y -= boxH + 14;
+      }
     }
     drawTableHeader();
   }
-  newPage(false);
+  await newPage(false);
   for(const s of opts.signers){
-    if(y - ROW_H < 70) newPage(true);
+    if(y - ROW_H < 70) await newPage(true);
     const rowTop = y;
     page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
@@ -9545,6 +9643,68 @@ let ppeTeamOpenFor = {}; // operative id -> whether their issuance history is ex
 let ppeRequestsOpen = true;
 let ppeExportOperativeIds = []; // empty = everyone
 let ppeExportFilterOpen = false;
+let selectedPpeIds = new Set(); // ticked ppe_issuances rows, for combined export/email
+let bulkPpeExportBusy = false;
+let bulkPpeEmailBusy = false;
+window.togglePpeSelect = function(id){
+  if(selectedPpeIds.has(id)) selectedPpeIds.delete(id); else selectedPpeIds.add(id);
+  render();
+};
+window.deletePpeIssuance = async function(issuanceId){
+  if(!await customConfirm('Delete this PPE issuance record? This can\'t be undone.')) return;
+  const ok = await dbDelete('ppe_issuances', issuanceId);
+  if(ok){ selectedPpeIds.delete(issuanceId); toast('Record deleted'); render(); }
+};
+window.exportSelectedPpe = async function(siteId){
+  if(!selectedPpeIds.size) return;
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  bulkPpeExportBusy = true; render();
+  toast('Building PDF…');
+  try{
+    const ids = Array.from(selectedPpeIds);
+    const merged = await PDFLib.PDFDocument.create();
+    let any = false;
+    for(const id of ids){
+      const built = await buildPpeIssuancePdf(id);
+      if(!built) continue;
+      const src = await PDFLib.PDFDocument.load(built.bytes);
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach(p=>merged.addPage(p));
+      any = true;
+    }
+    if(!any){ toast('Could not build any of the selected records.'); bulkPpeExportBusy=false; render(); return; }
+    const site = SITES.find(s=>s.id===siteId);
+    const filename = exportFilename(site?site.name:'', `PPE Issued (${ids.length})`, 'pdf');
+    merged.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await merged.save();
+    await deliverPdf(outBytes, filename);
+    selectedPpeIds = new Set();
+  }catch(e){ console.error(e); toast('Could not build the combined PDF.'); }
+  bulkPpeExportBusy = false; render();
+};
+window.emailSelectedPpe = async function(){
+  if(!selectedPpeIds.size) return;
+  bulkPpeEmailBusy = true; render();
+  toast('Building PDFs…');
+  try{
+    const ids = Array.from(selectedPpeIds);
+    const attachments = [];
+    for(const id of ids){
+      const built = await buildPpeIssuancePdf(id);
+      if(built){
+        let binary=''; const chunk=0x8000;
+        for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
+        attachments.push({filename: built.filename, content_base64: btoa(binary)});
+      }
+    }
+    if(!attachments.length){ toast('Could not build any of the selected records.'); bulkPpeEmailBusy=false; render(); return; }
+    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else { toast(`${attachments.length} record(s) emailed to ${ME.email}`); selectedPpeIds = new Set(); }
+  }catch(e){ toast('Email failed — could not reach the server.'); }
+  bulkPpeEmailBusy = false; render();
+};
 window.togglePpeIssueOpen = function(){ ppeIssueOpen = !ppeIssueOpen; if(ppeIssueOpen){ ppeIssueOperativeId=''; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; } render(); };
 window.togglePpeIssueItem = function(item){ ppeIssueSelectedItems = ppeIssueSelectedItems.includes(item) ? ppeIssueSelectedItems.filter(i=>i!==item) : [...ppeIssueSelectedItems, item]; render(); };
 window.setPpeIssueCustomItem = function(v){ ppeIssueCustomItem = v; };
@@ -9597,7 +9757,7 @@ async function renderPpe(siteId){
     document.getElementById('app').innerHTML = shell(`
       <p class="sectiontitle" style="margin-top:0;">My Current PPE</p>
       <div class="card">
-        ${myCurrent.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${myCurrent.map(i=>`<span class="rolechip">${escapeHtml(i)}</span>`).join('')}</div>` : `<div class="empty">Nothing issued yet.</div>`}
+        ${myCurrent.length ? `<div style="display:flex;flex-wrap:wrap;gap:10px;">${myCurrent.map(i=>`<span class="plaintag">${escapeHtml(i)}</span>`).join('')}</div>` : `<div class="empty">Nothing issued yet.</div>`}
       </div>
       ${pending.length ? `
       <p class="sectiontitle">Awaiting Your Signature</p>
@@ -9674,7 +9834,8 @@ async function renderPpe(siteId){
 
     <p class="ddrow" onclick="togglePpeRequestsOpen()"><span class="arrow">${ppeRequestsOpen?'▼':'▶'}</span> PPE Requests ${pendingReqs.length?'('+pendingReqs.length+' pending)':''}</p>
     ${ppeRequestsOpen ? `<div class="card">
-      ${allRequests.length ? allRequests.map(r=>`
+      <p class="stub" style="margin:0 0 8px;">Fulfilled requests move into Site Issued PPE below, under the operative's name.</p>
+      ${allRequests.filter(r=>r.status!=='fulfilled').length ? allRequests.filter(r=>r.status!=='fulfilled').map(r=>`
         <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
           <div class="info"><div class="name">${escapeHtml(nameOf(r.user_id))} — ${escapeHtml(r.item_name)}</div><div class="addr">${r.date_needed?'Needed by '+new Date(r.date_needed+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'No date given'}</div></div>
           ${r.status==='pending' ? `
@@ -9687,23 +9848,38 @@ async function renderPpe(siteId){
       `).join('') : `<div class="empty" style="padding:10px;">No requests yet.</div>`}
     </div>` : ''}
 
-    <p class="sectiontitle">Team PPE — ${escapeHtml(site.name)}</p>
+    <p class="sectiontitle">Site Issued PPE — ${escapeHtml(site.name)}</p>
     ${siteOperatives.length ? siteOperatives.map(p=>{
       const current = currentPpeForUser(allIssuances, p.id);
-      const history = allIssuances.filter(i=>i.user_id===p.id);
-      const pendingCount = history.filter(i=>i.status==='pending_signature').length;
+      const issuedHistory = allIssuances.filter(i=>i.user_id===p.id).map(i=>({kind:'issuance', id:i.id, items:i.items||[], status:i.status, at:i.issued_at}));
+      const fulfilledReqHistory = allRequests.filter(r=>r.user_id===p.id && r.status==='fulfilled').map(r=>({kind:'request', id:r.id, items:[r.item_name], status:'fulfilled', at:r.fulfilled_at||r.created_at}));
+      const history = [...issuedHistory, ...fulfilledReqHistory].sort((a,b)=>new Date(b.at)-new Date(a.at));
+      const pendingCount = issuedHistory.filter(i=>i.status==='pending_signature').length;
+      const selectedHere = history.filter(i=>i.kind==='issuance' && selectedPpeIds.has(i.id));
       return `
       <p class="ddrow" onclick="togglePpeTeamOpenFor('${p.id}')"><span class="arrow">${ppeTeamOpenFor[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} ${pendingCount?'<span class="badge-count" style="position:static;display:inline-flex;vertical-align:middle;margin-left:4px;">'+pendingCount+'</span>':''}</p>
       ${ppeTeamOpenFor[p.id] ? `<div class="card">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${current.length?current.map(i=>`<span class="rolechip">${escapeHtml(i)}</span>`).join(''):'<span class="stub" style="margin:0;">Nothing issued yet.</span>'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">${current.length?current.map(i=>`<span class="plaintag">${escapeHtml(i)}</span>`).join(''):'<span class="stub" style="margin:0;">Nothing issued yet.</span>'}</div>
+        ${selectedHere.length ? `
+        <div class="row-gap" style="margin-bottom:8px;">
+          <button class="darkbtn" style="flex:1;font-size:11.5px;padding:7px;" ${bulkPpeExportBusy?'disabled':''} onclick="exportSelectedPpe('${siteId}')">${bulkPpeExportBusy?'Building…':`Export ${selectedHere.length} (PDF)`}</button>
+          <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" ${bulkPpeEmailBusy?'disabled':''} onclick="emailSelectedPpe()">${bulkPpeEmailBusy?'Emailing…':`Email ${selectedHere.length}`}</button>
+        </div>
+        ` : ''}
         ${history.map(i=>`
-          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
-            <div style="display:flex;justify-content:space-between;gap:8px;">
-              <span style="font-weight:700;font-size:12px;">${(i.items||[]).map(escapeHtml).join(', ')}</span>
-              <span class="pill ${i.status==='signed'?'on':'off'}">${i.status==='signed'?'Signed':'Pending'}</span>
+          <div class="sitecard" style="padding:5px 8px;flex-direction:column;align-items:stretch;font-size:11px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+              <div style="display:flex;align-items:center;gap:6px;min-width:0;">
+                ${i.kind==='issuance' ? `<input type="checkbox" style="width:14px;height:14px;flex:0 0 14px;margin:0;" ${selectedPpeIds.has(i.id)?'checked':''} onchange="togglePpeSelect('${i.id}')">` : ''}
+                <span style="font-weight:700;font-size:11px;">${i.items.map(escapeHtml).join(', ')}${i.kind==='request'?' (via request)':''}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+                <span class="pill" style="font-size:9px;padding:2px 7px;" >${i.kind==='request'?'Fulfilled':(i.status==='signed'?'Signed':'Pending')}</span>
+                ${canManage && i.kind==='issuance' ? `<span class="taskicon danger" style="width:18px;height:18px;font-size:11px;" title="Delete" onclick="deletePpeIssuance('${i.id}')">🗑</span>` : ''}
+              </div>
             </div>
-            <div class="meta">Issued ${new Date(i.issued_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${i.status==='signed'?' · exportable':''}</div>
-            ${i.status==='signed' ? `<div class="viewlink" style="cursor:pointer;" onclick="exportPpeIssuancePdf('${i.id}')">Export signed PDF ↗</div>` : ''}
+            <div class="meta" style="font-size:9.5px;margin-top:1px;">Issued ${new Date(i.at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${i.kind==='issuance'&&i.status==='signed'?' · exportable':''}</div>
+            ${i.kind==='issuance'&&i.status==='signed' ? `<div class="viewlink" style="cursor:pointer;font-size:10.5px;" onclick="exportPpeIssuancePdf('${i.id}')">Export signed PDF ↗</div>` : ''}
           </div>
         `).join('') || `<div class="empty" style="padding:10px;">No history yet.</div>`}
       </div>` : ''}
@@ -12097,6 +12273,27 @@ async function renderToolboxTalks(siteId){
 let tbtReplaceFileOpen = null;
 let tbtReplaceBusy = false;
 let tbtCompanyWideBusy = null;
+let tbtNotifyBusy = null;
+// PM/admin-only: pushes a "please sign" notification to every operative
+// still outstanding on this specific live toolbox talk.
+window.notifyOutstandingTbt = async function(siteId, tbtId){
+  const rows = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&select=user_id');
+  await loadAllProfiles();
+  const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const signedIds = new Set(rows.map(r=>r.user_id));
+  const outstandingIds = assignedRows.map(a=>a.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative' && !signedIds.has(uid));
+  if(!outstandingIds.length){ toast('Everyone has signed this toolbox talk.'); return; }
+  if(!await customConfirm(`Send a sign-reminder notification to ${outstandingIds.length} operative${outstandingIds.length===1?'':'s'} who still need to sign this toolbox talk?`)) return;
+  tbtNotifyBusy = tbtId; render();
+  try{
+    const res = await sbFetch('/functions/v1/send-sign-reminder', {method:'POST', body: JSON.stringify({site_id:siteId, doc_type:'tbt', tbt_id:tbtId, user_ids: outstandingIds})});
+    const d = await res.json();
+    tbtNotifyBusy = null;
+    if(!res.ok || d.error){ toast('Could not send reminder — '+(d.error||res.status)); render(); return; }
+    toast(d.sent ? `Reminder sent to ${d.sent} device${d.sent===1?'':'s'}.` : 'No registered devices to notify yet.');
+    render();
+  }catch(e){ console.error(e); tbtNotifyBusy = null; toast('Could not send reminder.'); render(); }
+};
 // Issues a Bank TBT for signing at every currently-live site in the org at
 // once — each site gets its own independent live copy (mirrors the per-site
 // issue logic: any other live talk at that site is closed first), so
@@ -12204,10 +12401,10 @@ async function renderToolboxTalkView(siteId, tbtId){
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
       <div class="row-gap" style="margin-top:8px;align-items:stretch;">
         ${sigs.length ? `
-        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
-        <button class="ghostbtn" style="flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
+        <button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
+        <button class="ghostbtn" style="flex:1;font-size:11px;padding:6px 4px;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
         ` : ''}
-        <select style="flex:1;min-width:0;margin:0;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
+        <select style="flex:1;min-width:0;margin:0;font-size:11px;padding:6px 4px;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
           <option value="" selected disabled>More actions ▾</option>
           <option value="edit">Edit Title</option>
           <option value="replace">Replace File</option>
@@ -12224,10 +12421,20 @@ async function renderToolboxTalkView(siteId, tbtId){
       </div>
       ` : ''}
       <p class="sectiontitle" style="margin-top:18px;">${operativeSigs.length} signed</p>
-      ${operativeSigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px 8px;">
+        ${operativeSigs.map(s=>`<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:6px 2px;border:1px solid var(--line);border-radius:8px;font-size:10.5px;">
+          ${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:16px;object-fit:contain;">` : '✓'}
+          <span style="font-weight:700;line-height:1.15;">${escapeHtml(nameOf(s.user_id))}</span>
+          <span style="color:var(--slate);font-size:9px;">${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>
+        </div>`).join('')}
+      </div>
+      ${!operativeSigs.length ? `<div class="empty">No one has signed yet.</div>` : ''}
       ${isLive ? `
-      <p class="sectiontitle" style="margin-top:18px;">${outstanding.length} still to sign</p>
-      ${outstanding.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--warn);">✗ ${escapeHtml(nameOf(a.user_id))}</div>`).join('') || `<div class="empty">Everyone assigned has signed.</div>`}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:8px;">
+        <p class="sectiontitle" style="margin:0;">${outstanding.length} still to sign</p>
+        ${outstanding.length ? `<button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:10.5px;" ${tbtNotifyBusy===tbtId?'disabled':''} onclick="notifyOutstandingTbt('${siteId}','${tbtId}')">${tbtNotifyBusy===tbtId?'Sending…':'🔔 Notify outstanding'}</button>` : ''}
+      </div>
+      ${outstanding.map(a=>`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid var(--line);color:var(--warn);font-size:10.5px;">✗ ${escapeHtml(nameOf(a.user_id))}</div>`).join('') || `<div class="empty">Everyone assigned has signed.</div>`}
       ` : ''}
     </div>
     ` : ''}
@@ -12474,12 +12681,17 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   const srcBytes = await (await fetch(publicUrl('rams-docs', talk.storage_path))).arrayBuffer();
   const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
   const disclaimer = `I have read and understood the contents of this Toolbox Talk (${talk.title}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
-  const signers = sigs.map(s=>({
+  // Operatives only in the signature grid — the PM/admin who conducted the
+  // talk gets their own standalone "Conducted by" row instead (mirrors the
+  // in-app "Carried out by" card / roster-exclusion logic).
+  const signers = sigs.filter(s=>PROFILES[s.user_id] && PROFILES[s.user_id].role==='operative').map(s=>({
     name: nameOf(s.user_id),
     when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
     imagePath: s.signature_image_path,
   }));
-  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers});
+  const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
+  const conductedBy = conductorProfile ? {name: conductorProfile.name, signaturePath: conductorProfile.signature_path} : null;
+  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, conductedBy});
 
   const tbtSite = SITES.find(s=>s.id===talk.site_id);
   const filename = exportFilename(tbtSite?tbtSite.name:'', talk.title+' (Signed)', 'pdf');
@@ -13386,13 +13598,22 @@ window.changeMaterialDeliveryDate = async function(siteId, fileId, currentDate, 
    as well as hidden client-side. PMs can pick people to email a same-day
    reminder to — handled by the send-calendar-reminders daily cron.) ================= */
 let calAddOpen = false;
-let calDraft = {title:'', date:'', private:false, recipientIds:new Set()};
+let calDraft = {title:'', date:'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set()};
 let calEditId = null;
 let calViewMode = 'twoweek'; // 'week' | 'twoweek' | 'month' — all rolling windows starting today
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
 const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
 function calResetDraft(defaultDate){
-  calDraft = {title:'', date:defaultDate||'', private:false, recipientIds:new Set()};
+  calDraft = {title:'', date:defaultDate||'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set()};
+}
+// Turns the event date + the chosen timing ("day before" / "day of" /
+// "custom") into the actual date the reminder email goes out on.
+function calReminderDateFor(eventDate, timing, customDate){
+  if(timing==='custom') return customDate||eventDate;
+  if(timing==='day_of') return eventDate;
+  if(!eventDate) return eventDate;
+  const d = new Date(eventDate+'T00:00:00'); d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
 }
 window.setCalViewMode = function(mode){
   if(!CAL_VIEW_DAYS[mode] || mode===calViewMode) return;
@@ -13421,9 +13642,9 @@ async function renderSiteCalendar(siteId){
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;">
       ${Object.keys(CAL_VIEW_DAYS).map(mode=>`
-        <div style="flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
+        <div style="flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
       `).join('')}
     </div>
     <p class="stub" style="margin:0 0 14px;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
@@ -13438,12 +13659,23 @@ async function renderSiteCalendar(siteId){
           <div class="formfield"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" max="${endStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
           <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
           ${recipientOptions.length ? `
-            <p class="field-label" style="margin:0 0 6px;">Email a reminder on the day to (optional)</p>
-            <div style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:12px;">
-              ${recipientOptions.map(p=>`
-                <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${calDraft.recipientIds.has(p.id)?'checked':''} onchange="toggleCalRecipient('${p.id}')">${escapeHtml(p.name)}${p.role!=='operative'?' ('+roleLabel(p.role)+')':''}</label>
-              `).join('')}
-            </div>
+            <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.remind?'checked':''} onchange="calDraft.remind=this.checked;render();">Email a reminder</label>
+            ${calDraft.remind ? `
+              <p class="field-label" style="margin:0 0 6px;">Send the reminder</p>
+              <div class="row-gap" style="margin-bottom:${calDraft.timing==='custom'?'8px':'12px'};">
+                <div class="filterchip ${calDraft.timing==='day_before'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_before';render();">Day before</div>
+                <div class="filterchip ${calDraft.timing==='day_of'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_of';render();">Day of</div>
+                <div class="filterchip ${calDraft.timing==='custom'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='custom';render();">Custom date</div>
+              </div>
+              ${calDraft.timing==='custom' ? `<div class="formfield"><input type="date" id="calReminderCustomDate" value="${escapeHtml(calDraft.customDate)}" oninput="calDraft.customDate=this.value"></div>` : ''}
+              <p class="field-label" style="margin:0 0 6px;">Send it to</p>
+              <div style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:12px;">
+                ${recipientOptions.map(p=>`
+                  <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${calDraft.recipientIds.has(p.id)?'checked':''} onchange="toggleCalRecipient('${p.id}')">${escapeHtml(p.name)}${p.role!=='operative'?' ('+roleLabel(p.role)+')':''}</label>
+                `).join('')}
+              </div>
+              <p class="stub" style="margin:-6px 0 12px;">You'll be copied on the reminder too, as the person who created it.</p>
+            ` : ''}
           ` : ''}
           <button class="darkbtn" onclick="${calEditId?`saveCalEventEdit('${siteId}')`:`addCalEvent('${siteId}')`}">${calEditId?'Save':'Add Key Date'}</button>
         </div>
@@ -13465,7 +13697,7 @@ async function renderSiteCalendar(siteId){
                 <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
                 ${mgr ? `
                   <span style="display:flex;gap:6px;flex:0 0 auto;">
-                    <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))})">✎</span>
+                    <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
                     <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}')">🗑</span>
                   </span>
                 ` : ''}
@@ -13481,17 +13713,32 @@ window.toggleCalRecipient = function(id){
   if(calDraft.recipientIds.has(id)) calDraft.recipientIds.delete(id); else calDraft.recipientIds.add(id);
   render();
 };
-window.openCalEditEvent = function(id, title, date, isPrivate, recipientIds){
+window.openCalEditEvent = function(id, title, date, isPrivate, recipientIds, reminderTiming, reminderDate){
   calEditId = id;
   calAddOpen = true;
-  calDraft = {title, date, private:isPrivate, recipientIds:new Set(recipientIds||[])};
+  calDraft = {
+    title, date, private:isPrivate,
+    remind: !!(recipientIds && recipientIds.length),
+    timing: reminderTiming || 'day_before',
+    customDate: reminderTiming==='custom' ? (reminderDate||'') : '',
+    recipientIds:new Set(recipientIds||[]),
+  };
   render();
 };
 window.addCalEvent = async function(siteId){
   const title = (calDraft.title||'').trim();
   if(!title){ toast('Enter what this date is for.'); return; }
   if(!calDraft.date){ toast('Pick a date.'); return; }
-  const row = await dbInsert('site_calendar_events', {site_id:siteId, org_id:ME.org_id, title, event_date:calDraft.date, is_private:calDraft.private, reminder_recipient_ids:[...calDraft.recipientIds], created_by:ME.id});
+  if(calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
+  const remind = calDraft.remind && calDraft.recipientIds.size>0;
+  const row = await dbInsert('site_calendar_events', {
+    site_id:siteId, org_id:ME.org_id, title, event_date:calDraft.date, is_private:calDraft.private,
+    reminder_recipient_ids: remind ? [...calDraft.recipientIds] : [],
+    reminder_timing: remind ? calDraft.timing : null,
+    reminder_date: remind ? calReminderDateFor(calDraft.date, calDraft.timing, calDraft.customDate) : null,
+    reminder_sent: false,
+    created_by:ME.id,
+  });
   if(row){
     toast('Added to the calendar');
     calAddOpen = false; calEditId = null; calResetDraft();
@@ -13502,7 +13749,15 @@ window.saveCalEventEdit = async function(siteId){
   const title = (calDraft.title||'').trim();
   if(!title){ toast('Enter what this date is for.'); return; }
   if(!calDraft.date){ toast('Pick a date.'); return; }
-  const row = await dbUpdate('site_calendar_events', calEditId, {title, event_date:calDraft.date, is_private:calDraft.private, reminder_recipient_ids:[...calDraft.recipientIds], reminder_sent:false});
+  if(calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
+  const remind = calDraft.remind && calDraft.recipientIds.size>0;
+  const row = await dbUpdate('site_calendar_events', calEditId, {
+    title, event_date:calDraft.date, is_private:calDraft.private,
+    reminder_recipient_ids: remind ? [...calDraft.recipientIds] : [],
+    reminder_timing: remind ? calDraft.timing : null,
+    reminder_date: remind ? calReminderDateFor(calDraft.date, calDraft.timing, calDraft.customDate) : null,
+    reminder_sent:false,
+  });
   if(row){
     toast('Updated');
     calAddOpen = false; calEditId = null; calResetDraft();
@@ -13558,9 +13813,9 @@ async function renderUnifiedCalendar(){
   const eventsByDate = {};
   filteredEvents.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;gap:6px;margin-bottom:12px;">
+    <div style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;">
       ${Object.keys(CAL_VIEW_DAYS).map(mode=>`
-        <div style="flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
+        <div style="flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
       `).join('')}
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
