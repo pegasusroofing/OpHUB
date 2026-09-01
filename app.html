@@ -3350,23 +3350,6 @@ async function renderTeam(){
     ` : ''}
     </div>
     ` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('certifications')"><span class="arrow">${teamSectionOpen.certifications?'▼':'▶'}</span> Certifications</p>
-    ${teamSectionOpen.certifications ? `
-    <div class="card">
-      ${ORG && ORG.certifications_folder_id ? `
-        <p class="stub" style="margin:0;color:var(--ok);">📁 Root folder: "${escapeHtml(ORG.certifications_folder_name||'')}"</p>
-        <p class="stub" style="margin:6px 0 0;">Each operative gets their own subfolder inside this one, created automatically the first time you sync them.</p>
-        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-          <button class="ghostbtn" style="flex:1;" onclick="startCertificationsFolderPicker()">Change Folder</button>
-          <button class="ghostbtn" style="flex:1;" onclick="unlinkCertificationsFolder()">Unlink</button>
-        </div>
-      ` : `
-        <p class="stub" style="margin:0 0 10px;">Link the OneDrive folder that will hold every operative's certifications (CSCS, first aid, etc). Each operative gets their own subfolder inside it, created the first time you sync them from their record.</p>
-        <button class="darkbtn" onclick="startCertificationsFolderPicker()">Link OneDrive Folder</button>
-      `}
-      <button class="darkbtn" style="width:100%;margin-top:10px;" onclick="go('#/operatives')">👷 Manage Operatives &amp; Certificates</button>
-    </div>
-    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('invitesusers')"><span class="arrow">${teamSectionOpen.invitesusers?'▼':'▶'}</span> Invites &amp; Users</p>
     ${teamSectionOpen.invitesusers ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
@@ -3561,7 +3544,7 @@ async function renderTeam(){
     </p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, certifications:false, hspolicy:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false};
 // Users list in Admin Centre: role-change/remove buttons are hidden until
 // the person's row is tapped, so the list isn't cluttered with buttons by default.
 let userActionsOpenFor = {};
@@ -3941,15 +3924,18 @@ window.startOneDriveFolderPicker = function(siteId, target){
   odPickerError = null;
   go(`#/site/${siteId}/onedrive-folder`);
 };
-// Org-level variant — used only by Certifications, which isn't tied to any
-// one site. Same picker UI/logic, just no siteId in the route or in
-// selectOneDriveFolder's DB write.
-window.startCertificationsFolderPicker = function(){
-  odPickerTarget = 'certifications';
+// Operative-level variant — each operative links their OWN OneDrive folder
+// (not a shared/root one), done only from their own record in the
+// Operatives area. Same picker UI/logic, just keyed to odPickerOperativeId
+// instead of a siteId.
+let odPickerOperativeId = null;
+window.startOperativeFolderPicker = function(operativeId){
+  odPickerTarget = 'operative';
+  odPickerOperativeId = operativeId;
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];
   odPickerError = null;
-  go('#/certifications-onedrive-folder');
+  go(`#/operatives/${operativeId}/onedrive-folder`);
 };
 async function loadOdPickerFolders(){
   const current = odPickerStack[odPickerStack.length-1];
@@ -3985,6 +3971,7 @@ async function loadOdPickerFolders(){
 async function renderOneDriveFolderPicker(siteId){
   const __gen = RENDER_GEN;
   const site = siteId ? SITES.find(s=>s.id===siteId) : null;
+  const pickerOperative = odPickerTarget==='operative' ? PROFILES[odPickerOperativeId] : null;
   if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
   const current = odPickerStack[odPickerStack.length-1];
@@ -3999,7 +3986,7 @@ async function renderOneDriveFolderPicker(siteId){
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
-      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":'the Certifications folder'}</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
       ${odPickerFolders.map(f=>`
         <div class="sitecard" onclick="odPickerInto('${f.id}','${jsAttr(f.name)}','${f.driveId||''}',${f.isSite?'true':'false'})">
           <div class="swatch">${f.isSite?'🏢':f.virtual?'🔗':'📁'}</div>
@@ -4007,7 +3994,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='certifications' ? 'Choose Certifications Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='certifications' ? '#/team' : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -4018,13 +4005,15 @@ window.odPickerUp = function(){
   render();
 };
 window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
-  if(odPickerTarget==='certifications'){
-    const row = await dbUpdate('organizations', ORG.id, {certifications_folder_id: folderId, certifications_folder_name: folderName, certifications_drive_id: driveId || null});
+  if(odPickerTarget==='operative'){
+    const row = await dbUpdate('profiles', odPickerOperativeId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null, onedrive_last_synced_at: null});
     if(row){
-      ORG = row;
+      PROFILES[odPickerOperativeId] = row;
+      const opId = odPickerOperativeId;
       odPickerStack = null;
-      toast('Folder linked — certifications will sync from there daily');
-      go('#/team');
+      odPickerOperativeId = null;
+      toast('Folder linked — tap Sync Now to pull files in or push uploads out');
+      go(`#/operatives/${opId}`);
     }
     return;
   }
@@ -4045,10 +4034,10 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
     }
   }
 };
-window.unlinkCertificationsFolder = async function(){
-  if(!await customConfirm('Unlink the Certifications folder? Daily sync will stop until you link a new one.')) return;
-  const row = await dbUpdate('organizations', ORG.id, {certifications_folder_id: null, certifications_folder_name: null, certifications_drive_id: null});
-  if(row){ ORG = row; toast('Folder unlinked'); render(); }
+window.unlinkOperativeFolder = async function(operativeId){
+  if(!await customConfirm("Unlink this operative's OneDrive folder? Sync will stop until you link a new one.")) return;
+  const row = await dbUpdate('profiles', operativeId, {onedrive_folder_id: null, onedrive_folder_name: null, onedrive_drive_id: null});
+  if(row){ PROFILES[operativeId] = row; toast('Folder unlinked'); render(); }
 };
 /* ================= PER-OPERATIVE CERTIFICATIONS =================
    Replaces the old flat org-wide Certifications sync (single shared
@@ -4195,6 +4184,7 @@ async function renderOperativesList(){
 }
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
+  const fromSiteId = routeQuery().get('from');
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
@@ -4204,7 +4194,7 @@ async function renderOperativeDetail(operativeId){
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
   const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && s.status==='active').length;
-  const rootFolderLinked = !!(ORG && ORG.certifications_folder_id);
+  const folderLinked = !!operative.onedrive_folder_id;
   const syncBusy = !!operativeCertSyncBusy[operativeId];
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -4224,21 +4214,38 @@ async function renderOperativeDetail(operativeId){
     </div>
 
     <p class="sectiontitle" style="margin-top:0;">OneDrive Sync</p>
-    ${rootFolderLinked ? `
-      <p class="stub" style="margin:0 0 10px;">${operative.onedrive_folder_name ? `Linked to "${escapeHtml(operative.onedrive_folder_name)}"` : "First sync will create this operative's folder automatically."}${operative.onedrive_last_synced_at ? ' · Last synced '+new Date(operative.onedrive_last_synced_at).toLocaleString('en-GB') : ''}</p>
-      <button class="darkbtn" style="margin-bottom:16px;" ${syncBusy?'disabled':''} onclick="syncOperativeCertifications('${operativeId}')">${syncBusy?'Syncing…':'🔄 Sync Now'}</button>
-    ` : `<p class="stub" style="margin:0 0 16px;">Link your company's Certifications folder first in Settings &amp; Admin → Certifications.</p>`}
+    ${folderLinked ? `
+      <p class="stub" style="margin:0 0 4px;color:var(--ok);">📁 Linked to "${escapeHtml(operative.onedrive_folder_name||'')}"</p>
+      <p class="stub" style="margin:0 0 10px;">${operative.onedrive_last_synced_at ? 'Last synced '+new Date(operative.onedrive_last_synced_at).toLocaleString('en-GB') : 'Not synced yet.'}</p>
+      <p class="stub" style="margin:0 0 10px;">Tip: sync pulls in anything new you've added to this operative's OneDrive folder, and pushes out anything you've uploaded here — tap Sync Now any time after adding files either side.</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <button class="darkbtn" style="flex:1;" ${syncBusy?'disabled':''} onclick="syncOperativeCertifications('${operativeId}')">${syncBusy?'Syncing…':'🔄 Sync Now'}</button>
+        <button class="ghostbtn" style="flex:1;" onclick="startOperativeFolderPicker('${operativeId}')">Change Folder</button>
+        <button class="ghostbtn" style="flex:1;" onclick="unlinkOperativeFolder('${operativeId}')">Unlink</button>
+      </div>
+    ` : `
+      <p class="stub" style="margin:0 0 10px;">Link this operative's own OneDrive folder to sync their certificates two-way — anything you upload here gets pushed out to it, and anything added to it gets pulled in here. Tap Sync Now any time after adding files either side.</p>
+      <button class="darkbtn" style="margin-bottom:16px;" onclick="startOperativeFolderPicker('${operativeId}')">Link OneDrive Folder</button>
+    `}
 
     <p class="sectiontitle">Certificates</p>
     ${operativeCertListHtml(certs, true)}
     ${operativeCertUploadFormHtml(operativeId, 'opdet')}
-  `, {title: operative.name, subtitle:'Operative', back:'#/operatives', tabs:false}); }
+  `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : '#/operatives', tabs:false}); }
 }
-// Site-scoped Certifications page — an operative sees just their own
-// permanent certificate folder; a PM/admin sees their own certs plus a
-// drop-down per operative assigned to this site (auto-populated from
-// site_assignments, no manual setup needed).
+// Site-scoped Certifications page. An operative sees just their own
+// permanent certificate folder. A PM/admin sees their own certs, a compact
+// row per operative assigned to this site (tap the name to open their full
+// record, tap the "+" to quick-upload a certificate for them right here —
+// no big drop-down), a shortcut to the org-wide Operatives dashboard, and
+// the option to add someone who isn't a registered operative at all (e.g. a
+// subcontractor) — their name and certificates are saved against this site
+// so they aren't lost, but no operative account/login is ever created.
 let siteCertOpen = {};
+let siteCertQuickAdd = {};
+let siteCertManualOpen = {};
+let siteCertManualAddOpen = false;
+function operativeInitials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 async function renderSiteCertifications(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -4254,31 +4261,100 @@ async function renderSiteCertifications(siteId){
     return;
   }
   await loadAllProfiles();
-  const [assignedRows, myCerts] = await Promise.all([
+  const [assignedRows, myCerts, manualPeople, allSiteCerts] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc'),
+    dbSelect('certification_manual_people', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+    dbSelect('operative_certifications', 'select=operative_id,manual_person_id'),
   ]);
   const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const opCertsById = {};
-  await Promise.all(assignedOperatives.map(async o=>{ opCertsById[o.id] = await dbSelect('operative_certifications', 'operative_id=eq.'+o.id+'&order=created_at.desc'); }));
+  const certCountByOp = {}, certCountByManual = {};
+  allSiteCerts.forEach(c=>{
+    if(c.operative_id) certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
+    if(c.manual_person_id) certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
+  });
+  const manualCertsById = {};
+  await Promise.all(manualPeople.filter(p=>siteCertManualOpen[p.id]).map(async p=>{ manualCertsById[p.id] = await dbSelect('operative_certifications', 'manual_person_id=eq.'+p.id+'&order=created_at.desc'); }));
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="go('#/operatives')">👷 Operatives Dashboard</button>
+
     <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
     ${siteCertOpen.__self ? `
       ${operativeCertListHtml(myCerts, true)}
       ${operativeCertUploadFormHtml(ME.id, 'sitecertself')}
     ` : ''}
+
     <p class="sectiontitle">Assigned Operatives (${assignedOperatives.length})</p>
     ${assignedOperatives.length ? assignedOperatives.map(o=>`
-      <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub">(${(opCertsById[o.id]||[]).length})</span></p>
-      ${siteCertOpen[o.id] ? `
-        ${operativeCertListHtml(opCertsById[o.id]||[], true)}
-        ${operativeCertUploadFormHtml(o.id, 'sitecert'+o.id.replace(/[^a-zA-Z0-9]/g,''))}
-        <button class="ghostbtn" style="margin:6px 0 4px;" onclick="go('#/operatives/${o.id}')">Open full record ›</button>
-      ` : ''}
+      <div class="sitecard">
+        <div class="swatch">${operativeInitials(o.name)}</div>
+        <div class="info" style="cursor:pointer;" onclick="go('#/operatives/${o.id}?from=${siteId}')"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}</div></div>
+        <div class="taskicon" title="Quick-add a certificate" onclick="event.stopPropagation();siteCertQuickAdd['${o.id}']=!siteCertQuickAdd['${o.id}'];render();">+</div>
+      </div>
+      ${siteCertQuickAdd[o.id] ? operativeCertUploadFormHtml(o.id, 'sitecertquick'+o.id.replace(/[^a-zA-Z0-9]/g,'')) : ''}
     `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
+
+    <p class="sectiontitle">Other People (${manualPeople.length})</p>
+    <p class="stub" style="margin:0 0 10px;">For someone with certificates to track who isn't a registered operative — a subcontractor, for example. No account or login is created for them.</p>
+    ${manualPeople.map(p=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();">
+        <div class="swatch">${operativeInitials(p.name)}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${certCountByManual[p.id]||0} certificate${(certCountByManual[p.id]||0)===1?'':'s'}</div></div>
+        <div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>
+      </div>
+      ${siteCertManualOpen[p.id] ? `
+        ${operativeCertListHtml(manualCertsById[p.id]||[], true)}
+        ${manualPersonCertUploadFormHtml(p.id, 'sitecertmanual'+p.id.replace(/[^a-zA-Z0-9]/g,''))}
+      ` : ''}
+    `).join('')}
+    ${siteCertManualAddOpen ? `
+      <div class="card" style="margin-top:6px;">
+        <p class="field-label" style="margin-bottom:6px;">Name</p>
+        <input type="text" id="manualCertPersonName" placeholder="e.g. Joe Bloggs (subcontractor)" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
+        <div class="row-gap">
+          <button class="ghostbtn" style="flex:1;" onclick="siteCertManualAddOpen=false;render();">Cancel</button>
+          <button class="darkbtn" style="flex:1;" onclick="addManualCertPerson('${siteId}')">Add</button>
+        </div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`}
   `, {title:'Certifications', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
+function manualPersonCertUploadFormHtml(manualPersonId, prefix){
+  return operativeCertUploadFormHtml(manualPersonId, prefix).replace(
+    `onclick="uploadOperativeCert('${manualPersonId}','${prefix}')"`,
+    `onclick="uploadManualPersonCert('${manualPersonId}','${prefix}')"`
+  );
+}
+window.addManualCertPerson = async function(siteId){
+  const input = document.getElementById('manualCertPersonName');
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter a name.'); return; }
+  const rows = await dbInsert('certification_manual_people', {org_id: ME.org_id, site_id: siteId, name, created_by: ME.id});
+  if(rows){ siteCertManualAddOpen = false; toast('Added — you can now upload certificates for them.'); render(); }
+};
+window.removeManualCertPerson = async function(manualPersonId){
+  if(!await customConfirm('Remove this person? Their certificates will be deleted too — this can\'t be undone.')) return;
+  const certs = await dbSelect('operative_certifications', 'manual_person_id=eq.'+manualPersonId+'&select=storage_path');
+  const ok = await dbDelete('certification_manual_people', manualPersonId);
+  if(ok){
+    for(const c of certs){ if(c.storage_path){ try{ await sbFetch('/storage/v1/object/certifications/'+c.storage_path, {method:'DELETE'}); }catch(e){} } }
+    toast('Removed');
+    render();
+  }
+};
+window.uploadManualPersonCert = async function(manualPersonId, prefix){
+  const catSel = document.getElementById(prefix+'CertCategory');
+  const fileInput = document.getElementById(prefix+'CertFile');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if(!file){ toast('Choose a file to upload.'); return; }
+  const category = catSel ? catSel.value : 'other';
+  const path = ME.org_id+'/manual/'+manualPersonId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('certifications', path, file, file.type || 'application/octet-stream');
+  if(!stored) return;
+  const rows = await dbInsert('operative_certifications', {org_id: ME.org_id, manual_person_id: manualPersonId, category, name: file.name, storage_path: stored, size: file.size, source:'upload', uploaded_by: ME.id});
+  if(rows){ toast('Certificate uploaded'); render(); }
+};
 
 /* ---- Training Matrix export — all operatives × their certificate
    categories, branded Excel and PDF, named "Training Matrix" ---- */
@@ -9040,9 +9116,9 @@ async function renderHealthSafety(siteId){
         <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
         ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
       </div>
-      <div class="tile tile-wide" onclick="go('#/site/${siteId}/hs/incidents')">
+      <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
         <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
-        <div><div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div></div>
+        <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/certifications')">
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
@@ -14395,12 +14471,9 @@ async function renderRoute(){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     return renderUnifiedCalendar();
   }
-  if(parts[0]==='certifications-onedrive-folder'){
-    if(!ME || !isManager(ME)){ go('#/sites'); return; }
-    return renderOneDriveFolderPicker(null);
-  }
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    if(parts[1] && parts[2]==='onedrive-folder') return renderOneDriveFolderPicker(null);
     if(parts[1]) return renderOperativeDetail(parts[1]);
     return renderOperativesList();
   }
