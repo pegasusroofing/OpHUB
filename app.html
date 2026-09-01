@@ -260,6 +260,13 @@
   .hometiles .tile-wide{min-height:65px;}
   .hometiles .tile .icon{width:27px;height:27px;font-size:13.5px;}
   .hometiles .tile .lbl{font-size:14.35px;}
+  /* More tab (managers/admins) — same "fit the whole page on one screen"
+     idea as .hometiles above, but 3 columns and smaller still, since the
+     manager version now lists every tile in the app (10+) rather than 4. */
+  .moretiles{grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .moretiles .tile{padding:10px 6px;gap:5px;min-height:76px;}
+  .moretiles .tile .icon{width:24px;height:24px;font-size:12px;}
+  .moretiles .tile .lbl{font-size:11.5px;line-height:1.15;}
   .hometiles .tile .sub{font-size:12.05px;}
   .badge-count{background:var(--red);color:#fff;font-size:10.5px;
     font-weight:800;min-width:17px;height:17px;border-radius:8.5px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1;}
@@ -1432,6 +1439,8 @@ document.addEventListener('click', function(e){
   if(sitePmPickerOpenId && !e.target.closest('.rolechip, .statusmenu')){ sitePmPickerOpenId = null; changed = true; }
   if(checkinLogOperativeFilterOpen && !e.target.closest('[data-checkinopfilter-root]')){ checkinLogOperativeFilterOpen = false; changed = true; }
   if(ppeLogOperativeFilterOpen && !e.target.closest('[data-ppelogopfilter-root]')){ ppeLogOperativeFilterOpen = false; changed = true; }
+  if(calHomePmFilterOpen && !e.target.closest('[data-calhomepmfilter-root]')){ calHomePmFilterOpen = false; changed = true; }
+  if(calHomeSiteFilterOpen && !e.target.closest('[data-calhomesitefilter-root]')){ calHomeSiteFilterOpen = false; changed = true; }
   if(changed) render();
 });
 // Custom confirmation dialog, replacing the native window.confirm(). On this
@@ -1524,6 +1533,32 @@ window._promptAnswer = function(result){
   _promptResolve = null;
   if(resolve) resolve(result);
 };
+// Same overlay/resolve plumbing as customPrompt above, just a date input
+// instead of text — used anywhere a single date needs picking outside a
+// full form (e.g. the "Starts <date>" chip on the site list).
+function customDatePrompt(message, defaultValue){
+  return new Promise(resolve=>{
+    _promptResolve = resolve;
+    let ov = document.getElementById('confirmModalOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'confirmModalOverlay';
+      ov.className = 'geo-modal-overlay';
+      document.body.appendChild(ov);
+    }
+    ov.onclick = (e)=>{ if(e.target===ov) window._promptAnswer(null); };
+    ov.innerHTML = `
+      <div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 10px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+        <div class="formfield" style="margin-top:0;"><input type="date" id="customDatePromptInput" value="${escapeHtml(defaultValue||'')}"></div>
+        <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswer(document.getElementById('customDatePromptInput').value)">OK</button>
+        <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+    const input = document.getElementById('customDatePromptInput');
+    if(input) input.focus();
+  });
+}
 function parseRoute(){
   const h = location.hash.replace(/^#\/?/, '').split('?')[0];
   return h.split('/').filter(Boolean);
@@ -1642,6 +1677,8 @@ function shell(innerHtml, opts){
   `;
 }
 let currentUnreadMsgs = 0;
+let unreadMsgsCache = {}; // { [siteId]: {count, at} } - background-refreshed, non-blocking (see refreshUnreadBadge)
+const UNREAD_MSGS_TTL_MS = 20000;
 function tabbar(siteId, active){
   if(!siteId) return '';
   const tabs = [
@@ -1670,7 +1707,7 @@ function homeBottomBar(canAdd){
     // paper/border look the other tabs use, so it reads as the primary
     // action in the row.
     ...(canAdd ? [{ic:'+', lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"}] : []),
-    ...(canAdd ? [{ic:'✉️', lbl:'Invite', onclick:"openInvitesFromHome()"}] : []),
+    ...(canAdd ? [{ic:'📅', lbl:'Calendar', onclick:"go('#/calendar')"}] : []),
     // Managers land straight in the Admin Centre — no intermediate page.
     // Operatives (no Admin Centre) go to the lighter Account page instead.
     {ic:'⚙️', lbl:'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
@@ -2214,7 +2251,7 @@ function siteCardHtml(s, canAdd, pmOptions){
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
-      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;">Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}
+      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;${canAdd?'text-decoration:underline;cursor:pointer;':''}" title="${canAdd?'Tap to change start date':''}" ${canAdd?`onclick="event.stopPropagation();changeSiteStartDate('${s.id}','${s.start_date}')"`:''}>Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : (statusKey==='upcoming' && canAdd ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeSiteStartDate('${s.id}','')">Set start date</span>` : '')}
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
           style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:9.36px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
@@ -2532,7 +2569,12 @@ async function renderOutstandingTasks(){
     manager && idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&status=neq.done&select=site_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
-    manager && idsCsv ? dbSelect('materials', 'status=eq.pending&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+    // "Material requests pending" should stay up on the Dashboard/Home/tile
+    // through the whole in-flight lifecycle — not just while a request is
+    // freshly raised (status=pending), but also once a PM has sent it to a
+    // supplier (status=sent) — until it's actually received and a PM taps
+    // "Close request". Only closed/cancelled requests should stop counting.
+    manager && idsCsv ? dbSelect('materials', 'status=in.(pending,sent)&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
   ]);
   const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
   const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
@@ -2933,6 +2975,15 @@ async function renderTeam(){
   const deviceLocks = (iAmAdmin && teamSectionOpen.devicelocks) ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const suppliers = (isManager(ME) && teamSectionOpen.suppliers) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
   const havsTools = (isManager(ME) && teamSectionOpen.havstools) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
+  // H&S Policy is now uploaded ONLY from here — every site-scoped H&S page
+  // still shows/signs the current policy, but their own upload forms have
+  // been removed and point back to this section instead.
+  let hsPolicyAdmin = {doc:null, superseded:[], signedIds:new Set(), allPeople:[]};
+  if(isManager(ME) && teamSectionOpen.hspolicy){
+    const {doc, superseded, sigs} = await fetchHsPolicyData();
+    const validSigs = doc ? sigs.filter(s=>hsPolicySigStillValid(doc, s)) : [];
+    hsPolicyAdmin = {doc, superseded, signedIds: new Set(validSigs.map(s=>s.user_id)), allPeople: people};
+  }
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
@@ -3143,6 +3194,47 @@ async function renderTeam(){
     ${teamSectionOpen.healthsafety ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
     ${isManager(ME) ? `
+    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('hspolicy')"><span class="arrow">${teamSectionOpen.hspolicy?'▼':'▶'}</span> H&amp;S Policy</p>
+    ${teamSectionOpen.hspolicy ? `
+    <div class="card">
+      ${hsPolicyAdmin.doc ? `
+        <div style="font-weight:800;font-size:14px;">${escapeHtml(hsPolicyAdmin.doc.name)}</div>
+        <div class="meta">Uploaded ${new Date(hsPolicyAdmin.doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(hsPolicyAdmin.doc.uploaded_by))}${hsPolicyAdmin.doc.expiry_date?' · Expires '+new Date(hsPolicyAdmin.doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', hsPolicyAdmin.doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(hsPolicyAdmin.doc.name)?hsPolicyAdmin.doc.name:hsPolicyAdmin.doc.name+'.pdf')}')">View document ↗</div>
+      ` : `<p class="stub" style="margin:0 0 10px;">No H&amp;S Policy document uploaded yet — everyone signs once and it's valid for a year (or until you upload a new version, or its expiry date is reached).</p>`}
+    </div>
+    ${hsPolicyAdmin.doc ? `
+    <p class="ddrow" onclick="toggleHsPolicySignedList()"><span class="arrow">${hsPolicySignedListOpen?'▼':'▶'}</span> Signed (${hsPolicyAdmin.signedIds.size} of ${hsPolicyAdmin.allPeople.length})</p>
+    ${hsPolicySignedListOpen ? `<div class="card">
+      ${hsPolicyAdmin.allPeople.map(p=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(p.name)}</div></div>
+          ${hsPolicyAdmin.signedIds.has(p.id) ? `<span class="pill on">Signed</span>` : `<span class="pill off">Outstanding</span>`}
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No one on the team yet.</div>`}
+    </div>` : ''}
+    ` : ''}
+    <p class="ddrow" onclick="hsPolicyUploadOpen=!hsPolicyUploadOpen;render()"><span class="arrow">${hsPolicyUploadOpen?'▼':'▶'}</span> ${hsPolicyAdmin.doc?'Upload New Version':'Upload H&amp;S Policy'}</p>
+    ${hsPolicyUploadOpen ? `<div class="card">
+      <div class="formfield" style="margin-top:0;"><input type="text" id="hsPolicyName" placeholder="Document name, e.g. Health & Safety Policy 2026" value="${hsPolicyAdmin.doc?escapeHtml(hsPolicyAdmin.doc.name):''}"></div>
+      <div class="formfield"><label class="field-label">Expiry date (everyone must re-sign once reached)</label><input type="date" id="hsPolicyExpiry" value="${escapeHtml(defaultHsPolicyExpiry())}"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('hsPolicyFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="hsPolicyFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('hsPolicyFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="hsPolicyFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addHsPolicy()">${hsPolicyAdmin.doc?'Upload New Version':'Upload'}</button>
+      ${hsPolicyAdmin.doc?`<p class="stub">Uploading a new version keeps the old one on file (marked Superseded) and everyone — including those who already signed — will need to sign it again.</p>`:''}
+    </div>` : ''}
+    ${hsPolicyAdmin.superseded.length ? `
+    <p class="ddrow" onclick="hsPolicySupersededOpen=!hsPolicySupersededOpen;render()"><span class="arrow">${hsPolicySupersededOpen?'▼':'▶'}</span> Superseded Versions (${hsPolicyAdmin.superseded.length})</p>
+    ${hsPolicySupersededOpen ? `<div class="card">${hsPolicyAdmin.superseded.map(d=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
+        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+      </div>
+    `).join('')}</div>` : ''}
+    ` : ''}
+    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('havstools')"><span class="arrow">${teamSectionOpen.havstools?'▼':'▶'}</span> HAVS Tools</p>
     ${teamSectionOpen.havstools ? `
     <div class="card">
@@ -3496,7 +3588,7 @@ async function renderTeam(){
     </p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, certifications:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, certifications:false, hspolicy:false};
 let certificationsSyncBusy = false;
 let certificationsAutoSynced = false; // avoids re-checking the daily-sync threshold on every render, same as material orders
 // Users list in Admin Centre: role-change/remove buttons are hidden until
@@ -4195,7 +4287,9 @@ async function renderSiteHome(siteId){
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
-    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+    // Stays counted through "sent" too, not just "pending" — see the
+    // matching comment on the Dashboard's materials query above.
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
     isManager(ME) ? dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&select=id') : Promise.resolve([]),
   ]);
@@ -4305,6 +4399,28 @@ async function unreadCountForSite(siteId){
   const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${ids.join(',')})&select=message_id`);
   const readSet = new Set(reads.map(r=>r.message_id));
   return msgs.filter(m=>!readSet.has(m.id)).length;
+}
+// Non-blocking unread-badge refresh. The router used to `await unreadCountForSite`
+// on every single site-scoped page transition, which forced 2 sequential DB
+// round-trips (messages, then message_reads) before ANY page could render —
+// the main cause of "20-30 seconds to open a site" on weak mobile signal.
+// Now: show the cached count instantly (or 0 first time), then fetch in the
+// background and only re-render if the count changed and the user hasn't
+// already navigated away.
+function refreshUnreadBadge(siteId){
+  const cached = unreadMsgsCache[siteId];
+  const fresh = cached && (Date.now() - cached.at) < UNREAD_MSGS_TTL_MS;
+  currentUnreadMsgs = fresh ? cached.count : (cached ? cached.count : 0);
+  if(fresh) return;
+  const hashAtRequest = location.hash;
+  unreadCountForSite(siteId).then(count=>{
+    unreadMsgsCache[siteId] = {count, at: Date.now()};
+    if(location.hash !== hashAtRequest) return; // navigated away already — don't clobber the new page's state
+    if(count !== currentUnreadMsgs){
+      currentUnreadMsgs = count;
+      render();
+    }
+  }).catch(()=>{});
 }
 /* ================= TO DO LIST ================= */
 let newTodoDraft = '';
@@ -4850,6 +4966,7 @@ async function renderAssignTeam(siteId){
       <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}" oninput="applyTitleCase(this)"></div>
       <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}" oninput="applyUpperCase(this)"></div>
       <div class="formfield"><label class="field-label">Job Number</label><input type="text" id="editSiteJobNumber" placeholder="Optional" value="${escapeHtml(site.job_number||'')}"></div>
+      <div class="formfield"><label class="field-label">Start Date</label><input type="date" id="editSiteStartDate" value="${escapeHtml(site.start_date||'')}"></div>
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
     ` : ''}
@@ -4929,12 +5046,28 @@ window.saveSiteAddress = async function(siteId){
   const address = document.getElementById('editSiteAddress').value.trim();
   const postcode = document.getElementById('editSitePostcode').value.trim();
   const jobNumber = document.getElementById('editSiteJobNumber').value.trim();
+  const startDateEl = document.getElementById('editSiteStartDate');
+  const startDate = startDateEl ? startDateEl.value.trim() : '';
   if(!name){ toast('Site name cannot be blank.'); return; }
-  const row = await dbUpdate('sites', siteId, {name, address: address||null, postcode: postcode||null, job_number: jobNumber||null});
+  const row = await dbUpdate('sites', siteId, {name, address: address||null, postcode: postcode||null, job_number: jobNumber||null, start_date: startDate||null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
     toast('Details updated');
+    render();
+  }
+};
+// Same field, reachable straight from the site list's "Starts <date>" chip —
+// this is a quick edit shortcut so a PM doesn't have to open full Admin just
+// to nudge a start date; it writes the exact same sites.start_date column.
+window.changeSiteStartDate = async function(siteId, currentDate){
+  const next = await customDatePrompt('Site start date', currentDate);
+  if(next===null) return;
+  const row = await dbUpdate('sites', siteId, {start_date: next||null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Start date updated');
     render();
   }
 };
@@ -6614,19 +6747,48 @@ window.emailReportPDF = async function(submissionId){
 };
 
 /* ================= MORE ================= */
-function renderMore(siteId){
+async function renderMore(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  const mgr = isManager(ME);
+  // Operatives keep the same compact 4-tile set as before. Managers/admins
+  // get every tile in the app (mirroring Home + Settings & Admin) so they
+  // can jump anywhere from one screen instead of hunting through Home,
+  // rather than the previous short list — see .moretiles CSS for how this
+  // still fits on one screen without scrolling.
+  if(!mgr){
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <div class="tilegrid">
+        <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings &amp; Specifications</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
+      </div>
+    `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+    return;
+  }
+  let canSeePrice = false;
+  if(site.price_enabled){
+    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
+    else {
+      const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+      canSeePrice = grant.length>0;
+    }
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid">
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
+    <div class="tilegrid moretiles">
+      <div class="tile" onclick="go('#/site/${siteId}/checkin')"><div class="icon" style="background:var(--red);color:#fff;">⏱</div><div class="lbl">Check In / Out</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/schedule')"><div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div><div class="lbl">Schedule of Works</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div><div class="lbl">Drawings &amp; Specifications</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/calendar')"><div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div><div class="lbl">Calendar</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/messages')"><div class="icon" style="background:#EAF1FB;color:var(--blue);">💬</div><div class="lbl">Messages</div></div>
+      ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price')"><div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div><div class="lbl">Price</div></div>` : ''}
+      <div class="tile" onclick="go('#/site/${siteId}/todos')"><div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div><div class="lbl">To Do List</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/team')"><div class="icon" style="background:#232323;color:#fff;">⚙️</div><div class="lbl">Settings &amp; Admin</div></div>
     </div>
-    ${isManager(ME) ? `
-      <button class="darkbtn" style="margin-top:18px;" onclick="go('#/site/${siteId}/team')">Settings & Admin</button>
-    ` : ''}
   `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
@@ -8185,7 +8347,7 @@ async function hsPolicySectionHtml(siteId){
       <div style="margin-top:12px;">
         ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(mySig.signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<div class="siglinebox" style="margin-top:0;cursor:pointer;" onclick="signHsPolicy('${doc.id}')">Tap to confirm you've read and understood this policy</div>`}
       </div>
-      ${canManage ? `<p class="stub" style="margin-top:12px;cursor:pointer;text-decoration:underline;" onclick="go('#/site/${siteId}/hs/policy')">Manage / upload a new version</p>` : ''}
+      ${canManage ? `<p class="stub" style="margin-top:12px;cursor:pointer;text-decoration:underline;" onclick="go('#/site/${siteId}/hs/policy')">View signed status / superseded versions</p><p class="stub" style="margin-top:4px;">Upload a new version from Settings &amp; Admin → Health &amp; Safety.</p>` : ''}
     </div>
     ` : ''}
   `;
@@ -8779,15 +8941,6 @@ async function renderHsPolicy(siteId){
   const signedIds = new Set(validSigs.map(s=>s.user_id));
   const iSigned = doc ? signedIds.has(ME.id) : false;
   const allPeople = Object.values(PROFILES);
-  const uploadForm = `
-        <div class="formfield" style="margin-top:0;"><input type="text" id="hsPolicyName" placeholder="Document name, e.g. Health & Safety Policy 2026" value="${doc?escapeHtml(doc.name):''}"></div>
-        <div class="formfield"><label class="field-label">Expiry date (everyone must re-sign once reached)</label><input type="date" id="hsPolicyExpiry" value="${escapeHtml(defaultHsPolicyExpiry())}"></div>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('hsPolicyFile').click()">Choose PDF</div>
-        <input type="file" accept="application/pdf" id="hsPolicyFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('hsPolicyFileName').textContent=this.files[0]?this.files[0].name:''">
-        <p class="stub" id="hsPolicyFileName" style="margin:-4px 0 10px;"></p>
-        <button class="darkbtn" onclick="addHsPolicy('${siteId}')">${doc?'Upload New Version':'Upload'}</button>
-        ${doc?`<p class="stub">Uploading a new version keeps the old one on file (marked Superseded) and everyone — including those who already signed — will need to sign it again.</p>`:''}
-  `;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${doc ? `
       <div class="card">
@@ -8809,17 +8962,9 @@ async function renderHsPolicy(siteId){
         `).join('') || `<div class="empty" style="padding:10px;">No one on the team yet.</div>`}
       </div>` : ''}
       ` : ''}
-    ` : `<div class="empty">No H&amp;S Policy document uploaded yet.</div>`}
+    ` : `<div class="empty">No H&amp;S Policy document uploaded yet.${canManage?' Upload one from Settings &amp; Admin → Health &amp; Safety.':''}</div>`}
 
-    ${canManage ? (doc ? `
-      <p class="ddrow" onclick="hsPolicyUploadOpen=!hsPolicyUploadOpen;render()"><span class="arrow">${hsPolicyUploadOpen?'▼':'▶'}</span> Upload New Version</p>
-      ${hsPolicyUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
-    ` : `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload H&amp;S Policy</p>
-        ${uploadForm}
-      </div>
-    `) : ''}
+    ${canManage ? `<p class="stub" style="margin:10px 0 0;cursor:pointer;text-decoration:underline;" onclick="go('#/team')">Upload / manage versions in Settings &amp; Admin</p>` : ''}
     ${superseded.length ? `
     <p class="ddrow" onclick="hsPolicySupersededOpen=!hsPolicySupersededOpen;render()"><span class="arrow">${hsPolicySupersededOpen?'▼':'▶'}</span> Superseded Versions (${superseded.length})</p>
     ${hsPolicySupersededOpen ? `<div class="card">${superseded.map(d=>`
@@ -11788,7 +11933,9 @@ async function renderMaterials(siteId){
   // PM/admin-only navigation aid between Requests and PO's.
   if(!isPM) return renderMaterialRequests(siteId);
   const [pendingCount, orderFileCount] = await Promise.all([
-    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+    // Stays counted through "sent" too, not just "pending" — see the
+    // matching comment on the Dashboard's materials query above.
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
     dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id'),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -12427,6 +12574,7 @@ async function renderMaterialOrders(siteId, folderId){
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
               ${f.synced_at ? `<div class="meta" style="margin-top:2px;font-size:9.5px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
+              <div class="meta" style="margin-top:2px;font-size:9.5px;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeMaterialDeliveryDate('${siteId}','${f.id}','${f.scheduled_delivery_date||''}','${jsAttr(f.name)}')">${f.scheduled_delivery_date ? '🚚 Delivery '+new Date(f.scheduled_delivery_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' — tap to change' : '+ Set scheduled delivery date'}</div>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
@@ -12514,9 +12662,15 @@ window.moveMaterialOrderFileToFolder = async function(siteId, fileId, folderId){
 };
 window.deleteMaterialOrderFile = async function(siteId, fileId, storagePath){
   if(!await customConfirm('Delete this document? This can\'t be undone — if it\'s still in the linked OneDrive folder it won\'t be re-synced automatically.')) return;
+  // Clean up a linked scheduled-delivery calendar entry too, if there is
+  // one — otherwise it'd be left behind on the Calendar with nothing to
+  // point back to.
+  const rows = await dbSelect('material_order_files', 'id=eq.'+fileId+'&select=calendar_event_id');
+  const linkedEventId = rows[0] && rows[0].calendar_event_id;
   const ok = await dbDelete('material_order_files', fileId);
   if(ok){
     if(storagePath){ try{ await sbFetch('/storage/v1/object/material-orders/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
+    if(linkedEventId){ try{ await dbDelete('site_calendar_events', linkedEventId); }catch(e){ /* non-fatal */ } }
     toast('Document deleted');
     render();
   }
@@ -12560,6 +12714,29 @@ window.viewMaterialOrderFile = async function(siteId, storagePath, name){
     if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
     viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
   }catch(e){ toast('Could not open file.'); }
+};
+// Scheduled delivery date on a Material PO file — kept in sync with a
+// linked site_calendar_events row (via calendar_event_id) so the date only
+// ever needs setting/changing in one place and both stay consistent:
+// changing it here moves the existing calendar entry rather than creating
+// a duplicate each time, and clearing it removes the calendar entry too.
+window.changeMaterialDeliveryDate = async function(siteId, fileId, currentDate, fileName){
+  const next = await customDatePrompt('Scheduled delivery — '+fileName, currentDate);
+  if(next===null) return;
+  const rows = await dbSelect('material_order_files', 'id=eq.'+fileId+'&select=calendar_event_id');
+  const existingEventId = rows[0] && rows[0].calendar_event_id;
+  let newEventId = existingEventId || null;
+  if(!next){
+    if(existingEventId) await dbDelete('site_calendar_events', existingEventId);
+    newEventId = null;
+  } else if(existingEventId){
+    await dbUpdate('site_calendar_events', existingEventId, {event_date: next, reminder_sent:false});
+  } else {
+    const evRows = await dbInsert('site_calendar_events', {site_id:siteId, org_id:ME.org_id, title:'Delivery: '+fileName, event_date: next, is_private:false, reminder_recipient_ids:[], created_by:ME.id});
+    newEventId = (evRows && evRows[0]) ? evRows[0].id : null;
+  }
+  const row = await dbUpdate('material_order_files', fileId, {scheduled_delivery_date: next||null, calendar_event_id: newEventId});
+  if(row){ toast(next ? 'Delivery date set — added to the Calendar' : 'Delivery date cleared'); render(); }
 };
 
 /* ================= SITE CALENDAR (rolling 2-week key-dates view — visible to
@@ -12695,6 +12872,115 @@ window.deleteCalEvent = async function(siteId, id){
   const ok = await dbDelete('site_calendar_events', id);
   if(ok){ toast('Deleted'); render(); }
 };
+
+/* ================= HOME CALENDAR (all sites combined, PM/admin only —
+   replaces the home bar's old Invite shortcut. Read-only overview: tap an
+   event to jump into that site's own Calendar page to add/edit/delete,
+   rather than duplicating that whole form here. Filterable by PM and/or a
+   multi-select of sites, same rolling Week/2 Weeks/Month window as the
+   per-site Calendar (shares calViewMode with it on purpose — one
+   consistent "how far ahead am I looking" setting across both). ================= */
+let calHomePmFilterIds = [];
+let calHomeSiteFilterIds = [];
+let calHomePmFilterOpen = false;
+let calHomeSiteFilterOpen = false;
+window.toggleCalHomePmFilterId = function(id){
+  calHomePmFilterIds = calHomePmFilterIds.includes(id) ? calHomePmFilterIds.filter(x=>x!==id) : [...calHomePmFilterIds, id];
+  render();
+};
+window.toggleCalHomeSiteFilterId = function(id){
+  calHomeSiteFilterIds = calHomeSiteFilterIds.includes(id) ? calHomeSiteFilterIds.filter(x=>x!==id) : [...calHomeSiteFilterIds, id];
+  render();
+};
+async function renderUnifiedCalendar(){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const numDays = CAL_VIEW_DAYS[calViewMode] || 14;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = [];
+  for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
+  const startStr = days[0].toISOString().slice(0,10);
+  const endStr = days[days.length-1].toISOString().slice(0,10);
+  const [events, pmOptions] = await Promise.all([
+    dbSelect('site_calendar_events', 'event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    loadPMList(),
+  ]);
+  const siteById = {}; SITES.forEach(s=>{ siteById[s.id] = s; });
+  const filteredEvents = events.filter(e=>{
+    const site = siteById[e.site_id];
+    if(!site) return false;
+    if(calHomePmFilterIds.length && !calHomePmFilterIds.includes(site.responsible_pm_id)) return false;
+    if(calHomeSiteFilterIds.length && !calHomeSiteFilterIds.includes(site.id)) return false;
+    return true;
+  });
+  const eventsByDate = {};
+  filteredEvents.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      ${Object.keys(CAL_VIEW_DAYS).map(mode=>`
+        <div style="flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
+      `).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="position:relative;" data-calhomepmfilter-root>
+        <button type="button" onclick="event.stopPropagation();calHomePmFilterOpen=!calHomePmFilterOpen;calHomeSiteFilterOpen=false;render();" style="width:auto;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${calHomePmFilterIds.length?'var(--brand1)':'#fff'};color:${calHomePmFilterIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+          ${calHomePmFilterIds.length ? (calHomePmFilterIds.length===1 ? escapeHtml(nameOf(calHomePmFilterIds[0])||'1 selected') : calHomePmFilterIds.length+' PMs') : 'Filter by PM'} ${calHomePmFilterOpen?'▲':'▼'}
+        </button>
+        ${calHomePmFilterOpen ? `
+          <div style="position:absolute;left:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;">
+            ${pmOptions.map(p=>`
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;">
+                <input type="checkbox" ${calHomePmFilterIds.includes(p.id)?'checked':''} onchange="toggleCalHomePmFilterId('${p.id}')">
+                ${escapeHtml(p.name)}
+              </label>
+            `).join('') || `<div class="stub" style="margin:0;">No PMs yet.</div>`}
+            ${calHomePmFilterIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="calHomePmFilterIds=[];render();">Clear</span></div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+      <div style="position:relative;" data-calhomesitefilter-root>
+        <button type="button" onclick="event.stopPropagation();calHomeSiteFilterOpen=!calHomeSiteFilterOpen;calHomePmFilterOpen=false;render();" style="width:auto;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${calHomeSiteFilterIds.length?'var(--brand1)':'#fff'};color:${calHomeSiteFilterIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+          ${calHomeSiteFilterIds.length ? calHomeSiteFilterIds.length+' sites' : 'Filter by site'} ${calHomeSiteFilterOpen?'▲':'▼'}
+        </button>
+        ${calHomeSiteFilterOpen ? `
+          <div style="position:absolute;left:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:200px;max-height:240px;overflow-y:auto;">
+            ${SITES.map(s=>`
+              <label style="display:flex;align-items:center;gap:8px;padding:5px 4px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;">
+                <input type="checkbox" ${calHomeSiteFilterIds.includes(s.id)?'checked':''} onchange="toggleCalHomeSiteFilterId('${s.id}')">
+                ${escapeHtml(s.name)}
+              </label>
+            `).join('') || `<div class="stub" style="margin:0;">No sites yet.</div>`}
+            ${calHomeSiteFilterIds.length ? `<div style="border-top:1px solid var(--line);margin-top:4px;padding-top:6px;text-align:center;"><span style="font-size:11.5px;color:var(--brand1);cursor:pointer;text-decoration:underline;" onclick="calHomeSiteFilterIds=[];render();">Clear</span></div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+    <p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>
+    ${days.map(d=>{
+      const dStr = d.toISOString().slice(0,10);
+      const isToday = dStr===startStr;
+      const dayEvents = eventsByDate[dStr]||[];
+      return `
+        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
+          <div style="flex:0 0 52px;text-align:center;">
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':'var(--ink)'};">${d.getDate()}</div>
+          </div>
+          <div style="flex:1;min-width:0;">
+            ${dayEvents.length ? dayEvents.map(e=>{
+              const site = siteById[e.site_id];
+              return `
+              <div style="cursor:pointer;margin-bottom:6px;" onclick="go('#/site/${e.site_id}/calendar')">
+                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
+                <span class="stub" style="margin:0 0 0 6px;font-size:11px;">— ${escapeHtml(site?site.name:'Unknown site')}</span>
+              </div>
+            `;}).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
+          </div>
+        </div>
+      `;
+    }).join('')}
+  `, {title:'Calendar', subtitle:'All sites', back:'#/sites', tabs:false}); }
+}
 
 /* ================= VARIATIONS ================= */
 let varDraft = null;
@@ -13673,6 +13959,7 @@ async function renderMessages(siteId){
     markMessagesRead(allIds);
   }
   currentUnreadMsgs = 0; // just marked everything shown as read — clear the tab badge immediately
+  unreadMsgsCache[siteId] = {count:0, at:Date.now()}; // keep the background badge refresh (see refreshUnreadBadge) from clobbering this with a stale pre-read count
 
   // Default back to the "From Team" tab every time a different site is
   // opened; otherwise leave the tab exactly where the PM last left it.
@@ -13911,6 +14198,10 @@ async function renderRoute(){
     if(parts[1]) return renderTemplateEditor(parts[1]);
     return renderReportTemplates();
   }
+  if(parts[0]==='calendar'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    return renderUnifiedCalendar();
+  }
   if(parts[0]==='certifications-onedrive-folder'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     return renderOneDriveFolderPicker(null);
@@ -13928,7 +14219,7 @@ async function renderRoute(){
     }
     // Keep the bottom tab bar's Messages badge fresh on every site-scoped
     // navigation, not just when visiting Messages itself.
-    if(page!=='messages'){ currentUnreadMsgs = await unreadCountForSite(siteId); }
+    if(page!=='messages'){ refreshUnreadBadge(siteId); }
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
