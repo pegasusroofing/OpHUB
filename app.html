@@ -1643,7 +1643,7 @@ function shell(innerHtml, opts){
             <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
-          <div class="row" style="flex-direction:row;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
               <div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;text-transform:none;color:var(--brand1-text);">OpHUB</div>
