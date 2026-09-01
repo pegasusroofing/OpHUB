@@ -155,7 +155,7 @@
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
   input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],textarea,select{
     width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
-    font-size:14px;background:#fff;color:var(--ink);font-family:inherit;
+    font-size:14px;background:#fff;color:var(--ink);font-family:inherit;box-sizing:border-box;
   }
   textarea{resize:vertical;min-height:70px;}
   label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
@@ -2216,8 +2216,17 @@ const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
 // Closed keeps its text label. Swap these two values here if the mapping
 // ever needs reversing.
 const SITE_STATUS_ICON = {live:'✓', upcoming:'🕐'};
+// Some sites in the database ended up with status='live' literally instead
+// of 'active' (an old naming inconsistency) — both mean the same thing
+// ("currently live/active project") and must be treated identically
+// everywhere. This was previously only handled in siteCardHtml/renderSites;
+// the Dashboard had its own strict `s.status==='active'` check that silently
+// dropped every 'live'-status site from every dashboard figure (RAMS/COSHH
+// outstanding, snags, schedule %, live project count) — this shared helper
+// fixes that by being the one place status is interpreted.
+function siteStatusKey(s){ return (s.status==='active' || s.status==='live') ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming'); }
 function siteCardHtml(s, canAdd, pmOptions){
-  const statusKey = s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
+  const statusKey = siteStatusKey(s);
   const pmLocked = !!s.responsible_pm_id;
   const canChangePm = ME.role==='admin' || ME.role==='superadmin';
   const canSetPm = canAdd && (!pmLocked || canChangePm);
@@ -2335,7 +2344,7 @@ async function renderSites(){
   await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
   const pmOptions = Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
   const filtered = (canAdd && siteFilterPmIds.length) ? SITES.filter(s=>siteFilterPmIds.includes(s.responsible_pm_id)) : SITES;
-  const statusOf = s => s.status==='active' ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming');
+  const statusOf = siteStatusKey;
   // Live jobs: alphabetical by site name, with the demo site ("Andy's House")
   // permanently pinned to the top regardless of alphabetical order — remove
   // this special-case once the demo site itself is deleted.
@@ -2352,7 +2361,7 @@ async function renderSites(){
   if(siteSectionOpen.upcoming===null) siteSectionOpen.upcoming = upcomingSites.length>0;
   const onboarding = await computeOnboardingChecklist();
   const siteSection = (key, label, list, isFirst) => canAdd ? `
-      <div class="ddrow" style="margin-top:${isFirst?'0':'18px'};" onclick="toggleSiteSection('${key}')">
+      <div id="sitesection-${key}" class="ddrow" style="margin-top:${isFirst?'0':'18px'};scroll-margin-top:14px;" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
       </div>
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
@@ -2427,7 +2436,22 @@ async function renderSites(){
       <span class="stub" style="margin:0;text-align:right;color:var(--warn);cursor:pointer;text-decoration:underline;flex:0 0 auto;" onclick="doSignOut()">Sign out</span>
     </div>
   `, {homeBar:true, homeBarCanAdd:canAdd, centerHeader:true, showRefresh:true}); }
+  if(pendingSiteScrollSection){
+    const key = pendingSiteScrollSection; pendingSiteScrollSection = null;
+    const el = document.getElementById('sitesection-'+key);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
+// Jumps into Your Projects with a given section (upcoming/closed) forced
+// open and scrolled to — used by the Dashboard's Upcoming/Closed stat cards,
+// which previously called a goSitesSection() that didn't exist, so tapping
+// them silently did nothing and just left you on the dashboard/home.
+let pendingSiteScrollSection = null;
+window.goSitesSection = function(key){
+  siteSectionOpen[key] = true;
+  pendingSiteScrollSection = key;
+  go('#/sites');
+};
 window.setSiteFilterPm = function(pmIds){ siteFilterPmIds = pmIds || []; render(); };
 window.togglePmFilterOpen = function(){ pmFilterOpen = !pmFilterOpen; render(); };
 window.togglePmFilterId = function(id){
@@ -2546,13 +2570,13 @@ async function renderOutstandingTasks(){
   const viewingPmId = isAdmin ? (outstandingPmId || ME.id) : ME.id;
   let sites;
   if(isAdmin){
-    sites = SITES.filter(s=>s.status==='active' && s.responsible_pm_id===viewingPmId);
+    sites = SITES.filter(s=>siteStatusKey(s)==='live' && s.responsible_pm_id===viewingPmId);
   } else if(manager){
-    sites = SITES.filter(s=>s.status==='active' && s.responsible_pm_id===ME.id);
+    sites = SITES.filter(s=>siteStatusKey(s)==='live' && s.responsible_pm_id===ME.id);
   } else {
     const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
     const ids = new Set(assignments.map(a=>a.site_id));
-    sites = SITES.filter(s=>ids.has(s.id) && s.status==='active');
+    sites = SITES.filter(s=>ids.has(s.id) && siteStatusKey(s)==='live');
   }
   const siteIds = sites.map(s=>s.id);
   const idsCsv = siteIds.join(',');
@@ -2647,7 +2671,7 @@ async function computeOnboardingChecklist(){
   if(isManager(ME)) return null;
   const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
   const assignedIds = new Set(assignments.map(a=>a.site_id));
-  const activeSites = SITES.filter(s=>assignedIds.has(s.id) && s.status==='active');
+  const activeSites = SITES.filter(s=>assignedIds.has(s.id) && siteStatusKey(s)==='live');
   if(!activeSites.length) return null;
   const firstSiteId = activeSites[0].id;
   const [hsPolicyData, ramsSigs, coshhSigs, tools] = await Promise.all([
@@ -2706,9 +2730,9 @@ function renderAccountSettings(){
 async function renderDashboard(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
-  const liveSites = SITES.filter(s=>s.status==='active');
-  const upcomingSites = SITES.filter(s=>s.status==='upcoming');
-  const closedSites = SITES.filter(s=>s.status==='closed');
+  const liveSites = SITES.filter(s=>siteStatusKey(s)==='live');
+  const upcomingSites = SITES.filter(s=>siteStatusKey(s)==='upcoming');
+  const closedSites = SITES.filter(s=>siteStatusKey(s)==='closed');
   const liveIds = liveSites.map(s=>s.id);
   const liveIdsCsv = liveIds.join(',');
 
@@ -3344,6 +3368,8 @@ async function renderTeam(){
         <button class="darkbtn" style="flex:1;" onclick="exportPpeLog()">Export to Excel</button>
         <button class="darkbtn" style="flex:1;" onclick="exportPpeLogPdf()">Export to PDF</button>
       </div>
+      <p class="stub" style="margin:14px 0 8px;">A different view — one row per operative showing what PPE they currently hold, not a chronological log.</p>
+      <button class="ghostbtn" onclick="exportPpeRegister()">📋 Export PPE Register (all operatives)</button>
     </div>
     ` : ''}
     ` : ''}
@@ -3719,6 +3745,32 @@ window.exportPpeLog = async function(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'PPE Log');
   await deliverExcelFile(wb, exportFilename('', 'PPE Log ('+range.label+')', 'xlsx'));
+};
+// A snapshot register — one row per operative, one column per PPE item —
+// showing whether they currently hold it (their most recent signed
+// issuance of that item), unlike the PPE Log above which is a
+// chronological record of every issuance in a period.
+window.exportPpeRegister = async function(){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  await loadAllProfiles();
+  const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  if(!operatives.length){ toast('No operatives to report on.'); return; }
+  const allIssuances = await dbSelect('ppe_issuances', 'status=eq.signed&order=issued_at.desc&select=*');
+  const itemNames = Array.from(new Set([...PPE_STANDARD_ITEMS, ...allIssuances.flatMap(i=>i.items||[])])).sort();
+  const data = operatives.map(op=>{
+    const current = currentPpeForUser(allIssuances, op.id);
+    const currentSet = new Set(current);
+    const row = {Operative: op.name};
+    itemNames.forEach(item=>{ row[item] = currentSet.has(item) ? 'Issued' : ''; });
+    const extras = current.filter(c=>!itemNames.includes(c));
+    row['Other Items Held'] = extras.join(', ');
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:20}, ...itemNames.map(()=>({wch:12})), {wch:20}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'PPE Register');
+  await deliverExcelFile(wb, exportFilename('', 'PPE Register', 'xlsx'));
 };
 window.exportPpeLogPdf = async function(){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -4193,7 +4245,7 @@ async function renderOperativeDetail(operativeId){
     dbSelect('operative_certifications', 'operative_id=eq.'+operativeId+'&order=created_at.desc'),
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
-  const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && s.status==='active').length;
+  const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && siteStatusKey(s)==='live').length;
   const folderLinked = !!operative.onedrive_folder_id;
   const syncBusy = !!operativeCertSyncBusy[operativeId];
 
@@ -4429,7 +4481,7 @@ window.exportTrainingMatrixPdf = async function(){
     page.drawText(name, {x, y, size:9, font:reg, color:INK}); x += nameW*CONTENT_W;
     CERT_CATEGORIES.forEach(c=>{
       const has = (byOp[o.id]||{})[c.key];
-      page.drawText(has?'✓':'—', {x, y, size:9, font:bold, color: has?PDFLib.rgb(0.16,0.5,0.25):SLATE});
+      page.drawText(has?'Y':'-', {x, y, size:9, font:bold, color: has?PDFLib.rgb(0.16,0.5,0.25):SLATE});
       x += colW*CONTENT_W;
     });
     y -= 15;
@@ -7547,7 +7599,12 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
-    ${allTasks.length ? `<button class="ghostbtn exportbtn sowexportbtn" style="margin-bottom:14px;" onclick="exportSchedulePDF('${siteId}')">📄 Export progress/completion PDF report</button>` : ''}
+    ${allTasks.length ? `
+    <div class="row-gap" style="margin-bottom:14px;">
+      <button class="ghostbtn exportbtn sowexportbtn" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
+      <button class="ghostbtn" onclick="openScheduleEmailPrompt('${siteId}')">✉ Email Report</button>
+    </div>
+    ` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 }
 window.toggleScheduleSection = function(sectionId){
@@ -8321,11 +8378,14 @@ window.exportSnaggingPDF = async function(siteId, scope){
   }
 };
 
-window.exportSchedulePDF = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+// Shared by the Export button and the Email button below — builds the PDF
+// bytes without delivering them anywhere, so both callers decide what to do
+// with the result (download vs. attach to an email).
+async function buildSchedulePdfBytes(siteId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
-  if(!allTasks.length){ toast('No tasks to export yet.'); return; }
+  if(!allTasks.length){ toast('No tasks to export yet.'); return null; }
   let photosByTask = {};
   const ids = allTasks.map(t=>t.id).join(',');
   const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
@@ -8433,28 +8493,46 @@ window.exportSchedulePDF = async function(siteId){
       else drawSectionHeaderText(label, color);
     }
 
+    // Truncates text to fit maxWidth using the font's real character widths
+    // (not a flat char-count guess) so long task names never run under the
+    // status pill or the progress photo thumbnail.
+    function truncateToWidth(font, text, size, maxWidth){
+      if(font.widthOfTextAtSize(text, size) <= maxWidth) return text;
+      let lo = 0, hi = text.length;
+      while(lo < hi){
+        const mid = Math.ceil((lo+hi)/2);
+        const candidate = text.slice(0, mid) + '…';
+        if(font.widthOfTextAtSize(candidate, size) <= maxWidth) lo = mid; else hi = mid-1;
+      }
+      return text.slice(0, lo) + '…';
+    }
     async function drawTaskRow(t, pillColor, pillBg){
       const taskPhotos = photosByTask[t.id] || [];
       const hasPhoto = taskPhotos.length>0;
-      const blockH = hasPhoto ? 88 : 42;
+      // Photo rows got taller (was 88) and the thumbnail now sits lower down,
+      // below the status pill and caption text, instead of overlapping them —
+      // previously the pill (and sometimes the name) shared the same top-right
+      // corner as the photo thumbnail, so the photo visually covered the text.
+      const blockH = hasPhoto ? 104 : 42;
       if(y - blockH < 60) newPage();
       const cardTop = y;
       page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:PAGE_W-2*MARGIN, height:blockH, color:CARDBG});
       const textLeft = MARGIN + 14;
-      const imgSlot = 76;
-      let ty = cardTop - 20;
-      const name = t.name.length>60 ? t.name.slice(0,57)+'…' : t.name;
-      page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
       const pillW = 76;
-      page.drawRectangle({x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW, y:ty-3, width:pillW, height:15, color:pillBg});
+      const pillX = MARGIN+(PAGE_W-2*MARGIN)-16-pillW;
+      let ty = cardTop - 20;
+      const nameMaxWidth = pillX - 8 - textLeft;
+      const name = truncateToWidth(bold, t.name, 11, nameMaxWidth);
+      page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
+      page.drawRectangle({x:pillX, y:ty-3, width:pillW, height:15, color:pillBg});
       const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
-      page.drawText(pillLabel, {x:MARGIN+(PAGE_W-2*MARGIN)-16-pillW+8, y:ty+1, size:7.5, font:bold, color:pillColor});
+      page.drawText(pillLabel, {x:pillX+8, y:ty+1, size:7.5, font:bold, color:pillColor});
       if(hasPhoto){
         ty -= 16;
         page.drawText(taskPhotos.length + ' progress photo' + (taskPhotos.length===1?'':'s') + ' on file', {x:textLeft, y:ty, size:8.5, font:reg, color:SLATE});
-        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-imgSlot+8;
-        const imgY = cardTop-blockH+12;
-        const boxSize = 60;
+        const boxSize = 56;
+        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-boxSize;
+        const imgY = cardTop - blockH + 10;
         try{
           const latest = taskPhotos[taskPhotos.length-1];
           const bytes = await pdfFetchImageBytes(publicUrl('site-photos', latest.storage_path));
@@ -8496,10 +8574,92 @@ window.exportSchedulePDF = async function(siteId){
     const filename = exportFilename(site.name, 'Schedule of Works', 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    await deliverPdf(outBytes, filename);
+    return {outBytes, filename, site};
   }catch(e){
     console.error(e);
     toast('Could not build the PDF.');
+    return null;
+  }
+}
+window.exportSchedulePDF = async function(siteId){
+  const built = await buildSchedulePdfBytes(siteId);
+  if(built) await deliverPdf(built.outBytes, built.filename);
+};
+// Email Report — same recipient-tick-list pattern as the material-order
+// re-email prompt: a persistent DOM node outside render() so typing/ticking
+// isn't reset by a re-render, letting the PM tick several colleagues (or
+// type any address) rather than being limited to their own inbox.
+window.openScheduleEmailPrompt = async function(siteId){
+  await loadAllProfiles();
+  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email);
+  let ov = document.getElementById('scheduleEmailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'scheduleEmailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeScheduleEmailPrompt(); };
+    document.body.appendChild(ov);
+  }
+  const ticked = managers.filter(p=>p.id===ME.id).map(p=>p.id);
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Email Schedule of Works Report</h3>
+      <p class="stub">Tick who should receive it, or add another address below.</p>
+      <div style="max-height:180px;overflow-y:auto;margin-bottom:10px;">
+        ${managers.map(p=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" class="scheduleEmailTick" value="${escapeHtml(p.email)}" ${ticked.includes(p.id)?'checked':''}>
+            ${escapeHtml(p.name)} <span class="stub" style="margin:0;">(${escapeHtml(p.email)})</span>
+          </label>
+        `).join('') || `<p class="stub">No other PMs/admins found.</p>`}
+      </div>
+      <div class="formfield"><label class="field-label">Add another address</label><input type="email" id="scheduleEmailExtraInput" placeholder="name@example.com"></div>
+      <button class="darkbtn" id="scheduleEmailConfirmBtn" style="width:100%;" onclick="confirmScheduleEmail('${siteId}')">Confirm &amp; Send</button>
+      <button class="geo-modal-cancel" onclick="closeScheduleEmailPrompt()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeScheduleEmailPrompt = function(){
+  const ov = document.getElementById('scheduleEmailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmScheduleEmail = async function(siteId){
+  const ticks = Array.from(document.querySelectorAll('.scheduleEmailTick:checked')).map(el=>el.value);
+  const extraInput = document.getElementById('scheduleEmailExtraInput');
+  const extra = extraInput ? extraInput.value.trim() : '';
+  if(extra){
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extra)){ toast('Enter a valid email address.'); return; }
+    ticks.push(extra);
+  }
+  const recipients = Array.from(new Set(ticks));
+  if(!recipients.length){ toast('Tick or enter at least one recipient.'); return; }
+  const btn = document.getElementById('scheduleEmailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Building PDF…'; }
+  const built = await buildSchedulePdfBytes(siteId);
+  if(!built){ if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; } return; }
+  if(btn) btn.textContent = 'Sending…';
+  let binary=''; const chunk=0x8000;
+  for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
+  const base64 = btoa(binary);
+  try{
+    const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, filename: built.filename, content_base64: base64, recipients,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      const card = document.querySelector('#scheduleEmailModalOverlay .geo-modal-card');
+      if(card){
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Schedule of Works report was emailed to ${recipients.length} recipient${recipients.length>1?'s':''}.</p><button class="darkbtn" style="width:100%;" onclick="closeScheduleEmailPrompt()">Done</button>`;
+      } else { closeScheduleEmailPrompt(); toast('Email sent'); }
+    } else {
+      console.error('send-schedule-email failed:', d.error || res.status);
+      toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    }
+  }catch(e){
+    console.error(e);
+    toast('Email failed — could not reach the server.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
   }
 };
 
@@ -9483,7 +9643,7 @@ async function renderPpe(siteId){
         <button class="darkbtn" style="flex:1;" onclick="submitPpeIssuance('${siteId}')">Issue PPE</button>
         <button class="ghostbtn" style="flex:1;" onclick="togglePpeIssueOpen()">Cancel</button>
       </div>
-      <p class="stub">The operative signs to confirm receipt — this becomes a signed record, same as RAMS.</p>
+      <p class="stub">Issuing marks this as fulfilled straight away — hand the items to the operative as you issue them.</p>
     </div>
     ` : `<button class="darkbtn" style="margin-top:0;" onclick="togglePpeIssueOpen()">+ Issue PPE</button>`}
 
@@ -9508,7 +9668,7 @@ async function renderPpe(siteId){
       const history = allIssuances.filter(i=>i.user_id===p.id);
       const pendingCount = history.filter(i=>i.status==='pending_signature').length;
       return `
-      <p class="ddrow" onclick="togglePpeTeamOpenFor('${p.id}')"><span class="arrow">${ppeTeamOpenFor[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} ${pendingCount?'<span class="badge-count" style="position:static;display:inline-block;margin-left:4px;">'+pendingCount+'</span>':''}</p>
+      <p class="ddrow" onclick="togglePpeTeamOpenFor('${p.id}')"><span class="arrow">${ppeTeamOpenFor[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} ${pendingCount?'<span class="badge-count" style="position:static;display:inline-flex;vertical-align:middle;margin-left:4px;">'+pendingCount+'</span>':''}</p>
       ${ppeTeamOpenFor[p.id] ? `<div class="card">
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">${current.length?current.map(i=>`<span class="rolechip">${escapeHtml(i)}</span>`).join(''):'<span class="stub" style="margin:0;">Nothing issued yet.</span>'}</div>
         ${history.map(i=>`
@@ -9536,8 +9696,12 @@ window.submitPpeIssuance = async function(siteId){
   const items = [...ppeIssueSelectedItems];
   if(custom) items.push(custom);
   if(!userId || !items.length){ toast('Choose an operative and at least one item.'); return; }
-  const rows = await dbInsert('ppe_issuances', {org_id:ME.org_id, site_id:siteId, user_id:userId, items, issued_by:ME.id});
-  if(rows){ toast('PPE issued — awaiting their signature'); ppeIssueOpen=false; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; ppeIssueOperativeId=''; render(); }
+  // Issuing PPE is done by the PM in person, handing the items over there and
+  // then — so it auto-fulfils immediately rather than sitting stuck in
+  // "pending_signature" until the operative happens to open the app. The
+  // operative can still see it was issued under My Current PPE straight away.
+  const rows = await dbInsert('ppe_issuances', {org_id:ME.org_id, site_id:siteId, user_id:userId, items, issued_by:ME.id, status:'signed', signed_at:new Date().toISOString()});
+  if(rows){ toast('PPE issued'); ppeIssueOpen=false; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; ppeIssueOperativeId=''; render(); }
 };
 window.signPpeIssuance = async function(issuanceId){
   if(!ME.signature_path){
@@ -9863,6 +10027,7 @@ window.addHavsToolInline = async function(siteId){
   if(!linked) return;
   havsNewToolDraft = {name:'', magnitude:''};
   havsNewToolFormOpen = false;
+  havsSiteToolPickerOpen = false;
   toast('Tool added to the HAVS register and this site');
   render();
 };
@@ -11085,7 +11250,11 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
       page.drawText(q.label, {x:MARGIN+6, y:top-11, size:8.5, font:bold, color:INK});
       wrapped.forEach((ln,li)=>{ page.drawText(ln, {x:MARGIN+6, y:top-22-li*9.5, size:7.5, font:reg, color:SLATE}); });
       tools.forEach((t,i)=>{
-        const mark = t[q.key] ? '✓' : '✗';
+        // Plain Y/N letters rather than tick/cross glyphs — the Unicode
+        // check/cross marks aren't part of the WinAnsi encoding pdf-lib's
+        // standard fonts use, which crashed export/email with a
+        // "WinAnsi cannot encode" error.
+        const mark = t[q.key] ? 'Y' : 'N';
         const markColor = t[q.key] ? GREEN : RED;
         const tw = bold.widthOfTextAtSize(mark, 11);
         page.drawText(mark, {x:colX(i+1)+(toolColW-tw)/2, y:top-rh/2-4, size:11, font:bold, color:markColor});
@@ -11571,6 +11740,27 @@ window.emailIncidentReport = async function(siteId, reportId){
    zero signatures. */
 let briefingPickerOpen = false;
 let briefingTemplatesManageOpen = false;
+let selectedBriefingIds = new Set();
+let bulkBriefingEmailBusy = false;
+let bulkBriefingExportBusy = false;
+let briefingWeekOpen = {}; // weekKey -> bool, defaults to "only the current week" the first time each week is seen
+// Monday-start week key/label for grouping the briefings log — matches how
+// UK working weeks are usually thought of (Mon-Sun), not the JS default
+// (Sun-Sat).
+function mondayOfWeek(d){
+  const dt = new Date(d); dt.setHours(0,0,0,0);
+  const day = dt.getDay(); // 0=Sun..6=Sat
+  const diff = (day===0 ? -6 : 1-day);
+  dt.setDate(dt.getDate()+diff);
+  return dt;
+}
+function weekKeyOf(d){ return mondayOfWeek(d).toISOString().slice(0,10); }
+function weekLabelOf(mondayIso){
+  const start = new Date(mondayIso+'T00:00:00');
+  const end = new Date(start); end.setDate(end.getDate()+6);
+  const fmt = dt => dt.toLocaleDateString('en-GB', {day:'2-digit',month:'short'});
+  return `Week of ${fmt(start)} – ${fmt(end)}`;
+}
 async function renderDailyBriefings(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -11588,6 +11778,34 @@ async function renderDailyBriefings(siteId){
     const subIds = submissions.map(s=>s.id).join(',');
     const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=in.('+subIds+')');
     sigs.forEach(s=>{ (sigsBySubmission[s.submission_id]=sigsBySubmission[s.submission_id]||[]).push(s); });
+  }
+  // Group by Monday-start week, most recent week first. The current week is
+  // auto-expanded the first time it's seen; every other week defaults
+  // collapsed but remembers whatever the user's toggled since.
+  const currentWeekKey = weekKeyOf(new Date());
+  const weeks = {}; // key -> submissions[]
+  submissions.forEach(s=>{ const k = weekKeyOf(new Date(s.submitted_at)); (weeks[k]=weeks[k]||[]).push(s); });
+  const weekKeys = Object.keys(weeks).sort((a,b)=>b.localeCompare(a));
+  weekKeys.forEach(k=>{ if(!(k in briefingWeekOpen)) briefingWeekOpen[k] = (k===currentWeekKey); });
+  function submissionRowHtml(s){
+    const sigs = sigsBySubmission[s.id]||[];
+    const mine = sigs.find(x=>x.user_id===ME.id);
+    const needsMySignature = s.issued_at && s.status==='completed' && !mine;
+    return `
+      <div class="sitecard" style="flex-wrap:wrap;">
+        ${canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedBriefingIds.has(s.id)?'checked':''} onclick="toggleBriefingSelect('${s.id}')">` : ''}
+        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/briefings/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+          <div class="name">${escapeHtml(s.template_name)}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Completed'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
+          <div class="addr">${s.issued_at ? `Issued for signing · ${sigs.length} signed` : 'Not issued for signing'}</div>
+        </div>
+        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+        ${s.status==='in_progress' && ME.role==='admin' ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteBriefingSubmission('${siteId}','${s.id}')">🗑</div>` : ''}
+      </div>
+      ${needsMySignature ? `
+        <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
+      ` : ''}
+    `;
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
@@ -11619,26 +11837,68 @@ async function renderDailyBriefings(siteId){
         </div>
       ` : ''}
     ` : ''}
-    ${submissions.map(s=>{
-      const sigs = sigsBySubmission[s.id]||[];
-      const mine = sigs.find(x=>x.user_id===ME.id);
-      const needsMySignature = s.issued_at && s.status==='completed' && !mine;
-      return `
-      <div class="sitecard" style="flex-wrap:wrap;">
-        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/briefings/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
-          <div class="name">${escapeHtml(s.template_name)}</div>
-          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Completed'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
-          <div class="addr">${s.issued_at ? `Issued for signing · ${sigs.length} signed` : 'Not issued for signing'}</div>
-        </div>
-        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
-        ${s.status==='in_progress' && ME.role==='admin' ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteBriefingSubmission('${siteId}','${s.id}')">🗑</div>` : ''}
+    ${canManage && selectedBriefingIds.size>0 ? `
+      <div class="row-gap" style="margin-bottom:14px;">
+        <button class="darkbtn" style="flex:1;" ${bulkBriefingExportBusy?'disabled':''} onclick="exportSelectedBriefings('${siteId}')">${bulkBriefingExportBusy?'Building…':`Export ${selectedBriefingIds.size} Selected (PDF)`}</button>
+        <button class="ghostbtn exportbtn" style="flex:1;" ${bulkBriefingEmailBusy?'disabled':''} onclick="emailSelectedBriefings()">${bulkBriefingEmailBusy?'Emailing…':`Email ${selectedBriefingIds.size} Selected`}</button>
       </div>
-      ${needsMySignature ? `
-        <div class="siglinebox" style="cursor:pointer;margin:-6px 0 10px;" onclick="signBriefing('${siteId}','${s.id}')">Tap to sign — ${escapeHtml(s.template_name)}</div>
-      ` : ''}
-    `;}).join('') || `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
+    ` : ''}
+    ${weekKeys.length ? weekKeys.map(k=>`
+      <div class="ddrow" onclick="briefingWeekOpen['${k}']=!briefingWeekOpen['${k}'];render();"><span class="arrow">${briefingWeekOpen[k]?'▼':'▶'}</span> ${weekLabelOf(k)}${k===currentWeekKey?' (current)':''} <span class="stub">(${weeks[k].length})</span></div>
+      ${briefingWeekOpen[k] ? weeks[k].map(submissionRowHtml).join('') : ''}
+    `).join('') : `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
   `, {title:'Daily Briefings', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
+window.toggleBriefingSelect = function(id){
+  if(selectedBriefingIds.has(id)) selectedBriefingIds.delete(id); else selectedBriefingIds.add(id);
+  render();
+};
+window.exportSelectedBriefings = async function(siteId){
+  if(!selectedBriefingIds.size) return;
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  bulkBriefingExportBusy = true; render();
+  toast('Building PDF…');
+  try{
+    const ids = Array.from(selectedBriefingIds);
+    const merged = await PDFLib.PDFDocument.create();
+    let any = false;
+    for(const id of ids){
+      const built = await buildReportPdf(id);
+      if(!built) continue;
+      const src = await PDFLib.PDFDocument.load(built.bytes);
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach(p=>merged.addPage(p));
+      any = true;
+    }
+    if(!any){ toast('Could not build any of the selected briefings.'); bulkBriefingExportBusy=false; render(); return; }
+    const site = SITES.find(s=>s.id===siteId);
+    const filename = exportFilename(site?site.name:'', `Daily Briefings (${ids.length})`, 'pdf');
+    merged.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await merged.save();
+    await deliverPdf(outBytes, filename);
+    selectedBriefingIds = new Set();
+  }catch(e){ console.error(e); toast('Could not build the combined PDF.'); }
+  bulkBriefingExportBusy = false; render();
+};
+window.emailSelectedBriefings = async function(){
+  if(!selectedBriefingIds.size) return;
+  bulkBriefingEmailBusy = true; render();
+  toast('Building PDFs…');
+  try{
+    const ids = Array.from(selectedBriefingIds);
+    const attachments = [];
+    for(const id of ids){
+      const built = await buildReportPdf(id);
+      if(built) attachments.push({submission_id:id, filename:built.filename, content_base64:built.base64});
+    }
+    if(!attachments.length){ toast('Could not build any of the selected briefings.'); bulkBriefingEmailBusy=false; render(); return; }
+    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
+    else { toast(`${attachments.length} briefing(s) emailed to ${ME.email}`); selectedBriefingIds = new Set(); }
+  }catch(e){ toast('Email failed — could not reach the server.'); }
+  bulkBriefingEmailBusy = false; render();
+};
 window.deleteBriefingSubmission = async function(siteId, submissionId){
   if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
   const ok = await dbDelete('report_submissions', submissionId);
@@ -11745,7 +12005,17 @@ async function renderToolboxTalks(siteId){
     else if(tbtLastHasLive !== hasLive){ tbtLastHasLive = hasLive; tbtFilter = hasLive ? 'live' : 'bank'; }
   }
   const visibleTalks = isPM ? talks.filter(t=>t.status===tbtFilter) : talks;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const issuedThisMonth = talks.some(t=>(t.status==='live'||t.status==='completed') && new Date(t.created_at) >= monthStart);
+  const dayOfMonth = now.getDate();
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${isPM && !issuedThisMonth ? `
+    <div class="card" style="border:1.5px solid var(--warn);margin-bottom:10px;">
+      <p style="margin:0;font-weight:600;color:var(--warn);">${dayOfMonth>7 ? '⚠ Toolbox Talk overdue' : '⚠ Toolbox Talk due this month'}</p>
+      <p class="stub" style="margin:4px 0 0;">${dayOfMonth>7 ? "This site hasn't had a Toolbox Talk issued this month — compulsory by the 7th. Issue one from Bank TBT below." : 'No Toolbox Talk issued yet this month. Issue one from Bank TBT by the 7th — you can of course do more as needed.'}</p>
+    </div>
+    ` : ''}
     ${isPM ? `
     <div class="filterrow">
       <div class="filterchip ${tbtFilter==='bank'?'active':''}" onclick="tbtFilter='bank';selectedTbtIds=new Set();render()">Bank TBT</div>
@@ -11787,6 +12057,39 @@ async function renderToolboxTalks(siteId){
 }
 let tbtReplaceFileOpen = null;
 let tbtReplaceBusy = false;
+let tbtCompanyWideBusy = null;
+// Issues a Bank TBT for signing at every currently-live site in the org at
+// once — each site gets its own independent live copy (mirrors the per-site
+// issue logic: any other live talk at that site is closed first), so
+// signatures, auto-completion and per-site emailing all work exactly the
+// same as issuing one site at a time.
+window.issueToolboxTalkCompanyWide = async function(tbtId, title){
+  if(!await customConfirm(`Issue "${title}" for signing at every live site company-wide?`)) return;
+  tbtCompanyWideBusy = tbtId; render();
+  try{
+    const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
+    const source = rows && rows[0];
+    if(!source){ tbtCompanyWideBusy=null; toast('Toolbox talk not found.'); render(); return; }
+    const liveSites = SITES.filter(s=>siteStatusKey(s)==='live');
+    let issued = 0;
+    for(const site of liveSites){
+      try{
+        const others = await dbSelect('toolbox_talks', 'site_id=eq.'+site.id+'&status=eq.live&select=id');
+        for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
+        const created = await dbInsert('toolbox_talks', {site_id:site.id, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
+        if(created && created[0]) issued++;
+      }catch(e){ /* keep going for other sites */ }
+    }
+    tbtCompanyWideBusy = null;
+    toast(`Issued for signing at ${issued} live site${issued===1?'':'s'} — original kept in Bank TBT`);
+    render();
+  }catch(e){ console.error(e); tbtCompanyWideBusy=null; toast('Could not issue company-wide — try again.'); render(); }
+};
+window.handleTbtActionMenu = function(action, siteId, tbtId, title, storagePath){
+  if(action==='edit') renameToolboxTalk(tbtId, title);
+  else if(action==='replace'){ tbtReplaceFileOpen = tbtReplaceFileOpen===tbtId ? null : tbtId; render(); }
+  else if(action==='delete') deleteToolboxTalk(siteId, tbtId, storagePath);
+};
 window.renameToolboxTalk = async function(tbtId, currentTitle){
   const next = await customPrompt('Rename toolbox talk', currentTitle);
   if(next==null) return;
@@ -11830,6 +12133,9 @@ async function renderToolboxTalkView(siteId, tbtId){
   await loadAllProfiles();
   const mine = sigs.find(s=>s.user_id===ME.id);
   const isLive = talk.status==='live';
+  const assignedRows = isPM ? await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : [];
+  const signedIds = new Set(sigs.map(s=>s.user_id));
+  const outstanding = assignedRows.filter(a=>!signedIds.has(a.user_id));
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
@@ -11845,19 +12151,23 @@ async function renderToolboxTalkView(siteId, tbtId){
     ${isPM ? `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Manager controls</p>
-      ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>` : ''}
+      ${talk.status==='bank' ? `
+      <button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue for Signing</button>
+      <button class="ghostbtn" style="margin-top:8px;" ${tbtCompanyWideBusy===tbtId?'disabled':''} onclick="issueToolboxTalkCompanyWide('${tbtId}','${jsAttr(talk.title)}')">${tbtCompanyWideBusy===tbtId?'Issuing…':'📢 Issue Company-Wide (all live sites)'}</button>
+      ` : ''}
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
       ${sigs.length ? `
-      <div style="display:flex;gap:6px;margin-top:8px;">
-        <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
-        <button class="ghostbtn" style="display:block;width:auto;flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
+      <div class="row-gap" style="margin-top:8px;">
+        <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
+        <button class="ghostbtn" style="flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
       </div>
       ` : ''}
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="renameToolboxTalk('${tbtId}','${jsAttr(talk.title)}')">Edit Title</button>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="tbtReplaceFileOpen = tbtReplaceFileOpen==='${tbtId}' ? null : '${tbtId}'; render()">Replace File</button>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}')">Delete</button>
-      </div>
+      <select style="margin-top:8px;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
+        <option value="" selected disabled>More actions ▾</option>
+        <option value="edit">Edit Title</option>
+        <option value="replace">Replace File</option>
+        <option value="delete">Delete</option>
+      </select>
       ${tbtReplaceFileOpen===tbtId ? `
       <div class="card" style="margin-top:10px;">
         <p class="stub" style="margin:0 0 8px;">Choose a new PDF to replace the current document. The title stays the same — only the file changes.</p>
@@ -11869,6 +12179,10 @@ async function renderToolboxTalkView(siteId, tbtId){
       ` : ''}
       <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
       ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
+      ${isLive ? `
+      <p class="sectiontitle" style="margin-top:18px;">${outstanding.length} still to sign</p>
+      ${outstanding.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--warn);">✗ ${escapeHtml(nameOf(a.user_id))}</div>`).join('') || `<div class="empty">Everyone assigned has signed.</div>`}
+      ` : ''}
     </div>
     ` : ''}
   `, {title:talk.title, subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
