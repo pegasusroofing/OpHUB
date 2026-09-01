@@ -72,7 +72,6 @@
     .appbar .brandline.orgname{font-size:15.140625px;}
     .appbar h2{font-size:19.38px;}
     .appbar h2.lg{font-size:21.8025px;}
-    .rolechip{font-size:6.2985px;}
   }
   .stripe-edge{height:5px;width:100%;flex:0 0 auto;
     background:
@@ -115,9 +114,9 @@
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
   .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
-  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.02px;font-weight:800;
+  .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;
-    width:18px;height:12.6px;flex:0 0 18px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
+    width:20px;height:14px;flex:0 0 20px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
 
   /* Bottom padding is generous enough to clear the now-fixed tabbar (see
      .tabbar below) so the last card/row is never hidden behind it — the
@@ -4233,9 +4232,9 @@ async function renderSiteHome(siteId){
       </div>
       ` : ''}
       ${isManager(ME) ? `
-      <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
+      <div class="tile" onclick="go('#/site/${siteId}/todos')">
         <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
-        <div><div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div></div>
+        <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
       </div>
       ` : ''}
     </div>
@@ -12534,19 +12533,28 @@ window.viewMaterialOrderFile = async function(siteId, storagePath, name){
 let calAddOpen = false;
 let calDraft = {title:'', date:'', private:false, recipientIds:new Set()};
 let calEditId = null;
+let calViewMode = 'twoweek'; // 'week' | 'twoweek' | 'month' — all rolling windows starting today
+const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
+const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
 function calResetDraft(defaultDate){
   calDraft = {title:'', date:defaultDate||'', private:false, recipientIds:new Set()};
 }
+window.setCalViewMode = function(mode){
+  if(!CAL_VIEW_DAYS[mode] || mode===calViewMode) return;
+  calViewMode = mode;
+  render();
+};
 async function renderSiteCalendar(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const mgr = isManager(ME);
   await loadAllProfiles();
+  const numDays = CAL_VIEW_DAYS[calViewMode] || 14;
   const today = new Date(); today.setHours(0,0,0,0);
   const days = [];
-  for(let i=0;i<14;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
+  for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
   const startStr = days[0].toISOString().slice(0,10);
-  const endStr = days[13].toISOString().slice(0,10);
+  const endStr = days[days.length-1].toISOString().slice(0,10);
   const [events, assignments] = await Promise.all([
     dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
@@ -12558,7 +12566,12 @@ async function renderSiteCalendar(siteId){
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">Next 14 days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      ${Object.keys(CAL_VIEW_DAYS).map(mode=>`
+        <div style="flex:1;text-align:center;padding:7px 4px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;${calViewMode===mode?'background:var(--brand1);color:#fff;':'background:var(--card);color:var(--slate);border:1px solid var(--line);'}" onclick="setCalViewMode('${mode}')">${CAL_VIEW_LABELS[mode]}</div>
+      `).join('')}
+    </div>
+    <p class="stub" style="margin:0 0 14px;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
     ${mgr ? `
       <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
         <span>Add a key date</span>
