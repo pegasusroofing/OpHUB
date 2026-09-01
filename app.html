@@ -312,8 +312,8 @@
   .statustag2.closed{background:var(--ok-bg);color:var(--ok);}
   .statustag2.pending{background:#EAE6DC;color:#6B6F76;}
   .snagthumb{width:100%;max-width:160px;border-radius:8px;margin-top:8px;display:block;}
-  .filterrow{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;}
-  .filterchip{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;min-height:34px;line-height:1.2;border-radius:8px;border:1.5px solid var(--line);
+  .filterrow{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;width:100%;}
+  .filterchip{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;min-height:34px;line-height:1.2;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
   .filterchip.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
   .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
@@ -1643,18 +1643,15 @@ function shell(innerHtml, opts){
             <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
-          <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
+          <div class="row" style="flex-direction:row;align-items:flex-start;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
               <div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;text-transform:none;color:var(--brand1-text);">OpHUB</div>
               ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1-text);">${escapeHtml(ORG.name)}</div>` : ''}
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
-            ${ME ? `
-              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;align-self:center;">
-                <span class="rolechip" style="margin-left:0;">${roleLabel(ME.role)}</span>
-                ${opts.showRefresh ? `<span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" class="homebtn" style="${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>'}</span>` : ''}
-              </div>
+            ${ME && opts.showRefresh ? `
+              <span onclick="refreshAppData()" title="Refresh — pull latest from Admin Centre" class="homebtn" style="flex:0 0 auto;${refreshingAppData?'opacity:.5;':''}">${refreshingAppData?'…':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="display:block;"><path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>'}</span>
             ` : `<span style="flex:0 0 40px;"></span>`}
           </div>
         ` : `
@@ -1681,8 +1678,11 @@ let unreadMsgsCache = {}; // { [siteId]: {count, at} } - background-refreshed, n
 const UNREAD_MSGS_TTL_MS = 20000;
 function tabbar(siteId, active){
   if(!siteId) return '';
+  // Already on this site's own Home tab? Tapping "Home" again then takes you
+  // out to the overall Your Projects home instead of doing nothing — from
+  // any other tab/subfolder it still takes you to this site's home page.
   const tabs = [
-    {k:'home', ic:'🏠', lbl:'Home', href:`#/site/${siteId}/home`},
+    {k:'home', ic:'🏠', lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
     {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
     {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
@@ -2433,7 +2433,10 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
-      <span class="stub" style="margin:0;text-align:right;color:var(--warn);cursor:pointer;text-decoration:underline;flex:0 0 auto;" onclick="doSignOut()">Sign out</span>
+      <span class="rolechip" style="margin:0;flex:0 0 auto;">${roleLabel(ME.role)}</span>
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
   `, {homeBar:true, homeBarCanAdd:canAdd, centerHeader:true, showRefresh:true}); }
   if(pendingSiteScrollSection){
@@ -2569,10 +2572,16 @@ async function renderOutstandingTasks(){
   const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
   const viewingPmId = isAdmin ? (outstandingPmId || ME.id) : ME.id;
   let sites;
-  if(isAdmin){
-    sites = SITES.filter(s=>siteStatusKey(s)==='live' && s.responsible_pm_id===viewingPmId);
-  } else if(manager){
-    sites = SITES.filter(s=>siteStatusKey(s)==='live' && s.responsible_pm_id===ME.id);
+  if(isAdmin || manager){
+    // A PM's outstanding items shouldn't only be the sites they're marked
+    // "responsible" for — a PM who's simply assigned to a site (via
+    // site_assignments, e.g. covering RAMS/COSHH there) needs to see their
+    // own outstanding signatures on it too, even if someone else is listed
+    // as the responsible PM of record.
+    const targetPmId = isAdmin ? viewingPmId : ME.id;
+    const myPmAssignments = await dbSelect('site_assignments', 'user_id=eq.'+targetPmId+'&select=site_id');
+    const myPmSiteIds = new Set(myPmAssignments.map(a=>a.site_id));
+    sites = SITES.filter(s=>siteStatusKey(s)==='live' && (s.responsible_pm_id===targetPmId || myPmSiteIds.has(s.id)));
   } else {
     const assignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
     const ids = new Set(assignments.map(a=>a.site_id));
@@ -2736,14 +2745,17 @@ async function renderDashboard(){
   const liveIds = liveSites.map(s=>s.id);
   const liveIdsCsv = liveIds.join(',');
 
-  const [openSnags, ramsDocs, coshhDocs, assignments, scheduleTasks, incidentsRecent] = await Promise.all([
+  const [openSnags, ramsDocs, coshhDocs, assignments, scheduleTasks, incidentsRecent, liveTbts] = await Promise.all([
     liveIds.length ? dbSelect('snags', 'status=eq.open&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
     liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
     liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status') : [],
     dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
+    liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
   ]);
+  const tbtIds = liveTbts.map(t=>t.id).join(',');
+  const tbtSigs = tbtIds ? await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+tbtIds+')&select=tbt_id,user_id') : [];
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
   const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
@@ -2770,6 +2782,21 @@ async function renderDashboard(){
   }
   const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id');
   const coshhOutstandingBySite = outstandingBySite(coshhDocs, coshhSigs, 'coshh_id');
+  // TBT outstanding — only operatives count towards the roster (the PM
+  // running the talk is recorded separately as "Carried out by", not as a
+  // required signer), same rule as the per-site TBT pages.
+  const operativeRosterBySite = {};
+  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
+  const tbtSignedByTalk = {};
+  tbtSigs.forEach(s=>{ (tbtSignedByTalk[s.tbt_id]=tbtSignedByTalk[s.tbt_id]||new Set()).add(s.user_id); });
+  const tbtOutstandingBySite = {};
+  liveTbts.forEach(t=>{
+    const roster = operativeRosterBySite[t.site_id]||[];
+    const signed = tbtSignedByTalk[t.id]||new Set();
+    const missing = roster.filter(uid=>!signed.has(uid)).length;
+    tbtOutstandingBySite[t.site_id] = (tbtOutstandingBySite[t.site_id]||0) + missing;
+  });
+  const totalTbtOutstanding = Object.values(tbtOutstandingBySite).reduce((a,b)=>a+b,0);
   const snagsBySite = {};
   openSnags.forEach(s=>{ snagsBySite[s.site_id] = (snagsBySite[s.site_id]||0)+1; });
   const scheduleBySite = {};
@@ -2787,9 +2814,6 @@ async function renderDashboard(){
   const totalCoshhOutstanding = Object.values(coshhOutstandingBySite).reduce((a,b)=>a+b,0);
   const scheduleTotals = Object.values(scheduleBySite).reduce((acc,b)=>{ acc.total+=b.total; acc.complete+=b.complete; acc.in_progress+=b.in_progress; acc.todo+=b.todo; return acc; }, {total:0, complete:0, in_progress:0, todo:0});
   const completionPct = scheduleTotals.total ? Math.round(scheduleTotals.complete/scheduleTotals.total*100) : 0;
-  const thirtyDaysAgo = Date.now() - 30*86400000;
-  const incidentsThisMonth = incidentsRecent.filter(r=>new Date(r.created_at).getTime()>=thirtyDaysAgo);
-  const riddorCount = incidentsRecent.filter(r=>r.riddor_reportable).length;
 
   const topSites = (bySiteMap, count) => liveSites
     .map(s=>({site:s, count: bySiteMap[s.id]||0}))
@@ -2830,13 +2854,14 @@ async function renderDashboard(){
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:6px;">
       ${statCard('Schedule Complete', completionPct+'%', scheduleTotals.total+' tasks across live projects')}
-      ${statCard('Incidents (30 days)', incidentsThisMonth.length, null, scrollTo('dash-incidents'))}
-      ${statCard('RIDDOR Reportable', riddorCount, 'most recent 500 reports', scrollTo('dash-incidents'))}
+      ${statCard('Incidents', incidentsRecent.length, 'most recent 500 reports', scrollTo('dash-incidents'))}
+      ${statCard('Outstanding TBT', totalTbtOutstanding, 'signatures needed', scrollTo('dash-tbt'))}
     </div>
 
     ${siteListBlock('dash-snags', 'Live Projects With Open Snags', topSites(snagsBySite, 999), id=>`#/site/${id}/snagging`)}
     ${siteListBlock('dash-rams', 'Live Projects With RAMS Outstanding', topSites(ramsOutstandingBySite, 999), id=>`#/site/${id}/hs/rams`)}
     ${siteListBlock('dash-coshh', 'Live Projects With COSHH Outstanding', topSites(coshhOutstandingBySite, 999), id=>`#/site/${id}/hs/coshh`)}
+    ${siteListBlock('dash-tbt', 'Live Projects With TBT Outstanding', topSites(tbtOutstandingBySite, 999), id=>`#/site/${id}/hs/tbt`)}
 
     <p class="sectiontitle" id="dash-incidents" style="margin-top:20px;scroll-margin-top:14px;">Recent Accident / Incident Reports</p>
     ${incidentsRecent.slice(0,8).length ? incidentsRecent.slice(0,8).map(r=>{
@@ -11990,10 +12015,23 @@ async function renderToolboxTalks(siteId){
   const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&order=created_at.desc');
   await loadAllProfiles();
   let sigCounts = {};
+  let outstandingByTalk = {};
   if(isPM && talks.length){
     const ids = talks.map(t=>t.id).join(',');
-    const sigs = await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id');
-    sigs.forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; });
+    const [sigs, assignedRows] = await Promise.all([
+      dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id,user_id'),
+      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    ]);
+    const signedByTalk = {};
+    // Only operatives count towards the standard signature roster — the PM
+    // running the talk has their own "Carried out by" line on the detail
+    // page instead, so they're excluded here (matches renderToolboxTalkView).
+    sigs.filter(s=>PROFILES[s.user_id] && PROFILES[s.user_id].role==='operative').forEach(s=>{ sigCounts[s.tbt_id] = (sigCounts[s.tbt_id]||0)+1; (signedByTalk[s.tbt_id]=signedByTalk[s.tbt_id]||new Set()).add(s.user_id); });
+    const roster = assignedRows.map(a=>a.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
+    talks.filter(t=>t.status==='live').forEach(t=>{
+      const signed = signedByTalk[t.id] || new Set();
+      outstandingByTalk[t.id] = roster.filter(uid=>!signed.has(uid)).map(uid=>nameOf(uid));
+    });
   }
   if(isPM){
     // Default to the Live tab whenever there's a live talk to sign; otherwise
@@ -12037,6 +12075,7 @@ async function renderToolboxTalks(siteId){
           <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
         </div>
         ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
+        ${isPM && t.status==='live' && outstandingByTalk[t.id] ? (outstandingByTalk[t.id].length ? `<div class="stub" style="margin:2px 0 0;color:var(--warn);">Still to sign: ${outstandingByTalk[t.id].map(escapeHtml).join(', ')}</div>` : `<div class="stub" style="margin:2px 0 0;color:var(--ok);">Everyone assigned has signed</div>`) : ''}
         ${isPM && tbtFilter==='completed' ? `<button class="ghostbtn" style="margin-top:8px;" onclick="event.stopPropagation();go('#/site/${siteId}/hs/tbt/${t.id}')">Open</button>` : ''}
       </div>
     `).join('') || `<div class="empty">No ${isPM ? TBT_STATUS_LABEL[tbtFilter].toLowerCase()+' ' : ''}toolbox talks${isPM?'':' yet'}.</div>`}
@@ -12134,8 +12173,15 @@ async function renderToolboxTalkView(siteId, tbtId){
   const mine = sigs.find(s=>s.user_id===ME.id);
   const isLive = talk.status==='live';
   const assignedRows = isPM ? await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : [];
-  const signedIds = new Set(sigs.map(s=>s.user_id));
-  const outstanding = assignedRows.filter(a=>!signedIds.has(a.user_id));
+  // The standard signature roster is the operatives who attended — the PM
+  // running the talk isn't counted as one of them (and doesn't show up as
+  // "outstanding" if they haven't personally ticked "sign"); their part is
+  // the separate "Carried out by" line/signature at the bottom instead.
+  const operativeRoster = assignedRows.filter(a=>PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative');
+  const operativeSigs = sigs.filter(s=>PROFILES[s.user_id] && PROFILES[s.user_id].role==='operative');
+  const signedIds = new Set(operativeSigs.map(s=>s.user_id));
+  const outstanding = operativeRoster.filter(a=>!signedIds.has(a.user_id));
+  const conductor = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
@@ -12156,18 +12202,18 @@ async function renderToolboxTalkView(siteId, tbtId){
       <button class="ghostbtn" style="margin-top:8px;" ${tbtCompanyWideBusy===tbtId?'disabled':''} onclick="issueToolboxTalkCompanyWide('${tbtId}','${jsAttr(talk.title)}')">${tbtCompanyWideBusy===tbtId?'Issuing…':'📢 Issue Company-Wide (all live sites)'}</button>
       ` : ''}
       ${talk.status==='live' ? `<button class="ghostbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
-      ${sigs.length ? `
-      <div class="row-gap" style="margin-top:8px;">
+      <div class="row-gap" style="margin-top:8px;align-items:stretch;">
+        ${sigs.length ? `
         <button class="ghostbtn exportbtn" style="flex:1;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>
         <button class="ghostbtn" style="flex:1;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>
+        ` : ''}
+        <select style="flex:1;min-width:0;margin:0;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
+          <option value="" selected disabled>More actions ▾</option>
+          <option value="edit">Edit Title</option>
+          <option value="replace">Replace File</option>
+          <option value="delete">Delete</option>
+        </select>
       </div>
-      ` : ''}
-      <select style="margin-top:8px;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
-        <option value="" selected disabled>More actions ▾</option>
-        <option value="edit">Edit Title</option>
-        <option value="replace">Replace File</option>
-        <option value="delete">Delete</option>
-      </select>
       ${tbtReplaceFileOpen===tbtId ? `
       <div class="card" style="margin-top:10px;">
         <p class="stub" style="margin:0 0 8px;">Choose a new PDF to replace the current document. The title stays the same — only the file changes.</p>
@@ -12177,12 +12223,21 @@ async function renderToolboxTalkView(siteId, tbtId){
         <button class="darkbtn" ${tbtReplaceBusy?'disabled':''} onclick="replaceToolboxTalkFile('${siteId}','${tbtId}')">${tbtReplaceBusy?'Uploading…':'Replace File'}</button>
       </div>
       ` : ''}
-      <p class="sectiontitle" style="margin-top:18px;">${sigs.length} signed</p>
-      ${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
+      <p class="sectiontitle" style="margin-top:18px;">${operativeSigs.length} signed</p>
+      ${operativeSigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('') || `<div class="empty">No one has signed yet.</div>`}
       ${isLive ? `
       <p class="sectiontitle" style="margin-top:18px;">${outstanding.length} still to sign</p>
       ${outstanding.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);color:var(--warn);">✗ ${escapeHtml(nameOf(a.user_id))}</div>`).join('') || `<div class="empty">Everyone assigned has signed.</div>`}
       ` : ''}
+    </div>
+    ` : ''}
+    ${conductor ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Carried out by</p>
+      <div style="display:flex;align-items:center;gap:10px;">
+        ${conductor.signature_path ? `<img src="${publicUrl('signatures', conductor.signature_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : ''}
+        <span style="font-weight:700;font-size:13px;">${escapeHtml(conductor.name)}</span>
+      </div>
     </div>
     ` : ''}
   `, {title:talk.title, subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
@@ -12206,13 +12261,17 @@ window.signToolboxTalk = async function(siteId, tbtId){
 // blocks the signing flow itself if anything here fails.
 async function maybeAutoCompleteToolboxTalk(siteId, tbtId){
   try{
+    await loadAllProfiles();
     const [assigned, sigs] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
       dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&select=user_id'),
     ]);
-    if(!assigned.length) return; // nobody assigned to compare against yet
+    // Only operatives need to sign for auto-completion — the PM running the
+    // talk is recorded separately as "Carried out by" and never taps sign.
+    const operativeAssigned = assigned.filter(a=>PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative');
+    if(!operativeAssigned.length) return; // nobody assigned to compare against yet
     const signedIds = new Set(sigs.map(s=>s.user_id));
-    if(!assigned.every(a=>signedIds.has(a.user_id))) return;
+    if(!operativeAssigned.every(a=>signedIds.has(a.user_id))) return;
     const row = await dbUpdate('toolbox_talks', tbtId, {status:'completed'});
     if(row){
       toast('Everyone has signed — TBT closed automatically');
