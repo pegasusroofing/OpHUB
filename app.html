@@ -122,7 +122,13 @@
      .tabbar below) so the last card/row is never hidden behind it — the
      tabbar no longer takes up its own space in the flex column. Harmless
      extra whitespace on the few pages with no tabbar (tabs:false). */
-  .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:92px;}
+  /* padding-bottom includes env(safe-area-inset-bottom) to match the fixed
+     .tabbar's own extra inset padding below — without it, on a notched
+     iPhone the tabbar sits taller than this fixed 92px accounts for, and
+     the last row on a long scrolling page (e.g. "Sign out" at the bottom
+     of the site list) ends up hidden behind the bar with no way to scroll
+     past it. */
+  .scrollarea{flex:1;overflow-y:auto;padding:14px;padding-bottom:calc(92px + env(safe-area-inset-bottom));}
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(16,17,20,.04);}
   .sectiontitle{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--slate);margin:4px 0 10px;}
@@ -184,8 +190,8 @@
   .sitecard .info{flex:1;min-width:0;}
   .sitecard .info .name{font-weight:800;font-size:13.05px;}
   .sitecard .info .addr{font-size:10.8px;color:var(--slate);margin-top:0.9px;}
-  .sitecard .status{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
-    padding:2.7px 7.2px;border-radius:999px;flex:0 0 auto;}
+  .sitecard .status{font-size:10.8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+    padding:3.24px 8.64px;border-radius:999px;flex:0 0 auto;}
   .sitecard .status.active{background:var(--ok-bg);color:var(--ok);}
   .sitecard .status.live{background:var(--ok-bg);color:var(--ok);}
   .sitecard .status.upcoming{background:var(--warn-bg);color:var(--warn);}
@@ -578,7 +584,23 @@ window.closeImageViewer = function(){
 // raw PDF bytes (a Uint8Array/ArrayBuffer) for a PDF we just built
 // in-memory (RAMS/COSHH/TBT/Schedule/Reports exports) — skipping the
 // upload-then-fetch round trip entirely for those.
+// The app's own viewport meta locks pinch-zoom off everywhere
+// (maximum-scale=1) so an accidental double-tap/pinch on a form field
+// doesn't zoom the whole app. That's fine for normal screens, but it also
+// silently blocked pinch-zoom on PDF drawings, which — unlike the image
+// viewer above — has no custom zoom gesture of its own and relies entirely
+// on the browser's native pinch-zoom. Relax the cap only while the PDF
+// viewer is open, and restore it the moment it's closed.
+function allowPageZoom(){
+  const vp = document.querySelector('meta[name="viewport"]');
+  if(vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover');
+}
+function restrictPageZoom(){
+  const vp = document.querySelector('meta[name="viewport"]');
+  if(vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+}
 window.viewPdfInApp = async function(source, filename){
+  allowPageZoom();
   let ov = document.getElementById('pdfViewerOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -646,6 +668,7 @@ window.sharePdfViewerDoc = async function(){
   }
 };
 window.closePdfViewer = function(){
+  restrictPageZoom();
   const ov = document.getElementById('pdfViewerOverlay');
   if(ov) ov.style.display = 'none';
   const body = document.getElementById('pdfViewerBody');
@@ -1268,7 +1291,7 @@ function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
 // Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
-function snaggingFolderLabel(){ return isManager(ME) ? 'Reports &amp; Snagging' : 'Snagging &amp; Variations'; }
+function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections &amp; Snagging' : 'Snagging &amp; Variations'; }
 function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
@@ -2194,9 +2217,9 @@ function siteCardHtml(s, canAdd, pmOptions){
       ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;">Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
-          style="margin-left:4px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
+          style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:9.36px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
           onclick="event.stopPropagation();${canSetPm?`openPmPicker('${s.id}')`:''}">${pmInitials}</span>
-      ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
+      ` : (pmLocked ? `<span class="rolechip" style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:9.36px;background:var(--brand1);color:#fff;" title="Responsible PM: ${escapeHtml(nameOf(s.responsible_pm_id))}">${pmInitials}</span>` : '')}
       <span class="status ${statusKey}" title="${SITE_STATUS_LABEL[statusKey]}" ${canAdd?`style="cursor:pointer;" onclick="event.stopPropagation();toggleSiteStatusMenu('${s.id}')"`:''}>${SITE_STATUS_ICON[statusKey] || SITE_STATUS_LABEL[statusKey]}${canAdd?' ▾':''}</span>
       ${canAdd && siteStatusMenuOpenId===s.id ? `
         <div class="statusmenu" onclick="event.stopPropagation()">
@@ -2885,18 +2908,31 @@ async function renderTeam(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
-  const [pendingInvites, permanentInviteRows] = await Promise.all([
-    dbSelect('invites', 'used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
-    dbSelect('invites', 'org_id=eq.'+ME.org_id+'&is_reusable=eq.true&order=created_at.desc&limit=1&select=*'),
-  ]);
-  const permanentInvite = permanentInviteRows[0] || null;
   const iAmAdmin = ME.role==='admin';
-  const odConn = iAmAdmin ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
-  const tbtTemplates = iAmAdmin ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
-  const reportTemplates = iAmAdmin ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
-  const deviceLocks = iAmAdmin ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
-  const suppliers = isManager(ME) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
-  const havsTools = isManager(ME) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
+  // Every fetch below now follows the same "only when that section is
+  // actually open" pattern already used further down for Check-In Logs/PPE
+  // Log/COSHH Library/Operative Tools/Certifications. Previously these ran
+  // unconditionally (several of them sequentially awaited, not even in
+  // parallel) on EVERY renderTeam() call — including every single ddrow
+  // toggle, even one unrelated to any of these sections — which is what
+  // made opening/closing Admin Centre dropdowns feel slow. None of these
+  // values are read anywhere outside their own gated section below, so
+  // skipping the fetch while collapsed changes nothing about what's shown.
+  let pendingInvites = [], permanentInvite = null;
+  if(teamSectionOpen.invites){
+    const [pendingInviteRows, permanentInviteRows] = await Promise.all([
+      dbSelect('invites', 'used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
+      dbSelect('invites', 'org_id=eq.'+ME.org_id+'&is_reusable=eq.true&order=created_at.desc&limit=1&select=*'),
+    ]);
+    pendingInvites = pendingInviteRows;
+    permanentInvite = permanentInviteRows[0] || null;
+  }
+  const odConn = (iAmAdmin && teamSectionOpen.integrations) ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
+  const tbtTemplates = (iAmAdmin && teamSectionOpen.tbt) ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
+  const reportTemplates = (iAmAdmin && teamSectionOpen.reporttemplates) ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
+  const deviceLocks = (iAmAdmin && teamSectionOpen.devicelocks) ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
+  const suppliers = (isManager(ME) && teamSectionOpen.suppliers) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
+  const havsTools = (isManager(ME) && teamSectionOpen.havstools) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
