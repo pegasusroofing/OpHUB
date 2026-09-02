@@ -167,13 +167,13 @@
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
   input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],textarea,select{
-    width:100%;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
+    width:100%;max-width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
     font-size:14px;background:#fff;color:var(--ink);font-family:inherit;box-sizing:border-box;
   }
   textarea{resize:vertical;min-height:70px;}
   label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
     text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
-  .formfield{margin-bottom:12px;}
+  .formfield{margin-bottom:12px;min-width:0;max-width:100%;box-sizing:border-box;}
   .currency-input-wrap{position:relative;}
   .currency-input-wrap .currency-prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--slate);font-weight:700;font-size:14px;pointer-events:none;}
   .currency-input-wrap input{padding-left:25px;}
@@ -440,6 +440,15 @@ function getDeviceId(){
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Timezone-safe "YYYY-MM-DD" for a local Date — NOT the same as
+// d.toISOString().slice(0,10), which converts to UTC first and so silently
+// shifts the date back a day for any UTC+ timezone (e.g. British Summer
+// Time) once local midnight is past 11pm the previous UTC day. Use this
+// anywhere a calendar day/date-only key needs deriving from a local Date.
+function localISODate(d){
+  const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
 // Live-formats a text input as the user types: capitalises the first letter
 // of every word (leaves the rest of each word's casing alone so acronyms
 // etc aren't mangled) — used on site name/address fields. Cursor position is
@@ -1331,7 +1340,16 @@ let profilesLoadedAt = 0;
 const PROFILES_TTL_MS = 45000;
 async function loadAllProfiles(force){
   if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return;
-  const rows = await dbSelect('profiles', 'select=id,name,email,role');
+  // Must include every column any screen reads off a cached PROFILES[id]
+  // entry (not just id/name/email/role) — signature_path (TBT "Carried out
+  // by", etc.) and the onedrive_* columns (per-operative Certifications
+  // sync) were previously missing here, so a PM linking an operative's
+  // OneDrive folder would see "Sync Now" silently revert to "Link OneDrive
+  // Folder" the moment this 45s cache refreshed, wiping the just-set
+  // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
+  // even though the database row itself was correct — reading as "sync
+  // isn't working" when it actually was.
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
   profilesLoadedAt = Date.now();
@@ -1573,7 +1591,7 @@ function customDatePrompt(message, defaultValue){
     ov.innerHTML = `
       <div class="geo-modal-card">
         <p class="stub" style="margin:0 0 10px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
-        <div class="formfield" style="margin-top:0;"><input type="date" id="customDatePromptInput" value="${escapeHtml(defaultValue||'')}"></div>
+        <div class="formfield" style="margin-top:0;min-width:0;max-width:100%;"><input type="date" id="customDatePromptInput" value="${escapeHtml(defaultValue||'')}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
         <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswer(document.getElementById('customDatePromptInput').value)">OK</button>
         <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
       </div>`;
@@ -2355,6 +2373,15 @@ window.setSiteStatus = async function(siteId, status){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
     toast('Status updated');
+    // Closing a site should stop any repeating calendar series dead —
+    // sweep away recurring key-date instances still dated after the
+    // closure so they don't linger on the calendar (one-off, non-recurring
+    // events are left alone; only rows tagged with a recurrence group and
+    // dated beyond today are removed).
+    if(status==='closed'){
+      const todayStr = localISODate(new Date());
+      try{ await sbFetch('/rest/v1/site_calendar_events?site_id=eq.'+siteId+'&recurrence_group_id=not.is.null&event_date=gt.'+todayStr, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
+    }
   }
   render();
 };
@@ -2438,7 +2465,7 @@ async function renderSites(){
         </div>
         ${newSiteStatus==='upcoming' ? `
           <p class="field-label" style="margin-bottom:6px;">Start date</p>
-          <div class="formfield"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value"></div>
+          <div class="formfield" style="min-width:0;max-width:100%;"><input type="date" id="newSiteStartDate" value="${escapeHtml(newSiteStartDateDraft)}" oninput="newSiteStartDateDraft=this.value" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
         ` : ''}
         <div style="display:flex;gap:8px;">
           <button class="darkbtn" style="flex:1;" onclick="addSite()">Create Project</button>
@@ -3093,7 +3120,7 @@ async function renderTeam(){
     operativeToolsHtmlBlock = operativesList.map(p=>{
       const tools = toolsByUser[p.id]||[];
       return `
-        <p class="ddrow" style="margin-top:0;" onclick="toggleOperativeToolsUser('${p.id}')"><span class="arrow">${operativeToolsOpenByUser[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} (${tools.length})</p>
+        <p class="ddrow" id="admin-optool-${p.id}" style="margin-top:0;" onclick="toggleOperativeToolsUser('${p.id}')"><span class="arrow">${operativeToolsOpenByUser[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} (${tools.length})</p>
         ${operativeToolsOpenByUser[p.id] ? `
           <div class="card" style="margin-bottom:10px;">
             ${tools.map(t=>`
@@ -3620,6 +3647,13 @@ async function renderTeam(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
   `, {title:'Admin Centre', back:'#/sites', tabs:false, showRoleChip:true}); }
+  // Jumped in from PUWER's "Open in Admin Centre" link — scroll straight to
+  // that operative's row inside the now-expanded Operative Tools section.
+  if(pendingAdminOperativeToolsScrollUserId){
+    const targetUserId = pendingAdminOperativeToolsScrollUserId; pendingAdminOperativeToolsScrollUserId = null;
+    const el = document.getElementById('admin-optool-'+targetUserId);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
 let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false};
 // Users list in Admin Centre: role-change/remove buttons are hidden until
@@ -3628,6 +3662,18 @@ let userActionsOpenFor = {};
 window.toggleUserActions = function(userId){ userActionsOpenFor[userId] = !userActionsOpenFor[userId]; render(); };
 let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
 window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
+// Jumps straight from PUWER (Tool Inspection) into Admin Centre's Operative
+// Tools section, already expanded and scrolled to the operative in
+// question — PM/admin only, matching who can even see that Admin Centre
+// section in the first place.
+window.openAdminOperativeTools = function(userId){
+  if(!isManager(ME)) return;
+  teamSectionOpen.operativetools = true;
+  operativeToolsOpenByUser[userId] = true;
+  pendingAdminOperativeToolsScrollUserId = userId;
+  go('#/team');
+};
+let pendingAdminOperativeToolsScrollUserId = null;
 // PM/Admin adding a tool on an operative's behalf, from Admin Centre —
 // only one operative's "+ Add Tool" form is open at a time.
 let operativeToolsAddOpenFor = null; // operative user_id, or null
@@ -4732,55 +4778,71 @@ async function renderSiteHome(siteId){
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
+    ${(()=>{
+      // The 2-column tile grid below Check-in (which is always full-width)
+      // ends up with an odd tile count whenever the Price tile — or the To
+      // Do List tile, or both — gets added on top of the fixed 7 (or is
+      // simply 7 to begin with, for an operative with no price access).
+      // An odd count leaves the last tile sat alone in a half-empty row, so
+      // whichever tile actually lands last gets stretched to fill the row
+      // instead — computed here from the real tile count, not hardcoded to
+      // any particular tile (Price, To Do, or whatever the set happens to
+      // end with for this viewer).
+      const regularTiles = [
+        `<div class="tile" onclick="go('#/site/${siteId}/schedule')">
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/hs')">
+          <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
+          <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
+          ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
+          <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
+          <div class="lbl">Drawings &amp; Specifications</div><div class="sub">View &amp; upload</div>
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/materials')">
+          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+          <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/calendar')">
+          <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+          <div class="lbl">Calendar</div><div class="sub">Key dates</div>
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/snagging')">
+          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+          <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
+          ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/messages')">
+          <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
+          <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
+          ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
+        </div>`,
+      ];
+      if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
+          <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
+          <div class="lbl">Price</div><div class="sub">Restricted access</div>
+        </div>`);
+      if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
+          <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+          <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
+        </div>`);
+      if(regularTiles.length % 2 === 1){
+        const lastIdx = regularTiles.length-1;
+        regularTiles[lastIdx] = regularTiles[lastIdx].replace('class="tile"', 'class="tile" style="grid-column:1 / -1;"');
+      }
+      return `
     <div class="tilegrid hometiles" style="margin-bottom:-16px;">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
         <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
         <div><div class="lbl">Check In / Out</div><div class="sub">Tap to log time</div></div>
       </div>
-      <div class="tile" onclick="go('#/site/${siteId}/schedule')">
-        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
-        <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs')">
-        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
-        <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
-        ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/drawings')">
-        <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">📐</div>
-        <div class="lbl">Drawings &amp; Specifications</div><div class="sub">View &amp; upload</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')">
-        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-        <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/calendar')">
-        <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
-        <div class="lbl">Calendar</div><div class="sub">Key dates</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')">
-        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
-        <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
-        ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/messages')">
-        <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
-        <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
-        ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
-      </div>
-      ${canSeePrice ? `
-      <div class="tile" onclick="go('#/site/${siteId}/price')">
-        <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
-        <div class="lbl">Price</div><div class="sub">Restricted access</div>
-      </div>
-      ` : ''}
-      ${isManager(ME) ? `
-      <div class="tile" onclick="go('#/site/${siteId}/todos')">
-        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
-        <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
-      </div>
-      ` : ''}
+      ${regularTiles.join('')}
     </div>
+      `;
+    })()}
   `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
     requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
   }
@@ -5379,7 +5441,7 @@ async function renderAssignTeam(siteId){
       <div class="formfield"><label class="field-label">Address</label><input type="text" id="editSiteAddress" value="${escapeHtml(site.address||'')}" oninput="applyTitleCase(this)"></div>
       <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="editSitePostcode" value="${escapeHtml(site.postcode||'')}" oninput="applyUpperCase(this)"></div>
       <div class="formfield"><label class="field-label">Job Number</label><input type="text" id="editSiteJobNumber" placeholder="Optional" value="${escapeHtml(site.job_number||'')}"></div>
-      <div class="formfield"><label class="field-label">Start Date</label><input type="date" id="editSiteStartDate" value="${escapeHtml(site.start_date||'')}"></div>
+      <div class="formfield" style="min-width:0;max-width:100%;"><label class="field-label">Start Date</label><input type="date" id="editSiteStartDate" value="${escapeHtml(site.start_date||'')}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
     ` : ''}
@@ -6049,7 +6111,12 @@ window.openTemplateEditor = function(id, siteId, returnPath){ editingTemplate = 
 window.createDailyBriefingTemplate = async function(siteId){
   templatesReturnSiteId = null;
   templatesReturnPath = `#/site/${siteId}/hs/briefings`;
-  const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Daily Briefing', created_by:ME.id, is_daily_briefing:true, sections:[{id:uid(), title:'Section 1', items:[]}]});
+  // Seed a new Daily Briefing template with an "Operatives On Site" item
+  // out of the box — ticks everyone assigned to the site by default and
+  // lets the PM untick anyone not actually present or add someone not on
+  // the app, rather than relying on whoever builds the template to
+  // remember to add this item type themselves.
+  const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Daily Briefing', created_by:ME.id, is_daily_briefing:true, sections:[{id:uid(), title:'Section 1', items:[{id:uid(), type:'operatives', label:'Operatives On Site', required:false}]}]});
   if(rows && rows[0]) go('#/templates/'+rows[0].id);
 };
 window.useTemplateAsDailyBriefing = async function(siteId, templateId){
@@ -6750,7 +6817,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
     ` : ''}
     <div class="row-gap">
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
-      <button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}')">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>
+      ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}',${fromBriefing?'true':'false'})">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>` : ''}
     </div>
   `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
@@ -6789,7 +6856,8 @@ const TITLE_SECTION_TYPES = ['text','date','number','textarea'];
 function isTitleSection(s){
   return !!(s && s.items && s.items.length && s.items.every(it=>TITLE_SECTION_TYPES.includes(it.type)));
 }
-async function buildReportPdf(submissionId){
+async function buildReportPdf(submissionId, opts){
+  const suppressSignatureTimestamp = !!(opts && opts.fromBriefing);
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0]; if(!sub) return null;
@@ -7074,7 +7142,7 @@ async function buildReportPdf(submissionId){
               const signer = nameOf(sub.submitted_by);
               const when = new Date(sub.submitted_at).toLocaleString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}).replace(',', '');
               page.drawText(signer, {x:MARGIN+150, y:y-16, size:9.5, font:reg, color:INK});
-              page.drawText(when, {x:MARGIN+150, y:y-29, size:9, font:reg, color:SLATE});
+              if(!suppressSignatureTimestamp) page.drawText(when, {x:MARGIN+150, y:y-29, size:9, font:reg, color:SLATE});
               y -= h+16;
             }
           }catch(e){ y -= 16; }
@@ -7147,10 +7215,10 @@ window.exportReportPDF = async function(submissionId){
     await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 };
-window.emailReportPDF = async function(submissionId){
+window.emailReportPDF = async function(submissionId, fromBriefing){
   reportEmailBusy = submissionId; render();
   toast('Building PDF…');
-  const built = await buildReportPdf(submissionId);
+  const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
   if(!built){ reportEmailBusy = null; render(); return; }
   try{
     const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({
@@ -11049,6 +11117,15 @@ async function renderPuwer(siteId){
     ? assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))
     : [ME];
   const inspectedIds = new Set(inspections.map(i=>i.user_id));
+  // Pull through each operative's registered tool count (from My Tools /
+  // Admin Centre's Operative Tools) so PMs/admins can see at a glance who
+  // actually has tools logged before opening their inspection.
+  let toolCountByUser = {};
+  if(operatives.length){
+    const idsIn = operatives.map(op=>op.id).join(',');
+    const toolRows = await dbSelect('operative_tools', 'user_id=in.('+idsIn+')&select=user_id');
+    toolRows.forEach(t=>{ toolCountByUser[t.user_id] = (toolCountByUser[t.user_id]||0)+1; });
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="row-gap" style="align-items:center;margin-bottom:14px;">
       <span class="taskicon" onclick="shiftPuwerWeek(-1)">‹</span>
@@ -11061,7 +11138,7 @@ async function renderPuwer(siteId){
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/puwer/${op.id}')">
         ${canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${puwerExportSelectedIds.includes(op.id)?'checked':''} onclick="event.stopPropagation();togglePuwerExportSelected('${op.id}')">` : ''}
         <div class="swatch personswatch">${escapeHtml((op.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}</div></div>
+        <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}${canManage ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();openAdminOperativeTools('${op.id}')">🔧 ${toolCountByUser[op.id]||0} tool${(toolCountByUser[op.id]||0)===1?'':'s'} — open in Admin Centre</span>` : ''}</div></div>
         <div class="status ${inspectedIds.has(op.id)?'active':'upcoming'}">${inspectedIds.has(op.id)?'Done':'Pending'}</div>
         ${canManage && inspectedIds.has(op.id) ? `<div class="ghostbtn" style="flex:0 0 auto;width:auto;padding:4px 8px;font-size:10px;" onclick="event.stopPropagation();exportPuwerIndividual('${siteId}','${op.id}')">Export</div>` : ''}
       </div>
@@ -11146,6 +11223,11 @@ async function renderPuwerFill(siteId, userId){
   const canEdit = isManager(ME) || ME.id===userId;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Week of ${puwerWeekLabel(puwerWeekOffset)}</p>
+    <div class="card" style="margin-bottom:14px;">
+      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(op.name)}'s Registered Tools</p>
+      ${draft.tools.length ? `<p class="stub" style="margin:0 0 8px;">${draft.tools.length} tool${draft.tools.length===1?'':'s'} pulled through from ${op.id===ME.id?'My Tools':'their My Tools'}: ${draft.tools.map(t=>escapeHtml(t.name)).join(', ')}</p>` : `<p class="stub" style="margin:0 0 8px;">No tools registered yet.</p>`}
+      ${isManager(ME) ? `<span style="font-size:12.5px;font-weight:700;color:var(--brand1);text-decoration:underline;cursor:pointer;" onclick="openAdminOperativeTools('${userId}')">Manage in Admin Centre — Operative Tools ↗</span>` : ''}
+    </div>
     ${!draft.tools.length ? `
       <div class="empty">${escapeHtml(op.name)} hasn't logged any tools yet.${op.id===ME.id ? ` <span style="color:var(--brand1);cursor:pointer;font-weight:700;" onclick="go('#/site/${siteId}/hs/mytools')">Add one in My Tools</span>` : ' Ask them to add their tools via My Tools first.'}</div>
     ` : `
@@ -12064,7 +12146,7 @@ window.exportSelectedBriefings = async function(siteId){
     const merged = await PDFLib.PDFDocument.create();
     let any = false;
     for(const id of ids){
-      const built = await buildReportPdf(id);
+      const built = await buildReportPdf(id, {fromBriefing:true});
       if(!built) continue;
       const src = await PDFLib.PDFDocument.load(built.bytes);
       const pages = await merged.copyPages(src, src.getPageIndices());
@@ -12089,7 +12171,7 @@ window.emailSelectedBriefings = async function(){
     const ids = Array.from(selectedBriefingIds);
     const attachments = [];
     for(const id of ids){
-      const built = await buildReportPdf(id);
+      const built = await buildReportPdf(id, {fromBriefing:true});
       if(built) attachments.push({submission_id:id, filename:built.filename, content_base64:built.base64});
     }
     if(!attachments.length){ toast('Could not build any of the selected briefings.'); bulkBriefingEmailBusy=false; render(); return; }
@@ -12145,7 +12227,7 @@ window.signBriefing = async function(siteId, submissionId){
 window.exportDailyBriefingPDF = async function(submissionId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building PDF…');
-  const built = await buildReportPdf(submissionId);
+  const built = await buildReportPdf(submissionId, {fromBriefing:true});
   if(!built) return;
   try{
     const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
@@ -13598,13 +13680,43 @@ window.changeMaterialDeliveryDate = async function(siteId, fileId, currentDate, 
    as well as hidden client-side. PMs can pick people to email a same-day
    reminder to — handled by the send-calendar-reminders daily cron.) ================= */
 let calAddOpen = false;
-let calDraft = {title:'', date:'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set()};
+let calDraft = {title:'', date:'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set(), repeat:'none'};
 let calEditId = null;
 let calViewMode = 'twoweek'; // 'week' | 'twoweek' | 'month' — all rolling windows starting today
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
 const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
+const CAL_REPEAT_LABELS = {none:'None', daily:'Daily', weekly:'Weekly', monthly:'Monthly'};
 function calResetDraft(defaultDate){
-  calDraft = {title:'', date:defaultDate||'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set()};
+  calDraft = {title:'', date:defaultDate||'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set(), repeat:'none'};
+}
+// Turns a "Repeats" choice into a concrete list of event_date strings,
+// starting from startDateStr. Deliberately NOT an infinite/virtual
+// recurrence engine — it materialises real rows up to a 1-year horizon (or
+// 60 occurrences, whichever comes first), and stops early at the site's
+// closed_at date, or generates only the single date if the site is
+// already closed by the time it's created. setSiteStatus() also sweeps
+// away any future recurring instances the moment a site is closed, so a
+// job closing mid-series doesn't leave stray future key dates behind.
+function calRecurrenceOccurrences(startDateStr, freq, siteObj){
+  if(!freq || freq==='none' || !startDateStr) return [startDateStr];
+  const maxCount = 60;
+  const horizon = new Date(startDateStr+'T00:00:00'); horizon.setFullYear(horizon.getFullYear()+1);
+  const closedBoundary = siteObj && siteObj.closed_at ? siteObj.closed_at.slice(0,10) : null;
+  const alreadyClosed = siteObj && siteStatusKey(siteObj)==='closed';
+  const dates = [];
+  let d = new Date(startDateStr+'T00:00:00');
+  for(let i=0;i<maxCount;i++){
+    if(d>horizon) break;
+    const dStr = localISODate(d);
+    if(closedBoundary && dStr>closedBoundary) break;
+    if(alreadyClosed && i>0) break;
+    dates.push(dStr);
+    if(freq==='daily') d.setDate(d.getDate()+1);
+    else if(freq==='weekly') d.setDate(d.getDate()+7);
+    else if(freq==='monthly') d.setMonth(d.getMonth()+1);
+    else break;
+  }
+  return dates;
 }
 // Turns the event date + the chosen timing ("day before" / "day of" /
 // "custom") into the actual date the reminder email goes out on.
@@ -13613,7 +13725,7 @@ function calReminderDateFor(eventDate, timing, customDate){
   if(timing==='day_of') return eventDate;
   if(!eventDate) return eventDate;
   const d = new Date(eventDate+'T00:00:00'); d.setDate(d.getDate()-1);
-  return d.toISOString().slice(0,10);
+  return localISODate(d);
 }
 window.setCalViewMode = function(mode){
   if(!CAL_VIEW_DAYS[mode] || mode===calViewMode) return;
@@ -13629,8 +13741,8 @@ async function renderSiteCalendar(siteId){
   const today = new Date(); today.setHours(0,0,0,0);
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
-  const startStr = days[0].toISOString().slice(0,10);
-  const endStr = days[days.length-1].toISOString().slice(0,10);
+  const startStr = localISODate(days[0]);
+  const endStr = localISODate(days[days.length-1]);
   const [events, assignments] = await Promise.all([
     dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
@@ -13657,6 +13769,13 @@ async function renderSiteCalendar(siteId){
         <div class="card" style="margin-bottom:14px;">
           <div class="formfield"><label class="field-label">What's happening</label><input type="text" id="calTitle" placeholder="e.g. Scaffold delivery" value="${escapeHtml(calDraft.title)}" oninput="calDraft.title=this.value"></div>
           <div class="formfield"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" max="${endStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
+          ${!calEditId ? `
+            <p class="field-label" style="margin:0 0 6px;">Repeats</p>
+            <div class="row-gap" style="margin-bottom:12px;flex-wrap:wrap;">
+              ${Object.keys(CAL_REPEAT_LABELS).map(freq=>`<div class="filterchip ${calDraft.repeat===freq?'active':''}" style="flex:1;min-width:70px;text-align:center;" onclick="calDraft.repeat='${freq}';render();">${CAL_REPEAT_LABELS[freq]}</div>`).join('')}
+            </div>
+            ${calDraft.repeat!=='none' ? `<p class="stub" style="margin:-6px 0 12px;">Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</p>` : ''}
+          ` : ''}
           <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
           ${recipientOptions.length ? `
             <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.remind?'checked':''} onchange="calDraft.remind=this.checked;render();">Email a reminder</label>
@@ -13682,23 +13801,24 @@ async function renderSiteCalendar(siteId){
       ` : ''}
     ` : ''}
     ${days.map(d=>{
-      const dStr = d.toISOString().slice(0,10);
+      const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
+      const isWeekend = d.getDay()===0 || d.getDay()===6;
       return `
         <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="flex:0 0 52px;text-align:center;">
-            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':'var(--ink)'};">${d.getDate()}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--ink)'};">${d.getDate()}</div>
           </div>
           <div style="flex:1;min-width:0;">
             ${dayEvents.length ? dayEvents.map(e=>`
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
+                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
                 ${mgr ? `
                   <span style="display:flex;gap:6px;flex:0 0 auto;">
                     <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
-                    <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}')">🗑</span>
+                    <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>
                   </span>
                 ` : ''}
               </div>
@@ -13731,16 +13851,23 @@ window.addCalEvent = async function(siteId){
   if(!calDraft.date){ toast('Pick a date.'); return; }
   if(calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
   const remind = calDraft.remind && calDraft.recipientIds.size>0;
-  const row = await dbInsert('site_calendar_events', {
-    site_id:siteId, org_id:ME.org_id, title, event_date:calDraft.date, is_private:calDraft.private,
+  const site = SITES.find(s=>s.id===siteId);
+  const repeat = calDraft.repeat || 'none';
+  const occurrences = calRecurrenceOccurrences(calDraft.date, repeat, site);
+  const recurrenceGroupId = (repeat!=='none' && occurrences.length>1) ? (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2))) : null;
+  const rows = occurrences.map(eventDate=>({
+    site_id:siteId, org_id:ME.org_id, title, event_date:eventDate, is_private:calDraft.private,
     reminder_recipient_ids: remind ? [...calDraft.recipientIds] : [],
     reminder_timing: remind ? calDraft.timing : null,
-    reminder_date: remind ? calReminderDateFor(calDraft.date, calDraft.timing, calDraft.customDate) : null,
+    reminder_date: remind ? calReminderDateFor(eventDate, calDraft.timing, calDraft.customDate) : null,
     reminder_sent: false,
     created_by:ME.id,
-  });
+    repeat_freq: repeat!=='none' ? repeat : null,
+    recurrence_group_id: recurrenceGroupId,
+  }));
+  const row = await dbInsert('site_calendar_events', rows);
   if(row){
-    toast('Added to the calendar');
+    toast(rows.length>1 ? `Added ${rows.length} repeating key dates` : 'Added to the calendar');
     calAddOpen = false; calEditId = null; calResetDraft();
     render();
   }
@@ -13764,8 +13891,17 @@ window.saveCalEventEdit = async function(siteId){
     render();
   }
 };
-window.deleteCalEvent = async function(siteId, id){
-  if(!await customConfirm('Delete this key date? This can\'t be undone.')) return;
+window.deleteCalEvent = async function(siteId, id, recurrenceGroupId, eventDate){
+  if(recurrenceGroupId){
+    const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences? (Cancel deletes just this one date.)');
+    if(whole){
+      const res = await sbFetch('/rest/v1/site_calendar_events?recurrence_group_id=eq.'+recurrenceGroupId+'&event_date=gte.'+eventDate, {method:'DELETE'});
+      if(res.ok){ toast('Series deleted'); render(); } else { toast('Delete failed — '+(await safeErr(res))); }
+      return;
+    }
+  } else {
+    if(!await customConfirm('Delete this key date? This can\'t be undone.')) return;
+  }
   const ok = await dbDelete('site_calendar_events', id);
   if(ok){ toast('Deleted'); render(); }
 };
@@ -13796,8 +13932,8 @@ async function renderUnifiedCalendar(){
   const today = new Date(); today.setHours(0,0,0,0);
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
-  const startStr = days[0].toISOString().slice(0,10);
-  const endStr = days[days.length-1].toISOString().slice(0,10);
+  const startStr = localISODate(days[0]);
+  const endStr = localISODate(days[days.length-1]);
   const [events, pmOptions] = await Promise.all([
     dbSelect('site_calendar_events', 'event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     loadPMList(),
@@ -13854,14 +13990,15 @@ async function renderUnifiedCalendar(){
     </div>
     <p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>
     ${days.map(d=>{
-      const dStr = d.toISOString().slice(0,10);
+      const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
+      const isWeekend = d.getDay()===0 || d.getDay()===6;
       return `
         <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="flex:0 0 52px;text-align:center;">
-            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':'var(--ink)'};">${d.getDate()}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--ink)'};">${d.getDate()}</div>
           </div>
           <div style="flex:1;min-width:0;">
             ${dayEvents.length ? dayEvents.map(e=>{
