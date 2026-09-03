@@ -1696,7 +1696,7 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2>OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
+            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;">OpHUB${ORG && ORG.name ? ' - '+escapeHtml(ORG.name) : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
@@ -1900,8 +1900,13 @@ window.doSignIn = async function(){
       authBusyLabel = 'Checking this device…'; render();
       const lock = await checkDeviceLock();
       if(!lock.ok){
+        // #333: a brand-new device on an account that already has an
+        // approved device is held for PM/admin approval rather than being
+        // silently let in — see check_and_lock_device.
         authError = lock.error==='device_locked'
           ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your admin to unlock it in Admin Centre if this is wrong.`
+          : lock.error==='pending_approval'
+          ? `This is a new device for your account. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then try signing in again.`
           : 'Could not verify this device — check your connection and try again.';
         await doSignOut();
         return;
@@ -2706,16 +2711,24 @@ async function renderOutstandingTasks(){
   const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
   const rosterBySite = {};
   assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
+  // #327: PMs/admins can't sign COSHH (#237), so an assigned PM/admin must
+  // not sit in the roster COSHH is checked against — otherwise they show up
+  // as permanently unsigned (they structurally can't sign) and the PM
+  // Outstanding tab never clears down / never matches what the COSHH page
+  // itself shows. RAMS keeps the everyone-included roster since PMs can
+  // still sign RAMS.
+  const operativeRosterBySite = {};
+  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
   const tasksBySite = {}; scheduleTasks.forEach(t=>{ tasksBySite[t.site_id] = (tasksBySite[t.site_id]||0)+1; });
   const snagsBySite = {}; openSnags.forEach(s=>{ snagsBySite[s.site_id] = (snagsBySite[s.site_id]||0)+1; });
   const materialsBySite = {}; pendingMaterials.forEach(m=>{ materialsBySite[m.site_id] = (materialsBySite[m.site_id]||0)+1; });
   // RAMS/COSHH are only "complete" once every operative assigned to the
   // site has signed the current document — for managers this counts every
   // still-missing (site, operative, doc) combination, not just per-doc.
-  function unsignedCount(siteId, docs, sigs, fk){
+  function unsignedCount(siteId, docs, sigs, fk, rosterMap){
     const docsHere = docs.filter(d=>d.site_id===siteId);
     if(manager){
-      const roster = rosterBySite[siteId]||[];
+      const roster = (rosterMap||rosterBySite)[siteId]||[];
       const signedByDoc = {};
       sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
       let missing = 0;
@@ -2727,7 +2740,7 @@ async function renderOutstandingTasks(){
   }
   const rows = sites.map(s=>{
     const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
-    const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id');
+    const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
     const tasks = tasksBySite[s.id]||0;
     const snags = snagsBySite[s.id]||0;
     const materialsPending = materialsBySite[s.id]||0;
@@ -2784,26 +2797,92 @@ async function computeOnboardingChecklist(){
   ]);
   const hsSigned = hsPolicyData.doc ? hsPolicyData.sigs.some(s=>s.user_id===ME.id && hsPolicySigStillValid(hsPolicyData.doc, s)) : false;
   const items = [
-    {key:'signature', label:'Create your signature', done: !!ME.signature_path, href:'#/signature'},
-    {key:'hspolicy', label:'Sign the H&S Policy', done: hsSigned, href:`#/site/${firstSiteId}/hs/rams`},
-    {key:'rams', label:'Sign RAMS', done: ramsSigs.length>0, href:`#/site/${firstSiteId}/hs/rams`},
-    {key:'coshh', label:'Sign COSHH', done: coshhSigs.length>0, href:`#/site/${firstSiteId}/hs/coshh`},
-    {key:'tools', label:'Upload your tool photos', done: tools.length>0, href:`#/site/${firstSiteId}/hs/mytools`},
-    {key:'schedule', label:'Open and view the Schedule of Works', done: !!ME.viewed_schedule_at, href:`#/site/${firstSiteId}/schedule`},
+    {key:'signature', label:'Create your signature', desc:'Draw your signature once — it\'s reused everywhere you need to sign (RAMS, COSHH, sign-offs) so you never have to redraw it.', done: !!ME.signature_path, href:'#/signature'},
+    {key:'hspolicy', label:'Sign the H&S Policy', desc:'Our company Health & Safety Policy — a one-off sign-off confirming you\'ve read and understood it.', done: hsSigned, href:`#/site/${firstSiteId}/hs/rams`},
+    {key:'rams', label:'Sign RAMS', desc:'Risk Assessment & Method Statements for your site — read through them and sign to confirm you understand the risks and how to work safely.', done: ramsSigs.length>0, href:`#/site/${firstSiteId}/hs/rams`},
+    {key:'coshh', label:'Sign COSHH', desc:'Control of Substances Hazardous to Health — sign to confirm you understand any hazardous substances used on site.', done: coshhSigs.length>0, href:`#/site/${firstSiteId}/hs/coshh`},
+    {key:'tools', label:'Upload your tool photos', desc:'A quick photo record of your own tools on site, kept against your profile.', done: tools.length>0, href:`#/site/${firstSiteId}/hs/mytools`},
+    {key:'schedule', label:'Open and view the Schedule of Works', desc:'See the full list of tasks for your project, and what\'s still to do.', done: !!ME.viewed_schedule_at, href:`#/site/${firstSiteId}/schedule`},
   ];
   return {items, allDone: items.every(i=>i.done), firstSiteId};
 }
+// #332: two purely-informational "Add to Home Screen" walkthrough steps —
+// there's nothing in the database to tick these against (installing to a
+// home screen isn't something the app can detect), so "done" is just a
+// per-device localStorage flag the operative sets themselves by tapping
+// "Got it", entirely separate from the functional items above which stay
+// driven by real data and still gate the Sites-screen "Getting Started" card.
+function onboardingHomeScreenDone(key){
+  try{ return localStorage.getItem('ophub_onboard_'+key)==='1'; }catch(e){ return false; }
+}
+window.setOnboardingHomeScreenDone = function(key){
+  try{ localStorage.setItem('ophub_onboard_'+key, '1'); }catch(e){}
+  render();
+};
+let onboardingStepIndex = 0;
+window.onboardingGoStep = function(i){ onboardingStepIndex = i; render(); };
 async function renderOnboardingChecklist(){
   const __gen = RENDER_GEN;
   const data = await computeOnboardingChecklist();
+  // Build the full guided walkthrough: a welcome step, then each functional
+  // item (with a plain-English explanation of why it matters and a button
+  // straight to it), then the two home-screen install guides, then a finish
+  // step — one step shown at a time rather than a flat checklist, per #332.
+  const functionalSteps = (data ? data.items : []).map(it=>({
+    key:it.key, title:it.label, done:it.done,
+    body:`<p class="stub" style="margin:0 0 14px;font-size:13.5px;">${escapeHtml(it.desc||'')}</p>`,
+    cta: it.done ? null : {label:'Go do this now', href:it.href},
+  }));
+  const steps = [
+    {key:'welcome', title:'Welcome to OpHUB', done:true, body:`<p class="stub" style="margin:0 0 14px;font-size:13.5px;">Let's get you fully set up — a few quick steps, then two tips on adding OpHUB to your phone's home screen so it opens like a normal app.</p>`},
+    ...functionalSteps,
+    {key:'android-home', title:'Add to Home Screen — Android', done:onboardingHomeScreenDone('android'), body:`
+      <p class="stub" style="margin:0 0 10px;font-size:13.5px;">On an Android phone, using Chrome:</p>
+      <ol style="margin:0 0 14px;padding-left:20px;font-size:13.5px;color:var(--ink);line-height:1.7;">
+        <li>Tap the <b>⋮</b> menu (three dots, top-right of Chrome)</li>
+        <li>Tap <b>Add to Home Screen</b> (or <b>Install app</b>, if you see that instead)</li>
+        <li>Confirm the name, then tap <b>Add</b> / <b>Install</b></li>
+      </ol>
+      <p class="stub" style="margin:0;font-size:13.5px;">OpHUB will appear on your home screen with its own icon — tap it any time instead of opening Chrome.</p>
+    `, cta: onboardingHomeScreenDone('android') ? null : {label:"Got it — I've added it", action:"setOnboardingHomeScreenDone('android')"}},
+    {key:'iphone-home', title:'Add to Home Screen — iPhone', done:onboardingHomeScreenDone('iphone'), body:`
+      <p class="stub" style="margin:0 0 10px;font-size:13.5px;">On an iPhone, using Safari:</p>
+      <ol style="margin:0 0 14px;padding-left:20px;font-size:13.5px;color:var(--ink);line-height:1.7;">
+        <li>Tap the <b>Share</b> button (the square with an arrow pointing up, at the bottom of Safari)</li>
+        <li>Scroll down and tap <b>Add to Home Screen</b></li>
+        <li>Confirm the name, then tap <b>Add</b> (top-right)</li>
+      </ol>
+      <p class="stub" style="margin:0;font-size:13.5px;">OpHUB will appear on your home screen with its own icon — tap it any time instead of opening Safari. This only works from Safari, not other browsers.</p>
+    `, cta: onboardingHomeScreenDone('iphone') ? null : {label:"Got it — I've added it", action:"setOnboardingHomeScreenDone('iphone')"}},
+    {key:'finish', title:"You're all set", done:true, body:`<p class="stub" style="margin:0;font-size:13.5px;">That's everything — head back to your projects whenever you're ready.</p>`},
+  ];
+  if(!data){
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="empty">Nothing to do here right now.</div>`, {title:'Getting Started', back:'#/sites', tabs:false}); }
+    return;
+  }
+  const idx = Math.max(0, Math.min(onboardingStepIndex, steps.length-1));
+  const step = steps[idx];
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">A few quick steps to get fully set up — this disappears from your home screen once everything below is ticked off.</p>
-    ${data ? data.items.map(it=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
-        <div class="swatch" style="background:${it.done?'var(--ok-bg)':'var(--warn-bg)'};color:${it.done?'var(--ok)':'var(--warn)'};">${it.done?'✓':'○'}</div>
-        <div class="info"><div class="name" style="${it.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(it.label)}</div></div>
+    <p class="stub" style="margin:0 0 4px;">Step ${idx+1} of ${steps.length}</p>
+    <div style="display:flex;gap:4px;margin-bottom:16px;">
+      ${steps.map((s,i)=>`<div style="flex:1;height:4px;border-radius:2px;background:${i<=idx?'var(--brand1)':'var(--line)'};cursor:pointer;" onclick="onboardingGoStep(${i})"></div>`).join('')}
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="swatch" style="width:32px;height:32px;flex:0 0 32px;background:${step.done?'var(--ok-bg)':'var(--warn-bg)'};color:${step.done?'var(--ok)':'var(--warn)'};">${step.done?'✓':(idx+1)}</div>
+        <p class="sectiontitle" style="margin:0;">${escapeHtml(step.title)}</p>
       </div>
-    `).join('') : `<div class="empty">Nothing to do here right now.</div>`}
+      ${step.body}
+      ${step.cta ? (step.cta.href
+        ? `<button class="darkbtn" onclick="go('${step.cta.href}')">${escapeHtml(step.cta.label)}</button>`
+        : `<button class="darkbtn" onclick="${step.cta.action}">${escapeHtml(step.cta.label)}</button>`) : ''}
+    </div>
+    <div class="row-gap" style="margin-top:16px;">
+      <button class="ghostbtn" ${idx===0?'disabled':''} onclick="onboardingGoStep(${idx-1})">‹ Back</button>
+      ${idx<steps.length-1
+        ? `<button class="darkbtn" onclick="onboardingGoStep(${idx+1})">Next ›</button>`
+        : `<button class="darkbtn" onclick="go('#/sites')">Finish</button>`}
+    </div>
   `, {title:'Getting Started', back:'#/sites', tabs:false}); }
 }
 
@@ -2865,24 +2944,28 @@ async function renderDashboard(){
 
   const rosterBySite = {};
   assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
-  function outstandingBySite(docs, sigs, fk){
+  // TBT/COSHH outstanding — only operatives count towards the roster (PMs/
+  // admins can't sign either — the PM running a TBT is recorded separately
+  // as "Carried out by", and #237 removed PM's ability to sign COSHH), same
+  // rule the per-site TBT/COSHH pages use. Built before outstandingBySite so
+  // COSHH can use it too (#327 — it used to reuse the everyone-included
+  // rosterBySite, which permanently counted an assigned PM/admin as
+  // outstanding on COSHH since they have no way to actually sign it).
+  const operativeRosterBySite = {};
+  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
+  function outstandingBySite(docs, sigs, fk, roster){
     const signedByDoc = {};
     sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
     const bySite = {};
     docs.forEach(d=>{
-      const roster = rosterBySite[d.site_id]||[];
-      const missing = roster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length;
+      const siteRoster = roster[d.site_id]||[];
+      const missing = siteRoster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length;
       bySite[d.site_id] = (bySite[d.site_id]||0) + missing;
     });
     return bySite;
   }
-  const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id');
-  const coshhOutstandingBySite = outstandingBySite(coshhDocs, coshhSigs, 'coshh_id');
-  // TBT outstanding — only operatives count towards the roster (the PM
-  // running the talk is recorded separately as "Carried out by", not as a
-  // required signer), same rule as the per-site TBT pages.
-  const operativeRosterBySite = {};
-  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
+  const ramsOutstandingBySite = outstandingBySite(ramsDocs, ramsSigs, 'rams_id', rosterBySite);
+  const coshhOutstandingBySite = outstandingBySite(coshhDocs, coshhSigs, 'coshh_id', operativeRosterBySite);
   const tbtSignedByTalk = {};
   tbtSigs.forEach(s=>{ (tbtSignedByTalk[s.tbt_id]=tbtSignedByTalk[s.tbt_id]||new Set()).add(s.user_id); });
   const tbtOutstandingBySite = {};
@@ -3678,8 +3761,21 @@ async function renderTeam(){
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
     ${teamSectionOpen.devicelocks ? `
     <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Each operative's phone locks to their account the first time they sign in, so it can't also be used to sign someone else in for a check-in. Unlock a device here if someone's got a new phone or it was locked by mistake.</p>
-      ${deviceLocks.length ? deviceLocks.map(d=>`
+      <p class="stub" style="margin:0 0 10px;">Each operative's first phone locks to their account automatically. A further new device on an account that's already locked needs approving here first — Unlock removes a lock entirely (e.g. lost phone, locked by mistake).</p>
+      ${deviceLocks.some(d=>d.status==='pending') ? `
+      <p class="field-label" style="margin:0 0 6px;color:var(--warn);">Awaiting approval</p>
+      ${deviceLocks.filter(d=>d.status==='pending').map(d=>`
+        <div class="sitecard" style="padding:8px 10px;border-color:var(--warn);background:var(--warn-bg);">
+          <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Requested ${new Date(d.requested_at||d.locked_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — new device</div></div>
+          <div style="display:flex;gap:6px;">
+            <button class="darkbtn" style="width:auto;padding:6px 10px;" onclick="approvePendingDevice('${d.device_id}')">Approve</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--red);border-color:var(--red);" onclick="unlockDevice('${d.device_id}')">Deny</button>
+          </div>
+        </div>
+      `).join('')}
+      <p class="field-label" style="margin:14px 0 6px;">Approved devices</p>
+      ` : ''}
+      ${deviceLocks.filter(d=>d.status!=='pending').length ? deviceLocks.filter(d=>d.status!=='pending').map(d=>`
         <div class="sitecard" style="padding:8px 10px;">
           <div class="info"><div class="name">${escapeHtml(d.user_name||'Unknown')}</div><div class="addr">Last used ${new Date(d.last_seen_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
           <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="unlockDevice('${d.device_id}')">Unlock</button>
@@ -4413,6 +4509,12 @@ function operativeCertListHtml(certs, canManage, opts){
               </select>
             `:''}
           </div>
+          ${canManage?`
+          <div style="display:flex;align-items:center;gap:6px;margin-top:${opts.compact?'6px':'8px'};">
+            <label class="field-label" style="margin:0;flex:0 0 auto;cursor:pointer;" onclick="openDatePickerRow(document.getElementById('certExpiry_${f.id}'))">Expiry date</label>
+            <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" style="flex:1;padding:${opts.compact?'6px':'8px'};font-size:${opts.compact?'11.5px':'inherit'};" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
+          </div>
+          `:''}
         </div>
       `).join('')}
     `;
@@ -4454,6 +4556,15 @@ window.deleteOperativeCertFile = async function(fileId, storagePath){
 window.changeOperativeCertCategory = async function(fileId, category){
   const row = await dbUpdate('operative_certifications', fileId, {category});
   if(row){ toast('Moved to '+certCategoryLabel(category)); render(); }
+};
+// #325: expiry date is now editable on every certification record, not just
+// at upload time — this lets a PM/admin retroactively set/change/clear the
+// expiry on an existing cert, and the value flows straight into the
+// Training Matrix export since that reads expiry_date off the same row.
+window.setOperativeCertExpiry = async function(fileId, value){
+  const expiry = value ? value : null;
+  const row = await dbUpdate('operative_certifications', fileId, {expiry_date: expiry});
+  if(row){ toast(expiry ? 'Expiry date set' : 'Expiry date cleared'); render(); }
 };
 // Shared selection bar (#276) — appears above any certificate listing that
 // opts into selection, showing Export (bundles the ticked certs into one
@@ -4979,6 +5090,15 @@ window.unlockDevice = async function(deviceId){
   const res = await sbFetch('/rest/v1/device_locks?device_id=eq.'+encodeURIComponent(deviceId), {method:'DELETE'});
   if(res.ok){ toast('Device unlocked'); render(); }
   else{ toast('Could not unlock — '+(await safeErr(res))); }
+};
+// #333: approve a new device pending against an account that already has an
+// approved device — separate from Unlock so approving is its own explicit,
+// auditable action rather than reusing the wipe-the-row delete flow.
+window.approvePendingDevice = async function(deviceId){
+  const res = await sbFetch('/rest/v1/rpc/approve_pending_device', {method:'POST', body: JSON.stringify({p_device_id: deviceId})});
+  const d = await res.json().catch(()=>({}));
+  if(res.ok && d.ok){ toast('Device approved'); render(); }
+  else{ toast('Could not approve — '+(d.error||res.status)); }
 };
 
 /* ================= SITE HOME ================= */
@@ -6088,14 +6208,20 @@ window.saveRevisedAdditionalWorks = async function(siteId, id){
   if(!amount || isNaN(amount) || amount<=0){ toast('Enter an amount'); return; }
   if(!note){ toast('Explain the variation'); return; }
   const wasRejected = awRevisingOriginalStatus==='rejected';
+  const wasApproved = awRevisingOriginalStatus==='approved';
+  // #321: a PM/admin can still edit an already-approved variation's amount/note
+  // in place — it stays approved (no re-approval step needed) rather than
+  // being locked out entirely once approved, as it was before.
   const patch = wasRejected
     ? {amount, note, status:'pending', approved_by:null, approved_at:null, rejection_reason:null}
+    : wasApproved
+    ? {amount, note}
     : {amount, note, status:'approved', approved_by:ME.id, approved_at:new Date().toISOString(), rejection_reason:null};
   const row = await dbUpdate('additional_works_requests', id, patch);
   if(!row) return;
   awRevisingId = null; awRevisingOriginalStatus = null;
-  toast(wasRejected ? 'Revised — resubmitted for approval' : 'Revised and approved');
-  notifyVariationDecision(siteId, row.requested_by, wasRejected ? 'reopened' : 'revised_approved');
+  toast(wasRejected ? 'Revised — resubmitted for approval' : wasApproved ? 'Variation updated' : 'Revised and approved');
+  if(!wasApproved) notifyVariationDecision(siteId, row.requested_by, wasRejected ? 'reopened' : 'revised_approved');
   render();
 };
 // #308: small "+" photo-upload button on the variation-to-price row —
@@ -6159,17 +6285,23 @@ let priceOpBreakdownOpen = {}; // per-week expand state, keyed `${siteId}_${week
 // extra_operative row is keyed by operative_id just like an assigned row
 // (so it can reuse savePriceWeekOperativeEntry for edit/clear), while a
 // cost row has no operative and is addressed by its own id instead.
-let priceAddCostOpen = {}; // per-week "+ Add cost" inline-form open state, keyed `${siteId}_${week}`
-let priceAddOperativeOpen = {}; // per-week "+ Add operative" inline-form open state
+// #323: the old separate "+ Add operative" / "+ Add cost" buttons are merged
+// into one "+ Add" control — priceAddOpen toggles the inline picker, and
+// priceAddType ('operative'|'manual'|'cost') selects which fields it shows.
+// 'operative' picks an existing org operative; 'manual' is a free-text name
+// for someone not in the system (kind:'extra_operative', operative_id:null,
+// label set — the same row shape a cost line already uses).
+let priceAddOpen = {}; // per-week "+ Add" inline-picker open state, keyed `${siteId}_${week}`
+let priceAddType = {}; // per-week selected add-type once opened: 'operative' | 'manual' | 'cost'
 function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOperatives, entriesForWeek, extraOpEntries, costEntries, fmt){
   const key = siteId+'_'+wk;
   const open = priceOpBreakdownOpen[key] !== undefined ? priceOpBreakdownOpen[key] : (Object.keys(entriesForWeek).length>0 || extraOpEntries.length>0 || costEntries.length>0);
   const sum = Object.values(entriesForWeek).reduce((s,v)=>s+Number(v||0), 0)
     + extraOpEntries.reduce((s,e)=>s+Number(e.amount||0), 0)
     + costEntries.reduce((s,e)=>s+Number(e.amount||0), 0);
-  const addingCost = !!priceAddCostOpen[key];
-  const addingOp = !!priceAddOperativeOpen[key];
-  const addedExtraIds = new Set(extraOpEntries.map(e=>e.operative_id));
+  const adding = !!priceAddOpen[key];
+  const addType = priceAddType[key] || 'operative';
+  const addedExtraIds = new Set(extraOpEntries.filter(e=>e.operative_id).map(e=>e.operative_id));
   const pickable = orgOperatives.filter(o=>!addedExtraIds.has(o.id));
   return `
     <div style="margin:-6px 0 12px;">
@@ -6178,38 +6310,51 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
       </p>
       ${open ? `
       <div style="padding:2px 0 4px 10px;border-left:2px solid var(--line);">
+        ${/* #322: single-line rows at the app's standard compact-row padding
+             (8px 10px, as used by Materials PO / To Do rows) instead of the
+             taller stacked label-over-input formfield layout previously used
+             here, so build-up rows sit at the same height as the rest of the app. */''}
         ${assignedOperatives.map(o=>`
-          <div class="formfield" style="margin:0 0 8px;">
-            <label class="field-label" style="font-weight:600;">${escapeHtml(o.name)}</label>
-            <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${entriesForWeek[o.id]!=null?entriesForWeek[o.id]:''}" placeholder="0.00" onblur="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
+            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(o.name)}</label>
+            <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${entriesForWeek[o.id]!=null?entriesForWeek[o.id]:''}" placeholder="0.00" onblur="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
           </div>
         `).join('')}
         ${extraOpEntries.map(e=>{
-          const p = PROFILES[e.operative_id];
+          // Manual (not-in-system) entries have no operative_id — name comes
+          // from `label` instead, and edits go by row id (like a cost line)
+          // since there's no operative_id to key an upsert off of.
+          const isManualName = !e.operative_id;
+          const p = isManualName ? null : PROFILES[e.operative_id];
+          const name = isManualName ? (e.label||'Unnamed') : (p?p.name:'Unknown');
+          const onBlurHandler = isManualName
+            ? `savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)`
+            : `savePriceWeekOperativeEntry('${siteId}',${wk},'${e.operative_id}',this.value,'extra_operative')`;
           return `
-          <div class="formfield" style="margin:0 0 8px;">
-            <label class="field-label" style="font-weight:600;">${escapeHtml(p?p.name:'Unknown')} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(extra)</span></label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <div class="currency-input-wrap" style="flex:1;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="savePriceWeekOperativeEntry('${siteId}',${wk},'${e.operative_id}',this.value,'extra_operative')" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
-            </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
+            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(name)} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(extra${isManualName?', not on app':''})</span></label>
+            <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="${onBlurHandler}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+            <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
           </div>
         `;}).join('')}
         ${costEntries.map(e=>`
-          <div class="formfield" style="margin:0 0 8px;">
-            <label class="field-label" style="font-weight:600;">${escapeHtml(e.label)} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(cost)</span></label>
-            <div style="display:flex;gap:6px;align-items:center;">
-              <div class="currency-input-wrap" style="flex:1;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
-            </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
+            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(e.label)} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(cost)</span></label>
+            <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+            <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
           </div>
         `).join('')}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 8px;">
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddOperativeOpen['${key}']=!priceAddOperativeOpen['${key}'];priceAddCostOpen['${key}']=false;render()">+ Add operative</button>
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddCostOpen['${key}']=!priceAddCostOpen['${key}'];priceAddOperativeOpen['${key}']=false;render()">+ Add cost</button>
+        <div style="margin:4px 0 8px;">
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddOpen['${key}']=!priceAddOpen['${key}'];render()">${adding?'× Cancel':'+ Add'}</button>
         </div>
-        ${addingOp ? `
+        ${adding ? `
         <div class="formfield" style="margin:0 0 10px;background:color-mix(in srgb, var(--brand1) 5%, transparent);padding:8px;border-radius:8px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+            <button class="${addType==='operative'?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddType['${key}']='operative';render()">Operative</button>
+            <button class="${addType==='manual'?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddType['${key}']='manual';render()">Name (not on app)</button>
+            <button class="${addType==='cost'?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11px;" onclick="priceAddType['${key}']='cost';render()">Cost</button>
+          </div>
+          ${addType==='operative' ? `
           <label class="field-label">Operative</label>
           <select id="pwExtraOpSelect_${key}" style="width:100%;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">
             ${pickable.length ? pickable.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('') : `<option value="">No other operatives available</option>`}
@@ -6218,20 +6363,27 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwExtraOpValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekExtraOperative('${siteId}',${wk})">Add</button>
-            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOperativeOpen['${key}']=false;render()">Cancel</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
           </div>
-        </div>
-        ` : ''}
-        ${addingCost ? `
-        <div class="formfield" style="margin:0 0 10px;background:color-mix(in srgb, var(--brand1) 5%, transparent);padding:8px;border-radius:8px;">
+          ` : addType==='manual' ? `
+          <label class="field-label">Name</label>
+          <input type="text" id="pwManualOpName_${key}" placeholder="e.g. J. Smith (subcontractor)" style="width:100%;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">
+          <label class="field-label" style="margin-top:8px;">Value</label>
+          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwManualOpValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekManualOperative('${siteId}',${wk})">Add</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
+          </div>
+          ` : `
           <label class="field-label">Description</label>
           <input type="text" id="pwCostLabel_${key}" placeholder="e.g. Plant hire" style="width:100%;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">
           <label class="field-label" style="margin-top:8px;">Value</label>
           <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwCostValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div style="display:flex;gap:6px;margin-top:8px;">
             <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekCostLine('${siteId}',${wk})">Add</button>
-            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddCostOpen['${key}']=false;render()">Cancel</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
           </div>
+          `}
         </div>
         ` : ''}
       </div>
@@ -6276,7 +6428,29 @@ window.addPriceWeekExtraOperative = async function(siteId, week){
     body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
-  priceAddOperativeOpen[key] = false;
+  priceAddOpen[key] = false;
+  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  render();
+};
+// #323: a manual/free-text "extra operative" for someone not in the system —
+// same kind ('extra_operative') and row shape as a picked org operative, but
+// operative_id is null and `label` carries the typed name instead.
+window.addPriceWeekManualOperative = async function(siteId, week){
+  const key = siteId+'_'+week;
+  const nameEl = document.getElementById('pwManualOpName_'+key);
+  const valEl = document.getElementById('pwManualOpValue_'+key);
+  const name = String(nameEl && nameEl.value || '').trim();
+  if(!name){ toast('Enter a name'); return; }
+  const v = String(valEl && valEl.value || '').trim();
+  const amount = v==='' ? 0 : Number(v);
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); return; }
+  const res = await sbFetch('/rest/v1/price_week_operative_entries', {
+    method:'POST',
+    headers:{'Prefer':'return=representation'},
+    body: JSON.stringify({site_id:siteId, week_number:week, operative_id:null, kind:'extra_operative', label:name, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
+  });
+  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  priceAddOpen[key] = false;
   await rollUpPriceWeekFromOperativeEntries(siteId, week);
   render();
 };
@@ -6297,7 +6471,7 @@ window.addPriceWeekCostLine = async function(siteId, week){
     body: JSON.stringify({site_id:siteId, week_number:week, operative_id:null, kind:'cost', label, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
-  priceAddCostOpen[key] = false;
+  priceAddOpen[key] = false;
   await rollUpPriceWeekFromOperativeEntries(siteId, week);
   render();
 };
@@ -6341,11 +6515,24 @@ async function rollUpPriceWeekFromOperativeEntries(siteId, week){
     await sbFetch('/rest/v1/price_weeks?site_id=eq.'+siteId+'&week_number=eq.'+week, {method:'DELETE'});
   }
 }
+// #324: explicit recalculate button on an "auto" week cell — forces a fresh
+// rollup from the current build-up rows, overwriting any manual value that
+// was typed directly into the total cell.
+window.recalcPriceWeek = async function(siteId, weekNumber){
+  await rollUpPriceWeekFromOperativeEntries(siteId, weekNumber);
+  toast('Recalculated from build-up');
+  render();
+};
 window.savePriceWeek = async function(siteId, weekNumber, rawValue){
   const v = String(rawValue||'').trim();
   if(v===''){
-    const res = await sbFetch('/rest/v1/price_weeks?site_id=eq.'+siteId+'&week_number=eq.'+weekNumber, {method:'DELETE'});
-    if(!res.ok){ toast('Could not clear — '+(await safeErr(res))); }
+    // #324 fix: clearing a manually-typed value here used to just delete the
+    // price_weeks row outright, leaving the cell permanently blank even when
+    // build-up rows still existed underneath it. Re-run the rollup instead —
+    // it recalculates the auto total from any remaining build-up entries, or
+    // deletes the row itself when there are none, restoring the "auto"
+    // formula behaviour rather than leaving a dead manual value behind.
+    await rollUpPriceWeekFromOperativeEntries(siteId, weekNumber);
     render();
     return;
   }
@@ -6483,7 +6670,10 @@ async function renderPriceTile(siteId){
         <div class="formfield">
           <label class="field-label">Week ${wk}${hasPriceAccess ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto, from build-up below)</span>' : ''}</label>
           ${canManage
-            ? `<input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" onblur="savePriceWeek('${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`
+            ? `<div style="display:flex;gap:6px;align-items:center;">
+                <input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" style="flex:1;" onblur="savePriceWeek('${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+                ${hasPriceAccess ? `<button type="button" class="ghostbtn" style="width:auto;padding:9px 10px;font-size:13px;flex:0 0 auto;" title="Recalculate from build-up rows" onclick="recalcPriceWeek('${siteId}',${wk})">↻</button>` : ''}
+              </div>`
             : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
         </div>
         ${hasPriceAccess ? priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
@@ -6527,7 +6717,7 @@ async function renderPriceTile(siteId){
               <textarea id="awReviseNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">${escapeHtml(r.note)}</textarea>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveRevisedAdditionalWorks('${siteId}','${r.id}')">${awRevisingOriginalStatus==='rejected'?'Save &amp; Resubmit':'Save &amp; Approve'}</button>
+              <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveRevisedAdditionalWorks('${siteId}','${r.id}')">${awRevisingOriginalStatus==='rejected'?'Save &amp; Resubmit':awRevisingOriginalStatus==='approved'?'Save':'Save &amp; Approve'}</button>
               <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelReviseAdditionalWorks()">Cancel</button>
             </div>
           </div>
@@ -6555,6 +6745,7 @@ async function renderPriceTile(siteId){
             ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startRejectAdditionalWorks('${r.id}')">Decline</button>` : ''}
             ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','pending')">Revise and Approve</button>` : ''}
             ${(canManage && r.status==='rejected') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','rejected')">Revisit</button>` : ''}
+            ${(canManage && r.status==='approved') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','approved')">Edit</button>` : ''}
             ${(!r.photo_path && (canManage || r.requested_by===ME.id)) ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;flex:0 0 auto;" title="Add photo" onclick="document.getElementById('awPhotoInput_${r.id}').click()">+</div><input type="file" id="awPhotoInput_${r.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadAwPhoto(this,'${siteId}','${r.id}')">` : ''}
             ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
           </div>
@@ -8450,9 +8641,9 @@ async function renderSchedule(siteId){
       const open = scheduleSectionsOpen[sec.id] !== false;
       return `
       <div class="card" style="padding:0;overflow:hidden;">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('${sec.id}')">
-          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}
-          ${canAdd ? `<span style="margin-left:auto;" onclick="event.stopPropagation()">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}</span>
+          ${canAdd ? `<span style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSection('${siteId}','${sec.id}')">✎ Rename</div>
@@ -8487,9 +8678,9 @@ async function renderSchedule(siteId){
       </div>
       ` : ''}
     ${allTasks.length ? `
-    <div class="row-gap" style="margin-bottom:14px;">
-      <button class="ghostbtn exportbtn sowexportbtn" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
-      <button class="ghostbtn" onclick="openScheduleEmailPrompt('${siteId}')">✉ Email Report</button>
+    <div class="row-gap" style="margin-bottom:14px;flex-wrap:nowrap;">
+      <button class="ghostbtn exportbtn sowexportbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
+      <button class="ghostbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="openScheduleEmailPrompt('${siteId}')">✉ Email Report</button>
     </div>
     ` : ''}
   `, {title:'Schedule of Works', subtitle:site.name, siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
@@ -9951,10 +10142,17 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
 }
 async function fetchCoshhData(siteId){
   const site = SITES.find(s=>s.id===siteId);
+  // #327: PMs/admins can no longer sign COSHH (#237), so the roster used to
+  // compute "who's still outstanding" must be operative-only — otherwise a
+  // PM/admin who's assigned to the site shows up permanently unsigned since
+  // they structurally have no way to sign, inflating the outstanding count
+  // forever and never letting it reach zero.
   const [docs, assigned] = await Promise.all([
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
   ]);
+  await loadAllProfiles();
+  const rosterUserIds = assigned.map(a=>a.user_id).filter(uid => PROFILES[uid] && PROFILES[uid].role==='operative');
   let sigsByDoc = {};
   if(docs.length){
     const ids = docs.map(d=>d.id).join(',');
@@ -9962,7 +10160,7 @@ async function fetchCoshhData(siteId){
     sigs = filterCurrentCycleSigs(sigs, docs, 'coshh_id', site);
     sigs.forEach(s=>{ (sigsByDoc[s.coshh_id]=sigsByDoc[s.coshh_id]||[]).push(s); });
   }
-  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
+  return {docs, sigsByDoc, assignedIds: rosterUserIds};
 }
 let coshhUploadOpen = false;
 async function renderCoshh(siteId){
@@ -14870,8 +15068,8 @@ async function renderSiteCalendar(siteId){
       return `
         <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="flex:0 0 52px;text-align:center;">
-            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--ink)'};">${d.getDate()}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:18px;font-weight:800;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${d.getDate()}</span></div>
           </div>
           <div style="flex:1;min-width:0;">
             ${dayEvents.length ? dayEvents.map(e=>`
@@ -15056,8 +15254,8 @@ async function renderUnifiedCalendar(){
       return `
         <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="flex:0 0 52px;text-align:center;">
-            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-            <div style="font-size:18px;font-weight:800;color:${isToday?'var(--brand1)':isWeekend?'var(--red)':'var(--ink)'};">${d.getDate()}</div>
+            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+            <div style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:18px;font-weight:800;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${d.getDate()}</span></div>
           </div>
           <div style="flex:1;min-width:0;">
             ${dayEvents.length ? dayEvents.map(e=>{
