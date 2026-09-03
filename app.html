@@ -1758,26 +1758,19 @@ function tabbar(siteId, active){
 // Aggregate count, for the current user, of RAMS/COSHH/TBT items awaiting
 // their signature across every live/upcoming site they're on — feeds the
 // notification-style badge on the Outstanding tile in the home bar.
+// #(outstanding-badge-fix): the home-bar "Outstanding" badge used to run its
+// own separate, simpler query instead of reusing computeOutstandingRows()
+// below — which meant it never got the #327 fix that stops COSHH being
+// counted against a PM/admin personally (PMs/admins can't sign COSHH at all
+// since #237, so the old per-user signature check could never clear and the
+// badge sat stuck non-zero forever for every PM/admin). It also didn't
+// surface Schedule/Snags/Materials items a manager's Outstanding page does.
+// Now it just calls the exact same data function the Outstanding page uses,
+// for "me" specifically, so the badge count and the page contents can never
+// drift apart again.
 async function computeMyOutstandingCount(){
-  const siteIds = SITES.filter(s=>siteStatusKey(s)!=='closed').map(s=>s.id);
-  if(!siteIds.length) return 0;
-  const idsCsv = siteIds.join(',');
-  const [ramsDocs, coshhDocs, liveTbts] = await Promise.all([
-    dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id'),
-    dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id'),
-    isManager(ME) ? Promise.resolve([]) : dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+idsCsv+')&select=id'),
-  ]);
-  const ramsIds = ramsDocs.map(d=>d.id).join(','), coshhIds = coshhDocs.map(d=>d.id).join(','), tbtIds = liveTbts.map(t=>t.id).join(',');
-  const [mySigsR, mySigsC, mySigsT] = await Promise.all([
-    ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&user_id=eq.'+ME.id+'&select=rams_id') : [],
-    coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&user_id=eq.'+ME.id+'&select=coshh_id') : [],
-    tbtIds ? dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+tbtIds+')&user_id=eq.'+ME.id+'&select=tbt_id') : [],
-  ]);
-  const signedR = new Set(mySigsR.map(s=>s.rams_id)), signedC = new Set(mySigsC.map(s=>s.coshh_id)), signedT = new Set(mySigsT.map(s=>s.tbt_id));
-  const outR = ramsDocs.filter(d=>!signedR.has(d.id)).length;
-  const outC = coshhDocs.filter(d=>!signedC.has(d.id)).length;
-  const outT = liveTbts.filter(t=>!signedT.has(t.id)).length;
-  return outR + outC + outT;
+  const {rows} = await computeOutstandingRows(ME.id);
+  return rows.reduce((sum,r)=>sum+r.items.length, 0);
 }
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
@@ -2662,13 +2655,17 @@ window.deleteSite = async function(siteId, name){
 // across every live site; operatives see only their own, on sites they're
 // assigned to.
 let outstandingPmId = null; // company admin only — null = "my own", else a specific PM's id
-async function renderOutstandingTasks(){
-  const __gen = RENDER_GEN;
-  await loadAllProfiles();
+// Shared by renderOutstandingTasks (the actual page) and
+// computeMyOutstandingCount (the home-bar badge) so the two can never drift
+// out of sync again — see the note on computeMyOutstandingCount above.
+// `viewingPmId` is who the rows are FOR: for a manager it's whichever PM's
+// sites to show (an admin can view any PM's; a plain PM only ever sees
+// their own — `forId` below is ignored for them); for an operative it's
+// unused, they only ever see their own assigned sites.
+async function computeOutstandingRows(forId){
   const manager = isManager(ME);
   const isAdmin = ME.role==='admin';
-  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
-  const viewingPmId = isAdmin ? (outstandingPmId || ME.id) : ME.id;
+  const viewingPmId = isAdmin ? (forId || ME.id) : ME.id;
   let sites;
   if(isAdmin || manager){
     // A PM's outstanding items shouldn't only be the sites they're marked
@@ -2687,16 +2684,24 @@ async function renderOutstandingTasks(){
   }
   const siteIds = sites.map(s=>s.id);
   const idsCsv = siteIds.join(',');
-  const [ramsDocs, coshhDocs] = await Promise.all([
+  const [ramsDocs, coshhDocs, liveTbts] = await Promise.all([
     idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
     idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+    // Live TBTs count as outstanding for OPERATIVES personally (they need to
+    // sign) — this used to only live in the old computeMyOutstandingCount
+    // and never showed on the Outstanding page itself, so an operative's
+    // badge could show a number with nothing to click through to. Folding it
+    // in here fixes that mismatch.
+    (!manager && idsCsv) ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
   ]);
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
+  const tbtIds = liveTbts.map(t=>t.id).join(',');
   const sigFilter = manager ? '' : ('&user_id=eq.'+ME.id);
-  const [ramsSigsRaw, coshhSigsRaw, assignments, scheduleTasks, openSnags, pendingMaterials] = await Promise.all([
+  const [ramsSigsRaw, coshhSigsRaw, tbtSigsRaw, assignments, scheduleTasks, openSnags, pendingMaterials] = await Promise.all([
     ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')'+sigFilter+'&select=rams_id,user_id,signed_at') : Promise.resolve([]),
     coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')'+sigFilter+'&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+    tbtIds ? dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+tbtIds+')'+sigFilter+'&select=tbt_id,user_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&status=neq.done&select=site_id') : Promise.resolve([]),
     manager && idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
@@ -2741,17 +2746,31 @@ async function renderOutstandingTasks(){
   const rows = sites.map(s=>{
     const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
     const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
+    // TBT is a personal "you need to sign this" item, not a manager
+    // roster-completion metric (managers already get a live-TBT nudge via
+    // the site's TBT tile/notify-outstanding, so it's kept out of their
+    // Outstanding list to avoid double-counting the same thing two ways).
+    const tbt = manager ? 0 : unsignedCount(s.id, liveTbts, tbtSigsRaw, 'tbt_id');
     const tasks = tasksBySite[s.id]||0;
     const snags = snagsBySite[s.id]||0;
     const materialsPending = materialsBySite[s.id]||0;
     const items = [];
     if(rams) items.push({lbl:`RAMS to sign (${rams})`, href:`#/site/${s.id}/hs/rams`});
     if(coshh) items.push({lbl:`COSHH to sign (${coshh})`, href:`#/site/${s.id}/hs/coshh`});
+    if(tbt) items.push({lbl:`Toolbox Talk to sign (${tbt})`, href:`#/site/${s.id}/hs/tbt`});
     if(manager && materialsPending) items.push({lbl:`Material requests pending (${materialsPending})`, href:`#/site/${s.id}/materials`});
     if(manager && tasks) items.push({lbl:`Schedule tasks open (${tasks})`, href:`#/site/${s.id}/schedule`});
     if(manager && snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
     return {site:s, items};
   }).filter(r=>r.items.length);
+  return {rows, manager, isAdmin};
+}
+async function renderOutstandingTasks(){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const isAdmin = ME.role==='admin';
+  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const {rows, manager} = await computeOutstandingRows(outstandingPmId || ME.id);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${manager ? 'Outstanding items across your live projects — tap one to go straight to it.' : 'Outstanding items on your sites — tap one to go straight to it.'}</p>
     ${isAdmin && pmOptions.length ? `
