@@ -872,6 +872,22 @@ function fetchWithTimeout(url, opts, ms){
   const merged = Object.assign({}, opts, {signal: controller.signal});
   return fetch(url, merged).finally(()=>clearTimeout(timeout));
 }
+// On a poor/limited signal, a request can drop or time out for reasons that
+// have nothing to do with the request itself (a brief dead spot on site,
+// signal handover). Retrying once, only for GET (safe to repeat) and only
+// after a genuine network-level failure (not a proper HTTP error response,
+// which is retried zero times since the server already answered), turns a
+// lot of those into a short delay instead of a hard failure.
+async function fetchWithRetry(url, opts, ms){
+  const method = (opts && opts.method) || 'GET';
+  try{
+    return await fetchWithTimeout(url, opts, ms);
+  }catch(e){
+    if(method !== 'GET') throw e;
+    await new Promise(r=>setTimeout(r, 900));
+    return fetchWithTimeout(url, opts, ms);
+  }
+}
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
@@ -898,29 +914,49 @@ async function sbFetch(path, opts){
     'Authorization': 'Bearer ' + (SESSION ? SESSION.access_token : SUPABASE_ANON_KEY),
     'Content-Type': 'application/json'
   }, opts.headers||{});
-  return fetchWithTimeout(SUPABASE_URL + path, Object.assign({}, opts, {headers}), 20000);
+  return fetchWithRetry(SUPABASE_URL + path, Object.assign({}, opts, {headers}), 20000);
 }
 async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
 
+let lastNetworkToastAt = 0;
+function toastNetworkIssue(){
+  // Throttled so one screen that fires several dbSelect calls in a row
+  // during a dead spot doesn't stack multiple identical toasts.
+  if(Date.now() - lastNetworkToastAt < 8000) return;
+  lastNetworkToastAt = Date.now();
+  toast('Connection is weak — some data may not have loaded. Pull to refresh once signal improves.');
+}
 async function dbSelect(table, qs){
-  const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+  let res;
+  try{
+    res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+  }catch(e){ toastNetworkIssue(); return []; }
   if(!res.ok){ console.error(await safeErr(res)); return []; }
   return res.json();
 }
 async function dbInsert(table, rowOrRows){
-  const res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(rowOrRows)});
+  let res;
+  try{
+    res = await sbFetch('/rest/v1/'+table, {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(rowOrRows)});
+  }catch(e){ toast('Save failed — connection dropped. Check your signal and try again.'); return null; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return null; }
   const d = await res.json();
   return d;
 }
 async function dbUpdate(table, id, patch){
-  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(patch)});
+  let res;
+  try{
+    res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'PATCH', headers:{'Prefer':'return=representation'}, body:JSON.stringify(patch)});
+  }catch(e){ toast('Update failed — connection dropped. Check your signal and try again.'); return null; }
   if(!res.ok){ toast('Update failed — '+(await safeErr(res))); return null; }
   const d = await res.json();
   return Array.isArray(d)?d[0]:d;
 }
 async function dbDelete(table, id){
-  const res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE'});
+  let res;
+  try{
+    res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE'});
+  }catch(e){ toast('Delete failed — connection dropped. Check your signal and try again.'); return false; }
   if(!res.ok){ toast('Delete failed — '+(await safeErr(res))); return false; }
   return true;
 }
@@ -2275,7 +2311,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -2378,6 +2414,7 @@ let newSiteAddrDraft = '';
 let newSitePostcodeDraft = '';
 let newSiteJobNumberDraft = '';
 let newSiteStartDateDraft = '';
+let newSiteMultiSiteDraft = false;
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
 // upcoming:null means "no explicit user choice yet" — renderSites resolves
@@ -2499,6 +2536,7 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>
         <p class="field-label" style="margin-bottom:6px;">Status</p>
         <div class="row-gap" style="margin-bottom:14px;">
           <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
@@ -2552,7 +2590,7 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
@@ -2570,10 +2608,10 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = '';
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false;
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -5978,20 +6016,149 @@ window.saveManualGeo = async function(siteId){
   await saveGeofenceCoords(siteId, lat, lon);
 };
 
+/* ================= MULTI-SITE SUB-ADDRESSES: geofence pattern re-parameterized to
+   target a site_sub_addresses row instead of a sites row. Mirrors
+   openGeoOptions/geoOptionManual/geoOptionClick/saveManualGeo/setGeofence/
+   setGeofenceRadius above exactly — reuses parseCoordToken/splitCoordPair/
+   updateGeoMapLink as-is since they're generic. ================= */
+async function saveSubGeofenceCoords(subId, lat, lon){
+  const row = await dbUpdate('site_sub_addresses', subId, {geofence_lat:lat, geofence_lon:lon});
+  if(row){ toast('Address location saved'); render(); }
+}
+window.setSubGeofence = async function(subId){
+  if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
+  toast('Getting GPS lock…');
+  const g = await getGeo();
+  if(g.error){ toast(g.error); return; }
+  const row = await dbUpdate('site_sub_addresses', subId, {geofence_lat:g.lat, geofence_lon:g.lon});
+  if(row){ toast('Address location saved'); render(); }
+};
+window.setSubGeofenceRadius = async function(subId, radius){
+  const row = await dbUpdate('site_sub_addresses', subId, {geofence_radius_m: radius});
+  if(row){ toast('Check-in distance set to '+radius+'m'); render(); }
+};
+window.openSubGeoOptions = function(subId){
+  if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
+  let ov = document.getElementById('geoModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'geoModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) closeGeoModal(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Set address location</h3>
+      <p class="stub">Choose how to set the GPS point operatives must check in near for this address.</p>
+      <button class="geo-modal-btn" onclick="geoOptionManualSub('${subId}')">Input GPS Co-Ordinates<span class="sub2">Type in latitude &amp; longitude</span></button>
+      <button class="geo-modal-btn" onclick="geoOptionClickSub('${subId}')">Click for GPS Co-Ordinates<span class="sub2">Use this device's current location</span></button>
+      <button class="geo-modal-cancel" onclick="closeGeoModal()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.geoOptionClickSub = async function(subId){
+  closeGeoModal();
+  await window.setSubGeofence(subId);
+};
+window.geoOptionManualSub = function(subId){
+  const ov = document.getElementById('geoModalOverlay');
+  if(!ov) return;
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Input GPS Co-Ordinates</h3>
+      <p class="stub">Paste or type this address's latitude and longitude — plain decimal (51.51828) or Google's degrees/minutes/seconds format (51°31'05.8"N) both work. You can also paste a full pair straight from Google into the Latitude box and it'll split itself.</p>
+      <div class="formfield"><label class="field-label">Latitude</label><input type="text" id="geoManualLat" placeholder="e.g. 51.51828 or 51°31'05.8&quot;N" oninput="updateGeoMapLink()"></div>
+      <div class="formfield"><label class="field-label">Longitude</label><input type="text" id="geoManualLon" placeholder="e.g. -0.15139 or 0°09'05.0&quot;W" oninput="updateGeoMapLink()"></div>
+      <p id="geoManualPreview" class="stub" style="display:none;font-family:ui-monospace,Menlo,monospace;margin:-6px 0 6px;"></p>
+      <a id="geoManualMapLink" class="stub" style="display:none;margin:0 0 12px;color:var(--blue);" href="#" target="_blank" rel="noopener">Find this spot on the map ↗</a>
+      <button class="darkbtn" style="width:100%;" onclick="saveManualGeoSub('${subId}')">Save Location</button>
+      <button class="geo-modal-cancel" onclick="openSubGeoOptions('${subId}')">‹ Back</button>
+    </div>`;
+};
+window.saveManualGeoSub = async function(subId){
+  const lat = parseCoordToken(document.getElementById('geoManualLat').value);
+  const lon = parseCoordToken(document.getElementById('geoManualLon').value);
+  if(!isFinite(lat) || !isFinite(lon) || lat<-90 || lat>90 || lon<-180 || lon>180){
+    toast('Could not read that as a co-ordinate — use decimal (51.51828) or degrees/minutes/seconds (51°31\'05.8"N).');
+    return;
+  }
+  closeGeoModal();
+  await saveSubGeofenceCoords(subId, lat, lon);
+};
+
+/* ================= MULTI-SITE: addresses CRUD (Settings & Admin "Multi-Site" section) ================= */
+let assignTeamSubAddresses = []; // cache of the current site's sub-addresses, refreshed each renderAssignTeam()
+let subAddrFormOpen = false;
+let subAddrEditingId = null;
+let subAddrNameDraft = '';
+let subAddrAddressDraft = '';
+let subAddrPostcodeDraft = '';
+window.toggleMultiSite = async function(siteId, checked){
+  const row = await dbUpdate('sites', siteId, {multi_site: checked});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(checked ? 'Multi-site enabled — add its addresses below' : 'Multi-site disabled');
+    render();
+  }
+};
+window.toggleSubAddrForm = function(editId){
+  if(editId){
+    const addr = (assignTeamSubAddresses||[]).find(a=>a.id===editId);
+    subAddrEditingId = editId;
+    subAddrNameDraft = addr ? (addr.name||'') : '';
+    subAddrAddressDraft = addr ? (addr.address||'') : '';
+    subAddrPostcodeDraft = addr ? (addr.postcode||'') : '';
+    subAddrFormOpen = true;
+  } else {
+    subAddrFormOpen = !subAddrFormOpen;
+    subAddrEditingId = null;
+    subAddrNameDraft = ''; subAddrAddressDraft = ''; subAddrPostcodeDraft = '';
+  }
+  render();
+};
+window.saveSubAddress = async function(siteId){
+  const name = document.getElementById('subAddrName').value.trim();
+  const address = document.getElementById('subAddrAddress').value.trim();
+  const postcode = document.getElementById('subAddrPostcode').value.trim();
+  if(!name){ toast('Enter a name for this address.'); return; }
+  if(subAddrEditingId){
+    const row = await dbUpdate('site_sub_addresses', subAddrEditingId, {name, address: address||null, postcode: postcode||null});
+    if(!row) return;
+    toast('Address updated');
+  } else {
+    const rows = await dbInsert('site_sub_addresses', {site_id:siteId, org_id:ME.org_id, name, address: address||null, postcode: postcode||null, created_by:ME.id});
+    if(!rows) return;
+    toast('Address added');
+  }
+  subAddrFormOpen = false; subAddrEditingId = null; subAddrNameDraft=''; subAddrAddressDraft=''; subAddrPostcodeDraft='';
+  render();
+};
+window.deleteSubAddress = async function(subId){
+  if(!await customConfirm('Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can\'t be undone.')) return;
+  const ok = await dbDelete('site_sub_addresses', subId);
+  if(ok){ toast('Address deleted'); render(); }
+};
+
 /* ================= ASSIGN TEAM (per-site — PM allocates operatives to this job) ================= */
 async function renderAssignTeam(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const [assigned, odConnRows, priceAccessRows] = await Promise.all([
+  const [assigned, odConnRows, priceAccessRows, subAddresses] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
     ME.role==='admin' ? dbSelect('site_price_access', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   const assignedIds = new Set(assigned.map(a=>a.user_id));
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
   const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
+  // Cached for toggleSubAddrForm() to pull an address's current values into
+  // the edit form without a second round-trip.
+  assignTeamSubAddresses = subAddresses;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
@@ -6004,6 +6171,49 @@ async function renderAssignTeam(siteId){
       <div class="formfield" onclick="openDatePickerRow(this)" style="min-width:0;max-width:100%;"><label class="field-label">Start Date</label><input type="date" id="editSiteStartDate" value="${escapeHtml(site.start_date||'')}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
+    ` : ''}
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('multisite')"><span class="arrow">${siteTeamSectionOpen.multisite?'▼':'▶'}</span> Multi-Site</p>
+    ${siteTeamSectionOpen.multisite ? `
+    <div class="card">
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.multi_site?'checked':''} onchange="toggleMultiSite('${siteId}', this.checked)">This is a multi-site project (several separate addresses under one job)</label>
+      <p class="stub" style="margin:8px 0 0;">When on, Check In becomes per-address with its own GPS geofence, and the Schedule of Works "+" button lets a task be linked to a specific address (or left unlinked and linked later).</p>
+    </div>
+    ${site.multi_site ? `
+      <p class="sectiontitle" style="margin-top:14px;">Addresses</p>
+      ${subAddresses.map(a=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <div style="min-width:0;">
+              <div style="font-weight:700;font-size:13px;">${escapeHtml(a.name)}</div>
+              ${a.address||a.postcode ? `<div class="meta" style="margin-top:2px;">${escapeHtml([a.address,a.postcode].filter(Boolean).join(', '))}</div>` : ''}
+              <div class="stub" style="margin:4px 0 0;">${a.geofence_lat!=null ? `📍 Geofence set — ${a.geofence_radius_m||100}m radius` : 'No geofence set yet'}</div>
+            </div>
+            ${rowActionsMenuHtml('subaddr-'+a.id, `
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleSubAddrForm('${a.id}')">✎ Edit</div>
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubGeoOptions('${a.id}')">📍 ${a.geofence_lat!=null?'Update':'Set'} Geofence</div>
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSubAddress('${a.id}')">🗑 Delete</div>
+            `)}
+          </div>
+          ${a.geofence_lat!=null ? `
+            <div class="row-gap" style="margin-top:8px;">
+              ${[50,100,200].map(r=>`<button class="${(a.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;padding:5px 8px;font-size:11px;" onclick="setSubGeofenceRadius('${a.id}',${r})">${r}m</button>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('') || `<div class="empty">No addresses added yet.</div>`}
+      ${subAddrFormOpen ? `
+        <div class="card" style="background:var(--paper);">
+          <p class="sectiontitle" style="margin-top:0;">${subAddrEditingId?'Edit Address':'Add Address'}</p>
+          <div class="formfield"><input type="text" id="subAddrName" placeholder="e.g. 12 High Street" value="${escapeHtml(subAddrNameDraft)}" oninput="subAddrNameDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="subAddrAddress" placeholder="Address (optional)" value="${escapeHtml(subAddrAddressDraft)}" oninput="applyTitleCase(this);subAddrAddressDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="subAddrPostcode" placeholder="Postcode (optional)" value="${escapeHtml(subAddrPostcodeDraft)}" oninput="applyUpperCase(this);subAddrPostcodeDraft=this.value"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="darkbtn" style="flex:1;" onclick="saveSubAddress('${siteId}')">${subAddrEditingId?'Save':'Add Address'}</button>
+            <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleSubAddrForm()">Cancel</button>
+          </div>
+        </div>
+      ` : `<button class="ghostbtn" onclick="toggleSubAddrForm()">+ Add Address</button>`}
+    ` : ''}
     ` : ''}
     ${odCompanyConnected ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
@@ -6076,7 +6286,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false, multisite:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.saveSiteAddress = async function(siteId){
   const name = document.getElementById('editSiteName').value.trim();
@@ -8301,7 +8511,16 @@ function checkinDayLabel(ts){
   if(d.getTime()===yest.getTime()) return 'Yesterday';
   return d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
 }
-async function renderCheckin(siteId){
+async function renderCheckin(siteId, subId){
+  // Multi-site jobs replace the single site-wide check-in with a per-address
+  // flow entirely — branch off before touching any of the single-site state/
+  // logic below so a non-multi-site site's Check In page is provably
+  // untouched by this feature.
+  const __multiSite = SITES.find(s=>s.id===siteId);
+  if(__multiSite && __multiSite.multi_site){
+    if(subId) return renderCheckinSubAddress(siteId, subId);
+    return renderCheckinAddressList(siteId);
+  }
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
@@ -8434,6 +8653,197 @@ async function renderCheckin(siteId){
   `;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
+
+/* ================= MULTI-SITE CHECK-IN: a multi-site job's Check In page
+   replaces the single site-wide button with a list of its addresses; each
+   address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress)
+   writing checkins.sub_site_id, entirely separate from the single-site path
+   above. ================= */
+async function renderCheckinAddressList(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const subAddresses = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+  const body = `
+    <p class="sectiontitle" style="margin-top:0;">Choose the address you're checking in to</p>
+    ${subAddresses.length ? subAddresses.map(a=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin/${a.id}')">
+        <div class="info">
+          <div class="name">${escapeHtml(a.name)}</div>
+          ${a.address||a.postcode ? `<div class="addr">${escapeHtml([a.address,a.postcode].filter(Boolean).join(', '))}</div>` : ''}
+          <div class="stub" style="margin:4px 0 0;">${a.geofence_lat!=null ? `📍 Geofence set — ${a.geofence_radius_m||100}m radius` : 'No geofence set yet'}</div>
+        </div>
+        <span style="font-size:20px;color:var(--slate);">›</span>
+      </div>
+    `).join('') : `<div class="empty">No addresses have been added for this project yet.${isManager(ME)?' Add them from Settings & Admin.':''}</div>`}
+  `;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
+}
+async function renderCheckinSubAddress(siteId, subId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const addresses = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+  const addr = addresses.find(a=>a.id===subId);
+  if(!addr){ toast('Address not found.'); go(`#/site/${siteId}/checkin`); return; }
+  const isPM = isManager(ME);
+  const [mine, teamAll] = await Promise.all([
+    dbSelect('checkins', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
+    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&order=ts.asc&limit=500') : Promise.resolve([]),
+  ]);
+  const last = mine[0];
+  const status = (last && last.type==='in') ? 'in' : 'out';
+
+  const latestByUser = {};
+  teamAll.forEach(c=>{ latestByUser[c.user_id] = c; });
+  const teamStatusList = Object.values(latestByUser).sort((a,b)=>{
+    const aIn = a.type==='in' ? 0 : 1, bIn = b.type==='in' ? 0 : 1;
+    return aIn - bIn || new Date(b.ts) - new Date(a.ts);
+  });
+  const sessions = buildCheckinSessions(teamAll);
+  const dayGroups = {};
+  sessions.forEach(s=>{
+    const anchor = s.in || s.out;
+    const dayKey = new Date(anchor.ts).toDateString();
+    (dayGroups[dayKey] = dayGroups[dayKey] || []).push(s);
+  });
+  const dayKeysSorted = Object.keys(dayGroups).sort((a,b)=>new Date(b)-new Date(a));
+  dayKeysSorted.forEach(k=>{
+    dayGroups[k].sort((a,b)=>{
+      const aTs = new Date((a.in||a.out).ts), bTs = new Date((b.in||b.out).ts);
+      return bTs - aTs;
+    });
+  });
+
+  const body = `
+    <p class="stub" style="margin:0 0 10px;"><a href="#/site/${siteId}/checkin" onclick="event.preventDefault();go('#/site/${siteId}/checkin')" style="color:var(--blue);">‹ All addresses</a></p>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Status — ${escapeHtml(addr.name)}</p>
+      ${status==='in' ? `<span class="pill on"><span class="dot"></span>On site since ${new Date(last.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>`
+                       : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+    </div>
+    ${checkinError ? `<div class="card" style="border-color:var(--warn);"><div class="stub" style="color:var(--warn);margin-top:0;">${escapeHtml(checkinError)}</div></div>` : ''}
+    <button class="primarybtn" style="${status==='in'?'background:var(--ink);':''}" ${checkinBusy?'disabled':''} onclick="doCheckActionSub('${siteId}','${subId}','${status==='in'?'out':'in'}')">
+      ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
+    </button>
+    ${isPM ? `
+      <p class="sectiontitle" style="margin-top:18px;">Address Geofence</p>
+      ${!orgAllowsGps() ? `
+        <div class="card"><p class="stub" style="margin:0;">GPS check-in & geofencing is part of OpHUB Pro and above — your company's currently on OpHUB Basic. Ask your OpHUB platform admin to upgrade your package to switch this on.</p></div>
+      ` : addr.geofence_lat!=null ? `
+        <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${addr.geofence_radius_m||100}m radius</div>
+        ${checkinGeofenceOpen ? `
+          <div class="card">
+            <div class="stub" style="font-family:ui-monospace,Menlo,monospace;">${addr.geofence_lat.toFixed(5)}, ${addr.geofence_lon.toFixed(5)}</div>
+            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${addr.geofence_lat},${addr.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
+            <button class="ghostbtn" onclick="openSubGeoOptions('${subId}')">Update location</button>
+            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+            <div class="row-gap">
+              ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+      ` : `
+        <div class="card">
+          <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
+          <button class="darkbtn" onclick="openSubGeoOptions('${subId}')">Set address location</button>
+          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+          <div class="row-gap">
+            ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
+          </div>
+        </div>
+      `}
+      <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
+      ${teamStatusList.length ? teamStatusList.map(c=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="font-size:13px;font-weight:700;">${escapeHtml(nameOf(c.user_id))}${c.user_id===ME.id?' <span style="color:var(--slate);font-weight:600;">(you)</span>':''}</div>
+          ${c.type==='in' ? `<span class="pill on" style="margin:0;"><span class="dot"></span>On site since ${new Date(c.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>` : `<span class="pill off" style="margin:0;"><span class="dot"></span>Off site</span>`}
+        </div>
+      `).join('') : `<div class="empty">No check-ins recorded for this address yet.</div>`}
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinHistoryOpen=!checkinHistoryOpen;render()"><span class="arrow">${checkinHistoryOpen?'▼':'▶'}</span> All Operatives</div>
+      ${checkinHistoryOpen ? `<div style="margin-top:10px;">${dayKeysSorted.length ? dayKeysSorted.map(dayKey=>`
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--slate);margin:0 0 6px;">${checkinDayLabel(dayKey)}</div>
+          ${dayGroups[dayKey].map(s=>`
+            <div class="card" style="padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+              <div style="font-size:13px;font-weight:700;flex:1;min-width:90px;">${escapeHtml(nameOf(s.user_id))}</div>
+              <div style="font-size:12px;color:var(--slate);display:flex;align-items:center;gap:14px;">
+                <span>${s.in ? 'In '+new Date(s.in.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : '—'}</span>
+                <span>${s.out ? 'Out '+new Date(s.out.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}) : (s.in ? '<span style="color:var(--ok);font-weight:700;">On site</span>' : '—')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('') : `<div class="empty">No check-ins recorded for this address yet.</div>`}</div>` : ''}
+    ` : ''}
+    ${ME.role==='operative' ? `
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinRecentOpen=!checkinRecentOpen;render()"><span class="arrow">${checkinRecentOpen?'▼':'▶'}</span> Recent</div>
+      ${checkinRecentOpen ? `<div style="margin-top:10px;">${mine.slice(0,4).map(c=>`
+        <div class="card" style="padding:10px 12px;margin-bottom:8px;">
+          <div style="font-size:12.5px;"><b>${c.type==='in'?'Checked in':'Checked out'}</b> · ${new Date(c.ts).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      `).join('') || `<div class="empty">No check-ins yet.</div>`}</div>` : ''}
+    ` : ''}
+  `;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name+' — '+addr.name, siteNameSubtitle:true, back:`#/site/${siteId}/checkin`, siteId, activeTab:'checkin'}); }
+}
+window.doCheckActionSub = async function(siteId, subId, type){
+  checkinError = null;
+  checkinBusy = true;
+  render();
+
+  // Check-out from a multi-site address is blocked until every Schedule of
+  // Works task linked to that specific address has at least one photo
+  // attached (schedule_photos) — catches someone leaving without recording
+  // any progress/completion evidence for that address's work.
+  if(type==='out'){
+    const linkedTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&select=id,name');
+    if(linkedTasks.length){
+      const taskIds = linkedTasks.map(t=>t.id).join(',');
+      const photoRows = await dbSelect('schedule_photos', 'task_id=in.('+taskIds+')&select=task_id');
+      const withPhoto = new Set(photoRows.map(p=>p.task_id));
+      const missing = linkedTasks.filter(t=>!withPhoto.has(t.id));
+      if(missing.length){
+        checkinBusy = false;
+        render();
+        customAlert(`Add at least one photo to the Schedule of Works task${missing.length===1?'':'s'} for this address before checking out: ${missing.map(t=>t.name).join(', ')}.`);
+        return;
+      }
+    }
+  }
+
+  if(!orgAllowsGps() || isManager(ME)){
+    const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type});
+    checkinBusy = false;
+    if(rows){
+      toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    }
+    render();
+    return;
+  }
+
+  const g = await getGeo();
+  if(g.error){
+    checkinBusy = false; checkinError = g.error; render(); return;
+  }
+  const addresses = await dbSelect('site_sub_addresses', 'id=eq.'+subId);
+  const addr = addresses[0];
+  if(addr && addr.geofence_lat!=null){
+    const dist = Math.round(distMeters(g.lat, g.lon, addr.geofence_lat, addr.geofence_lon));
+    const allowedRadius = addr.geofence_radius_m || 100;
+    if(dist > allowedRadius){
+      checkinBusy = false;
+      checkinError = `${dist}m from this address — must be within ${allowedRadius}m to ${type==='in'?'check in':'check out'}. Move closer and try again.`;
+      render();
+      return;
+    }
+  }
+  const rows = await dbInsert('checkins', {site_id:siteId, sub_site_id:subId, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  checkinBusy = false;
+  if(rows){
+    toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+  }
+  render();
+};
+
 window.doCheckAction = async function(siteId, type){
   checkinError = null;
   checkinBusy = true;
@@ -8501,6 +8911,17 @@ window.exportCheckins = async function(siteId, scope){
 
 /* ================= SCHEDULE OF WORKS ================= */
 let editingTaskId = null;
+// Multi-site: which task's row currently has its "link to an address" picker
+// open (via the row's ▾ dropdown, or from the Add Task panel's Address step).
+let addressPickerTaskId = null;
+window.setTaskSubAddress = async function(siteId, taskId, subId){
+  const row = await dbUpdate('schedule_tasks', taskId, {sub_site_id: subId||null});
+  if(row){
+    addressPickerTaskId = null;
+    toast(subId ? 'Address linked' : 'Address unlinked');
+    render();
+  }
+};
 let scheduleFilter = 'all';
 let scheduleLastSiteId; // undefined initially so the first render always sets a default
 let scheduleLastAnyStarted = null;
@@ -8542,7 +8963,7 @@ window.showScheduleAddMenu = function(siteId){
   ov.style.display = 'flex';
 };
 let scheduleSectionsCache = [];
-function taskRowHtml(siteId, t, canAdd, photosByTask){
+function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, subAddressesList){
   // Per the "allow all rows in whilst they're in to do to be editable text"
   // requirement — a To Do task's name is always a live-editable input
   // (autosaves on blur) rather than needing the separate pencil-edit toggle.
@@ -8568,12 +8989,28 @@ function taskRowHtml(siteId, t, canAdd, photosByTask){
                 <div class="taskicons">
                   ${rowActionsMenuHtml('sowtask-'+t.id, `
                     ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
+                    ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Address</div>` : ''}
                     <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
                   `)}
                 </div>
               ` : ''}
             </div>
           `}
+          ${isMultiSite ? `
+            <div class="meta" style="width:100%;margin:2px 0 0;">
+              <span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : 'Unlinked'}</span>
+            </div>
+          ` : ''}
+          ${canAdd && addressPickerTaskId===t.id ? `
+            <div class="card" style="margin:8px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Link this task to an address:</p>
+              <div class="row-gap" style="flex-wrap:wrap;">
+                <button class="${!t.sub_site_id?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="setTaskSubAddress('${siteId}','${t.id}',null)">Not on the list</button>
+                ${(subAddressesList||[]).map(a=>`<button class="${t.sub_site_id===a.id?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="setTaskSubAddress('${siteId}','${t.id}','${a.id}')">${escapeHtml(a.name)}</button>`).join('')}
+              </div>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="addressPickerTaskId=null;render()">Close</button>
+            </div>
+          ` : ''}
           ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')">`).join('')}</div>` : ''}
           ${pendingCompleteTaskId===t.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
@@ -8595,6 +9032,102 @@ function taskRowHtml(siteId, t, canAdd, photosByTask){
       </div>
   `;
 }
+// Compact "site condition" row shown under any section (or the ungrouped
+// pseudo-section) that has ever had at least one task — deliberately smaller/
+// lighter than a task row, since ticking these is a site-condition report
+// anyone with site access can make, not a management action. Both boxes tick
+// straight away; Leftover material additionally opens the photo picker right
+// after so a photo gets attached to the now-ticked flag (see
+// onLeftoverCheckboxClick/leftoverMaterialPhotoChosen below).
+function sectionFlagRowHtml(siteId, sectionId, flag){
+  const sid = sectionId || '';
+  const domKey = sectionId || 'ungrouped';
+  const waste = flag ? !!flag.waste_to_clear : false;
+  const leftover = flag ? !!flag.leftover_material : false;
+  return `
+    <div class="sectionflagrow" style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:10px;padding:7px 8px 6px;border-top:1px dashed var(--line);">
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;color:var(--slate);">
+        <input type="checkbox" style="width:14px;height:14px;margin:0;" ${waste?'checked':''} onclick="toggleWasteFlag(this,'${siteId}','${sid}')"> 🗑 Waste to clear
+      </label>
+      <label style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;color:var(--slate);">
+        <input type="checkbox" style="width:14px;height:14px;margin:0;" ${leftover?'checked':''} onclick="onLeftoverCheckboxClick(this,'${siteId}','${sid}')"> 📦 Leftover material
+      </label>
+      <input type="file" id="leftoverPhotoInput-${domKey}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="leftoverMaterialPhotoChosen(this,'${siteId}','${sid}')">
+    </div>
+  `;
+}
+function sectionFlagLabel(sectionId){
+  if(!sectionId) return 'the ungrouped tasks';
+  const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
+  return sec ? sec.name : 'a section';
+}
+// Upsert-by-lookup, same pattern used for the Price week build-up's
+// assigned-row (PostgREST on_conflict can't target a partial unique index,
+// so look the row up first and PATCH/INSERT accordingly).
+async function saveSectionFlag(siteId, sectionId, field, value, photoPath){
+  const qs = 'site_id=eq.'+siteId+'&section_id='+(sectionId?('eq.'+sectionId):'is.null')+'&select=*';
+  const existing = await dbSelect('schedule_section_flags', qs);
+  const row = existing[0];
+  const wasOn = row ? !!row[field] : false;
+  const now = new Date().toISOString();
+  const patch = {[field]: value, updated_at: now};
+  if(field==='waste_to_clear' && value){ patch.waste_flagged_by = ME.id; patch.waste_flagged_at = now; }
+  if(field==='leftover_material' && value){ patch.leftover_flagged_by = ME.id; patch.leftover_flagged_at = now; if(photoPath) patch.leftover_photo_path = photoPath; }
+  let saved;
+  if(row){ saved = await dbUpdate('schedule_section_flags', row.id, patch); }
+  else { const rows = await dbInsert('schedule_section_flags', Object.assign({site_id:siteId, section_id:sectionId}, patch)); saved = Array.isArray(rows)?rows[0]:rows; }
+  if(!saved){ toast('Could not save — try again.'); render(); return; }
+  // Only a fresh unticked→ticked transition pushes a notification to the
+  // site's PM/admins — unticking (or a page load that already shows it
+  // ticked) never fires one.
+  if(!wasOn && value){
+    const site = SITES.find(s=>s.id===siteId);
+    const flagLabel = field==='waste_to_clear' ? 'Waste to clear' : 'Leftover material';
+    postSystemMessage(siteId, 'schedule_flag', `${ME.name} flagged "${flagLabel}" on ${sectionFlagLabel(sectionId)}${site?(' at '+site.name):''}.`);
+  }
+  toast('Saved');
+  render();
+}
+window.toggleWasteFlag = function(el, siteId, sectionId){
+  saveSectionFlag(siteId, sectionId||null, 'waste_to_clear', el.checked);
+};
+// Leftover material ticks straight away, same as Waste — then, only on a
+// fresh tick (not on unticking), the photo picker opens right after so a
+// photo gets attached to the now-ticked flag. If the picker is cancelled the
+// flag stays ticked with no photo yet; leftoverMaterialPhotoChosen just
+// attaches leftover_photo_path onto the already-true flag when one is chosen.
+window.onLeftoverCheckboxClick = function(el, siteId, sectionId){
+  sectionId = sectionId || null;
+  saveSectionFlag(siteId, sectionId, 'leftover_material', el.checked);
+  if(el.checked){
+    document.getElementById('leftoverPhotoInput-'+(sectionId||'ungrouped')).click();
+  }
+};
+window.leftoverMaterialPhotoChosen = async function(input, siteId, sectionId){
+  sectionId = sectionId || null;
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  try{
+    const dataUrl = await compressImage(files[0]);
+    const path = siteId+'/schedule-flags/'+(sectionId||'ungrouped')+'/'+uid()+'.jpg';
+    const stored = await uploadDataUrl('site-photos', path, dataUrl);
+    if(!stored){ toast('Could not upload photo — try again.'); input.value=''; return; }
+    await saveSectionFlagPhoto(siteId, sectionId, stored);
+  }catch(e){ toast('Could not process photo — try again.'); }
+  input.value = '';
+};
+// Attaches a leftover photo onto an already-ticked flag without re-touching
+// waste_to_clear or re-firing the tick notification (that already fired the
+// moment the box was ticked, in saveSectionFlag above).
+async function saveSectionFlagPhoto(siteId, sectionId, photoPath){
+  const qs = 'site_id=eq.'+siteId+'&section_id='+(sectionId?('eq.'+sectionId):'is.null')+'&select=id';
+  const existing = await dbSelect('schedule_section_flags', qs);
+  const row = existing[0];
+  if(!row) return;
+  await dbUpdate('schedule_section_flags', row.id, {leftover_photo_path: photoPath, updated_at: new Date().toISOString()});
+  toast('Photo added');
+  render();
+}
 async function renderSchedule(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -8611,11 +9144,25 @@ async function renderSchedule(siteId){
     ME.viewed_schedule_at = new Date().toISOString();
     dbUpdate('profiles', ME.id, {viewed_schedule_at: ME.viewed_schedule_at});
   }
-  const [allTasks, sections] = await Promise.all([
+  const isMultiSite = !!(site && site.multi_site);
+  const [allTasks, sections, subAddressesList, sectionFlags] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
+    isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
+    dbSelect('schedule_section_flags', 'site_id=eq.'+siteId),
   ]);
   scheduleSectionsCache = sections;
+  // Flags row visibility/state is driven off allTasks (every task ever added
+  // to a section), not the currently filtered `tasks` list below — so the
+  // 🗑/📦 row stays put across the All/To Do/In Progress tabs instead of
+  // disappearing whenever a filter happens to hide every task in a section.
+  const bySectionAll = {};
+  allTasks.forEach(t=>{ if(t.section_id){ (bySectionAll[t.section_id]=bySectionAll[t.section_id]||[]).push(t); } });
+  const allUngrouped = allTasks.filter(t=>!t.section_id);
+  const flagsBySection = {};
+  sectionFlags.forEach(f=>{ flagsBySection[f.section_id || '__ungrouped__'] = f; });
+  const subAddrById = {};
+  subAddressesList.forEach(a=>{ subAddrById[a.id] = a; });
   // Once anything on this schedule has actually started, "All" moves out of
   // pole position — To Do becomes the default view (what's left to start),
   // with In Progress/Complete as the middle tab, and All pushed to the end.
@@ -8672,6 +9219,13 @@ async function renderSchedule(siteId){
           <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
           <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
         </div>
+        ${isMultiSite ? `
+          <p class="field-label" style="margin:10px 0 6px;">Address</p>
+          <select id="newTaskSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+            <option value="">Not on the list</option>
+            ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
+          </select>
+        ` : ''}
         <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
@@ -8714,14 +9268,17 @@ async function renderSchedule(siteId){
         <button class="ghostbtn" style="margin-top:14px;" onclick="scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
-    ${ungrouped.length ? (()=>{
+    ${allUngrouped.length ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
       return `
       <div class="card" style="padding:0;overflow:hidden;">
         <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('__ungrouped__')">
           <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
         </p>
-        ${open ? `<div style="padding:0 14px 14px;">${ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('')}</div>` : ''}
+        ${open ? `<div style="padding:0 14px 14px;">
+          ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+          ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
+        </div>` : ''}
       </div>
     `;})() : ''}
     ${sections.map(sec=>{
@@ -8741,13 +9298,14 @@ async function renderSchedule(siteId){
         </p>
         ${open ? `
           <div style="padding:0 14px 14px;">
-            ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+            ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
             ${canAdd && scheduleFilter==='all' ? `
               <div class="row-gap" style="margin-top:10px;">
                 <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
                 <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
               </div>
             ` : ''}
+            ${bySectionAll[sec.id] && bySectionAll[sec.id].length ? sectionFlagRowHtml(siteId, sec.id, flagsBySection[sec.id]) : ''}
           </div>
         ` : ''}
       </div>
@@ -8935,6 +9493,11 @@ window.addTask = async function(siteId, sectionId){
   const position = await nextTaskPosition(siteId);
   const row = {site_id:siteId, name, status:'todo', position};
   if(sectionId) row.section_id = sectionId;
+  // Multi-site Address step — only present on the main Add Task panel
+  // (not the per-section quick-add row); "Not on the list" leaves it null,
+  // still linkable later via the task's own Edit dropdown.
+  const subAddrSel = !sectionId ? document.getElementById('newTaskSubAddr') : null;
+  if(subAddrSel && subAddrSel.value) row.sub_site_id = subAddrSel.value;
   const rows = await dbInsert('schedule_tasks', row);
   if(rows){ toast('Task added'); render(); }
 };
@@ -10074,12 +10637,22 @@ async function renderRams(siteId){
   `, {title:'RAMS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
+  let ramsPollBusy = false;
   ramsPollTimer = setInterval(async ()=>{
     const el = document.getElementById('ramsDocsList');
     if(!el){ clearInterval(ramsPollTimer); ramsPollTimer = null; return; }
-    const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
-    const freshEl = document.getElementById('ramsDocsList');
-    if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+    // On a slow/limited connection a single poll can take longer than the
+    // 7s interval — without this guard the next tick fires anyway and a
+    // second request piles on top of the first, doubling data use for
+    // nothing. Also skip entirely while the tab is hidden or the device is
+    // offline, rather than queuing a request that has no chance of landing.
+    if(ramsPollBusy || document.hidden || navigator.onLine === false) return;
+    ramsPollBusy = true;
+    try{
+      const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+      const freshEl = document.getElementById('ramsDocsList');
+      if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+    } finally { ramsPollBusy = false; }
   }, 7000);
 }
 window.addRams = async function(siteId){
@@ -10296,12 +10869,17 @@ async function renderCoshh(siteId){
   `, {title:'COSHH', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(coshhPollTimer) clearInterval(coshhPollTimer);
+  let coshhPollBusy = false;
   coshhPollTimer = setInterval(async ()=>{
     const el = document.getElementById('coshhDocsList');
     if(!el){ clearInterval(coshhPollTimer); coshhPollTimer = null; return; }
-    const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
-    const freshEl = document.getElementById('coshhDocsList');
-    if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+    if(coshhPollBusy || document.hidden || navigator.onLine === false) return;
+    coshhPollBusy = true;
+    try{
+      const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
+      const freshEl = document.getElementById('coshhDocsList');
+      if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+    } finally { coshhPollBusy = false; }
   }, 7000);
 }
 window.addCoshh = async function(siteId){
@@ -14190,15 +14768,32 @@ async function renderMaterials(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  // Operatives only ever have one thing to see here (their requests), so
-  // skip the folder tiles and go straight to the content — the tiles are a
-  // PM/admin-only navigation aid between Requests and PO's.
-  if(!isPM) return renderMaterialRequests(siteId);
-  const [pendingCount, orderFileCount] = await Promise.all([
+  // Operatives get a small two-tile choice instead of the full PM tile grid
+  // — Material Requests (theirs to raise) and the Material Required List
+  // (theirs to action, if a PM has assigned them something to collect) —
+  // deliberately not the PM/admin folder-tile navigation below.
+  if(!isPM){
+    const myPickups = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&assigned_to=eq.'+ME.id+'&status=in.(assigned,collected)&select=id');
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <div class="tilegrid">
+        <div class="tile" onclick="go('#/site/${siteId}/materialrequests')">
+          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+          <div class="lbl">Material Requests</div>
+        </div>
+        <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
+          <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🧾</div>
+          <div class="lbl">Pick-up List</div><div class="sub">${myPickups.length} to collect</div>
+        </div>
+      </div>
+    `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+    return;
+  }
+  const [pendingCount, orderFileCount, requiredOpenCount] = await Promise.all([
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
     dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('material_required_items', 'site_id=eq.'+siteId+'&status=in.(open,assigned,collected)&select=id'),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
@@ -14209,6 +14804,10 @@ async function renderMaterials(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
         <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
         <div class="lbl">Material PO's</div><div class="sub">${orderFileCount.length ? orderFileCount.length+' synced' : 'Synced daily'}</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
+        <div class="icon" style="background:#EAEFFB;color:#2F4B99;">🧾</div>
+        <div class="lbl">Material Required List</div><div class="sub">${requiredOpenCount.length} live</div>
       </div>
     </div>
   `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
@@ -14357,6 +14956,165 @@ async function renderMaterialRequests(siteId){
     ` : ''}
   `, {title:'Material Requests', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
+
+/* ================= MATERIAL REQUIRED LIST (pick-up list) ================
+ * A separate flow from Material Requests (operative-raised) — PM/admin adds
+ * rows to a pick-up list, assigns one to an operative to collect, and the
+ * operative (or a PM/admin) marks it collected. open -> assigned -> collected
+ * -> closed, closable from any prior status. Multi-site-aware, same
+ * dropdown+"Not on the list"/📍 pill pattern used on Schedule of Works. */
+let matReqFilter = 'live'; // 'live' | 'closed'
+let matReqAssignFor = null; // material_required_items id whose assign picker is open
+let matReqCollectFor = null; // id whose "confirm collected qty" field is open
+async function renderMaterialRequiredList(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const isPM = isManager(ME);
+  const isMultiSite = !!(site && site.multi_site);
+  const statusQS = matReqFilter==='live' ? 'status=in.(open,assigned,collected)' : 'status=eq.closed';
+  const [itemsRaw, suppliers, subAddressesList, assignedRows] = await Promise.all([
+    dbSelect('material_required_items', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
+    isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+    isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
+    isPM ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+  ]);
+  await loadAllProfiles();
+  // Operative view stays deliberately minimal — their own assigned/collected
+  // rows, plus a read-only glance at whatever's still open/unassigned on the
+  // site so they know what's coming.
+  const items = isPM ? itemsRaw : itemsRaw.filter(m=>m.assigned_to===ME.id || m.status==='open');
+  const subAddrById = {}; subAddressesList.forEach(a=>{ subAddrById[a.id]=a; });
+  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const assignedIds = new Set(assignedRows.map(a=>a.user_id));
+  const siteOperatives = isPM ? Object.values(PROFILES).filter(p=>p.role==='operative' && assignedIds.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const statusLabel = {open:'Open', assigned:'Assigned', collected:'Collected', closed:'Closed'};
+
+  const rowHtml = (m)=>{
+    const subLabel = m.sub_site_id && subAddrById[m.sub_site_id] ? subAddrById[m.sub_site_id].name : null;
+    return `
+      <div class="matcard">
+        <div class="top">
+          <div style="min-width:0;flex:1;">
+            <div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div>
+            <div class="qty">Qty ${escapeHtml(m.qty||'—')}${m.qty_collected ? ` (collected ${escapeHtml(m.qty_collected)})` : ''}</div>
+            ${m.supplier_id ? `<div class="qty">Supplier: ${escapeHtml(supplierName(m.supplier_id)||'')}</div>` : ''}
+            ${m.assigned_to ? `<div class="qty">Assigned to ${escapeHtml(nameOf(m.assigned_to))}</div>` : ''}
+            ${subLabel ? `<div class="meta" style="margin-top:2px;"><span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${escapeHtml(subLabel)}</span></div>` : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+            <span class="statustag ${m.status}">${statusLabel[m.status]||m.status}</span>
+            ${isPM ? `<div class="taskicon danger" onclick="deleteMaterialRequiredItem('${siteId}','${m.id}')">🗑</div>` : ''}
+          </div>
+        </div>
+        ${isPM && m.status==='open' ? (
+          matReqAssignFor===m.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Who should collect this?</p>
+              <select id="matReqAssignSelect-${m.id}" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+                <option value="">— Choose —</option>
+                ${siteOperatives.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')}
+              </select>
+              <div class="row-gap" style="margin-top:8px;">
+                <button class="darkbtn" style="flex:1;" onclick="confirmAssignMaterialRequired('${siteId}','${m.id}')">Assign</button>
+                <button class="ghostbtn" style="flex:1;" onclick="matReqAssignFor=null;render()">Cancel</button>
+              </div>
+            </div>
+          ` : `<button class="darkbtn" style="margin-top:10px;" onclick="matReqAssignFor='${m.id}';render()">Assign to collect</button>`
+        ) : ''}
+        ${m.status==='assigned' && (isPM || m.assigned_to===ME.id) ? (
+          matReqCollectFor===m.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Qty actually collected:</p>
+              <input type="text" id="matReqCollectQty-${m.id}" value="${escapeHtml(m.qty||'')}" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;box-sizing:border-box;">
+              <div class="row-gap" style="margin-top:8px;">
+                <button class="darkbtn" style="flex:1;" onclick="confirmCollectMaterialRequired('${siteId}','${m.id}')">Confirm Collected</button>
+                <button class="ghostbtn" style="flex:1;" onclick="matReqCollectFor=null;render()">Cancel</button>
+              </div>
+            </div>
+          ` : `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;cursor:pointer;">
+              <input type="checkbox" style="width:16px;height:16px;" onclick="if(this.checked){this.checked=false;matReqCollectFor='${m.id}';render();}"> Collected
+            </label>`
+        ) : ''}
+        ${isPM && m.status!=='closed' ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="closeMaterialRequiredItem('${siteId}','${m.id}')">Close</button>` : ''}
+      </div>
+    `;
+  };
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow">
+      <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;render()">Live</div>
+      <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;render()">Closed</div>
+    </div>
+    ${items.map(rowHtml).join('') || `<div class="empty">No ${matReqFilter} items.</div>`}
+    ${isPM && matReqFilter==='live' ? `
+    <div class="card" style="margin-top:24px;">
+      <p class="sectiontitle" style="margin-top:0;">Add item</p>
+      <div class="formfield"><input type="text" id="matReqItem" placeholder="Item"></div>
+      <div class="formfield"><input type="text" id="matReqQty" placeholder="Quantity (optional)"></div>
+      <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('reqnew')">
+        <span class="arrow">${supplierPickerFor==='reqnew'?'▼':'▶'}</span> ${materialSupplierChoice['reqnew'] ? escapeHtml(supplierName(materialSupplierChoice['reqnew'])) : 'Supplier (optional)'}
+      </div>
+      ${supplierPickerFor==='reqnew' ? (suppliers.length ? supplierPickerHtml('reqnew', suppliers, materialSupplierChoice['reqnew']) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+      ${isMultiSite ? `
+        <p class="field-label" style="margin:10px 0 6px;">Address</p>
+        <select id="matReqSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+          <option value="">Not on the list</option>
+          ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
+        </select>
+      ` : ''}
+      <button class="darkbtn" style="margin-top:10px;" onclick="addMaterialRequiredItem('${siteId}')">Add to list</button>
+    </div>
+    ` : ''}
+  `, {title:'Material Required List', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+}
+window.addMaterialRequiredItem = async function(siteId){
+  const itemEl = document.getElementById('matReqItem');
+  const item = itemEl ? itemEl.value.trim() : '';
+  if(!item){ toast('Enter an item.'); return; }
+  const qtyEl = document.getElementById('matReqQty');
+  const qty = qtyEl ? qtyEl.value.trim() : '';
+  const supplierId = materialSupplierChoice['reqnew'] || null;
+  const subAddrEl = document.getElementById('matReqSubAddr');
+  const subSiteId = subAddrEl ? (subAddrEl.value || null) : null;
+  const rows = await dbInsert('material_required_items', {site_id:siteId, org_id:ME.org_id, item, qty:qty||null, supplier_id:supplierId, sub_site_id:subSiteId, status:'open', created_by:ME.id});
+  if(rows){
+    delete materialSupplierChoice['reqnew'];
+    supplierPickerFor = null;
+    toast('Added to list');
+    render();
+  }
+};
+window.confirmAssignMaterialRequired = async function(siteId, id){
+  const sel = document.getElementById('matReqAssignSelect-'+id);
+  const userId = sel ? sel.value : '';
+  if(!userId){ toast('Choose an operative.'); return; }
+  const itemRows = await dbSelect('material_required_items', 'id=eq.'+id+'&select=item');
+  const itemLabel = (itemRows && itemRows[0] && itemRows[0].item) || 'an item';
+  const row = await dbUpdate('material_required_items', id, {assigned_to:userId, status:'assigned', assigned_at:new Date().toISOString()});
+  if(!row) return;
+  matReqAssignFor = null;
+  toast('Assigned');
+  render();
+  try{
+    await sbFetch('/functions/v1/notify-material-pickup', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId, item_label:itemLabel})});
+  }catch(e){ /* best-effort push — the assignment itself already saved */ }
+};
+window.confirmCollectMaterialRequired = async function(siteId, id){
+  const input = document.getElementById('matReqCollectQty-'+id);
+  const qtyCollected = input ? input.value.trim() : '';
+  const row = await dbUpdate('material_required_items', id, {status:'collected', qty_collected:qtyCollected||null, collected_by:ME.id, collected_at:new Date().toISOString()});
+  if(row){ matReqCollectFor=null; toast('Marked collected'); render(); }
+};
+window.closeMaterialRequiredItem = async function(siteId, id){
+  const row = await dbUpdate('material_required_items', id, {status:'closed', closed_by:ME.id, closed_at:new Date().toISOString()});
+  if(row){ toast('Closed'); render(); }
+};
+window.deleteMaterialRequiredItem = async function(siteId, id){
+  if(!await customConfirm('Delete this item from the list?')) return;
+  const ok = await dbDelete('material_required_items', id);
+  if(ok){ toast('Deleted'); render(); }
+};
+
 // Supplier duplicate detection — company names get typed inconsistently
 // (case, punctuation, "Ltd"/"Limited", or plain typos), so a straight
 // string-equality check misses obvious dupes. Two tiers:
@@ -16658,7 +17416,7 @@ async function renderRoute(){
   if(preParts[0]!=='signature' && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
@@ -16717,7 +17475,7 @@ async function renderRoute(){
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='more') return renderMore(siteId);
-    if(page==='checkin') return renderCheckin(siteId);
+    if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging'){
       const sub = parts[3];
@@ -16781,6 +17539,7 @@ async function renderRoute(){
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
     if(page==='materialrequests') return renderMaterialRequests(siteId);
+    if(page==='materialrequired') return renderMaterialRequiredList(siteId);
     if(page==='materialorders'){
       const matFolderId = parts[3] || null;
       return renderMaterialOrders(siteId, matFolderId);
