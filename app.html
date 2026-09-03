@@ -1413,6 +1413,14 @@ async function loadAllProfiles(force){
 }
 function nameOf(userId){ return (PROFILES[userId] && PROFILES[userId].name) || 'Unknown'; }
 
+// Per-site deletion/closure audit trail (Settings & Admin > Activity Log).
+// Fire-and-forget: never block or fail the actual delete/close action if
+// logging itself has a hiccup — the action already succeeded, losing the
+// log entry is much better than losing the ability to delete something.
+function logSiteActivity(siteId, action, description){
+  dbInsert('site_activity_log', {site_id: siteId, org_id: ME.org_id, actor_id: ME.id, action, description}).catch(()=>{});
+}
+
 const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
 
 /* ================= routing ================= */
@@ -5871,8 +5879,10 @@ window.addTodoComment = async function(siteId, todoId){
 };
 window.deleteTodo = async function(siteId, id){
   if(!await customConfirm('Delete this to-do item? This can\'t be undone.')) return;
+  const rows = await dbSelect('todos', 'id=eq.'+id+'&select=text');
+  const text = rows[0] && rows[0].text;
   const ok = await dbDelete('todos', id);
-  if(ok){ toast('To-do deleted'); render(); }
+  if(ok){ toast('To-do deleted'); logSiteActivity(siteId, 'todo_deleted', `Deleted to-do "${text||''}"`); render(); }
 };
 window.setGeofenceRadius = async function(siteId, radius){
   const row = await dbUpdate('sites', siteId, {geofence_radius_m: radius});
@@ -6149,20 +6159,22 @@ window.saveSubAddress = async function(siteId){
   subAddrFormOpen = false; subAddrEditingId = null; subAddrNameDraft=''; subAddrAddressDraft=''; subAddrPostcodeDraft='';
   render();
 };
-window.deleteSubAddress = async function(subId){
+window.deleteSubAddress = async function(siteId, subId){
   if(!await customConfirm('Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can\'t be undone.')) return;
+  const rows = await dbSelect('site_sub_addresses', 'id=eq.'+subId+'&select=name');
+  const name = rows[0] && rows[0].name;
   const ok = await dbDelete('site_sub_addresses', subId);
-  if(ok){ toast('Address deleted'); render(); }
+  if(ok){ toast('Address deleted'); logSiteActivity(siteId, 'sub_address_deleted', `Deleted address "${name||''}"`); render(); }
 };
 // Closing an address is a PM/admin action, reachable from that address's own
 // Check In page — it stays fully visible everywhere (history, schedule
 // links) but drops out of the main "choose an address" list into a
 // collapsed "Closed Addresses" section at the bottom, and stops offering
 // fresh check-ins (someone already checked in can still check out).
-window.closeSubAddress = async function(subId){
+window.closeSubAddress = async function(siteId, subId){
   if(!await customConfirm('Close this address? It\'ll move into the Closed Addresses list and new check-ins there will be switched off. You can reopen it any time.')) return;
   const row = await dbUpdate('site_sub_addresses', subId, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString()});
-  if(row){ toast('Address closed'); render(); }
+  if(row){ toast('Address closed'); logSiteActivity(siteId, 'sub_address_closed', `Closed address "${row.name||''}"`); render(); }
 };
 window.reopenSubAddress = async function(subId){
   const row = await dbUpdate('site_sub_addresses', subId, {closed:false, closed_by:null, closed_at:null});
@@ -6187,6 +6199,11 @@ async function renderAssignTeam(siteId){
   // Cached for toggleSubAddrForm() to pull an address's current values into
   // the edit form without a second round-trip.
   assignTeamSubAddresses = subAddresses;
+  // Only fetched once the Activity Log section is actually opened — it's a
+  // deletion/closure audit trail, not something every visit to this page needs.
+  const activityLog = siteTeamSectionOpen.activity
+    ? await dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=100')
+    : [];
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
@@ -6219,7 +6236,7 @@ async function renderAssignTeam(siteId){
             ${rowActionsMenuHtml('subaddr-'+a.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleSubAddrForm('${a.id}')">✎ Edit</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubGeoOptions('${a.id}')">📍 ${a.geofence_lat!=null?'Update':'Set'} Geofence</div>
-              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSubAddress('${a.id}')">🗑 Delete</div>
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSubAddress('${siteId}','${a.id}')">🗑 Delete</div>
             `)}
           </div>
           ${a.geofence_lat!=null ? `
@@ -6305,6 +6322,18 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
 
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('activity')"><span class="arrow">${siteTeamSectionOpen.activity?'▼':'▶'}</span> Activity Log</p>
+    ${siteTeamSectionOpen.activity ? `
+    <p class="stub" style="margin:0 0 10px;">Who deleted or closed what on this site, most recent first.</p>
+    ${activityLog.map(a=>`
+      <div class="card" style="padding:9px 12px;margin-bottom:6px;">
+        <div style="font-size:13px;">${escapeHtml(a.description)}</div>
+        <div class="stub" style="margin:3px 0 0;font-size:11px;">${escapeHtml(nameOf(a.actor_id))} · ${new Date(a.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${new Date(a.created_at).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    `).join('') || `<div class="empty">No deletions or closures logged for this site yet.</div>`}
+    ${activityLog.length>=100 ? `<p class="stub" style="margin:6px 0 0;">Only the most recent 100 entries are shown.</p>` : ''}
+    ` : ''}
+
     <p class="sectiontitle" style="margin-top:22px;">Site Info</p>
     <div class="card">
       <p class="stub" style="margin:0;">Created ${site.created_at ? new Date(site.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.created_by ? ' by '+escapeHtml(nameOf(site.created_by)) : ''}</p>
@@ -6314,7 +6343,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false, multisite:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false, multisite:false, activity:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.saveSiteAddress = async function(siteId){
   const name = document.getElementById('editSiteName').value.trim();
@@ -6400,10 +6429,13 @@ window.uploadPriceFiles = async function(siteId, input){
 };
 window.deletePriceFile = async function(siteId, fileId, storagePath){
   if(!await customConfirm('Delete this price file? This can\'t be undone.')) return;
+  const rows = await dbSelect('price_files', 'id=eq.'+fileId+'&select=filename');
+  const filename = rows[0] && rows[0].filename;
   try{ await sbFetch('/storage/v1/object/price-files/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('price_files', fileId);
   if(ok){
     toast('File deleted');
+    logSiteActivity(siteId, 'price_file_deleted', `Deleted price file "${filename||''}"`);
     if(priceFilePreview.path===storagePath) priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
     render();
   }
@@ -6541,8 +6573,10 @@ window.uploadAwPhoto = async function(input, siteId, id){
 };
 window.deleteAdditionalWorksRequest = async function(siteId, id){
   if(!await customConfirm('Remove this variation request?')) return;
+  const rows = await dbSelect('additional_works_requests', 'id=eq.'+id+'&select=note');
+  const note = rows[0] && rows[0].note;
   const ok = await dbDelete('additional_works_requests', id);
-  if(ok){ if(awRevisingId===id) awRevisingId=null; toast('Request removed'); render(); }
+  if(ok){ if(awRevisingId===id) awRevisingId=null; toast('Request removed'); logSiteActivity(siteId, 'variation_to_price_deleted', `Deleted variation to price request "${note||''}"`); render(); }
 };
 window.savePriceField = async function(siteId, field, rawValue){
   const v = String(rawValue||'').trim();
@@ -6822,6 +6856,7 @@ window.savePriceWeekCostLineValue = async function(siteId, week, entryId, rawVal
 window.deletePriceWeekExtraEntry = async function(siteId, week, entryId){
   const res = await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+entryId, {method:'DELETE'});
   if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); render(); return; }
+  logSiteActivity(siteId, 'price_week_entry_deleted', `Deleted price entry for Week ${week}`);
   await rollUpPriceWeekFromOperativeEntries(siteId, week);
   render();
 };
@@ -7231,10 +7266,13 @@ window.uploadLabourInvoices = async function(siteId, input){
 };
 window.deleteLabourInvoice = async function(siteId, fileId, storagePath){
   if(!await customConfirm('Delete this invoice? This can\'t be undone.')) return;
+  const rows = await dbSelect('labour_invoices', 'id=eq.'+fileId+'&select=filename');
+  const filename = rows[0] && rows[0].filename;
   try{ await sbFetch('/storage/v1/object/labour-invoices/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('labour_invoices', fileId);
   if(ok){
     toast('Invoice deleted');
+    logSiteActivity(siteId, 'labour_invoice_deleted', `Deleted labour invoice "${filename||''}"`);
     if(labourInvoicePreview.path===storagePath) labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
     render();
   }
@@ -7750,6 +7788,7 @@ window.deleteSelectedReports = async function(siteId){
     }
     selectedReportIds = new Set();
     toast(okCount ? `${okCount} report${okCount>1?'s':''} deleted` : 'Delete failed');
+    if(okCount) logSiteActivity(siteId, 'briefing_reports_deleted', `Deleted ${okCount} daily briefing submission${okCount>1?'s':''}`);
   }catch(e){ toast('Delete failed.'); }
   bulkDeleteBusy = false; render();
 };
@@ -8775,7 +8814,7 @@ async function renderCheckinSubAddress(siteId, subId){
       ${addr.closed ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">This address is closed — checked-in operatives should check out elsewhere; new check-ins are switched off.</p>` : ''}
       ${status==='in' ? `<span class="pill on"><span class="dot"></span>On site since ${new Date(last.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>`
                        : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
-      ${isPM ? `<button class="ghostbtn" style="margin-top:10px;${addr.closed?'':'color:var(--warn);'}" onclick="${addr.closed?`reopenSubAddress('${subId}')`:`closeSubAddress('${subId}')`}">${addr.closed?'Reopen Address':'Close Address'}</button>` : ''}
+      ${isPM ? `<button class="ghostbtn" style="margin-top:10px;${addr.closed?'':'color:var(--warn);'}" onclick="${addr.closed?`reopenSubAddress('${subId}')`:`closeSubAddress('${siteId}','${subId}')`}">${addr.closed?'Reopen Address':'Close Address'}</button>` : ''}
     </div>
     ${checkinError ? `<div class="card" style="border-color:var(--warn);"><div class="stub" style="color:var(--warn);margin-top:0;">${escapeHtml(checkinError)}</div></div>` : ''}
     ${(!addr.closed || status==='in') ? `
@@ -9467,8 +9506,9 @@ window.renameSection = async function(siteId, sectionId){
 };
 window.deleteSection = async function(siteId, sectionId){
   if(!await customConfirm('Delete this section? Its tasks move back to the ungrouped list — they are not deleted.')) return;
+  const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
   const ok = await dbDelete('schedule_sections', sectionId);
-  if(ok){ toast('Section deleted'); render(); }
+  if(ok){ toast('Section deleted'); logSiteActivity(siteId, 'schedule_section_deleted', `Deleted Schedule of Works section "${sec?sec.name:''}"`); render(); }
 };
 // Duplicates a section's task LIST (names only) into a brand new section —
 // handy for repeating the same set of tasks across plots on a scheme (e.g.
@@ -9580,8 +9620,10 @@ window.saveTaskEdit = async function(siteId, taskId){
 };
 window.deleteTask = async function(siteId, taskId){
   if(!await customConfirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
+  const rows = await dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name');
+  const name = rows[0] && rows[0].name;
   const ok = await dbDelete('schedule_tasks', taskId);
-  if(ok){ toast('Task deleted'); render(); }
+  if(ok){ toast('Task deleted'); logSiteActivity(siteId, 'schedule_task_deleted', `Deleted Schedule of Works task "${name||''}"`); render(); }
 };
 window.taskPhoto = async function(input, siteId, taskId){
   const files = input.files ? Array.from(input.files) : [];
@@ -9875,6 +9917,7 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
     const row = await dbUpdate('snags', snagId, {status:'closed', closed_photo_path:path, closed_by:ME.id, closed_at:new Date().toISOString()});
     if(row){
       postSystemMessage(siteId, 'snag_closed', `${ME.name} closed a snag: "${row.title||'Untitled'}"`);
+      logSiteActivity(siteId, 'snag_closed', `Closed snag "${row.title||'Untitled'}"`);
       closingSnagId = null;
       toast('Snag closed');
       render();
@@ -10794,9 +10837,11 @@ window.exportSignedRams = async function(ramsId){
 };
 window.deleteRams = async function(ramsId, storagePath){
   if(!await customConfirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
+  const rows = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=site_id,name');
+  const ramsRow = rows[0];
   try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('rams_docs', ramsId);
-  if(ok){ toast('RAMS document deleted'); render(); }
+  if(ok){ toast('RAMS document deleted'); if(ramsRow) logSiteActivity(ramsRow.site_id, 'rams_deleted', `Deleted RAMS document "${ramsRow.name||''}"`); render(); }
 };
 // PM/admin-only: pushes a "please sign" notification to every operative on
 // this site who is still missing a signature on at least one current RAMS
@@ -11076,9 +11121,11 @@ window.emailAllSignedCoshh = async function(siteId){
 };
 window.deleteCoshh = async function(coshhId, storagePath){
   if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
+  const rows = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=site_id,name');
+  const coshhRow = rows[0];
   try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('coshh_docs', coshhId);
-  if(ok){ toast('COSHH document deleted'); render(); }
+  if(ok){ toast('COSHH document deleted'); if(coshhRow) logSiteActivity(coshhRow.site_id, 'coshh_deleted', `Deleted COSHH document "${coshhRow.name||''}"`); render(); }
 };
 // PM/admin-only: same "Ask Outstanding to Sign" push as RAMS, but for COSHH.
 window.sendCoshhSignReminder = async function(siteId){
@@ -11434,8 +11481,10 @@ window.togglePpeSelect = function(id){
 };
 window.deletePpeIssuance = async function(issuanceId){
   if(!await customConfirm('Delete this PPE issuance record? This can\'t be undone.')) return;
+  const rows = await dbSelect('ppe_issuances', 'id=eq.'+issuanceId+'&select=site_id,user_id');
+  const ppeRow = rows[0];
   const ok = await dbDelete('ppe_issuances', issuanceId);
-  if(ok){ selectedPpeIds.delete(issuanceId); toast('Record deleted'); render(); }
+  if(ok){ selectedPpeIds.delete(issuanceId); toast('Record deleted'); if(ppeRow) logSiteActivity(ppeRow.site_id, 'ppe_issuance_deleted', `Deleted PPE issuance record for ${nameOf(ppeRow.user_id)}`); render(); }
 };
 window.exportSelectedPpe = async function(siteId){
   if(!selectedPpeIds.size) return;
@@ -12072,8 +12121,10 @@ window.saveHavsEntryEdit = async function(entryId){
 };
 window.deleteHavsEntry = async function(entryId){
   if(!await customConfirm('Remove this HAVS entry?')) return;
+  const rows = await dbSelect('havs_entries', 'id=eq.'+entryId+'&select=site_id,user_id,entry_date');
+  const havsRow = rows[0];
   const ok = await dbDelete('havs_entries', entryId);
-  if(ok){ toast('Entry removed'); render(); }
+  if(ok){ toast('Entry removed'); if(havsRow) logSiteActivity(havsRow.site_id, 'havs_entry_deleted', `Deleted HAVS entry for ${nameOf(havsRow.user_id)} (${havsRow.entry_date||''})`); render(); }
 };
 window.toggleHavsSiteToolPicker = function(){ havsSiteToolPickerOpen = !havsSiteToolPickerOpen; render(); };
 window.toggleSiteHavsTool = async function(siteId, toolId, isOn){
@@ -13266,6 +13317,7 @@ window.deletePuwerInspection = async function(siteId, userId){
   puwerDeleteBusy = false;
   if(ok){
     toast('Inspection deleted');
+    logSiteActivity(siteId, 'puwer_inspection_deleted', `Deleted PUWER inspection for ${nameOf(userId)}`);
     puwerFillDraft = null;
     await loadPuwerFillDraft(siteId, userId, puwerWeekStartISO(puwerWeekOffset));
   }
@@ -13663,8 +13715,10 @@ async function renderIncidents(siteId){
 }
 window.deleteIncidentReport = async function(reportId, siteId){
   if(!await customConfirm('Delete this report? This can\'t be undone.')) return;
+  const rows = await dbSelect('incident_reports', 'id=eq.'+reportId+'&select=incident_type,incident_date');
+  const incRow = rows[0];
   const ok = await dbDelete('incident_reports', reportId);
-  if(ok){ toast('Report deleted'); render(); }
+  if(ok){ toast('Report deleted'); if(incRow) logSiteActivity(siteId, 'incident_report_deleted', `Deleted ${incRow.incident_type||'incident'} report${incRow.incident_date?' ('+incRow.incident_date+')':''}`); render(); }
 };
 function renderIncidentFill(siteId){
   const __gen = RENDER_GEN;
@@ -14149,8 +14203,10 @@ window.emailSelectedBriefings = async function(){
 };
 window.deleteBriefingSubmission = async function(siteId, submissionId){
   if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
+  const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&select=template_name');
+  const templateName = rows[0] && rows[0].template_name;
   const ok = await dbDelete('report_submissions', submissionId);
-  if(ok){ toast('Briefing deleted'); render(); }
+  if(ok){ toast('Briefing deleted'); logSiteActivity(siteId, 'briefing_submission_deleted', `Deleted daily briefing "${templateName||''}"`); render(); }
 };
 window.startBriefing = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
@@ -14701,8 +14757,11 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
 };
 window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
   if(!await customConfirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
+  const tbtRows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=title');
+  const tbtTitle = tbtRows[0] && tbtRows[0].title;
   const ok = await dbDelete('toolbox_talks', tbtId);
   if(ok){
+    logSiteActivity(siteId, 'toolbox_talk_deleted', `Deleted toolbox talk "${tbtTitle||''}"`);
     // The same PDF can be shared by several talks now — the Bank TBT
     // original, the live copy issued from it, and copies pre-loaded into
     // other sites all point at the same storage_path. Only remove the
@@ -15032,6 +15091,7 @@ async function renderMaterialRequests(siteId){
 let matReqFilter = 'live'; // 'live' | 'closed'
 let matReqAssignFor = null; // material_required_items id whose assign picker is open
 let matReqCollectFor = null; // id whose "confirm collected qty" field is open
+let matReqEditFor = null; // id whose item/qty/supplier edit card is open — PM/admin only
 async function renderMaterialRequiredList(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -15069,9 +15129,25 @@ async function renderMaterialRequiredList(siteId){
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
             <span class="statustag ${m.status}">${statusLabel[m.status]||m.status}</span>
+            ${isPM ? `<div class="taskicon" onclick="openMatReqEdit('${m.id}','${m.supplier_id||''}')">✎</div>` : ''}
             ${isPM ? `<div class="taskicon danger" onclick="deleteMaterialRequiredItem('${siteId}','${m.id}')">🗑</div>` : ''}
           </div>
         </div>
+        ${isPM && matReqEditFor===m.id ? `
+          <div class="card" style="margin:10px 0 0;padding:10px;background:var(--paper);">
+            <p class="stub" style="margin:0 0 8px;">Edit item</p>
+            <div class="formfield"><input type="text" id="matReqEditItem-${m.id}" value="${escapeHtml(m.item)}" placeholder="Item"></div>
+            <div class="formfield"><input type="text" id="matReqEditQty-${m.id}" value="${escapeHtml(m.qty||'')}" placeholder="Quantity (optional)"></div>
+            <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('edit-${m.id}')">
+              <span class="arrow">${supplierPickerFor==='edit-'+m.id?'▼':'▶'}</span> ${materialSupplierChoice['edit-'+m.id] ? escapeHtml(supplierName(materialSupplierChoice['edit-'+m.id])) : 'Supplier (optional)'}
+            </div>
+            ${supplierPickerFor==='edit-'+m.id ? (suppliers.length ? supplierPickerHtml('edit-'+m.id, suppliers, materialSupplierChoice['edit-'+m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+            <div class="row-gap" style="margin-top:10px;">
+              <button class="darkbtn" style="flex:1;" onclick="saveMatReqEdit('${siteId}','${m.id}')">Save</button>
+              <button class="ghostbtn" style="flex:1;" onclick="matReqEditFor=null;supplierPickerFor=null;render()">Cancel</button>
+            </div>
+          </div>
+        ` : ''}
         ${isPM && m.status==='open' ? (
           matReqAssignFor===m.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
@@ -15173,12 +15249,48 @@ window.confirmCollectMaterialRequired = async function(siteId, id){
 };
 window.closeMaterialRequiredItem = async function(siteId, id){
   const row = await dbUpdate('material_required_items', id, {status:'closed', closed_by:ME.id, closed_at:new Date().toISOString()});
-  if(row){ toast('Closed'); render(); }
+  if(row){ toast('Closed'); logSiteActivity(siteId, 'material_required_item_closed', `Closed material required item "${row.item||''}"`); render(); }
 };
 window.deleteMaterialRequiredItem = async function(siteId, id){
   if(!await customConfirm('Delete this item from the list?')) return;
+  const rows = await dbSelect('material_required_items', 'id=eq.'+id+'&select=item');
+  const item = rows[0] && rows[0].item;
   const ok = await dbDelete('material_required_items', id);
-  if(ok){ toast('Deleted'); render(); }
+  if(ok){ toast('Deleted'); logSiteActivity(siteId, 'material_required_item_deleted', `Deleted material required item "${item||''}"`); render(); }
+};
+// Item/qty/supplier were originally only settable when a row was first
+// created — PM/admin can now go back and amend any of the three afterwards
+// (e.g. the merchant substituted a product, or the quantity changed), on any
+// row regardless of status. Assignment/collection/close stay their own
+// separate actions above, untouched by this.
+window.openMatReqEdit = function(id, currentSupplierId){
+  matReqEditFor = id;
+  matReqAssignFor = null; matReqCollectFor = null;
+  supplierPickerFor = null;
+  // Seed the picker with the row's existing supplier so it displays
+  // correctly even if the PM never touches the picker — saveMatReqEdit only
+  // overwrites supplier_id when this key has actually been set.
+  materialSupplierChoice['edit-'+id] = currentSupplierId || null;
+  render();
+};
+window.saveMatReqEdit = async function(siteId, id){
+  const itemEl = document.getElementById('matReqEditItem-'+id);
+  const item = itemEl ? itemEl.value.trim() : '';
+  if(!item){ toast('Item can\'t be empty.'); return; }
+  const qtyEl = document.getElementById('matReqEditQty-'+id);
+  const qty = qtyEl ? qtyEl.value.trim() : '';
+  const key = 'edit-'+id;
+  const supplierId = Object.prototype.hasOwnProperty.call(materialSupplierChoice, key) ? (materialSupplierChoice[key]||null) : undefined;
+  const patch = {item, qty: qty||null};
+  if(supplierId !== undefined) patch.supplier_id = supplierId;
+  const row = await dbUpdate('material_required_items', id, patch);
+  if(row){
+    matReqEditFor = null;
+    delete materialSupplierChoice[key];
+    supplierPickerFor = null;
+    toast('Item updated');
+    render();
+  }
 };
 
 // Supplier duplicate detection — company names get typed inconsistently
@@ -15453,7 +15565,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
 };
 window.closeMaterial = async function(siteId, matId){
   const row = await dbUpdate('materials', matId, {status:'closed'});
-  if(row){ toast('Material request closed'); render(); }
+  if(row){ toast('Material request closed'); logSiteActivity(siteId, 'material_request_closed', `Closed material request "${row.item||''}"`); render(); }
 };
 window.reopenMaterial = async function(siteId, matId){
   // Reopened requests go back to 'sent' (not 'pending') when they'd already
@@ -15531,8 +15643,10 @@ window.confirmReemail = async function(siteId, matId, supplierName){
 };
 window.deleteMaterial = async function(siteId, matId){
   if(!await customConfirm('Delete this material request? This can\'t be undone.')) return;
+  const rows = await dbSelect('materials', 'id=eq.'+matId+'&select=item');
+  const item = rows[0] && rows[0].item;
   const ok = await dbDelete('materials', matId);
-  if(ok){ toast('Material request deleted'); render(); }
+  if(ok){ toast('Material request deleted'); logSiteActivity(siteId, 'material_request_deleted', `Deleted material request "${item||''}"`); render(); }
 };
 
 /* ================= MATERIAL PO's (PM/admin-managed folders of order files, per site — the main
@@ -15729,9 +15843,11 @@ window.moveMaterialOrderFolder = async function(siteId, parentFolderId, folderId
 };
 window.deleteMaterialOrderFolder = async function(folderId){
   if(!await customConfirm('Delete this folder? Any documents inside will move back to the main Material PO folder — nothing is deleted.')) return;
+  const rows = await dbSelect('material_order_folders', 'id=eq.'+folderId+'&select=site_id,name');
+  const folderRow = rows[0];
   await sbFetch('/rest/v1/material_order_files?folder_id=eq.'+folderId, {method:'PATCH', body: JSON.stringify({folder_id:null})});
   const ok = await dbDelete('material_order_folders', folderId);
-  if(ok){ toast('Folder deleted'); render(); }
+  if(ok){ toast('Folder deleted'); if(folderRow) logSiteActivity(folderRow.site_id, 'material_order_folder_deleted', `Deleted Material PO folder "${folderRow.name||''}"`); render(); }
 };
 window.moveMaterialOrderFile = async function(siteId, parentFolderId, fileId, dir){
   const siblings = await dbSelect('material_order_files', 'site_id=eq.'+siteId+'&'+(parentFolderId?'folder_id=eq.'+parentFolderId:'folder_id=is.null')+'&order=position.asc.nullslast,synced_at.desc');
@@ -15758,13 +15874,15 @@ window.deleteMaterialOrderFile = async function(siteId, fileId, storagePath){
   // Clean up a linked scheduled-delivery calendar entry too, if there is
   // one — otherwise it'd be left behind on the Calendar with nothing to
   // point back to.
-  const rows = await dbSelect('material_order_files', 'id=eq.'+fileId+'&select=calendar_event_id');
+  const rows = await dbSelect('material_order_files', 'id=eq.'+fileId+'&select=calendar_event_id,name');
   const linkedEventId = rows[0] && rows[0].calendar_event_id;
+  const fileName = rows[0] && rows[0].name;
   const ok = await dbDelete('material_order_files', fileId);
   if(ok){
     if(storagePath){ try{ await sbFetch('/storage/v1/object/material-orders/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
     if(linkedEventId){ try{ await dbDelete('site_calendar_events', linkedEventId); }catch(e){ /* non-fatal */ } }
     toast('Document deleted');
+    logSiteActivity(siteId, 'material_order_file_deleted', `Deleted Material PO document "${fileName||''}"`);
     render();
   }
 };
@@ -16078,18 +16196,20 @@ window.saveCalEventEdit = async function(siteId){
   }
 };
 window.deleteCalEvent = async function(siteId, id, recurrenceGroupId, eventDate){
+  const evRows = await dbSelect('site_calendar_events', 'id=eq.'+id+'&select=title');
+  const evTitle = evRows[0] && evRows[0].title;
   if(recurrenceGroupId){
     const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences? (Cancel deletes just this one date.)');
     if(whole){
       const res = await sbFetch('/rest/v1/site_calendar_events?recurrence_group_id=eq.'+recurrenceGroupId+'&event_date=gte.'+eventDate, {method:'DELETE'});
-      if(res.ok){ toast('Series deleted'); render(); } else { toast('Delete failed — '+(await safeErr(res))); }
+      if(res.ok){ toast('Series deleted'); logSiteActivity(siteId, 'calendar_event_deleted', `Deleted calendar event series "${evTitle||''}"`); render(); } else { toast('Delete failed — '+(await safeErr(res))); }
       return;
     }
   } else {
     if(!await customConfirm('Delete this key date? This can\'t be undone.')) return;
   }
   const ok = await dbDelete('site_calendar_events', id);
-  if(ok){ toast('Deleted'); render(); }
+  if(ok){ toast('Deleted'); logSiteActivity(siteId, 'calendar_event_deleted', `Deleted calendar event "${evTitle||''}"`); render(); }
 };
 
 /* ================= HOME CALENDAR (all sites combined, PM/admin only —
@@ -16240,8 +16360,10 @@ window.saveModifyAndApproveVariation = async function(siteId, id){
 };
 window.deleteVariation = async function(siteId, id){
   if(!await customConfirm('Delete this variation? This cannot be undone.')) return;
+  const rows = await dbSelect('variations', 'id=eq.'+id+'&select=description');
+  const description = rows[0] && rows[0].description;
   const ok = await dbDelete('variations', id);
-  if(ok){ toast('Variation deleted'); render(); }
+  if(ok){ toast('Variation deleted'); logSiteActivity(siteId, 'variation_deleted', `Deleted variation "${description||''}"`); render(); }
 };
 async function renderVariations(siteId){
   const __gen = RENDER_GEN;
@@ -16359,7 +16481,7 @@ window.submitVariation = async function(siteId){
 };
 window.closeVariation = async function(siteId, varId){
   const row = await dbUpdate('variations', varId, {status:'closed', closed_at:new Date().toISOString()});
-  if(row){ toast('Variation closed'); render(); }
+  if(row){ toast('Variation closed'); logSiteActivity(siteId, 'variation_closed', `Closed variation "${row.description||''}"`); render(); }
 };
 window.exportVariationsPDF = async function(siteId, scope){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -16697,8 +16819,10 @@ window.moveDrawingFolder = async function(siteId, parentFolderId, folderId, dir)
 };
 window.deleteDrawingFolder = async function(folderId){
   if(!await customConfirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
+  const rows = await dbSelect('drawing_folders', 'id=eq.'+folderId+'&select=site_id,name');
+  const folderRow = rows[0];
   const ok = await dbDelete('drawing_folders', folderId);
-  if(ok){ toast('Folder deleted'); render(); }
+  if(ok){ toast('Folder deleted'); if(folderRow) logSiteActivity(folderRow.site_id, 'drawing_folder_deleted', `Deleted drawings folder "${folderRow.name||''}"`); render(); }
 };
 window.uploadDrawingFile = async function(input, siteId, folderId){
   const files = input.files ? Array.from(input.files) : [];
@@ -16839,10 +16963,13 @@ async function renderDrawingImportPicker(siteId){
 }
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!await customConfirm('Delete this drawing? This can\'t be undone.')) return;
+  const rows = await dbSelect('drawing_files', 'id=eq.'+fileId+'&select=site_id,name');
+  const fileRow = rows[0];
   const ok = await dbDelete('drawing_files', fileId);
   if(ok){
     try{ await sbFetch('/storage/v1/object/drawings/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
     toast('Drawing deleted');
+    if(fileRow) logSiteActivity(fileRow.site_id, 'drawing_file_deleted', `Deleted drawing "${fileRow.name||''}"`);
     render();
   }
 };
@@ -17403,17 +17530,21 @@ window.deleteSelectedMessages = async function(siteId){
   if(!msgSelectedIds.size) return;
   if(!await customConfirm(`Delete ${msgSelectedIds.size} message${msgSelectedIds.size===1?'':'s'}? This can't be undone.`)) return;
   const ids = Array.from(msgSelectedIds);
+  const count = ids.length;
   const res = await sbFetch('/rest/v1/messages?id=in.('+ids.join(',')+')', {method:'DELETE'});
   if(res.ok){
     toast('Messages deleted');
+    logSiteActivity(siteId, 'messages_deleted', `Deleted ${count} message${count>1?'s':''}`);
     msgSelectedIds = new Set();
     render();
   } else toast('Could not delete — '+(await safeErr(res)));
 };
 window.deleteMessage = async function(siteId, messageId){
   if(!await customConfirm('Delete this message? This can\'t be undone.')) return;
+  const rows = await dbSelect('messages', 'id=eq.'+messageId+'&select=body');
+  const body = rows[0] && rows[0].body;
   const ok = await dbDelete('messages', messageId);
-  if(ok){ toast('Message deleted'); render(); }
+  if(ok){ toast('Message deleted'); logSiteActivity(siteId, 'message_deleted', `Deleted message "${(body||'').slice(0,80)}"`); render(); }
 };
 window.sendBroadcast = async function(siteId){
   const bodyInput = document.getElementById('msgBody');
