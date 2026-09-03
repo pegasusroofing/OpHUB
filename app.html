@@ -5279,10 +5279,6 @@ async function renderSiteHome(siteId){
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
           ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
         </div>`,
-        `<div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
-          <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
-          <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
-        </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
           <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
           <div class="lbl">Drawings &amp; Specifications</div><div class="sub">View &amp; upload</div>
@@ -5314,6 +5310,15 @@ async function renderSiteHome(siteId){
       if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
           <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
           <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
+        </div>`);
+      // Operatives is inserted last, third from the end of whatever the final
+      // tile set turns out to be for this viewer (Price/To Do List tiles are
+      // conditional above, so "third to last" is computed off the real final
+      // length rather than a fixed index) — requested explicitly, rather than
+      // living in its old fixed early slot.
+      regularTiles.splice(Math.max(0, regularTiles.length-2), 0, `<div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
+          <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
+          <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
         </div>`);
       if(regularTiles.length % 2 === 1){
         const lastIdx = regularTiles.length-1;
@@ -6148,6 +6153,20 @@ window.deleteSubAddress = async function(subId){
   if(!await customConfirm('Delete this address? Any tasks or check-ins already linked to it keep their history but will show as unlinked. This can\'t be undone.')) return;
   const ok = await dbDelete('site_sub_addresses', subId);
   if(ok){ toast('Address deleted'); render(); }
+};
+// Closing an address is a PM/admin action, reachable from that address's own
+// Check In page — it stays fully visible everywhere (history, schedule
+// links) but drops out of the main "choose an address" list into a
+// collapsed "Closed Addresses" section at the bottom, and stops offering
+// fresh check-ins (someone already checked in can still check out).
+window.closeSubAddress = async function(subId){
+  if(!await customConfirm('Close this address? It\'ll move into the Closed Addresses list and new check-ins there will be switched off. You can reopen it any time.')) return;
+  const row = await dbUpdate('site_sub_addresses', subId, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString()});
+  if(row){ toast('Address closed'); render(); }
+};
+window.reopenSubAddress = async function(subId){
+  const row = await dbUpdate('site_sub_addresses', subId, {closed:false, closed_by:null, closed_at:null});
+  if(row){ toast('Address reopened'); render(); }
 };
 
 /* ================= ASSIGN TEAM (per-site — PM allocates operatives to this job) ================= */
@@ -8668,22 +8687,46 @@ async function renderCheckin(siteId, subId){
    address gets its own GPS-geofenced check-in flow (renderCheckinSubAddress)
    writing checkins.sub_site_id, entirely separate from the single-site path
    above. ================= */
+let checkinClosedAddressesOpen = false;
+function checkinAddressRowHtml(siteId, a){
+  return `
+    <div class="sitecard" style="cursor:pointer;${a.closed?'opacity:.7;':''}" onclick="go('#/site/${siteId}/checkin/${a.id}')">
+      <div class="info">
+        <div class="name">${escapeHtml(a.name)}${a.closed?' <span class="statustag closed" style="margin-left:4px;">Closed</span>':''}</div>
+        ${a.address||a.postcode ? `<div class="addr">${escapeHtml([a.address,a.postcode].filter(Boolean).join(', '))}</div>` : ''}
+        <div class="stub" style="margin:4px 0 0;">${a.geofence_lat!=null ? `📍 Geofence set — ${a.geofence_radius_m||100}m radius` : 'No geofence set yet'}</div>
+      </div>
+      <span style="font-size:20px;color:var(--slate);">›</span>
+    </div>
+  `;
+}
 async function renderCheckinAddressList(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const subAddresses = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+  const allSubAddresses = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+  const subAddresses = allSubAddresses.filter(a=>!a.closed);
+  const closedSubAddresses = allSubAddresses.filter(a=>a.closed);
   const body = `
     <p class="sectiontitle" style="margin-top:0;">Choose the address you're checking in to</p>
-    ${subAddresses.length ? subAddresses.map(a=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin/${a.id}')">
-        <div class="info">
-          <div class="name">${escapeHtml(a.name)}</div>
-          ${a.address||a.postcode ? `<div class="addr">${escapeHtml([a.address,a.postcode].filter(Boolean).join(', '))}</div>` : ''}
-          <div class="stub" style="margin:4px 0 0;">${a.geofence_lat!=null ? `📍 Geofence set — ${a.geofence_radius_m||100}m radius` : 'No geofence set yet'}</div>
+    ${subAddresses.length ? subAddresses.map(a=>checkinAddressRowHtml(siteId,a)).join('')
+      : (closedSubAddresses.length ? `<div class="empty">No open addresses — see Closed Addresses below.</div>` : `<div class="empty">No addresses have been added for this project yet.${isManager(ME)?'':' Ask your project manager to add one.'}</div>`)}
+    ${closedSubAddresses.length ? `
+      <div class="ddrow" style="margin-top:18px;" onclick="checkinClosedAddressesOpen=!checkinClosedAddressesOpen;render()"><span class="arrow">${checkinClosedAddressesOpen?'▼':'▶'}</span> Closed Addresses (${closedSubAddresses.length})</div>
+      ${checkinClosedAddressesOpen ? `<div style="margin-top:10px;">${closedSubAddresses.map(a=>checkinAddressRowHtml(siteId,a)).join('')}</div>` : ''}
+    ` : ''}
+    ${isManager(ME) ? (subAddrFormOpen ? `
+      <div class="card" style="background:var(--paper);">
+        <p class="sectiontitle" style="margin-top:0;">${subAddrEditingId?'Edit Address':'Add Address'}</p>
+        <div class="formfield"><input type="text" id="subAddrName" placeholder="e.g. 12 High Street" value="${escapeHtml(subAddrNameDraft)}" oninput="subAddrNameDraft=this.value"></div>
+        <div class="formfield"><input type="text" id="subAddrAddress" placeholder="Address (optional)" value="${escapeHtml(subAddrAddressDraft)}" oninput="applyTitleCase(this);subAddrAddressDraft=this.value"></div>
+        <div class="formfield"><input type="text" id="subAddrPostcode" placeholder="Postcode (optional)" value="${escapeHtml(subAddrPostcodeDraft)}" oninput="applyUpperCase(this);subAddrPostcodeDraft=this.value"></div>
+        <p class="stub" style="margin:0 0 10px;">Geofencing for this address can be set afterwards from Settings &amp; Admin → Multi-Site.</p>
+        <div style="display:flex;gap:8px;">
+          <button class="darkbtn" style="flex:1;" onclick="saveSubAddress('${siteId}')">${subAddrEditingId?'Save':'Add Address'}</button>
+          <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleSubAddrForm()">Cancel</button>
         </div>
-        <span style="font-size:20px;color:var(--slate);">›</span>
       </div>
-    `).join('') : `<div class="empty">No addresses have been added for this project yet.${isManager(ME)?' Add them from Settings & Admin.':''}</div>`}
+    ` : `<button class="ghostbtn" style="margin-top:${subAddresses.length?'0':'10px'};" onclick="toggleSubAddrForm()">+ Add Address</button>`) : ''}
   `;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
@@ -8725,14 +8768,21 @@ async function renderCheckinSubAddress(siteId, subId){
   const body = `
     <p class="stub" style="margin:0 0 10px;"><a href="#/site/${siteId}/checkin" onclick="event.preventDefault();go('#/site/${siteId}/checkin')" style="color:var(--blue);">‹ All addresses</a></p>
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Status — ${escapeHtml(addr.name)}</p>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+        <p class="sectiontitle" style="margin-top:0;">Status — ${escapeHtml(addr.name)}</p>
+        ${addr.closed ? `<span class="statustag closed" style="white-space:nowrap;">Closed</span>` : ''}
+      </div>
+      ${addr.closed ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">This address is closed — checked-in operatives should check out elsewhere; new check-ins are switched off.</p>` : ''}
       ${status==='in' ? `<span class="pill on"><span class="dot"></span>On site since ${new Date(last.ts).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span>`
                        : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}
+      ${isPM ? `<button class="ghostbtn" style="margin-top:10px;${addr.closed?'':'color:var(--warn);'}" onclick="${addr.closed?`reopenSubAddress('${subId}')`:`closeSubAddress('${subId}')`}">${addr.closed?'Reopen Address':'Close Address'}</button>` : ''}
     </div>
     ${checkinError ? `<div class="card" style="border-color:var(--warn);"><div class="stub" style="color:var(--warn);margin-top:0;">${escapeHtml(checkinError)}</div></div>` : ''}
+    ${(!addr.closed || status==='in') ? `
     <button class="primarybtn" style="${status==='in'?'background:var(--ink);':''}" ${checkinBusy?'disabled':''} onclick="doCheckActionSub('${siteId}','${subId}','${status==='in'?'out':'in'}')">
       ${checkinBusy ? (orgAllowsGps() ? 'Getting GPS lock…' : 'Please wait…') : (status==='in' ? 'Check Out' : 'Check In')}
     </button>
+    ` : ''}
     ${isPM ? `
       <p class="sectiontitle" style="margin-top:18px;">Address Geofence</p>
       ${!orgAllowsGps() ? `
@@ -8998,7 +9048,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                 <div class="taskicons">
                   ${rowActionsMenuHtml('sowtask-'+t.id, `
                     ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
-                    ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Address</div>` : ''}
+                    ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
                     <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
                   `)}
                 </div>
@@ -9007,7 +9057,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
           `}
           ${isMultiSite ? `
             <div class="meta" style="width:100%;margin:2px 0 0;">
-              <span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : 'Unlinked'}</span>
+              <span ${canAdd?`onclick="addressPickerTaskId='${t.id}';render()" style="cursor:pointer;`:`style="`}display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : (canAdd ? 'Unlinked — tap to link' : 'Unlinked')}</span>
             </div>
           ` : ''}
           ${canAdd && addressPickerTaskId===t.id ? `
@@ -9295,16 +9345,16 @@ async function renderSchedule(siteId){
       const open = scheduleSectionsOpen[sec.id] !== false;
       return `
       <div class="card" style="padding:0;overflow:hidden;">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
-          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}</span>
-          ${canAdd ? `<span style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
+        <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
+          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}</div>
+          ${canAdd ? `<div style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSection('${siteId}','${sec.id}')">✎ Rename</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSection('${siteId}','${sec.id}')">🗑 Delete</div>
             `)}
-          </span>` : ''}
-        </p>
+          </div>` : ''}
+        </div>
         ${open ? `
           <div style="padding:0 14px 14px;">
             ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
@@ -9313,6 +9363,12 @@ async function renderSchedule(siteId){
                 <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
                 <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
               </div>
+              ${isMultiSite ? `
+                <select id="newTaskSubAddr-${sec.id}" style="width:100%;margin-top:6px;padding:6px 10px;font-size:11.5px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+                  <option value="">📍 Address — not on the list</option>
+                  ${subAddressesList.map(a=>`<option value="${a.id}">📍 ${escapeHtml(a.name)}</option>`).join('')}
+                </select>
+              ` : ''}
             ` : ''}
             ${bySectionAll[sec.id] && bySectionAll[sec.id].length ? sectionFlagRowHtml(siteId, sec.id, flagsBySection[sec.id]) : ''}
           </div>
@@ -9502,10 +9558,11 @@ window.addTask = async function(siteId, sectionId){
   const position = await nextTaskPosition(siteId);
   const row = {site_id:siteId, name, status:'todo', position};
   if(sectionId) row.section_id = sectionId;
-  // Multi-site Address step — only present on the main Add Task panel
-  // (not the per-section quick-add row); "Not on the list" leaves it null,
-  // still linkable later via the task's own Edit dropdown.
-  const subAddrSel = !sectionId ? document.getElementById('newTaskSubAddr') : null;
+  // Multi-site Address step — present on both the main Add Task panel and
+  // the per-section quick-add row (each has its own id); leaving it on
+  // "not on the list" leaves sub_site_id null, still linkable later via the
+  // task's own 📍 pill or ▾ Link Address.
+  const subAddrSel = document.getElementById(sectionId ? ('newTaskSubAddr-'+sectionId) : 'newTaskSubAddr');
   if(subAddrSel && subAddrSel.value) row.sub_site_id = subAddrSel.value;
   const rows = await dbInsert('schedule_tasks', row);
   if(rows){ toast('Task added'); render(); }
