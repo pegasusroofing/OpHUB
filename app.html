@@ -298,7 +298,7 @@
   .statusbtn.active-todo{border-color:var(--slate-light);color:var(--ink);background:#fff;}
   .statusbtn.active-progress{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
   .statusbtn.active-done{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
-  .taskname{font-size:13.5px;font-weight:700;}
+  .taskname{font-size:13.5px;font-weight:700;flex:1;min-width:0;overflow-wrap:break-word;}
   .taskname.done{color:var(--ink);}
   .taskname .donetick{color:var(--ok);font-weight:800;margin-left:6px;}
   .taskname-input{font-size:13.5px;font-weight:700;flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-family:inherit;background:#fff;color:var(--ink);}
@@ -6347,8 +6347,10 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
     + costEntries.reduce((s,e)=>s+Number(e.amount||0), 0);
   const adding = !!priceAddOpen[key];
   const addType = priceAddType[key] || 'operative';
-  const addedExtraIds = new Set(extraOpEntries.filter(e=>e.operative_id).map(e=>e.operative_id));
-  const pickable = orgOperatives.filter(o=>!addedExtraIds.has(o.id));
+  // #340: an operative can be added as an extra row more than once in the
+  // same week (e.g. two separate pieces of work), so the picker no longer
+  // excludes operatives already present as an extra row.
+  const pickable = orgOperatives;
   return `
     <div style="margin:-6px 0 12px;">
       <p class="ddrow" style="margin:0;padding:6px 0;border:none;border-radius:0;background:transparent;font-size:11.5px;" onclick="priceOpBreakdownOpen['${key}']=${!open};render()">
@@ -6356,14 +6358,17 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
       </p>
       ${open ? `
       <div style="padding:2px 0 4px 10px;border-left:2px solid var(--line);">
-        ${/* #322: single-line rows at the app's standard compact-row padding
+        ${/* #322 gave these rows the app's standard compact-row padding
              (8px 10px, as used by Materials PO / To Do rows) instead of the
              taller stacked label-over-input formfield layout previously used
-             here, so build-up rows sit at the same height as the rest of the app. */''}
+             here. #341 tightens further still (5px 10px) — the build-up can
+             get long once extra rows pile up, so these rows go smaller than
+             the app's normal standard row height on purpose. */''}
         ${assignedOperatives.map(o=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);">
             <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(o.name)}</label>
             <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${entriesForWeek[o.id]!=null?entriesForWeek[o.id]:''}" placeholder="0.00" onblur="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+            ${entriesForWeek[o.id]!=null ? `<div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}','')">×</div>` : ''}
           </div>
         `).join('')}
         ${extraOpEntries.map(e=>{
@@ -6373,19 +6378,20 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           const isManualName = !e.operative_id;
           const p = isManualName ? null : PROFILES[e.operative_id];
           const name = isManualName ? (e.label||'Unnamed') : (p?p.name:'Unknown');
-          const onBlurHandler = isManualName
-            ? `savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)`
-            : `savePriceWeekOperativeEntry('${siteId}',${wk},'${e.operative_id}',this.value,'extra_operative')`;
+          // #340: extra_operative rows are no longer unique per operative
+          // (the same person can have several rows in a week), so edits go
+          // by this row's own id — same path a manual/cost row already used
+          // — rather than an upsert keyed on operative_id.
           return `
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
-            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(name)} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(extra${isManualName?', not on app':''})</span></label>
-            <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="${onBlurHandler}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);">
+            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(name)}</label>
+            <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
             <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
           </div>
         `;}).join('')}
         ${costEntries.map(e=>`
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);">
-            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(e.label)} <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(cost)</span></label>
+          <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);">
+            <label class="field-label" style="font-weight:600;margin:0;flex:1;min-width:0;">${escapeHtml(e.label)}</label>
             <div class="currency-input-wrap" style="width:120px;flex:0 0 auto;"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
             <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;flex:0 0 auto;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
           </div>
@@ -6441,24 +6447,41 @@ window.savePriceWeekOperativeEntry = async function(siteId, week, operativeId, r
   kind = kind || 'assigned';
   const v = String(rawValue||'').trim();
   if(v===''){
-    const res = await sbFetch('/rest/v1/price_week_operative_entries?site_id=eq.'+siteId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId, {method:'DELETE'});
+    const res = await sbFetch('/rest/v1/price_week_operative_entries?site_id=eq.'+siteId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind, {method:'DELETE'});
     if(!res.ok){ toast('Could not clear — '+(await safeErr(res))); render(); return; }
   } else {
     const amount = Number(v);
     if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
-    const res = await sbFetch('/rest/v1/price_week_operative_entries?on_conflict=site_id,week_number,operative_id', {
-      method:'POST',
-      headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-      body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind, entered_by:ME.id, updated_at:new Date().toISOString()})
-    });
+    // #340: 'assigned' rows are one-per-operative-per-week (enforced by a
+    // partial unique index scoped to kind='assigned'), but PostgREST's
+    // on_conflict can't target a partial index — so look the row up first
+    // and PATCH it if it exists, INSERT if not, instead of relying on
+    // upsert-by-on_conflict.
+    const existing = await dbSelect('price_week_operative_entries', 'site_id=eq.'+siteId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind+'&select=id');
+    let res;
+    if(existing.length){
+      res = await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+existing[0].id, {
+        method:'PATCH',
+        headers:{'Prefer':'return=representation'},
+        body: JSON.stringify({amount, entered_by:ME.id, updated_at:new Date().toISOString()})
+      });
+    } else {
+      res = await sbFetch('/rest/v1/price_week_operative_entries', {
+        method:'POST',
+        headers:{'Prefer':'return=representation'},
+        body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind, entered_by:ME.id, updated_at:new Date().toISOString()})
+      });
+    }
     if(!res.ok){ toast('Save failed — '+(await safeErr(res))); render(); return; }
   }
   await rollUpPriceWeekFromOperativeEntries(siteId, week);
   render();
 };
-// #319: add an extra operative (not in site_assignments for this site) to
-// a week's build-up — reuses savePriceWeekOperativeEntry's upsert so later
-// edits/clears of this row go through the same path as assigned rows.
+// #319/#340: add an extra operative (not in site_assignments for this site,
+// or the same operative again for a second piece of work) to a week's
+// build-up. This always INSERTs a new row — extra_operative rows aren't
+// unique per operative (only 'assigned' rows are), so there's no existing
+// row to upsert onto; later edits of this row go by its own id instead.
 window.addPriceWeekExtraOperative = async function(siteId, week){
   const key = siteId+'_'+week;
   const sel = document.getElementById('pwExtraOpSelect_'+key);
@@ -6468,9 +6491,9 @@ window.addPriceWeekExtraOperative = async function(siteId, week){
   const v = String(valEl && valEl.value || '').trim();
   const amount = v==='' ? 0 : Number(v);
   if(isNaN(amount) || amount<0){ toast('Enter a number'); return; }
-  const res = await sbFetch('/rest/v1/price_week_operative_entries?on_conflict=site_id,week_number,operative_id', {
+  const res = await sbFetch('/rest/v1/price_week_operative_entries', {
     method:'POST',
-    headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
+    headers:{'Prefer':'return=representation'},
     body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
