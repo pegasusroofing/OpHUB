@@ -4479,6 +4479,16 @@ function operativeCertUploadFormHtml(operativeId, prefix){
       <button class="darkbtn" style="width:100%;" onclick="uploadOperativeCert('${operativeId}','${prefix}')">Upload</button>
     </div>`;
 }
+// #337: small per-row icon showing where a certificate stands with OneDrive —
+// a cloud for anything pulled in from (or already pushed out to) OneDrive,
+// and a phone for a manual upload still sitting local-only, awaiting the
+// user to multi-select it and use "Upload to OneDrive".
+function certSourceIconHtml(f){
+  const onOneDrive = f.source==='onedrive' || !!f.pushed_to_onedrive_at;
+  return onOneDrive
+    ? `<span title="Synced with OneDrive" style="flex:0 0 auto;font-size:13px;line-height:1;">☁️</span>`
+    : `<span title="Uploaded from phone — not yet pushed to OneDrive" style="flex:0 0 auto;font-size:13px;line-height:1;">📱</span>`;
+}
 function operativeCertListHtml(certs, canManage, opts){
   opts = opts || {};
   if(!certs.length) return `<div class="empty">No certificates yet.</div>`;
@@ -4494,9 +4504,10 @@ function operativeCertListHtml(certs, canManage, opts){
         <div class="card" style="margin-bottom:${opts.compact?'6px':'8px'};${pad?'padding:'+pad+';':''}">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             ${opts.selectable?`<input type="checkbox" style="width:16px;height:16px;flex:0 0 16px;margin:0;" ${certSelectedIds.has(f.id)?'checked':''} onchange="toggleCertSelect('${f.id}')">`:''}
+            ${certSourceIconHtml(f)}
             <div style="min-width:0;flex:1;">
               <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${opts.compact?'12.5px':'inherit'};">${escapeHtml(f.name)}</div>
-              <div class="stub" style="${opts.compact?'font-size:10px;margin:1px 0 0;':''}">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.source==='onedrive'?'Synced from OneDrive':'Uploaded'}${f.size?' · '+(f.size>1024*1024?(f.size/1024/1024).toFixed(1)+' MB':Math.round(f.size/1024)+' KB'):''}${f.expiry_date?' · Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+              <div class="stub" style="${opts.compact?'font-size:10px;margin:1px 0 0;':''}">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.source==='onedrive'?'Synced from OneDrive':(f.pushed_to_onedrive_at?'Uploaded — pushed to OneDrive':'Uploaded — not yet pushed to OneDrive')}${f.size?' · '+(f.size>1024*1024?(f.size/1024/1024).toFixed(1)+' MB':Math.round(f.size/1024)+' KB'):''}${f.expiry_date?' · Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
             </div>
             ${canManage?`<div class="taskicon danger" title="Delete" onclick="deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>`:''}
           </div>
@@ -4570,16 +4581,27 @@ window.setOperativeCertExpiry = async function(fileId, value){
 // opts into selection, showing Export (bundles the ticked certs into one
 // PDF) and Email (sends that PDF) as two distinct actions, exactly like the
 // existing PPE multi-select pattern (#198).
-let certBulkExportBusy = false, certBulkEmailBusy = false;
-function certListSelectionBarHtml(certs){
+let certBulkExportBusy = false, certBulkEmailBusy = false, certBulkPushBusy = false;
+// #337: a third bulk action, "Upload to OneDrive" — only shown when an
+// operativeId is supplied (the manual-people lists don't have a OneDrive
+// folder to push to), and only actually pushes whichever of the selected
+// certs are still phone-only (source='upload', never pushed).
+function certListSelectionBarHtml(certs, operativeId){
   const idsHere = new Set(certs.map(c=>c.id));
   const selectedHere = Array.from(certSelectedIds).filter(id=>idsHere.has(id));
   if(!selectedHere.length) return '';
+  const byId = {}; certs.forEach(c=>{ byId[c.id]=c; });
+  const pushableCount = operativeId ? selectedHere.filter(id=>byId[id] && byId[id].source==='upload' && !byId[id].pushed_to_onedrive_at).length : 0;
   return `
-    <div class="row-gap" style="margin-bottom:10px;">
+    <div class="row-gap" style="margin-bottom:${operativeId?'8px':'10px'};">
       <button class="darkbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkExportBusy?'disabled':''} onclick='exportSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkExportBusy?'Building…':`Export ${selectedHere.length} (PDF)`}</button>
       <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkEmailBusy?'disabled':''} onclick='emailSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Emailing…':`Email ${selectedHere.length}`}</button>
     </div>
+    ${operativeId ? `
+    <div class="row-gap" style="margin-bottom:10px;">
+      <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkPushBusy||!pushableCount?'disabled':''} onclick='pushSelectedCertsToOneDrive(${JSON.stringify(selectedHere)},${JSON.stringify(operativeId)})'>${certBulkPushBusy?'Uploading…':(pushableCount?`☁ Upload ${pushableCount} to OneDrive`:'☁ Upload to OneDrive')}</button>
+    </div>
+    ` : ''}
   `;
 }
 // Bundles the given certificate files into one PDF — PDFs get their pages
@@ -4648,6 +4670,24 @@ window.emailSelectedCerts = async function(ids, recipient){
   }catch(e){ toast('Email failed — could not reach the server.'); }
   certBulkEmailBusy = false; render();
 };
+// #337: pushes only the explicitly ticked, still-phone-only certificates up
+// to OneDrive (source='upload' rows with no item_id yet) — unlike Sync Now,
+// which is pull-only. Reuses the same edge function with cert_ids set, so
+// it only touches the rows the user selected.
+window.pushSelectedCertsToOneDrive = async function(ids, operativeId){
+  if(!ids || !ids.length) return;
+  certBulkPushBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/sync-operative-certification', {method:'POST', body: JSON.stringify({operative_id: operativeId, cert_ids: ids})});
+    const d = await res.json();
+    if(!res.ok || d.error){ toast('Upload to OneDrive failed — '+(d.error||res.status)); }
+    else{
+      toast(d.pushed ? `Uploaded ${d.pushed} to OneDrive.` : 'Nothing to upload — already on OneDrive.');
+      ids.forEach(id=>certSelectedIds.delete(id));
+    }
+  }catch(e){ toast('Upload to OneDrive failed — could not reach the server.'); }
+  certBulkPushBusy = false; render();
+};
 window.syncOperativeCertifications = async function(operativeId){
   operativeCertSyncBusy[operativeId] = true; render();
   try{
@@ -4655,7 +4695,7 @@ window.syncOperativeCertifications = async function(operativeId){
     const d = await res.json();
     if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); }
     else{
-      toast(`Synced — ${d.pulled||0} pulled in, ${d.pushed||0} pushed out.`);
+      toast(`Synced — ${d.pulled||0} pulled in from OneDrive.`);
       const p = PROFILES[operativeId]; if(p) p.onedrive_last_synced_at = new Date().toISOString();
     }
   }catch(e){ toast('Sync failed — could not reach the server.'); }
@@ -4665,6 +4705,7 @@ window.syncOperativeCertifications = async function(operativeId){
 let operativeSearchQuery = '';
 async function renderOperativesList(){
   const __gen = RENDER_GEN;
+  const opListFrom = routeQuery().get('from');
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
   const [assignRows, certRows] = await Promise.all([
@@ -4683,16 +4724,17 @@ async function renderOperativesList(){
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Training Matrix (Excel)</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixPdf()">📄 Export Training Matrix (PDF)</button>
     ${filtered.length ? filtered.map(o=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/operatives/${o.id}')">
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/operatives/${o.id}${opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''}')">
         <div class="swatch">${(o.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
         <div class="info"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${(siteCountByOp[o.id]?siteCountByOp[o.id].size:0)} site${(siteCountByOp[o.id]&&siteCountByOp[o.id].size===1)?'':'s'} · ${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}</div></div>
       </div>
     `).join('') : `<div class="empty">No operatives found.</div>`}
-  `, {title:'Operatives', back:'#/team', tabs:false}); }
+  `, {title:'Operatives', back: opListFrom || '#/team', tabs:false}); }
 }
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
   const fromSiteId = routeQuery().get('from');
+  const listFrom = routeQuery().get('listFrom');
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
@@ -4725,7 +4767,7 @@ async function renderOperativeDetail(operativeId){
     ${folderLinked ? `
       <p class="stub" style="margin:0 0 4px;color:var(--ok);">📁 Linked to "${escapeHtml(operative.onedrive_folder_name||'')}"</p>
       <p class="stub" style="margin:0 0 10px;">${operative.onedrive_last_synced_at ? 'Last synced '+new Date(operative.onedrive_last_synced_at).toLocaleString('en-GB') : 'Not synced yet.'}</p>
-      <p class="stub" style="margin:0 0 10px;">Tip: sync pulls in anything new you've added to this operative's OneDrive folder, and pushes out anything you've uploaded here — tap Sync Now any time after adding files either side.</p>
+      <p class="stub" style="margin:0 0 10px;">Tip: Sync Now pulls in anything new added to this operative's OneDrive folder. To send a phone-uploaded certificate the other way, tick it below and use "Upload to OneDrive".</p>
       <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;">
         <button class="darkbtn" style="flex:1;" ${syncBusy?'disabled':''} onclick="syncOperativeCertifications('${operativeId}')">${syncBusy?'Syncing…':'🔄 Sync Now'}</button>
         <div style="position:relative;flex:0 0 auto;" data-opfoldermenu-root>
@@ -4739,15 +4781,15 @@ async function renderOperativeDetail(operativeId){
         </div>
       </div>
     ` : `
-      <p class="stub" style="margin:0 0 10px;">Link this operative's own OneDrive folder to sync their certificates two-way — anything you upload here gets pushed out to it, and anything added to it gets pulled in here. Tap Sync Now any time after adding files either side.</p>
+      <p class="stub" style="margin:0 0 10px;">Link this operative's own OneDrive folder to sync their certificates — anything added to it gets pulled in here on Sync Now, and a certificate uploaded here can be sent to it by ticking it and choosing "Upload to OneDrive".</p>
       <button class="darkbtn" style="margin-bottom:16px;" onclick="startOperativeFolderPicker('${operativeId}')">Link OneDrive Folder</button>
     `}
 
     <p class="sectiontitle">Certificates</p>
-    ${certListSelectionBarHtml(certs)}
+    ${certListSelectionBarHtml(certs, operativeId)}
     ${operativeCertListHtml(certs, true, {selectable:true})}
     ${operativeCertUploadFormHtml(operativeId, 'opdet')}
-  `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : '#/operatives', tabs:false}); }
+  `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : (listFrom ? `#/operatives?from=${encodeURIComponent(listFrom)}` : '#/operatives'), tabs:false}); }
 }
 // Site-scoped Certifications page. An operative sees just their own
 // permanent certificate folder. A PM/admin sees their own certs, a compact
@@ -4771,7 +4813,7 @@ async function renderSiteCertifications(siteId){
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <p class="sectiontitle" style="margin-top:0;margin-bottom:8px;">Your Certificates</p>
       <p class="stub" style="margin:6px 0 12px;">This is your permanent certificate folder — it stays with you across every site.</p>
-      ${certListSelectionBarHtml(myCerts)}
+      ${certListSelectionBarHtml(myCerts, ME.id)}
       ${operativeCertListHtml(myCerts, false, {selectable:true})}
       ${operativeCertUploadFormHtml(ME.id, 'mycert')}
     `, {title:'Certifications', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
@@ -5170,6 +5212,10 @@ async function renderSiteHome(siteId){
           <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
           ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
+          <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
+          <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
           <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
@@ -8169,7 +8215,7 @@ async function renderMore(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/messages')"><div class="icon" style="background:#EAF1FB;color:var(--blue);">💬</div><div class="lbl">Messages</div></div>
       ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price')"><div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div><div class="lbl">Price</div>${pendingVariationCount2?`<span class="badge-count">${pendingVariationCount2}</span>`:''}</div>` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/todos')"><div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div><div class="lbl">To Do List</div></div>
-      <div class="tile" onclick="go('#/operatives')"><div class="icon" style="background:#E8F0FE;color:#1A56B0;">👷</div><div class="lbl">Operatives</div></div>
+      <div class="tile" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/more')}')"><div class="icon" style="background:#E8F0FE;color:#1A56B0;">👷</div><div class="lbl">Operatives</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/team')"><div class="icon" style="background:#232323;color:#fff;">⚙️</div><div class="lbl">Settings &amp; Admin</div></div>
     </div>
   `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
@@ -12198,6 +12244,12 @@ let odCertEmailRecipientChoice = ''; // '' (unset) | a pm user id | 'custom'
 let odCertEmailCustomAddr = '';
 window.toggleOdCertEmailPicker = function(){ odCertEmailPickerOpen = !odCertEmailPickerOpen; render(); };
 window.setOdCertEmailRecipientChoice = function(v){ odCertEmailRecipientChoice = v; render(); };
+// #336: Certifications now live inside the Operative Dashboard as their own
+// collapsible sub-folder (open by default, matching the always-shown
+// behaviour this replaces) rather than only as a separate sibling tile off
+// the Operatives hub — same list/upload UI, just folded into the Dashboard.
+let odCertFolderOpen = true;
+window.toggleOdCertFolder = function(){ odCertFolderOpen = !odCertFolderOpen; render(); };
 window.sendOdCertEmail = async function(ids){
   let recipient = null;
   if(odCertEmailRecipientChoice==='custom'){
@@ -12231,7 +12283,8 @@ async function renderOperativeDashboard(){
     <p class="sectiontitle" style="margin:0 0 8px;">My Tools</p>
     ${myToolsBodyHtml(tools, true)}
 
-    <p class="sectiontitle" style="margin:16px 0 8px;">My Certificates</p>
+    <p class="ddrow" style="margin:16px 0 8px;cursor:pointer;" onclick="toggleOdCertFolder()"><span class="arrow">${odCertFolderOpen?'▼':'▶'}</span> Certifications (${certs.length})</p>
+    ${odCertFolderOpen ? `
     ${selectedHere.length ? `
       <div class="row-gap" style="margin-bottom:8px;">
         <button class="darkbtn" style="flex:1;font-size:11px;padding:6px;" ${certBulkExportBusy?'disabled':''} onclick='exportSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkExportBusy?'Building…':`Export ${selectedHere.length} (PDF)`}</button>
@@ -12249,8 +12302,15 @@ async function renderOperativeDashboard(){
         <button class="darkbtn" style="width:100%;" ${certBulkEmailBusy?'disabled':''} onclick='sendOdCertEmail(${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Sending…':'Send'}</button>
       </div>
       ` : ''}
+      ${(()=>{ const byId={}; certs.forEach(c=>{byId[c.id]=c;}); const pushableCount = selectedHere.filter(id=>byId[id] && byId[id].source==='upload' && !byId[id].pushed_to_onedrive_at).length; return `
+      <div class="row-gap" style="margin-bottom:8px;">
+        <button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px;" ${certBulkPushBusy||!pushableCount?'disabled':''} onclick='pushSelectedCertsToOneDrive(${JSON.stringify(selectedHere)},${JSON.stringify(ME.id)})'>${certBulkPushBusy?'Uploading…':(pushableCount?`☁ Upload ${pushableCount} to OneDrive`:'☁ Upload to OneDrive')}</button>
+      </div>
+      `; })()}
     ` : ''}
     ${operativeCertListHtml(certs, false, {selectable:true, compact:true})}
+    ${operativeCertUploadFormHtml(ME.id, 'oddash')}
+    ` : ''}
   `, {title:'Operative Dashboard', back:'#/sites', tabs:false}); }
 }
 
