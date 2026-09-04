@@ -214,7 +214,7 @@
     padding:6px;min-width:150px;}
   .statusmenu-item{padding:8px 10px;font-size:12.5px;font-weight:700;color:var(--ink);border-radius:7px;cursor:pointer;}
   .statusmenu-item:hover{background:var(--paper);}
-  .statusmenu-item.danger{color:var(--brand1);}
+  .statusmenu-item.danger{color:var(--red);}
   .closedtoggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;}
   .closedtoggle .arrow{font-size:10px;}
   /* Shared "dropdown row" aesthetic — every collapsible row in the app
@@ -319,7 +319,7 @@
   .taskicons{display:flex;gap:4px;flex:0 0 auto;}
   .taskicon{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:#fff;
     display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;color:var(--slate);}
-  .taskicon.danger{color:var(--brand1);}
+  .taskicon.danger{color:var(--red);}
   .taskicon.lg{width:39px;height:39px;flex:0 0 39px;font-size:18px;border-radius:8px;}
   .taskeditrow{display:flex;gap:6px;margin-bottom:4px;}
   .taskeditrow input{flex:1;padding:7px 9px;font-size:13px;}
@@ -1145,7 +1145,7 @@ async function registerPushNotifications(){
       try{
         const data = (action && action.notification && action.notification.data) || {};
         if(!data.site_id) return;
-        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh' };
+        const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh', material_pickup:'materialrequired' };
         const dest = routes[data.kind] || 'messages';
         go(`#/site/${data.site_id}/${dest}`);
       }catch(e){ console.error('Push notification routing failed', e); }
@@ -1794,8 +1794,12 @@ function tabbar(siteId, active){
     {k:'home', ic:'🏠', lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
     {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
-    {k:'messages', ic:'💬', lbl:'Messages', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
-    {k:'more', ic:'☰', lbl:'More', href:`#/site/${siteId}/more`},
+    {k:'messages', ic:'💬', lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
+    // "More" is now a direct jump to Settings & Admin (managers/admins) or
+    // personal Account settings (operatives — Settings & Admin is gated to
+    // managers/admins anyway) instead of opening a separate pop-out/page of
+    // links first.
+    {k:'more', ic:'⚙️', lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
@@ -1828,7 +1832,7 @@ async function computeMyOutstandingCount(){
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
     {ic:'📌', lbl:'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
-    ...(!canAdd ? [{ic:'💬', lbl:'Messages', onclick:"go('#/my-messages')"}] : []),
+    ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
     ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard')"}] : []),
     // Styled in the company's theme colour (brand1) rather than the plain
@@ -5295,21 +5299,14 @@ async function renderSiteHome(siteId){
           <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
           <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
         </div>`,
-        `<div class="tile" onclick="go('#/site/${siteId}/calendar')">
-          <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
-          <div class="lbl">Calendar</div><div class="sub">Key dates</div>
-        </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/snagging')">
           <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
           <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
-        `<div class="tile" onclick="go('#/site/${siteId}/messages')">
-          <div class="icon" style="background:#E4EEFB;color:var(--blue);">💬</div>
-          <div class="lbl">Messages</div><div class="sub">${unreadMsgs ? unreadMsgs+' unread' : 'Up to date'}</div>
-          ${unreadMsgs?`<span class="badge-count">${unreadMsgs}</span>`:''}
-        </div>`,
       ];
+      // Messages/Inbox is reached via the bottom bar only now — no separate
+      // Home tile (it was a duplicate entry point, see the bottom tabbar).
       if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
           <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
           <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
@@ -5319,14 +5316,14 @@ async function renderSiteHome(siteId){
           <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
           <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
         </div>`);
-      // Operatives is inserted last, third from the end of whatever the final
-      // tile set turns out to be for this viewer (Price/To Do List tiles are
-      // conditional above, so "third to last" is computed off the real final
-      // length rather than a fixed index) — requested explicitly, rather than
-      // living in its old fixed early slot.
-      regularTiles.splice(Math.max(0, regularTiles.length-2), 0, `<div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
-          <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
-          <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
+      // Operatives no longer gets its own Home tile — it's reached via the
+      // Health & Safety tile/hub instead (renderHealthSafety already lists
+      // an "Operatives" tile alongside RAMS/COSHH/etc).
+      // Calendar lands 2nd-to-last, computed off the real final tile count
+      // (Price/To Do List are conditional above) rather than a fixed index.
+      regularTiles.splice(Math.max(0, regularTiles.length-1), 0, `<div class="tile" onclick="go('#/site/${siteId}/calendar')">
+          <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+          <div class="lbl">Calendar</div><div class="sub">Key dates</div>
         </div>`);
       if(regularTiles.length % 2 === 1){
         const lastIdx = regularTiles.length-1;
@@ -5707,7 +5704,7 @@ async function renderTodoList(siteId){
             <div onclick="event.stopPropagation();">
               ${rowActionsMenuHtml('todo-'+t.id, `
                 ${!t.done ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;todoEditId='${t.id}';todoEditTextDraft='${jsAttr(t.text)}';todoEditDateDraft='${t.date_required_by||''}';render()">✎ Edit</div>` : ''}
-                <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteTodo('${siteId}','${t.id}')">🗑 Delete</div>
+                <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTodo('${siteId}','${t.id}')">🗑 Delete</div>
               `)}
             </div>
           </div>
@@ -6236,7 +6233,7 @@ async function renderAssignTeam(siteId){
             ${rowActionsMenuHtml('subaddr-'+a.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleSubAddrForm('${a.id}')">✎ Edit</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubGeoOptions('${a.id}')">📍 ${a.geofence_lat!=null?'Update':'Set'} Geofence</div>
-              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSubAddress('${siteId}','${a.id}')">🗑 Delete</div>
+              <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSubAddress('${siteId}','${a.id}')">🗑 Delete</div>
             `)}
           </div>
           ${a.geofence_lat!=null ? `
@@ -6297,6 +6294,8 @@ async function renderAssignTeam(siteId){
       </div>
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
     ` : ''}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
 
     ${ME.role==='admin' ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
@@ -8487,59 +8486,6 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
   reportEmailBusy = null; render();
 };
 
-/* ================= MORE ================= */
-async function renderMore(siteId){
-  const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
-  const mgr = isManager(ME);
-  // Operatives keep the same compact 4-tile set as before. Managers/admins
-  // get every tile in the app (mirroring Home + Settings & Admin) so they
-  // can jump anywhere from one screen instead of hunting through Home,
-  // rather than the previous short list — see .moretiles CSS for how this
-  // still fits on one screen without scrolling.
-  if(!mgr){
-    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-      <div class="tilegrid">
-        <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
-        <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
-        <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div><div class="lbl">Drawings &amp; Specifications</div></div>
-        <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
-      </div>
-    `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
-    return;
-  }
-  let canSeePrice = false;
-  if(site.price_enabled){
-    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
-    else {
-      const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
-      canSeePrice = grant.length>0;
-    }
-  }
-  // #309: pending "Variation to Price" requests get a badge here too.
-  let pendingVariationCount2 = 0;
-  if(canSeePrice && isManager(ME)){
-    const pendingAw2 = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-    pendingVariationCount2 = pendingAw2.length;
-  }
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid moretiles">
-      <div class="tile" onclick="go('#/site/${siteId}/checkin')"><div class="icon" style="background:var(--red);color:#fff;">⏱</div><div class="lbl">Check In / Out</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/schedule')"><div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div><div class="lbl">Schedule of Works</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs')"><div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div><div class="lbl">Health &amp; Safety</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/drawings')"><div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div><div class="lbl">Drawings &amp; Specifications</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')"><div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div><div class="lbl">${materialsTileLabel()}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/calendar')"><div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div><div class="lbl">Calendar</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/snagging')"><div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div><div class="lbl">${snaggingFolderLabel()}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/messages')"><div class="icon" style="background:#EAF1FB;color:var(--blue);">💬</div><div class="lbl">Messages</div></div>
-      ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price')"><div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div><div class="lbl">Price</div>${pendingVariationCount2?`<span class="badge-count">${pendingVariationCount2}</span>`:''}</div>` : ''}
-      <div class="tile" onclick="go('#/site/${siteId}/todos')"><div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div><div class="lbl">To Do List</div></div>
-      <div class="tile" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/more')}')"><div class="icon" style="background:#E8F0FE;color:#1A56B0;">👷</div><div class="lbl">Operatives</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/team')"><div class="icon" style="background:#232323;color:#fff;">⚙️</div><div class="lbl">Settings &amp; Admin</div></div>
-    </div>
-  `, {title:'More', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
-}
-
 /* ================= CHECK IN/OUT ================= */
 let checkinBusy = false;
 let checkinError = null;
@@ -9040,6 +8986,11 @@ let scheduleUploadOpen = false;
 // instead of a big always-there card at the bottom — this tracks which of
 // the three panels it opened, if any. null = nothing open.
 let scheduleAddPanel = null; // null | 'task' | 'section' | 'upload'
+// Multi-site "Add Task": once one task has been added to a given add-row
+// (keyed by sectionId, or '__ungrouped__' for the top-level Add Task panel)
+// with a sub-address actually chosen, later adds in that same row auto-tag
+// to that same address instead of asking again — see addTask().
+let sectionFirstSubAddr = {};
 window.showScheduleAddMenu = function(siteId){
   let ov = document.getElementById('confirmModalOverlay');
   if(!ov){
@@ -9066,6 +9017,12 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
   // requirement — a To Do task's name is always a live-editable input
   // (autosaves on blur) rather than needing the separate pencil-edit toggle.
   const alwaysEditable = canAdd && t.status==='todo' && pendingCompleteTaskId!==t.id;
+  // Multi-site address pill — moved up into the same header row as the ▾
+  // actions button (top-right, immediately to its left) instead of sitting
+  // on its own line underneath.
+  const sitePillHtml = isMultiSite ? `
+    <span ${canAdd?`onclick="addressPickerTaskId='${t.id}';render()" style="cursor:pointer;`:`style="`}display:inline-block;flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;white-space:nowrap;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : (canAdd ? 'Unlinked — tap to link' : 'Unlinked')}</span>
+  ` : '';
   return `
       <div class="task">
         <div class="taskbody">
@@ -9083,22 +9040,20 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                 <div class="taskname ${t.status==='done'?'done':''}">${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</div>
                 ${t.status==='done' && t.completed_at ? `<div class="meta" style="width:100%;margin-top:2px;">Completed ${new Date(t.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
               `}
-              ${canAdd ? `
-                <div class="taskicons">
-                  ${rowActionsMenuHtml('sowtask-'+t.id, `
-                    ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
-                    ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
-                    <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
-                  `)}
-                </div>
-              ` : ''}
+              <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+                ${sitePillHtml}
+                ${canAdd ? `
+                  <div class="taskicons">
+                    ${rowActionsMenuHtml('sowtask-'+t.id, `
+                      ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
+                      ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
+                      <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
+                    `)}
+                  </div>
+                ` : ''}
+              </div>
             </div>
           `}
-          ${isMultiSite ? `
-            <div class="meta" style="width:100%;margin:2px 0 0;">
-              <span ${canAdd?`onclick="addressPickerTaskId='${t.id}';render()" style="cursor:pointer;`:`style="`}display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : (canAdd ? 'Unlinked — tap to link' : 'Unlinked')}</span>
-            </div>
-          ` : ''}
           ${canAdd && addressPickerTaskId===t.id ? `
             <div class="card" style="margin:8px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Link this task to an address:</p>
@@ -9280,6 +9235,7 @@ async function renderSchedule(siteId){
     scheduleLastAnyStarted = anyStarted;
     scheduleLastNoTodoLeft = noTodoLeft;
     scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
+    sectionFirstSubAddr = {};
   } else if(scheduleLastAnyStarted !== anyStarted || scheduleLastNoTodoLeft !== noTodoLeft){
     scheduleLastAnyStarted = anyStarted;
     scheduleLastNoTodoLeft = noTodoLeft;
@@ -9317,13 +9273,15 @@ async function renderSchedule(siteId){
           <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
           <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
         </div>
-        ${isMultiSite ? `
+        ${isMultiSite ? (sectionFirstSubAddr['__ungrouped__'] ? `
+          <p class="stub" style="margin:10px 0 0;">📍 Tagged to ${escapeHtml((subAddrById[sectionFirstSubAddr['__ungrouped__']]||{}).name || '')} — same address as the last task added here.</p>
+        ` : `
           <p class="field-label" style="margin:10px 0 6px;">Address</p>
           <select id="newTaskSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
             <option value="">Not on the list</option>
             ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
           </select>
-        ` : ''}
+        `) : ''}
         <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
@@ -9390,7 +9348,7 @@ async function renderSchedule(siteId){
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSection('${siteId}','${sec.id}')">✎ Rename</div>
-              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteSection('${siteId}','${sec.id}')">🗑 Delete</div>
+              <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSection('${siteId}','${sec.id}')">🗑 Delete</div>
             `)}
           </div>` : ''}
         </div>
@@ -9402,12 +9360,14 @@ async function renderSchedule(siteId){
                 <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
                 <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
               </div>
-              ${isMultiSite ? `
+              ${isMultiSite ? (sectionFirstSubAddr[sec.id] ? `
+                <p class="stub" style="margin:6px 0 0;">📍 Tagged to ${escapeHtml((subAddrById[sectionFirstSubAddr[sec.id]]||{}).name || '')} — same address as the last task added here.</p>
+              ` : `
                 <select id="newTaskSubAddr-${sec.id}" style="width:100%;margin-top:6px;padding:6px 10px;font-size:11.5px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
                   <option value="">📍 Address — not on the list</option>
                   ${subAddressesList.map(a=>`<option value="${a.id}">📍 ${escapeHtml(a.name)}</option>`).join('')}
                 </select>
-              ` : ''}
+              `) : ''}
             ` : ''}
             ${bySectionAll[sec.id] && bySectionAll[sec.id].length ? sectionFlagRowHtml(siteId, sec.id, flagsBySection[sec.id]) : ''}
           </div>
@@ -9602,8 +9562,20 @@ window.addTask = async function(siteId, sectionId){
   // the per-section quick-add row (each has its own id); leaving it on
   // "not on the list" leaves sub_site_id null, still linkable later via the
   // task's own 📍 pill or ▾ Link Address.
-  const subAddrSel = document.getElementById(sectionId ? ('newTaskSubAddr-'+sectionId) : 'newTaskSubAddr');
-  if(subAddrSel && subAddrSel.value) row.sub_site_id = subAddrSel.value;
+  // Once this add-row (keyed by sectionId, or '__ungrouped__' for the main
+  // panel) has had one task tagged to a chosen address, the dropdown is
+  // hidden on later renders (see renderSchedule) and every further task
+  // added here auto-tags to that same address without asking again.
+  const rowKey = sectionId || '__ungrouped__';
+  if(sectionFirstSubAddr[rowKey]){
+    row.sub_site_id = sectionFirstSubAddr[rowKey];
+  } else {
+    const subAddrSel = document.getElementById(sectionId ? ('newTaskSubAddr-'+sectionId) : 'newTaskSubAddr');
+    if(subAddrSel && subAddrSel.value){
+      row.sub_site_id = subAddrSel.value;
+      sectionFirstSubAddr[rowKey] = subAddrSel.value;
+    }
+  }
   const rows = await dbInsert('schedule_tasks', row);
   if(rows){ toast('Task added'); render(); }
 };
@@ -14894,7 +14866,7 @@ async function renderMaterials(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   // Operatives get a small two-tile choice instead of the full PM tile grid
-  // — Material Requests (theirs to raise) and the Material Required List
+  // — Material Requests (theirs to raise) and the Material List
   // (theirs to action, if a PM has assigned them something to collect) —
   // deliberately not the PM/admin folder-tile navigation below.
   if(!isPM){
@@ -14932,7 +14904,7 @@ async function renderMaterials(siteId){
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
         <div class="icon" style="background:#EAEFFB;color:#2F4B99;">🧾</div>
-        <div class="lbl">Material Required List</div><div class="sub">${requiredOpenCount.length} live</div>
+        <div class="lbl">Material List</div><div class="sub">${requiredOpenCount.length} live</div>
       </div>
     </div>
   `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
@@ -15082,16 +15054,33 @@ async function renderMaterialRequests(siteId){
   `, {title:'Material Requests', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 
-/* ================= MATERIAL REQUIRED LIST (pick-up list) ================
+/* ================= MATERIAL LIST (pick-up list) ================
  * A separate flow from Material Requests (operative-raised) — PM/admin adds
  * rows to a pick-up list, assigns one to an operative to collect, and the
  * operative (or a PM/admin) marks it collected. open -> assigned -> collected
- * -> closed, closable from any prior status. Multi-site-aware, same
- * dropdown+"Not on the list"/📍 pill pattern used on Schedule of Works. */
+ * -> closed, closable from any prior status ("Collected" in the UI — see
+ * statusLabel below; the underlying DB value stays 'closed'). Multi-site-
+ * aware, same dropdown+"Not on the list"/📍 pill pattern used on Schedule of
+ * Works. Rows are grouped by supplier so a PM can email one supplier's items
+ * straight from the list (see openMatReqSupplierEmailPrompt below), and are
+ * collapsible dropdown rows with a tick-box multi-select for bulk "Email
+ * Selected" / partial "Mark Selected Collected" actions. */
 let matReqFilter = 'live'; // 'live' | 'closed'
 let matReqAssignFor = null; // material_required_items id whose assign picker is open
 let matReqCollectFor = null; // id whose "confirm collected qty" field is open
 let matReqEditFor = null; // id whose item/qty/supplier edit card is open — PM/admin only
+let expandedMatReqIds = new Set(); // ids whose collapsible row is expanded
+let selectedMatReqIds = new Set(); // ids ticked for "Email Selected" / "Mark Selected Collected"
+// Draft rows for the "Add More" / "Complete List" flow (item 14) — the row
+// currently in the open input fields is NOT in this array until either
+// "Add More" pushes it in (to start a new row) or "Complete List" inserts
+// everything at once. Kept as plain vars (not DOM reads) so a re-render
+// triggered by the supplier/address pickers never loses what's been typed
+// (item 13's fix) — every input syncs into these on every keystroke/change.
+let matReqDraftRows = [];
+let matReqDraftItem = '';
+let matReqDraftQty = '';
+let matReqDraftSubAddr = null;
 async function renderMaterialRequiredList(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -15111,118 +15100,223 @@ async function renderMaterialRequiredList(siteId){
   const items = isPM ? itemsRaw : itemsRaw.filter(m=>m.assigned_to===ME.id || m.status==='open');
   const subAddrById = {}; subAddressesList.forEach(a=>{ subAddrById[a.id]=a; });
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const supplierEmail = id => { const s=suppliers.find(x=>x.id===id); return s ? s.email : null; };
   const assignedIds = new Set(assignedRows.map(a=>a.user_id));
   const siteOperatives = isPM ? Object.values(PROFILES).filter(p=>p.role==='operative' && assignedIds.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
-  const statusLabel = {open:'Open', assigned:'Assigned', collected:'Collected', closed:'Closed'};
+  // "Closed" is shown to users as "Collected" (with a ✓) — the pick-up is
+  // done, whether that final step was via the per-row tick or a bulk
+  // "Mark Selected Collected". The DB value stays 'closed' throughout.
+  const statusLabel = {open:'Open', assigned:'Assigned', collected:'Collected', closed:'✓ Collected'};
 
   const rowHtml = (m)=>{
     const subLabel = m.sub_site_id && subAddrById[m.sub_site_id] ? subAddrById[m.sub_site_id].name : null;
+    const open = expandedMatReqIds.has(m.id);
+    const selected = selectedMatReqIds.has(m.id);
     return `
-      <div class="matcard">
-        <div class="top">
-          <div style="min-width:0;flex:1;">
-            <div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div>
-            <div class="qty">Qty ${escapeHtml(m.qty||'—')}${m.qty_collected ? ` (collected ${escapeHtml(m.qty_collected)})` : ''}</div>
-            ${m.supplier_id ? `<div class="qty">Supplier: ${escapeHtml(supplierName(m.supplier_id)||'')}</div>` : ''}
-            ${m.assigned_to ? `<div class="qty">Assigned to ${escapeHtml(nameOf(m.assigned_to))}</div>` : ''}
-            ${subLabel ? `<div class="meta" style="margin-top:2px;"><span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${escapeHtml(subLabel)}</span></div>` : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-            <span class="statustag ${m.status}">${statusLabel[m.status]||m.status}</span>
-            ${isPM ? `<div class="taskicon" onclick="openMatReqEdit('${m.id}','${m.supplier_id||''}')">✎</div>` : ''}
-            ${isPM ? `<div class="taskicon danger" onclick="deleteMaterialRequiredItem('${siteId}','${m.id}')">🗑</div>` : ''}
-          </div>
+      <div class="matcard" style="padding:0;overflow:hidden;">
+        <div class="ddrow" style="margin:0;padding:12px;" onclick="toggleMatReqExpand('${m.id}')">
+          ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selected?'checked':''} onclick="event.stopPropagation();toggleMatReqSelect('${m.id}')">` : ''}
+          <span class="arrow">${open?'▼':'▶'}</span>
+          <span style="flex:1;min-width:0;overflow-wrap:break-word;font-weight:700;">${escapeHtml(m.item)}</span>
+          <span class="statustag ${m.status}" style="flex:0 0 auto;">${statusLabel[m.status]||m.status}</span>
         </div>
-        ${isPM && matReqEditFor===m.id ? `
-          <div class="card" style="margin:10px 0 0;padding:10px;background:var(--paper);">
-            <p class="stub" style="margin:0 0 8px;">Edit item</p>
-            <div class="formfield"><input type="text" id="matReqEditItem-${m.id}" value="${escapeHtml(m.item)}" placeholder="Item"></div>
-            <div class="formfield"><input type="text" id="matReqEditQty-${m.id}" value="${escapeHtml(m.qty||'')}" placeholder="Quantity (optional)"></div>
-            <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('edit-${m.id}')">
-              <span class="arrow">${supplierPickerFor==='edit-'+m.id?'▼':'▶'}</span> ${materialSupplierChoice['edit-'+m.id] ? escapeHtml(supplierName(materialSupplierChoice['edit-'+m.id])) : 'Supplier (optional)'}
+        ${open ? `
+        <div style="padding:0 12px 14px;">
+          <div class="qty">Qty ${escapeHtml(m.qty||'—')}${m.qty_collected ? ` (collected ${escapeHtml(m.qty_collected)})` : ''}</div>
+          ${m.supplier_id ? `<div class="qty">Supplier: ${escapeHtml(supplierName(m.supplier_id)||'')}</div>` : ''}
+          ${m.assigned_to ? `<div class="qty">Assigned to ${escapeHtml(nameOf(m.assigned_to))}</div>` : ''}
+          ${subLabel ? `<div class="meta" style="margin-top:2px;"><span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${escapeHtml(subLabel)}</span></div>` : ''}
+          ${isPM ? `
+          <div style="display:flex;gap:14px;margin-top:8px;">
+            <div class="taskicon" onclick="openMatReqEdit('${m.id}','${m.supplier_id||''}')">✎</div>
+            <div class="taskicon danger" onclick="deleteMaterialRequiredItem('${siteId}','${m.id}')">🗑</div>
+          </div>` : ''}
+          ${isPM && matReqEditFor===m.id ? `
+            <div class="card" style="margin:10px 0 0;padding:10px;background:var(--paper);">
+              <p class="stub" style="margin:0 0 8px;">Edit item</p>
+              <div class="formfield"><input type="text" id="matReqEditItem-${m.id}" value="${escapeHtml(m.item)}" placeholder="Item"></div>
+              <div class="formfield"><input type="text" id="matReqEditQty-${m.id}" value="${escapeHtml(m.qty||'')}" placeholder="Quantity (optional)"></div>
+              <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('edit-${m.id}')">
+                <span class="arrow">${supplierPickerFor==='edit-'+m.id?'▼':'▶'}</span> ${materialSupplierChoice['edit-'+m.id] ? escapeHtml(supplierName(materialSupplierChoice['edit-'+m.id])) : 'Supplier (optional)'}
+              </div>
+              ${supplierPickerFor==='edit-'+m.id ? (suppliers.length ? supplierPickerHtml('edit-'+m.id, suppliers, materialSupplierChoice['edit-'+m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+              <div class="row-gap" style="margin-top:10px;">
+                <button class="darkbtn" style="flex:1;" onclick="saveMatReqEdit('${siteId}','${m.id}')">Save</button>
+                <button class="ghostbtn" style="flex:1;" onclick="matReqEditFor=null;supplierPickerFor=null;render()">Cancel</button>
+              </div>
             </div>
-            ${supplierPickerFor==='edit-'+m.id ? (suppliers.length ? supplierPickerHtml('edit-'+m.id, suppliers, materialSupplierChoice['edit-'+m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
-            <div class="row-gap" style="margin-top:10px;">
-              <button class="darkbtn" style="flex:1;" onclick="saveMatReqEdit('${siteId}','${m.id}')">Save</button>
-              <button class="ghostbtn" style="flex:1;" onclick="matReqEditFor=null;supplierPickerFor=null;render()">Cancel</button>
-            </div>
-          </div>
-        ` : ''}
-        ${isPM && m.status==='open' ? (
-          matReqAssignFor===m.id ? `
+          ` : ''}
+          ${isPM && matReqAssignFor===m.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Who should collect this?</p>
               <select id="matReqAssignSelect-${m.id}" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
                 <option value="">— Choose —</option>
-                ${siteOperatives.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')}
+                ${siteOperatives.map(o=>`<option value="${o.id}" ${m.assigned_to===o.id?'selected':''}>${escapeHtml(o.name)}</option>`).join('')}
               </select>
               <div class="row-gap" style="margin-top:8px;">
                 <button class="darkbtn" style="flex:1;" onclick="confirmAssignMaterialRequired('${siteId}','${m.id}')">Assign</button>
                 <button class="ghostbtn" style="flex:1;" onclick="matReqAssignFor=null;render()">Cancel</button>
               </div>
             </div>
-          ` : `<button class="darkbtn" style="margin-top:10px;" onclick="matReqAssignFor='${m.id}';render()">Assign to collect</button>`
-        ) : ''}
-        ${m.status==='assigned' && (isPM || m.assigned_to===ME.id) ? (
-          matReqCollectFor===m.id ? `
-            <div class="card" style="margin:10px 0 0;padding:10px;">
-              <p class="stub" style="margin:0 0 8px;">Qty actually collected:</p>
-              <input type="text" id="matReqCollectQty-${m.id}" value="${escapeHtml(m.qty||'')}" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;box-sizing:border-box;">
-              <div class="row-gap" style="margin-top:8px;">
-                <button class="darkbtn" style="flex:1;" onclick="confirmCollectMaterialRequired('${siteId}','${m.id}')">Confirm Collected</button>
-                <button class="ghostbtn" style="flex:1;" onclick="matReqCollectFor=null;render()">Cancel</button>
+          ` : ''}
+          ${m.status==='assigned' && (isPM || m.assigned_to===ME.id) ? (
+            matReqCollectFor===m.id ? `
+              <div class="card" style="margin:10px 0 0;padding:10px;">
+                <p class="stub" style="margin:0 0 8px;">Qty actually collected:</p>
+                <input type="text" id="matReqCollectQty-${m.id}" value="${escapeHtml(m.qty||'')}" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;box-sizing:border-box;">
+                <div class="row-gap" style="margin-top:8px;">
+                  <button class="darkbtn" style="flex:1;" onclick="confirmCollectMaterialRequired('${siteId}','${m.id}')">Confirm Collected</button>
+                  <button class="ghostbtn" style="flex:1;" onclick="matReqCollectFor=null;render()">Cancel</button>
+                </div>
               </div>
+            ` : `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;cursor:pointer;">
+                <input type="checkbox" style="width:16px;height:16px;" onclick="if(this.checked){this.checked=false;matReqCollectFor='${m.id}';render();}"> Collected
+              </label>`
+          ) : ''}
+          ${isPM && m.status!=='closed' && matReqAssignFor!==m.id ? `
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="darkbtn" style="flex:1;" onclick="matReqAssignFor='${m.id}';matReqCollectFor=null;render()">Assign Operative to Collect</button>
+              <button class="darkbtn" style="flex:1;background:var(--ok);" onclick="closeMaterialRequiredItem('${siteId}','${m.id}')">✓ Collected</button>
             </div>
-          ` : `<label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12.5px;cursor:pointer;">
-              <input type="checkbox" style="width:16px;height:16px;" onclick="if(this.checked){this.checked=false;matReqCollectFor='${m.id}';render();}"> Collected
-            </label>`
-        ) : ''}
-        ${isPM && m.status!=='closed' ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="closeMaterialRequiredItem('${siteId}','${m.id}')">Close</button>` : ''}
+          ` : ''}
+        </div>` : ''}
       </div>
     `;
   };
 
+  // PM/admin view groups rows by supplier — each group can be emailed to its
+  // supplier in one tap (item 19). Operative view stays a flat list (no
+  // supplier management/emailing for them).
+  const groupsHtml = ()=>{
+    if(!isPM){
+      return items.map(rowHtml).join('') || `<div class="empty">No ${matReqFilter==='live'?'live':'collected'} items.</div>`;
+    }
+    if(!items.length) return `<div class="empty">No ${matReqFilter==='live'?'live':'collected'} items.</div>`;
+    const groups = {};
+    items.forEach(m=>{ const key = m.supplier_id || '__none'; (groups[key]=groups[key]||[]).push(m); });
+    const keys = Object.keys(groups).sort((a,b)=>{
+      if(a==='__none') return 1; if(b==='__none') return -1;
+      return (supplierName(a)||'').localeCompare(supplierName(b)||'');
+    });
+    return keys.map(key=>{
+      const groupItems = groups[key];
+      const label = key==='__none' ? 'No supplier' : (supplierName(key)||'Supplier');
+      const email = key==='__none' ? null : supplierEmail(key);
+      return `
+        <div class="card" style="margin-bottom:14px;padding:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+            <p class="sectiontitle" style="margin:0;">${escapeHtml(label)} <span class="stub" style="margin:0;display:inline;">(${groupItems.length} item${groupItems.length>1?'s':''})</span></p>
+            ${key!=='__none' ? `<button class="ghostbtn" style="width:auto;padding:6px 14px;font-size:11px;flex:0 0 auto;" onclick="openMatReqSupplierEmailPrompt('${siteId}','${key}')" ${email?'':'disabled title="This supplier has no email on file"'}>✉ Email Supplier</button>` : ''}
+          </div>
+          ${groupItems.map(rowHtml).join('')}
+        </div>
+      `;
+    }).join('');
+  };
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
-      <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;render()">Live</div>
-      <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;render()">Closed</div>
+      <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Live</div>
+      <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
-    ${items.map(rowHtml).join('') || `<div class="empty">No ${matReqFilter} items.</div>`}
+    ${isPM && selectedMatReqIds.size>0 ? `
+      <div class="card" style="border-color:var(--brand1);border-width:1.5px;margin-top:12px;">
+        <p class="sectiontitle" style="margin-top:0;">${selectedMatReqIds.size} item${selectedMatReqIds.size>1?'s':''} selected</p>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="openMatReqEmailSelectedPrompt('${siteId}')">✉ Email Selected</button>
+          ${matReqFilter==='live' ? `<button class="darkbtn" style="flex:1;background:var(--ok);" onclick="closeMaterialRequiredItems('${siteId}', Array.from(selectedMatReqIds))">✓ Mark Selected Collected</button>` : ''}
+        </div>
+        <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMatReqIds=new Set();render()">Clear selection</button>
+      </div>
+    ` : ''}
+    <div style="margin-top:12px;">${groupsHtml()}</div>
     ${isPM && matReqFilter==='live' ? `
     <div class="card" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Add item</p>
-      <div class="formfield"><input type="text" id="matReqItem" placeholder="Item"></div>
-      <div class="formfield"><input type="text" id="matReqQty" placeholder="Quantity (optional)"></div>
+      ${matReqDraftRows.length ? `
+        <div class="card" style="margin:0 0 12px;padding:8px 10px;background:var(--paper);">
+          <p class="stub" style="margin:0 0 6px;">${matReqDraftRows.length} row${matReqDraftRows.length>1?'s':''} queued — not saved yet:</p>
+          ${matReqDraftRows.map((r,i)=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12.5px;">
+              <span style="overflow-wrap:break-word;">${escapeHtml(r.item)}${r.qty?' — qty '+escapeHtml(r.qty):''}</span>
+              <span class="taskicon danger" style="flex:0 0 auto;" onclick="removeMatReqDraftRow(${i})">🗑</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      <div class="formfield"><input type="text" id="matReqItem" placeholder="Item" value="${escapeHtml(matReqDraftItem)}" oninput="matReqDraftItem=this.value"></div>
+      <div class="formfield"><input type="text" id="matReqQty" placeholder="Quantity (optional)" value="${escapeHtml(matReqDraftQty)}" oninput="matReqDraftQty=this.value"></div>
       <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('reqnew')">
         <span class="arrow">${supplierPickerFor==='reqnew'?'▼':'▶'}</span> ${materialSupplierChoice['reqnew'] ? escapeHtml(supplierName(materialSupplierChoice['reqnew'])) : 'Supplier (optional)'}
       </div>
       ${supplierPickerFor==='reqnew' ? (suppliers.length ? supplierPickerHtml('reqnew', suppliers, materialSupplierChoice['reqnew']) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
       ${isMultiSite ? `
         <p class="field-label" style="margin:10px 0 6px;">Address</p>
-        <select id="matReqSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
-          <option value="">Not on the list</option>
-          ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
+        <select id="matReqSubAddr" onchange="matReqDraftSubAddr=this.value||null" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+          <option value="" ${!matReqDraftSubAddr?'selected':''}>Not on the list</option>
+          ${subAddressesList.map(a=>`<option value="${a.id}" ${matReqDraftSubAddr===a.id?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}
         </select>
       ` : ''}
-      <button class="darkbtn" style="margin-top:10px;" onclick="addMaterialRequiredItem('${siteId}')">Add to list</button>
+      <div class="row-gap" style="margin-top:10px;">
+        <button class="ghostbtn" style="flex:1;" onclick="addMaterialRequiredDraftRow()">Add More</button>
+        <button class="darkbtn" style="flex:1;" onclick="completeMaterialRequiredList('${siteId}')">Complete List</button>
+      </div>
     </div>
     ` : ''}
-  `, {title:'Material Required List', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material List', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
-window.addMaterialRequiredItem = async function(siteId){
+window.toggleMatReqExpand = function(id){
+  if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);
+  render();
+};
+window.toggleMatReqSelect = function(id){
+  if(selectedMatReqIds.has(id)) selectedMatReqIds.delete(id); else selectedMatReqIds.add(id);
+  render();
+};
+// "Add More" stashes the currently-typed row into matReqDraftRows (no DB
+// write yet) and clears just the item/qty fields so the PM can keep typing
+// the next row under the same supplier/address without re-picking them.
+// "Complete List" (below) inserts every queued row plus whatever's still in
+// the open fields, in one go.
+window.addMaterialRequiredDraftRow = function(){
   const itemEl = document.getElementById('matReqItem');
-  const item = itemEl ? itemEl.value.trim() : '';
-  if(!item){ toast('Enter an item.'); return; }
+  const item = (itemEl ? itemEl.value : matReqDraftItem || '').trim();
+  if(!item){ toast('Enter an item first.'); return; }
   const qtyEl = document.getElementById('matReqQty');
-  const qty = qtyEl ? qtyEl.value.trim() : '';
+  const qty = (qtyEl ? qtyEl.value : matReqDraftQty || '').trim();
   const supplierId = materialSupplierChoice['reqnew'] || null;
   const subAddrEl = document.getElementById('matReqSubAddr');
-  const subSiteId = subAddrEl ? (subAddrEl.value || null) : null;
-  const rows = await dbInsert('material_required_items', {site_id:siteId, org_id:ME.org_id, item, qty:qty||null, supplier_id:supplierId, sub_site_id:subSiteId, status:'open', created_by:ME.id});
-  if(rows){
+  const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
+  matReqDraftRows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+  matReqDraftItem = ''; matReqDraftQty = '';
+  toast('Row queued — add another or tap Complete List');
+  render();
+};
+window.removeMatReqDraftRow = function(idx){
+  matReqDraftRows.splice(idx,1);
+  render();
+};
+window.completeMaterialRequiredList = async function(siteId){
+  const itemEl = document.getElementById('matReqItem');
+  const item = (itemEl ? itemEl.value : matReqDraftItem || '').trim();
+  const rows = matReqDraftRows.slice();
+  if(item){
+    const qtyEl = document.getElementById('matReqQty');
+    const qty = (qtyEl ? qtyEl.value : matReqDraftQty || '').trim();
+    const supplierId = materialSupplierChoice['reqnew'] || null;
+    const subAddrEl = document.getElementById('matReqSubAddr');
+    const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
+    rows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+  }
+  if(!rows.length){ toast('Enter at least one item.'); return; }
+  const payload = rows.map(r=>({site_id:siteId, org_id:ME.org_id, item:r.item, qty:r.qty, supplier_id:r.supplier_id, sub_site_id:r.sub_site_id, status:'open', created_by:ME.id}));
+  const inserted = await dbInsert('material_required_items', payload);
+  if(inserted){
+    matReqDraftRows = [];
+    matReqDraftItem = ''; matReqDraftQty = ''; matReqDraftSubAddr = null;
     delete materialSupplierChoice['reqnew'];
     supplierPickerFor = null;
-    toast('Added to list');
+    toast(`${rows.length} item${rows.length>1?'s':''} added to the list`);
     render();
   }
 };
@@ -15237,9 +15331,17 @@ window.confirmAssignMaterialRequired = async function(siteId, id){
   matReqAssignFor = null;
   toast('Assigned');
   render();
+  // Push notification (best-effort) AND an Inbox row (messages table) — the
+  // push alone doesn't land anything in the operative's Inbox if they're not
+  // looking at their phone right when it fires, so both are sent. The
+  // messages table only supports broadcast audiences ('operatives'/site or
+  // company-wide, not a single named recipient), so this goes out to the
+  // site's operatives with the assignee named in the body — the closest fit
+  // the current schema allows.
   try{
     await sbFetch('/functions/v1/notify-material-pickup', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId, item_label:itemLabel})});
   }catch(e){ /* best-effort push — the assignment itself already saved */ }
+  postSystemMessageTo(siteId, 'material_pickup', `${nameOf(userId)} was asked to collect "${itemLabel}" for ${SITES.find(s=>s.id===siteId)?.name||'this site'}.`);
 };
 window.confirmCollectMaterialRequired = async function(siteId, id){
   const input = document.getElementById('matReqCollectQty-'+id);
@@ -15247,16 +15349,38 @@ window.confirmCollectMaterialRequired = async function(siteId, id){
   const row = await dbUpdate('material_required_items', id, {status:'collected', qty_collected:qtyCollected||null, collected_by:ME.id, collected_at:new Date().toISOString()});
   if(row){ matReqCollectFor=null; toast('Marked collected'); render(); }
 };
+// Close now doubles as "mark Collected" in the UI (see statusLabel above).
+// Kept as a single-id wrapper around closeMaterialRequiredItems so every
+// existing per-row call site still works unchanged.
 window.closeMaterialRequiredItem = async function(siteId, id){
-  const row = await dbUpdate('material_required_items', id, {status:'closed', closed_by:ME.id, closed_at:new Date().toISOString()});
-  if(row){ toast('Closed'); logSiteActivity(siteId, 'material_required_item_closed', `Closed material required item "${row.item||''}"`); render(); }
+  return closeMaterialRequiredItems(siteId, [id]);
+};
+// Accepts an array of ids so a multi-select group can be PARTIALLY closed —
+// only the ticked ids move to Collected; anything left unticked stays
+// exactly where it was (item 18).
+window.closeMaterialRequiredItems = async function(siteId, ids){
+  ids = Array.isArray(ids) ? ids : [ids];
+  ids = ids.filter(Boolean);
+  if(!ids.length) return;
+  const itemRows = await dbSelect('material_required_items', 'id=in.('+ids.join(',')+')&select=id,item');
+  const results = await Promise.all(ids.map(id=>dbUpdate('material_required_items', id, {status:'closed', closed_by:ME.id, closed_at:new Date().toISOString()})));
+  const okIds = ids.filter((id,i)=>results[i]);
+  if(okIds.length){
+    toast(okIds.length>1 ? `${okIds.length} items marked Collected` : 'Marked Collected');
+    okIds.forEach(id=>{
+      const r = itemRows.find(x=>x.id===id);
+      logSiteActivity(siteId, 'material_required_item_closed', `Marked material item "${(r&&r.item)||''}" as collected`);
+    });
+    selectedMatReqIds = new Set(Array.from(selectedMatReqIds).filter(id=>!okIds.includes(id)));
+    render();
+  }
 };
 window.deleteMaterialRequiredItem = async function(siteId, id){
   if(!await customConfirm('Delete this item from the list?')) return;
   const rows = await dbSelect('material_required_items', 'id=eq.'+id+'&select=item');
   const item = rows[0] && rows[0].item;
   const ok = await dbDelete('material_required_items', id);
-  if(ok){ toast('Deleted'); logSiteActivity(siteId, 'material_required_item_deleted', `Deleted material required item "${item||''}"`); render(); }
+  if(ok){ selectedMatReqIds.delete(id); toast('Deleted'); logSiteActivity(siteId, 'material_required_item_deleted', `Deleted material required item "${item||''}"`); render(); }
 };
 // Item/qty/supplier were originally only settable when a row was first
 // created — PM/admin can now go back and amend any of the three afterwards
@@ -15271,6 +15395,7 @@ window.openMatReqEdit = function(id, currentSupplierId){
   // correctly even if the PM never touches the picker — saveMatReqEdit only
   // overwrites supplier_id when this key has actually been set.
   materialSupplierChoice['edit-'+id] = currentSupplierId || null;
+  expandedMatReqIds.add(id);
   render();
 };
 window.saveMatReqEdit = async function(siteId, id){
@@ -15290,6 +15415,146 @@ window.saveMatReqEdit = async function(siteId, id){
     supplierPickerFor = null;
     toast('Item updated');
     render();
+  }
+};
+// "Email Selected" (item 15) — sends whichever rows are ticked (which can
+// span several suppliers, or none) to a chosen set of recipients. Reuses the
+// same recipient-picker pattern as openScheduleEmailPrompt (tick PMs/admins
+// and/or type another address) — a persistent DOM node outside render() so
+// typing/ticking isn't wiped by a re-render.
+window.openMatReqEmailSelectedPrompt = async function(siteId){
+  if(!selectedMatReqIds.size){ toast('Nothing selected.'); return; }
+  await loadAllProfiles();
+  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email);
+  let ov = document.getElementById('matReqEmailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'matReqEmailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeMatReqEmailPrompt(); };
+    document.body.appendChild(ov);
+  }
+  const ticked = managers.filter(p=>p.id===ME.id).map(p=>p.id);
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Email ${selectedMatReqIds.size} Material List item${selectedMatReqIds.size>1?'s':''}</h3>
+      <p class="stub">Tick who should receive it, or add another address below.</p>
+      <div style="max-height:180px;overflow-y:auto;margin-bottom:10px;">
+        ${managers.map(p=>`
+          <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" class="matReqEmailTick" value="${escapeHtml(p.email)}" ${ticked.includes(p.id)?'checked':''}>
+            ${escapeHtml(p.name)} <span class="stub" style="margin:0;">(${escapeHtml(p.email)})</span>
+          </label>
+        `).join('') || `<p class="stub">No other PMs/admins found.</p>`}
+      </div>
+      <div class="formfield"><label class="field-label">Add another address</label><input type="email" id="matReqEmailExtraInput" placeholder="name@example.com"></div>
+      <button class="darkbtn" id="matReqEmailConfirmBtn" style="width:100%;" onclick="confirmMatReqEmailSelected('${siteId}')">Confirm &amp; Send</button>
+      <button class="geo-modal-cancel" onclick="closeMatReqEmailPrompt()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeMatReqEmailPrompt = function(){
+  const ov = document.getElementById('matReqEmailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmMatReqEmailSelected = async function(siteId){
+  const ticks = Array.from(document.querySelectorAll('.matReqEmailTick:checked')).map(el=>el.value);
+  const extraInput = document.getElementById('matReqEmailExtraInput');
+  const extra = extraInput ? extraInput.value.trim() : '';
+  if(extra){
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extra)){ toast('Enter a valid email address.'); return; }
+    ticks.push(extra);
+  }
+  const recipients = Array.from(new Set(ticks));
+  if(!recipients.length){ toast('Tick or enter at least one recipient.'); return; }
+  const btn = document.getElementById('matReqEmailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const ids = Array.from(selectedMatReqIds);
+  const rows = await dbSelect('material_required_items', 'id=in.('+ids.join(',')+')&select=item,qty,supplier_id');
+  const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name');
+  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const items = rows.map(r=>({item:r.item, qty:r.qty, supplier_name: r.supplier_id ? supplierName(r.supplier_id) : null}));
+  try{
+    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipients, items, context_label: 'Material List',
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      const card = document.querySelector('#matReqEmailModalOverlay .geo-modal-card');
+      if(card){
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">${items.length} item${items.length>1?'s':''} emailed to ${recipients.length} recipient${recipients.length>1?'s':''}.</p><button class="darkbtn" style="width:100%;" onclick="closeMatReqEmailPrompt();selectedMatReqIds=new Set();render()">Done</button>`;
+      } else { closeMatReqEmailPrompt(); selectedMatReqIds = new Set(); toast('Email sent'); render(); }
+    } else {
+      console.error('send-material-list-email failed:', d.error || res.status);
+      toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    }
+  }catch(e){
+    console.error('send-material-list-email failed:', e);
+    toast('Email failed — could not reach the server.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+  }
+};
+// "Email Supplier" (item 19) — per supplier-group button on the Material
+// List. Shows a confirm step (recipient address + item summary) before
+// actually sending, same "preview before send" shape as openReemailPrompt.
+window.openMatReqSupplierEmailPrompt = async function(siteId, supplierId){
+  const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
+  const supplier = suppliers && suppliers[0];
+  if(!supplier){ toast('Could not find that supplier.'); return; }
+  if(!supplier.email){ toast('This supplier has no email on file.'); return; }
+  const statusQS = matReqFilter==='live' ? 'status=in.(open,assigned,collected)' : 'status=eq.closed';
+  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty');
+  if(!rows.length){ toast('No items in this section.'); return; }
+  let ov = document.getElementById('matReqSupplierEmailModalOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'matReqSupplierEmailModalOverlay';
+    ov.className = 'geo-modal-overlay';
+    ov.onclick = (e)=>{ if(e.target===ov) window.closeMatReqSupplierEmailPrompt(); };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Email ${escapeHtml(supplier.name)}</h3>
+      <p class="stub" style="margin:0 0 10px;">Sending to <strong>${escapeHtml(supplier.email)}</strong> — ${rows.length} item${rows.length>1?'s':''}:</p>
+      <div style="max-height:180px;overflow-y:auto;margin-bottom:14px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;">
+        ${rows.map(r=>`<div style="font-size:12.5px;padding:3px 0;">${escapeHtml(r.item)}${r.qty?' — qty '+escapeHtml(r.qty):''}</div>`).join('')}
+      </div>
+      <button class="darkbtn" id="matReqSupplierEmailConfirmBtn" style="width:100%;" onclick="confirmMatReqSupplierEmail('${siteId}','${supplierId}','${jsAttr(supplier.name)}','${jsAttr(supplier.email)}')">Confirm &amp; Send</button>
+      <button class="geo-modal-cancel" onclick="closeMatReqSupplierEmailPrompt()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.closeMatReqSupplierEmailPrompt = function(){
+  const ov = document.getElementById('matReqSupplierEmailModalOverlay');
+  if(ov) ov.style.display = 'none';
+};
+window.confirmMatReqSupplierEmail = async function(siteId, supplierId, supplierName, supplierEmail){
+  const btn = document.getElementById('matReqSupplierEmailConfirmBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const statusQS = matReqFilter==='live' ? 'status=in.(open,assigned,collected)' : 'status=eq.closed';
+  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty');
+  const items = rows.map(r=>({item:r.item, qty:r.qty}));
+  try{
+    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipients:[supplierEmail], items, context_label: 'Material List — '+supplierName,
+    })});
+    const d = await res.json();
+    if(res.ok && !d.error){
+      const card = document.querySelector('#matReqSupplierEmailModalOverlay .geo-modal-card');
+      if(card){
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Material List was emailed to ${escapeHtml(supplierName)}.</p><button class="darkbtn" style="width:100%;" onclick="closeMatReqSupplierEmailPrompt()">Done</button>`;
+      } else { closeMatReqSupplierEmailPrompt(); toast('Email sent'); }
+    } else {
+      console.error('send-material-list-email failed:', d.error || res.status);
+      toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    }
+  }catch(e){
+    console.error('send-material-list-email failed:', e);
+    toast('Email failed — could not reach the server.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
   }
 };
 
@@ -15764,7 +16029,7 @@ async function renderMaterialOrders(siteId, folderId){
               <div class="statusmenu-item" style="${idx===0?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveMaterialOrderFolder('${siteId}',${parentArg},'${f.id}',-1)">▲ Move Up</div>
               <div class="statusmenu-item" style="${idx===subfolders.length-1?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveMaterialOrderFolder('${siteId}',${parentArg},'${f.id}',1)">▼ Move Down</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameMaterialOrderFolder('${f.id}','${jsAttr(f.name)}')">✏️ Rename</div>
-              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteMaterialOrderFolder('${f.id}')">🗑 Delete</div>
+              <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteMaterialOrderFolder('${f.id}')">🗑 Delete</div>
             `)}
           </div>
         </div>
@@ -15787,7 +16052,7 @@ async function renderMaterialOrders(siteId, folderId){
                 <div class="statusmenu-item" style="${fidx===files.length-1?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveMaterialOrderFile('${siteId}',${parentArg},'${f.id}',1)">▼ Move Down</div>
                 <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleMoveMaterialOrderFile('${f.id}')">📁 Move to folder</div>
                 ${f.calendar_event_id ? `<div class="statusmenu-item" style="font-size:11.5px;" onclick="rowActionsMenuOpenFor=null;removeMaterialDeliveryLink('${siteId}','${f.id}')">🔗 Remove delivery link</div>` : ''}
-                <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteMaterialOrderFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">🗑 Delete</div>
+                <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteMaterialOrderFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">🗑 Delete</div>
               `)}
             </div>
           </div>
@@ -16737,7 +17002,7 @@ async function renderDrawings(siteId, folderId){
                 <div class="statusmenu-item" style="${idx===0?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveDrawingFolder('${siteId}',${parentArg},'${f.id}',-1)">▲ Move Up</div>
                 <div class="statusmenu-item" style="${idx===subfolders.length-1?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveDrawingFolder('${siteId}',${parentArg},'${f.id}',1)">▼ Move Down</div>
                 <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameDrawingFolder('${f.id}','${jsAttr(f.name)}')">✏️ Rename</div>
-                <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;deleteDrawingFolder('${f.id}')">🗑 Delete</div>
+                <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteDrawingFolder('${f.id}')">🗑 Delete</div>
               `)}
             </div>
           ` : ''}
@@ -17305,6 +17570,17 @@ async function postSystemMessage(siteId, kind, body){
     await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'managers', kind, body});
   }catch(e){ /* silent */ }
 }
+// Downward variant of the above — PM/admin action that needs to land in
+// operatives' Inbox (e.g. a material pick-up assignment). The messages
+// table only supports broadcast audiences (all operatives on a site, or
+// company-wide), not a single named recipient, so this reaches every
+// operative assigned to the site; the body should name who it's actually
+// for.
+async function postSystemMessageTo(siteId, kind, body){
+  try{
+    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'operatives', kind, body});
+  }catch(e){ /* silent */ }
+}
 async function markMessagesRead(ids){
   if(!ids || !ids.length) return;
   try{
@@ -17397,11 +17673,11 @@ async function renderMessages(siteId){
     });
   }
 
-  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', message:null};
+  const kindLabel = {material_request:'Material request', snag_closed:'Snag closed', variation:'Variation raised', todo_assigned:'To Do assigned', price_overbooked:'Price overbooked', additional_works_requested:'Variation to price requested', schedule_flag:'Waste/leftover flag', material_pickup:'Material pickup assigned', message:null};
   // Tapping a message that's about a specific thing (a material request,
   // variation, or closed snag) jumps straight to that tab — same routing
   // table used for push-notification taps in registerPushNotifications().
-  const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price'};
+  const kindRoute = {material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', schedule_flag:'schedule', material_pickup:'materialrequired'};
   const msgRow = m => {
     const dest = m.site_id && kindRoute[m.kind] ? `#/site/${m.site_id}/${kindRoute[m.kind]}` : null;
     const replies = repliesByParent[m.id] || [];
@@ -17483,7 +17759,7 @@ async function renderMessages(siteId){
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
-  `, {title:'Messages', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
+  `, {title:'Inbox', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
 }
 // Cross-site Messages view for the operative home bar — renderMessages
 // above is scoped to one site's thread; this pulls the "From Team"/broadcast
@@ -17518,9 +17794,9 @@ async function renderMyMessages(){
     </div>`;
   };
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">Messages from your team across all your assigned sites, most recent first.</p>
+    <p class="stub" style="margin:0 0 14px;">Messages and notifications from your team across all your assigned sites, most recent first.</p>
     ${rows.map(row).join('') || `<div class="empty">No messages yet.</div>`}
-  `, {title:'Messages', back:'#/sites', tabs:false}); }
+  `, {title:'Inbox', back:'#/sites', tabs:false}); }
 }
 window.toggleMsgSelect = function(id){
   if(msgSelectedIds.has(id)) msgSelectedIds.delete(id); else msgSelectedIds.add(id);
@@ -17671,7 +17947,6 @@ async function renderRoute(){
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
-    if(page==='more') return renderMore(siteId);
     if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging'){
