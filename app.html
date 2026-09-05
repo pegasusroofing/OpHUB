@@ -5348,6 +5348,27 @@ async function renderSiteHome(siteId){
     const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
     pendingVariationCount = pendingAw.length;
   }
+  // #394: same roster-wide "!" the Health & Safety tile page shows a PM/admin
+  // — whether any operative assigned here still hasn't signed the current
+  // RAMS/COSHH — surfaced on this tile too since it's the first H&S entry
+  // point most managers actually land on.
+  let hsOperativeGap = false;
+  if(isManager(ME)){
+    await loadAllProfiles();
+    const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
+      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id,resign_cycle_start,uploaded_at'),
+    ]);
+    const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
+    if(operativeIdsHere.length){
+      const [ramsGapHere, coshhGapHere] = await Promise.all([
+        anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentHere, site, operativeIdsHere),
+        anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhDocsHere, site, operativeIdsHere),
+      ]);
+      hsOperativeGap = ramsGapHere || coshhGapHere;
+    }
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
@@ -5380,7 +5401,7 @@ async function renderSiteHome(siteId){
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
-          ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
+          ${isManager(ME) ? (hsOperativeGap?`<span class="badge-count" title="An operative still needs to sign RAMS/COSHH">!</span>`:'') : (pendingRams?`<span class="badge-count">${pendingRams}</span>`:'')}
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
           <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
@@ -10767,6 +10788,21 @@ function filterCurrentCycleSigs(sigs, docs, docKeyField, site){
   const cycleStart = {}; docs.forEach(d=>{ cycleStart[d.id] = new Date(resignCycleStart(d)); });
   return sigs.filter(s => new Date(s.signed_at) >= (cycleStart[s[docKeyField]] || 0));
 }
+// #394: roster-wide "does any operative assigned to this site still need to
+// sign the current RAMS/COSHH?" check — a manager's own personal signature
+// status isn't a meaningful flag for them (and COSHH can't be signed by a
+// PM/admin at all — #237/#327), so this is what actually powers the "!"
+// notification a PM/admin sees, shared between the Health & Safety tile page
+// and the Site Home H&S tile so the flag means the same thing in both places.
+async function anyOperativeMissingSignature(table, docKeyField, docRows, site, operativeIds){
+  if(!docRows.length || !operativeIds.length) return false;
+  const ids = docRows.map(d=>d.id).join(',');
+  const sigsRaw = await dbSelect(table, docKeyField+'=in.('+ids+')&select='+docKeyField+',user_id,signed_at');
+  const sigs = filterCurrentCycleSigs(sigsRaw, docRows, docKeyField, site);
+  const signedByDoc = {};
+  sigs.forEach(s=>{ (signedByDoc[s[docKeyField]]=signedByDoc[s[docKeyField]]||new Set()).add(s.user_id); });
+  return docRows.some(d=>operativeIds.some(uid=>!(signedByDoc[d.id]||new Set()).has(uid)));
+}
 async function fetchRamsData(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [docs, superseded, assigned] = await Promise.all([
@@ -11322,18 +11358,9 @@ async function renderHealthSafety(siteId){
     const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
     const operativeIds = assignedRows.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
     if(operativeIds.length){
-      const gapFor = async (table, docKeyField, docRows) => {
-        if(!docRows.length) return false;
-        const ids = docRows.map(d=>d.id).join(',');
-        const sigsRaw = await dbSelect(table, docKeyField+'=in.('+ids+')&select='+docKeyField+',user_id,signed_at');
-        const sigs = filterCurrentCycleSigs(sigsRaw, docRows, docKeyField, site);
-        const signedByDoc = {};
-        sigs.forEach(s=>{ (signedByDoc[s[docKeyField]]=signedByDoc[s[docKeyField]]||new Set()).add(s.user_id); });
-        return docRows.some(d=>operativeIds.some(uid=>!(signedByDoc[d.id]||new Set()).has(uid)));
-      };
       [ramsOperativeGap, coshhOperativeGap] = await Promise.all([
-        gapFor('rams_signatures', 'rams_id', ramsCurrentRows),
-        gapFor('coshh_signatures', 'coshh_id', coshhCurrentRows),
+        anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentRows, site, operativeIds),
+        anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhCurrentRows, site, operativeIds),
       ]);
     }
   }
