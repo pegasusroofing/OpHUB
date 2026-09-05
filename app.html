@@ -4632,36 +4632,68 @@ function operativeCertListHtml(certs, canManage, opts){
   if(!certs.length) return `<div class="empty">No certificates yet.</div>`;
   const byCat = {};
   certs.forEach(c=>{ (byCat[c.category]=byCat[c.category]||[]).push(c); });
-  const pad = opts.compact ? '8px 10px' : undefined;
+  // #382: compact mode is now a genuinely single-line-per-certificate row —
+  // name + meta on the left, a tiny icon-strip (view / category / expiry /
+  // delete) on the right, rather than the old 3-row full-size card shrunk
+  // down with smaller padding. Non-compact callers (e.g. the manual/"Other
+  // People" cert lists) are untouched below.
+  if(opts.compact){
+    return CERT_CATEGORIES.map(cat=>{
+      const list = byCat[cat.key]||[];
+      if(!list.length) return '';
+      return `
+        <p class="field-label" style="margin:10px 0 4px;">${cat.label} (${list.length})</p>
+        ${list.map(f=>`
+          <div class="card" style="margin-bottom:4px;padding:6px 8px;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              ${opts.selectable?`<input type="checkbox" style="width:14px;height:14px;flex:0 0 14px;margin:0;" ${certSelectedIds.has(f.id)?'checked':''} onchange="toggleCertSelect('${f.id}')">`:''}
+              ${certSourceIconHtml(f)}
+              <div style="min-width:0;flex:1;" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">
+                <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.name)}</div>
+                <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):(f.source==='onedrive'?'Synced from OneDrive':'Uploaded')}</div>
+              </div>
+              ${canManage?`
+                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" title="Expiry date" style="flex:0 0 auto;width:82px;padding:3px 2px;font-size:9.5px;border:1.5px solid var(--line);border-radius:6px;" onclick="event.stopPropagation();openDatePickerRow(this)" onchange="event.stopPropagation();setOperativeCertExpiry('${f.id}',this.value)">
+                <select class="stub" title="Category" style="flex:0 0 auto;width:58px;padding:3px 1px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:9px;" onclick="event.stopPropagation();" onchange="changeOperativeCertCategory('${f.id}',this.value)">
+                  ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
+                </select>
+                <div class="taskicon danger" style="flex:0 0 auto;width:24px;height:24px;font-size:12px;" title="Delete" onclick="event.stopPropagation();deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>
+              `:''}
+            </div>
+          </div>
+        `).join('')}
+      `;
+    }).join('');
+  }
   return CERT_CATEGORIES.map(cat=>{
     const list = byCat[cat.key]||[];
     if(!list.length) return '';
     return `
       <p class="field-label" style="margin:12px 0 6px;">${cat.label} (${list.length})</p>
       ${list.map(f=>`
-        <div class="card" style="margin-bottom:${opts.compact?'6px':'8px'};${pad?'padding:'+pad+';':''}">
+        <div class="card" style="margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
             ${opts.selectable?`<input type="checkbox" style="width:16px;height:16px;flex:0 0 16px;margin:0;" ${certSelectedIds.has(f.id)?'checked':''} onchange="toggleCertSelect('${f.id}')">`:''}
             ${certSourceIconHtml(f)}
             <div style="min-width:0;flex:1;">
-              <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:${opts.compact?'12.5px':'inherit'};">${escapeHtml(f.name)}</div>
-              <div class="stub" style="${opts.compact?'font-size:10px;margin:1px 0 0;':''}">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.source==='onedrive'?'Synced from OneDrive':(f.pushed_to_onedrive_at?'Uploaded — pushed to OneDrive':'Uploaded — not yet pushed to OneDrive')}${f.size?' · '+(f.size>1024*1024?(f.size/1024/1024).toFixed(1)+' MB':Math.round(f.size/1024)+' KB'):''}${f.expiry_date?' · Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+              <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</div>
+              <div class="stub">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.source==='onedrive'?'Synced from OneDrive':(f.pushed_to_onedrive_at?'Uploaded — pushed to OneDrive':'Uploaded — not yet pushed to OneDrive')}${f.size?' · '+(f.size>1024*1024?(f.size/1024/1024).toFixed(1)+' MB':Math.round(f.size/1024)+' KB'):''}${f.expiry_date?' · Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
             </div>
             ${canManage?`<div class="taskicon danger" title="Delete" onclick="deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>`:''}
           </div>
-          <div class="row-gap" style="margin-top:${opts.compact?'6px':'8px'};align-items:center;">
-            <button class="darkbtn" style="flex:1;padding:${opts.compact?'6px 5px;font-size:10.5px;':'8px 6px;font-size:11.5px;'}" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View</button>
-            <span class="ghostbtn" style="flex:0 0 auto;width:auto;padding:${opts.compact?'6px 9px;font-size:10.5px;':'8px 12px;font-size:11.5px;'}cursor:default;">${escapeHtml((f.name.split('.').pop()||'FILE').toUpperCase())}</span>
+          <div class="row-gap" style="margin-top:8px;align-items:center;">
+            <button class="darkbtn" style="flex:1;padding:8px 6px;font-size:11.5px;" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">View</button>
+            <span class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 12px;font-size:11.5px;cursor:default;">${escapeHtml((f.name.split('.').pop()||'FILE').toUpperCase())}</span>
             ${canManage?`
-              <select class="stub" style="flex:1;padding:${opts.compact?'6px':'8px'};border:1.5px solid var(--line);border-radius:8px;background:var(--card);" onchange="changeOperativeCertCategory('${f.id}',this.value)">
+              <select class="stub" style="flex:1;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);" onchange="changeOperativeCertCategory('${f.id}',this.value)">
                 ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
               </select>
             `:''}
           </div>
           ${canManage?`
-          <div style="display:flex;align-items:center;gap:6px;margin-top:${opts.compact?'6px':'8px'};">
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
             <label class="field-label" style="margin:0;flex:0 0 auto;cursor:pointer;" onclick="openDatePickerRow(document.getElementById('certExpiry_${f.id}'))">Expiry date</label>
-            <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" style="flex:1;padding:${opts.compact?'6px':'8px'};font-size:${opts.compact?'11.5px':'inherit'};" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
+            <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" style="flex:1;padding:8px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
           </div>
           `:''}
         </div>
@@ -4942,100 +4974,14 @@ let siteCertQuickAdd = {};
 let siteCertManualOpen = {};
 let siteCertManualAddOpen = false;
 function operativeInitials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
-async function renderSiteCertifications(siteId){
-  const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
-  const mgr = isManager(ME);
-  if(!mgr){
-    const myCerts = await dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc');
-    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-      <p class="sectiontitle" style="margin-top:0;margin-bottom:8px;">Your Certificates</p>
-      <p class="stub" style="margin:6px 0 12px;">This is your permanent certificate folder — it stays with you across every site.</p>
-      ${certListSelectionBarHtml(myCerts, ME.id)}
-      ${operativeCertListHtml(myCerts, false, {selectable:true})}
-      ${operativeCertUploadFormHtml(ME.id, 'mycert')}
-    `, {title:'Certifications', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
-    return;
-  }
-  await loadAllProfiles();
-  const [assignedRows, myCerts, manualPeople, allSiteCerts] = await Promise.all([
-    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc'),
-    dbSelect('certification_manual_people', 'site_id=eq.'+siteId+'&order=created_at.asc'),
-    dbSelect('operative_certifications', 'select=operative_id,manual_person_id'),
-  ]);
-  const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const certCountByOp = {}, certCountByManual = {};
-  allSiteCerts.forEach(c=>{
-    if(c.operative_id) certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
-    if(c.manual_person_id) certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
-  });
-  const manualCertsById = {};
-  await Promise.all(manualPeople.filter(p=>siteCertManualOpen[p.id]).map(async p=>{ manualCertsById[p.id] = await dbSelect('operative_certifications', 'manual_person_id=eq.'+p.id+'&order=created_at.desc'); }));
-
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="go('#/operatives')">👷 Operatives Dashboard</button>
-
-    <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
-    ${siteCertOpen.__self ? `
-      ${operativeCertListHtml(myCerts, true)}
-      ${operativeCertUploadFormHtml(ME.id, 'sitecertself')}
-    ` : ''}
-
-    <p class="sectiontitle">Assigned Operatives (${assignedOperatives.length})</p>
-    ${assignedOperatives.length ? assignedOperatives.map(o=>`
-      <div class="sitecard">
-        <div class="swatch">${operativeInitials(o.name)}</div>
-        <div class="info" style="cursor:pointer;" onclick="go('#/operatives/${o.id}?from=${siteId}')"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}</div></div>
-        <div class="taskicon" title="Quick-add a certificate" onclick="event.stopPropagation();siteCertQuickAdd['${o.id}']=!siteCertQuickAdd['${o.id}'];render();">+</div>
-      </div>
-      ${siteCertQuickAdd[o.id] ? operativeCertUploadFormHtml(o.id, 'sitecertquick'+o.id.replace(/[^a-zA-Z0-9]/g,'')) : ''}
-    `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
-
-    <p class="sectiontitle">Other People (${manualPeople.length})</p>
-    <p class="stub" style="margin:0 0 10px;">For someone with certificates to track who isn't a registered operative — a subcontractor, for example. No account or login is created for them.</p>
-    ${manualPeople.map(p=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();">
-        <div class="swatch">${operativeInitials(p.name)}</div>
-        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${certCountByManual[p.id]||0} certificate${(certCountByManual[p.id]||0)===1?'':'s'}</div></div>
-        <div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>
-      </div>
-      ${siteCertManualOpen[p.id] ? `
-        ${operativeCertListHtml(manualCertsById[p.id]||[], true)}
-        ${manualPersonCertUploadFormHtml(p.id, 'sitecertmanual'+p.id.replace(/[^a-zA-Z0-9]/g,''))}
-      ` : ''}
-    `).join('')}
-    ${siteCertManualAddOpen ? `
-      <div class="card" style="margin-top:6px;">
-        <p class="field-label" style="margin-bottom:6px;">Name</p>
-        <input type="text" id="manualCertPersonName" placeholder="e.g. Joe Bloggs (subcontractor)" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
-        <div class="row-gap">
-          <button class="ghostbtn" style="flex:1;" onclick="siteCertManualAddOpen=false;render();">Cancel</button>
-          <button class="darkbtn" style="flex:1;" onclick="addManualCertPerson('${siteId}')">Add</button>
-        </div>
-      </div>
-    ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`}
-  `, {title:'Certifications', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
-}
-// #272: the H&S tile that used to go straight to Certifications now opens
-// this small picker first — Dashboard (the Operative Dashboard from #249)
-// listed first, then Certification (the existing page, unchanged).
-async function renderOperativesHub(siteId){
-  const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid" style="grid-auto-rows:1fr;">
-      <div class="tile" onclick="go('#/operative-dashboard')">
-        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">👷</div>
-        <div class="lbl">Dashboard</div><div class="sub">Tools &amp; certificates</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/certifications')">
-        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
-        <div class="lbl">Certification</div><div class="sub">${isManager(ME) ? 'CSCS, training &amp; more' : 'Your certificates'}</div>
-      </div>
-    </div>
-  `, {title:'Operatives', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
-}
+// #383: renderSiteCertifications (manager + operative branches) and
+// renderOperativesHub (the Dashboard/Certification picker) have both been
+// folded into renderOperativeDashboard(siteId) below — one "Operative
+// Dashboard" that shows the all-operatives site overview to a PM/admin and
+// the operative's own personal dashboard to everyone else, with the H&S
+// "Operatives" tile going straight there instead of via an intermediate
+// picker. `#/site/:id/hs/certifications` is kept as a redirect below so any
+// existing links/back-references still land somewhere valid.
 function manualPersonCertUploadFormHtml(manualPersonId, prefix){
   return operativeCertUploadFormHtml(manualPersonId, prefix).replace(
     `onclick="uploadOperativeCert('${manualPersonId}','${prefix}')"`,
@@ -5287,7 +5233,18 @@ async function renderSiteHome(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos] = await Promise.all([
+  // #384: an active site with nobody assigned yet gets a one-tick-list
+  // pop-up the first time its responsible PM/admin opens it, so operatives
+  // don't have to be assigned from a separate Settings & Admin screen
+  // before anyone can be checked in. It stops appearing the moment at least
+  // one operative is assigned — nothing to dismiss or configure.
+  if(isManager(ME) && siteStatusKey(site)==='live'){
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id&limit=1').then(rows=>{
+      if(!rows.length) openAssignOperativesModal(siteId);
+    });
+  }
+
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
@@ -5297,6 +5254,9 @@ async function renderSiteHome(siteId){
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
     isManager(ME) ? dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&select=id') : Promise.resolve([]),
+    // PM/admin stat row needs a site-wide "who's on site right now" count —
+    // operatives don't see this stat, so skip the query entirely for them.
+    isManager(ME) ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500&select=user_id,type') : Promise.resolve([]),
   ]);
   // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
   // the router right before this ran — reuse it here instead of querying twice.
@@ -5305,6 +5265,16 @@ async function renderSiteHome(siteId){
   const signedIds = new Set(mySignatures.map(s=>s.rams_id));
   const pendingRams = ramsDocs.filter(r=>!signedIds.has(r.id)).length;
   const onSite = myLastCheckin[0] && myLastCheckin[0].type==='in';
+  // Site-wide "on site now" count for the PM/admin stat row — latest
+  // check-in per user (list is ts.asc, so the last write per user_id is
+  // their most recent), then count who's currently type==='in'. Same
+  // approach as the Check In page's own teamStatusList.
+  let onSiteCount = 0;
+  if(isManager(ME)){
+    const latestByUser = {};
+    teamCheckinsForCount.forEach(c=>{ latestByUser[c.user_id] = c; });
+    onSiteCount = Object.values(latestByUser).filter(c=>c.type==='in').length;
+  }
   // Price tile visibility: project admin and this site's responsible PM
   // always see it once enabled; an operative needs an explicit grant.
   let canSeePrice = false;
@@ -5332,9 +5302,13 @@ async function renderSiteHome(siteId){
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
     <div class="statrow">
-      <div class="stat"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
-      <div class="stat"><b style="${pendingRams?'color:var(--warn);':''}">${pendingRams}</b><span>Outstanding</span></div>
-      <div class="stat"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
+      ${isManager(ME) ? `
+        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin')"><b>${onSiteCount}</b><span>Operatives on site</span></div>
+      ` : `
+        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
+      `}
+      <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs')"><b style="${pendingRams?'color:var(--warn);':''}">${pendingRams}</b><span>Outstanding</span></div>
+      <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
     </div>
     ${(()=>{
       // The 2-column tile grid below Check-in (which is always full-width)
@@ -6450,6 +6424,52 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
     toast('Assigned to site');
   }
   render();
+};
+// #384: first-visit "assign operatives" pop-up, triggered from
+// renderSiteHome for a live/active site with zero site_assignments. Same
+// multi-tick pattern as the Assign Operatives section on Settings & Admin
+// (toggleAssignment's insert/delete), just surfaced as a modal so a PM isn't
+// forced to go find that screen before anyone can check in.
+let assignOpModalAssignedIds = new Set();
+window.openAssignOperativesModal = async function(siteId){
+  await loadAllProfiles();
+  const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  const assigned = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  // Someone may have assigned people (from Settings & Admin, or another tab)
+  // in the time it took this to fetch — don't pop up over an already-staffed site.
+  if(assigned.length) return;
+  assignOpModalAssignedIds = new Set();
+  renderAssignOperativesModal(siteId, operatives);
+};
+function renderAssignOperativesModal(siteId, operatives){
+  let ov = document.getElementById('assignOpModalOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'assignOpModalOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.innerHTML = `
+    <div class="geo-modal-card" style="max-height:78vh;overflow-y:auto;">
+      <p class="sectiontitle" style="margin-top:0;">Assign Operatives</p>
+      <p class="stub" style="margin:0 0 12px;">This site is now active — tick everyone working on it. You can change this any time from Settings &amp; Admin.</p>
+      ${operatives.length ? operatives.map(p=>`
+        <div class="sitecard" style="padding:7px 9px;gap:8px;">
+          <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+          <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div></div>
+          <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${assignOpModalAssignedIds.has(p.id)?'checked':''} onchange="toggleAssignOpModal('${siteId}','${p.id}',this.checked)">
+        </div>
+      `).join('') : `<div class="empty">No operatives yet — they need to sign up first.</div>`}
+      <button class="darkbtn" style="width:100%;margin-top:14px;" onclick="document.getElementById('assignOpModalOverlay').style.display='none';">Done</button>
+    </div>`;
+  ov.style.display = 'flex';
+}
+window.toggleAssignOpModal = async function(siteId, userId, checked){
+  if(checked){
+    const rows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
+    if(!rows) return;
+    assignOpModalAssignedIds.add(userId);
+  } else {
+    const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    if(!res.ok){ toast('Could not update — '+(await safeErr(res))); return; }
+    assignOpModalAssignedIds.delete(userId);
+  }
+  toast(checked ? 'Assigned to site' : 'Removed from site');
 };
 window.togglePriceEnabled = async function(siteId, checked){
   const row = await dbUpdate('sites', siteId, {price_enabled: checked});
@@ -13055,8 +13075,90 @@ window.sendOdCertEmail = async function(ids){
   await emailSelectedCerts(ids, recipient);
   odCertEmailPickerOpen = false; odCertEmailRecipientChoice=''; odCertEmailCustomAddr='';
 };
-async function renderOperativeDashboard(){
+// #381/#383: renderOperativeDashboard now takes an optional siteId. With no
+// siteId (the Home bar's "My Dashboard") it's exactly the personal view it
+// always was. Opened from a site's H&S "Operatives" tile, back-navigation
+// correctly returns to that site's H&S page instead of always bouncing to
+// #/sites — and if the viewer is a PM/admin, they get the site-wide
+// all-operatives overview (merged in from the old separate Certifications
+// page + Dashboard/Certification picker hub) instead of their own tools.
+async function renderOperativeDashboard(siteId){
   const __gen = RENDER_GEN;
+  const site = siteId ? SITES.find(s=>s.id===siteId) : null;
+  if(siteId && !site){ go('#/sites'); return; }
+  const backHash = siteId ? `#/site/${siteId}/hs` : '#/sites';
+
+  if(siteId && isManager(ME)){
+    await loadAllProfiles();
+    const [assignedRows, myCerts, manualPeople, allSiteCerts] = await Promise.all([
+      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+      dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc'),
+      dbSelect('certification_manual_people', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+      dbSelect('operative_certifications', 'select=id,operative_id,manual_person_id,category,expiry_date'),
+    ]);
+    const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+    const assignedIdsSet = new Set(assignedOperatives.map(o=>o.id));
+    const certCountByOp = {}, certCountByManual = {}, allCertsByOp = {};
+    const overviewCerts = [];
+    allSiteCerts.forEach(c=>{
+      if(c.operative_id){
+        certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
+        (allCertsByOp[c.operative_id]=allCertsByOp[c.operative_id]||[]).push(c);
+        if(assignedIdsSet.has(c.operative_id)) overviewCerts.push(c);
+      }
+      if(c.manual_person_id) certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
+    });
+    const manualCertsById = {};
+    await Promise.all(manualPeople.filter(p=>siteCertManualOpen[p.id]).map(async p=>{ manualCertsById[p.id] = await dbSelect('operative_certifications', 'manual_person_id=eq.'+p.id+'&order=created_at.desc'); }));
+
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <p class="sectiontitle" style="margin-top:0;">Overview (all assigned operatives)</p>
+      ${operativeCertSummaryCardsHtml(overviewCerts)}
+
+      <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
+      ${siteCertOpen.__self ? `
+        ${operativeCertListHtml(myCerts, true, {compact:true})}
+        ${operativeCertUploadFormHtml(ME.id, 'sitecertself')}
+      ` : ''}
+
+      <p class="sectiontitle">Assigned Operatives (${assignedOperatives.length})</p>
+      ${assignedOperatives.length ? assignedOperatives.map(o=>`
+        <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub" style="margin-left:4px;">${certCountByOp[o.id]||0} cert${(certCountByOp[o.id]||0)===1?'':'s'}</span></p>
+        ${siteCertOpen[o.id] ? `
+          ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true})}
+          <button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>
+        ` : ''}
+      `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
+
+      <p class="sectiontitle">Other People (${manualPeople.length})</p>
+      <p class="stub" style="margin:0 0 10px;">For someone with certificates to track who isn't a registered operative — a subcontractor, for example. No account or login is created for them.</p>
+      ${manualPeople.map(p=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();">
+          <div class="swatch">${operativeInitials(p.name)}</div>
+          <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${certCountByManual[p.id]||0} certificate${(certCountByManual[p.id]||0)===1?'':'s'}</div></div>
+          <div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>
+        </div>
+        ${siteCertManualOpen[p.id] ? `
+          ${operativeCertListHtml(manualCertsById[p.id]||[], true, {compact:true})}
+          ${manualPersonCertUploadFormHtml(p.id, 'sitecertmanual'+p.id.replace(/[^a-zA-Z0-9]/g,''))}
+        ` : ''}
+      `).join('')}
+      ${siteCertManualAddOpen ? `
+        <div class="card" style="margin-top:6px;">
+          <p class="field-label" style="margin-bottom:6px;">Name</p>
+          <input type="text" id="manualCertPersonName" placeholder="e.g. Joe Bloggs (subcontractor)" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
+          <div class="row-gap">
+            <button class="ghostbtn" style="flex:1;" onclick="siteCertManualAddOpen=false;render();">Cancel</button>
+            <button class="darkbtn" style="flex:1;" onclick="addManualCertPerson('${siteId}')">Add</button>
+          </div>
+        </div>
+      ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`}
+    `, {title:'Operative Dashboard', subtitle:site.name, siteNameSubtitle:true, back:backHash, siteId, activeTab:'more'}); }
+    return;
+  }
+
+  // Personal view — an operative (from the Home bar, or from a site's H&S
+  // tile), or a manager with no site context.
   const [tools, certs] = await Promise.all([
     dbSelect('operative_tools', 'user_id=eq.'+ME.id+'&order=created_at.asc'),
     dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc'),
@@ -13108,7 +13210,7 @@ async function renderOperativeDashboard(){
 
     <p class="sectiontitle" style="margin:20px 0 8px;">My Tools</p>
     ${myToolsBodyHtml(tools, true)}
-  `, {title:'Operative Dashboard', back:'#/sites', tabs:false}); }
+  `, {title:'Operative Dashboard', ...(site ? {subtitle:site.name, siteNameSubtitle:true, siteId, activeTab:'more'} : {tabs:false}), back:backHash}); }
 }
 
 /* ================= PUWER TOOL INSPECTION =================
@@ -18099,8 +18201,11 @@ async function renderRoute(){
       }
       if(sub==='mytools') return renderMyTools(siteId);
       if(sub==='policy') return renderHsPolicy(siteId);
-      if(sub==='certifications') return renderSiteCertifications(siteId);
-      if(sub==='operatives') return renderOperativesHub(siteId);
+      // #383: both old routes now land on the merged Operative Dashboard —
+      // 'certifications' is kept only so existing back-links/bookmarks
+      // still resolve to somewhere valid.
+      if(sub==='certifications') return renderOperativeDashboard(siteId);
+      if(sub==='operatives') return renderOperativeDashboard(siteId);
       if(sub==='incidents'){
         const isub = parts[4];
         if(isub==='new') return renderIncidentFill(siteId);
