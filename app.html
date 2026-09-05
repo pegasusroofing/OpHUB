@@ -97,17 +97,22 @@
       repeating-linear-gradient(-45deg, rgba(255,255,255,0.14) 0 2px, transparent 2px 7px),
       linear-gradient(90deg, var(--brand1), var(--brand2));}
 
-  .appbar{background:var(--brand1-header);color:var(--brand1-text);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;}
+  /* Modern flat app bar: light ground matching the rest of the screen
+     (instead of a solid brand-colour banner) so the app reads as one
+     continuous sleek surface — the org's brand colour still shows via the
+     .stripe-edge accent line above this, plus every button/badge/tile icon
+     that uses --brand1 elsewhere. */
+  .appbar{background:var(--card);color:var(--ink);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;border-bottom:1px solid var(--line);}
   .appbar .row{display:flex;align-items:center;gap:12.825px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
-  .brandline{font-size:14.25px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brand1-text);opacity:.8;margin-bottom:1.5px;}
+  .brandline{font-size:14.25px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);opacity:1;margin-bottom:1.5px;}
   .brandline.lg{font-size:21.375px;opacity:1;}
   .brandline.orgname{font-size:17.8125px;opacity:1;}
-  .appbar h2{margin:0;font-family:'Sora',-apple-system,sans-serif;font-size:clamp(15px, 5.2vw, 22.8px);font-weight:700;color:var(--brand1-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:-.01em;}
+  .appbar h2{margin:0;font-family:'Sora',-apple-system,sans-serif;font-size:clamp(15px, 5.2vw, 22.8px);font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:-.01em;}
   .appbar h2.lg{font-size:clamp(16px, 5.8vw, 25.65px);}
-  .appbar .meta{font-size:clamp(8.55px, 3.135vw, 12.065px);color:var(--brand1-text);opacity:.8;font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
-  .homebtn{cursor:pointer;color:var(--brand1-text);font-size:18.05px;line-height:1;width:32.3px;height:32.3px;flex:0 0 32.3px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,0.16);}
+  .appbar .meta{font-size:clamp(8.55px, 3.135vw, 12.065px);color:var(--slate);opacity:1;font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .homebtn{cursor:pointer;color:var(--ink);font-size:18.05px;line-height:1;width:32.3px;height:32.3px;flex:0 0 32.3px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--paper);}
   .img-viewer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;padding:8px;overflow:hidden;touch-action:none;}
   .img-viewer-overlay img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);
     image-rendering:-webkit-optimize-contrast;image-rendering:high-quality;will-change:transform;touch-action:none;user-select:none;-webkit-user-drag:none;}
@@ -132,7 +137,7 @@
   .geo-modal-btn:hover{border-color:var(--slate-light);}
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
-  .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--brand1-text);opacity:.95;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
+  .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--ink);opacity:1;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;
     width:20px;height:14px;flex:0 0 20px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
@@ -256,6 +261,13 @@
     border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:14px;}
   .status-strip>span:first-child{text-align:left;justify-self:start;}
   .status-strip>span:last-child{text-align:right;justify-self:end;white-space:nowrap;}
+  /* Site Home's at-a-glance stat row — same three-tile idea as the approved
+     style sample, built entirely from data the page already fetches (no
+     extra queries), so it's presentational only. */
+  .statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .statrow .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;box-shadow:var(--shadow-card);}
+  .statrow .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.2;}
+  .statrow .stat span{font-size:10px;color:var(--slate-light);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
     text-transform:uppercase;padding:5px 9px;border-radius:999px;}
   .pill.on{background:var(--ok-bg);color:var(--ok);}
@@ -1768,8 +1780,8 @@ function shell(innerHtml, opts){
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
-              <div class="brandline lg" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--brand1-text);">OpHUB</div>
-              ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1-text);">${escapeHtml(ORG.name)}</div>` : ''}
+              <div class="brandline lg" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
+              ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--slate);">${escapeHtml(ORG.name)}</div>` : ''}
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
             ${ME && opts.showRefresh ? `
@@ -5318,6 +5330,11 @@ async function renderSiteHome(siteId){
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
+    </div>
+    <div class="statrow">
+      <div class="stat"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
+      <div class="stat"><b style="${pendingRams?'color:var(--warn);':''}">${pendingRams}</b><span>Outstanding</span></div>
+      <div class="stat"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
     </div>
     ${(()=>{
       // The 2-column tile grid below Check-in (which is always full-width)
