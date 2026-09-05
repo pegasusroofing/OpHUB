@@ -276,7 +276,7 @@
   .statrow .stat.calstat span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;text-transform:none;letter-spacing:0;font-weight:600;}
   .statrow .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;box-shadow:var(--shadow-card);}
   .statrow .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.2;}
-  .statrow .stat span{font-size:10px;color:var(--slate-light);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+  .statrow .stat span{display:block;font-size:10px;color:var(--slate-light);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.05em;
     text-transform:uppercase;padding:5px 9px;border-radius:999px;}
   .pill.on{background:var(--ok-bg);color:var(--ok);}
@@ -2607,7 +2607,7 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
       <span class="stub" style="margin:0;text-align:right;flex:0 0 auto;">${escapeHtml(roleLabel(ME.role))}</span>
@@ -10745,7 +10745,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
 // overdue on a live site — see the resign-check-daily edge function.
 function resignCycleStart(doc){ return doc.resign_cycle_start || doc.uploaded_at; }
 function resignDueLabel(doc, site){
-  if(!site || site.status!=='active') return '';
+  if(!site || siteStatusKey(site)!=='live') return '';
   const due = new Date(resignCycleStart(doc));
   due.setFullYear(due.getFullYear()+1);
   return ` · Re-sign due ${due.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}`;
@@ -10754,8 +10754,16 @@ function resignDueLabel(doc, site){
 // on an active site that means anyone who signed before the last annual
 // reset shows up as "not signed" again, forcing a genuine re-sign. Closed
 // sites skip this filter entirely so old signatures stay valid forever.
+// #393: this used to check `site.status!=='active'` literally — but some
+// sites in the database have `status` stored as 'live' instead of 'active'
+// (same meaning, see siteStatusKey), so for those specific sites this filter
+// silently never applied: every historical signature stayed valid forever
+// on the actual RAMS/COSHH pages, while computeOutstandingRows (which always
+// forced the filter on) correctly reset them each cycle — the two screens
+// disagreeing about whether something still needed signing. Routes both
+// through the same siteStatusKey() live/upcoming/closed check now.
 function filterCurrentCycleSigs(sigs, docs, docKeyField, site){
-  if(!site || site.status!=='active') return sigs;
+  if(!site || siteStatusKey(site)!=='live') return sigs;
   const cycleStart = {}; docs.forEach(d=>{ cycleStart[d.id] = new Date(resignCycleStart(d)); });
   return sigs.filter(s => new Date(s.signed_at) >= (cycleStart[s[docKeyField]] || 0));
 }
@@ -11301,6 +11309,34 @@ async function renderHealthSafety(siteId){
     pendingSignCount('rams_signatures', 'rams_id', ramsCurrentRows),
     pendingSignCount('coshh_signatures', 'coshh_id', coshhCurrentRows),
   ]);
+  // #394: a PM/admin's own pendingSignCount above only ever reflects THEIR
+  // personal signature (and PMs/admins can't sign COSHH at all — #237/#327 —
+  // so that count is meaningless to them for COSHH). What a manager actually
+  // needs at a glance is whether any of the OPERATIVES assigned to this site
+  // still haven't signed the current RAMS/COSHH — a simple "!" flag, not a
+  // count, mirroring the roster-completion logic computeOutstandingRows uses
+  // for the same purpose elsewhere.
+  let ramsOperativeGap = false, coshhOperativeGap = false;
+  if(isManager(ME) && (ramsCurrentRows.length || coshhCurrentRows.length)){
+    await loadAllProfiles();
+    const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+    const operativeIds = assignedRows.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
+    if(operativeIds.length){
+      const gapFor = async (table, docKeyField, docRows) => {
+        if(!docRows.length) return false;
+        const ids = docRows.map(d=>d.id).join(',');
+        const sigsRaw = await dbSelect(table, docKeyField+'=in.('+ids+')&select='+docKeyField+',user_id,signed_at');
+        const sigs = filterCurrentCycleSigs(sigsRaw, docRows, docKeyField, site);
+        const signedByDoc = {};
+        sigs.forEach(s=>{ (signedByDoc[s[docKeyField]]=signedByDoc[s[docKeyField]]||new Set()).add(s.user_id); });
+        return docRows.some(d=>operativeIds.some(uid=>!(signedByDoc[d.id]||new Set()).has(uid)));
+      };
+      [ramsOperativeGap, coshhOperativeGap] = await Promise.all([
+        gapFor('rams_signatures', 'rams_id', ramsCurrentRows),
+        gapFor('coshh_signatures', 'coshh_id', coshhCurrentRows),
+      ]);
+    }
+  }
   let hsPolicySigned = true;
   {
     const curPolicy = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc&limit=1');
@@ -11334,12 +11370,12 @@ async function renderHealthSafety(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
-        ${ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:''}
+        ${isManager(ME) ? (ramsOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:'')}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
         <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
-        ${coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:''}
+        ${isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'')}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
