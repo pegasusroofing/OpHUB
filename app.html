@@ -237,7 +237,7 @@
   .sitecard .status.closed{background:var(--line);color:var(--slate);}
   .statusmenu{position:absolute;top:calc(100% + 4px);right:12px;z-index:60;background:#fff;
     border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);
-    padding:6px;min-width:150px;}
+    padding:6px;min-width:170px;}
   .statusmenu-item{padding:8px 10px;font-size:12.5px;font-weight:700;color:var(--ink);border-radius:7px;cursor:pointer;}
   .statusmenu-item:hover{background:var(--paper);}
   .statusmenu-item.danger{color:var(--red);}
@@ -1788,7 +1788,7 @@ function shell(innerHtml, opts){
         ` : `
         <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
-          <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
+          <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
@@ -4640,6 +4640,20 @@ function operativeCertSummaryCardsHtml(certs){
 // Delete) on the right, replacing both the old bulkier 3-row full-size card
 // and the standalone bin icon. No file-type badge anymore — it wasn't
 // telling anyone anything they needed on a day-to-day basis.
+// #392: some existing uploads (mostly older OneDrive-synced rows) have no
+// `name` value stored at all — with nothing to fall back to, both the row's
+// title and its meta line rendered fully blank. Falls back to a cleaned-up
+// version of the storage path's file name, so every row shows *something*
+// recognisable regardless of how the record was created.
+function certDisplayName(f){
+  if(f.name && f.name.trim()) return f.name;
+  if(f.storage_path){
+    const base = f.storage_path.split('/').pop() || '';
+    const cleaned = base.replace(/^[0-9a-fA-F-]{36}-/, '');
+    try{ return decodeURIComponent(cleaned) || base || 'Certificate'; }catch(e){ return cleaned || base || 'Certificate'; }
+  }
+  return 'Certificate';
+}
 function operativeCertListHtml(certs, canManage, opts){
   opts = opts || {};
   if(!certs.length) return `<div class="empty">No certificates yet.</div>`;
@@ -4656,19 +4670,19 @@ function operativeCertListHtml(certs, canManage, opts){
             ${opts.selectable?`<input type="checkbox" style="width:14px;height:14px;flex:0 0 14px;margin:0;" ${certSelectedIds.has(f.id)?'checked':''} onchange="toggleCertSelect('${f.id}')">`:''}
             ${certSourceIconHtml(f)}
             <div style="min-width:0;flex:1;">
-              <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.name)}</div>
-              <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):escapeHtml(f.name)}</div>
+              <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(certDisplayName(f))}</div>
+              <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):escapeHtml(certDisplayName(f))}</div>
             </div>
             ${canManage?`
               <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="flex:0 0 auto;width:78px;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
             `:''}
-            <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">👁</div>
+            <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;position:relative;top:-2px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(certDisplayName(f))}')">👁</div>
             ${canManage?rowActionsMenuHtml('certrow-'+f.id, `
-              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameOperativeCertFile('${f.id}','${jsAttr(f.name)}')">✎ Rename</div>
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameOperativeCertFile('${f.id}','${jsAttr(certDisplayName(f))}')">✎ Rename</div>
               <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑 Delete</div>
-              <div class="statusmenu-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="event.stopPropagation();">
-                <span>Cert Type</span>
-                <select class="stub" title="Category" style="flex:0 0 auto;max-width:120px;padding:3px 4px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:10px;" onchange="changeOperativeCertCategory('${f.id}',this.value)">
+              <div class="statusmenu-item" style="cursor:default;" onclick="event.stopPropagation();">
+                <div style="margin-bottom:4px;">Cert Type</div>
+                <select class="stub" title="Category" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:11px;" onchange="changeOperativeCertCategory('${f.id}',this.value)">
                   ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
                 </select>
               </div>
@@ -4873,15 +4887,35 @@ window.syncOperativeCertifications = async function(operativeId){
 };
 
 let operativeSearchQuery = '';
+// #391: this page's site/cert counts were being fetched fresh — as two
+// whole-table, cross-org queries — on every single keystroke in the search
+// box (oninput called render(), which re-enters this function). Typing a
+// name fired dozens of unfiltered network round-trips. Counts don't change
+// tap to tap, so cache them for a short TTL like loadAllProfiles does, and
+// debounce the search box itself so filtering only actually re-renders once
+// typing pauses instead of on every character.
+let _opListCountsCache = null, _opListCountsAt = 0;
+const OPLIST_COUNTS_TTL_MS = 30000;
+let _opSearchDebounceTimer = null;
+window.onOperativeSearchInput = function(v){
+  operativeSearchQuery = v;
+  clearTimeout(_opSearchDebounceTimer);
+  _opSearchDebounceTimer = setTimeout(render, 250);
+};
 async function renderOperativesList(){
   const __gen = RENDER_GEN;
   const opListFrom = routeQuery().get('from');
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const [assignRows, certRows] = await Promise.all([
-    dbSelect('site_assignments', 'select=site_id,user_id'),
-    dbSelect('operative_certifications', 'select=operative_id'),
-  ]);
+  if(!_opListCountsCache || (Date.now()-_opListCountsAt) >= OPLIST_COUNTS_TTL_MS){
+    const [assignRows, certRows] = await Promise.all([
+      dbSelect('site_assignments', 'select=site_id,user_id'),
+      dbSelect('operative_certifications', 'org_id=eq.'+ME.org_id+'&select=operative_id'),
+    ]);
+    _opListCountsCache = {assignRows, certRows};
+    _opListCountsAt = Date.now();
+  }
+  const {assignRows, certRows} = _opListCountsCache;
   const siteCountByOp = {};
   assignRows.forEach(r=>{ (siteCountByOp[r.user_id]=siteCountByOp[r.user_id]||new Set()).add(r.site_id); });
   const certCountByOp = {};
@@ -4890,7 +4924,7 @@ async function renderOperativesList(){
   const filtered = q ? operatives.filter(o=>o.name.toLowerCase().includes(q)) : operatives;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <input type="text" placeholder="Search operatives…" value="${escapeHtml(operativeSearchQuery)}" oninput="operativeSearchQuery=this.value;render();" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;">
+    <input type="text" placeholder="Search operatives…" value="${escapeHtml(operativeSearchQuery)}" oninput="onOperativeSearchInput(this.value)" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;">
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Training Matrix (Excel)</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixPdf()">📄 Export Training Matrix (PDF)</button>
     ${filtered.length ? filtered.map(o=>`
@@ -5815,7 +5849,7 @@ async function renderTodoList(siteId){
     ${todoFilter==='live' && todos.length ? `
       <button class="ghostbtn exportbtn" style="margin-top:14px;" onclick="openTodoEmailPicker('${siteId}')">Email To Do List</button>
     ` : ''}
-  `, {title:'To Do List', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
+  `, {title:'To Do List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
 }
 // Clicking the "Required by" date text on a to-do row (#293) drops straight
 // into edit mode with the date picker already open, rather than requiring
@@ -6396,7 +6430,7 @@ async function renderAssignTeam(siteId){
         <p class="stub" style="margin:6px 0 0;">Closed ${site.closed_at ? new Date(site.closed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—'}${site.closed_by ? ' by '+escapeHtml(nameOf(site.closed_by)) : ''}</p>
       ` : ''}
     </div>
-  `, {title:'Settings & Admin', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
+  `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
 let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false, multisite:false, activity:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
@@ -7335,7 +7369,7 @@ async function renderPriceTile(siteId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:'Price', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
+  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
   // Fire-and-forget: only a manager's own view can flip the flag (updating
   // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
   // just viewing the price. Only actually hits the DB on a state change —
@@ -7755,7 +7789,7 @@ async function renderSiteReportTemplates(siteId){
       </div>
     `).join('') || `<div class="empty">No report templates yet${canEdit?'.':' — ask a Project Manager to create one.'}</div>`}
     ${canEdit ? `<button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate('${siteId}')">+ New Template</button>` : ''}
-  `, {title:'Report Templates', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Report Templates', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 // Reports tile: inspections list for this site, plus a template picker for
 // starting a new one — the "start a report" flow that used to live inside
@@ -7814,7 +7848,7 @@ async function renderSiteReports(siteId){
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
     `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
-  `, {title:'Reports', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Reports', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.startReport = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
@@ -7952,7 +7986,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
       <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:site.name, siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
+  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
 window.saveReportProgress = async function(siteId){
   reportSaveBusy = true; render();
@@ -8191,7 +8225,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}',${fromBriefing?'true':'false'})">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>` : ''}
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:site.name, siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
+  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
 function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
@@ -8781,7 +8815,7 @@ async function renderCheckin(siteId, subId){
       `).join('') || `<div class="empty">No check-ins yet.</div>`}</div>` : ''}
     ` : ''}
   `;
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
 
 /* ================= MULTI-SITE CHECK-IN: a multi-site job's Check In page
@@ -8830,7 +8864,7 @@ async function renderCheckinAddressList(siteId){
       </div>
     ` : `<button class="ghostbtn" style="margin-top:${subAddresses.length?'0':'10px'};" onclick="toggleSubAddrForm()">+ Add Address</button>`) : ''}
   `;
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(body, {title:'Check In / Out', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'checkin'}); }
 }
 async function renderCheckinSubAddress(siteId, subId){
   const __gen = RENDER_GEN;
@@ -9510,7 +9544,7 @@ async function renderSchedule(siteId){
       <button class="ghostbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="openScheduleEmailPrompt('${siteId}')">✉ Email Report</button>
     </div>
     ` : ''}
-  `, {title:'Schedule of Works', subtitle:site.name, siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  `, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 }
 window.toggleScheduleSection = function(sectionId){
   const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
@@ -9865,7 +9899,7 @@ async function renderSnaggingFolder(siteId){
       </div>
       ${isManager(ME) ? `<div class="tile" onclick="go('#/site/${siteId}/snagging/reports')"><div class="icon" style="background:#EDE7F6;color:#5E35B1;">📊</div><div class="lbl">Reports</div><div class="sub">${reportTemplateRows.length} template${reportTemplateRows.length===1?'':'s'}</div></div>` : ''}
     </div>
-  `, {title:snaggingFolderLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:snaggingFolderLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 
 /* ================= SNAGGING ================= */
@@ -9965,7 +9999,7 @@ async function renderSnagging(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportSnaggingPDF('${siteId}','both')">Export All</button>
     </div>
     `}
-  `, {title:'Snagging', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Snagging', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.snagAddPhoto = async function(input){
   const files = input.files && Array.from(input.files); if(!files || !files.length) return;
@@ -10832,7 +10866,7 @@ async function renderRams(siteId){
       </div>
     `).join('')}</div>` : ''}
     ` : ''}
-  `, {title:'RAMS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
   let ramsPollBusy = false;
@@ -11066,7 +11100,7 @@ async function renderCoshh(siteId){
         ${uploadForm}
       </div>
     `) : ''}
-  `, {title:'COSHH', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(coshhPollTimer) clearInterval(coshhPollTimer);
   let coshhPollBusy = false;
@@ -11328,7 +11362,7 @@ async function renderHealthSafety(siteId){
         <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
       </div>
     </div>
-  `, {title:'Health & Safety', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:'Health & Safety', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 // HAVS and PUWER share one tile on the Health & Safety page now — this is
 // just a small picker in between, matching the existing tile visual style,
@@ -11362,7 +11396,7 @@ async function renderHavsPuwer(siteId){
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
       </div>
     </div>
-  `, {title:'Tools, HAVS & PUWER', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Tools, HAVS & PUWER', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 
 /* ================= H&S POLICY (org-wide document everyone signs) =================
@@ -11449,7 +11483,7 @@ async function renderHsPolicy(siteId){
       </div>
     `).join('')}</div>` : ''}
     ` : ''}
-  `, {title:'H&S Policy', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'H&S Policy', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let hsPolicySignedListOpen = false;
 window.toggleHsPolicySignedList = function(){ hsPolicySignedListOpen = !hsPolicySignedListOpen; render(); };
@@ -11794,7 +11828,7 @@ async function renderPpe(siteId){
         </div>
       `).join('')}
       ` : ''}
-    `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+    `, {title:'PPE', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
     return;
   }
 
@@ -11890,7 +11924,7 @@ async function renderPpe(siteId){
     }).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
 
     <p class="stub" style="margin-top:14px;font-style:italic;">A PPE register can be downloaded from the <span style="text-decoration:underline;cursor:pointer;font-style:normal;" onclick="openAdminPpeRegister('${siteId}')">Admin Centre</span>.</p>
-  `, {title:'PPE', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
+  `, {title:'PPE', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'});
 }
 function cap1(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : ''; }
 let ppeIssueBusy = false;
@@ -12482,7 +12516,7 @@ async function renderHavs(siteId){
       `}
     </div>
     ` : ''}
-  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 
 // Read-only list of weeks a manager has marked done, with Export/Email
@@ -12514,7 +12548,7 @@ async function renderHavsCompletedTab(siteId, site, canManage, __gen){
         </div>
       </div>`;
     }).join('')}
-  `, {title:'HAVS', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
+  `, {title:'HAVS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 window.exportHavsCompletedWeek = async function(siteId, weekStart){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -13060,7 +13094,7 @@ async function renderMyTools(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const tools = await dbSelect('operative_tools', 'user_id=eq.'+ME.id+'&order=created_at.asc');
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(myToolsBodyHtml(tools), {title:'My Tools', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, tabs:false}); }
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(myToolsBodyHtml(tools), {title:'My Tools', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, tabs:false}); }
 }
 // Operative Dashboard: a non-site-scoped home for an operative's own stuff,
 // reachable directly from the home bar — starts with My Tools (moved here
@@ -13111,24 +13145,36 @@ async function renderOperativeDashboard(siteId){
 
   if(siteId && isManager(ME)){
     await loadAllProfiles();
-    const [assignedRows, myCerts, manualPeople, allSiteCerts] = await Promise.all([
+    const [assignedRows, myCerts, manualPeople] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
       dbSelect('operative_certifications', 'operative_id=eq.'+ME.id+'&order=created_at.desc'),
       dbSelect('certification_manual_people', 'site_id=eq.'+siteId+'&order=created_at.asc'),
-      dbSelect('operative_certifications', 'select=id,operative_id,manual_person_id,category,expiry_date'),
     ]);
     const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
     const pmList = Object.values(PROFILES).filter(p=>isManager(p)).sort((a,b)=>a.name.localeCompare(b.name));
-    const certCountByOp = {}, certCountByManual = {}, allCertsByOp = {};
-    allSiteCerts.forEach(c=>{
-      if(c.operative_id){
-        certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
-        (allCertsByOp[c.operative_id]=allCertsByOp[c.operative_id]||[]).push(c);
-      }
-      if(c.manual_person_id) certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
+    // #390: was one unfiltered `operative_certifications` select — every cert
+    // row for every operative across every org in the database — trimmed
+    // down to name/storage_path-bearing columns that then got dropped, which
+    // silently blanked file names and broke View/Delete for this exact view.
+    // Now two `in.(...)` queries scoped to just this site's assigned
+    // operatives and manual people, with every column intact, replacing both
+    // the whole-table read and the old one-request-per-manual-person loop.
+    const assignedOpIds = assignedOperatives.map(o=>o.id);
+    const manualIds = manualPeople.map(p=>p.id);
+    const [opCerts, manualCertsAll] = await Promise.all([
+      assignedOpIds.length ? dbSelect('operative_certifications', 'operative_id=in.('+assignedOpIds.join(',')+')&order=created_at.desc') : Promise.resolve([]),
+      manualIds.length ? dbSelect('operative_certifications', 'manual_person_id=in.('+manualIds.join(',')+')&order=created_at.desc') : Promise.resolve([]),
+    ]);
+    const certCountByOp = {}, allCertsByOp = {};
+    opCerts.forEach(c=>{
+      certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
+      (allCertsByOp[c.operative_id]=allCertsByOp[c.operative_id]||[]).push(c);
     });
-    const manualCertsById = {};
-    await Promise.all(manualPeople.filter(p=>siteCertManualOpen[p.id]).map(async p=>{ manualCertsById[p.id] = await dbSelect('operative_certifications', 'manual_person_id=eq.'+p.id+'&order=created_at.desc'); }));
+    const certCountByManual = {}, manualCertsById = {};
+    manualCertsAll.forEach(c=>{
+      certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
+      (manualCertsById[c.manual_person_id]=manualCertsById[c.manual_person_id]||[]).push(c);
+    });
 
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
@@ -13172,7 +13218,7 @@ async function renderOperativeDashboard(siteId){
           </div>
         </div>
       ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`}
-    `, {title:'Operative Dashboard', subtitle:site.name, siteNameSubtitle:true, back:backHash, siteId, activeTab:'more'}); }
+    `, {title:'Operative Dashboard', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHash, siteId, activeTab:'more'}); }
     return;
   }
 
@@ -13205,7 +13251,7 @@ async function renderOperativeDashboard(siteId){
 
     <p class="sectiontitle" style="margin:20px 0 8px;">My Tools</p>
     ${myToolsBodyHtml(tools, true)}
-  `, {title:'Operative Dashboard', ...(site ? {subtitle:site.name, siteNameSubtitle:true, siteId, activeTab:'more'} : {tabs:false}), back:backHash}); }
+  `, {title:'Operative Dashboard', ...(site ? {subtitle:fullSiteAddress(site), siteNameSubtitle:true, siteId, activeTab:'more'} : {tabs:false}), back:backHash}); }
 }
 
 /* ================= PUWER TOOL INSPECTION =================
@@ -13289,7 +13335,7 @@ async function renderPuwer(siteId){
     ` : ''}
     ${canManage && !completion ? `<button class="darkbtn" style="margin-top:18px;padding:8px 6px;font-size:11.5px;" ${puwerMarkCompleteBusy?'disabled':''} onclick="markPuwerWeekComplete('${siteId}','${weekStartISO}')">${puwerMarkCompleteBusy?'Marking…':'Mark This Week As Complete'}</button>` : ''}
     ${canManage && completion ? `<button class="ghostbtn" style="margin-top:18px;" onclick="reopenPuwerWeek('${completion.id}')">Reopen This Week</button>` : ''}
-  `, {title:'PUWER Tool Inspection', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
+  `, {title:'PUWER Tool Inspection', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 let puwerExportSelectedIds = [];
 let puwerExportAllBusy = false;
@@ -13868,7 +13914,7 @@ async function renderIncidents(siteId){
         ${canDelete ? `<div class="taskicons"><div class="taskicon danger" onclick="event.stopPropagation();deleteIncidentReport('${r.id}','${siteId}')">🗑</div></div>` : ''}
       </div>
     `).join('') : `<div class="empty">No accidents, incidents or near misses reported for this project.</div>`}
-  `, {title:'Accident / Incident', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Accident / Incident', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 window.deleteIncidentReport = async function(reportId, siteId){
   if(!await customConfirm('Delete this report? This can\'t be undone.')) return;
@@ -13952,7 +13998,7 @@ function renderIncidentFill(siteId){
 
     <p class="stub">Submitting signs this report with your adopted signature — the same one used on RAMS and Toolbox Talks.</p>
     <button class="darkbtn" style="width:100%;" onclick="submitIncidentReport('${siteId}')">Sign &amp; Submit Report</button>
-  `, {title:'New Report', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false}); }
+  `, {title:'New Report', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false}); }
 }
 window.submitIncidentReport = async function(siteId){
   if(!incidentDraft) return;
@@ -14065,7 +14111,7 @@ async function renderIncidentView(siteId, reportId){
       <button class="ghostbtn exportbtn" style="flex:1;" onclick="emailIncidentReport('${siteId}','${reportId}')">Email PDF</button>
     </div>
     ${isManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;margin-bottom:10px;color:var(--red);" onclick="deleteIncidentReport('${reportId}','${siteId}')">Delete Report</button>` : ''}
-  `, {title:'Incident Report', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false, tightBottom:true}); }
+  `, {title:'Incident Report', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false, tightBottom:true}); }
 }
 async function buildIncidentPdf(reportId){
   const rows = await dbSelect('incident_reports', 'id=eq.'+reportId+'&select=*');
@@ -14306,7 +14352,7 @@ async function renderDailyBriefings(siteId){
       <div class="ddrow" onclick="briefingWeekOpen['${k}']=!briefingWeekOpen['${k}'];render();"><span class="arrow">${briefingWeekOpen[k]?'▼':'▶'}</span> ${weekLabelOf(k)}${k===currentWeekKey?' (current)':''} <span class="stub">(${weeks[k].length})</span></div>
       ${briefingWeekOpen[k] ? weeks[k].map(submissionRowHtml).join('') : ''}
     `).join('') : `<div class="empty">No Daily Briefings yet${templates.length?'.':' — set up a Daily Briefing template first.'}</div>`}
-  `, {title:'Daily Briefings', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Daily Briefings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 window.toggleBriefingSelect = function(id){
   if(selectedBriefingIds.has(id)) selectedBriefingIds.delete(id); else selectedBriefingIds.add(id);
@@ -14534,7 +14580,7 @@ async function renderToolboxTalks(siteId){
       <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
     </div>
     ` : ''}
-  `, {title:'Toolbox Talks', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
+  `, {title:'Toolbox Talks', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let tbtReplaceFileOpen = null;
 let tbtReplaceBusy = false;
@@ -14712,7 +14758,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:talk.title, subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
+  `, {title:talk.title, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'}); }
 }
 window.signToolboxTalk = async function(siteId, tbtId){
   if(!ME.signature_path){
@@ -15078,7 +15124,7 @@ async function renderMaterials(siteId){
           <div class="lbl">Pick-up List</div><div class="sub">${myPickups.length} to collect</div>
         </div>
       </div>
-    `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+    `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
     return;
   }
   const [pendingCount, orderFileCount, requiredOpenCount] = await Promise.all([
@@ -15103,7 +15149,7 @@ async function renderMaterials(siteId){
         <div class="lbl">Material List</div><div class="sub">${requiredOpenCount.length} live</div>
       </div>
     </div>
-  `, {title: materialsTileLabel(), subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 async function renderMaterialRequests(siteId){
   const __gen = RENDER_GEN;
@@ -15247,7 +15293,7 @@ async function renderMaterialRequests(siteId){
     </div>
     ` : ''}
     ` : ''}
-  `, {title:'Material Requests', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 
 /* ================= MATERIAL LIST (pick-up list) ================
@@ -15459,7 +15505,7 @@ async function renderMaterialRequiredList(siteId){
       </div>
     </div>
     ` : ''}
-  `, {title:'Material List', subtitle:site.name, siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 window.toggleMatReqExpand = function(id){
   if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);
@@ -16275,7 +16321,7 @@ async function renderMaterialOrders(siteId, folderId){
         <button class="ghostbtn" style="margin-top:8px;" onclick="matOrderUploadOpen=false;render()">Cancel</button>
       </div>
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : "Material PO's", subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
+  `, {title: currentFolder ? currentFolder.name : "Material PO's", subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createMaterialOrderFolder = async function(siteId, folderId){
   const input = document.getElementById('newMaterialOrderFolderName');
@@ -16616,7 +16662,7 @@ async function renderSiteCalendar(siteId){
         </div>
       `;
     }).join('')}
-  `, {title:'Calendar', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
+  `, {title:'Calendar', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
 window.toggleCalRecipient = function(id){
   if(calDraft.recipientIds.has(id)) calDraft.recipientIds.delete(id); else calDraft.recipientIds.add(id);
@@ -16945,7 +16991,7 @@ async function renderVariations(siteId){
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','closed')">Export closed (PDF)</button>
       <button class="ghostbtn exportbtn" style="display:block;width:auto;flex:1;" onclick="exportVariationsPDF('${siteId}','both')">Export all (PDF)</button>
     </div>
-  `, {title:'Variations', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, {title:'Variations', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
 window.varPhoto = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
@@ -17271,7 +17317,7 @@ async function renderDrawings(siteId, folderId){
         </div>
       ` : ''}
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
+  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createDrawingFolder = async function(siteId, folderId){
   const input = document.getElementById('newDrawingFolderName');
@@ -17444,7 +17490,7 @@ async function renderDrawingImportPicker(siteId){
       ${(!drawingImportFolders.length && !drawingImportFiles.length) ? `<div class="empty">Nothing here.</div>` : ''}
     `}
     ${drawingImportSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedDrawings()">Import ${drawingImportSelected.size} Selected</button>` : ''}
-  `, {title:'Import from OneDrive', subtitle:site.name, siteNameSubtitle:true, back:backHref, siteId, tabs:false}); }
+  `, {title:'Import from OneDrive', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, tabs:false}); }
 }
 window.deleteDrawingFile = async function(fileId, storagePath){
   if(!await customConfirm('Delete this drawing? This can\'t be undone.')) return;
@@ -17701,7 +17747,7 @@ async function renderCoshhLibraryPick(siteId){
     }).join('')}
     ${(!subfolders.length && !files.length) ? `<div class="empty">Nothing here.</div>` : ''}
     ${coshhPickSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedCoshhFromLibrary('${siteId}')">Add ${coshhPickSelected.size} Selected</button>` : ''}
-  `, {title:'Add from Library', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+  `, {title:'Add from Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
 }
 window.importSelectedCoshhFromLibrary = async function(siteId){
   if(!coshhPickSelected.size) return;
@@ -17764,7 +17810,7 @@ async function renderCoshhSaveToLibrary(siteId){
     `).join('')}
     ${!subfolders.length ? `<div class="empty">No subfolders here.</div>` : ''}
     <button class="darkbtn" style="margin-top:14px;" onclick="saveCoshhToLibraryHere('${siteId}')">Save to ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top level'}</button>
-  `, {title:'Save to Admin Centre COSHH', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
+  `, {title:'Save to Admin Centre COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
 }
 window.saveCoshhToLibraryHere = async function(siteId){
   if(!coshhSaveDocId) return;
@@ -17979,7 +18025,7 @@ async function renderMessages(siteId){
     ` : `
       ${broadcasts.map(msgRow).join('') || `<div class="empty">No messages yet.</div>`}
     `}
-  `, {title:'Inbox', subtitle:site.name, siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
+  `, {title:'Inbox', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'messages'}); }
 }
 // Cross-site Messages view for the operative home bar — renderMessages
 // above is scoped to one site's thread; this pulls the "From Team"/broadcast
