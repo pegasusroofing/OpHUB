@@ -90,6 +90,15 @@
     .appbar .brandline.orgname{font-size:15.140625px;}
     .appbar h2{font-size:19.38px;}
     .appbar h2.lg{font-size:21.8025px;}
+    /* Health & Safety's tile grid, phone screens only — scaled to 0.95x of
+       the standard tile sizing so the whole page of tiles fits on one
+       screen without scrolling. Scoped to .hstiles only; desktop/wide
+       layout and every other tile grid keep the normal size. */
+    .hstiles{gap:9.5px;}
+    .hstiles .tile{padding:13.3px 11.4px;gap:7.6px;min-height:106.4px;}
+    .hstiles .tile .icon{width:28.5px;height:28.5px;font-size:14.25px;}
+    .hstiles .tile .lbl{font-size:15.14px;}
+    .hstiles .tile .sub{font-size:12.72px;}
   }
   .stripe-edge{height:5px;width:100%;flex:0 0 auto;
     background:
@@ -1752,13 +1761,6 @@ function fitTileLabelsOneLine(){
 }
 
 /* ================= shell ================= */
-// The "OpHUB" wordmark, split-coloured — "Op" in OpHUB's own fixed brand
-// blue, "HUB" in ink black — same everywhere it appears as text (never
-// affected by a tenant's own theme colour 1, that's reserved for their
-// company name right next to it).
-function ophubWordmarkHtml(){
-  return `<span style="text-transform:none;"><span style="color:#1A56B0;">Op</span><span style="color:var(--ink);">HUB</span></span>`;
-}
 let CURRENT_BACK_HASH = null; // kept in sync with each screen's header back-arrow target, so edge-swipe-to-go-back goes up one folder level (same as tapping '‹') instead of replaying raw browser history.
 function shell(innerHtml, opts){
   opts = opts||{};
@@ -1769,13 +1771,13 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;">${ophubWordmarkHtml()}${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
+            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;">OpHUB${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
-              <div class="brandline lg" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;">${ophubWordmarkHtml()}</div>
+              <div class="brandline lg" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
               ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>` : ''}
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
@@ -1787,7 +1789,7 @@ function shell(innerHtml, opts){
         <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;">
-            ${!opts.back ? `<div class="brandline" style="text-transform:none;">${ophubWordmarkHtml()}${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
+            ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
             ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
           </div>
@@ -4655,18 +4657,21 @@ function operativeCertListHtml(certs, canManage, opts){
             ${certSourceIconHtml(f)}
             <div style="min-width:0;flex:1;">
               <div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${escapeHtml(f.name)}</div>
-              <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):(f.source==='onedrive'?'Synced from OneDrive':'Uploaded')}</div>
+              <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):escapeHtml(f.name)}</div>
             </div>
             ${canManage?`
-              <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" title="Expiry date" style="flex:0 0 auto;width:68px;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
-              <select class="stub" title="Category" style="flex:0 0 auto;width:46px;padding:3px 1px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:9px;" onchange="changeOperativeCertCategory('${f.id}',this.value)">
-                ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
-              </select>
+              <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="flex:0 0 auto;width:78px;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
             `:''}
             <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(f.name)}')">👁</div>
             ${canManage?rowActionsMenuHtml('certrow-'+f.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameOperativeCertFile('${f.id}','${jsAttr(f.name)}')">✎ Rename</div>
               <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteOperativeCertFile('${f.id}','${jsAttr(f.storage_path)}')">🗑 Delete</div>
+              <div class="statusmenu-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="event.stopPropagation();">
+                <span>Cert Type</span>
+                <select class="stub" title="Category" style="flex:0 0 auto;max-width:120px;padding:3px 4px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:10px;" onchange="changeOperativeCertCategory('${f.id}',this.value)">
+                  ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
+                </select>
+              </div>
             `):''}
           </div>
         </div>
@@ -4737,17 +4742,31 @@ let certBulkExportBusy = false, certBulkEmailBusy = false, certBulkPushBusy = fa
 // operativeId is supplied (the manual-people lists don't have a OneDrive
 // folder to push to), and only actually pushes whichever of the selected
 // certs are still phone-only (source='upload', never pushed).
-function certListSelectionBarHtml(certs, operativeId){
+function certListSelectionBarHtml(certs, key, operativeId, pmList){
   const idsHere = new Set(certs.map(c=>c.id));
   const selectedHere = Array.from(certSelectedIds).filter(id=>idsHere.has(id));
   if(!selectedHere.length) return '';
   const byId = {}; certs.forEach(c=>{ byId[c.id]=c; });
   const pushableCount = operativeId ? selectedHere.filter(id=>byId[id] && byId[id].source==='upload' && !byId[id].pushed_to_onedrive_at).length : 0;
+  const pickerOpen = !!certEmailPickerOpenFor[key];
+  const recipChoice = certEmailRecipientChoiceFor[key] || '';
   return `
-    <div class="row-gap" style="margin-bottom:${operativeId?'8px':'10px'};">
+    <div class="row-gap" style="margin-bottom:${pickerOpen?'8px':(operativeId?'8px':'10px')};">
       <button class="darkbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkExportBusy?'disabled':''} onclick='exportSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkExportBusy?'Building…':`Export ${selectedHere.length} (PDF)`}</button>
-      <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkEmailBusy?'disabled':''} onclick='emailSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Emailing…':`Email ${selectedHere.length}`}</button>
+      <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" onclick="toggleCertEmailPickerFor('${key}')">Email ${selectedHere.length}</button>
     </div>
+    ${pickerOpen ? `
+    <div class="card" style="margin-bottom:10px;padding:10px;">
+      <p class="field-label" style="margin-bottom:6px;">Send to</p>
+      <select class="stub" style="width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);margin-bottom:8px;" onchange="setCertEmailRecipientChoiceFor('${key}',this.value)">
+        <option value="">Myself (${escapeHtml(ME.email)})</option>
+        ${(pmList||[]).map(p=>`<option value="${p.id}" ${recipChoice===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        <option value="custom" ${recipChoice==='custom'?'selected':''}>Custom email address…</option>
+      </select>
+      ${recipChoice==='custom' ? `<input type="text" placeholder="name@example.com" value="${escapeHtml(certEmailCustomAddrFor[key]||'')}" oninput="certEmailCustomAddrFor['${key}']=this.value;" style="width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;box-sizing:border-box;">` : ''}
+      <button class="darkbtn" style="width:100%;" ${certBulkEmailBusy?'disabled':''} onclick='sendCertEmailFor(${JSON.stringify(key)},${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Sending…':'Send'}</button>
+    </div>
+    ` : ''}
     ${operativeId ? `
     <div class="row-gap" style="margin-bottom:10px;">
       <button class="ghostbtn exportbtn" style="flex:1;font-size:11.5px;padding:7px;" ${certBulkPushBusy||!pushableCount?'disabled':''} onclick='pushSelectedCertsToOneDrive(${JSON.stringify(selectedHere)},${JSON.stringify(operativeId)})'>${certBulkPushBusy?'Uploading…':(pushableCount?`☁ Upload ${pushableCount} to OneDrive`:'☁ Upload to OneDrive')}</button>
@@ -4895,6 +4914,7 @@ async function renderOperativeDetail(operativeId){
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
   const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && siteStatusKey(s)==='live').length;
+  const pmList = Object.values(PROFILES).filter(p=>isManager(p)).sort((a,b)=>a.name.localeCompare(b.name));
   const folderLinked = !!operative.onedrive_folder_id;
   const syncBusy = !!operativeCertSyncBusy[operativeId];
 
@@ -4936,7 +4956,7 @@ async function renderOperativeDetail(operativeId){
 
     <p class="sectiontitle">Certificates</p>
     <p class="stub" style="margin:0 0 10px;">This is ${escapeHtml(operative.name)}'s record in the company Training Matrix — everything here rolls straight into the exports below and into their own My Dashboard.</p>
-    ${certListSelectionBarHtml(certs, operativeId)}
+    ${certListSelectionBarHtml(certs, 'op-'+operativeId, operativeId, pmList)}
     ${certAddToggleHtml(operativeId, 'opdet')}
     ${operativeCertListHtml(certs, true, {selectable:true})}
     <button class="ghostbtn" style="width:100%;margin-top:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Full Training Matrix (Excel)</button>
@@ -5301,7 +5321,7 @@ async function renderSiteHome(siteId){
         <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
       `}
       <div class="stat calstat" style="cursor:pointer;" onclick="go('#/site/${siteId}/calendar')" title="${escapeHtml(todayCalLabel)}"><b>${todayDateLabel}</b><span>${escapeHtml(todayCalLabel)}</span></div>
-      <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
+      <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/list')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
     </div>
     ${(()=>{
       // The 2-column tile grid below Check-in (which is always full-width)
@@ -11271,7 +11291,7 @@ async function renderHealthSafety(siteId){
     ppeTileSub = pendingSigs.length ? pendingSigs.length+' to sign' : 'My PPE';
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid" style="grid-auto-rows:1fr;">
+    <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
@@ -13046,31 +13066,35 @@ async function renderMyTools(siteId){
 // reachable directly from the home bar — starts with My Tools (moved here
 // from the per-site HAVS & PUWER tile) and a shortcut into their Outstanding
 // items so everything personal to them has one place to live.
-// #270: multi-select export/email for the Certificates listing shown on the
-// Operative Dashboard, with a recipient picker — a dropdown of PMs (role
-// filtered to manager) or a "Custom" option revealing a free-text address.
-let odCertEmailPickerOpen = false;
-let odCertEmailRecipientChoice = ''; // '' (unset) | a pm user id | 'custom'
-let odCertEmailCustomAddr = '';
-window.toggleOdCertEmailPicker = function(){ odCertEmailPickerOpen = !odCertEmailPickerOpen; render(); };
-window.setOdCertEmailRecipientChoice = function(v){ odCertEmailRecipientChoice = v; render(); };
+// #270/#384: multi-select export/email for any certificate listing, with a
+// recipient picker — a dropdown of PMs (role filtered to manager) or a
+// "Custom" option revealing a free-text address. Generalized to key-based
+// state so the same picker UI works for every cert list on the page (the
+// operative's own dashboard, each assigned operative, each manual person) —
+// not just the one originally built for the Operative Dashboard.
+let certEmailPickerOpenFor = {};
+let certEmailRecipientChoiceFor = {}; // key -> '' (unset) | a pm user id | 'custom'
+let certEmailCustomAddrFor = {};
+window.toggleCertEmailPickerFor = function(key){ certEmailPickerOpenFor[key] = !certEmailPickerOpenFor[key]; render(); };
+window.setCertEmailRecipientChoiceFor = function(key, v){ certEmailRecipientChoiceFor[key] = v; render(); };
 // #336: Certifications now live inside the Operative Dashboard as their own
 // collapsible sub-folder (open by default, matching the always-shown
 // behaviour this replaces) rather than only as a separate sibling tile off
 // the Operatives hub — same list/upload UI, just folded into the Dashboard.
 let odCertFolderOpen = true;
 window.toggleOdCertFolder = function(){ odCertFolderOpen = !odCertFolderOpen; render(); };
-window.sendOdCertEmail = async function(ids){
+window.sendCertEmailFor = async function(key, ids){
   let recipient = null;
-  if(odCertEmailRecipientChoice==='custom'){
-    const addr = odCertEmailCustomAddr.trim();
+  const choice = certEmailRecipientChoiceFor[key];
+  if(choice==='custom'){
+    const addr = (certEmailCustomAddrFor[key]||'').trim();
     if(!addr || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)){ toast('Enter a valid email address.'); return; }
     recipient = {to_email: addr};
-  } else if(odCertEmailRecipientChoice){
-    recipient = {to_user_id: odCertEmailRecipientChoice};
+  } else if(choice){
+    recipient = {to_user_id: choice};
   }
   await emailSelectedCerts(ids, recipient);
-  odCertEmailPickerOpen = false; odCertEmailRecipientChoice=''; odCertEmailCustomAddr='';
+  certEmailPickerOpenFor[key] = false; certEmailRecipientChoiceFor[key]=''; certEmailCustomAddrFor[key]='';
 };
 // #381/#383: renderOperativeDashboard now takes an optional siteId. With no
 // siteId (the Home bar's "My Dashboard") it's exactly the personal view it
@@ -13094,14 +13118,12 @@ async function renderOperativeDashboard(siteId){
       dbSelect('operative_certifications', 'select=id,operative_id,manual_person_id,category,expiry_date'),
     ]);
     const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-    const assignedIdsSet = new Set(assignedOperatives.map(o=>o.id));
+    const pmList = Object.values(PROFILES).filter(p=>isManager(p)).sort((a,b)=>a.name.localeCompare(b.name));
     const certCountByOp = {}, certCountByManual = {}, allCertsByOp = {};
-    const overviewCerts = [];
     allSiteCerts.forEach(c=>{
       if(c.operative_id){
         certCountByOp[c.operative_id] = (certCountByOp[c.operative_id]||0)+1;
         (allCertsByOp[c.operative_id]=allCertsByOp[c.operative_id]||[]).push(c);
-        if(assignedIdsSet.has(c.operative_id)) overviewCerts.push(c);
       }
       if(c.manual_person_id) certCountByManual[c.manual_person_id] = (certCountByManual[c.manual_person_id]||0)+1;
     });
@@ -13109,25 +13131,24 @@ async function renderOperativeDashboard(siteId){
     await Promise.all(manualPeople.filter(p=>siteCertManualOpen[p.id]).map(async p=>{ manualCertsById[p.id] = await dbSelect('operative_certifications', 'manual_person_id=eq.'+p.id+'&order=created_at.desc'); }));
 
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-      <p class="sectiontitle" style="margin-top:0;">Overview (all assigned operatives)</p>
-      ${operativeCertSummaryCardsHtml(overviewCerts)}
-
       <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
       ${siteCertOpen.__self ? `
+        ${certListSelectionBarHtml(myCerts, 'sitecertself', ME.id, pmList)}
         ${certAddToggleHtml(ME.id, 'sitecertself')}
-        ${operativeCertListHtml(myCerts, true, {compact:true})}
+        ${operativeCertListHtml(myCerts, true, {compact:true, selectable:true})}
       ` : ''}
 
-      <p class="sectiontitle">Assigned Operatives (${assignedOperatives.length})</p>
+      <p class="sectiontitle" style="margin-top:20px;">Assigned Operatives (${assignedOperatives.length})</p>
       ${assignedOperatives.length ? assignedOperatives.map(o=>`
         <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub" style="margin-left:4px;">${certCountByOp[o.id]||0} cert${(certCountByOp[o.id]||0)===1?'':'s'}</span></p>
         ${siteCertOpen[o.id] ? `
-          ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true})}
+          ${certListSelectionBarHtml(allCertsByOp[o.id]||[], 'siteop-'+o.id, o.id, pmList)}
+          ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true, selectable:true})}
           <button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>
         ` : ''}
       `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
 
-      <p class="sectiontitle">Other People (${manualPeople.length})</p>
+      <p class="sectiontitle" style="margin-top:20px;">Other People (${manualPeople.length})</p>
       <p class="stub" style="margin:0 0 10px;">For someone with certificates to track who isn't a registered operative — a subcontractor, for example. No account or login is created for them.</p>
       ${manualPeople.map(p=>`
         <div class="sitecard" style="cursor:pointer;" onclick="siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();">
@@ -13136,8 +13157,9 @@ async function renderOperativeDashboard(siteId){
           <div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>
         </div>
         ${siteCertManualOpen[p.id] ? `
+          ${certListSelectionBarHtml(manualCertsById[p.id]||[], 'sitemanual-'+p.id, null, pmList)}
           ${manualCertAddToggleHtml(p.id, 'sitecertmanual'+p.id.replace(/[^a-zA-Z0-9]/g,''))}
-          ${operativeCertListHtml(manualCertsById[p.id]||[], true, {compact:true})}
+          ${operativeCertListHtml(manualCertsById[p.id]||[], true, {compact:true, selectable:true})}
         ` : ''}
       `).join('')}
       ${siteCertManualAddOpen ? `
@@ -13162,8 +13184,6 @@ async function renderOperativeDashboard(siteId){
   ]);
   await loadAllProfiles();
   const pmList = Object.values(PROFILES).filter(p=>isManager(p)).sort((a,b)=>a.name.localeCompare(b.name));
-  const idsHere = new Set(certs.map(c=>c.id));
-  const selectedHere = Array.from(certSelectedIds).filter(id=>idsHere.has(id));
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:16px;cursor:pointer;" onclick="go('#/outstanding')">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
@@ -13178,29 +13198,7 @@ async function renderOperativeDashboard(siteId){
 
     <p class="ddrow" style="margin:0 0 8px;cursor:pointer;" onclick="toggleOdCertFolder()"><span class="arrow">${odCertFolderOpen?'▼':'▶'}</span> Certifications (${certs.length})</p>
     ${odCertFolderOpen ? `
-    ${selectedHere.length ? `
-      <div class="row-gap" style="margin-bottom:8px;">
-        <button class="darkbtn" style="flex:1;font-size:11px;padding:6px;" ${certBulkExportBusy?'disabled':''} onclick='exportSelectedCerts(${JSON.stringify(selectedHere)})'>${certBulkExportBusy?'Building…':`Export ${selectedHere.length} (PDF)`}</button>
-        <button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px;" onclick="toggleOdCertEmailPicker()">Email ${selectedHere.length}</button>
-      </div>
-      ${odCertEmailPickerOpen ? `
-      <div class="card" style="margin-bottom:10px;padding:10px;">
-        <p class="field-label" style="margin-bottom:6px;">Send to</p>
-        <select class="stub" style="width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);margin-bottom:8px;" onchange="setOdCertEmailRecipientChoice(this.value)">
-          <option value="">Myself (${escapeHtml(ME.email)})</option>
-          ${pmList.map(p=>`<option value="${p.id}" ${odCertEmailRecipientChoice===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-          <option value="custom" ${odCertEmailRecipientChoice==='custom'?'selected':''}>Custom email address…</option>
-        </select>
-        ${odCertEmailRecipientChoice==='custom' ? `<input type="text" placeholder="name@example.com" value="${escapeHtml(odCertEmailCustomAddr)}" oninput="odCertEmailCustomAddr=this.value;" style="width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;box-sizing:border-box;">` : ''}
-        <button class="darkbtn" style="width:100%;" ${certBulkEmailBusy?'disabled':''} onclick='sendOdCertEmail(${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Sending…':'Send'}</button>
-      </div>
-      ` : ''}
-      ${(()=>{ const byId={}; certs.forEach(c=>{byId[c.id]=c;}); const pushableCount = selectedHere.filter(id=>byId[id] && byId[id].source==='upload' && !byId[id].pushed_to_onedrive_at).length; return `
-      <div class="row-gap" style="margin-bottom:8px;">
-        <button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px;" ${certBulkPushBusy||!pushableCount?'disabled':''} onclick='pushSelectedCertsToOneDrive(${JSON.stringify(selectedHere)},${JSON.stringify(ME.id)})'>${certBulkPushBusy?'Uploading…':(pushableCount?`☁ Upload ${pushableCount} to OneDrive`:'☁ Upload to OneDrive')}</button>
-      </div>
-      `; })()}
-    ` : ''}
+    ${certListSelectionBarHtml(certs, 'oddash', ME.id, pmList)}
     ${certAddToggleHtml(ME.id, 'oddash')}
     ${operativeCertListHtml(certs, false, {selectable:true, compact:true})}
     ` : ''}
