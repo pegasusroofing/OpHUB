@@ -265,6 +265,7 @@
      style sample, built entirely from data the page already fetches (no
      extra queries), so it's presentational only. */
   .statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+  .statrow .stat.calstat span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;text-transform:none;letter-spacing:0;font-weight:600;}
   .statrow .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;box-shadow:var(--shadow-card);}
   .statrow .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:19px;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1.2;}
   .statrow .stat span{font-size:10px;color:var(--slate-light);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
@@ -5244,7 +5245,8 @@ async function renderSiteHome(siteId){
     });
   }
 
-  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount] = await Promise.all([
+  const todayISO = localISODate(new Date());
+  const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
@@ -5257,6 +5259,8 @@ async function renderSiteHome(siteId){
     // PM/admin stat row needs a site-wide "who's on site right now" count —
     // operatives don't see this stat, so skip the query entirely for them.
     isManager(ME) ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500&select=user_id,type') : Promise.resolve([]),
+    // Middle stat tile: today's date + what's on the site calendar today.
+    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=eq.'+todayISO+'&order=created_at.asc&select=title'),
   ]);
   // The bottom tab bar's badge (currentUnreadMsgs) was already refreshed by
   // the router right before this ran — reuse it here instead of querying twice.
@@ -5275,6 +5279,11 @@ async function renderSiteHome(siteId){
     teamCheckinsForCount.forEach(c=>{ latestByUser[c.user_id] = c; });
     onSiteCount = Object.values(latestByUser).filter(c=>c.type==='in').length;
   }
+  // Today's date + what's on the calendar, for the middle stat tile.
+  const todayDateLabel = new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  const todayCalLabel = !todayCalEvents.length ? 'Nothing today'
+    : todayCalEvents.length===1 ? todayCalEvents[0].title
+    : todayCalEvents[0].title+' +'+(todayCalEvents.length-1)+' more';
   // Price tile visibility: project admin and this site's responsible PM
   // always see it once enabled; an operative needs an explicit grant.
   let canSeePrice = false;
@@ -5293,10 +5302,6 @@ async function renderSiteHome(siteId){
     pendingVariationCount = pendingAw.length;
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;margin-bottom:7px;">
-      <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
-      ${(ORG && ORG.name) ? `<span class="stub" style="margin:0;">-</span><span class="stub" style="margin:0;">${escapeHtml(ORG.name)}</span>` : ''}
-    </div>
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
@@ -5307,7 +5312,7 @@ async function renderSiteHome(siteId){
       ` : `
         <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
       `}
-      <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs')"><b style="${pendingRams?'color:var(--warn);':''}">${pendingRams}</b><span>Outstanding</span></div>
+      <div class="stat calstat" style="cursor:pointer;" onclick="go('#/site/${siteId}/calendar')" title="${escapeHtml(todayCalLabel)}"><b>${todayDateLabel}</b><span>${escapeHtml(todayCalLabel)}</span></div>
       <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>
     </div>
     ${(()=>{
@@ -5378,6 +5383,10 @@ async function renderSiteHome(siteId){
     </div>
       `;
     })()}
+    <div style="display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;margin-top:16px;">
+      <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
+      ${(ORG && ORG.name) ? `<span class="stub" style="margin:0;">-</span><span class="stub" style="margin:0;">${escapeHtml(ORG.name)}</span>` : ''}
+    </div>
   `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
     requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
   }
