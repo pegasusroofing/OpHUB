@@ -87,7 +87,7 @@
   @media (max-width:759px){
     .appbar .brandline{font-size:12.1125px;}
     .appbar .brandline.lg{font-size:18.16875px;}
-    .appbar .brandline.orgname{font-size:15.140625px;}
+    .appbar .brandline.orgname{font-size:12.1125px;}
     .appbar h2{font-size:19.38px;}
     .appbar h2.lg{font-size:21.8025px;}
     /* Health & Safety's tile grid, phone screens only — scaled to 0.95x of
@@ -116,7 +116,7 @@
   .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
   .brandline{font-size:14.25px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--slate);opacity:1;margin-bottom:1.5px;}
   .brandline.lg{font-size:21.375px;opacity:1;}
-  .brandline.orgname{font-size:17.8125px;opacity:1;}
+  .brandline.orgname{font-size:14.25px;opacity:1;}
   .appbar h2{margin:0;font-family:'Sora',-apple-system,sans-serif;font-size:clamp(15px, 5.2vw, 22.8px);font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:-.01em;}
   .appbar h2.lg{font-size:clamp(16px, 5.8vw, 25.65px);}
   .appbar .meta{font-size:clamp(8.55px, 3.135vw, 12.065px);color:var(--slate);opacity:1;font-family:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
@@ -1780,7 +1780,7 @@ function shell(innerHtml, opts){
             </div>
             <div style="flex:1;text-align:center;">
               ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
-              <div style="width:28px;height:1.5px;background:var(--line);margin:3px auto;"></div>` : ''}
+              <div style="width:28px;height:2.5px;background:var(--line);margin:3px auto;"></div>` : ''}
               <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
