@@ -345,7 +345,7 @@
   .statustag2{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;flex:0 0 auto;}
   .statustag2.open,.statustag2.live{background:var(--warn-bg);color:var(--warn);}
   .statustag2.closed{background:var(--ok-bg);color:var(--ok);}
-  .statustag2.pending{background:#EAE6DC;color:#6B6F76;}
+  .statustag2.pending{background:#E7E9EE;color:#6B6F76;}
   .snagthumb{width:100%;max-width:160px;border-radius:8px;margin-top:8px;display:block;}
   .filterrow{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;width:100%;}
   .filterchip{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;min-height:34px;line-height:1.2;border-radius:8px;border:1.5px solid var(--line);
@@ -5335,7 +5335,7 @@ async function renderSiteHome(siteId){
           <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
-          <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
           ${pendingRams?`<span class="badge-count">${pendingRams}</span>`:''}
         </div>`,
@@ -11239,12 +11239,12 @@ async function renderHealthSafety(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
-        <div class="icon" style="background:#EAE6DC;color:var(--ink);">📄</div>
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
         ${ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
-        <div class="icon" style="background:#EAE6DC;color:var(--ink);">🧪</div>
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
         <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
         ${coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:''}
       </div>
