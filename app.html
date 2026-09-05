@@ -1771,7 +1771,7 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;">OpHUB${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
+            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;"><span style="color:var(--brand1);">Op</span><span style="color:var(--ink);">HUB</span>${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
