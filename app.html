@@ -1777,8 +1777,8 @@ function shell(innerHtml, opts){
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
             <div style="flex:1;text-align:center;">
-              <div class="brandline lg" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
-              ${ORG && ORG.name ? `<div class="brandline orgname" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>` : ''}
+              ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>` : ''}
+              <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
               ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
             </div>
             ${ME && opts.showRefresh ? `
