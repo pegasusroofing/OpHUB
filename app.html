@@ -470,16 +470,62 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 /* ================= generic helpers ================= */
 function uid(){ return 'id_'+Date.now()+'_'+Math.random().toString(36).slice(2,9); }
-// A per-install identifier persisted in localStorage — survives app
-// restarts and browser sessions, but resets if someone clears site data or
-// reinstalls the app. Good enough to stop casual "log in as me on your
-// phone" sharing without needing a native device-ID plugin.
+// Small, fast string hash (djb2) — used to fold the fingerprint's raw
+// signal string down into a short, stable, URL-safe id.
+function _hashStr(str){
+  let h = 5381;
+  for(let i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return h.toString(36);
+}
+// A canvas-rendering fingerprint. Text/shape anti-aliasing, font hinting and
+// GPU/driver rasterisation differ enough between distinct physical devices
+// (and are consistent for the SAME device every time) that the resulting
+// pixel data — reduced to a hash — acts as a stable per-hardware signal that
+// survives clearing site data or opening a private/incognito window, unlike
+// localStorage.
+function _canvasFingerprint(){
+  try{
+    const c = document.createElement('canvas');
+    c.width = 220; c.height = 40;
+    const ctx = c.getContext('2d');
+    if(!ctx) return '';
+    ctx.textBaseline = 'top';
+    ctx.font = "14px 'Arial'";
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(0,0,220,40);
+    ctx.fillStyle = '#069';
+    ctx.fillText('OpHUB device check 🔧', 2, 15);
+    ctx.fillStyle = 'rgba(102,204,0,0.7)';
+    ctx.fillText('OpHUB device check 🔧', 4, 17);
+    return c.toDataURL();
+  }catch(e){ return ''; }
+}
+// A per-DEVICE identifier derived from stable hardware/rendering
+// characteristics (screen size/depth, CPU core count, timezone, platform,
+// user-agent and a canvas rendering fingerprint), not from anything stored
+// in the browser. This means the SAME physical phone produces the SAME
+// device id even from a brand-new private/incognito window (which wipes
+// localStorage) — closing the one-device-per-operative loophole where
+// incognito mode used to look like a fresh, unlocked device every time.
+// It's cached in localStorage purely as a fast-path (avoids recomputing the
+// canvas fingerprint on every call); if that cache is missing or was wiped,
+// it's simply recomputed — and comes back to the SAME id, unlike the old
+// random-id scheme.
 function getDeviceId(){
-  let id = localStorage.getItem('ophub_device_id');
-  if(!id){
-    id = 'dev_'+Date.now()+'_'+Math.random().toString(36).slice(2,12);
-    try{ localStorage.setItem('ophub_device_id', id); }catch(e){ /* private browsing etc — non-fatal */ }
-  }
+  let cached = null;
+  try{ cached = localStorage.getItem('ophub_device_id'); }catch(e){ /* private browsing etc — non-fatal */ }
+  if(cached && cached.indexOf('fp_')===0) return cached;
+  const signal = [
+    navigator.userAgent || '',
+    navigator.platform || '',
+    navigator.language || '',
+    screen.width+'x'+screen.height+'x'+screen.colorDepth,
+    navigator.hardwareConcurrency || '',
+    (new Date()).getTimezoneOffset(),
+    _canvasFingerprint()
+  ].join('||');
+  const id = 'fp_'+_hashStr(signal);
+  try{ localStorage.setItem('ophub_device_id', id); }catch(e){ /* private browsing etc — non-fatal */ }
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1082,6 +1128,12 @@ async function deliverExcelFile(wb, filename){
 // table and resolves org_id/role from THAT row — anything else sent here
 // (e.g. a role) is display-only and is never trusted by the backend.
 async function signUp(email, password, extra){
+  // Normalize so "Andy@x.com" and "andy@x.com" are treated as the same
+  // account. Without this, Supabase's email-uniqueness check is
+  // case-sensitive and two signups that differ only by capitalization can
+  // both succeed, producing two separate accounts for what is really one
+  // email address.
+  email = String(email||'').trim().toLowerCase();
   let res;
   try{
     res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/signup', {
@@ -1106,6 +1158,9 @@ async function getInviteInfo(inviteId){
   return rows && rows[0] ? rows[0] : null;
 }
 async function signIn(email, password){
+  // Same normalization as signUp() — matches regardless of how the email
+  // was capitalized when the account was created or is being typed now.
+  email = String(email||'').trim().toLowerCase();
   let res;
   try{
     res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=password', {
