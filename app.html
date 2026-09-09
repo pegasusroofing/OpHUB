@@ -1632,6 +1632,7 @@ document.addEventListener('click', function(e){
   if(calHomeSiteFilterOpen && !e.target.closest('[data-calhomesitefilter-root]')){ calHomeSiteFilterOpen = false; changed = true; }
   if(opFolderMenuOpenFor && !e.target.closest('[data-opfoldermenu-root]')){ opFolderMenuOpenFor = null; changed = true; }
   if(rowActionsMenuOpenFor && !e.target.closest('[data-rowactions-root]')){ rowActionsMenuOpenFor = null; changed = true; }
+  if(priceElementOperativesPickerFor && !e.target.closest('[data-priceopspicker-root]')){ priceElementOperativesPickerFor = null; changed = true; }
   if(calViewModePickerOpen && !e.target.closest('[data-rowactions-root]')){ calViewModePickerOpen = false; changed = true; }
   if(changed) render();
 });
@@ -6605,18 +6606,36 @@ window.togglePriceEnabled = async function(siteId, checked){
     render();
   }
 };
-// #400: price/build-up entry access is now granted per Pricing Element
-// (site_price_access.element_id) rather than once for the whole site — a
-// grant for "Flat Roofing" no longer implies "Pitched Roofing" too. Managed
-// from inside each element's own "Who can see it" dropdown on the Price tile.
-window.togglePriceAccess = async function(elementId, siteId, userId, hasAccess){
+// #400/#410: price/build-up entry AND labour-invoice access are granted per
+// Pricing Element (site_price_access.element_id / site_labour_invoice_access
+// .element_id) rather than once for the whole site — a grant for "Flat
+// Roofing" no longer implies "Pitched Roofing" too. Originally these were two
+// separate "Who can see it" lists (one per underlying grant table); per the
+// user's request they're now a single combined "Select Operatives" picker —
+// one tick grants/revokes BOTH the price/build-up grant and the labour-
+// invoice grant together for that operative+element. Both tables are kept
+// (no further schema change) so RLS policies already scoped to each grant
+// keep working unchanged; this function is just the one place that now
+// writes to both together. hasAccess is the UNION of the two grants (see
+// elementAccessIds in pricingElementCardHtml), so granting always inserts
+// into both tables (neither can already have a row) and revoking always
+// deletes from both (a delete with no matching row is a harmless no-op) —
+// this also self-heals any element left with a mismatched grant from before
+// the two lists were combined.
+window.toggleElementAccess = async function(elementId, siteId, userId, hasAccess){
   if(hasAccess){
-    const res = await sbFetch('/rest/v1/site_price_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'});
-    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
+    const [r1, r2] = await Promise.all([
+      sbFetch('/rest/v1/site_price_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'}),
+      sbFetch('/rest/v1/site_labour_invoice_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'}),
+    ]);
+    if(!r1.ok || !r2.ok){ toast('Could not remove access'); return; }
     toast('Access removed');
   } else {
-    const rows = await dbInsert('site_price_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id});
-    if(!rows) return;
+    const [rows1, rows2] = await Promise.all([
+      dbInsert('site_price_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id}),
+      dbInsert('site_labour_invoice_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id}),
+    ]);
+    if(!rows1 || !rows2){ toast('Could not grant access'); return; }
     toast('Access granted');
   }
   render();
@@ -6631,7 +6650,6 @@ window.togglePriceAccess = async function(elementId, siteId, userId, hasAccess){
 // the Price tile auto-totals every element's Price Total into one figure
 // and every element's Booked In into another.
 let priceElementOpen = {};          // elementId -> expanded/collapsed; open by default
-let priceAccessSectionOpen = {};    // elementId -> "Who can see it" (price/build-up) dropdown open state
 let priceElementSelected = {};      // elementId -> true while ticked for bulk-close
 let priceElementRenamingId = null;  // element currently being renamed, or null
 let priceElementRenameDraft = '';
@@ -6639,6 +6657,7 @@ let priceElementAddOpen = {};       // scopeKey (site, or site+sub-address) -> a
 let priceElementAddName = '';
 let priceClosedGroupOpen = false;   // the "Closed" group dropdown at the bottom of the Price tile
 let priceSubAddrSelected = {};      // siteId -> currently-selected sub_site_id, for multi-site jobs
+let priceElementOperativesPickerFor = null; // elementId whose "Select Operatives" popup is open, or null
 function priceScopeKey(siteId, subSiteId){ return siteId+'__'+(subSiteId||'none'); }
 window.togglePriceElementAdd = function(siteId, subSiteId){
   const key = priceScopeKey(siteId, subSiteId);
@@ -6703,6 +6722,18 @@ window.closeSelectedPricingElements = async function(){
 window.reopenPricingElement = async function(elementId){
   const row = await dbUpdate('pricing_elements', elementId, {closed:false, closed_by:null, closed_at:null});
   if(row){ toast('Reopened'); render(); }
+};
+window.togglePriceElementOperativesPicker = function(elementId){
+  priceElementOperativesPickerFor = priceElementOperativesPickerFor===elementId ? null : elementId;
+  render();
+};
+// #410: "Include in summary" — ticked on by default. Unticking an element
+// only excludes it from the Overview card's totals at the top of the Price
+// tile; the element's own card still shows its own figures as normal (per
+// the user's confirmed answer).
+window.toggleIncludeInSummary = async function(elementId, checked){
+  const row = await dbUpdate('pricing_elements', elementId, {include_in_summary: checked});
+  if(row){ toast(checked ? 'Included in summary' : 'Excluded from summary'); render(); }
 };
 // PM-only toggle, defaults OFF: while an element is closed, an operative
 // (even one with price access) sees it collapsed with no figures at all
@@ -7288,6 +7319,7 @@ async function renderPriceTile(siteId){
   // they have price access to — and a closed element without "show when
   // closed" contributes nothing to that either, same as its own card.
   const overviewElements = allElements.filter(el=>{
+    if(el.include_in_summary===false) return false;
     if(canManage) return true;
     if(!hasPriceAccessTo(el.id)) return false;
     if(el.closed && !el.closed_show_price_to_operatives) return false;
@@ -7458,6 +7490,10 @@ function pricingElementCardHtml(el, d, ctx){
   });
   const labourAccessIds = new Set((d.labourAccessRows||[]).map(a=>a.user_id));
   const priceAccessIds = new Set((d.priceAccessRows||[]).map(a=>a.user_id));
+  // #410: one combined "who can see this element" set — a single tick in the
+  // Select Operatives popup grants/revokes both the price/build-up grant and
+  // the labour-invoice grant together (see toggleElementAccess above).
+  const elementAccessIds = new Set([...priceAccessIds, ...labourAccessIds]);
   const weekMap = {};
   let maxWeek = 0;
   (ctx.weeks||[]).forEach(w=>{ weekMap[w.week_number]=w.amount; if(w.week_number>maxWeek) maxWeek=w.week_number; });
@@ -7488,10 +7524,29 @@ function pricingElementCardHtml(el, d, ctx){
           </div>
         </div>
         ${canManage && !renaming ? `
-        <div style="display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto;">
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="startRenamePricingElement('${el.id}','${jsAttr(el.name)}')">Rename</button>
-          ${el.closed ? `<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="reopenPricingElement('${el.id}')">Reopen</button>` : ''}
-          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;color:var(--red);border-color:var(--red);" onclick="deletePricingElement('${el.id}','${jsAttr(el.name)}')">Delete</button>
+        <div style="position:relative;flex:0 0 auto;" data-rowactions-root data-priceopspicker-root>
+          <div class="taskicons">
+            <div class="taskicon" title="More actions" onclick="event.stopPropagation();toggleRowActionsMenu('pel_${el.id}')">▾</div>
+          </div>
+          ${rowActionsMenuOpenFor==='pel_'+el.id ? `
+          <div class="statusmenu" style="right:0;left:auto;" onclick="event.stopPropagation()">
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;startRenamePricingElement('${el.id}','${jsAttr(el.name)}')">✎ Edit</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;togglePriceElementOperativesPicker('${el.id}')">👤 Select Operatives</div>
+            ${el.closed ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;reopenPricingElement('${el.id}')">↺ Reopen</div>` : ''}
+            <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePricingElement('${el.id}','${jsAttr(el.name)}')">🗑 Delete</div>
+          </div>
+          ` : ''}
+          ${priceElementOperativesPickerFor===el.id ? `
+          <div class="statusmenu" style="right:0;left:auto;width:250px;max-height:280px;overflow-y:auto;" onclick="event.stopPropagation()">
+            <p class="stub" style="margin:0 0 8px;padding:0 2px;">Tap an operative assigned to this site to grant or remove access to this Pricing Element.</p>
+            ${assignedOperatives.map(p=>`
+              <div class="statusmenu-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="toggleElementAccess('${el.id}','${siteId}','${p.id}',${elementAccessIds.has(p.id)})">
+                <span>${escapeHtml(p.name)}</span>
+                <span>${elementAccessIds.has(p.id)?'✓':''}</span>
+              </div>
+            `).join('') || `<div class="statusmenu-item" style="cursor:default;color:var(--slate);">No operatives assigned to this site yet.</div>`}
+          </div>
+          ` : ''}
         </div>
         ` : ''}
       </div>
@@ -7502,6 +7557,12 @@ function pricingElementCardHtml(el, d, ctx){
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
           <input type="checkbox" style="width:auto;" ${el.closed_show_price_to_operatives?'checked':''} onchange="togglePricingElementShowWhenClosed('${el.id}', this.checked)">
           Let operatives with access still see the price while this is closed
+        </label>
+        ` : ''}
+        ${canManage ? `
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
+          <input type="checkbox" style="width:auto;" ${el.include_in_summary!==false?'checked':''} onchange="toggleIncludeInSummary('${el.id}', this.checked)">
+          Include in the Overview summary at the top of the Price tile
         </label>
         ` : ''}
 
@@ -7672,28 +7733,6 @@ function pricingElementCardHtml(el, d, ctx){
           ` : ''}
         </div>
 
-        ${canManage ? `
-        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
-          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceAccessSectionOpen['${el.id}']=!priceAccessSectionOpen['${el.id}'];render()">
-            <span class="arrow">${priceAccessSectionOpen[el.id]?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(price total &amp; build-up entry)</span>
-          </p>
-          ${priceAccessSectionOpen[el.id] ? `
-          <div style="padding:0 14px 14px;">
-            <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this Pricing Element's price and be able to enter build-up figures. Project managers and admins can always see it.</p>
-            ${d.labourOperatives.map(p=>`
-              <div class="sitecard">
-                <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-                <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="togglePriceAccess('${el.id}','${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
-                  ${priceAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
-                </button>
-              </div>
-            `).join('') || `<div class="empty">No operatives yet.</div>`}
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
-
         ${d.canSeeLabour ? `
         <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
           <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesSectionOpen['${el.id}']=!labourInvoicesSectionOpen['${el.id}'];render()">
@@ -7732,28 +7771,6 @@ function pricingElementCardHtml(el, d, ctx){
               : labourInvoicePreview.error ? `<div class="empty">${escapeHtml(labourInvoicePreview.error)}</div>`
               : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;margin-bottom:14px;"><style>#labourInvoiceSheetTable{border-collapse:collapse;font-size:12.5px;} #labourInvoiceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${labourInvoicePreview.sheetHtml}</div>`}
             ` : ''}
-
-            ${canManage ? `
-            <div class="card" style="padding:0;overflow:hidden;">
-              <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoiceAccessOpen['${el.id}']=!labourInvoiceAccessOpen['${el.id}'];render()">
-                <span class="arrow">${labourInvoiceAccessOpen[el.id]?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(Gang Leader only recommended)</span>
-              </p>
-              ${labourInvoiceAccessOpen[el.id] ? `
-              <div style="padding:0 14px 14px;">
-                <p class="stub" style="margin:0 0 10px;">Tick every operative who should be able to see Labour Invoices for this Pricing Element. Project managers and admins can always see it.</p>
-                ${d.labourOperatives.map(p=>`
-                  <div class="sitecard">
-                    <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-                    <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-                    <button class="${labourAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleLabourInvoiceAccess('${el.id}','${siteId}','${p.id}',${labourAccessIds.has(p.id)})">
-                      ${labourAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
-                    </button>
-                  </div>
-                `).join('') || `<div class="empty">No operatives yet.</div>`}
-              </div>
-              ` : ''}
-            </div>
-            ` : ''}
           </div>
           ` : ''}
         </div>
@@ -7779,13 +7796,12 @@ async function checkPriceOverbookedNotification(siteId, balance){
 }
 
 /* ================= LABOUR INVOICES ================= */
-// Lives as a dropdown at the bottom of the Price tile — visible to managers
-// always, and to an operative only once a PM ticks them on in the "Who can
-// see it" list below (a distinct grant from price access, kept separate
-// even though it now shares the Price page).
+// Lives as a dropdown inside each Pricing Element's card — visible to
+// managers always, and to an operative only once a PM grants them access via
+// the element's combined "Select Operatives" picker (toggleElementAccess),
+// which grants both price/build-up and labour-invoice access together.
 let labourInvoicesSectionOpen = {}; // elementId -> outer "Labour Invoices" dropdown open
 let labourInvoicesListOpen = {};    // elementId -> bool, default true (read with !==false above)
-let labourInvoiceAccessOpen = {};   // elementId -> bool
 let labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
 window.uploadLabourInvoices = async function(siteId, elementId, input){
   const files = input.files ? Array.from(input.files) : [];
@@ -7842,18 +7858,6 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
   render();
 };
 window.closeLabourInvoicePreview = function(){ labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null}; render(); };
-window.toggleLabourInvoiceAccess = async function(elementId, siteId, userId, hasAccess){
-  if(hasAccess){
-    const res = await sbFetch('/rest/v1/site_labour_invoice_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'});
-    if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
-    toast('Access removed');
-  } else {
-    const rows = await dbInsert('site_labour_invoice_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id});
-    if(!rows) return;
-    toast('Access granted');
-  }
-  render();
-};
 
 /* ================= REPORT TEMPLATES (Company Admin builds; PM fills in) ================= */
 let editingTemplate = null; // deep-cloned template object being edited, or null
