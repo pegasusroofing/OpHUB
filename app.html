@@ -6355,15 +6355,13 @@ async function renderAssignTeam(siteId){
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const [assigned, odConnRows, priceAccessRows, subAddresses] = await Promise.all([
+  const [assigned, odConnRows, subAddresses] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
-    ME.role==='admin' ? dbSelect('site_price_access', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
   const assignedIds = new Set(assigned.map(a=>a.user_id));
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
-  const priceAccessIds = new Set(priceAccessRows.map(a=>a.user_id));
   // Cached for toggleSubAddrForm() to pull an address's current values into
   // the edit form without a second round-trip.
   assignTeamSubAddresses = subAddresses;
@@ -6473,21 +6471,10 @@ async function renderAssignTeam(siteId){
     ${siteTeamSectionOpen.price ? `
     <div class="card">
       <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.price_enabled?'checked':''} onchange="togglePriceEnabled('${siteId}', this.checked)">This project is on a price</label>
-      <p class="stub" style="margin:8px 0 0;">When on, a "Price" tile appears on the site home screen — visible to the project admin, this site's responsible PM, and whichever operatives you tick below.</p>
+      <p class="stub" style="margin:8px 0 0;">When on, a "Price" tile appears on the site home screen — visible to the project admin and this site's responsible PM always, and to any operative granted access to a Pricing Element from inside the Price tile itself.</p>
     </div>
     ${site.price_enabled ? `
-      <p class="stub" style="margin:14px 0 0;">Manage the price file itself, price total and weekly figures from the Price tile on the site home page — the file uploader lives there now.</p>
-      <p class="sectiontitle" style="margin-top:14px;">Who can see it</p>
-      <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this project's price. The project admin and this site's responsible PM can always see it.</p>
-      ${operatives.map(p=>`
-        <div class="sitecard" style="padding:7px 9px;gap:8px;">
-          <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-          <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
-          <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="togglePriceAccess('${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
-            ${priceAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
-          </button>
-        </div>
-      `).join('') || `<div class="empty">No operatives yet.</div>`}
+      <p class="stub" style="margin:14px 0 0;">Manage Pricing Elements, price totals, weekly figures and who can see each one from the Price tile on the site home page — "Who can see it" now lives inside each Pricing Element there, since access is granted per element.</p>
     ` : ''}
     ` : ''}
     ` : ''}
@@ -6612,39 +6599,141 @@ window.togglePriceEnabled = async function(siteId, checked){
     render();
   }
 };
-window.togglePriceAccess = async function(siteId, userId, hasAccess){
+// #400: price/build-up entry access is now granted per Pricing Element
+// (site_price_access.element_id) rather than once for the whole site — a
+// grant for "Flat Roofing" no longer implies "Pitched Roofing" too. Managed
+// from inside each element's own "Who can see it" dropdown on the Price tile.
+window.togglePriceAccess = async function(elementId, siteId, userId, hasAccess){
   if(hasAccess){
-    const res = await sbFetch('/rest/v1/site_price_access?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    const res = await sbFetch('/rest/v1/site_price_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'});
     if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
     toast('Access removed');
   } else {
-    const rows = await dbInsert('site_price_access', {site_id:siteId, user_id:userId, granted_by:ME.id});
+    const rows = await dbInsert('site_price_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id});
     if(!rows) return;
     toast('Access granted');
   }
   render();
+};
+
+/* ================= PRICING ELEMENTS ================= */
+// #400: a site's Price page is split into named "Pricing Elements" (e.g.
+// "Flat Roofing", "Pitched Roofing") — each with its own Price Total/Booked
+// In/Balance, weekly build-up, Price Sheet, Labour Invoices, Variations to
+// Price and its own "who can see it" access, so a multi-trade job doesn't
+// have to lump everything into one figure. The Overview card at the top of
+// the Price tile auto-totals every element's Price Total into one figure
+// and every element's Booked In into another.
+let priceElementOpen = {};          // elementId -> expanded/collapsed; open by default
+let priceAccessSectionOpen = {};    // elementId -> "Who can see it" (price/build-up) dropdown open state
+let priceElementSelected = {};      // elementId -> true while ticked for bulk-close
+let priceElementRenamingId = null;  // element currently being renamed, or null
+let priceElementRenameDraft = '';
+let priceElementAddOpen = {};       // scopeKey (site, or site+sub-address) -> add-form open
+let priceElementAddName = '';
+let priceClosedGroupOpen = false;   // the "Closed" group dropdown at the bottom of the Price tile
+let priceSubAddrSelected = {};      // siteId -> currently-selected sub_site_id, for multi-site jobs
+function priceScopeKey(siteId, subSiteId){ return siteId+'__'+(subSiteId||'none'); }
+window.togglePriceElementAdd = function(siteId, subSiteId){
+  const key = priceScopeKey(siteId, subSiteId);
+  priceElementAddOpen[key] = !priceElementAddOpen[key];
+  priceElementAddName = '';
+  render();
+};
+window.addPricingElement = async function(siteId, subSiteId){
+  const key = priceScopeKey(siteId, subSiteId);
+  const input = document.getElementById('newPricingElementName_'+key);
+  const name = String(input ? input.value : priceElementAddName || '').trim();
+  if(!name){ toast('Enter a name for the Pricing Element'); return; }
+  const existing = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+(subSiteId?('&sub_site_id=eq.'+subSiteId):'&sub_site_id=is.null')+'&select=sort_order&order=sort_order.desc&limit=1');
+  const nextOrder = existing.length ? Number(existing[0].sort_order||0)+1 : 0;
+  const rows = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id:subSiteId||null, name, sort_order:nextOrder, created_by:ME.id});
+  if(!rows) return;
+  priceElementAddOpen[key] = false;
+  priceElementAddName = '';
+  toast('Pricing Element added');
+  render();
+};
+window.startRenamePricingElement = function(elementId, currentName){
+  priceElementRenamingId = elementId;
+  priceElementRenameDraft = currentName || '';
+  render();
+};
+window.cancelRenamePricingElement = function(){ priceElementRenamingId = null; render(); };
+window.saveRenamePricingElement = async function(elementId){
+  const input = document.getElementById('renamePricingElement_'+elementId);
+  const name = String(input ? input.value : priceElementRenameDraft || '').trim();
+  if(!name){ toast('Enter a name'); return; }
+  const row = await dbUpdate('pricing_elements', elementId, {name});
+  if(!row) return;
+  priceElementRenamingId = null;
+  toast('Renamed');
+  render();
+};
+window.deletePricingElement = async function(elementId, name){
+  if(!await customConfirm(`Delete the Pricing Element "${name||''}"? This deletes its price total, build-up, price sheet, labour invoices and variations. This can't be undone.`)) return;
+  const ok = await dbDelete('pricing_elements', elementId);
+  if(ok){
+    delete priceElementSelected[elementId];
+    toast('Pricing Element deleted');
+    render();
+  }
+};
+window.togglePricingElementSelected = function(elementId){
+  if(priceElementSelected[elementId]) delete priceElementSelected[elementId];
+  else priceElementSelected[elementId] = true;
+  render();
+};
+window.closeSelectedPricingElements = async function(){
+  const ids = Object.keys(priceElementSelected);
+  if(!ids.length){ toast('Select at least one Pricing Element'); return; }
+  for(const id of ids){
+    await dbUpdate('pricing_elements', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString()});
+  }
+  priceElementSelected = {};
+  toast(ids.length===1 ? 'Pricing Element closed' : ids.length+' Pricing Elements closed');
+  render();
+};
+window.reopenPricingElement = async function(elementId){
+  const row = await dbUpdate('pricing_elements', elementId, {closed:false, closed_by:null, closed_at:null});
+  if(row){ toast('Reopened'); render(); }
+};
+// PM-only toggle, defaults OFF: while an element is closed, an operative
+// (even one with price access) sees it collapsed with no figures at all
+// unless a PM switches this on for that element.
+window.togglePricingElementShowWhenClosed = async function(elementId, checked){
+  const row = await dbUpdate('pricing_elements', elementId, {closed_show_price_to_operatives: checked});
+  if(row){ toast(checked ? 'Operatives can see the price while closed' : 'Price hidden from operatives while closed'); render(); }
 };
 /* ---- Price files — manual multi-upload (PDF/Excel), no OneDrive link.
    Each upload is its own row in price_files; view/download goes through
    the price-file-access edge function, which is the only thing allowed to
    touch the private price-files bucket. ---- */
 let priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
-window.uploadPriceFiles = async function(siteId, input){
+let priceFileApplyToAll = {}; // elementId -> checkbox state on the upload form, before upload
+window.togglePriceFileApplyToAll = function(elementId, checked){ priceFileApplyToAll[elementId] = checked; };
+// #400: "Apply to all" ticks element_id to null (and stamps sub_site_id so a
+// multi-site job's sheet only spreads to elements of the SAME address) — the
+// file then shows up under every Pricing Element at that address instead of
+// being duplicated per element, and one Delete removes it everywhere at once.
+window.uploadPriceFiles = async function(siteId, elementId, subSiteId, input){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
+  const applyToAll = !!priceFileApplyToAll[elementId];
   let uploaded = 0;
   for(const file of files){
     const path = siteId+'/price/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-_]/gi,'_');
     const stored = await uploadToStorage('price-files', path, file, file.type);
     if(!stored) continue;
-    const rows = await dbInsert('price_files', {site_id:siteId, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
+    const rows = await dbInsert('price_files', {site_id:siteId, element_id: applyToAll?null:elementId, sub_site_id: applyToAll?(subSiteId||null):null, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
     if(rows) uploaded++;
   }
   input.value = '';
+  priceFileApplyToAll[elementId] = false;
   if(uploaded){ toast(uploaded===1 ? 'File uploaded' : uploaded+' files uploaded'); render(); }
 };
 window.deletePriceFile = async function(siteId, fileId, storagePath){
-  if(!await customConfirm('Delete this price file? This can\'t be undone.')) return;
+  if(!await customConfirm('Delete this price file? This can\'t be undone. If it was applied to all elements, it will be removed from all of them.')) return;
   const rows = await dbSelect('price_files', 'id=eq.'+fileId+'&select=filename');
   const filename = rows[0] && rows[0].filename;
   try{ await sbFetch('/storage/v1/object/price-files/'+storagePath, {method:'DELETE'}); }catch(e){}
@@ -6684,15 +6773,15 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
   render();
 };
 window.closePriceFilePreview = function(){ priceFilePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null}; render(); };
-let additionalWorksFormOpen = false; // "Variation to Price Request" add-form toggle
-let priceFilesSectionOpen = null; // Price Sheet ddrow — null = not yet toggled (auto-open while empty); true/false once the user has clicked it, which always wins even with zero files
+let additionalWorksFormOpen = {}; // elementId -> "Variation to Price Request" add-form toggle
+let priceFilesSectionOpen = {}; // elementId -> Price Sheet ddrow; undefined = not yet toggled (auto-open while empty)
 // #307: Variation to Price auto-expands by default (was: only auto-open
 // while empty) — true until the operative/PM explicitly collapses it.
-let variationSectionOpen = true;
+let variationSectionOpen = {}; // elementId -> bool, default true (read with ??true below)
 // #310: "Weekly price costs" (Booked In) is a dropdown too, but unlike the
 // other two above it defaults OPEN rather than open-only-while-empty — true
 // until the user explicitly collapses it.
-let weeklyPriceSectionOpen = true;
+let weeklyPriceSectionOpen = {}; // elementId -> bool, default true (read with ??true below)
 let awRevisingId = null; // id of the additional_works_requests row currently being revised/revisited by a PM, or null
 let awRevisingOriginalStatus = null; // status the row was in when revision started — decides what Save does (see saveRevisedAdditionalWorks)
 let awRejectingId = null; // id of the row whose reject-reason box is open (#301)
@@ -6705,14 +6794,14 @@ async function notifyVariationDecision(siteId, userId, decision){
     await sbFetch('/functions/v1/notify-variation-decision', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId, decision, site_name: site?site.name:''})});
   }catch(e){ /* silent — push delivery is best-effort */ }
 }
-window.submitAdditionalWorksRequest = async function(siteId){
-  const amtInput = document.getElementById('awAmount');
-  const noteInput = document.getElementById('awNote');
+window.submitAdditionalWorksRequest = async function(siteId, elementId){
+  const amtInput = document.getElementById('awAmount_'+elementId);
+  const noteInput = document.getElementById('awNote_'+elementId);
   const amount = Number(amtInput ? amtInput.value : '');
   const note = String(noteInput ? noteInput.value : '').trim();
   if(!amount || isNaN(amount) || amount<=0){ toast('Enter an amount'); return; }
   if(!note){ toast('Explain the variation'); return; }
-  const rows = await dbInsert('additional_works_requests', {site_id:siteId, amount, note, requested_by:ME.id});
+  const rows = await dbInsert('additional_works_requests', {site_id:siteId, element_id:elementId, amount, note, requested_by:ME.id});
   if(!rows) return;
   const site = SITES.find(s=>s.id===siteId);
   const fmt = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
@@ -6794,7 +6883,9 @@ window.deleteAdditionalWorksRequest = async function(siteId, id){
   const ok = await dbDelete('additional_works_requests', id);
   if(ok){ if(awRevisingId===id) awRevisingId=null; toast('Request removed'); logSiteActivity(siteId, 'variation_to_price_deleted', `Deleted variation to price request "${note||''}"`); render(); }
 };
-window.savePriceField = async function(siteId, field, rawValue){
+// #400: price_total / price_booked_override now live on the Pricing
+// Element the figure belongs to, not on the site itself.
+window.savePriceField = async function(elementId, field, rawValue){
   const v = String(rawValue||'').trim();
   const patch = {};
   if(v===''){
@@ -6804,11 +6895,7 @@ window.savePriceField = async function(siteId, field, rawValue){
     if(isNaN(n)){ toast('Enter a number'); render(); return; }
     patch[field] = n;
   }
-  const row = await dbUpdate('sites', siteId, patch);
-  if(row){
-    const idx = SITES.findIndex(s=>s.id===siteId);
-    if(idx>-1) SITES[idx] = row;
-  }
+  await dbUpdate('pricing_elements', elementId, patch);
   render();
 };
 window.savePriceNote = async function(siteId, field, rawValue){
@@ -6831,7 +6918,7 @@ window.savePriceNote = async function(siteId, field, rawValue){
 // the Price tab and Variation-to-Price requests. There is no separate
 // approval step: the person entering a value is already authorized, so it
 // counts immediately and rolls straight into that week's total.
-let priceOpBreakdownOpen = {}; // per-week expand state, keyed `${siteId}_${week}` — open by default once a week has entries
+let priceOpBreakdownOpen = {}; // per-week expand state, keyed `${elementId}_${week}` — open by default once a week has entries
 // #319: two extra row kinds sit alongside the auto-populated assigned rows
 // in the same build-up, sharing the price_week_operative_entries table via
 // a `kind` column ('assigned' | 'extra_operative' | 'cost') — an
@@ -6844,10 +6931,10 @@ let priceOpBreakdownOpen = {}; // per-week expand state, keyed `${siteId}_${week
 // 'operative' picks an existing org operative; 'manual' is a free-text name
 // for someone not in the system (kind:'extra_operative', operative_id:null,
 // label set — the same row shape a cost line already uses).
-let priceAddOpen = {}; // per-week "+ Add" inline-picker open state, keyed `${siteId}_${week}`
+let priceAddOpen = {}; // per-week "+ Add" inline-picker open state, keyed `${elementId}_${week}`
 let priceAddType = {}; // per-week selected add-type once opened: 'operative' | 'manual' | 'cost'
-function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOperatives, entriesForWeek, extraOpEntries, costEntries, fmt){
-  const key = siteId+'_'+wk;
+function priceWeekOperativeBreakdownHtml(elementId, siteId, wk, assignedOperatives, orgOperatives, entriesForWeek, extraOpEntries, costEntries, fmt){
+  const key = elementId+'_'+wk;
   const open = priceOpBreakdownOpen[key] !== undefined ? priceOpBreakdownOpen[key] : (Object.keys(entriesForWeek).length>0 || extraOpEntries.length>0 || costEntries.length>0);
   const sum = Object.values(entriesForWeek).reduce((s,v)=>s+Number(v||0), 0)
     + extraOpEntries.reduce((s,e)=>s+Number(e.amount||0), 0)
@@ -6880,8 +6967,8 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           ${assignedOperatives.map(o=>`
             <div style="${rowGrid}padding:6px 10px;border-bottom:1px solid var(--line);">
               <label class="field-label" style="font-weight:600;margin:0;text-transform:none;letter-spacing:normal;font-size:12.5px;overflow-wrap:anywhere;">${escapeHtml(o.name)}</label>
-              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${entriesForWeek[o.id]!=null?entriesForWeek[o.id]:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-              ${entriesForWeek[o.id]!=null ? `<div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="savePriceWeekOperativeEntry('${siteId}',${wk},'${o.id}','')">×</div>` : ''}
+              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${entriesForWeek[o.id]!=null?entriesForWeek[o.id]:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekOperativeEntry('${elementId}','${siteId}',${wk},'${o.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+              ${entriesForWeek[o.id]!=null ? `<div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="savePriceWeekOperativeEntry('${elementId}','${siteId}',${wk},'${o.id}','')">×</div>` : ''}
             </div>
           `).join('')}
           ${extraOpEntries.length ? groupLabel('Added') : ''}
@@ -6900,16 +6987,16 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
             return `
             <div style="${rowGrid}padding:6px 10px;border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--brand1) 4%, transparent);">
               <label class="field-label" style="font-weight:600;margin:0;text-transform:none;letter-spacing:normal;font-size:12.5px;overflow-wrap:anywhere;">${escapeHtml(name)}</label>
-              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
+              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekCostLineValue('${elementId}','${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="deletePriceWeekExtraEntry('${elementId}','${siteId}',${wk},'${e.id}')">×</div>
             </div>
           `;}).join('')}
           ${costEntries.length ? groupLabel('One-off costs') : ''}
           ${costEntries.map(e=>`
             <div style="${rowGrid}padding:6px 10px;border-bottom:1px solid var(--line);background:var(--warn-bg);">
               <label class="field-label" style="font-weight:600;margin:0;text-transform:none;letter-spacing:normal;font-size:12.5px;overflow-wrap:anywhere;">${escapeHtml(e.label)}</label>
-              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekCostLineValue('${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
-              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="deletePriceWeekExtraEntry('${siteId}',${wk},'${e.id}')">×</div>
+              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${e.amount!=null?e.amount:''}" placeholder="0.00" style="width:100%;" onblur="savePriceWeekCostLineValue('${elementId}','${siteId}',${wk},'${e.id}',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>
+              <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="deletePriceWeekExtraEntry('${elementId}','${siteId}',${wk},'${e.id}')">×</div>
             </div>
           `).join('')}
           ${!assignedOperatives.length && !extraOpEntries.length && !costEntries.length ? `<div style="padding:10px;font-size:12px;color:var(--slate);">No rows yet — add an operative, a named extra, or a one-off cost below.</div>` : `
@@ -6938,7 +7025,7 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           <label class="field-label" style="margin-top:8px;">Value</label>
           <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwExtraOpValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekExtraOperative('${siteId}',${wk})">Add</button>
+            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekExtraOperative('${elementId}','${siteId}',${wk})">Add</button>
             <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
           </div>
           ` : addType==='manual' ? `
@@ -6947,7 +7034,7 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           <label class="field-label" style="margin-top:8px;">Value</label>
           <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwManualOpValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekManualOperative('${siteId}',${wk})">Add</button>
+            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekManualOperative('${elementId}','${siteId}',${wk})">Add</button>
             <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
           </div>
           ` : `
@@ -6956,7 +7043,7 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
           <label class="field-label" style="margin-top:8px;">Value</label>
           <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pwCostValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
           <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekCostLine('${siteId}',${wk})">Add</button>
+            <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="addPriceWeekCostLine('${elementId}','${siteId}',${wk})">Add</button>
             <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
           </div>
           `}
@@ -6967,11 +7054,11 @@ function priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOper
     </div>
   `;
 }
-window.savePriceWeekOperativeEntry = async function(siteId, week, operativeId, rawValue, kind){
+window.savePriceWeekOperativeEntry = async function(elementId, siteId, week, operativeId, rawValue, kind){
   kind = kind || 'assigned';
   const v = String(rawValue||'').trim();
   if(v===''){
-    const res = await sbFetch('/rest/v1/price_week_operative_entries?site_id=eq.'+siteId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind, {method:'DELETE'});
+    const res = await sbFetch('/rest/v1/price_week_operative_entries?element_id=eq.'+elementId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind, {method:'DELETE'});
     if(!res.ok){ toast('Could not clear — '+(await safeErr(res))); render(); return; }
   } else {
     const amount = Number(v);
@@ -6981,7 +7068,7 @@ window.savePriceWeekOperativeEntry = async function(siteId, week, operativeId, r
     // on_conflict can't target a partial index — so look the row up first
     // and PATCH it if it exists, INSERT if not, instead of relying on
     // upsert-by-on_conflict.
-    const existing = await dbSelect('price_week_operative_entries', 'site_id=eq.'+siteId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind+'&select=id');
+    const existing = await dbSelect('price_week_operative_entries', 'element_id=eq.'+elementId+'&week_number=eq.'+week+'&operative_id=eq.'+operativeId+'&kind=eq.'+kind+'&select=id');
     let res;
     if(existing.length){
       res = await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+existing[0].id, {
@@ -6993,12 +7080,12 @@ window.savePriceWeekOperativeEntry = async function(siteId, week, operativeId, r
       res = await sbFetch('/rest/v1/price_week_operative_entries', {
         method:'POST',
         headers:{'Prefer':'return=representation'},
-        body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind, entered_by:ME.id, updated_at:new Date().toISOString()})
+        body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:operativeId, amount, kind, entered_by:ME.id, updated_at:new Date().toISOString()})
       });
     }
     if(!res.ok){ toast('Save failed — '+(await safeErr(res))); render(); return; }
   }
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
 // #319/#340: add an extra operative (not in site_assignments for this site,
@@ -7006,8 +7093,8 @@ window.savePriceWeekOperativeEntry = async function(siteId, week, operativeId, r
 // build-up. This always INSERTs a new row — extra_operative rows aren't
 // unique per operative (only 'assigned' rows are), so there's no existing
 // row to upsert onto; later edits of this row go by its own id instead.
-window.addPriceWeekExtraOperative = async function(siteId, week){
-  const key = siteId+'_'+week;
+window.addPriceWeekExtraOperative = async function(elementId, siteId, week){
+  const key = elementId+'_'+week;
   const sel = document.getElementById('pwExtraOpSelect_'+key);
   const valEl = document.getElementById('pwExtraOpValue_'+key);
   const operativeId = sel && sel.value;
@@ -7018,18 +7105,18 @@ window.addPriceWeekExtraOperative = async function(siteId, week){
   const res = await sbFetch('/rest/v1/price_week_operative_entries', {
     method:'POST',
     headers:{'Prefer':'return=representation'},
-    body: JSON.stringify({site_id:siteId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})
+    body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   priceAddOpen[key] = false;
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
 // #323: a manual/free-text "extra operative" for someone not in the system —
 // same kind ('extra_operative') and row shape as a picked org operative, but
 // operative_id is null and `label` carries the typed name instead.
-window.addPriceWeekManualOperative = async function(siteId, week){
-  const key = siteId+'_'+week;
+window.addPriceWeekManualOperative = async function(elementId, siteId, week){
+  const key = elementId+'_'+week;
   const nameEl = document.getElementById('pwManualOpName_'+key);
   const valEl = document.getElementById('pwManualOpValue_'+key);
   const name = String(nameEl && nameEl.value || '').trim();
@@ -7040,17 +7127,17 @@ window.addPriceWeekManualOperative = async function(siteId, week){
   const res = await sbFetch('/rest/v1/price_week_operative_entries', {
     method:'POST',
     headers:{'Prefer':'return=representation'},
-    body: JSON.stringify({site_id:siteId, week_number:week, operative_id:null, kind:'extra_operative', label:name, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
+    body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:null, kind:'extra_operative', label:name, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   priceAddOpen[key] = false;
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
 // #319: add a one-off cost line (plant hire, misc cost) not tied to any
 // operative — its own row addressed by id since several can exist per week.
-window.addPriceWeekCostLine = async function(siteId, week){
-  const key = siteId+'_'+week;
+window.addPriceWeekCostLine = async function(elementId, siteId, week){
+  const key = elementId+'_'+week;
   const labelEl = document.getElementById('pwCostLabel_'+key);
   const valEl = document.getElementById('pwCostValue_'+key);
   const label = String(labelEl && labelEl.value || '').trim();
@@ -7061,17 +7148,17 @@ window.addPriceWeekCostLine = async function(siteId, week){
   const res = await sbFetch('/rest/v1/price_week_operative_entries', {
     method:'POST',
     headers:{'Prefer':'return=representation'},
-    body: JSON.stringify({site_id:siteId, week_number:week, operative_id:null, kind:'cost', label, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
+    body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:null, kind:'cost', label, amount, entered_by:ME.id, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   priceAddOpen[key] = false;
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
-window.savePriceWeekCostLineValue = async function(siteId, week, entryId, rawValue){
+window.savePriceWeekCostLineValue = async function(elementId, siteId, week, entryId, rawValue){
   const v = String(rawValue||'').trim();
   if(v===''){
-    await deletePriceWeekExtraEntry(siteId, week, entryId);
+    await deletePriceWeekExtraEntry(elementId, siteId, week, entryId);
     return;
   }
   const amount = Number(v);
@@ -7082,42 +7169,42 @@ window.savePriceWeekCostLineValue = async function(siteId, week, entryId, rawVal
     body: JSON.stringify({amount, updated_at:new Date().toISOString()})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); render(); return; }
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
 // Deletes an extra-operative or cost row by id — used by both kinds' × button.
-window.deletePriceWeekExtraEntry = async function(siteId, week, entryId){
+window.deletePriceWeekExtraEntry = async function(elementId, siteId, week, entryId){
   const res = await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+entryId, {method:'DELETE'});
   if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); render(); return; }
   logSiteActivity(siteId, 'price_week_entry_deleted', `Deleted price entry for Week ${week}`);
-  await rollUpPriceWeekFromOperativeEntries(siteId, week);
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, week);
   render();
 };
 // Recomputes a week's price_weeks total from its per-operative entries and
 // writes it back — mirrors savePriceWeek's own upsert/clear shape so the two
 // paths feed the same "Week N" figure coherently.
-async function rollUpPriceWeekFromOperativeEntries(siteId, week){
-  const entries = await dbSelect('price_week_operative_entries', 'site_id=eq.'+siteId+'&week_number=eq.'+week+'&select=amount');
+async function rollUpPriceWeekFromOperativeEntries(elementId, siteId, week){
+  const entries = await dbSelect('price_week_operative_entries', 'element_id=eq.'+elementId+'&week_number=eq.'+week+'&select=amount');
   if(entries.length){
     const total = entries.reduce((sum,e)=>sum+Number(e.amount||0), 0);
-    await sbFetch('/rest/v1/price_weeks?on_conflict=site_id,week_number', {
+    await sbFetch('/rest/v1/price_weeks?on_conflict=element_id,week_number', {
       method:'POST',
       headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-      body: JSON.stringify({site_id:siteId, week_number:week, amount:total})
+      body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, amount:total})
     });
   } else {
-    await sbFetch('/rest/v1/price_weeks?site_id=eq.'+siteId+'&week_number=eq.'+week, {method:'DELETE'});
+    await sbFetch('/rest/v1/price_weeks?element_id=eq.'+elementId+'&week_number=eq.'+week, {method:'DELETE'});
   }
 }
 // #324: explicit recalculate button on an "auto" week cell — forces a fresh
 // rollup from the current build-up rows, overwriting any manual value that
 // was typed directly into the total cell.
-window.recalcPriceWeek = async function(siteId, weekNumber){
-  await rollUpPriceWeekFromOperativeEntries(siteId, weekNumber);
+window.recalcPriceWeek = async function(elementId, siteId, weekNumber){
+  await rollUpPriceWeekFromOperativeEntries(elementId, siteId, weekNumber);
   toast('Recalculated from build-up');
   render();
 };
-window.savePriceWeek = async function(siteId, weekNumber, rawValue){
+window.savePriceWeek = async function(elementId, siteId, weekNumber, rawValue){
   const v = String(rawValue||'').trim();
   if(v===''){
     // #324 fix: clearing a manually-typed value here used to just delete the
@@ -7126,16 +7213,16 @@ window.savePriceWeek = async function(siteId, weekNumber, rawValue){
     // it recalculates the auto total from any remaining build-up entries, or
     // deletes the row itself when there are none, restoring the "auto"
     // formula behaviour rather than leaving a dead manual value behind.
-    await rollUpPriceWeekFromOperativeEntries(siteId, weekNumber);
+    await rollUpPriceWeekFromOperativeEntries(elementId, siteId, weekNumber);
     render();
     return;
   }
   const amount = Number(v);
   if(isNaN(amount)){ toast('Enter a number'); render(); return; }
-  const res = await sbFetch('/rest/v1/price_weeks?on_conflict=site_id,week_number', {
+  const res = await sbFetch('/rest/v1/price_weeks?on_conflict=element_id,week_number', {
     method:'POST',
     headers:{'Prefer':'resolution=merge-duplicates,return=representation'},
-    body: JSON.stringify({site_id:siteId, week_number:weekNumber, amount})
+    body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:weekNumber, amount})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); }
   render();
@@ -7144,308 +7231,191 @@ async function renderPriceTile(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
-  let canSeeLabourInvoices = canManage;
-  if(!canSeeLabourInvoices){
-    const grant = await dbSelect('site_labour_invoice_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
-    canSeeLabourInvoices = grant.length>0;
-  }
-  // #317: PM/admin, or an operative granted site_price_access (the same
-  // grant that already gates raising a Variation to Price Request), can
-  // enter each assigned operative's weekly value directly — no separate
-  // approval step, since the person entering it is already authorized.
-  let hasPriceAccess = canManage;
-  if(!hasPriceAccess){
-    const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
-    hasPriceAccess = grant.length>0;
-  }
-  const [weeksRows, priceFiles, labourFiles, labourOperatives, labourAccessRows, awRows, weekEntries, assignedRows] = await Promise.all([
-    dbSelect('price_weeks', 'site_id=eq.'+siteId+'&order=week_number.asc'),
-    dbSelect('price_files', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
-    canSeeLabourInvoices ? dbSelect('labour_invoices', 'site_id=eq.'+siteId+'&order=uploaded_at.desc') : Promise.resolve([]),
-    canManage ? loadAllProfiles().then(()=>Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))) : Promise.resolve([]),
-    canManage ? dbSelect('site_labour_invoice_access', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
-    dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&order=created_at.asc'),
-    hasPriceAccess ? dbSelect('price_week_operative_entries', 'site_id=eq.'+siteId+'&order=week_number.asc') : Promise.resolve([]),
-    hasPriceAccess ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
-  ]);
-  if(hasPriceAccess && !canManage) await loadAllProfiles();
-  const assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  // #319: org operatives available to add as an "extra" row for a week —
-  // any operative profile not already assigned to this site. PROFILES is
-  // fully loaded above whenever hasPriceAccess, so this is safe here.
-  const assignedIds = new Set(assignedOperatives.map(o=>o.id));
-  const orgOperativesForExtra = hasPriceAccess ? Object.values(PROFILES).filter(p=>p && p.role==='operative' && !assignedIds.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
-  // Group entries by week and kind: assigned -> {week: {operativeId: amount}},
-  // extra_operative/cost -> {week: [entries]} (several can exist per week).
-  const opEntriesByWeek = {};
-  const extraOpEntriesByWeek = {};
-  const costEntriesByWeek = {};
-  weekEntries.forEach(e=>{
-    if(e.kind==='cost'){
-      (costEntriesByWeek[e.week_number] = costEntriesByWeek[e.week_number] || []).push(e);
-    } else if(e.kind==='extra_operative'){
-      (extraOpEntriesByWeek[e.week_number] = extraOpEntriesByWeek[e.week_number] || []).push(e);
-    } else {
-      if(!opEntriesByWeek[e.week_number]) opEntriesByWeek[e.week_number] = {};
-      opEntriesByWeek[e.week_number][e.operative_id] = e.amount;
-    }
-  });
-  const labourAccessIds = new Set(labourAccessRows.map(a=>a.user_id));
-  const weekMap = {};
-  let maxWeek = 0;
-  weeksRows.forEach(w=>{ weekMap[w.week_number] = w.amount; if(w.week_number>maxWeek) maxWeek = w.week_number; });
-  const autoBookedIn = weeksRows.reduce((sum,w)=>sum+Number(w.amount||0), 0);
-  const hasOverride = site.price_booked_override !== null && site.price_booked_override !== undefined;
-  const bookedIn = hasOverride ? Number(site.price_booked_override) : autoBookedIn;
-  const priceTotal = Number(site.price_total||0);
-  // Variations to price: pending + rejected requests feed the "Variations
-  // Not Approved" row for visibility only — they are not approved, so they
-  // must not affect the Price Total or Balance. Only once a PM approves a
-  // request does it move into "Agreed Variation Costs" and add to the
-  // balance; a rejected request stays counted as not-approved rather than
-  // dropping out of the display, but never subtracts from the balance.
-  const awNotApprovedTotal = awRows.filter(r=>r.status!=='approved').reduce((sum,r)=>sum+Number(r.amount||0), 0);
-  const awApprovedTotal = awRows.filter(r=>r.status==='approved').reduce((sum,r)=>sum+Number(r.amount||0), 0);
-  const balance = (priceTotal + awApprovedTotal) - bookedIn;
+  const isMultiSite = !!(site && site.multi_site);
   const fmt = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
-  // Always show one field beyond the last-filled week, so entering a value
-  // grows the list by one — but if manager clears the last week, don't keep
-  // stacking blank rows beyond that. An operative with price access also
-  // needs that next-week row visible, since they build up a week's total via
-  // the per-operative breakdown rather than the (canManage-only) direct field.
-  const weeksToShow = hasPriceAccess ? (maxWeek + 1) : maxWeek;
 
-  const filesOpen = priceFilesSectionOpen===null ? priceFiles.length===0 : priceFilesSectionOpen;
-  const variationOpen = variationSectionOpen;
+  // #400: every Pricing Element on this site, its weekly build-up totals and
+  // its variations — fetched once and reused both for the job-level
+  // Overview (always ALL elements, whichever sub-address tab is picked
+  // below) and for each element's own card.
+  const [allElements, allWeeks, allAwRows, subAddressesList] = await Promise.all([
+    dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&order=sort_order.asc,created_at.asc'),
+    dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number,amount'),
+    dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&select=element_id,amount,status'),
+    isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
+  ]);
+  await loadAllProfiles();
+
+  // Per-element price/labour-invoice access for the current user — two
+  // queries total regardless of how many elements exist. PM/admin always
+  // has access to everything, so these are only consulted for an operative.
+  const [myPriceGrants, myLabourGrants] = canManage ? [null, null] : await Promise.all([
+    dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=element_id'),
+    dbSelect('site_labour_invoice_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=element_id'),
+  ]);
+  const myPriceElementIds = canManage ? null : new Set(myPriceGrants.map(g=>g.element_id));
+  const myLabourElementIds = canManage ? null : new Set(myLabourGrants.map(g=>g.element_id));
+  const hasPriceAccessTo = elId => canManage || myPriceElementIds.has(elId);
+  const canSeeLabourInvoicesFor = elId => canManage || myLabourElementIds.has(elId);
+
+  const weeksByElement = {};
+  allWeeks.forEach(w=>{ (weeksByElement[w.element_id]=weeksByElement[w.element_id]||[]).push(w); });
+  const awByElement = {};
+  allAwRows.forEach(r=>{ (awByElement[r.element_id]=awByElement[r.element_id]||[]).push(r); });
+
+  const elementFigures = {};
+  allElements.forEach(el=>{
+    const weeks = weeksByElement[el.id]||[];
+    const autoBookedIn = weeks.reduce((s,w)=>s+Number(w.amount||0),0);
+    const hasOverride = el.price_booked_override !== null && el.price_booked_override !== undefined;
+    const bookedIn = hasOverride ? Number(el.price_booked_override) : autoBookedIn;
+    const priceTotal = Number(el.price_total||0);
+    const awRows = awByElement[el.id]||[];
+    const awNotApprovedTotal = awRows.filter(r=>r.status!=='approved').reduce((s,r)=>s+Number(r.amount||0),0);
+    const awApprovedTotal = awRows.filter(r=>r.status==='approved').reduce((s,r)=>s+Number(r.amount||0),0);
+    const balance = (priceTotal + awApprovedTotal) - bookedIn;
+    elementFigures[el.id] = {autoBookedIn, hasOverride, bookedIn, priceTotal, awNotApprovedTotal, awApprovedTotal, balance};
+  });
+
+  // #400 Overview: totals every element into one Price Total and one Booked
+  // In, across the whole job. An operative's view only ever totals elements
+  // they have price access to — and a closed element without "show when
+  // closed" contributes nothing to that either, same as its own card.
+  const overviewElements = allElements.filter(el=>{
+    if(canManage) return true;
+    if(!hasPriceAccessTo(el.id)) return false;
+    if(el.closed && !el.closed_show_price_to_operatives) return false;
+    return true;
+  });
+  const overview = overviewElements.reduce((o,el)=>{
+    const f = elementFigures[el.id];
+    o.priceTotal += f.priceTotal; o.bookedIn += f.bookedIn; o.awApprovedTotal += f.awApprovedTotal; o.awNotApprovedTotal += f.awNotApprovedTotal;
+    return o;
+  }, {priceTotal:0, bookedIn:0, awApprovedTotal:0, awNotApprovedTotal:0});
+  const overviewBalance = (overview.priceTotal + overview.awApprovedTotal) - overview.bookedIn;
+
+  // #400: on a multi-site job, each address manages its own Pricing
+  // Elements — pick which address's elements are shown/edited below,
+  // remembering the choice per site.
+  let selectedSubId = null;
+  if(isMultiSite){
+    const stored = priceSubAddrSelected[siteId];
+    selectedSubId = (stored && subAddressesList.some(a=>a.id===stored)) ? stored : (subAddressesList[0] ? subAddressesList[0].id : null);
+    priceSubAddrSelected[siteId] = selectedSubId;
+  }
+  // #400: only show elements this user actually has price access to, or at
+  // least Labour Invoice access to (or every element, for a PM/admin) —
+  // access is per element now, so being able to see the Price tile at all
+  // (granted for at least one element) no longer implies seeing every
+  // Pricing Element on the page. A labour-invoice-only grant still shows
+  // the element (read-only, no build-up entry) so that invoice access keeps
+  // working exactly as before.
+  const visibleElements = allElements.filter(el => (isMultiSite ? el.sub_site_id===selectedSubId : !el.sub_site_id) && (hasPriceAccessTo(el.id) || canSeeLabourInvoicesFor(el.id)));
+  const openElements = visibleElements.filter(el=>!el.closed);
+  const closedElements = visibleElements.filter(el=>el.closed);
+
+  const elementData = {};
+  await Promise.all(visibleElements.map(async el=>{
+    const canSeeLabour = canSeeLabourInvoicesFor(el.id);
+    const hasPriceAcc = hasPriceAccessTo(el.id);
+    const [ownFiles, applyAllFiles, labourFiles, awRows, weekEntries, assignedRows, labourOperatives, labourAccessRows, priceAccessRows] = await Promise.all([
+      dbSelect('price_files', 'element_id=eq.'+el.id+'&order=uploaded_at.desc'),
+      dbSelect('price_files', 'site_id=eq.'+siteId+'&element_id=is.null&sub_site_id='+(el.sub_site_id?('eq.'+el.sub_site_id):'is.null')+'&order=uploaded_at.desc'),
+      canSeeLabour ? dbSelect('labour_invoices', 'element_id=eq.'+el.id+'&order=uploaded_at.desc') : Promise.resolve([]),
+      dbSelect('additional_works_requests', 'element_id=eq.'+el.id+'&order=created_at.asc'),
+      hasPriceAcc ? dbSelect('price_week_operative_entries', 'element_id=eq.'+el.id+'&order=week_number.asc') : Promise.resolve([]),
+      hasPriceAcc ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+      canManage ? Promise.resolve(Object.values(PROFILES).filter(p=>p&&p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))) : Promise.resolve([]),
+      canManage ? dbSelect('site_labour_invoice_access', 'element_id=eq.'+el.id+'&select=user_id') : Promise.resolve([]),
+      canManage ? dbSelect('site_price_access', 'element_id=eq.'+el.id+'&select=user_id') : Promise.resolve([]),
+    ]);
+    // Apply-to-all files are merged in alongside this element's own — sorted
+    // back together so the list reads as one, newest first.
+    const priceFiles = [...ownFiles, ...applyAllFiles].sort((a,b)=> new Date(b.uploaded_at) - new Date(a.uploaded_at));
+    elementData[el.id] = {priceFiles, labourFiles, awRows, weekEntries, assignedRows, labourOperatives, labourAccessRows, priceAccessRows, canSeeLabour, hasPriceAcc};
+  }));
+
+  const anyClosedSelected = Object.keys(priceElementSelected).length>0;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Price</p>
+      <p class="sectiontitle" style="margin-top:0;">Overview</p>
+      <p class="stub" style="margin:0 0 10px;">${isMultiSite ? 'Totals every Pricing Element across every address on this job.' : 'Totals every Pricing Element for this site.'}</p>
       <div class="formfield">
         <label class="field-label">Price Total</label>
-        ${canManage
-          ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${site.price_total!=null?site.price_total:''}" placeholder="0.00" onblur="savePriceField('${siteId}','price_total',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
-          : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(priceTotal)}</p>`}
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.priceTotal)}</p>
       </div>
-      ${(canManage || awApprovedTotal>0) ? `
+      ${(canManage || overview.awApprovedTotal>0) ? `
       <div class="formfield">
         <label class="field-label">Agreed Variation Costs</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awApprovedTotal)}</p>
-        <p class="stub" style="margin:4px 0 0;font-size:11px;">${canManage ? 'Total of approved variation labour requests. Approved requests add to total price.' : 'The total value of variations approved so far, added to the price.'}</p>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.awApprovedTotal)}</p>
       </div>
       ` : ''}
       <div class="formfield">
-        <label class="field-label">Booked in${!hasOverride ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto)</span>' : ''}</label>
-        ${canManage
-          ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${hasOverride?site.price_booked_override:''}" placeholder="${autoBookedIn.toFixed(2)}" onblur="savePriceField('${siteId}','price_booked_override',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
-          : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(bookedIn)}</p>`}
-        ${canManage ? `<p class="stub" style="margin:4px 0 0;font-size:11px;">Leave blank to auto-total the weekly figures below (currently ${fmt(autoBookedIn)}). Enter a value here to override it.</p>` : ''}
+        <label class="field-label">Booked In</label>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.bookedIn)}</p>
       </div>
       <div class="formfield">
-        <label class="field-label">Variations Not Approved <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(currently allocated to original price labour)</span></label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awNotApprovedTotal)}</p>
-        <p class="stub" style="margin:4px 0 0;font-size:11px;">Where variations aren't approved or are rejected do not get added to total labour price, and any costs invoiced are subtracted from original labour price.</p>
+        <label class="field-label">Variations Not Approved</label>
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.awNotApprovedTotal)}</p>
       </div>
       <div class="formfield">
         <label class="field-label">Balance</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${balance<0?'var(--brand1)':'var(--ink)'};">${fmt(balance)}</p>
-        ${balance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
+        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${overviewBalance<0?'var(--brand1)':'var(--ink)'};">${fmt(overviewBalance)}</p>
+        ${overviewBalance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
       </div>
     </div>
 
+    ${isMultiSite ? `
+    <div class="filterrow" style="margin-bottom:14px;">
+      ${subAddressesList.map(a=>`<div class="filterchip ${selectedSubId===a.id?'active':''}" onclick="priceSubAddrSelected['${siteId}']='${a.id}';render()">${escapeHtml(a.name)}</div>`).join('') || `<div class="stub" style="margin:0;">No addresses added yet — add one from Site Settings › Multi-Site.</div>`}
+    </div>
+    ` : ''}
+
+    ${canManage && anyClosedSelected ? `
+    <div class="card" style="margin-bottom:14px;background:color-mix(in srgb, var(--brand1) 6%, var(--card, #fff));display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <span class="stub" style="margin:0;font-weight:700;">${Object.keys(priceElementSelected).length} selected</span>
+      <div style="display:flex;gap:8px;">
+        <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="closeSelectedPricingElements()">Close selected</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 14px;" onclick="priceElementSelected={};render()">Cancel</button>
+      </div>
+    </div>
+    ` : ''}
+
+    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No Pricing Elements yet — add one below.'}</div>` : ''}
+    ${openElements.map(el=>pricingElementCardHtml(el, elementData[el.id], {siteId, canManage, fmt, figures:elementFigures[el.id], weeks:weeksByElement[el.id]||[]})).join('')}
+
+    ${canManage ? (()=>{
+      const key = priceScopeKey(siteId, selectedSubId);
+      const addOpen = !!priceElementAddOpen[key];
+      return !isMultiSite || selectedSubId ? `
+      <div class="card" style="margin-bottom:14px;">
+        ${addOpen ? `
+        <label class="field-label">Pricing Element name</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newPricingElementName_${key}" placeholder="e.g. Flat Roofing" style="flex:1;" oninput="priceElementAddName=this.value">
+          <button class="darkbtn" style="width:auto;padding:10px 16px;" onclick="addPricingElement('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">Add</button>
+          <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="togglePriceElementAdd('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">Cancel</button>
+        </div>
+        ` : `<button class="ghostbtn" onclick="togglePriceElementAdd('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add Pricing Element</button>`}
+      </div>
+      ` : '';
+    })() : ''}
+
+    ${closedElements.length ? `
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="weeklyPriceSectionOpen=!weeklyPriceSectionOpen;render()">
-        <span class="arrow">${weeklyPriceSectionOpen?'▼':'▶'}</span> Booked In
+      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceClosedGroupOpen=!priceClosedGroupOpen;render()">
+        <span class="arrow">${priceClosedGroupOpen?'▼':'▶'}</span> Closed (${closedElements.length})
       </p>
-      ${weeklyPriceSectionOpen ? `
+      ${priceClosedGroupOpen ? `
       <div style="padding:0 14px 14px;">
-      ${weeksToShow<1 ? `<p class="stub" style="margin:0;">${canManage?'Add a figure for Week 1 below.':'No weekly figures yet.'}</p>` : ''}
-      ${Array.from({length:Math.max(weeksToShow,0)}, (_,i)=>i+1).map(wk=>`
-        <div class="formfield">
-          <label class="field-label">Week ${wk}${hasPriceAccess ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto, from build-up below)</span>' : ''}</label>
-          ${canManage
-            ? `<div style="display:flex;gap:6px;align-items:center;">
-                <input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" style="flex:1;" onblur="savePriceWeek('${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-                ${hasPriceAccess ? `<button type="button" class="ghostbtn" style="width:auto;padding:9px 10px;font-size:13px;flex:0 0 auto;" title="Recalculate from build-up rows" onclick="recalcPriceWeek('${siteId}',${wk})">↻</button>` : ''}
-              </div>`
-            : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
-        </div>
-        ${hasPriceAccess ? priceWeekOperativeBreakdownHtml(siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
-      `).join('')}
-      </div>
-      ` : ''}
-    </div>
-
-    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="variationSectionOpen=${!variationOpen};render()">
-        <span class="arrow">${variationOpen?'▼':'▶'}</span> Variation to Price
-      </p>
-      ${variationOpen ? `
-      <div style="padding:0 14px 14px;">
-      <div class="statusbtns" style="margin-bottom:${additionalWorksFormOpen?'10px':'0'};">
-        <div class="statusbtn" style="flex:1;background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);" onclick="additionalWorksFormOpen=!additionalWorksFormOpen;render()">Variation to Price Request</div>
-      </div>
-      ${additionalWorksFormOpen ? `
-      <div style="margin-bottom:14px;">
-        <div class="formfield" style="margin-top:0;">
-          <label class="field-label">Amount</label>
-          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awAmount" step="0.01" inputmode="decimal" placeholder="0.00"></div>
-        </div>
-        <div class="formfield">
-          <label class="field-label">Explain the variation</label>
-          <textarea id="awNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;"></textarea>
-        </div>
-        <button class="darkbtn" onclick="submitAdditionalWorksRequest('${siteId}')">Add Request</button>
-      </div>
-      ` : ''}
-      ${awRows.length ? awRows.map(r=>`
-        <div class="sitecard" style="flex-wrap:wrap;margin-bottom:18px;border-color:var(--brand1);border-width:1.5px;background:color-mix(in srgb, var(--brand1) 6%, var(--card, #fff));">
-          ${awRevisingId===r.id ? `
-          <div class="info" style="width:100%;">
-            <div class="formfield" style="margin:0 0 8px;">
-              <label class="field-label">Amount</label>
-              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awReviseAmount" step="0.01" inputmode="decimal" value="${r.amount}"></div>
-            </div>
-            <div class="formfield" style="margin:0 0 8px;">
-              <label class="field-label">Explain the variation</label>
-              <textarea id="awReviseNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">${escapeHtml(r.note)}</textarea>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveRevisedAdditionalWorks('${siteId}','${r.id}')">${awRevisingOriginalStatus==='rejected'?'Save &amp; Resubmit':awRevisingOriginalStatus==='approved'?'Save':'Save &amp; Approve'}</button>
-              <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelReviseAdditionalWorks()">Cancel</button>
-            </div>
-          </div>
-          ` : awRejectingId===r.id ? `
-          <div class="info" style="width:100%;">
-            <div class="name">${fmt(r.amount)} — ${escapeHtml(r.note)}</div>
-            <div class="formfield" style="margin:8px 0;">
-              <label class="field-label">Reason for rejecting</label>
-              <textarea id="awRejectReason" rows="2" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" oninput="awRejectReasonDraft=this.value">${escapeHtml(awRejectReasonDraft)}</textarea>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="darkbtn" style="width:auto;padding:8px 12px;background:var(--red);border-color:var(--red);" onclick="confirmRejectAdditionalWorks('${siteId}','${r.id}')">Confirm Reject</button>
-              <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelRejectAdditionalWorks()">Cancel</button>
-            </div>
-          </div>
-          ` : `
-          <div class="info">
-            <div class="name">${fmt(r.amount)} <span class="statustag ${r.status==='approved'?'approved':r.status==='rejected'?'rejected':'pending'}" style="margin-left:4px;">${r.status==='approved'?'Approved':r.status==='rejected'?'Rejected':'Pending'}</span></div>
-            <div class="addr">${escapeHtml(r.note)} — requested by ${escapeHtml(nameOf(r.requested_by))}</div>
-            ${r.status==='rejected' && r.rejection_reason ? `<div class="addr" style="color:var(--red);margin-top:2px;">Reason: ${escapeHtml(r.rejection_reason)}</div>` : ''}
-            ${r.photo_path ? `<img src="${publicUrl('site-photos', r.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-top:6px;display:block;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos', r.photo_path)}', true)">` : ''}
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-            ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="approveAdditionalWorks('${siteId}','${r.id}')">Approve</button>` : ''}
-            ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startRejectAdditionalWorks('${r.id}')">Decline</button>` : ''}
-            ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','pending')">Revise and Approve</button>` : ''}
-            ${(canManage && r.status==='rejected') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','rejected')">Revisit</button>` : ''}
-            ${(canManage && r.status==='approved') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','approved')">Edit</button>` : ''}
-            ${(!r.photo_path && (canManage || r.requested_by===ME.id)) ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;flex:0 0 auto;" title="Add photo" onclick="document.getElementById('awPhotoInput_${r.id}').click()">+</div><input type="file" id="awPhotoInput_${r.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadAwPhoto(this,'${siteId}','${r.id}')">` : ''}
-            ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
-          </div>
-          `}
-        </div>
-      `).join('') : `<div class="empty">No variations requested yet.</div>`}
-      </div>
-      ` : ''}
-    </div>
-
-    <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceFilesSectionOpen=${!filesOpen};render()">
-        <span class="arrow">${filesOpen?'▼':'▶'}</span> Price Sheet
-      </p>
-      ${filesOpen ? `
-      <div style="padding:0 14px 14px;">
-        ${hasPriceAccess ? `
-        <div class="card" style="margin-bottom:14px;">
-          <p class="stub" style="margin:0 0 10px;">${canManage ? 'PDF or Excel — you can select more than one at a time.' : 'Anyone with price access can upload here. PDF or Excel — you can select more than one at a time.'}</p>
-          <div class="ghostbtn" style="text-align:center;cursor:pointer;" onclick="document.getElementById('priceFileUpload').click()">⬆ Upload files</div>
-          <input type="file" id="priceFileUpload" accept=".xlsx,.xls,.csv,.pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadPriceFiles('${siteId}', this)">
-        </div>
-        ` : ''}
-        ${priceFiles.length ? priceFiles.map(f=>`
-          <div class="sitecard">
-            <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':'📄'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewPriceFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
-              ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deletePriceFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
-            </div>
-          </div>
-        `).join('') : `<div class="empty">No price files uploaded yet${hasPriceAccess ? ' — add one above.' : '.'}</div>`}
-
-        ${priceFilePreview.path ? `
-        <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>Preview — ${escapeHtml(priceFilePreview.filename||'')}</span>
-          <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closePriceFilePreview()">✕ Close</span>
-        </p>
-        ${priceFilePreview.loading ? `<p class="stub">Loading…</p>`
-          : priceFilePreview.error ? `<div class="empty">${escapeHtml(priceFilePreview.error)}</div>`
-          : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceFilePreview.sheetHtml}</div>`}
-        ` : ''}
-      </div>
-      ` : ''}
-    </div>
-
-    ${canSeeLabourInvoices ? `
-    <div class="card" style="padding:0;overflow:hidden;margin-top:18px;">
-      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesSectionOpen=!labourInvoicesSectionOpen;render()">
-        <span class="arrow">${labourInvoicesSectionOpen?'▼':'▶'}</span> Labour Invoices
-      </p>
-      ${labourInvoicesSectionOpen ? `
-      <div style="padding:8px 14px 14px;">
-        <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-          <p class="ddrow" style="margin:0;padding:14px 14px 12px;line-height:1.5;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesListOpen=!labourInvoicesListOpen;render()">
-            <span class="arrow">${labourInvoicesListOpen?'▼':'▶'}</span> Invoices
-          </p>
-          ${labourInvoicesListOpen ? `
-          <div style="padding:0 14px 14px;">
-            <p class="stub" style="margin:0 0 10px;">Upload any file type — you can select more than one at a time.</p>
-            <div class="ghostbtn" style="text-align:center;cursor:pointer;margin-bottom:10px;" onclick="document.getElementById('labourInvoiceUpload').click()">⬆ Upload files</div>
-            <input type="file" id="labourInvoiceUpload" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadLabourInvoices('${siteId}', this)">
-            ${labourFiles.length ? labourFiles.map(f=>`
-              <div class="sitecard">
-                <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':/\.pdf$/i.test(f.filename)?'📄':'📎'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
-                <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewLabourInvoice('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
-                  ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteLabourInvoice('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
-                </div>
-              </div>
-            `).join('') : `<div class="empty">No invoices uploaded yet — add one above.</div>`}
-          </div>
-          ` : ''}
-        </div>
-
-        ${labourInvoicePreview.path ? `
-        <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>Preview — ${escapeHtml(labourInvoicePreview.filename||'')}</span>
-          <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closeLabourInvoicePreview()">✕ Close</span>
-        </p>
-        ${labourInvoicePreview.loading ? `<p class="stub">Loading…</p>`
-          : labourInvoicePreview.error ? `<div class="empty">${escapeHtml(labourInvoicePreview.error)}</div>`
-          : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;margin-bottom:14px;"><style>#labourInvoiceSheetTable{border-collapse:collapse;font-size:12.5px;} #labourInvoiceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${labourInvoicePreview.sheetHtml}</div>`}
-        ` : ''}
-
-        ${canManage ? `
-        <div class="card" style="padding:0;overflow:hidden;">
-          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoiceAccessOpen=!labourInvoiceAccessOpen;render()">
-            <span class="arrow">${labourInvoiceAccessOpen?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(Gang Leader only recommended)</span>
-          </p>
-          ${labourInvoiceAccessOpen ? `
-          <div style="padding:0 14px 14px;">
-            <p class="stub" style="margin:0 0 10px;">Tick every operative who should be able to see Labour Invoices for this site. Project managers and admins can always see it.</p>
-            ${labourOperatives.map(p=>`
-              <div class="sitecard">
-                <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-                <button class="${labourAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleLabourInvoiceAccess('${siteId}','${p.id}',${labourAccessIds.has(p.id)})">
-                  ${labourAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
-                </button>
-              </div>
-            `).join('') || `<div class="empty">No operatives yet.</div>`}
-          </div>
-          ` : ''}
-        </div>
-        ` : ''}
+      ${closedElements.map(el=>{
+        const canSeeThis = canManage || el.closed_show_price_to_operatives;
+        const f = elementFigures[el.id];
+        return canSeeThis
+          ? pricingElementCardHtml(el, elementData[el.id], {siteId, canManage, fmt, figures:f, weeks:weeksByElement[el.id]||[]})
+          : `<div class="sitecard"><div class="info"><div class="name">${escapeHtml(el.name)}</div><div class="addr">Closed</div></div></div>`;
+      }).join('')}
       </div>
       ` : ''}
     </div>
@@ -7455,7 +7425,337 @@ async function renderPriceTile(siteId){
   // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
   // just viewing the price. Only actually hits the DB on a state change —
   // once notified it stays quiet until the balance recovers above -£50.
-  if(canManage) checkPriceOverbookedNotification(siteId, balance);
+  // #400: now driven off the job-level Overview balance (every element
+  // combined) rather than a single site-wide figure.
+  if(canManage) checkPriceOverbookedNotification(siteId, overviewBalance);
+}
+// #400: renders one Pricing Element's own mini price page — Price
+// Total/Booked In/Balance, weekly build-up, Variation to Price, Price
+// Sheet (with "apply to all" merge-in) and Labour Invoices, all scoped to
+// this element alone. Pure render — every figure it needs was already
+// fetched by renderPriceTile above.
+function pricingElementCardHtml(el, d, ctx){
+  const {siteId, canManage, fmt, figures} = ctx;
+  const {autoBookedIn, hasOverride, bookedIn, priceTotal, awNotApprovedTotal, awApprovedTotal, balance} = figures;
+  const open = priceElementOpen[el.id] !== undefined ? priceElementOpen[el.id] : true;
+  const selected = !!priceElementSelected[el.id];
+  const renaming = priceElementRenamingId === el.id;
+
+  const assignedOperatives = (d.assignedRows||[]).map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  const assignedIds = new Set(assignedOperatives.map(o=>o.id));
+  const orgOperativesForExtra = d.hasPriceAcc ? Object.values(PROFILES).filter(p=>p && p.role==='operative' && !assignedIds.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const opEntriesByWeek = {}, extraOpEntriesByWeek = {}, costEntriesByWeek = {};
+  (d.weekEntries||[]).forEach(e=>{
+    if(e.kind==='cost'){ (costEntriesByWeek[e.week_number]=costEntriesByWeek[e.week_number]||[]).push(e); }
+    else if(e.kind==='extra_operative'){ (extraOpEntriesByWeek[e.week_number]=extraOpEntriesByWeek[e.week_number]||[]).push(e); }
+    else { if(!opEntriesByWeek[e.week_number]) opEntriesByWeek[e.week_number]={}; opEntriesByWeek[e.week_number][e.operative_id]=e.amount; }
+  });
+  const labourAccessIds = new Set((d.labourAccessRows||[]).map(a=>a.user_id));
+  const priceAccessIds = new Set((d.priceAccessRows||[]).map(a=>a.user_id));
+  const weekMap = {};
+  let maxWeek = 0;
+  (ctx.weeks||[]).forEach(w=>{ weekMap[w.week_number]=w.amount; if(w.week_number>maxWeek) maxWeek=w.week_number; });
+  const weeksToShow = d.hasPriceAcc ? (maxWeek+1) : maxWeek;
+  const filesOpenState = priceFilesSectionOpen[el.id];
+  const filesOpen = filesOpenState===undefined ? d.priceFiles.length===0 : filesOpenState;
+  const variationOpen = variationSectionOpen[el.id] !== undefined ? variationSectionOpen[el.id] : true;
+  const weeklyOpen = weeklyPriceSectionOpen[el.id] !== undefined ? weeklyPriceSectionOpen[el.id] : true;
+  const awFormOpen = !!additionalWorksFormOpen[el.id];
+  const applyAllChecked = !!priceFileApplyToAll[el.id];
+
+  return `
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px;border:1.5px solid ${el.closed?'var(--line)':'var(--brand1)'};">
+      <div style="padding:12px 14px;display:flex;align-items:flex-start;gap:8px;justify-content:space-between;background:${el.closed?'var(--paper)':'transparent'};">
+        <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+          ${canManage && !el.closed ? `<input type="checkbox" style="margin-top:4px;width:auto;" ${selected?'checked':''} onchange="togglePricingElementSelected('${el.id}')">` : ''}
+          <div style="min-width:0;">
+            ${renaming ? `
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="text" id="renamePricingElement_${el.id}" value="${escapeHtml(el.name)}" style="font-weight:700;" oninput="priceElementRenameDraft=this.value">
+              <button class="darkbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="saveRenamePricingElement('${el.id}')">Save</button>
+              <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="cancelRenamePricingElement()">Cancel</button>
+            </div>
+            ` : `
+            <div class="sectiontitle" style="margin:0;cursor:pointer;" onclick="priceElementOpen['${el.id}']=${!open};render()">${open?'▼':'▶'} ${escapeHtml(el.name)}${el.closed?' <span style="font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
+            <div class="stub" style="margin:2px 0 0;">${fmt(priceTotal)} price · ${fmt(bookedIn)} booked in</div>
+            `}
+          </div>
+        </div>
+        ${canManage && !renaming ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;flex:0 0 auto;">
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="startRenamePricingElement('${el.id}','${jsAttr(el.name)}')">Rename</button>
+          ${el.closed ? `<button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="reopenPricingElement('${el.id}')">Reopen</button>` : ''}
+          <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;color:var(--red);border-color:var(--red);" onclick="deletePricingElement('${el.id}','${jsAttr(el.name)}')">Delete</button>
+        </div>
+        ` : ''}
+      </div>
+
+      ${!open ? '' : `
+      <div style="padding:0 14px 14px;">
+        ${el.closed && canManage ? `
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
+          <input type="checkbox" style="width:auto;" ${el.closed_show_price_to_operatives?'checked':''} onchange="togglePricingElementShowWhenClosed('${el.id}', this.checked)">
+          Let operatives with access still see the price while this is closed
+        </label>
+        ` : ''}
+
+        <div class="formfield">
+          <label class="field-label">Price Total</label>
+          ${canManage
+            ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${el.price_total!=null?el.price_total:''}" placeholder="0.00" onblur="savePriceField('${el.id}','price_total',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
+            : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(priceTotal)}</p>`}
+        </div>
+        ${(canManage || awApprovedTotal>0) ? `
+        <div class="formfield">
+          <label class="field-label">Agreed Variation Costs</label>
+          <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awApprovedTotal)}</p>
+          <p class="stub" style="margin:4px 0 0;font-size:11px;">${canManage ? 'Total of approved variation labour requests. Approved requests add to total price.' : 'The total value of variations approved so far, added to the price.'}</p>
+        </div>
+        ` : ''}
+        <div class="formfield">
+          <label class="field-label">Booked in${!hasOverride ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto)</span>' : ''}</label>
+          ${canManage
+            ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${hasOverride?el.price_booked_override:''}" placeholder="${autoBookedIn.toFixed(2)}" onblur="savePriceField('${el.id}','price_booked_override',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
+            : `<p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(bookedIn)}</p>`}
+          ${canManage ? `<p class="stub" style="margin:4px 0 0;font-size:11px;">Leave blank to auto-total the weekly figures below (currently ${fmt(autoBookedIn)}). Enter a value here to override it.</p>` : ''}
+        </div>
+        <div class="formfield">
+          <label class="field-label">Variations Not Approved <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(currently allocated to original price labour)</span></label>
+          <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awNotApprovedTotal)}</p>
+        </div>
+        <div class="formfield" style="margin-bottom:0;">
+          <label class="field-label">Balance</label>
+          <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${balance<0?'var(--brand1)':'var(--ink)'};">${fmt(balance)}</p>
+          ${balance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="weeklyPriceSectionOpen['${el.id}']=${!weeklyOpen};render()">
+            <span class="arrow">${weeklyOpen?'▼':'▶'}</span> Booked In
+          </p>
+          ${weeklyOpen ? `
+          <div style="padding:0 14px 14px;">
+          ${weeksToShow<1 ? `<p class="stub" style="margin:0;">${canManage?'Add a figure for Week 1 below.':'No weekly figures yet.'}</p>` : ''}
+          ${Array.from({length:Math.max(weeksToShow,0)}, (_,i)=>i+1).map(wk=>`
+            <div class="formfield">
+              <label class="field-label">Week ${wk}${d.hasPriceAcc ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto, from build-up below)</span>' : ''}</label>
+              ${canManage
+                ? `<div style="display:flex;gap:6px;align-items:center;">
+                    <input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" style="flex:1;" onblur="savePriceWeek('${el.id}','${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+                    ${d.hasPriceAcc ? `<button type="button" class="ghostbtn" style="width:auto;padding:9px 10px;font-size:13px;flex:0 0 auto;" title="Recalculate from build-up rows" onclick="recalcPriceWeek('${el.id}','${siteId}',${wk})">↻</button>` : ''}
+                  </div>`
+                : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
+            </div>
+            ${d.hasPriceAcc ? priceWeekOperativeBreakdownHtml(el.id, siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
+          `).join('')}
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="variationSectionOpen['${el.id}']=${!variationOpen};render()">
+            <span class="arrow">${variationOpen?'▼':'▶'}</span> Variation to Price
+          </p>
+          ${variationOpen ? `
+          <div style="padding:0 14px 14px;">
+          <div class="statusbtns" style="margin-bottom:${awFormOpen?'10px':'0'};">
+            <div class="statusbtn" style="flex:1;background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);" onclick="additionalWorksFormOpen['${el.id}']=${!awFormOpen};render()">Variation to Price Request</div>
+          </div>
+          ${awFormOpen ? `
+          <div style="margin-bottom:14px;">
+            <div class="formfield" style="margin-top:0;">
+              <label class="field-label">Amount</label>
+              <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awAmount_${el.id}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+            </div>
+            <div class="formfield">
+              <label class="field-label">Explain the variation</label>
+              <textarea id="awNote_${el.id}" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;"></textarea>
+            </div>
+            <button class="darkbtn" onclick="submitAdditionalWorksRequest('${siteId}','${el.id}')">Add Request</button>
+          </div>
+          ` : ''}
+          ${d.awRows.length ? d.awRows.map(r=>`
+            <div class="sitecard" style="flex-wrap:wrap;margin-bottom:18px;border-color:var(--brand1);border-width:1.5px;background:color-mix(in srgb, var(--brand1) 6%, var(--card, #fff));">
+              ${awRevisingId===r.id ? `
+              <div class="info" style="width:100%;">
+                <div class="formfield" style="margin:0 0 8px;">
+                  <label class="field-label">Amount</label>
+                  <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="awReviseAmount" step="0.01" inputmode="decimal" value="${r.amount}"></div>
+                </div>
+                <div class="formfield" style="margin:0 0 8px;">
+                  <label class="field-label">Explain the variation</label>
+                  <textarea id="awReviseNote" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">${escapeHtml(r.note)}</textarea>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="saveRevisedAdditionalWorks('${siteId}','${r.id}')">${awRevisingOriginalStatus==='rejected'?'Save &amp; Resubmit':awRevisingOriginalStatus==='approved'?'Save':'Save &amp; Approve'}</button>
+                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelReviseAdditionalWorks()">Cancel</button>
+                </div>
+              </div>
+              ` : awRejectingId===r.id ? `
+              <div class="info" style="width:100%;">
+                <div class="name">${fmt(r.amount)} — ${escapeHtml(r.note)}</div>
+                <div class="formfield" style="margin:8px 0;">
+                  <label class="field-label">Reason for rejecting</label>
+                  <textarea id="awRejectReason" rows="2" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" oninput="awRejectReasonDraft=this.value">${escapeHtml(awRejectReasonDraft)}</textarea>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="darkbtn" style="width:auto;padding:8px 12px;background:var(--red);border-color:var(--red);" onclick="confirmRejectAdditionalWorks('${siteId}','${r.id}')">Confirm Reject</button>
+                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="cancelRejectAdditionalWorks()">Cancel</button>
+                </div>
+              </div>
+              ` : `
+              <div class="info">
+                <div class="name">${fmt(r.amount)} <span class="statustag ${r.status==='approved'?'approved':r.status==='rejected'?'rejected':'pending'}" style="margin-left:4px;">${r.status==='approved'?'Approved':r.status==='rejected'?'Rejected':'Pending'}</span></div>
+                <div class="addr">${escapeHtml(r.note)} — requested by ${escapeHtml(nameOf(r.requested_by))}</div>
+                ${r.status==='rejected' && r.rejection_reason ? `<div class="addr" style="color:var(--red);margin-top:2px;">Reason: ${escapeHtml(r.rejection_reason)}</div>` : ''}
+                ${r.photo_path ? `<img src="${publicUrl('site-photos', r.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-top:6px;display:block;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos', r.photo_path)}', true)">` : ''}
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="approveAdditionalWorks('${siteId}','${r.id}')">Approve</button>` : ''}
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startRejectAdditionalWorks('${r.id}')">Decline</button>` : ''}
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','pending')">Revise and Approve</button>` : ''}
+                ${(canManage && r.status==='rejected') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','rejected')">Revisit</button>` : ''}
+                ${(canManage && r.status==='approved') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','approved')">Edit</button>` : ''}
+                ${(!r.photo_path && (canManage || r.requested_by===ME.id)) ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;flex:0 0 auto;" title="Add photo" onclick="document.getElementById('awPhotoInput_${r.id}').click()">+</div><input type="file" id="awPhotoInput_${r.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadAwPhoto(this,'${siteId}','${r.id}')">` : ''}
+                ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
+              </div>
+              `}
+            </div>
+          `).join('') : `<div class="empty">No variations requested yet.</div>`}
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceFilesSectionOpen['${el.id}']=${!filesOpen};render()">
+            <span class="arrow">${filesOpen?'▼':'▶'}</span> Price Sheet
+          </p>
+          ${filesOpen ? `
+          <div style="padding:0 14px 14px;">
+            ${d.hasPriceAcc ? `
+            <div class="card" style="margin-bottom:14px;">
+              <p class="stub" style="margin:0 0 10px;">${canManage ? 'PDF or Excel — you can select more than one at a time.' : 'Anyone with price access can upload here. PDF or Excel — you can select more than one at a time.'}</p>
+              <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
+                <input type="checkbox" style="width:auto;" ${applyAllChecked?'checked':''} onchange="togglePriceFileApplyToAll('${el.id}', this.checked)">
+                Apply to all Pricing Elements${isMultiSite ? ' at this address' : ''}
+              </label>
+              <div class="ghostbtn" style="text-align:center;cursor:pointer;" onclick="document.getElementById('priceFileUpload_${el.id}').click()">⬆ Upload files</div>
+              <input type="file" id="priceFileUpload_${el.id}" accept=".xlsx,.xls,.csv,.pdf" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadPriceFiles('${siteId}','${el.id}',${el.sub_site_id?`'${el.sub_site_id}'`:'null'}, this)">
+            </div>
+            ` : ''}
+            ${d.priceFiles.length ? d.priceFiles.map(f=>`
+              <div class="sitecard">
+                <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':'📄'} ${escapeHtml(f.filename)}${!f.element_id ? ' <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--brand1);">Applies to all</span>' : ''}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewPriceFile('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+                  ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deletePriceFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
+                </div>
+              </div>
+            `).join('') : `<div class="empty">No price files uploaded yet${d.hasPriceAcc ? ' — add one above.' : '.'}</div>`}
+
+            ${priceFilePreview.path ? `
+            <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Preview — ${escapeHtml(priceFilePreview.filename||'')}</span>
+              <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closePriceFilePreview()">✕ Close</span>
+            </p>
+            ${priceFilePreview.loading ? `<p class="stub">Loading…</p>`
+              : priceFilePreview.error ? `<div class="empty">${escapeHtml(priceFilePreview.error)}</div>`
+              : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;"><style>#priceSheetTable{border-collapse:collapse;font-size:12.5px;} #priceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${priceFilePreview.sheetHtml}</div>`}
+            ` : ''}
+          </div>
+          ` : ''}
+        </div>
+
+        ${canManage ? `
+        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceAccessSectionOpen['${el.id}']=!priceAccessSectionOpen['${el.id}'];render()">
+            <span class="arrow">${priceAccessSectionOpen[el.id]?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(price total &amp; build-up entry)</span>
+          </p>
+          ${priceAccessSectionOpen[el.id] ? `
+          <div style="padding:0 14px 14px;">
+            <p class="stub" style="margin:0 0 10px;">Tick every operative who should have access to this Pricing Element's price and be able to enter build-up figures. Project managers and admins can always see it.</p>
+            ${d.labourOperatives.map(p=>`
+              <div class="sitecard">
+                <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+                <button class="${priceAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="togglePriceAccess('${el.id}','${siteId}','${p.id}',${priceAccessIds.has(p.id)})">
+                  ${priceAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
+                </button>
+              </div>
+            `).join('') || `<div class="empty">No operatives yet.</div>`}
+          </div>
+          ` : ''}
+        </div>
+        ` : ''}
+
+        ${d.canSeeLabour ? `
+        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+          <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesSectionOpen['${el.id}']=!labourInvoicesSectionOpen['${el.id}'];render()">
+            <span class="arrow">${labourInvoicesSectionOpen[el.id]?'▼':'▶'}</span> Labour Invoices
+          </p>
+          ${labourInvoicesSectionOpen[el.id] ? `
+          <div style="padding:8px 14px 14px;">
+            <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
+              <p class="ddrow" style="margin:0;padding:14px 14px 12px;line-height:1.5;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesListOpen['${el.id}']=labourInvoicesListOpen['${el.id}']===false?true:false;render()">
+                <span class="arrow">${labourInvoicesListOpen[el.id]===false?'▶':'▼'}</span> Invoices
+              </p>
+              ${labourInvoicesListOpen[el.id]!==false ? `
+              <div style="padding:0 14px 14px;">
+                <p class="stub" style="margin:0 0 10px;">Upload any file type — you can select more than one at a time.</p>
+                <div class="ghostbtn" style="text-align:center;cursor:pointer;margin-bottom:10px;" onclick="document.getElementById('labourInvoiceUpload_${el.id}').click()">⬆ Upload files</div>
+                <input type="file" id="labourInvoiceUpload_${el.id}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadLabourInvoices('${siteId}','${el.id}', this)">
+                ${d.labourFiles.length ? d.labourFiles.map(f=>`
+                  <div class="sitecard">
+                    <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':/\.pdf$/i.test(f.filename)?'📄':'📎'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                      <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="viewLabourInvoice('${siteId}','${jsAttr(f.storage_path)}','${jsAttr(f.filename)}')">View</button>
+                      ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteLabourInvoice('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
+                    </div>
+                  </div>
+                `).join('') : `<div class="empty">No invoices uploaded yet — add one above.</div>`}
+              </div>
+              ` : ''}
+            </div>
+
+            ${labourInvoicePreview.path ? `
+            <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
+              <span>Preview — ${escapeHtml(labourInvoicePreview.filename||'')}</span>
+              <span style="cursor:pointer;font-weight:400;font-size:12.5px;color:var(--slate);" onclick="closeLabourInvoicePreview()">✕ Close</span>
+            </p>
+            ${labourInvoicePreview.loading ? `<p class="stub">Loading…</p>`
+              : labourInvoicePreview.error ? `<div class="empty">${escapeHtml(labourInvoicePreview.error)}</div>`
+              : `<div style="overflow-x:auto;background:#fff;border-radius:12px;border:1px solid var(--line);padding:4px;margin-bottom:14px;"><style>#labourInvoiceSheetTable{border-collapse:collapse;font-size:12.5px;} #labourInvoiceSheetTable td{border:1px solid var(--line);padding:4px 8px;white-space:nowrap;}</style>${labourInvoicePreview.sheetHtml}</div>`}
+            ` : ''}
+
+            ${canManage ? `
+            <div class="card" style="padding:0;overflow:hidden;">
+              <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="labourInvoiceAccessOpen['${el.id}']=!labourInvoiceAccessOpen['${el.id}'];render()">
+                <span class="arrow">${labourInvoiceAccessOpen[el.id]?'▼':'▶'}</span> Who can see it <span style="font-size:10px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(Gang Leader only recommended)</span>
+              </p>
+              ${labourInvoiceAccessOpen[el.id] ? `
+              <div style="padding:0 14px 14px;">
+                <p class="stub" style="margin:0 0 10px;">Tick every operative who should be able to see Labour Invoices for this Pricing Element. Project managers and admins can always see it.</p>
+                ${d.labourOperatives.map(p=>`
+                  <div class="sitecard">
+                    <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+                    <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+                    <button class="${labourAccessIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:8px 12px;" onclick="toggleLabourInvoiceAccess('${el.id}','${siteId}','${p.id}',${labourAccessIds.has(p.id)})">
+                      ${labourAccessIds.has(p.id) ? 'Can see ✓' : 'Grant access'}
+                    </button>
+                  </div>
+                `).join('') || `<div class="empty">No operatives yet.</div>`}
+              </div>
+              ` : ''}
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+        </div>
+        ` : ''}
+      </div>
+      `}
+    </div>
+    `;
 }
 async function checkPriceOverbookedNotification(siteId, balance){
   const site = SITES.find(s=>s.id===siteId);
@@ -7477,11 +7777,11 @@ async function checkPriceOverbookedNotification(siteId, balance){
 // always, and to an operative only once a PM ticks them on in the "Who can
 // see it" list below (a distinct grant from price access, kept separate
 // even though it now shares the Price page).
-let labourInvoicesSectionOpen = false; // outer "Labour Invoices" dropdown at the bottom of the Price tile
-let labourInvoicesListOpen = true;
-let labourInvoiceAccessOpen = false;
+let labourInvoicesSectionOpen = {}; // elementId -> outer "Labour Invoices" dropdown open
+let labourInvoicesListOpen = {};    // elementId -> bool, default true (read with !==false above)
+let labourInvoiceAccessOpen = {};   // elementId -> bool
 let labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null};
-window.uploadLabourInvoices = async function(siteId, input){
+window.uploadLabourInvoices = async function(siteId, elementId, input){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
   let uploaded = 0;
@@ -7489,7 +7789,7 @@ window.uploadLabourInvoices = async function(siteId, input){
     const path = siteId+'/invoices/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-_]/gi,'_');
     const stored = await uploadToStorage('labour-invoices', path, file, file.type);
     if(!stored) continue;
-    const rows = await dbInsert('labour_invoices', {site_id:siteId, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
+    const rows = await dbInsert('labour_invoices', {site_id:siteId, element_id:elementId, filename:file.name, storage_path:stored, content_type:file.type||null, uploaded_by:ME.id});
     if(rows) uploaded++;
   }
   input.value = '';
@@ -7536,13 +7836,13 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
   render();
 };
 window.closeLabourInvoicePreview = function(){ labourInvoicePreview = {path:null, filename:null, loading:false, error:null, sheetHtml:null}; render(); };
-window.toggleLabourInvoiceAccess = async function(siteId, userId, hasAccess){
+window.toggleLabourInvoiceAccess = async function(elementId, siteId, userId, hasAccess){
   if(hasAccess){
-    const res = await sbFetch('/rest/v1/site_labour_invoice_access?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
+    const res = await sbFetch('/rest/v1/site_labour_invoice_access?element_id=eq.'+elementId+'&user_id=eq.'+userId, {method:'DELETE'});
     if(!res.ok){ toast('Could not remove — '+(await safeErr(res))); return; }
     toast('Access removed');
   } else {
-    const rows = await dbInsert('site_labour_invoice_access', {site_id:siteId, user_id:userId, granted_by:ME.id});
+    const rows = await dbInsert('site_labour_invoice_access', {site_id:siteId, element_id:elementId, user_id:userId, granted_by:ME.id});
     if(!rows) return;
     toast('Access granted');
   }
