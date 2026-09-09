@@ -4687,7 +4687,7 @@ function operativeCertSummaryCardsHtml(certs){
   const stat = (value, label, warnIf, dangerIf, onclick) => `
     <div class="card" style="flex:1;min-width:84px;text-align:center;${onclick?'cursor:pointer;':''}" ${onclick?`onclick="${onclick}"`:''}>
       <div style="font-size:22px;font-weight:800;color:${dangerIf&&value?'var(--red)':(warnIf&&value?'var(--warn)':'var(--ink)')};">${value}</div>
-      <div class="meta" style="margin-top:2px;">${label}</div>
+      <div class="meta" style="margin-top:2px;overflow-wrap:break-word;">${label}</div>
     </div>`;
   return `
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:${certMissingInfoOpen?'6px':'16px'};">
@@ -15626,7 +15626,7 @@ async function renderMaterialRequests(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty">Qty ${escapeHtml(m.qty)}</div><div class="qty">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
+              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
