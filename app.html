@@ -400,7 +400,7 @@
   .signerlist div{padding:3px 0;}
 
   .matcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
-  .matcard .top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .matcard .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
   .matcard .name{font-size:16.5px;font-weight:700;}
   .matcard .qty{font-size:13.5px;color:var(--slate);margin-top:6px;font-weight:600;}
   .statustag{font-size:9.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:5px;}
@@ -6548,9 +6548,19 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
     const rows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
     if(!rows) return;
     toast('Assigned to site');
+    notifySiteAssignment(siteId, userId);
   }
   render();
 };
+// Best-effort push+email to an operative just added to a site — never blocks
+// or errors out the assignment itself, which has already saved by the time
+// this is called. Shared by both assignment entry points (the Settings &
+// Admin list, and the first-visit modal below).
+async function notifySiteAssignment(siteId, userId){
+  try{
+    await sbFetch('/functions/v1/notify-site-assignment', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId})});
+  }catch(e){ /* silent */ }
+}
 // #384: first-visit "assign operatives" pop-up, triggered from
 // renderSiteHome for a live/active site with zero site_assignments. Same
 // multi-tick pattern as the Assign Operatives section on Settings & Admin
@@ -6590,6 +6600,7 @@ window.toggleAssignOpModal = async function(siteId, userId, checked){
     const rows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
     if(!rows) return;
     assignOpModalAssignedIds.add(userId);
+    notifySiteAssignment(siteId, userId);
   } else {
     const res = await sbFetch('/rest/v1/site_assignments?site_id=eq.'+siteId+'&user_id=eq.'+userId, {method:'DELETE'});
     if(!res.ok){ toast('Could not update — '+(await safeErr(res))); return; }
@@ -16713,12 +16724,21 @@ async function renderMaterialOrders(siteId, folderId){
       `).join('')}
       ${files.map((f,fidx)=>`
         <div class="card" style="padding:10px 12px;margin-bottom:10px;">
-          <div style="display:flex;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
             <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">📦</div>
             <div style="flex:1;min-width:0;">
-              <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
+              <div style="font-weight:700;font-size:14px;color:var(--ink);overflow-wrap:break-word;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${escapeHtml(f.name)}</div>
               ${f.synced_at ? `<div class="meta" style="margin-top:2px;font-size:9.5px;">Synced ${new Date(f.synced_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>` : ''}
-              <div class="meta" style="margin-top:2px;font-size:9.5px;color:var(--blue);text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeMaterialDeliveryDate('${siteId}','${f.id}','${f.scheduled_delivery_date||''}','${jsAttr(f.name)}')">${f.scheduled_delivery_date ? '🚚 Delivery '+new Date(f.scheduled_delivery_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' — tap to change' : '+ Set scheduled delivery date'}</div>
+            </div>
+            <div style="flex:0 0 auto;text-align:center;cursor:pointer;" onclick="event.stopPropagation();changeMaterialDeliveryDate('${siteId}','${f.id}','${f.scheduled_delivery_date||''}','${jsAttr(f.name)}')">
+              ${f.scheduled_delivery_date ? `
+                <div style="background:var(--warn-bg);border:1.5px solid var(--warn);border-radius:8px;padding:6px 10px;min-width:62px;">
+                  <div style="font-size:8.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--warn);">🚚 Delivery</div>
+                  <div style="font-size:14.5px;font-weight:800;color:var(--warn);margin-top:1px;white-space:nowrap;">${new Date(f.scheduled_delivery_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</div>
+                </div>
+              ` : `
+                <div style="font-size:9.5px;color:var(--blue);text-decoration:underline;white-space:nowrap;padding:6px 4px;">+ Set<br>date</div>
+              `}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
