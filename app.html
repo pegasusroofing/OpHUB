@@ -3505,6 +3505,18 @@ async function renderTeam(){
       `}
     </div>
     <div class="card" style="margin-top:10px;">
+      <p class="sectiontitle" style="margin-top:0;">⭐ Quick Links</p>
+      <p class="stub" style="margin:0 0 10px;">Pin a folder here — e.g. your Live Projects folder — so it shows as a one-tap shortcut anywhere someone chooses a OneDrive sync folder, instead of clicking through every folder each time.</p>
+      ${(ORG && ORG.onedrive_pinned_folders && ORG.onedrive_pinned_folders.length) ? ORG.onedrive_pinned_folders.map(p=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="swatch">⭐</div>
+          <div class="info"><div class="name">${escapeHtml(p.name)}</div></div>
+          <div class="taskicon danger" title="Remove Quick Link" onclick="toggleOdFolderPin('${p.id}','${jsAttr(p.name)}','${p.driveId||''}')">🗑</div>
+        </div>
+      `).join('') : `<div class="empty" style="padding:10px;">No Quick Links yet.</div>`}
+      <button class="darkbtn" style="margin-top:10px;" onclick="startQuickLinkPicker()">+ Add Quick Link</button>
+    </div>
+    <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Synced per site</p>
       <p class="stub" style="margin:0 0 10px;">Every site with a OneDrive folder linked — for photos/Drawings import, or for Material PO's auto-sync.</p>
       ${(()=>{
@@ -4453,6 +4465,18 @@ window.startOperativeFolderPicker = function(operativeId){
   odPickerError = null;
   go(`#/operatives/${operativeId}/onedrive-folder`);
 };
+// Admin Centre > Integrations > Quick Links — lets a PM/admin browse straight
+// to a deep company folder (e.g. Live Projects, 15 clicks deep) once and pin
+// it org-wide, so it then shows as a one-tap shortcut at the root of every
+// OneDrive folder picker (site sync, Material PO's, operative folders) —
+// see the "⭐ Quick Links" section in renderOneDriveFolderPicker below.
+window.startQuickLinkPicker = function(){
+  odPickerTarget = 'quicklink';
+  odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  odPickerFolders = [];
+  odPickerError = null;
+  go('#/team/onedrive-quicklinks');
+};
 async function loadOdPickerFolders(){
   const current = odPickerStack[odPickerStack.length-1];
   try{
@@ -4512,17 +4536,21 @@ async function renderOneDriveFolderPicker(siteId){
     ` : `
       ${canUseCurrent ? `
         <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <button class="darkbtn" style="flex:1;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>
-          <div class="taskicon" style="flex:0 0 auto;font-size:18px;" title="${isCurrentPinned?'Remove from Favourites':'Pin as a Favourite folder'}" onclick="toggleOdFolderPin('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?'⭐':'☆'}</div>
+          ${odPickerTarget==='quicklink' ? `
+            <button class="darkbtn" style="flex:1;" ${isCurrentPinned?'disabled':''} onclick="pinAsQuickLink('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?`✓ "${escapeHtml(current.name)}" is already a Quick Link`:`Add "${escapeHtml(current.name)}" as a Quick Link`}</button>
+          ` : `
+            <button class="darkbtn" style="flex:1;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>
+            <div class="taskicon" style="flex:0 0 auto;font-size:18px;" title="${isCurrentPinned?'Remove Quick Link':'Add as a Quick Link'}" onclick="toggleOdFolderPin('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?'⭐':'☆'}</div>
+          `}
         </div>
-      ` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "${odPickerTarget==='quicklink'?'Add as a Quick Link':'Use this folder'}" once you're inside the right one.</p>`}
       ${atTrueRoot && pinned.length ? `
-        <p class="sectiontitle" style="margin:0 0 8px;">⭐ Favourites</p>
+        <p class="sectiontitle" style="margin:0 0 8px;">⭐ Quick Links</p>
         ${pinned.map(p=>`
           <div class="sitecard">
             <div class="swatch" onclick="odPickerInto('${p.id}','${jsAttr(p.name)}','${p.driveId||''}',false)">⭐</div>
             <div class="info" onclick="odPickerInto('${p.id}','${jsAttr(p.name)}','${p.driveId||''}',false)"><div class="name">${escapeHtml(p.name)}</div></div>
-            <div class="taskicon danger" title="Remove from Favourites" onclick="event.stopPropagation();toggleOdFolderPin('${p.id}','${jsAttr(p.name)}','${p.driveId||''}')">✕</div>
+            <div class="taskicon danger" title="Remove Quick Link" onclick="event.stopPropagation();toggleOdFolderPin('${p.id}','${jsAttr(p.name)}','${p.driveId||''}')">✕</div>
           </div>
         `).join('')}
         <p class="sectiontitle" style="margin:16px 0 8px;">Browse</p>
@@ -4534,7 +4562,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='quicklink' ? 'Add a Quick Link Folder' : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='quicklink' ? '#/team' : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
 window.toggleOdFolderPin = async function(id, name, driveId){
   const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
@@ -4543,9 +4571,25 @@ window.toggleOdFolderPin = async function(id, name, driveId){
   const row = await dbUpdate('organizations', ME.org_id, {onedrive_pinned_folders: next});
   if(row){
     if(ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
-    toast(exists ? 'Removed from Favourites' : 'Pinned to Favourites');
+    toast(exists ? 'Removed Quick Link' : 'Added Quick Link');
     render();
   }
+};
+// Dedicated "finish" action for the Admin Centre > Quick Links flow —
+// pins the folder (if not already pinned) then drops straight back into
+// Admin Centre > Integrations with the pinned list visible, rather than
+// leaving the admin sat inside the folder picker after adding one.
+window.pinAsQuickLink = async function(id, name, driveId){
+  const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
+  if(!pinned.some(p=>p.id===id)){
+    const next = [...pinned, {id, name, driveId: driveId||null}];
+    const row = await dbUpdate('organizations', ME.org_id, {onedrive_pinned_folders: next});
+    if(row && ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
+    toast('Added Quick Link — "'+name+'"');
+  }
+  odPickerStack = null;
+  teamSectionOpen.integrations = true;
+  go('#/team');
 };
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -18655,6 +18699,7 @@ async function renderRoute(){
       toast(odStatus==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
       history.replaceState(null, '', location.pathname + location.search + '#/team');
     }
+    if(parts[1]==='onedrive-quicklinks') return renderOneDriveFolderPicker(null);
     return renderTeam();
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
