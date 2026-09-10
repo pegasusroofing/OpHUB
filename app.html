@@ -2432,7 +2432,7 @@ async function renderAdmin(){
                 <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
               </select>
             </div>
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${escapeHtml(o.name)}')">Delete Company</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${jsAttr(o.name)}')">Delete Company</button>
             ${people.map(p=>`
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
@@ -2522,7 +2522,11 @@ window.deleteUserPlatform = async function(userId, name){
 };
 window.deleteCompany = async function(orgId, name){
   if(!await customConfirm(`Permanently delete "${name}"? This removes the company, all its sites, and all its team members' access. This cannot be undone.`)) return;
-  if(prompt(`Type the company name to confirm deleting "${name}":`) !== name) { toast("Names didn't match — nothing deleted."); return; }
+  // customPrompt, not the native prompt() — the Capacitor WebView doesn't
+  // reliably support window.prompt() (see the comment by customPrompt's
+  // definition), which silently made this "type to confirm" step impossible
+  // to pass on the phone app.
+  if(await customPrompt(`Type the company name to confirm deleting "${name}":`) !== name) { toast("Names didn't match — nothing deleted."); return; }
   try{
     const res = await sbFetch('/functions/v1/admin-delete-company', {method:'POST', body: JSON.stringify({org_id: orgId})});
     const d = await res.json();
@@ -5569,7 +5573,11 @@ async function renderSiteHome(siteId){
     isManager(ME) ? dbSelect('todos', 'site_id=eq.'+siteId+'&done=eq.false&select=id') : Promise.resolve([]),
     // PM/admin stat row needs a site-wide "who's on site right now" count —
     // operatives don't see this stat, so skip the query entirely for them.
-    isManager(ME) ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500&select=user_id,type') : Promise.resolve([]),
+    // Most recent 500, not the oldest 500 — order=ts.desc so the cap keeps
+    // current activity once a site passes 500 lifetime check-in events;
+    // reversed back to ascending right after the fetch below since the
+    // "latest per user" walk needs oldest-to-newest order.
+    isManager(ME) ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.desc&limit=500&select=user_id,type').then(r=>r.reverse()) : Promise.resolve([]),
     // Middle stat tile: today's date + what's on the site calendar today.
     dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=eq.'+todayISO+'&order=created_at.asc&select=title'),
   ]);
@@ -9298,8 +9306,13 @@ async function renderCheckin(siteId, subId){
     dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
     // PMs/admins get the whole site's check-in history (ascending, so it can
     // be paired into in/out sessions and grouped by day below) so they can
-    // see every operative's activity, not just their own.
-    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.asc&limit=500') : Promise.resolve([]),
+    // see every operative's activity, not just their own. Fetched newest-
+    // first with the 500 cap so a long-running site's most recent activity
+    // survives the cap, then reversed back to ascending for the pairing
+    // logic below — a plain order=ts.asc&limit=500 was silently returning
+    // the OLDEST 500 events instead, freezing "Live Status" once a site
+    // passed 500 lifetime check-in events.
+    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&order=ts.desc&limit=500').then(r=>r.reverse()) : Promise.resolve([]),
     // Admins get the site's responsible PM's own sign-in/out history as its
     // own standalone section — a separate concern from the combined "All
     // Operatives" history above, which mixes everyone together.
@@ -9480,7 +9493,9 @@ async function renderCheckinSubAddress(siteId, subId){
   const isPM = isManager(ME);
   const [mine, teamAll] = await Promise.all([
     dbSelect('checkins', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=5'),
-    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&order=ts.asc&limit=500') : Promise.resolve([]),
+    // See the same fix/comment in renderCheckin — fetch newest-first so the
+    // 500 cap keeps current activity, then reverse back to ascending.
+    isPM ? dbSelect('checkins', 'site_id=eq.'+siteId+'&sub_site_id=eq.'+subId+'&order=ts.desc&limit=500').then(r=>r.reverse()) : Promise.resolve([]),
   ]);
   const last = mine[0];
   const status = (last && last.type==='in') ? 'in' : 'out';
@@ -9668,7 +9683,7 @@ window.doCheckAction = async function(siteId, type){
     checkinBusy = false; checkinError = g.error; render(); return;
   }
   const site = SITES.find(s=>s.id===siteId);
-  if(site.geofence_lat){
+  if(site.geofence_lat!=null){
     const dist = Math.round(distMeters(g.lat, g.lon, site.geofence_lat, site.geofence_lon));
     const allowedRadius = site.geofence_radius_m || 100;
     if(dist > allowedRadius){
@@ -10828,7 +10843,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
     y = rowTop - ROW_H;
   }
   y -= 16;
-  if(y < 60) newPage(true);
+  if(y < 60) await newPage(true);
   page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:MARGIN, y, size:8.5, font:reg, color:SLATE});
 }
 // Builds the Snagging Report PDF bytes for the given scope, shared by both
@@ -11899,7 +11914,11 @@ async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates, incidentCount] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
+    // status=eq.current — RAMS docs can be superseded (see renderRams, which
+    // already filters this way); without it a superseded document still
+    // padded out the "X documents" count shown on this tile even though it
+    // no longer appears, or needs signing, on the actual RAMS page.
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
