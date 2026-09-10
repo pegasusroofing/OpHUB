@@ -4496,13 +4496,37 @@ async function renderOneDriveFolderPicker(siteId){
     : current.id===SITES_ROOT_ID ? 'No SharePoint sites found for this account.'
     : current.isSite ? 'No document libraries in this site.'
     : 'No subfolders here.';
+  // Favourited folders — org-wide, so any PM/admin can jump straight to a
+  // deep folder (e.g. the RTB Roofing OneDrive root) without re-navigating
+  // the whole path every time. Shown as quick-jump entries at the true root
+  // of the picker only; pinning/unpinning happens from the "Use this
+  // folder" screen below, on whichever folder you're currently sitting in.
+  const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
+  const isCurrentPinned = canUseCurrent && pinned.some(p=>p.id===current.id);
+  const atTrueRoot = current.id===null && !current.driveId;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">${odPickerStack.map(s=>escapeHtml(s.name)).join(' / ')}</p>
     ${odPickerStack.length>1 ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="odPickerUp()">‹ Back a folder</button>` : ''}
     ${odPickerError ? `
       <div class="card"><p class="stub" style="color:var(--warn);margin:0;">${escapeHtml(odPickerError)}</p></div>
     ` : `
-      ${canUseCurrent ? `<button class="darkbtn" style="margin-bottom:14px;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${canUseCurrent ? `
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button class="darkbtn" style="flex:1;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>
+          <div class="taskicon" style="flex:0 0 auto;font-size:18px;" title="${isCurrentPinned?'Remove from Favourites':'Pin as a Favourite folder'}" onclick="toggleOdFolderPin('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?'⭐':'☆'}</div>
+        </div>
+      ` : `<p class="stub" style="margin:0 0 14px;">Open a folder below, then tap "Use this folder" once you're inside the right one.</p>`}
+      ${atTrueRoot && pinned.length ? `
+        <p class="sectiontitle" style="margin:0 0 8px;">⭐ Favourites</p>
+        ${pinned.map(p=>`
+          <div class="sitecard">
+            <div class="swatch" onclick="odPickerInto('${p.id}','${jsAttr(p.name)}','${p.driveId||''}',false)">⭐</div>
+            <div class="info" onclick="odPickerInto('${p.id}','${jsAttr(p.name)}','${p.driveId||''}',false)"><div class="name">${escapeHtml(p.name)}</div></div>
+            <div class="taskicon danger" title="Remove from Favourites" onclick="event.stopPropagation();toggleOdFolderPin('${p.id}','${jsAttr(p.name)}','${p.driveId||''}')">✕</div>
+          </div>
+        `).join('')}
+        <p class="sectiontitle" style="margin:16px 0 8px;">Browse</p>
+      ` : ''}
       ${odPickerFolders.map(f=>`
         <div class="sitecard" onclick="odPickerInto('${f.id}','${jsAttr(f.name)}','${f.driveId||''}',${f.isSite?'true':'false'})">
           <div class="swatch">${f.isSite?'🏢':f.virtual?'🔗':'📁'}</div>
@@ -4512,6 +4536,17 @@ async function renderOneDriveFolderPicker(siteId){
     `}
   `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
+window.toggleOdFolderPin = async function(id, name, driveId){
+  const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
+  const exists = pinned.some(p=>p.id===id);
+  const next = exists ? pinned.filter(p=>p.id!==id) : [...pinned, {id, name, driveId: driveId||null}];
+  const row = await dbUpdate('organizations', ME.org_id, {onedrive_pinned_folders: next});
+  if(row){
+    if(ORG) ORG.onedrive_pinned_folders = row.onedrive_pinned_folders;
+    toast(exists ? 'Removed from Favourites' : 'Pinned to Favourites');
+    render();
+  }
+};
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
   render();
