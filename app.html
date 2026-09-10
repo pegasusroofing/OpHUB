@@ -5534,6 +5534,7 @@ window.setResponsiblePM = async function(siteId, pmId){
     const idx = SITES.findIndex(s=>s.id===siteId);
     SITES[idx] = row;
     toast('Responsible project manager updated');
+    if(pmId) notifySiteAssignment(siteId, pmId);
   }
   render();
 };
@@ -16859,7 +16860,7 @@ window.uploadMaterialOrderDocument = async function(input, siteId, folderId){
     const path = siteId+'/manual/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('material-orders', path, file, file.type||'application/octet-stream');
     if(!stored) continue;
-    const rows = await dbInsert('material_order_files', {site_id:siteId, org_id:ME.org_id, folder_id:folderId||null, name:file.name, storage_path:stored, size:file.size||null});
+    const rows = await dbInsert('material_order_files', {site_id:siteId, org_id:ME.org_id, folder_id:folderId||null, name:file.name, item_id:'manual-'+uid(), storage_path:stored, size:file.size||null});
     if(rows) uploaded++;
   }
   if(uploaded){ toast(uploaded===1 ? 'Document added' : `${uploaded} documents added`); matOrderUploadOpen = false; }
