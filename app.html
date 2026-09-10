@@ -720,23 +720,84 @@ window.closeImageViewer = function(){
 // raw PDF bytes (a Uint8Array/ArrayBuffer) for a PDF we just built
 // in-memory (RAMS/COSHH/TBT/Schedule/Reports exports) — skipping the
 // upload-then-fetch round trip entirely for those.
-// The app's own viewport meta locks pinch-zoom off everywhere
-// (maximum-scale=1) so an accidental double-tap/pinch on a form field
-// doesn't zoom the whole app. That's fine for normal screens, but it also
-// silently blocked pinch-zoom on PDF drawings, which — unlike the image
-// viewer above — has no custom zoom gesture of its own and relies entirely
-// on the browser's native pinch-zoom. Relax the cap only while the PDF
-// viewer is open, and restore it the moment it's closed.
-function allowPageZoom(){
-  const vp = document.querySelector('meta[name="viewport"]');
-  if(vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover');
+// Custom pinch/pan/double-tap zoom for the PDF viewer, mirroring the image
+// viewer above (setupImgViewerGestures) rather than relying on the
+// browser's own page-pinch-zoom. Native page zoom used to be relaxed here
+// instead, but it zoomed the whole overlay — including the fixed header bar
+// and close button — which read as broken/janky rather than "zoom in on the
+// drawing." A dedicated transform on just the pages wrapper keeps the header
+// crisp and fixed while the document itself zooms and pans.
+let pdfViewerZoom = {scale:1, x:0, y:0};
+function applyPdfViewerTransform(){
+  const wrap = document.getElementById('pdfViewerPagesWrap');
+  const body = document.getElementById('pdfViewerBody');
+  if(!wrap || !body) return;
+  wrap.style.transform = `translate(${pdfViewerZoom.x}px, ${pdfViewerZoom.y}px) scale(${pdfViewerZoom.scale})`;
+  // Below 1x zoom, hand scrolling back to the browser (normal multi-page
+  // vertical scroll); once zoomed in, our own pan handles movement instead —
+  // otherwise the two systems fight over the same drag gesture.
+  const zoomed = pdfViewerZoom.scale > 1;
+  body.style.overflow = zoomed ? 'hidden' : 'auto';
+  wrap.style.touchAction = zoomed ? 'none' : 'pan-y';
 }
-function restrictPageZoom(){
-  const vp = document.querySelector('meta[name="viewport"]');
-  if(vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover');
+window.pdfViewerZoomBy = function(factor){
+  pdfViewerZoom.scale = Math.min(6, Math.max(1, pdfViewerZoom.scale*factor));
+  if(pdfViewerZoom.scale===1){ pdfViewerZoom.x = 0; pdfViewerZoom.y = 0; }
+  applyPdfViewerTransform();
+};
+function setupPdfViewerGestures(wrap){
+  let pointers = new Map();
+  let startDist = 0, startScale = 1, startMid = {x:0,y:0}, startPos = {x:0,y:0};
+  let lastTap = 0;
+  function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+  function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+  wrap.addEventListener('pointerdown', (e)=>{
+    wrap.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===2){
+      const [a,b] = [...pointers.values()];
+      startDist = dist(a,b); startScale = pdfViewerZoom.scale; startMid = mid(a,b);
+      startPos = {x:pdfViewerZoom.x, y:pdfViewerZoom.y};
+    } else if(pointers.size===1){
+      startPos = {x:e.clientX - pdfViewerZoom.x, y:e.clientY - pdfViewerZoom.y};
+      const now = Date.now();
+      if(now - lastTap < 300){
+        pdfViewerZoom = pdfViewerZoom.scale>1 ? {scale:1,x:0,y:0} : {scale:2.5,x:0,y:0};
+        applyPdfViewerTransform();
+      }
+      lastTap = now;
+    }
+  });
+  wrap.addEventListener('pointermove', (e)=>{
+    if(!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pointers.size===2){
+      e.preventDefault();
+      const [a,b] = [...pointers.values()];
+      const scale = Math.min(6, Math.max(1, startScale * (dist(a,b)/(startDist||1))));
+      pdfViewerZoom.scale = scale;
+      const m = mid(a,b);
+      pdfViewerZoom.x = startPos.x + (m.x - startMid.x);
+      pdfViewerZoom.y = startPos.y + (m.y - startMid.y);
+      applyPdfViewerTransform();
+    } else if(pointers.size===1 && pdfViewerZoom.scale>1){
+      pdfViewerZoom.x = e.clientX - startPos.x;
+      pdfViewerZoom.y = e.clientY - startPos.y;
+      applyPdfViewerTransform();
+    }
+  });
+  function endPointer(e){
+    pointers.delete(e.pointerId);
+    if(pointers.size<2 && pdfViewerZoom.scale<=1){ pdfViewerZoom.x = 0; pdfViewerZoom.y = 0; applyPdfViewerTransform(); }
+  }
+  wrap.addEventListener('pointerup', endPointer);
+  wrap.addEventListener('pointercancel', endPointer);
+  wrap.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    pdfViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15);
+  }, {passive:false});
 }
 window.viewPdfInApp = async function(source, filename){
-  allowPageZoom();
   let ov = document.getElementById('pdfViewerOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -749,6 +810,11 @@ window.viewPdfInApp = async function(source, filename){
         <span class="pdf-viewer-btn" title="Close" onclick="closePdfViewer()">✕</span>
       </div>
       <div class="pdf-viewer-body" id="pdfViewerBody"></div>
+      <div class="img-viewer-hint" id="pdfViewerHint">Pinch or double-tap to zoom</div>
+      <div class="img-viewer-zoombar">
+        <div class="img-viewer-zoombtn" onclick="event.stopPropagation();pdfViewerZoomBy(1.5)">+</div>
+        <div class="img-viewer-zoombtn" onclick="event.stopPropagation();pdfViewerZoomBy(1/1.5)">−</div>
+      </div>
     `;
     document.body.appendChild(ov);
   }
@@ -756,6 +822,7 @@ window.viewPdfInApp = async function(source, filename){
   const body = document.getElementById('pdfViewerBody');
   body.innerHTML = '<p class="stub" style="color:#fff;opacity:.7;margin-top:40px;">Loading document…</p>';
   ov.style.display = 'flex';
+  pdfViewerZoom = {scale:1, x:0, y:0};
   // Stashed so the Share button can hand the OS share sheet the exact same
   // bytes/name without re-fetching, and so closing the viewer can free them.
   pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf'};
@@ -764,19 +831,35 @@ window.viewPdfInApp = async function(source, filename){
     const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: source});
     const pdf = await loadingTask.promise;
     body.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.id = 'pdfViewerPagesWrap';
+    wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;transform-origin:0 0;touch-action:pan-y;';
+    body.appendChild(wrap);
+    setupPdfViewerGestures(wrap);
     const containerWidth = Math.min(body.clientWidth || window.innerWidth, 900) - 4;
+    // Render well past the on-screen fit size so pinching in on fine detail
+    // (dimensions, hatching, small text on a roofing/site drawing) stays
+    // sharp instead of blurring out past the old fixed low-res canvas — the
+    // file itself was already full quality on upload (never downscaled),
+    // this was purely about how much resolution the viewer rendered at.
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const ZOOM_HEADROOM = 3;
+    const MAX_CANVAS_DIM = 4096; // stays under mobile browsers' canvas size ceiling
     for(let i=1; i<=pdf.numPages; i++){
       const page = await pdf.getPage(i);
       const baseViewport = page.getViewport({scale:1});
       const fitScale = containerWidth / baseViewport.width;
-      const viewport = page.getViewport({scale: fitScale * dpr});
+      let renderScale = fitScale * dpr * ZOOM_HEADROOM;
+      if(baseViewport.width*renderScale > MAX_CANVAS_DIM || baseViewport.height*renderScale > MAX_CANVAS_DIM){
+        renderScale = Math.min(MAX_CANVAS_DIM/baseViewport.width, MAX_CANVAS_DIM/baseViewport.height);
+      }
+      const viewport = page.getViewport({scale: renderScale});
       const canvas = document.createElement('canvas');
       canvas.className = 'pdf-viewer-page';
       canvas.width = viewport.width; canvas.height = viewport.height;
       canvas.style.width = Math.round(baseViewport.width*fitScale)+'px';
       canvas.style.height = Math.round(baseViewport.height*fitScale)+'px';
-      body.appendChild(canvas);
+      wrap.appendChild(canvas);
       await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
     }
   }catch(e){
@@ -804,12 +887,12 @@ window.sharePdfViewerDoc = async function(){
   }
 };
 window.closePdfViewer = function(){
-  restrictPageZoom();
   const ov = document.getElementById('pdfViewerOverlay');
   if(ov) ov.style.display = 'none';
   const body = document.getElementById('pdfViewerBody');
   if(body) body.innerHTML = ''; // drop the rendered canvases so they don't sit in memory
   pdfViewerState = null;
+  pdfViewerZoom = {scale:1, x:0, y:0};
 };
 // Drawings "View": images pop up in the in-app image viewer above; PDFs open
 // in the in-app PDF viewer above (viewPdfInApp) — always shows the real
