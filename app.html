@@ -740,14 +740,47 @@ function applyPdfViewerTransform(){
   body.style.overflow = zoomed ? 'hidden' : 'auto';
   wrap.style.touchAction = zoomed ? 'none' : 'pan-y';
 }
-window.pdfViewerZoomBy = function(factor){
-  pdfViewerZoom.scale = Math.min(6, Math.max(1, pdfViewerZoom.scale*factor));
-  if(pdfViewerZoom.scale===1){ pdfViewerZoom.x = 0; pdfViewerZoom.y = 0; }
+// The wrap's own un-transformed (layout) top-left corner, in viewport
+// coordinates — i.e. what its bounding rect would be if x/y/scale were all
+// reset. Needed to convert a screen point (pinch midpoint, double-tap,
+// wheel cursor, button-click centre) into a stable content-space point we
+// can keep anchored under that same screen point as the scale changes.
+// Without this, every zoom entry point just scaled from the wrap's fixed
+// (0,0) transform-origin — the page appeared to zoom into its top-left
+// corner and "lose the centre" instead of zooming in on what was on screen.
+function pdfWrapOrigin(wrap){
+  const rect = wrap.getBoundingClientRect();
+  return {x: rect.left - pdfViewerZoom.x, y: rect.top - pdfViewerZoom.y};
+}
+// Zooms so the content currently under screen point (anchorX, anchorY)
+// stays under that same point after the scale changes. Omit the anchor to
+// zoom on the centre of the visible viewer area (used by the +/- buttons).
+window.pdfViewerZoomBy = function(factor, anchorX, anchorY){
+  const wrap = document.getElementById('pdfViewerPagesWrap');
+  const body = document.getElementById('pdfViewerBody');
+  if(!wrap || !body) return;
+  const newScale = Math.min(8, Math.max(1, pdfViewerZoom.scale*factor));
+  if(newScale === pdfViewerZoom.scale) return;
+  if(anchorX===undefined || anchorY===undefined){
+    const bodyRect = body.getBoundingClientRect();
+    anchorX = bodyRect.left + bodyRect.width/2;
+    anchorY = bodyRect.top + bodyRect.height/2;
+  }
+  const origin = pdfWrapOrigin(wrap);
+  const cx = (anchorX - origin.x - pdfViewerZoom.x) / pdfViewerZoom.scale;
+  const cy = (anchorY - origin.y - pdfViewerZoom.y) / pdfViewerZoom.scale;
+  pdfViewerZoom.scale = newScale;
+  if(newScale===1){ pdfViewerZoom.x = 0; pdfViewerZoom.y = 0; }
+  else{
+    pdfViewerZoom.x = anchorX - origin.x - cx*newScale;
+    pdfViewerZoom.y = anchorY - origin.y - cy*newScale;
+  }
   applyPdfViewerTransform();
 };
 function setupPdfViewerGestures(wrap){
   let pointers = new Map();
-  let startDist = 0, startScale = 1, startMid = {x:0,y:0}, startPos = {x:0,y:0};
+  let startDist = 0, startScale = 1, pinchOrigin = {x:0,y:0}, pinchContent = {x:0,y:0};
+  let startPos = {x:0,y:0};
   let lastTap = 0;
   function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
   function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
@@ -756,14 +789,21 @@ function setupPdfViewerGestures(wrap){
     pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if(pointers.size===2){
       const [a,b] = [...pointers.values()];
-      startDist = dist(a,b); startScale = pdfViewerZoom.scale; startMid = mid(a,b);
-      startPos = {x:pdfViewerZoom.x, y:pdfViewerZoom.y};
+      startDist = dist(a,b); startScale = pdfViewerZoom.scale;
+      const m = mid(a,b);
+      // Anchor on the content point under the pinch midpoint, same math as
+      // pdfViewerZoomBy — this content point then tracks the fingers as
+      // they move, instead of the page drifting off wherever (0,0) is.
+      pinchOrigin = pdfWrapOrigin(wrap);
+      pinchContent = {
+        x: (m.x - pinchOrigin.x - pdfViewerZoom.x) / pdfViewerZoom.scale,
+        y: (m.y - pinchOrigin.y - pdfViewerZoom.y) / pdfViewerZoom.scale,
+      };
     } else if(pointers.size===1){
       startPos = {x:e.clientX - pdfViewerZoom.x, y:e.clientY - pdfViewerZoom.y};
       const now = Date.now();
       if(now - lastTap < 300){
-        pdfViewerZoom = pdfViewerZoom.scale>1 ? {scale:1,x:0,y:0} : {scale:2.5,x:0,y:0};
-        applyPdfViewerTransform();
+        pdfViewerZoomBy((pdfViewerZoom.scale>1 ? 1 : 2.5)/pdfViewerZoom.scale, e.clientX, e.clientY);
       }
       lastTap = now;
     }
@@ -774,11 +814,11 @@ function setupPdfViewerGestures(wrap){
     if(pointers.size===2){
       e.preventDefault();
       const [a,b] = [...pointers.values()];
-      const scale = Math.min(6, Math.max(1, startScale * (dist(a,b)/(startDist||1))));
-      pdfViewerZoom.scale = scale;
+      const scale = Math.min(8, Math.max(1, startScale * (dist(a,b)/(startDist||1))));
       const m = mid(a,b);
-      pdfViewerZoom.x = startPos.x + (m.x - startMid.x);
-      pdfViewerZoom.y = startPos.y + (m.y - startMid.y);
+      pdfViewerZoom.scale = scale;
+      pdfViewerZoom.x = m.x - pinchOrigin.x - pinchContent.x*scale;
+      pdfViewerZoom.y = m.y - pinchOrigin.y - pinchContent.y*scale;
       applyPdfViewerTransform();
     } else if(pointers.size===1 && pdfViewerZoom.scale>1){
       pdfViewerZoom.x = e.clientX - startPos.x;
@@ -794,7 +834,7 @@ function setupPdfViewerGestures(wrap){
   wrap.addEventListener('pointercancel', endPointer);
   wrap.addEventListener('wheel', (e)=>{
     e.preventDefault();
-    pdfViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15);
+    pdfViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15, e.clientX, e.clientY);
   }, {passive:false});
 }
 window.viewPdfInApp = async function(source, filename){
@@ -842,9 +882,9 @@ window.viewPdfInApp = async function(source, filename){
     // sharp instead of blurring out past the old fixed low-res canvas — the
     // file itself was already full quality on upload (never downscaled),
     // this was purely about how much resolution the viewer rendered at.
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const ZOOM_HEADROOM = 3;
-    const MAX_CANVAS_DIM = 4096; // stays under mobile browsers' canvas size ceiling
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const ZOOM_HEADROOM = 4;
+    const MAX_CANVAS_DIM = 6000; // headroom for modern devices while staying under older/low-end phones' canvas size ceiling
     for(let i=1; i<=pdf.numPages; i++){
       const page = await pdf.getPage(i);
       const baseViewport = page.getViewport({scale:1});
@@ -5967,12 +6007,12 @@ async function renderTodoList(siteId){
       </div>
       <div class="row-gap" style="align-items:flex-start;">
         <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1 1 0;min-width:0;">
-          <label class="field-label">Date required by (optional)</label>
+          <label class="field-label" style="min-height:27px;">Date required by (optional)</label>
           <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value" style="width:100%;box-sizing:border-box;">
         </div>
         <div class="formfield" style="flex:1 1 0;min-width:0;">
-          <label class="field-label">Assign to a PM (optional)</label>
-          <div class="ddrow" style="margin:0;" onclick="toggleTodoAssigneePicker('new')">
+          <label class="field-label" style="min-height:27px;">Assign to a PM (optional)</label>
+          <div class="ddrow" style="margin:0;padding-top:10px;padding-bottom:10px;box-sizing:border-box;min-height:41px;" onclick="toggleTodoAssigneePicker('new')">
             <span class="arrow">${todoAssigneePickerOpenId==='new'?'▼':'▶'}</span> ${newTodoAssigneeDraft ? escapeHtml(nameOf(newTodoAssigneeDraft)) : 'Unassigned'}
           </div>
           ${todoAssigneePickerOpenId==='new' ? todoAssigneePickerListHtml('new', pmList, newTodoAssigneeDraft) : ''}
