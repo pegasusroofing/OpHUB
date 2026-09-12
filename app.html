@@ -4934,7 +4934,12 @@ async function loadOdPickerFolders(){
           : current.driveId
             ? {parent_id: current.id, drive_id: current.driveId}
             : {parent_id: current.id};
-    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
+    // #(onedrive-diagnostic-v2): TEMPORARY — pointed at a brand-new function
+    // (onedrive-list-folders-v2, never deployed under any prior name) instead
+    // of the original onedrive-list-folders, to test whether THIS SPECIFIC
+    // function's deployment is what's stuck, independent of a full project
+    // restart. Revert to '/functions/v1/onedrive-list-folders' once answered.
+    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders-v2', {method:'POST', body: JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
     else {
