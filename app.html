@@ -1149,6 +1149,18 @@ async function sbFetch(path, opts){
   return fetchWithRetry(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), 20000);
 }
 async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
+// sbFetch's own retry (fetchWithRetry) only ever retries GETs — a POST is
+// left alone there because retrying a POST that already reached the server
+// (e.g. an insert) risks doing it twice. The OneDrive browse/download calls
+// are POSTs only because they carry a JSON body, not because they write
+// anything of ours — Microsoft Graph reads are as safe to retry as a GET.
+// Without this, a single dropped connection on "onedrive-list-folders" (the
+// common case on a flaky mobile signal) surfaced as "Could not reach
+// OneDrive" with no second attempt at all.
+async function sbFetchIdempotent(path, opts){
+  try{ return await sbFetch(path, opts); }
+  catch(e){ await new Promise(r=>setTimeout(r, 900)); return sbFetch(path, opts); }
+}
 
 let lastNetworkToastAt = 0;
 function toastNetworkIssue(){
@@ -2983,8 +2995,19 @@ async function computeOutstandingRows(forId){
   const siteIds = sites.map(s=>s.id);
   const idsCsv = siteIds.join(',');
   const [ramsDocs, coshhDocs, liveTbts] = await Promise.all([
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+    // #(outstanding-resign-cycle-fix): must select resign_cycle_start/
+    // uploaded_at too — filterCurrentCycleSigs() below needs them to work out
+    // each doc's current sign-off cycle. Without them every doc's cycle start
+    // came back as `undefined`, resignCycleStart() fell through to
+    // `new Date(undefined)` (Invalid Date), and comparing any real signed_at
+    // against an Invalid Date is always false in JS — so EVERY signature got
+    // filtered out here, and every roster member showed as still-missing
+    // forever, even right after they signed. This is why the Outstanding
+    // page/badge could say "RAMS to sign (1)" for a site whose RAMS page
+    // itself showed "signed by all operatives": the RAMS page's own fetch
+    // (fetchRamsData) already selected these columns and was never affected.
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     // Live TBTs count as outstanding for OPERATIVES personally (they need to
     // sign) — this used to only live in the old computeMyOutstandingCount
     // and never showed on the Outstanding page itself, so an operative's
@@ -3701,16 +3724,22 @@ async function renderTeam(){
       ${(()=>{
         const syncedSites = SITES.filter(s=>s.onedrive_folder_id || s.material_orders_folder_id);
         if(!syncedSites.length) return `<div class="empty">No sites have a OneDrive folder linked yet.</div>`;
-        return syncedSites.map(s=>`
-          <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
-            <div style="font-weight:700;font-size:13px;">${escapeHtml(s.name)}</div>
-            ${s.onedrive_folder_id ? `<div class="meta">📁 Photos &amp; Drawings import — "${escapeHtml(s.onedrive_folder_name||'linked folder')}"</div>` : ''}
-            ${s.material_orders_folder_id ? `<div class="meta">📦 Material PO's — "${escapeHtml(s.material_orders_folder_name||'linked folder')}"</div>` : ''}
-            <div style="display:flex;gap:6px;margin-top:6px;">
-              <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:11.5px;" onclick="go('#/site/${s.id}/team')">Open Site Admin</button>
+        return syncedSites.map(s=>{
+          const tags = [s.onedrive_folder_id ? '📁 Photos/Drawings' : '', s.material_orders_folder_id ? '📦 Material POs' : ''].filter(Boolean).join(' · ');
+          return `
+          <div class="sitecard" style="padding:6px 10px;">
+            <div class="info" style="min-width:0;">
+              <div class="name" style="font-size:13px;">${escapeHtml(s.name)}</div>
+              <div class="meta" style="font-size:11px;">${tags}</div>
             </div>
+            <select style="width:auto;flex:none;padding:5px 8px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onchange="syncedSiteAction('${s.id}', this.value); this.selectedIndex=0;">
+              <option value="" selected disabled>${siteOdSyncBusy===s.id?'Syncing…':'Actions ▾'}</option>
+              <option value="admin">Open Site Admin</option>
+              ${s.onedrive_folder_id ? `<option value="sync">Manual Sync</option>` : ''}
+            </select>
           </div>
-        `).join('');
+        `;
+        }).join('');
       })()}
     </div>
     ` : ''}
@@ -4810,6 +4839,13 @@ let odPickerError = null;
 // 'materials' (Material Orders auto-sync). The target decides which columns
 // get written and which page "Use this folder" sends you back to.
 let odPickerTarget = 'progress';
+// Admin Centre > Integrations > "Synced per site" row action dropdown —
+// same compact select-driven pattern as the per-site Sync Folder section,
+// just with an extra "Open Site Admin" option since this list spans sites.
+window.syncedSiteAction = function(siteId, action){
+  if(action==='admin') go(`#/site/${siteId}/team`);
+  else if(action==='sync') manualSyncSiteOneDrive(siteId);
+};
 window.onedriveFolderAction = function(siteId, action){
   if(action==='change') startOneDriveFolderPicker(siteId, 'progress');
   else if(action==='unlink') unlinkOneDriveFolder(siteId);
@@ -4826,7 +4862,7 @@ window.manualSyncSiteOneDrive = async function(siteId){
   siteOdSyncBusy = siteId; render();
   try{
     const body = {parent_id: site.onedrive_folder_id, drive_id: site.onedrive_drive_id||undefined, includeFiles:true};
-    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); siteOdSyncBusy=null; render(); return; }
     const remoteFiles = d.files || [];
@@ -4836,7 +4872,7 @@ window.manualSyncSiteOneDrive = async function(siteId){
     for(const f of remoteFiles){
       if(existingNames.has(f.name)) continue;
       try{
-        const dres = await sbFetch('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
+        const dres = await sbFetchIdempotent('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
         const dd = await dres.json();
         if(!dres.ok || dd.error || !dd.content_base64){ failed++; continue; }
         const bytes = Uint8Array.from(atob(dd.content_base64), c=>c.charCodeAt(0));
@@ -4898,7 +4934,7 @@ async function loadOdPickerFolders(){
           : current.driveId
             ? {parent_id: current.id, drive_id: current.driveId}
             : {parent_id: current.id};
-    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
+    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
     else {
@@ -19244,7 +19280,7 @@ async function loadDrawingImportLevel(){
   try{
     const body = {includeFiles:true};
     if(current.id){ body.parent_id = current.id; if(current.driveId) body.drive_id = current.driveId; }
-    const res = await sbFetch('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ drawingImportError = d.error || 'Could not load OneDrive folders.'; drawingImportFolders = []; drawingImportFiles = []; }
     else { drawingImportFolders = d.folders || []; drawingImportFiles = d.files || []; drawingImportError = null; }
