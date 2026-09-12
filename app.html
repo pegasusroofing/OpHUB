@@ -1127,12 +1127,26 @@ async function ensureFreshToken(){
 async function sbFetch(path, opts){
   opts = opts || {};
   await ensureFreshToken();
+  // #(no-stale-reads): every dbSelect() GET goes through here, and this app
+  // is loaded inside an Android WebView, which — unlike a normal browser tab
+  // — will sometimes serve a GET straight out of its on-disk HTTP cache
+  // instead of re-hitting the network, even for an API response with no
+  // Cache-Control header at all. That silently returned stale data: e.g. the
+  // Outstanding Tasks page/badge still counting a RAMS/COSHH signature as
+  // missing after the last person who needed to sign it had already been
+  // removed from the site (or had actually signed), because the WebView
+  // handed back the same cached JSON it fetched minutes/hours earlier
+  // instead of asking the server again. `cache:'no-store'` plus explicit
+  // no-cache headers force every request — reads included — to always go to
+  // the network.
   const headers = Object.assign({
     'apikey': SUPABASE_ANON_KEY,
     'Authorization': 'Bearer ' + (SESSION ? SESSION.access_token : SUPABASE_ANON_KEY),
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
   }, opts.headers||{});
-  return fetchWithRetry(SUPABASE_URL + path, Object.assign({}, opts, {headers}), 20000);
+  return fetchWithRetry(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), 20000);
 }
 async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
 
@@ -1409,6 +1423,15 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
+// Feature flag: the Price Builder rewrite (Excel-driven rate card library,
+// Price/Price Builder tile split, compact builder redesign) is still in
+// progress and not signed off yet. While this is false, Price behaves
+// exactly like the single, already-live Pricing Elements page (no landing
+// split, no Price Builder entry points reachable), and the Admin Centre
+// "Price Builder — Rate Card" section stays hidden. Flip to true once
+// that work is finished and ready to ship — all the code for it stays in
+// place either way, just unreachable until then.
+const PRICE_BUILDER_LIVE = false;
 const DEFAULT_BRAND2 = '#101114';
 // Inline SVG, can never 404 — the last-resort fallback so a missing/slow
 // asset never causes an onerror retry loop (which shows as a "flashing" broken image).
@@ -3502,6 +3525,24 @@ async function renderTeam(){
   const deviceLocks = (iAmAdmin && teamSectionOpen.devicelocks) ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const suppliers = (isManager(ME) && teamSectionOpen.suppliers) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
   const havsTools = (isManager(ME) && teamSectionOpen.havstools) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
+  // Price Builder rate card — PM/admin only, org-wide (mirrors Suppliers).
+  // Kept hidden while it's still being built out (#PB-wip) since it's not
+  // wired into anything live yet.
+  let priceRateItems = [], priceRateOptions = [];
+  if(PRICE_BUILDER_LIVE && isManager(ME) && teamSectionOpen.pricebuilder){
+    priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
+    const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
+    priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
+  }
+  // Schedule of Works library — org-wide reusable templates (org_id=eq. so
+  // this stays scoped to this company even though sow_library_templates has
+  // no site_id) a PM/admin can pick from when building any site's Schedule
+  // of Works. Only loaded while the section is actually open.
+  let sowLibTemplates = [];
+  if(isManager(ME) && teamSectionOpen.sowlibrary){
+    sowLibTemplates = await dbSelect('sow_library_templates', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+    if(sowLibOpenTemplateId && !sowLibSectionsCache[sowLibOpenTemplateId]) await loadSowLibContents(sowLibOpenTemplateId);
+  }
   // H&S Policy is now uploaded ONLY from here — every site-scoped H&S page
   // still shows/signs the current policy, but their own upload forms have
   // been removed and point back to this section instead.
@@ -3578,6 +3619,17 @@ async function renderTeam(){
   // section is just the root OneDrive folder link, so nothing to query here.
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
+  // Price Builder rate card grouped by category, each item's dropdown
+  // options (if any) attached — same shape the sheet builder itself uses.
+  const priceRateOptionsByItem = {};
+  priceRateOptions.forEach(o=>{ (priceRateOptionsByItem[o.rate_item_id]=priceRateOptionsByItem[o.rate_item_id]||[]).push(o); });
+  const priceRateCategories = [];
+  priceRateItems.forEach(it=>{
+    let cat = priceRateCategories.find(c=>c.name===it.category);
+    if(!cat){ cat = {name:it.category, items:[]}; priceRateCategories.push(cat); }
+    cat.items.push(it);
+  });
+  sortPriceRateCategories(priceRateCategories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${iAmAdmin ? `
     <p class="ddrow" style="margin-top:0;" onclick="go('#/dashboard')">📊 Dashboard</p>
@@ -3708,6 +3760,126 @@ async function renderTeam(){
       ` : `
         <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
       `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) && PRICE_BUILDER_LIVE ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="rolechip" style="margin-left:4px;">Work in progress</span></p>
+    ${teamSectionOpen.pricebuilder ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
+      <div class="row-gap" style="margin-bottom:12px;">
+        <button class="ghostbtn" style="flex:1;" onclick="exportPriceRateExcel()">⬇ Download Rate Card (Excel)</button>
+        <button class="darkbtn" style="flex:1;" onclick="document.getElementById('priceRateExcelInputTop').click()">⬆ Upload Rate Card (Excel)</button>
+        <input type="file" id="priceRateExcelInputTop" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importPriceRateExcel(this)">
+      </div>
+      ${priceRateCategories.map(cat=>`
+        <p class="sectiontitle" style="margin:14px 0 6px;font-size:12.5px;">${escapeHtml(cat.name)}</p>
+        ${cat.items.map(it=>`
+          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+            <div class="info" style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
+              <input type="text" value="${escapeHtml(it.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','name')">
+              <div class="meta">${it.is_dropdown ? 'Dropdown — priced by option below' : escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)}</div>
+            </div>
+            ${!it.is_dropdown ? `
+            <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${it.rate!=null?it.rate:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','rate')"></div>
+            ` : ''}
+            <div class="taskicon danger" onclick="deletePriceRateItem('${it.id}','${jsAttr(it.name)}')">🗑</div>
+          </div>
+          ${it.is_dropdown ? `
+          <div style="margin:0 0 8px 14px;padding-left:10px;border-left:2px solid var(--line);">
+            ${(priceRateOptionsByItem[it.id]||[]).map(o=>`
+              <div class="sitecard" style="padding:6px 8px;">
+                <div class="info"><input type="text" value="${escapeHtml(o.label)}" style="border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);width:100%;box-sizing:border-box;" onblur="savePriceRateOptionField(this,'${o.id}','label')"></div>
+                <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${o.rate}" style="width:64px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateOptionField(this,'${o.id}','rate')"></div>
+                <div class="taskicon danger" onclick="deletePriceRateOption('${o.id}','${it.id}')">🗑</div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:6px;">No options yet.</div>`}
+            <div class="ghostbtn" style="margin-top:4px;padding:6px;font-size:11px;" onclick="addPriceRateOption('${it.id}')">+ Add option</div>
+          </div>
+          ` : ''}
+        `).join('')}
+      `).join('') || `<div class="empty" style="padding:10px;">No rate card items yet — add your first one below.</div>`}
+      ${priceRateAddOpen ? `
+        <div class="formfield" style="margin-top:14px;"><input type="text" id="prCategory" placeholder="Category, e.g. Pitched Roof" value="${escapeHtml(priceRateAddLastCategory)}"></div>
+        <div class="formfield"><input type="text" id="prName" placeholder="Item name, e.g. Strip"></div>
+        <div class="formfield"><label class="field-label">Unit</label>
+          <select id="prUnit"><option value="lm">Linear metre</option><option value="m2">m²</option><option value="each">Each</option></select>
+        </div>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="prIsDropdown" style="width:auto;" onchange="document.getElementById('prRateRow').style.display=this.checked?'none':'block'">This is a dropdown (e.g. Tile Type) — priced by option, added after</label>
+        <div class="formfield" id="prRateRow"><label class="field-label">Rate (£)</label><input type="number" step="0.01" id="prRate" placeholder="0.00"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addPriceRateItem()">Add Item</button>
+          <button class="ghostbtn" style="flex:1;" onclick="priceRateAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Prefer Excel for bulk changes — see Download/Upload Rate Card above.</p>
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="priceRateAddOpen=true;render()">+ Add Rate Item</button>
+      `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('sowlibrary')"><span class="arrow">${teamSectionOpen.sowlibrary?'▼':'▶'}</span> Schedule of Works — Library</p>
+    ${teamSectionOpen.sowlibrary ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Reusable Schedule of Works templates for the whole company — build one once here, then pick it from any site's Schedule of Works "+ → From Library" to copy the whole structure in. Every copied line becomes an ordinary task on that site, fully editable or deletable afterwards — this library copy is never linked back to.</p>
+      ${sowLibTemplates.map(t=>`
+        <div class="ddrow" onclick="toggleSowLibTemplate('${t.id}')">
+          <span class="arrow">${sowLibOpenTemplateId===t.id?'▼':'▶'}</span> ${escapeHtml(t.name)}
+        </div>
+        ${sowLibOpenTemplateId===t.id ? `
+          <div style="margin:0 0 14px 14px;padding-left:10px;border-left:2px solid var(--line);">
+            <div class="row-gap" style="margin-bottom:10px;">
+              <button class="ghostbtn" style="flex:1;" onclick="renameSowLibTemplate('${t.id}')">✎ Rename</button>
+              <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSowLibTemplate('${t.id}')">🗑 Delete Template</button>
+            </div>
+            ${(sowLibSectionsCache[t.id]||[]).map(sec=>`
+              <div class="sitecard" style="padding:8px 10px;flex-direction:column;align-items:stretch;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-weight:700;font-size:13px;">${escapeHtml(sec.name)}</span>
+                  <span style="display:flex;gap:6px;">
+                    <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="renameSowLibSection('${t.id}','${sec.id}')">✎</span>
+                    <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteSowLibSection('${t.id}','${sec.id}')">🗑</span>
+                  </span>
+                </div>
+                ${(sowLibTasksCache[t.id]||[]).filter(x=>x.section_id===sec.id).map(task=>`
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 0 10px;">
+                    <span style="font-size:12.5px;">${escapeHtml(task.name)}</span>
+                    <span style="display:flex;gap:6px;">
+                      <span class="taskicon" style="width:20px;height:20px;font-size:10px;" onclick="renameSowLibTask('${t.id}','${task.id}')">✎</span>
+                      <span class="taskicon danger" style="width:20px;height:20px;font-size:10px;" onclick="deleteSowLibTask('${t.id}','${task.id}')">🗑</span>
+                    </span>
+                  </div>
+                `).join('')}
+                <div class="row-gap" style="margin:8px 0 0 10px;">
+                  <input type="text" id="sowLibNewTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:6px 8px;font-size:11.5px;">
+                  <button class="darkbtn" style="flex:1;padding:6px 8px;font-size:11.5px;" onclick="addSowLibTask('${t.id}','${sec.id}')">Add</button>
+                </div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:8px;">No sections yet.</div>`}
+            <div class="row-gap" style="margin:10px 0;">
+              <input type="text" id="sowLibNewSectionName-${t.id}" placeholder="New section, e.g. Pitched Roofing" style="flex:2;padding:8px 10px;font-size:12px;">
+              <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addSowLibSection('${t.id}')">Add Section</button>
+            </div>
+            <p class="field-label" style="margin:10px 0 6px;">Ungrouped tasks</p>
+            ${(sowLibTasksCache[t.id]||[]).filter(x=>!x.section_id).map(task=>`
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;">
+                <span style="font-size:12.5px;">${escapeHtml(task.name)}</span>
+                <span style="display:flex;gap:6px;">
+                  <span class="taskicon" style="width:20px;height:20px;font-size:10px;" onclick="renameSowLibTask('${t.id}','${task.id}')">✎</span>
+                  <span class="taskicon danger" style="width:20px;height:20px;font-size:10px;" onclick="deleteSowLibTask('${t.id}','${task.id}')">🗑</span>
+                </span>
+              </div>
+            `).join('')}
+            <div class="row-gap">
+              <input type="text" id="sowLibNewTaskName-${t.id}" placeholder="e.g. General site task" style="flex:2;padding:8px 10px;font-size:12px;">
+              <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addSowLibTask('${t.id}')">Add</button>
+            </div>
+          </div>
+        ` : ''}
+      `).join('') || `<div class="empty">No templates yet.</div>`}
+      <button class="darkbtn" style="margin-top:10px;" onclick="addSowLibTemplate()">+ New Template</button>
     </div>
     ` : ''}
     ` : ''}
@@ -4096,7 +4268,117 @@ async function renderTeam(){
     if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false};
+let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
+/* ================= Schedule of Works — Library (Admin Centre). Org-wide
+   reusable templates a PM/admin builds once here, then picks from any
+   site's Schedule of Works "+ → From Library" to copy the whole
+   section/task structure in — every copied row is immediately just an
+   ordinary editable/deletable schedule_sections/schedule_tasks row, the
+   template itself is never referenced live again after the copy. ================= */
+let sowLibOpenTemplateId = null;
+let sowLibSectionsCache = {};
+let sowLibTasksCache = {};
+async function loadSowLibContents(templateId){
+  const [secs, tasks] = await Promise.all([
+    dbSelect('sow_library_sections', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+    dbSelect('sow_library_tasks', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+  ]);
+  sowLibSectionsCache[templateId] = secs;
+  sowLibTasksCache[templateId] = tasks;
+}
+window.addSowLibTemplate = async function(){
+  const name = await customPrompt('Template name', '');
+  if(name===null) return;
+  const trimmed = name.trim(); if(!trimmed){ toast('Enter a name.'); return; }
+  const rows = await dbInsert('sow_library_templates', {org_id:ME.org_id, name:trimmed, created_by:ME.id});
+  if(rows && rows[0]){
+    toast('Template created');
+    sowLibOpenTemplateId = rows[0].id;
+    await loadSowLibContents(rows[0].id);
+    render();
+  }
+};
+window.renameSowLibTemplate = async function(id){
+  const t = (await dbSelect('sow_library_templates', 'id=eq.'+id+'&select=name'))[0];
+  const name = await customPrompt('Template name', t?t.name:'');
+  if(name===null) return;
+  const trimmed = name.trim(); if(!trimmed){ toast('Name can\'t be empty.'); return; }
+  const row = await dbUpdate('sow_library_templates', id, {name:trimmed});
+  if(row){ toast('Renamed'); render(); }
+};
+window.deleteSowLibTemplate = async function(id){
+  if(!await customConfirm('Delete this library template? This can\'t be undone (sites that already used it keep their own copied tasks).')) return;
+  const ok = await dbDelete('sow_library_templates', id);
+  if(ok){ toast('Template deleted'); if(sowLibOpenTemplateId===id) sowLibOpenTemplateId=null; render(); }
+};
+window.toggleSowLibTemplate = async function(id){
+  if(sowLibOpenTemplateId===id){ sowLibOpenTemplateId=null; render(); return; }
+  sowLibOpenTemplateId = id;
+  await loadSowLibContents(id);
+  render();
+};
+window.addSowLibSection = async function(templateId){
+  const input = document.getElementById('sowLibNewSectionName-'+templateId);
+  const name = input.value.trim(); if(!name) return;
+  const secs = sowLibSectionsCache[templateId]||[];
+  const position = secs.length ? Math.max(...secs.map(s=>s.position||0))+1 : 0;
+  const rows = await dbInsert('sow_library_sections', {template_id:templateId, name, position});
+  if(rows){ input.value=''; await loadSowLibContents(templateId); toast('Section added'); render(); }
+};
+window.addSowLibTask = async function(templateId, sectionId){
+  const input = document.getElementById(sectionId ? ('sowLibNewTaskName-'+sectionId) : ('sowLibNewTaskName-'+templateId));
+  const name = input.value.trim(); if(!name) return;
+  const tasks = sowLibTasksCache[templateId]||[];
+  const position = tasks.length ? Math.max(...tasks.map(t=>t.position||0))+1 : 0;
+  const row = {template_id:templateId, name, position};
+  if(sectionId) row.section_id = sectionId;
+  const rows = await dbInsert('sow_library_tasks', row);
+  if(rows){ input.value=''; await loadSowLibContents(templateId); toast('Task added'); render(); }
+};
+window.renameSowLibSection = async function(templateId, sectionId){
+  const secs = sowLibSectionsCache[templateId]||[];
+  const s = secs.find(x=>x.id===sectionId);
+  const name = await customPrompt('Section name', s?s.name:'');
+  if(name===null) return;
+  const trimmed = name.trim(); if(!trimmed){ toast('Name can\'t be empty.'); return; }
+  const row = await dbUpdate('sow_library_sections', sectionId, {name:trimmed});
+  if(row){ await loadSowLibContents(templateId); render(); }
+};
+window.deleteSowLibSection = async function(templateId, sectionId){
+  if(!await customConfirm('Delete this section? Its tasks in the library are deleted too.')) return;
+  const ok = await dbDelete('sow_library_sections', sectionId);
+  if(ok){ await loadSowLibContents(templateId); toast('Section deleted'); render(); }
+};
+window.renameSowLibTask = async function(templateId, taskId){
+  const tasks = sowLibTasksCache[templateId]||[];
+  const t = tasks.find(x=>x.id===taskId);
+  const name = await customPrompt('Task name', t?t.name:'');
+  if(name===null) return;
+  const trimmed = name.trim(); if(!trimmed){ toast('Name can\'t be empty.'); return; }
+  const row = await dbUpdate('sow_library_tasks', taskId, {name:trimmed});
+  if(row){ await loadSowLibContents(templateId); render(); }
+};
+window.deleteSowLibTask = async function(templateId, taskId){
+  if(!await customConfirm('Delete this task?')) return;
+  const ok = await dbDelete('sow_library_tasks', taskId);
+  if(ok){ await loadSowLibContents(templateId); toast('Task deleted'); render(); }
+};
+/* ================= PRICE BUILDER — shared helpers (WIP feature) ================= */
+const PRICE_UNIT_LABEL = {lm:'per linear metre', m2:'per m²', each:'each'};
+// Categories render in this fixed order rather than alphabetically — any
+// category not in this list (e.g. one someone adds later) is appended after,
+// alphabetically among themselves.
+const PRICE_CATEGORY_ORDER = ['Pitched Roofing','Roofline','General','Leadwork','Loft Insulation'];
+function sortPriceRateCategories(cats){
+  cats.sort((a,b)=>{
+    const ai = PRICE_CATEGORY_ORDER.indexOf(a.name), bi = PRICE_CATEGORY_ORDER.indexOf(b.name);
+    if(ai>-1 && bi>-1) return ai-bi;
+    if(ai>-1) return -1;
+    if(bi>-1) return 1;
+    return a.name.localeCompare(b.name);
+  });
+  return cats;
+}
 // Users list in Admin Centre: role-change/remove buttons are hidden until
 // the person's row is tapped, so the list isn't cluttered with buttons by default.
 let userActionsOpenFor = {};
@@ -6288,7 +6570,11 @@ window.setGeofence = async function(siteId){
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     SITES[idx] = row;
-    toast('Site location saved');
+    toast('Site location saved — now choose the check-in distance below');
+    // Straight into the distance picker rather than leaving it collapsed —
+    // setting a location isn't finished until a check-in/out distance is
+    // also confirmed, so don't make that a second, easy-to-miss step.
+    checkinGeofenceOpen = true;
     render();
   }
 };
@@ -6297,7 +6583,8 @@ async function saveGeofenceCoords(siteId, lat, lon){
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     SITES[idx] = row;
-    toast('Site location saved');
+    toast('Site location saved — now choose the check-in distance below');
+    checkinGeofenceOpen = true;
     render();
   }
 }
@@ -6433,7 +6720,11 @@ window.saveManualGeo = async function(siteId){
    updateGeoMapLink as-is since they're generic. ================= */
 async function saveSubGeofenceCoords(subId, lat, lon){
   const row = await dbUpdate('site_sub_addresses', subId, {geofence_lat:lat, geofence_lon:lon});
-  if(row){ toast('Address location saved'); render(); }
+  if(row){
+    toast('Address location saved — now choose the check-in distance below');
+    checkinGeofenceOpen = true;
+    render();
+  }
 }
 window.setSubGeofence = async function(subId){
   if(!orgAllowsGps()){ toast('GPS check-in & geofencing needs OpHUB Pro or above.'); return; }
@@ -6441,7 +6732,11 @@ window.setSubGeofence = async function(subId){
   const g = await getGeo();
   if(g.error){ toast(g.error); return; }
   const row = await dbUpdate('site_sub_addresses', subId, {geofence_lat:g.lat, geofence_lon:g.lon});
-  if(row){ toast('Address location saved'); render(); }
+  if(row){
+    toast('Address location saved — now choose the check-in distance below');
+    checkinGeofenceOpen = true;
+    render();
+  }
 };
 window.setSubGeofenceRadius = async function(subId, radius){
   const row = await dbUpdate('site_sub_addresses', subId, {geofence_radius_m: radius});
@@ -7486,6 +7781,50 @@ window.savePriceWeek = async function(elementId, siteId, weekNumber, rawValue){
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); }
   render();
 };
+// Price landing page — the single "Price" tile on Site Home lands here, with
+// two sub-tiles underneath it: the existing Pricing Elements tool (renamed
+// "Price" here, unchanged otherwise, now reached via /price/elements) and
+// Price Builder (still WIP, reached via /pricebuilder as before). Keeps one
+// entry point on Site Home while still giving Price Builder its own clearly
+// separate space rather than being buried inside the Pricing Elements page.
+async function renderPriceHome(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  let canSeePrice = false;
+  if(site.price_enabled){
+    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
+    else {
+      const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+      canSeePrice = grant.length>0;
+    }
+  }
+  let pendingVariationCount = 0;
+  if(canSeePrice && isManager(ME)){
+    const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
+    pendingVariationCount = pendingAw.length;
+  }
+  let priceBuilderTileCount = 0;
+  if(isManager(ME)) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&select=id')).length;
+  else if(canSeePrice) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&status=eq.issued&select=id')).length;
+  const showPriceBuilderTile = isManager(ME) ? true : priceBuilderTileCount>0;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid">
+      ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price/elements')">
+        <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
+        <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Pricing elements'}</div>
+        ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
+      </div>` : `<div class="tile" style="opacity:.55;cursor:default;">
+        <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
+        <div class="lbl">Price</div><div class="sub">Restricted access</div>
+      </div>`}
+      ${showPriceBuilderTile ? `<div class="tile" onclick="go('#/site/${siteId}/pricebuilder')">
+        <div class="icon" style="background:#FFF3D9;color:#8A6300;">🧮</div>
+        <div class="lbl">Price Builder</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (isManager(ME)?'No sheets yet':'None issued')}</div>
+        ${priceBuilderTileCount?`<span class="badge-count">${priceBuilderTileCount}</span>`:''}
+      </div>` : ''}
+    </div>
+  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
+}
 async function renderPriceTile(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -7504,6 +7843,8 @@ async function renderPriceTile(siteId){
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
   ]);
   await loadAllProfiles();
+  // Price Builder now has its own Site Home tile (see the tile-grid render
+  // function) — no longer fetched or entry-pointed from here.
 
   // Per-element price/labour-invoice access for the current user — two
   // queries total regardless of how many elements exist. PM/admin always
@@ -7680,7 +8021,7 @@ async function renderPriceTile(siteId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
+  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: PRICE_BUILDER_LIVE ? `#/site/${siteId}/price` : `#/site/${siteId}/home`, siteId, tabs:false}); }
   // Fire-and-forget: only a manager's own view can flip the flag (updating
   // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
   // just viewing the price. Only actually hits the DB on a state change —
@@ -8002,6 +8343,369 @@ function pricingElementCardHtml(el, d, ctx){
     </div>
     `;
 }
+
+/* ================= PRICE BUILDER — priced sheets (WIP feature) =================
+   Separate from the Pricing Elements system above (see #PB-wip) — builds a
+   tick-box priced sheet from the org's rate card (Settings & Admin ›
+   Price Builder — Rate Card) for a specific site, to issue to a
+   subcontractor. Draft sheets are only ever visible to PM/admin (RLS also
+   enforces this); issuing one snapshots every line's rate so a later rate
+   card edit never changes an already-issued sheet, and makes it visible
+   read-only to anyone assigned to the site. */
+const PRICE_BUILDER_FMT = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+let priceBuilderNewOpen = false;
+async function renderPriceBuilderSheets(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  const sheets = await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
+    ${sheets.filter(s=>canManage || s.status==='issued').map(s=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/pricebuilder/${s.status==='issued'?'view':'edit'}/${s.id}')">
+        <div class="swatch">💷</div>
+        <div class="info">
+          <div class="name">${escapeHtml(s.title)}</div>
+          <div class="sub">${s.subcontractor_name?escapeHtml(s.subcontractor_name)+' · ':''}${PRICE_BUILDER_FMT(s.total)}</div>
+        </div>
+        <span class="pill ${s.status==='issued'?'on':'off'}">${s.status==='issued'?'Issued':'Draft'}</span>
+        ${s.status==='issued' ? `<div class="taskicon" onclick="event.stopPropagation();exportPriceBuilderSheet('${s.id}')">⬇</div>` : ''}
+        ${canManage && s.status==='draft' ? `<div class="taskicon danger" onclick="event.stopPropagation();deletePriceBuilderSheet('${s.id}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">${canManage?'No sheets yet — create your first one below.':'Nothing issued yet.'}</div>`}
+    ${canManage ? (priceBuilderNewOpen ? `
+      <div class="card" style="margin-top:14px;">
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" placeholder="e.g. Rear Pitched Roof"></div>
+        <div class="formfield"><label class="field-label">Subcontractor (optional)</label><input type="text" id="pbNewSub" placeholder="Who this is being priced for"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="createPriceBuilderSheet('${siteId}')">Create</button>
+          <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;render()">Cancel</button>
+        </div>
+      </div>
+    ` : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`) : ''}
+  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
+}
+window.createPriceBuilderSheet = async function(siteId){
+  const title = document.getElementById('pbNewTitle').value.trim();
+  const subcontractor_name = document.getElementById('pbNewSub').value.trim() || null;
+  if(!title){ toast('Enter a title for this sheet.'); return; }
+  const rows = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name, created_by:ME.id});
+  if(rows && rows[0]){ priceBuilderNewOpen = false; go(`#/site/${siteId}/pricebuilder/edit/${rows[0].id}`); }
+};
+window.deletePriceBuilderSheet = async function(sheetId){
+  if(!await customConfirm('Delete this draft sheet? This can\'t be undone.')) return;
+  const ok = await dbDelete('price_builder_sheets', sheetId);
+  if(ok){ toast('Sheet deleted'); render(); }
+};
+
+// Working state for the sheet currently being built — items keyed by
+// rate_item_id. Loaded fresh from the DB whenever a different sheet is
+// opened (pbWorking.sheetId !== the one being rendered), so switching
+// sheets never bleeds one sheet's ticks into another's, but re-renders of
+// the SAME sheet (every tick/quantity change calls render()) don't stomp
+// on what's still only sitting in memory and hasn't been saved yet.
+let pbWorking = {sheetId:null, title:'', subcontractorName:'', items:{}, customRows:[]};
+function pbLineTotal(entry, item){
+  const qty = Number(entry.quantity)||0;
+  const rate = item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
+  return qty * rate;
+}
+function pbCustomLineTotal(row){ return (Number(row.quantity)||0) * (Number(row.rate)||0); }
+// Collapsible category headers in the builder — keyed by category name,
+// default open (undefined -> true) so nothing that used to always show
+// suddenly disappears the first time someone opens the page.
+let pbCategoryOpen = {};
+window.pbToggleCategory = function(name){ pbCategoryOpen[name] = pbCategoryOpen[name]===false ? true : false; render(); };
+async function renderPriceBuilderEdit(siteId, sheetId){
+  const __gen = RENDER_GEN;
+  if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/price`); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const sheet = sheetRows[0];
+  if(!sheet){ toast('Sheet not found.'); go(`#/site/${siteId}/pricebuilder`); return; }
+  if(sheet.status==='issued'){ go(`#/site/${siteId}/pricebuilder/view/${sheetId}`); return; }
+
+  const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
+  const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
+  const priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
+  const optionsByItem = {};
+  priceRateOptions.forEach(o=>{ (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o); });
+  const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
+
+  if(pbWorking.sheetId !== sheetId){
+    const existingItems = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId);
+    const items = {};
+    const customRows = [];
+    existingItems.forEach(row=>{
+      if(!row.rate_item_id){
+        // No linked rate item — either a genuine custom row, or a rate item
+        // since deleted from the card. Either way it still has its own
+        // name/rate/quantity saved on the row itself, so keep it as a
+        // custom row rather than silently dropping it.
+        customRows.push({localId:uid(), name:row.name||'', rate:row.rate, quantity:row.quantity, unit:row.unit||'each'});
+        return;
+      }
+      items[row.rate_item_id] = {quantity:row.quantity, optionId:row.option_id||null, optionRate:row.option_id?row.rate:null, optionLabel:row.option_label||null};
+    });
+    pbWorking = {sheetId, title:sheet.title, subcontractorName:sheet.subcontractor_name||'', items, customRows};
+  }
+
+  const categories = [];
+  priceRateItems.forEach(it=>{
+    let cat = categories.find(c=>c.name===it.category);
+    if(!cat){ cat = {name:it.category, items:[]}; categories.push(cat); }
+    cat.items.push(it);
+  });
+  sortPriceRateCategories(categories);
+
+  let grandTotal = 0;
+  Object.keys(pbWorking.items).forEach(id=>{ const item = itemsById[id]; if(item) grandTotal += pbLineTotal(pbWorking.items[id], item); });
+  pbWorking.customRows.forEach(row=>{ grandTotal += pbCustomLineTotal(row); });
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" value="${escapeHtml(pbWorking.title)}" onblur="pbWorking.title=this.value.trim()||pbWorking.title;render()"></div>
+    <div class="formfield"><label class="field-label">Subcontractor (optional)</label><input type="text" value="${escapeHtml(pbWorking.subcontractorName)}" onblur="pbWorking.subcontractorName=this.value.trim();render()"></div>
+
+    ${categories.map(cat=>{
+      const open = pbCategoryOpen[cat.name]!==false;
+      return `
+      <p class="ddrow" style="margin-top:14px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
+      ${open ? cat.items.map(it=>{
+        const entry = pbWorking.items[it.id];
+        const ticked = !!entry;
+        const opts = optionsByItem[it.id]||[];
+        return `
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
+          <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${ticked?'checked':''} onchange="pbToggleItem('${it.id}',this.checked)">
+          <div class="info" style="flex:1 1 130px;min-width:110px;">
+            <div class="name">${escapeHtml(it.name)}</div>
+            ${!it.is_dropdown?`<div class="sub">${PRICE_BUILDER_FMT(it.rate)} ${PRICE_UNIT_LABEL[it.unit]}</div>`:''}
+          </div>
+          ${ticked && it.is_dropdown ? `
+          <select style="flex:1 1 140px;min-width:120px;" onchange="pbSetOption('${it.id}', this.value)">
+            <option value="">— Choose —</option>
+            ${opts.map(o=>`<option value="${o.id}" ${entry.optionId===o.id?'selected':''}>${escapeHtml(o.label)} (${PRICE_BUILDER_FMT(o.rate)})</option>`).join('')}
+          </select>
+          ` : ''}
+          ${ticked ? `
+          <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+            <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${it.id}', this.value)">
+            <span class="stub" style="margin:0;">${PRICE_UNIT_LABEL[it.unit]}</span>
+          </div>
+          <span class="stub" style="margin:0;font-weight:700;min-width:64px;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
+          ` : ''}
+        </div>
+      `;}).join('') : ''}
+    `;}).join('') || `<div class="empty">No rate card items yet — add some from Settings &amp; Admin › Price Builder — Rate Card first.</div>`}
+
+    <p class="ddrow" style="margin-top:14px;" onclick="pbToggleCategory('__custom')"><span class="arrow">${pbCategoryOpen.__custom!==false?'▼':'▶'}</span> Additional Items</p>
+    ${pbCategoryOpen.__custom!==false ? `
+      <p class="stub" style="margin:0 0 8px;">Rows not on the rate card — a one-off item and rate for this sheet only.</p>
+      ${pbWorking.customRows.map((row,idx)=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
+          <input type="text" placeholder="Item description" value="${escapeHtml(row.name)}" style="flex:1 1 140px;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'name',this.value)">
+          <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
+            <input type="number" step="0.1" placeholder="Qty" value="${row.quantity!=null?row.quantity:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'quantity',this.value)">
+            <input type="number" step="0.01" placeholder="Rate £" value="${row.rate!=null?row.rate:''}" style="width:80px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'rate',this.value)">
+          </div>
+          <span class="stub" style="margin:0;font-weight:700;min-width:64px;text-align:right;">${PRICE_BUILDER_FMT(pbCustomLineTotal(row))}</span>
+          <div class="taskicon danger" onclick="pbRemoveCustomRow(${idx})">🗑</div>
+        </div>
+      `).join('') || ''}
+      <button class="ghostbtn" style="margin-top:4px;" onclick="pbAddCustomRow()">+ Add custom row</button>
+    ` : ''}
+
+    <div class="card" style="margin-top:14px;position:sticky;bottom:70px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="sectiontitle" style="margin:0;">Total</span>
+        <span style="font-size:18px;font-weight:800;">${PRICE_BUILDER_FMT(grandTotal)}</span>
+      </div>
+    </div>
+    <div class="row-gap" style="margin-top:10px;">
+      <button class="ghostbtn" style="flex:1;" onclick="savePriceBuilderDraft('${siteId}','${sheetId}')">Save Draft</button>
+      <button class="darkbtn" style="flex:1;" onclick="issuePriceBuilderSheet('${siteId}','${sheetId}')">Issue</button>
+    </div>
+  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
+}
+window.pbToggleItem = function(itemId, checked){
+  if(checked) pbWorking.items[itemId] = pbWorking.items[itemId] || {quantity:'', optionId:null, optionRate:null, optionLabel:null};
+  else delete pbWorking.items[itemId];
+  render();
+};
+// Qty spinners step in 0.1s (1.1, 1.2, 1.3…) but the box stays a free-text
+// number field underneath — typed values are just rounded to 2dp on blur so
+// measurements always store/display the same precision either way.
+const pbRound2 = n => Math.round((Number(n)||0)*100)/100;
+window.pbSetQuantity = function(itemId, value){
+  const entry = pbWorking.items[itemId]; if(!entry) return;
+  entry.quantity = value==='' ? '' : pbRound2(parseFloat(value));
+  render();
+};
+window.pbSetOption = function(itemId, optionId){
+  const entry = pbWorking.items[itemId]; if(!entry) return;
+  if(!optionId){ entry.optionId=null; entry.optionRate=null; entry.optionLabel=null; render(); return; }
+  dbSelect('price_rate_options', 'id=eq.'+optionId).then(rows=>{
+    const o = rows[0]; if(!o) return;
+    entry.optionId = o.id; entry.optionRate = o.rate; entry.optionLabel = o.label;
+    render();
+  });
+};
+window.pbAddCustomRow = function(){
+  pbWorking.customRows.push({localId:uid(), name:'', rate:'', quantity:'', unit:'each'});
+  render();
+};
+window.pbRemoveCustomRow = function(idx){
+  pbWorking.customRows.splice(idx,1);
+  render();
+};
+window.pbSetCustomField = function(idx, field, value){
+  const row = pbWorking.customRows[idx]; if(!row) return;
+  if(field==='name') row.name = value.trim();
+  else if(field==='quantity') row.quantity = value==='' ? '' : pbRound2(parseFloat(value));
+  else row[field] = value==='' ? '' : parseFloat(value);
+  render();
+};
+// Shared by Save Draft and Issue — persists pbWorking to the DB (delete-all
+// then re-insert this sheet's line items is simplest and safe here: sheets
+// are edited by one PM at a time and item counts are small).
+async function pbPersist(siteId, sheetId, status){
+  const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id);
+  const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
+  const rows = [];
+  let total = 0; let sortOrder = 0;
+  Object.keys(pbWorking.items).forEach(id=>{
+    const item = itemsById[id]; if(!item) return;
+    const entry = pbWorking.items[id];
+    const qty = Number(entry.quantity)||0;
+    if(!qty) return; // ticked but no quantity yet — don't save a zero line
+    if(item.is_dropdown && !entry.optionId) return; // ticked but no option chosen yet
+    const lineTotal = pbLineTotal(entry, item);
+    total += lineTotal;
+    rows.push({
+      sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: item.name, unit: item.unit,
+      rate: item.is_dropdown ? entry.optionRate : item.rate, quantity: qty,
+      option_id: entry.optionId||null, option_label: entry.optionLabel||null,
+      line_total: lineTotal, sort_order: sortOrder++,
+    });
+  });
+  // Custom rows — no linked rate_item_id, name/rate saved directly on the row.
+  pbWorking.customRows.forEach(row=>{
+    const qty = Number(row.quantity)||0;
+    const rate = Number(row.rate)||0;
+    if(!row.name || !qty || !rate) return; // incomplete custom row — don't save a blank/zero line
+    const lineTotal = qty * rate;
+    total += lineTotal;
+    rows.push({
+      sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'each',
+      rate, quantity: qty, option_id: null, option_label: null,
+      line_total: lineTotal, sort_order: sortOrder++,
+    });
+  });
+  const existing = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id');
+  for(const row of existing){ await dbDelete('price_builder_sheet_items', row.id); }
+  if(rows.length) await dbInsert('price_builder_sheet_items', rows);
+  const patch = {title: pbWorking.title, subcontractor_name: pbWorking.subcontractorName||null, total, updated_at: new Date().toISOString()};
+  if(status){ patch.status = status; patch.issued_by = ME.id; patch.issued_at = new Date().toISOString(); }
+  await dbUpdate('price_builder_sheets', sheetId, patch);
+  return total;
+}
+window.savePriceBuilderDraft = async function(siteId, sheetId){
+  await pbPersist(siteId, sheetId, null);
+  toast('Draft saved');
+  render();
+};
+window.issuePriceBuilderSheet = async function(siteId, sheetId){
+  if(!Object.keys(pbWorking.items).length && !pbWorking.customRows.length){ toast('Tick at least one item, or add a custom row, before issuing.'); return; }
+  if(!await customConfirm('Issue this sheet? It becomes read-only and visible to everyone assigned to this site — you can\'t un-issue it.')) return;
+  await pbPersist(siteId, sheetId, 'issued');
+  toast('Sheet issued');
+  pbWorking = {sheetId:null, title:'', subcontractorName:'', items:{}, customRows:[]};
+  go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
+};
+async function renderPriceBuilderView(siteId, sheetId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const sheet = sheetRows[0];
+  if(!sheet){ toast('Sheet not found, or not issued yet.'); go(`#/site/${siteId}/price`); return; }
+  const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
+  const categories = [];
+  items.forEach(it=>{
+    let cat = categories.find(c=>c.name===it.category);
+    if(!cat){ cat = {name:it.category, items:[]}; categories.push(cat); }
+    cat.items.push(it);
+  });
+  sortPriceRateCategories(categories);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:14px;">
+      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sheet.title)}</p>
+      ${sheet.subcontractor_name ? `<p class="stub" style="margin:0 0 6px;">For: ${escapeHtml(sheet.subcontractor_name)}</p>` : ''}
+      <p class="stub" style="margin:0;">Issued ${new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(sheet.issued_by))}</p>
+    </div>
+    ${categories.map(cat=>`
+      <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
+      ${cat.items.map(it=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          <div class="info"><div class="name">${escapeHtml(it.name)}${it.option_label?' — '+escapeHtml(it.option_label):''}</div><div class="sub">${it.quantity} ${PRICE_UNIT_LABEL[it.unit]||it.unit} @ ${PRICE_BUILDER_FMT(it.rate)}</div></div>
+          <span class="stub" style="margin:0;font-weight:700;">${PRICE_BUILDER_FMT(it.line_total)}</span>
+        </div>
+      `).join('')}
+    `).join('') || `<div class="empty">No items on this sheet.</div>`}
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="sectiontitle" style="margin:0;">Total</span>
+        <span style="font-size:18px;font-weight:800;">${PRICE_BUILDER_FMT(sheet.total)}</span>
+      </div>
+    </div>
+    <button class="darkbtn" style="margin-top:10px;" onclick="exportPriceBuilderSheet('${sheetId}')">⬇ Export to Excel</button>
+  `, {title:'Priced Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
+}
+// Turns one priced sheet (issued or still-draft) into a clean single-tab
+// Excel — the actual document you hand to a subcontractor/operative,
+// grouped by element of works the same way the app shows it, with a Grand
+// Total row at the bottom. Works from what's already saved on the sheet, so
+// Save Draft first if you want an export to include your latest edits.
+window.exportPriceBuilderSheet = async function(sheetId){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const sheet = sheetRows[0];
+  if(!sheet){ toast('Sheet not found.'); return; }
+  const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
+  const categories = [];
+  items.forEach(it=>{ let c=categories.find(c=>c.name===it.category); if(!c){c={name:it.category, items:[]};categories.push(c);} c.items.push(it); });
+  sortPriceRateCategories(categories);
+
+  const rows = [];
+  rows.push([sheet.title || 'Priced Sheet']);
+  if(sheet.subcontractor_name) rows.push(['For:', sheet.subcontractor_name]);
+  rows.push([sheet.status==='issued' ? 'Issued:' : 'Status:', sheet.status==='issued' ? new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : 'Draft']);
+  rows.push([]);
+  rows.push(['Item', 'Choice', 'Qty', 'Unit', 'Rate (£)', 'Line Total (£)']);
+  const headerRowIdx = rows.length - 1;
+  categories.forEach(cat=>{
+    rows.push([cat.name]);
+    cat.items.forEach(it=>{
+      rows.push([it.name, it.option_label||'', Number(it.quantity), PRICE_UNIT_LABEL[it.unit]||it.unit, Number(it.rate), Number(it.line_total)]);
+    });
+  });
+  rows.push([]);
+  rows.push(['', '', '', '', 'Grand Total', Number(sheet.total)]);
+  const grandRowIdx = rows.length - 1;
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:42},{wch:20},{wch:8},{wch:14},{wch:12},{wch:14}];
+  for(const addr of ['E'+(grandRowIdx+1), 'F'+(grandRowIdx+1)]) if(ws[addr]) ws[addr].z = '"£"#,##0.00';
+  for(let r=headerRowIdx+1; r<=grandRowIdx; r++){
+    const rateCell = ws['E'+(r+1)], totalCell = ws['F'+(r+1)];
+    if(rateCell && typeof rateCell.v==='number') rateCell.z = '"£"#,##0.00';
+    if(totalCell && typeof totalCell.v==='number') totalCell.z = '"£"#,##0.00';
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
+  const safeTitle = String(sheet.title||'Priced Sheet').replace(/[\\/?*\[\]:]/g,'').slice(0,60);
+  XLSX.writeFile(wb, safeTitle+'.xlsx');
+};
+
 async function checkPriceOverbookedNotification(siteId, balance){
   const site = SITES.find(s=>s.id===siteId);
   if(!site) return;
@@ -9777,12 +10481,168 @@ window.showScheduleAddMenu = function(siteId){
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='task';render()">➕ Add Task</button>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='section';render()">📁 Add Section</button>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='variation';render()">📐 Add Variation Work</button>
+      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';openScheduleLibraryPanel('${siteId}')">📚 From Library</button>
       <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='upload';render()">📤 Upload Schedule</button>
       <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
     </div>`;
   ov.style.display = 'flex';
 };
 let scheduleSectionsCache = [];
+/* ================= Schedule of Works — assignable visibility. A section (or
+   an ungrouped task; grouped tasks always inherit their section's setting)
+   can be scoped to "All" (default — visible to everyone with site access,
+   same as before this feature existed) or to specific Project Managers
+   and/or Operatives — enforced server-side by RLS (schedule_visibility_ok),
+   not just hidden client-side, so an unassigned operative genuinely cannot
+   fetch the row at all. Admins always see everything regardless. ================= */
+let scheduleAssignTarget = null; // {kind:'section'|'task', id} of whichever row's assign form is open, or null
+let scheduleAssignDraft = {all:true, pmOn:false, pmIds:new Set(), opOn:true, opIds:new Set()};
+window.openScheduleAssign = function(kind, id, record, defaultOperativeIds){
+  scheduleAssignTarget = {kind, id};
+  const mode = record ? record.visibility_mode : 'all';
+  const presetOpIds = record && record.assigned_operative_ids && record.assigned_operative_ids.length ? record.assigned_operative_ids : (defaultOperativeIds||[]);
+  scheduleAssignDraft = {
+    all: mode !== 'assigned',
+    pmOn: !!(record && record.assigned_pm_ids && record.assigned_pm_ids.length),
+    pmIds: new Set(record ? (record.assigned_pm_ids||[]) : []),
+    opOn: record ? !!(record.assigned_operative_ids && record.assigned_operative_ids.length) : true,
+    opIds: new Set(presetOpIds),
+  };
+  render();
+};
+window.openScheduleAssignExisting = async function(kind, id, siteId){
+  const table = kind==='section' ? 'schedule_sections' : 'schedule_tasks';
+  const rows = await dbSelect(table, 'id=eq.'+id+'&select=visibility_mode,assigned_pm_ids,assigned_operative_ids');
+  const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  openScheduleAssign(kind, id, rows[0]||null, assignments.map(a=>a.user_id));
+};
+window.closeScheduleAssign = function(){ scheduleAssignTarget = null; render(); };
+window.toggleScheduleAssignAll = function(){ scheduleAssignDraft.all = !scheduleAssignDraft.all; render(); };
+window.toggleScheduleAssignGroup = function(which){
+  if(which==='pm') scheduleAssignDraft.pmOn = !scheduleAssignDraft.pmOn;
+  else scheduleAssignDraft.opOn = !scheduleAssignDraft.opOn;
+  render();
+};
+window.toggleScheduleAssignPerson = function(which, id){
+  const set = which==='pm' ? scheduleAssignDraft.pmIds : scheduleAssignDraft.opIds;
+  if(set.has(id)) set.delete(id); else set.add(id);
+  render();
+};
+window.saveScheduleAssign = async function(siteId){
+  const t = scheduleAssignTarget; if(!t) return;
+  const table = t.kind==='section' ? 'schedule_sections' : 'schedule_tasks';
+  const d = scheduleAssignDraft;
+  const patch = d.all
+    ? {visibility_mode:'all', assigned_pm_ids:[], assigned_operative_ids:[]}
+    : {
+        visibility_mode:'assigned',
+        assigned_pm_ids: d.pmOn ? [...d.pmIds] : [],
+        assigned_operative_ids: d.opOn ? [...d.opIds] : [],
+      };
+  const row = await dbUpdate(table, t.id, patch);
+  if(row){ toast('Visibility updated'); scheduleAssignTarget = null; render(); }
+};
+function scheduleAssignFormHtml(siteId, pmOptions, operativeOptions){
+  const d = scheduleAssignDraft;
+  return `
+    <div class="card" style="margin:10px 0;background:var(--paper);">
+      <p class="sectiontitle" style="margin-top:0;">Who can see this</p>
+      <div class="row-gap" style="margin-bottom:10px;">
+        <div class="filterchip ${d.all?'active':''}" style="flex:1;text-align:center;" onclick="toggleScheduleAssignAll()">All</div>
+      </div>
+      ${!d.all ? `
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.pmOn?'checked':''} onchange="toggleScheduleAssignGroup('pm')">Project Managers</label>
+        ${d.pmOn ? `<div style="max-height:150px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin:0 0 10px;">
+          ${pmOptions.length ? pmOptions.map(p=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.pmIds.has(p.id)?'checked':''} onchange="toggleScheduleAssignPerson('pm','${p.id}')">${escapeHtml(p.name)}</label>`).join('') : `<p class="stub" style="margin:0;">No PMs to choose from.</p>`}
+        </div>` : ''}
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.opOn?'checked':''} onchange="toggleScheduleAssignGroup('op')">Operatives</label>
+        ${d.opOn ? `<div style="max-height:150px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin:0 0 10px;">
+          ${operativeOptions.length ? operativeOptions.map(p=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.opIds.has(p.id)?'checked':''} onchange="toggleScheduleAssignPerson('op','${p.id}')">${escapeHtml(p.name)}</label>`).join('') : `<p class="stub" style="margin:0;">No operatives assigned to this site yet.</p>`}
+        </div>` : ''}
+        ${!d.pmOn && !d.opOn ? `<p class="stub" style="margin:0 0 10px;color:var(--warn);">Nobody but admins will be able to see this until you tick Project Managers and/or Operatives.</p>` : ''}
+      ` : ''}
+      <div class="row-gap">
+        <button class="darkbtn" style="flex:1;" onclick="saveScheduleAssign('${siteId}')">Save</button>
+        <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="closeScheduleAssign()">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+/* ================= Schedule of Works — "From Library" (site side). Lets a
+   PM/admin pick one of the org's sow_library_templates (built in Admin
+   Centre) and COPY its sections/tasks into THIS site's real
+   schedule_sections/schedule_tasks — a one-time copy, not a live link, so
+   every line is immediately an ordinary editable/deletable task. ================= */
+let scheduleLibraryOpen = false;
+let scheduleLibraryTemplates = [];
+let scheduleLibraryPreviewId = null;
+let scheduleLibraryPreviewCache = {};
+window.openScheduleLibraryPanel = async function(siteId){
+  scheduleAddPanel = null;
+  scheduleLibraryOpen = true;
+  scheduleLibraryPreviewId = null;
+  scheduleLibraryTemplates = await dbSelect('sow_library_templates', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  render();
+};
+window.closeScheduleLibraryPanel = function(){ scheduleLibraryOpen = false; scheduleLibraryPreviewId = null; render(); };
+window.toggleScheduleLibraryPreview = async function(templateId){
+  if(scheduleLibraryPreviewId===templateId){ scheduleLibraryPreviewId = null; render(); return; }
+  scheduleLibraryPreviewId = templateId;
+  if(!scheduleLibraryPreviewCache[templateId]){
+    const [secs, tasks] = await Promise.all([
+      dbSelect('sow_library_sections', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+      dbSelect('sow_library_tasks', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+    ]);
+    scheduleLibraryPreviewCache[templateId] = {secs, tasks};
+  }
+  render();
+};
+function scheduleLibraryPreviewHtml(cache){
+  const {secs, tasks} = cache;
+  const bySec = {};
+  tasks.forEach(t=>{ if(t.section_id) (bySec[t.section_id]=bySec[t.section_id]||[]).push(t); });
+  const ungrouped = tasks.filter(t=>!t.section_id);
+  if(!secs.length && !tasks.length) return `<p class="stub" style="margin:0;">This template is empty.</p>`;
+  return `
+    ${secs.map(s=>`
+      <p class="stub" style="margin:0 0 2px;font-weight:700;color:var(--ink);">${escapeHtml(s.name)}</p>
+      ${(bySec[s.id]||[]).map(t=>`<p class="stub" style="margin:0 0 2px 10px;">• ${escapeHtml(t.name)}</p>`).join('') || `<p class="stub" style="margin:0 0 2px 10px;">No tasks</p>`}
+    `).join('')}
+    ${ungrouped.length ? `
+      <p class="stub" style="margin:6px 0 2px;font-weight:700;color:var(--ink);">Ungrouped</p>
+      ${ungrouped.map(t=>`<p class="stub" style="margin:0 0 2px 10px;">• ${escapeHtml(t.name)}</p>`).join('')}
+    ` : ''}
+  `;
+}
+window.useScheduleLibraryTemplate = async function(siteId, templateId){
+  if(!await customConfirm('Copy this template into the Schedule of Works for this site? Nothing in the library itself changes, and every copied line can be edited or deleted afterwards like any other task.')) return;
+  const cache = scheduleLibraryPreviewCache[templateId] || await (async()=>{
+    const [secs, tasks] = await Promise.all([
+      dbSelect('sow_library_sections', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+      dbSelect('sow_library_tasks', 'template_id=eq.'+templateId+'&order=position.asc.nullslast,created_at.asc'),
+    ]);
+    return {secs, tasks};
+  })();
+  const {secs, tasks} = cache;
+  let secPos = await nextSectionPosition(siteId);
+  const secIdMap = {};
+  for(const s of secs){
+    const rows = await dbInsert('schedule_sections', {site_id:siteId, name:s.name, position:secPos++, created_by:ME.id});
+    if(rows && rows[0]) secIdMap[s.id] = rows[0].id;
+  }
+  let taskPos = await nextTaskPosition(siteId);
+  const newTaskRows = tasks
+    .filter(t=>!t.section_id || secIdMap[t.section_id])
+    .map(t=>{
+      const row = {site_id:siteId, name:t.name, status:'todo', position:taskPos++};
+      if(t.section_id) row.section_id = secIdMap[t.section_id];
+      return row;
+    });
+  if(newTaskRows.length) await dbInsert('schedule_tasks', newTaskRows);
+  toast(`Copied ${secs.length} section${secs.length===1?'':'s'} and ${tasks.length} task${tasks.length===1?'':'s'} into the schedule`);
+  scheduleLibraryOpen = false; scheduleLibraryPreviewId = null;
+  render();
+};
 function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, subAddressesList){
   // Per the "allow all rows in whilst they're in to do to be editable text"
   // requirement — a To Do task's name is always a live-editable input
@@ -9808,7 +10668,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               ${alwaysEditable ? `
                 <input type="text" class="taskname-input" value="${escapeHtml(t.name)}" onblur="saveTaskNameInline(this,'${siteId}','${t.id}')" onkeydown="if(event.key==='Enter')this.blur();">
               ` : `
-                <div class="taskname ${t.status==='done'?'done':''}">${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</div>
+                <div class="taskname ${t.status==='done'?'done':''}">${(!t.section_id && t.visibility_mode==='assigned')?'🔒 ':''}${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</div>
                 ${t.status==='done' && t.completed_at ? `<div class="meta" style="width:100%;margin-top:2px;">Completed ${new Date(t.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
               `}
               <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
@@ -9818,6 +10678,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                     ${rowActionsMenuHtml('sowtask-'+t.id, `
                       ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
                       ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
+                      ${!t.section_id ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('task','${t.id}','${siteId}')">🔒 Assign visibility</div>` : ''}
                       <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
                     `)}
                   </div>
@@ -9969,13 +10830,21 @@ async function renderSchedule(siteId){
     dbUpdate('profiles', ME.id, {viewed_schedule_at: ME.viewed_schedule_at});
   }
   const isMultiSite = !!(site && site.multi_site);
-  const [allTasks, sections, subAddressesList, sectionFlags] = await Promise.all([
+  // schedule_tasks/schedule_sections are RLS-scoped server-side by assigned
+  // visibility (see schedule_visibility_ok) — an operative or PM simply
+  // never gets back a row they're not allowed to see, so nothing further
+  // needs filtering client-side; admins always get everything back.
+  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
     dbSelect('schedule_section_flags', 'site_id=eq.'+siteId),
+    canAdd ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    canAdd ? loadPMList() : Promise.resolve([]),
   ]);
   scheduleSectionsCache = sections;
+  if(canAdd) await loadAllProfiles();
+  const operativeOptions = canAdd ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   // Flags row visibility/state is driven off allTasks (every task ever added
   // to a section), not the currently filtered `tasks` list below — so the
   // 🗑/📦 row stays put across the All/To Do/In Progress tabs instead of
@@ -10095,6 +10964,24 @@ async function renderSchedule(siteId){
         <button class="ghostbtn" style="margin-top:14px;" onclick="scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
+    ${canAdd && scheduleLibraryOpen ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">From Library</p>
+        <p class="stub" style="margin:0 0 10px;">Copies a template's sections/tasks into this site's schedule — nothing in the library changes, and everything copied stays fully editable and deletable here afterwards.</p>
+        ${scheduleLibraryTemplates.length ? scheduleLibraryTemplates.map(tpl=>`
+          <div class="ddrow" onclick="toggleScheduleLibraryPreview('${tpl.id}')">
+            <span class="arrow">${scheduleLibraryPreviewId===tpl.id?'▼':'▶'}</span> ${escapeHtml(tpl.name)}
+          </div>
+          ${scheduleLibraryPreviewId===tpl.id ? `
+            <div style="margin:0 0 12px 14px;padding-left:10px;border-left:2px solid var(--line);">
+              ${scheduleLibraryPreviewCache[tpl.id] ? scheduleLibraryPreviewHtml(scheduleLibraryPreviewCache[tpl.id]) : `<p class="stub" style="margin:0;">Loading…</p>`}
+              <button class="darkbtn" style="margin-top:8px;" onclick="useScheduleLibraryTemplate('${siteId}','${tpl.id}')">Use This Template</button>
+            </div>
+          ` : ''}
+        `).join('') : `<div class="empty">No templates yet — build some in Settings &amp; Admin › Schedule of Works — Library first.</div>`}
+        <button class="ghostbtn" style="margin-top:8px;" onclick="closeScheduleLibraryPanel()">Close</button>
+      </div>
+    ` : ''}
     ${allUngrouped.length ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
       return `
@@ -10103,7 +10990,7 @@ async function renderSchedule(siteId){
           <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
         </p>
         ${open ? `<div style="padding:0 14px 14px;">
-          ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+          ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
           ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
         </div>` : ''}
       </div>
@@ -10114,17 +11001,19 @@ async function renderSchedule(siteId){
       return `
       <div class="card" style="padding:0;overflow:hidden;">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
-          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(sec.name)}</div>
+          <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${sec.visibility_mode==='assigned'?'🔒 ':''}${escapeHtml(sec.name)}</div>
           ${canAdd ? `<div style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSection('${siteId}','${sec.id}')">✎ Rename</div>
+              <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('section','${sec.id}','${siteId}')">🔒 Assign visibility</div>
               <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSection('${siteId}','${sec.id}')">🗑 Delete</div>
             `)}
           </div>` : ''}
         </div>
         ${open ? `
           <div style="padding:0 14px 14px;">
+            ${canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : ''}
             ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
             ${canAdd && scheduleFilter==='all' ? `
               <div class="row-gap" style="margin-top:10px;">
@@ -10180,7 +11069,16 @@ window.addSection = async function(siteId){
   const name = input.value.trim(); if(!name) return;
   const position = await nextSectionPosition(siteId);
   const rows = await dbInsert('schedule_sections', {site_id:siteId, name, position, created_by:ME.id});
-  if(rows){ toast('Section added'); render(); }
+  const newSection = rows && rows[0];
+  if(newSection){
+    toast('Section added');
+    scheduleAddPanel = null;
+    scheduleSectionsOpen[newSection.id] = true;
+    // Straight into "Who can see this" for the section just created, inline
+    // in its own new row — defaults to All until narrowed down.
+    const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+    openScheduleAssign('section', newSection.id, null, assignments.map(a=>a.user_id));
+  }
 };
 // Shared by "Add to Schedule of Works" on an approved variation, and the
 // direct "Add Variation Work" option in the Schedule "+" menu — both create
@@ -10348,7 +11246,19 @@ window.addTask = async function(siteId, sectionId){
     }
   }
   const rows = await dbInsert('schedule_tasks', row);
-  if(rows){ toast('Task added'); render(); }
+  const newTask = rows && rows[0];
+  if(newTask){
+    toast('Task added');
+    // Only an UNGROUPED task gets its own "who can see this" — a task added
+    // straight into a section always inherits that section's visibility.
+    if(!sectionId){
+      scheduleAddPanel = null;
+      const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+      openScheduleAssign('task', newTask.id, null, assignments.map(a=>a.user_id));
+    } else {
+      render();
+    }
+  }
 };
 window.saveTaskEdit = async function(siteId, taskId){
   const input = document.getElementById('editTaskInput-'+taskId);
@@ -16602,6 +17512,208 @@ window.deleteSupplier = async function(siteId, supplierId){
   const ok = await dbDelete('suppliers', supplierId);
   if(ok){ toast('Supplier removed'); render(); }
 };
+
+/* ================= PRICE BUILDER — RATE CARD (Admin Centre, WIP feature) ================= */
+let priceRateAddOpen = false;
+let priceRateAddLastCategory = '';
+window.addPriceRateItem = async function(){
+  const category = document.getElementById('prCategory').value.trim();
+  const name = document.getElementById('prName').value.trim();
+  const unit = document.getElementById('prUnit').value;
+  const isDropdown = document.getElementById('prIsDropdown').checked;
+  const rateRaw = document.getElementById('prRate').value.trim();
+  if(!category || !name){ toast('Enter a category and item name.'); return; }
+  if(!isDropdown && !rateRaw){ toast('Enter a rate, or tick "This is a dropdown".'); return; }
+  const row = await dbInsert('price_rate_items', {
+    org_id: ME.org_id, category, name, unit,
+    is_dropdown: isDropdown,
+    rate: isDropdown ? null : parseFloat(rateRaw),
+    created_by: ME.id,
+  });
+  if(row){
+    toast('Rate item added'+(isDropdown?' — now add its options below' : ''));
+    priceRateAddLastCategory = category;
+    if(!isDropdown) priceRateAddOpen = false;
+    render();
+  }
+};
+window.savePriceRateField = async function(input, itemId, field){
+  const raw = input.value.trim();
+  if(!raw){ toast((field==='name'?'Item name':'Rate')+" can't be empty."); render(); return; }
+  const val = field==='rate' ? parseFloat(raw) : raw;
+  if(field==='rate' && Number.isNaN(val)){ toast('Enter a valid number.'); render(); return; }
+  const row = await dbUpdate('price_rate_items', itemId, {[field]:val});
+  if(row) toast('Rate card updated');
+};
+window.deletePriceRateItem = async function(itemId, name){
+  if(!await customConfirm(`Remove "${name}" from the rate card? This can't be undone — it won't affect any sheet that's already been issued, since those keep their own snapshot of the rates used.`)) return;
+  const ok = await dbDelete('price_rate_items', itemId);
+  if(ok){ toast('Rate item removed'); render(); }
+};
+window.addPriceRateOption = async function(itemId){
+  const label = await customPrompt('Option name, e.g. "Marley Eternit Concrete Tile"');
+  if(!label) return;
+  const rateStr = await customPrompt(`Rate for "${label}" (£)`);
+  if(rateStr===null) return;
+  const rate = parseFloat(rateStr);
+  if(Number.isNaN(rate)){ toast('Enter a valid number.'); return; }
+  const row = await dbInsert('price_rate_options', {rate_item_id: itemId, label, rate});
+  if(row){ toast('Option added'); render(); }
+};
+window.savePriceRateOptionField = async function(input, optionId, field){
+  const raw = input.value.trim();
+  if(!raw){ toast((field==='label'?'Option name':'Rate')+" can't be empty."); render(); return; }
+  const val = field==='rate' ? parseFloat(raw) : raw;
+  if(field==='rate' && Number.isNaN(val)){ toast('Enter a valid number.'); render(); return; }
+  const row = await dbUpdate('price_rate_options', optionId, {[field]:val});
+  if(row) toast('Option updated');
+};
+window.deletePriceRateOption = async function(optionId, itemId){
+  if(!await customConfirm('Remove this option?')) return;
+  const ok = await dbDelete('price_rate_options', optionId);
+  if(ok){ toast('Option removed'); render(); }
+};
+// Bulk import/update — columns: Category, Name, Unit (lm/m2/each), Rate.
+// Matches an existing item by Category+Name (case-insensitive) and updates
+// its rate/unit in place; anything not matched is added as new. Dropdown
+// items (and their options) aren't touched by this — add those manually,
+// since a flat rate-per-row sheet can't express the option list.
+/* ---------- Price Builder rate card <-> Excel ----------
+   The rate card lives as one workbook, one tab per element of works
+   (category) — matches the app's own category headers exactly. Each row is
+   one item: Item | Unit | Rate (£) | Option 1 | Option 1 Rate (£) | Option 2
+   | Option 2 Rate (£) ... up to 6 option pairs. A plain item just fills in
+   Rate and leaves every Option column blank; a dropdown item leaves Rate
+   blank and fills in its options across those pairs — adding a new option
+   to an existing dropdown is just typing into the next empty pair, and a
+   brand new dropdown item only needs at least one pair filled in. Adding a
+   whole new element of works is a new tab named after it.
+   Download/Upload round-trips this exactly, so this is the one place to
+   maintain rates — the in-app editor above is for quick one-off tweaks. */
+const PRICE_RATE_OPTION_SLOTS = 6;
+const PRICE_RATE_SKIP_SHEETS = ['read me','readme','instructions'];
+const PRICE_UNIT_TO_LABEL = {lm:'Linear metre', m2:'m²', each:'Each'};
+const PRICE_UNIT_FROM_TEXT = {lm:'lm','linear metre':'lm','linear metres':'lm','linear m':'lm','m':'lm',
+  m2:'m2','sq m':'m2','sqm':'m2','m²':'m2','m2 (sq m)':'m2', each:'each',ea:'each','no':'each','nr':'each'};
+window.exportPriceRateExcel = async function(){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const items = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
+  const dropdownIds = items.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
+  const options = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
+  const optionsByItem = {};
+  options.forEach(o=>{ (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o); });
+  const categories = [];
+  items.forEach(it=>{ let c=categories.find(c=>c.name===it.category); if(!c){c={name:it.category, items:[]};categories.push(c);} c.items.push(it); });
+  sortPriceRateCategories(categories);
+
+  const wb = XLSX.utils.book_new();
+  const readMeRows = [
+    ['RTB Price Builder — Rate Card'],
+    [''],
+    ['One tab per element of works. Each row is one item.'],
+    ['Columns: Item | Unit | Rate (£) | Option 1 | Option 1 Rate (£) | Option 2 | Option 2 Rate (£) ... up to 6 pairs.'],
+    [''],
+    ['A plain item: fill in Rate, leave every Option column blank.'],
+    ['A dropdown item: leave Rate blank, fill in Option/Rate pairs (e.g. "Plain Tiles" / 37.50). To add a new'],
+    ['option to an item that already has some, just use the next empty pair.'],
+    [''],
+    ['To add a whole new element of works, add a new tab named after it.'],
+    ['Unit is one of: lm (linear metre), m2 (m²), each.'],
+    [''],
+    ['Uploading this file back to the app REPLACES the entire rate card with what is in it — download the'],
+    ['current version first, edit it, then upload the whole thing back rather than a partial file.'],
+  ];
+  const readMeWs = XLSX.utils.aoa_to_sheet(readMeRows);
+  readMeWs['!cols'] = [{wch:100}];
+  XLSX.utils.book_append_sheet(wb, readMeWs, 'Read Me');
+
+  categories.forEach(cat=>{
+    const header = ['Item', 'Unit', 'Rate (£)'];
+    for(let i=1;i<=PRICE_RATE_OPTION_SLOTS;i++) header.push('Option '+i, 'Option '+i+' Rate (£)');
+    const rows = [header];
+    cat.items.forEach(it=>{
+      const row = [it.name, PRICE_UNIT_TO_LABEL[it.unit]||it.unit, it.is_dropdown ? '' : (it.rate!=null?Number(it.rate):'')];
+      const opts = optionsByItem[it.id]||[];
+      for(let i=0;i<PRICE_RATE_OPTION_SLOTS;i++){
+        row.push(opts[i]?opts[i].label:'', opts[i]?Number(opts[i].rate):'');
+      }
+      rows.push(row);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:42},{wch:12},{wch:10}].concat(Array(PRICE_RATE_OPTION_SLOTS).fill(0).flatMap(()=>[{wch:18},{wch:12}]));
+    // Sheet names are capped at 31 chars and can't contain \/?*[] — categories
+    // here are short enough not to hit that, but strip anything that would.
+    const safeName = String(cat.name).replace(/[\\/?*\[\]:]/g,'').slice(0,31) || 'Category';
+    XLSX.utils.book_append_sheet(wb, ws, safeName);
+  });
+
+  XLSX.writeFile(wb, 'RTB_Price_Builder_Rate_Card.xlsx');
+};
+window.importPriceRateExcel = async function(input){
+  const file = input.files && input.files[0]; if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); input.value=''; return; }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const newItems = []; // {category, name, unit, rate, is_dropdown, sort_order, options:[{label,rate,sort_order}]}
+    let skipped = 0;
+    wb.SheetNames.forEach(sheetName=>{
+      if(PRICE_RATE_SKIP_SHEETS.includes(sheetName.trim().toLowerCase())) return;
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {header:1});
+      if(!rows.length) return;
+      const category = sheetName.trim();
+      let sortOrder = 0;
+      // Row 0 is the header (Item/Unit/Rate/Option 1/...) — skip it if it
+      // looks like one, otherwise assume every row is data (no header row).
+      const looksLikeHeader = rows[0] && String(rows[0][0]||'').trim().toLowerCase()==='item';
+      for(let i=looksLikeHeader?1:0; i<rows.length; i++){
+        const r = rows[i]; if(!r || !r.length) continue;
+        const name = String(r[0]!=null?r[0]:'').trim();
+        if(!name) continue;
+        const unitRaw = String(r[1]!=null?r[1]:'').trim().toLowerCase();
+        const unit = PRICE_UNIT_FROM_TEXT[unitRaw] || 'each';
+        const rateRaw = r[2];
+        const options = [];
+        for(let s=0; s<PRICE_RATE_OPTION_SLOTS; s++){
+          const labelCell = r[3 + s*2], rateCell = r[3 + s*2 + 1];
+          const label = String(labelCell!=null?labelCell:'').trim();
+          const rate = parseFloat(rateCell);
+          if(label && !Number.isNaN(rate)) options.push({label, rate, sort_order:options.length});
+        }
+        if(options.length){
+          newItems.push({category, name, unit, rate:null, is_dropdown:true, sort_order:sortOrder++, options});
+        } else {
+          const rate = parseFloat(rateRaw);
+          if(Number.isNaN(rate)){ skipped++; continue; }
+          newItems.push({category, name, unit, rate, is_dropdown:false, sort_order:sortOrder++, options:[]});
+        }
+      }
+    });
+    if(!newItems.length){ toast('Nothing usable found — check each tab has Item/Unit/Rate (or Option) columns filled in.'); input.value=''; return; }
+    let msg = `This will replace the entire rate card with ${newItems.length} item${newItems.length===1?'':'s'} across ${new Set(newItems.map(i=>i.category)).size} categor${new Set(newItems.map(i=>i.category)).size===1?'y':'ies'} from this file.`;
+    if(skipped) msg += ` (${skipped} row${skipped===1?'':'s'} skipped — missing rate or options.)`;
+    msg += ' Continue?';
+    if(!await customConfirm(msg)){ input.value=''; return; }
+    // Full replace — options cascade-delete with their item.
+    const existingIds = (await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&select=id')).map(r=>r.id);
+    for(const id of existingIds) await dbDelete('price_rate_items', id);
+    const insertedItems = await dbInsert('price_rate_items', newItems.map(it=>({
+      org_id: ME.org_id, category: it.category, name: it.name, unit: it.unit,
+      rate: it.rate, is_dropdown: it.is_dropdown, sort_order: it.sort_order, created_by: ME.id,
+    })));
+    let optionRows = [];
+    if(insertedItems && insertedItems.length===newItems.length){
+      newItems.forEach((it, idx)=>{
+        const newId = insertedItems[idx].id;
+        it.options.forEach(o=>optionRows.push({rate_item_id:newId, label:o.label, rate:o.rate, sort_order:o.sort_order}));
+      });
+      if(optionRows.length) await dbInsert('price_rate_options', optionRows);
+    }
+    toast(`Rate card replaced — ${newItems.length} item${newItems.length===1?'':'s'}, ${optionRows.length} option${optionRows.length===1?'':'s'}.`);
+    priceRateAddOpen = false; input.value=''; render();
+  }catch(e){ console.error(e); toast('Could not read that file — check it\'s a valid .xlsx exported from this tool.'); input.value=''; }
+};
+
 let havsToolAddOpen = false;
 window.saveHavsToolField = async function(input, toolId, field){
   const raw = input.value.trim();
@@ -17152,6 +18264,12 @@ window.removeMaterialDeliveryLink = async function(siteId, fileId){
 let calAddOpen = false;
 let calDraft = {title:'', date:'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set(), repeat:'none'};
 let calEditId = null;
+// When set (a 'YYYY-MM-DD' string), the Add/Edit form renders inline within
+// that specific day's row instead of at the top of the page — used by the
+// per-row "+" and "✎" so a PM/admin filling it in doesn't have to scroll up
+// to the top-of-page form. Mutually exclusive with calAddOpen (the
+// top-of-page "Add a key date" toggle) — opening one closes the other.
+let calInlineDate = null;
 let calViewMode = null; // 'week' | 'twoweek' | 'month' — set on first render, role-based default (#287)
 let calViewModePickerOpen = false;
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
@@ -17179,13 +18297,19 @@ const CAL_REPEAT_LABELS = {none:'None', daily:'Daily', weekly:'Weekly', monthly:
 function calResetDraft(defaultDate){
   calDraft = {title:'', date:defaultDate||'', private:false, remind:false, timing:'day_before', customDate:'', recipientIds:new Set(), repeat:'none'};
 }
-// Opens the same "Add a key date" form used by the top-right +, but
-// pre-filled with the date whose row "+" button was tapped, so a PM/admin
-// doesn't have to re-pick the date from the date field every time.
+// Opens the same "Add a key date" form used by the top-of-page +, but
+// pre-filled with the date whose row "+" button was tapped, and rendered
+// inline within that day's row (not at the top) so a PM/admin doesn't have
+// to scroll up to fill it in. Tapping the same row's "+" again closes it.
 window.openCalAddForDate = function(dateStr){
   calEditId = null;
-  calAddOpen = true;
-  calResetDraft(dateStr);
+  calAddOpen = false;
+  if(calInlineDate === dateStr){ calInlineDate = null; calResetDraft(); }
+  else { calInlineDate = dateStr; calResetDraft(dateStr); }
+  render();
+};
+window.closeCalForm = function(){
+  calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
   render();
 };
 // #: date badge reads as "16th" within the anchor ("today") month, and
@@ -17266,74 +18390,94 @@ async function renderSiteCalendar(siteId){
   const eventsByDate = {};
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
 
+  // Shared Add/Edit form markup, reused both at the top of the page (opened
+  // via the "Add a key date" header +) and inline within a specific day's
+  // row (opened via that row's own "+" or "✎") — so a PM/admin filling it in
+  // from a row further down the list never has to scroll back up to the top.
+  // Date picker deliberately has NO max: any future date can be booked here,
+  // however far ahead, not just one falling inside the currently-visible
+  // rolling window — the row for that date will simply show it automatically
+  // once the window rolls forward to include it (min stays "today" so past
+  // dates aren't picked by mistake).
+  function calFormHtml(){
+    return `
+      <div class="card" style="margin:8px 0 14px;">
+        <div class="formfield"><label class="field-label">What's happening</label><input type="text" id="calTitle" placeholder="e.g. Scaffold delivery" value="${escapeHtml(calDraft.title)}" oninput="calDraft.title=this.value"></div>
+        <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
+        ${!calEditId ? `
+          <p class="field-label" style="margin:0 0 6px;">Repeats</p>
+          <div class="row-gap" style="margin-bottom:12px;flex-wrap:wrap;">
+            ${Object.keys(CAL_REPEAT_LABELS).map(freq=>`<div class="filterchip ${calDraft.repeat===freq?'active':''}" style="flex:1;min-width:70px;text-align:center;" onclick="calDraft.repeat='${freq}';render();">${CAL_REPEAT_LABELS[freq]}</div>`).join('')}
+          </div>
+          ${calDraft.repeat!=='none' ? `<p class="stub" style="margin:-6px 0 12px;">Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</p>` : ''}
+        ` : ''}
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
+        ${recipientOptions.length ? `
+          <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.remind?'checked':''} onchange="calDraft.remind=this.checked;render();">Email a reminder</label>
+          ${calDraft.remind ? `
+            <p class="field-label" style="margin:0 0 6px;">Send the reminder</p>
+            <div class="row-gap" style="margin-bottom:${calDraft.timing==='custom'?'8px':'12px'};">
+              <div class="filterchip ${calDraft.timing==='day_before'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_before';render();">Day before</div>
+              <div class="filterchip ${calDraft.timing==='day_of'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_of';render();">Day of</div>
+              <div class="filterchip ${calDraft.timing==='custom'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='custom';render();">Custom date</div>
+            </div>
+            ${calDraft.timing==='custom' ? `<div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="calReminderCustomDate" value="${escapeHtml(calDraft.customDate)}" oninput="calDraft.customDate=this.value"></div>` : ''}
+            <p class="field-label" style="margin:0 0 6px;">Send it to</p>
+            <div style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:12px;">
+              ${recipientOptions.map(p=>`
+                <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${calDraft.recipientIds.has(p.id)?'checked':''} onchange="toggleCalRecipient('${p.id}')">${escapeHtml(p.name)}${p.role!=='operative'?' ('+roleLabel(p.role)+')':''}</label>
+              `).join('')}
+            </div>
+            <p class="stub" style="margin:-6px 0 12px;">You'll be copied on the reminder too, as the person who created it.</p>
+          ` : ''}
+        ` : ''}
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="${calEditId?`saveCalEventEdit('${siteId}')`:`addCalEvent('${siteId}')`}">${calEditId?'Save':'Add Key Date'}</button>
+          <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="closeCalForm()">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${calViewModeDropdownHtml()}
     <p class="stub" style="margin:0 0 14px;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
     ${mgr ? `
       <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
         <span>Add a key date</span>
-        <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
+        <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
       </div>
-      ${calAddOpen ? `
-        <div class="card" style="margin-bottom:14px;">
-          <div class="formfield"><label class="field-label">What's happening</label><input type="text" id="calTitle" placeholder="e.g. Scaffold delivery" value="${escapeHtml(calDraft.title)}" oninput="calDraft.title=this.value"></div>
-          <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" max="${endStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
-          ${!calEditId ? `
-            <p class="field-label" style="margin:0 0 6px;">Repeats</p>
-            <div class="row-gap" style="margin-bottom:12px;flex-wrap:wrap;">
-              ${Object.keys(CAL_REPEAT_LABELS).map(freq=>`<div class="filterchip ${calDraft.repeat===freq?'active':''}" style="flex:1;min-width:70px;text-align:center;" onclick="calDraft.repeat='${freq}';render();">${CAL_REPEAT_LABELS[freq]}</div>`).join('')}
-            </div>
-            ${calDraft.repeat!=='none' ? `<p class="stub" style="margin:-6px 0 12px;">Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</p>` : ''}
-          ` : ''}
-          <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
-          ${recipientOptions.length ? `
-            <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.remind?'checked':''} onchange="calDraft.remind=this.checked;render();">Email a reminder</label>
-            ${calDraft.remind ? `
-              <p class="field-label" style="margin:0 0 6px;">Send the reminder</p>
-              <div class="row-gap" style="margin-bottom:${calDraft.timing==='custom'?'8px':'12px'};">
-                <div class="filterchip ${calDraft.timing==='day_before'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_before';render();">Day before</div>
-                <div class="filterchip ${calDraft.timing==='day_of'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='day_of';render();">Day of</div>
-                <div class="filterchip ${calDraft.timing==='custom'?'active':''}" style="flex:1;text-align:center;" onclick="calDraft.timing='custom';render();">Custom date</div>
-              </div>
-              ${calDraft.timing==='custom' ? `<div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="calReminderCustomDate" value="${escapeHtml(calDraft.customDate)}" oninput="calDraft.customDate=this.value"></div>` : ''}
-              <p class="field-label" style="margin:0 0 6px;">Send it to</p>
-              <div style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:12px;">
-                ${recipientOptions.map(p=>`
-                  <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${calDraft.recipientIds.has(p.id)?'checked':''} onchange="toggleCalRecipient('${p.id}')">${escapeHtml(p.name)}${p.role!=='operative'?' ('+roleLabel(p.role)+')':''}</label>
-                `).join('')}
-              </div>
-              <p class="stub" style="margin:-6px 0 12px;">You'll be copied on the reminder too, as the person who created it.</p>
-            ` : ''}
-          ` : ''}
-          <button class="darkbtn" onclick="${calEditId?`saveCalEventEdit('${siteId}')`:`addCalEvent('${siteId}')`}">${calEditId?'Save':'Add Key Date'}</button>
-        </div>
-      ` : ''}
+      ${calAddOpen ? calFormHtml() : ''}
     ` : ''}
     ${days.map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
       const isWeekend = d.getDay()===0 || d.getDay()===6;
+      const inlineHere = mgr && calInlineDate===dStr;
       return `
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
-          <div style="flex:0 0 58px;text-align:center;">
-            <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-            <div style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 6px;border-radius:14px;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:14px;font-weight:800;white-space:nowrap;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${calDayBadgeLabel(d, today.getMonth())}</span></div>
+        <div style="padding:10px 0;border-bottom:1px solid var(--line);">
+          <div style="display:flex;gap:12px;">
+            <div style="flex:0 0 58px;text-align:center;">
+              <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
+              <div style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 6px;border-radius:14px;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:14px;font-weight:800;white-space:nowrap;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${calDayBadgeLabel(d, today.getMonth())}</span></div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              ${dayEvents.length ? dayEvents.map(e=>`
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                  <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
+                  ${mgr ? `
+                    <span style="display:flex;gap:6px;flex:0 0 auto;">
+                      <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
+                      <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>
+                    </span>
+                  ` : ''}
+                </div>
+              `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
+            </div>
+            ${mgr ? `<div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;align-self:flex-start;margin-top:2px;${inlineHere?'background:var(--brand1);color:#fff;':''}" title="Add a key date for this day" onclick="openCalAddForDate('${dStr}')">${inlineHere?'−':'+'}</div>` : ''}
           </div>
-          <div style="flex:1;min-width:0;">
-            ${dayEvents.length ? dayEvents.map(e=>`
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
-                ${mgr ? `
-                  <span style="display:flex;gap:6px;flex:0 0 auto;">
-                    <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
-                    <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>
-                  </span>
-                ` : ''}
-              </div>
-            `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
-          </div>
-          ${mgr ? `<div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;align-self:flex-start;margin-top:2px;" title="Add a key date for this day" onclick="openCalAddForDate('${dStr}')">+</div>` : ''}
+          ${inlineHere ? calFormHtml() : ''}
         </div>
       `;
     }).join('')}
@@ -17345,7 +18489,8 @@ window.toggleCalRecipient = function(id){
 };
 window.openCalEditEvent = function(id, title, date, isPrivate, recipientIds, reminderTiming, reminderDate){
   calEditId = id;
-  calAddOpen = true;
+  calAddOpen = false;
+  calInlineDate = date; // show the edit form inline on the event's own row, not at the top
   calDraft = {
     title, date, private:isPrivate,
     remind: !!(recipientIds && recipientIds.length),
@@ -17378,7 +18523,7 @@ window.addCalEvent = async function(siteId){
   const row = await dbInsert('site_calendar_events', rows);
   if(row){
     toast(rows.length>1 ? `Added ${rows.length} repeating key dates` : 'Added to the calendar');
-    calAddOpen = false; calEditId = null; calResetDraft();
+    calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
     render();
   }
 };
@@ -17397,7 +18542,7 @@ window.saveCalEventEdit = async function(siteId){
   });
   if(row){
     toast('Updated');
-    calAddOpen = false; calEditId = null; calResetDraft();
+    calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
     render();
   }
 };
@@ -18972,7 +20117,25 @@ async function renderRoute(){
       return renderTodoList(siteId);
     }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
-    if(page==='price') return renderPriceTile(siteId);
+    if(page==='price'){
+      // PRICE_BUILDER_LIVE off: Price behaves as the single Pricing Elements
+      // page only (no Price/Price Builder landing split) — see the flag's
+      // definition for why.
+      if(!PRICE_BUILDER_LIVE) return renderPriceTile(siteId);
+      const sub = parts[3];
+      if(sub==='elements') return renderPriceTile(siteId);
+      return renderPriceHome(siteId);
+    }
+    if(page==='pricebuilder'){
+      // Not reachable while the rewrite is still in progress — send anyone
+      // hitting an old link/bookmark back to the (still fully live) Pricing
+      // Elements page instead of a half-finished screen.
+      if(!PRICE_BUILDER_LIVE){ go(`#/site/${siteId}/price`); return; }
+      const sub = parts[3];
+      if(sub==='edit' && parts[4]) return renderPriceBuilderEdit(siteId, parts[4]);
+      if(sub==='view' && parts[4]) return renderPriceBuilderView(siteId, parts[4]);
+      return renderPriceBuilderSheets(siteId);
+    }
     if(page==='calendar') return renderSiteCalendar(siteId);
   }
   renderSites();
