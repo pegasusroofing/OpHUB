@@ -303,16 +303,19 @@
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
   .tile .lbl{font-size:15.94px;font-weight:700;line-height:1.2;font-family:'Sora',Calibri,sans-serif;letter-spacing:-.005em;}
   .tile .sub{font-size:13.39px;color:var(--slate-light);font-family:Calibri,'Open Sans',sans-serif;}
-  /* Site Home's tile grid specifically, scaled to ~0.9x of the standard tile
+  /* Site Home's tile grid specifically, scaled down from the standard tile
      sizing above (used everywhere else in the app) so the whole page of
-     tiles fits on one screen without scrolling. Scoped to .hometiles only —
-     every other tile grid in the app (Materials, Snagging, H&S, etc.) keeps
-     the normal size. */
-  .hometiles{gap:9px;}
-  .hometiles .tile{padding:12.6px 10.8px;gap:7.2px;min-height:101px;}
-  .hometiles .tile-wide{min-height:65px;}
-  .hometiles .tile .icon{width:27px;height:27px;font-size:13.5px;}
-  .hometiles .tile .lbl{font-size:14.35px;}
+     tiles fits on one screen without scrolling — first to ~0.9x, then a
+     further 0.92x on top of that. Scoped to .hometiles only — every other
+     tile grid in the app (Materials, Snagging, H&S, etc.) keeps the normal
+     size. Deliberately does NOT touch the .statrow stat boxes above the
+     grid (Operatives on site/Tasks done, Calendar, Open snags) — those use
+     a separate .stat class, not .tile. */
+  .hometiles{gap:8.3px;}
+  .hometiles .tile{padding:11.6px 9.9px;gap:6.6px;min-height:92.9px;}
+  .hometiles .tile-wide{min-height:59.8px;}
+  .hometiles .tile .icon{width:24.8px;height:24.8px;font-size:12.4px;}
+  .hometiles .tile .lbl{font-size:13.2px;}
   /* More tab (managers/admins) — same "fit the whole page on one screen"
      idea as .hometiles above, but 3 columns and smaller still, since the
      manager version now lists every tile in the app (10+) rather than 4. */
@@ -320,7 +323,7 @@
   .moretiles .tile{padding:10px 6px;gap:5px;min-height:76px;}
   .moretiles .tile .icon{width:24px;height:24px;font-size:12px;}
   .moretiles .tile .lbl{font-size:11.5px;line-height:1.15;}
-  .hometiles .tile .sub{font-size:12.05px;}
+  .hometiles .tile .sub{font-size:11.1px;}
   .badge-count{background:var(--red);color:#fff;font-size:10.5px;
     font-weight:800;min-width:17px;height:17px;border-radius:8.5px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1;}
   .tile .badge-count{position:absolute;top:10px;right:10px;font-size:11.5px;min-width:19px;height:19px;border-radius:9.5px;}
@@ -610,6 +613,22 @@ function toast(msg){
   host.innerHTML=''; host.appendChild(el);
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },3200);
 }
+// App-wide safety net (app speed/reliability pass). render() already catches
+// anything thrown while a page is drawing and shows a recoverable screen —
+// but a stray onclick handler that throws (or rejects) BEFORE it gets to
+// call render() previously failed completely silently: the tap looked like
+// it did nothing, with no error and no feedback anywhere. dbSelect/dbInsert/
+// dbUpdate/dbDelete already catch their own network failures and toast a
+// specific message, so this only ever fires for a genuine bug slipping past
+// every other safeguard — it logs it for diagnosis and lets the person know
+// to try again, instead of the tap just going nowhere.
+window.addEventListener('error', function(e){
+  console.error('Unhandled error', e && (e.error || e.message));
+});
+window.addEventListener('unhandledrejection', function(e){
+  console.error('Unhandled rejection', e && e.reason);
+  try{ toast('Something went wrong — please try that again.'); }catch(_e){}
+});
 // Image viewer with pinch-zoom/pan/double-tap — the underlying file was
 // already full quality (uploads are never downscaled for Drawings), the
 // complaint was really "I can't zoom in to read the detail," so this adds
@@ -2021,9 +2040,17 @@ async function init(){
     }
   }
   if(SESSION && ME){
-    await loadOrg();
-    await loadAllProfiles();
-    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+    // These three only need ME (already loaded above) and don't depend on
+    // each other's results, so fetch them together instead of one after
+    // another — this is the very first screen the app shows, so cutting it
+    // from three sequential round trips to one saves real time on every
+    // login/app open.
+    const [, , sitesRows] = await Promise.all([
+      loadOrg(),
+      loadAllProfiles(),
+      dbSelect('sites', 'select=*&order=created_at.asc'),
+    ]);
+    SITES = sitesRows;
     if(ME.role!=='superadmin') registerPushNotifications();
   } else {
     applyTheme(null);
@@ -2692,9 +2719,12 @@ window.refreshAppData = async function(){
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
-    await loadOrg();
-    await loadAllProfiles();
-    SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
+    const [, , sitesRows] = await Promise.all([
+      loadOrg(),
+      loadAllProfiles(true),
+      dbSelect('sites', 'select=*&order=created_at.asc'),
+    ]);
+    SITES = sitesRows;
   }
   refreshingAppData = false;
   toast('Up to date');
@@ -6479,13 +6509,12 @@ async function renderSiteHome(siteId){
       hsOperativeGap = ramsGapHere || coshhGapHere;
     }
   }
-  // #404: Main Contractor's tiles (CPP, Site Rules & Layout, Site
-  // Inductions, Subcontractors, Permits, Asbestos, F10) used to live
-  // behind their own "Main Contractor" tile; they're now merged straight
-  // into this grid instead — still only for a site switched on as Main
-  // Contractor, and still respecting each tile's own ⋮ hide-from-
-  // operatives toggle (getMcTiles already filters that for a non-manager).
-  const mcTiles = site.acting_as_main_contractor ? await getMcTiles(siteId, site) : null;
+  // Main Contractor tiles (CPP, Site Rules & Layout, Site Inductions,
+  // Subcontractors, Permits, Inspections, Asbestos, F10) live behind a
+  // single "Main Contractor" tile — that tile itself sits at position 2 on
+  // Home (right after Check In/Out) whenever a site's switched on for it;
+  // see renderMcHome for what's underneath it.
+  const mcAreaCount = site.acting_as_main_contractor ? (await getMcTiles(siteId, site)).visibleTiles.length : 0;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
@@ -6534,11 +6563,13 @@ async function renderSiteHome(siteId){
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
       ];
-      // #404: Main Contractor's own tiles slot in here, right after the
-      // fixed core set — same ⋮ hide-toggle markup (mcTileHtml) the old
-      // standalone hub page used, so hiding/showing a tile still works
-      // exactly the same for a PM/admin.
-      if(mcTiles) regularTiles.push(...mcTiles.visibleTiles.map(t=>mcTileHtml(t.key, t.href, t.icon, t.lbl, t.sub, mcTiles.canAdd, mcTiles.hiddenSet.has(t.key), siteId)));
+      // Main Contractor is a single tile — position 2 overall (right after
+      // the wide Check In/Out tile), so it goes at the FRONT of this array
+      // rather than appended after the fixed core set.
+      if(site.acting_as_main_contractor) regularTiles.unshift(`<div class="tile" onclick="go('#/site/${siteId}/mc')">
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗</div>
+          <div class="lbl">Main Contractor</div><div class="sub">${mcAreaCount} area${mcAreaCount===1?'':'s'}</div>
+        </div>`);
       // Messages/Inbox is reached via the bottom bar only now — no separate
       // Home tile (it was a duplicate entry point, see the bottom tabbar).
       if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
@@ -6579,7 +6610,7 @@ async function renderSiteHome(siteId){
     </div>
       `;
     })()}
-    <div style="display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;margin-top:16px;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:5px;padding:0 12px;margin-top:26px;">
       <span class="stub" style="margin:0;">${escapeHtml(ME.name)}</span>
       ${(ORG && ORG.name) ? `<span class="stub" style="margin:0;">-</span><span class="stub" style="margin:0;">${escapeHtml(ORG.name)}</span>` : ''}
     </div>
@@ -12577,8 +12608,10 @@ window.openScheduleAssign = function(kind, id, record, defaultOperativeIds){
 };
 window.openScheduleAssignExisting = async function(kind, id, siteId){
   const table = kind==='section' ? 'schedule_sections' : 'schedule_tasks';
-  const rows = await dbSelect(table, 'id=eq.'+id+'&select=visibility_mode,assigned_pm_ids,assigned_operative_ids');
-  const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  const [rows, assignments] = await Promise.all([
+    dbSelect(table, 'id=eq.'+id+'&select=visibility_mode,assigned_pm_ids,assigned_operative_ids'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+  ]);
   openScheduleAssign(kind, id, rows[0]||null, assignments.map(a=>a.user_id));
 };
 window.closeScheduleAssign = function(){ scheduleAssignTarget = null; render(); };
@@ -14362,13 +14395,13 @@ function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
     </div>
   `;
 }
-// #404: the Main Contractor tiles used to live behind their own "Main
-// Contractor" hub tile/page (renderMcHome). They're now merged straight
-// onto the site Home page instead (still gated on
-// site.acting_as_main_contractor, still respecting the ⋮ hide-from-
-// operatives toggle below) — this is the shared data-fetch + tile-array
-// builder both Home and the (now-unused-but-harmless) direct #/mc route
-// draw from, so the two never drift apart.
+// Shared data-fetch + tile-array builder for the Main Contractor tiles
+// (CPP, Site Rules & Layout, Site Inductions, Subcontractors, Permits,
+// Inspections, Asbestos, F10) — used by renderMcHome (the page the single
+// "Main Contractor" tile on Home leads to) and by Home itself just for the
+// area count shown on that tile, so the two never drift apart. Gated on
+// site.acting_as_main_contractor and respecting the ⋮ hide-from-operatives
+// toggle below.
 async function getMcTiles(siteId, site){
   const canAdd = isManager(ME);
   const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
@@ -14417,6 +14450,22 @@ window.toggleMcTileHidden = async function(siteId, key, hide){
     render();
   }
 };
+// Site Home carries a single "Main Contractor" tile (position 2, right
+// after Check In/Out) rather than each of these tiles individually — this
+// is what that tile leads to, listing CPP/Site Rules/Inductions/
+// Subcontractors/Permits/Inspections/Asbestos/F10 underneath it, same as
+// before #404 flattened them straight onto Home.
+async function renderMcHome(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site || !site.acting_as_main_contractor){ go(`#/site/${siteId}/home`); return; }
+  const mcTiles = await getMcTiles(siteId, site);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      ${mcTiles.visibleTiles.map(t=>mcTileHtml(t.key, t.href, t.icon, t.lbl, t.sub, mcTiles.canAdd, mcTiles.hiddenSet.has(t.key), siteId)).join('')}
+    </div>
+  `, {title:'Main Contractor', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
 /* ================= PERMIT TO WORK ================= */
 // #408: a full issue → sign-off → close-down workflow, task-specific (a
 // fixed library of permit types — PERMIT_TYPE_LABEL/ICON above) rather
@@ -18525,10 +18574,12 @@ window.reopenPuwerWeek = async function(completionId){
 let puwerFillDraft = null; // {siteId, userId, weekStart, inspectionId, comments, tools:[{dbId, toolId, name, serial_number, photo_path, q_suitability,...}]}
 let puwerFillSaving = false;
 async function loadPuwerFillDraft(siteId, userId, weekStart){
-  const insp = (await dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&week_start=eq.'+weekStart+'&select=*'))[0] || null;
-  let existingTools = [];
-  if(insp) existingTools = await dbSelect('puwer_inspection_tools', 'inspection_id=eq.'+insp.id+'&order=sort_order.asc');
-  const ownedTools = await dbSelect('operative_tools', 'user_id=eq.'+userId+'&order=created_at.asc');
+  const [inspRows, ownedTools] = await Promise.all([
+    dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&week_start=eq.'+weekStart+'&select=*'),
+    dbSelect('operative_tools', 'user_id=eq.'+userId+'&order=created_at.asc'),
+  ]);
+  const insp = inspRows[0] || null;
+  const existingTools = insp ? await dbSelect('puwer_inspection_tools', 'inspection_id=eq.'+insp.id+'&order=sort_order.asc') : [];
   const defaultChecked = isManager(ME);
   const existingByToolId = {};
   existingTools.forEach(t=>{ if(t.tool_id) existingByToolId[t.tool_id] = t; });
@@ -23781,11 +23832,10 @@ async function renderRoute(){
         return renderMcInspections(siteId);
       }
       if(['cpp','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
-      // #404: the old standalone Main Contractor hub page is gone — its
-      // tiles now live directly on Home — so a bare #/mc (an old bookmark
-      // or back-link) just lands there instead of a page that no longer
-      // has a route in.
-      go(`#/site/${siteId}/home`); return;
+      // Bare #/mc — the Main Contractor tile's own hub page, listing
+      // CPP/Site Rules/Inductions/Subcontractors/Permits/Inspections/
+      // Asbestos/F10 underneath the single "Main Contractor" tile on Home.
+      return renderMcHome(siteId);
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
