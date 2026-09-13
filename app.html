@@ -5457,7 +5457,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='quicklink' ? 'Add a Quick Link Folder' : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='quicklink' ? '#/team' : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='siteinductions' ? 'Choose Site Inductions Folder' : odPickerTarget==='quicklink' ? 'Add a Quick Link Folder' : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='siteinductions' ? `#/site/${siteId}/mc/site_inductions` : odPickerTarget==='quicklink' ? '#/team' : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
 window.toggleOdFolderPin = async function(id, name, driveId){
   const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
@@ -5509,6 +5509,8 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
   }
   const patch = odPickerTarget==='materials'
     ? {material_orders_folder_id: folderId, material_orders_folder_name: folderName, material_orders_drive_id: driveId || null}
+    : odPickerTarget==='siteinductions'
+    ? {site_inductions_folder_id: folderId, site_inductions_folder_name: folderName, site_inductions_drive_id: driveId || null}
     : {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null};
   const row = await dbUpdate('sites', siteId, patch);
   if(row){
@@ -5518,6 +5520,9 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
     if(odPickerTarget==='materials'){
       toast("Folder linked — Material PO's will sync from there daily");
       go(`#/site/${siteId}/materialorders`);
+    } else if(odPickerTarget==='siteinductions'){
+      toast('Folder linked — signed inductions will be pushed there from now on');
+      go(`#/site/${siteId}/mc/site_inductions`);
     } else {
       toast('Folder linked — photos for this site will sync there from now on');
       go(`#/site/${siteId}/team`);
@@ -14198,14 +14203,19 @@ const MC_CATEGORY_ICON = {cpp:'📘', site_layout:'🗺', site_inductions:'🪪'
 async function renderMcHome(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&select=category');
+  const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
   const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const companies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id');
+  const [companies, inductionAssigned, inductionDone] = await Promise.all([
+    dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
+  ]);
+  const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/mc/cpp')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.cpp}</div><div class="lbl">${MC_CATEGORY_LABEL.cpp}</div><div class="sub">${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_layout}</div><div class="lbl">${MC_CATEGORY_LABEL.site_layout}</div><div class="sub">${countByCat.site_layout||0} document${(countByCat.site_layout||0)===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">${countByCat.site_inductions||0} document${(countByCat.site_inductions||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">${inductionSub}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Subcontractors</div><div class="sub">${companies.length} compan${companies.length===1?'y':'ies'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.permits}</div><div class="lbl">${MC_CATEGORY_LABEL.permits}</div><div class="sub">${countByCat.permits||0} document${(countByCat.permits||0)===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/asbestos')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.asbestos}</div><div class="lbl">${MC_CATEGORY_LABEL.asbestos}</div><div class="sub">${countByCat.asbestos||0} document${(countByCat.asbestos||0)===1?'':'s'}</div></div>
@@ -14257,6 +14267,250 @@ window.deleteMcDocument = async function(id, storagePath){
   const ok = await dbDelete('mc_documents', id);
   if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
 };
+
+/* ================= SITE INDUCTIONS (tick-box sign-off, one per operative per site) =================
+   Unlike the other Main-Contractor tiles this isn't a document upload folder
+   — it's a fixed, standard induction every operative works through and signs
+   with their adopted signature (see MY SIGNATURE above), the same pattern as
+   the H&S Policy sign-off inside RAMS. Completed inductions are built into a
+   PDF and, when this site has its own OneDrive folder linked (separate from
+   the site's photos/drawings folder — see site.site_inductions_folder_id),
+   pushed there automatically: same opportunistic, silent-fail sync pattern
+   used for progress photos and drawings elsewhere in the app. */
+const SITE_INDUCTION_ITEMS = [
+  "I have been shown this site's emergency procedures, including the fire exits, evacuation routes and the assembly point.",
+  'I know the location of the first aid box and who the appointed first aiders are on this site.',
+  'I understand I must wear the correct PPE for my task at all times on this site.',
+  'I have been shown the site welfare facilities (toilets, drying room, canteen/rest area).',
+  "I understand this site's permit-to-work requirements (e.g. hot works, confined spaces, working at height) and will not start such work without the correct permit in place.",
+  'I have been made aware of the specific hazards on this site (traffic routes, excavations, overhead services, asbestos register where applicable).',
+  'I understand how to report an accident, incident or near miss on this site.',
+  'I agree to follow all site rules at all times, including signing in/out and wearing my ID badge.',
+];
+let inductionTicks = [];
+async function fetchSiteInductionData(siteId){
+  const [assigned, completions] = await Promise.all([
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&order=completed_at.desc'),
+  ]);
+  const byOperative = {}; completions.forEach(c=>{ byOperative[c.operative_id]=c; });
+  return {assignedIds: assigned.map(a=>a.user_id), completions, byOperative};
+}
+async function renderSiteInductions(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  const isClientView = ME.role==='client';
+  await loadAllProfiles();
+  const {assignedIds, completions, byOperative} = await fetchSiteInductionData(siteId);
+  const linked = !!site.site_inductions_folder_id;
+
+  if(canManage || isClientView){
+    const roster = assignedIds.length ? assignedIds : Object.keys(byOperative);
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      ${canManage ? `
+      <div class="card">
+        ${linked ? `
+          <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Signed inductions are pushed to "${escapeHtml(site.site_inductions_folder_name||'')}"</p>
+          <div class="row-gap">
+            <button class="ghostbtn" style="flex:1;" onclick="startOneDriveFolderPicker('${siteId}','siteinductions')">Change Folder</button>
+            <button class="ghostbtn" style="flex:1;" onclick="unlinkSiteInductionsFolder('${siteId}')">Unlink</button>
+          </div>
+        ` : `
+          <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and every signed induction PDF will be pushed there automatically as operatives complete them.</p>
+          <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','siteinductions')">Link OneDrive Folder</button>
+        `}
+      </div>
+      ` : ''}
+      <p class="stub" style="margin:14px 0 10px;">${roster.length} on the roster · ${completions.length} completed</p>
+      ${roster.map(uid=>{
+        const c = byOperative[uid];
+        return `
+        <div class="sitecard">
+          <div class="swatch">${operativeInitials(nameOf(uid))}</div>
+          <div class="info">
+            <div class="name">${escapeHtml(nameOf(uid))}</div>
+            <div class="addr">${c ? '✓ Completed '+new Date(c.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '○ Not yet completed'}</div>
+          </div>
+          ${c ? `<div class="taskicon" title="Export PDF" onclick="event.stopPropagation();exportSiteInductionPdf('${c.id}')">⬇️</div>` : ''}
+          ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
+        </div>`;
+      }).join('') || `<div class="empty">No operatives assigned to this site yet.</div>`}
+    `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+    return;
+  }
+
+  // Operative view: complete the induction once; re-doing it afterwards is a
+  // PM action (deleteSiteInductionCompletion), not a self-service one.
+  const mine = byOperative[ME.id];
+  if(mine){
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <div class="card" style="text-align:center;">
+        <div style="font-size:34px;margin-bottom:8px;">✅</div>
+        <p class="sectiontitle" style="margin:0 0 6px;">Induction completed</p>
+        <p class="stub" style="margin:0 0 14px;">You completed this site's induction on ${new Date(mine.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}.</p>
+        <button class="ghostbtn" onclick="exportSiteInductionPdf('${mine.id}')">View / Download My Induction</button>
+      </div>
+    `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+    return;
+  }
+  if(inductionTicks.length !== SITE_INDUCTION_ITEMS.length) inductionTicks = SITE_INDUCTION_ITEMS.map(()=>false);
+  const allTicked = inductionTicks.every(Boolean);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Please read and confirm each item below, then sign to complete your site induction for ${escapeHtml(site.name)}.</p>
+    ${SITE_INDUCTION_ITEMS.map((text,i)=>`
+      <div class="siglinebox" style="margin-top:0;margin-bottom:8px;cursor:pointer;align-items:flex-start;" onclick="toggleInductionTick(${i})">
+        <span style="font-size:18px;line-height:1.3;margin-right:8px;">${inductionTicks[i]?'☑':'☐'}</span>
+        <span style="font-size:13px;line-height:1.4;">${escapeHtml(text)}</span>
+      </div>
+    `).join('')}
+    <div class="card" style="margin-top:6px;">
+      <p class="sectiontitle" style="margin-top:0;">Your signature</p>
+      ${ME.signature_path ? `
+        <img src="${publicUrl('signatures', ME.signature_path)}" style="height:44px;max-width:100%;object-fit:contain;margin-bottom:10px;display:block;">
+        <button class="darkbtn" ${allTicked?'':'disabled'} onclick="submitSiteInduction('${siteId}')">${allTicked?'Sign & Complete Induction':'Tick every item to continue'}</button>
+      ` : `
+        <p class="stub" style="margin:0 0 10px;color:var(--warn);">Adopt your signature first — one tap and it's used everywhere.</p>
+        <button class="darkbtn" onclick="go('#/signature')">Adopt Your Signature</button>
+      `}
+    </div>
+  `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+window.toggleInductionTick = function(i){ inductionTicks[i] = !inductionTicks[i]; render(); };
+window.submitSiteInduction = async function(siteId){
+  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+  if(!inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
+  toast('Saving…');
+  const answers = {}; SITE_INDUCTION_ITEMS.forEach((t,i)=>{ answers['item_'+i]=true; });
+  const site = SITES.find(s=>s.id===siteId);
+  const built = await buildSiteInductionPdfBytes(site, ME);
+  if(!built) return;
+  const pdfPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'.pdf';
+  const stored = await uploadToStorage('mc-documents', pdfPath, new Blob([built.bytes],{type:'application/pdf'}), 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:ME.signature_path, pdf_path:stored});
+  if(!rows) return;
+  inductionTicks = [];
+  toast('Induction completed');
+  render();
+  // Best-effort push to a linked OneDrive folder — same silent-fail pattern
+  // used for photo/drawing sync elsewhere in the app.
+  if(site && site.site_inductions_folder_id){
+    try{
+      let binary=''; const chunk=0x8000;
+      for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
+      const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        filename: built.filename,
+        content_base64: btoa(binary),
+        folder_id: site.site_inductions_folder_id,
+        drive_id: site.site_inductions_drive_id || undefined,
+      })});
+      if(res.ok){
+        const d = await res.json().catch(()=>({}));
+        if(d.ok) await dbUpdate('site_induction_completions', rows[0].id, {pushed_to_onedrive_at: new Date().toISOString()});
+      }
+    }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+  }
+};
+window.exportSiteInductionPdf = async function(completionId){
+  const rows = await dbSelect('site_induction_completions', 'id=eq.'+completionId+'&select=pdf_path');
+  const path = rows[0] && rows[0].pdf_path;
+  if(!path){ toast('PDF not available.'); return; }
+  viewDrawing(publicUrl('mc-documents', path), false, 'Site Induction.pdf');
+};
+window.deleteSiteInductionCompletion = async function(completionId){
+  if(!await customConfirm('Delete this completed induction? The operative will need to complete it again.')) return;
+  const ok = await dbDelete('site_induction_completions', completionId);
+  if(ok){ toast('Deleted — they can now redo their induction'); render(); }
+};
+window.unlinkSiteInductionsFolder = async function(siteId){
+  if(!await customConfirm('Unlink this OneDrive folder? Signed inductions will stop syncing there until you link a new one.')) return;
+  const row = await dbUpdate('sites', siteId, {site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null});
+  if(row){ const idx = SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx] = row; toast('Folder unlinked'); render(); }
+};
+async function buildSiteInductionPdfBytes(site, operative){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  const pdfDoc = await PDFLib.PDFDocument.create();
+  const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+  const WHITE = PDFLib.rgb(1,1,1);
+  const INK = PDFLib.rgb(0.06,0.06,0.07);
+  const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+  const OK = PDFLib.rgb(0.2,0.55,0.35);
+  const PAGE_W = 595.28, PAGE_H = 841.89;
+  const MARGIN = 42;
+  const companyName = (ORG && ORG.name) || 'OpHUB';
+  function wrapText(text, font, size, maxWidth){
+    const words = text.split(' ');
+    const lines = [];
+    let cur = '';
+    for(const w of words){
+      const test = cur ? cur+' '+w : w;
+      if(font.widthOfTextAtSize(test, size) > maxWidth && cur){ lines.push(cur); cur = w; }
+      else cur = test;
+    }
+    if(cur) lines.push(cur);
+    return lines;
+  }
+  let logoImg = null;
+  const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+  if(logoUrl){
+    const bytes = await pdfFetchImageBytes(logoUrl);
+    if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+  }
+  const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+  if(logoImg){
+    const dim = logoImg.scale(1);
+    const s = 40/Math.max(dim.width, dim.height);
+    const w = dim.width*s, h = dim.height*s;
+    page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
+    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+  }
+  const textX = logoImg ? MARGIN+52 : MARGIN;
+  page.drawText('SITE INDUCTION', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+  page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+  page.drawText(companyName, {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+  let y = PAGE_H - 118;
+  page.drawText('Operative: '+operative.name, {x:MARGIN, y, size:11, font:bold, color:INK});
+  y -= 16;
+  page.drawText('Completed: '+new Date().toLocaleString('en-GB'), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+  y -= 26;
+  const textWidth = PAGE_W - 2*MARGIN - 24;
+  for(let i=0;i<SITE_INDUCTION_ITEMS.length;i++){
+    const lines = wrapText(SITE_INDUCTION_ITEMS[i], reg, 10, textWidth);
+    const blockH = 16 + lines.length*13;
+    page.drawText('✓', {x:MARGIN, y:y-11, size:12, font:bold, color:OK});
+    lines.forEach((line,li)=>{
+      page.drawText(line, {x:MARGIN+20, y:y-11-(li*13), size:10, font:reg, color:INK});
+    });
+    y -= blockH;
+  }
+  y -= 10;
+  page.drawText('Signature', {x:MARGIN, y, size:9, font:bold, color:SLATE});
+  y -= 8;
+  if(operative.signature_path){
+    try{
+      const bytes = await pdfFetchImageBytes(publicUrl('signatures', operative.signature_path));
+      if(bytes){
+        let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+        const dim = img.scale(1);
+        const boxH = 40, boxW = 160;
+        const s2 = Math.min(boxW/dim.width, boxH/dim.height);
+        const w = dim.width*s2, h = dim.height*s2;
+        page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
+        y -= (h+6);
+      }
+    }catch(e){ /* fall back to name only */ }
+  }
+  page.drawText(operative.name+' — '+new Date().toLocaleDateString('en-GB'), {x:MARGIN, y:y-4, size:9.5, font:reg, color:SLATE});
+
+  const filename = exportFilename(site.name, 'Site Induction - '+operative.name, 'pdf');
+  pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+  const outBytes = await pdfDoc.save();
+  return {bytes: outBytes, filename};
+}
 
 /* ---- Subcontractors ---- */
 let subcoAddOpen = false;
@@ -22555,7 +22809,8 @@ async function renderRoute(){
         if(csub==='operatives') return renderSubOperatives(siteId, companyId);
         return renderSubcontractorHub(siteId, companyId);
       }
-      if(['cpp','site_layout','site_inductions','permits','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
+      if(sub==='site_inductions') return renderSiteInductions(siteId);
+      if(['cpp','site_layout','permits','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
       return renderMcHome(siteId);
     }
     if(page==='ppe') return renderPpe(siteId);
