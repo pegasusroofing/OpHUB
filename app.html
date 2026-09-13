@@ -3835,6 +3835,12 @@ async function renderTeam(){
         <button class="darkbtn" style="flex:1;" onclick="document.getElementById('priceRateExcelInputTop').click()">⬆ Upload Rate Card (Excel)</button>
         <input type="file" id="priceRateExcelInputTop" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importPriceRateExcel(this)">
       </div>
+      <div class="formfield" style="margin:0 0 16px;">
+        <label class="field-label">Terms &amp; Conditions</label>
+        <p class="stub" style="margin:0 0 6px;">Shown as its own page 1 on every Price Builder PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</p>
+        <textarea id="pbTermsField" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;box-sizing:border-box;" placeholder="Paste your subcontractor terms &amp; conditions here...">${escapeHtml((ORG && ORG.price_builder_terms) || '')}</textarea>
+        <button class="ghostbtn" style="margin-top:6px;" onclick="savePriceBuilderTerms()">Save Terms</button>
+      </div>
       ${priceRateCategories.map(cat=>`
         <p class="sectiontitle" style="margin:14px 0 6px;font-size:12.5px;">${escapeHtml(cat.name)}</p>
         ${cat.items.map(it=>`
@@ -4426,7 +4432,7 @@ window.deleteSowLibTask = async function(templateId, taskId){
   if(ok){ await loadSowLibContents(templateId); toast('Task deleted'); render(); }
 };
 /* ================= PRICE BUILDER — shared helpers (WIP feature) ================= */
-const PRICE_UNIT_LABEL = {lm:'per linear metre', m2:'per m²', each:'each'};
+const PRICE_UNIT_LABEL = {lm:'lm', m2:'m2', each:'ea', item:'item'};
 // Categories render in this fixed order rather than alphabetically — any
 // category not in this list (e.g. one someone adds later) is appended after,
 // alphabetically among themselves.
@@ -8232,7 +8238,7 @@ function pricingElementCardHtml(el, d, ctx){
 
   return `
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:18px;border:1.5px solid ${el.closed?'var(--line)':'var(--brand1)'};">
-      <div style="padding:12px 14px;display:flex;align-items:flex-start;gap:8px;justify-content:space-between;background:${el.closed?'var(--paper)':'transparent'};">
+      <div style="padding:12px 14px;display:flex;align-items:flex-start;gap:8px;justify-content:space-between;background:${el.closed?'var(--paper)':'transparent'};border-bottom:2px solid ${el.closed?'var(--line)':'var(--brand1)'};">
         <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
           ${canManage && !el.closed ? `<input type="checkbox" style="margin-top:4px;width:auto;" ${selected?'checked':''} onchange="togglePricingElementSelected('${el.id}')">` : ''}
           <div style="min-width:0;">
@@ -8243,7 +8249,7 @@ function pricingElementCardHtml(el, d, ctx){
               <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="cancelRenamePricingElement()">Cancel</button>
             </div>
             ` : `
-            <div class="sectiontitle" style="margin:0;cursor:pointer;" onclick="priceElementOpen['${el.id}']=${!open};render()">${open?'▼':'▶'} ${escapeHtml(el.name)}${el.closed?' <span style="font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
+            <div style="margin:0;cursor:pointer;font-family:'Sora',-apple-system,sans-serif;font-size:15.5px;font-weight:800;letter-spacing:.01em;color:${el.closed?'var(--ink)':'var(--brand1)'};" onclick="priceElementOpen['${el.id}']=${!open};render()">${open?'▼':'▶'} ${escapeHtml(el.name)}${el.closed?' <span style="font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
             <div class="stub" style="margin:2px 0 0;">${fmt(priceTotal)} price · ${fmt(bookedIn)} booked in</div>
             `}
           </div>
@@ -8749,7 +8755,17 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
   const priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
   const optionsByItem = {};
-  priceRateOptions.forEach(o=>{ (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o); });
+  // A "None" option in the spreadsheet (e.g. "Additional Items": None /
+  // Counter Battens / Redland Spec Uplift / ...) means "nothing extra
+  // applies" — it's not something to price, so it's never offered as a
+  // choice here. Not ticking any real option already means the item simply
+  // isn't included on the sheet, which is exactly what "None" was standing
+  // in for. (The rate card's own admin editor still shows it, since that's
+  // for editing the card itself, not building a sheet.)
+  priceRateOptions.forEach(o=>{
+    if((o.label||'').trim().toLowerCase()==='none') return;
+    (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o);
+  });
   pbOptionsByItemCache = optionsByItem;
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
   const assignedOperatives = await siteAssignedOperatives(siteId);
@@ -8764,7 +8780,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         // since deleted from the card. Either way it still has its own
         // name/rate/quantity saved on the row itself, so keep it as a
         // custom row rather than silently dropping it.
-        customRows.push({localId:uid(), name:row.name||'', rate:row.rate, quantity:row.quantity, unit:row.unit||'each'});
+        customRows.push({localId:uid(), name:row.name||'', rate:row.rate, quantity:row.quantity, unit:row.unit||'item'});
         return;
       }
       const linkedItem = itemsById[row.rate_item_id];
@@ -8888,7 +8904,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       if(!catRows.length) return '';
       return `
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
-      <div class="drawheaderrow" style="grid-template-columns:1fr 58px 48px 40px 62px 24px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
+      <div class="drawheaderrow" style="grid-template-columns:1fr 70px 48px 40px 62px 24px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
         <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:right;">Qty</span><span>Unit</span><span style="text-align:right;">Total</span><span></span>
       </div>
       ${catRows.map(({key, entry, it})=>{
@@ -8899,8 +8915,8 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         // across every row regardless of how long the item text is or
         // whether it wraps to a second line.
         return `
-        <div class="sitecard" style="display:grid;grid-template-columns:1fr 58px 48px 40px 62px 24px;gap:6px;align-items:start;padding:8px 10px;">
-          <div style="min-width:0;">
+        <div class="sitecard" style="display:grid;grid-template-columns:1fr 70px 48px 40px 62px 24px;gap:6px;align-items:start;padding:8px 10px;">
+          <div style="min-width:0;max-width:80%;">
             <input type="text" value="${escapeHtml(entry.nameOverride||it.name)}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:inherit;box-sizing:border-box;" onblur="pbSetItemName('${key}', this.value)">
             ${it.is_dropdown ? `
             <select style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:inherit;color:var(--slate);background:#fff;" onchange="pbChangeOption('${key}','${it.id}', this.value)">
@@ -8909,7 +8925,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
             ` : ''}
             ${entry.isManualRate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual rate — non-conforming</div>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
+          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;font-size:15.5px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
           <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
           <span class="stub" style="margin:2px 0 0;">${PRICE_UNIT_LABEL[it.unit]}</span>
           <span class="stub" style="margin:2px 0 0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
@@ -9040,7 +9056,7 @@ window.pbSetRateOverride = async function(key, value, baseRate){
   entry.rateOverride = val; entry.isManualRate = true; render();
 };
 window.pbAddCustomRow = function(){
-  pbWorking.customRows.push({localId:uid(), name:'', rate:'', quantity:'', unit:'each'});
+  pbWorking.customRows.push({localId:uid(), name:'', rate:'', quantity:'', unit:'item'});
   render();
 };
 window.pbRemoveCustomRow = function(idx){
@@ -9088,7 +9104,7 @@ async function pbPersist(siteId, sheetId, status){
     const lineTotal = qty * rate;
     total += lineTotal;
     rows.push({
-      sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'each',
+      sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'item',
       rate, quantity: qty, option_id: null, option_label: null,
       line_total: lineTotal, sort_order: sortOrder++,
     });
@@ -9206,10 +9222,20 @@ async function renderPriceBuilderView(siteId, sheetId){
     </div>
     ${categories.map(cat=>`
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
+      <div class="drawheaderrow" style="grid-template-columns:1fr 70px 48px 40px 62px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
+        <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:right;">Qty</span><span>Unit</span><span style="text-align:right;">Total</span>
+      </div>
       ${cat.items.map(it=>`
-        <div class="sitecard" style="padding:8px 10px;">
-          <div class="info"><div class="name">${escapeHtml(it.name)}${it.option_label?' — '+escapeHtml(it.option_label):''}</div><div class="sub">${it.quantity} ${PRICE_UNIT_LABEL[it.unit]||it.unit} @ ${PRICE_BUILDER_FMT(it.rate)}${it.is_manual_rate?' <span style="color:var(--warn);font-weight:700;">⚠ Manual</span>':''}</div></div>
-          <span class="stub" style="margin:0;font-weight:700;">${PRICE_BUILDER_FMT(it.line_total)}</span>
+        <div class="sitecard" style="display:grid;grid-template-columns:1fr 70px 48px 40px 62px;gap:6px;align-items:center;padding:8px 10px;">
+          <div style="min-width:0;">
+            <div class="name">${escapeHtml(it.name)}</div>
+            ${it.option_label?`<div class="sub" style="margin-top:2px;">${escapeHtml(it.option_label)}</div>`:''}
+            ${it.is_manual_rate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual</div>`:''}
+          </div>
+          <span class="stub" style="margin:0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(it.rate)}</span>
+          <span class="stub" style="margin:0;text-align:right;">${it.quantity}</span>
+          <span class="stub" style="margin:0;">${PRICE_UNIT_LABEL[it.unit]||it.unit}</span>
+          <span class="stub" style="margin:0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(it.line_total)}</span>
         </div>
       `).join('')}
     `).join('') || `<div class="empty">No items on this sheet.</div>`}
@@ -9371,22 +9397,63 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
     page.drawText('Generated via OpHUB'+(sheet.subcontractor_name?' · For: '+sheet.subcontractor_name:''), {x:MARGIN, y:14, size:8, font:reg, color:SLATE});
   }
   function newPage(){ page = pdfDoc.addPage([PAGE_W,PAGE_H]); drawHeader(); drawFooter(); y = PAGE_H-(jobLine?128:112); }
-  function ensureSpace(h){ if(y-h<80) newPage(); }
+  function drawColumnHeaders(){
+    cols.forEach(col=>drawCell(page, col.label, col, y, {font:bold, size:9, color:SLATE}));
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:INK});
+    y -= 18;
+  }
+  function ensureSpace(h){ if(y-h<80){ newPage(); drawColumnHeaders(); } }
+  function ensureSpacePlain(h){ if(y-h<80) newPage(); }
+  // Word-wrap plain paragraph text to the page's content width, for the
+  // Terms & Conditions page — long clauses need to break across lines (and
+  // pages) rather than run off the edge.
+  function wrapText(text, font, size, maxWidth){
+    const words = text.split(/\s+/).filter(Boolean);
+    const lines = []; let cur = '';
+    words.forEach(w=>{
+      const test = cur ? cur+' '+w : w;
+      if(cur && font.widthOfTextAtSize(test, size) > maxWidth){ lines.push(cur); cur = w; }
+      else cur = test;
+    });
+    if(cur) lines.push(cur);
+    return lines;
+  }
+  // Page 1: Terms & Conditions (org-wide text set in Settings & Admin ›
+  // Price Builder — Rate Card), verbatim — only when the org has actually
+  // set some, so a sheet never ships with fabricated/placeholder wording.
+  // The itemized SOW always starts on its own fresh page after this.
+  const terms = ORG && ORG.price_builder_terms && ORG.price_builder_terms.trim();
+  if(terms){
+    newPage();
+    page.drawText('Terms & Conditions', {x:MARGIN, y, size:13, font:bold, color:INK});
+    y -= 22;
+    terms.split(/\n+/).forEach(para=>{
+      if(!para.trim()){ y -= 8; return; }
+      wrapText(para.trim(), reg, 9.5, CONTENT_W).forEach(line=>{
+        if(y < 70){ newPage(); }
+        page.drawText(line, {x:MARGIN, y, size:9.5, font:reg, color:INK});
+        y -= 14;
+      });
+      y -= 6;
+    });
+  }
   newPage();
+  drawColumnHeaders();
   items.forEach(it=>{
-    ensureSpace(18);
+    ensureSpace(24);
     const nameText = it.option_label ? `${it.name} — ${it.option_label}` : it.name;
-    const maxChars = Math.floor((cols[0].w*CONTENT_W)/4.6);
-    drawCell(page, nameText.length>maxChars ? nameText.slice(0,maxChars-1)+'…' : nameText, cols[0], y);
-    drawCell(page, String(it.quantity), cols[1], y);
-    drawCell(page, PRICE_UNIT_LABEL[it.unit]||it.unit||'', cols[2], y);
-    drawCell(page, Number(it.rate).toFixed(2), cols[3], y);
-    drawCell(page, Number(it.line_total).toFixed(2), cols[4], y, {font:bold});
-    y -= 17;
-    page.drawLine({start:{x:MARGIN,y:y+7}, end:{x:PAGE_W-MARGIN,y:y+7}, thickness:0.5, color:LINE});
+    const maxChars = Math.floor((cols[0].w*CONTENT_W)/5);
+    drawCell(page, nameText.length>maxChars ? nameText.slice(0,maxChars-1)+'…' : nameText, cols[0], y, {size:10});
+    drawCell(page, String(it.quantity), cols[1], y, {size:10});
+    drawCell(page, PRICE_UNIT_LABEL[it.unit]||it.unit||'', cols[2], y, {size:10});
+    drawCell(page, Number(it.rate).toFixed(2), cols[3], y, {size:10});
+    drawCell(page, Number(it.line_total).toFixed(2), cols[4], y, {font:bold, size:10});
+    y -= 24;
+    page.drawLine({start:{x:MARGIN,y:y+10}, end:{x:PAGE_W-MARGIN,y:y+10}, thickness:0.5, color:LINE});
   });
 
-  ensureSpace(90);
+  ensureSpacePlain(90);
   y -= 10;
   const boxW = 210, boxX = PAGE_W-MARGIN-boxW;
   const summaryRows = [['Total', total], ['Taken', taken], ['Balance', balance]];
@@ -18219,6 +18286,11 @@ window.addPriceRateItem = async function(){
     if(!isDropdown) priceRateAddOpen = false;
     render();
   }
+};
+window.savePriceBuilderTerms = async function(){
+  const val = document.getElementById('pbTermsField').value;
+  const row = await dbUpdate('organizations', ME.org_id, {price_builder_terms: val || null});
+  if(row){ if(ORG) ORG.price_builder_terms = val || null; toast('Terms saved'); }
 };
 window.savePriceRateField = async function(input, itemId, field){
   const raw = input.value.trim();
