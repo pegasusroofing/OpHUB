@@ -8162,7 +8162,7 @@ async function loadPriceTileData(siteId){
   // below) and for each element's own card.
   const [allElements, allWeeks, allAwRows, subAddressesList, elementGroups, pbLinkedSheets] = await Promise.all([
     dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&order=sort_order.asc,created_at.asc'),
-    dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number,amount'),
+    dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number,amount,wage_mismatch_override_reason'),
     dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&select=element_id,amount,status'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
     // Groups let a PM visually cluster related sub tiles (e.g. every element
@@ -8523,8 +8523,9 @@ function pricingElementCardHtml(el, d, ctx){
   // the labour-invoice grant together (see toggleElementAccess above).
   const elementAccessIds = new Set([...priceAccessIds, ...labourAccessIds]);
   const weekMap = {};
+  const wageOverrideMap = {}; // week_number -> reason text, when a mismatch was deliberately overridden
   let maxWeek = 0;
-  (ctx.weeks||[]).forEach(w=>{ weekMap[w.week_number]=w.amount; if(w.week_number>maxWeek) maxWeek=w.week_number; });
+  (ctx.weeks||[]).forEach(w=>{ weekMap[w.week_number]=w.amount; if(w.wage_mismatch_override_reason) wageOverrideMap[w.week_number]=w.wage_mismatch_override_reason; if(w.week_number>maxWeek) maxWeek=w.week_number; });
   const weeksToShow = d.hasPriceAcc ? (maxWeek+1) : maxWeek;
   // Elements fed by an issued Price Builder sheet get a per-item weekly
   // booking breakdown instead of the free-form operative build-up — the
@@ -8664,6 +8665,7 @@ function pricingElementCardHtml(el, d, ctx){
               ${d.pbSheet ? priceBuilderItemWeekBreakdownHtml(el.id, siteId, wk, d.pbItems, pbWeeksByItem, canManage, fmt) : ''}
               ${d.pbSheet && canManage ? priceBuilderLabourWagesHtml(el.id, siteId, d.pbSheet.id, wk, assignedOperatives, orgOperativesForExtra, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
               ${d.pbSheet && canManage ? `<button type="button" class="darkbtn" style="width:auto;padding:9px 16px;font-size:13px;margin-top:4px;" onclick="pbWeekSaveAll('${el.id}','${siteId}','${d.pbSheet.id}',${wk})">💾 Save</button>` : ''}
+              ${d.pbSheet && wageOverrideMap[wk] ? `<p class="stub" style="margin:6px 0 0;font-size:11px;color:var(--warn);font-weight:600;">⚠ Saved despite wages not matching work booked in — ${escapeHtml(wageOverrideMap[wk])}</p>` : ''}
               ${!d.pbSheet && d.hasPriceAcc ? priceWeekOperativeBreakdownHtml(el.id, siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
               ` : ''}
             </div>
@@ -9153,17 +9155,34 @@ window.pbWeekSaveAll = async function(elementId, siteId, sheetId, wk){
   itemsWeekTotal = Math.round(itemsWeekTotal*100)/100;
   const wageEntries = await dbSelect('price_week_operative_entries', 'element_id=eq.'+elementId+'&week_number=eq.'+wk+'&select=amount');
   const wagesTotal = Math.round(wageEntries.reduce((s,e)=>s+Number(e.amount||0),0)*100)/100;
+  let overrideReason = null;
   if(Math.abs(itemsWeekTotal - wagesTotal) > 0.01){
-    toast(`Labour wages (£${wagesTotal.toFixed(2)}) don't match the value of work entered (£${itemsWeekTotal.toFixed(2)}) — adjust one so they tie out before saving.`);
-    return;
+    // Real-world lump-sum/day-rate labour sometimes genuinely won't tie out
+    // to the penny — rather than hard-blocking every such case, let it
+    // through with a reason on record instead of forcing a fudge to the
+    // figures just to satisfy the check.
+    const reason = await customPrompt(`Labour wages (£${wagesTotal.toFixed(2)}) don't match the value of work entered (£${itemsWeekTotal.toFixed(2)}). Enter a reason to save anyway, or Cancel to go back and adjust the figures instead:`, '');
+    if(reason===null) return;
+    if(!reason.trim()){ toast('Enter a reason to override, or adjust the figures so they match.'); return; }
+    overrideReason = reason.trim();
   }
   for(const row of pending){
     const ok = await pbwUpsertRow(row.id, wk, row.qty, row.amount, row.isManual);
     if(!ok) return;
   }
   await rollUpPriceWeekFromSheetItems(elementId, siteId, wk);
+  // Record (or clear) the override note against this week's price_weeks
+  // row — rollUpPriceWeekFromSheetItems above only just created/updated
+  // that row's amount, so this is a quick follow-up patch rather than a
+  // second full upsert.
+  await sbFetch('/rest/v1/price_weeks?element_id=eq.'+elementId+'&week_number=eq.'+wk, {
+    method:'PATCH', headers:{'Prefer':'return=representation'},
+    body: JSON.stringify(overrideReason
+      ? {wage_mismatch_override_reason: overrideReason, wage_mismatch_override_by: ME.id, wage_mismatch_override_at: new Date().toISOString()}
+      : {wage_mismatch_override_reason: null, wage_mismatch_override_by: null, wage_mismatch_override_at: null})
+  });
   priceWeekRowOpen[elementId+':'+wk] = true;
-  toast('Saved');
+  toast(overrideReason ? 'Saved with override noted' : 'Saved');
   render();
 };
 
