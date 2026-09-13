@@ -15222,9 +15222,10 @@ async function renderSiteInductions(siteId){
     `).join('')}
     </div>
     <div class="card" style="margin-top:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Emergency Contact Details</p>
-      <div class="formfield"><input type="text" id="inductionEmergencyName" placeholder="Emergency contact name" value="${escapeHtml(inductionEmergencyName)}" oninput="inductionEmergencyName=this.value"></div>
-      <div class="formfield"><input type="tel" id="inductionEmergencyNumber" placeholder="Emergency contact number" value="${escapeHtml(inductionEmergencyNumber)}" oninput="inductionEmergencyNumber=this.value"></div>
+      <p class="sectiontitle" style="margin-top:0;">Emergency Contact Details <span style="color:var(--warn);">*</span></p>
+      <p class="stub" style="margin:0 0 10px;">Required before you can sign and complete this induction.</p>
+      <div class="formfield"><input type="text" id="inductionEmergencyName" required placeholder="Emergency contact name *" value="${escapeHtml(inductionEmergencyName)}" oninput="inductionEmergencyName=this.value"></div>
+      <div class="formfield"><input type="tel" id="inductionEmergencyNumber" required placeholder="Emergency contact number *" value="${escapeHtml(inductionEmergencyNumber)}" oninput="inductionEmergencyNumber=this.value"></div>
     </div>
     <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Sign to confirm</p>
@@ -15371,7 +15372,13 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   for(let i=0;i<SITE_INDUCTION_ITEMS.length;i++){
     const lines = wrapText(SITE_INDUCTION_ITEMS[i], reg, 10, textWidth);
     const blockH = 16 + lines.length*13;
-    page.drawText('✓', {x:MARGIN, y:y-11, size:12, font:bold, color:OK});
+    // A literal '✓' character isn't in WinAnsi (the encoding pdf-lib's
+    // standard Helvetica font uses) and throws "WinAnsi cannot encode…" —
+    // draw the tick as two short vector strokes instead so it never depends
+    // on font glyph coverage.
+    const tickBaseY = y - 11;
+    page.drawLine({start:{x:MARGIN, y:tickBaseY-2}, end:{x:MARGIN+3.5, y:tickBaseY-5.5}, thickness:1.6, color:OK});
+    page.drawLine({start:{x:MARGIN+3.5, y:tickBaseY-5.5}, end:{x:MARGIN+10, y:tickBaseY+3}, thickness:1.6, color:OK});
     lines.forEach((line,li)=>{
       page.drawText(line, {x:MARGIN+20, y:y-11-(li*13), size:10, font:reg, color:INK});
     });
