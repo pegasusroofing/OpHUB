@@ -192,7 +192,7 @@
   .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
   .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
-  input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],textarea,select{
+  input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],textarea,select{
     width:100%;max-width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
     font-size:14px;background:#fff;color:var(--ink);font-family:inherit;box-sizing:border-box;
   }
@@ -1166,9 +1166,17 @@ async function ensureFreshToken(){
       SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
       await setJSON(K_SESSION, SESSION, false);
     } else {
+      // The server actually answered and said the refresh token itself is
+      // no good (expired/revoked) — this really is a "log in again" case.
       SESSION = null; ME = null; await sdelete(K_SESSION, false);
     }
-  }catch(e){ SESSION = null; ME = null; }
+  }catch(e){
+    // A genuine network-level failure (timeout, connection drop) trying to
+    // reach the refresh endpoint — NOT proof the refresh token is bad. Leave
+    // the existing session in place (the caller will still send the old
+    // access token, which may well still be valid) instead of silently
+    // logging the user out from what could be a one-off blip.
+  }
 }
 async function sbFetch(path, opts){
   opts = opts || {};
@@ -1280,6 +1288,12 @@ async function dbDelete(table, id){
 }
 async function uploadToStorage(bucket, path, blobOrFile, contentType){
   await ensureFreshToken();
+  // ensureFreshToken clears SESSION when a token refresh genuinely fails
+  // (expired/invalid refresh token) — reading SESSION.access_token straight
+  // after that would throw a null-reference error that looked, to a user,
+  // exactly like a dropped connection ("signal error") even on a perfect
+  // connection. Check for it explicitly and say what's actually wrong.
+  if(!SESSION || !SESSION.access_token){ toast('Your session has expired — please log out and back in, then try again.'); return null; }
   let res;
   try{
     res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
@@ -1292,7 +1306,11 @@ async function uploadToStorage(bucket, path, blobOrFile, contentType){
       },
       body: blobOrFile
     }, 60000); // photos/PDFs can be a few MB — give uploads more room than a plain API call
-  }catch(e){ toast('Upload failed — connection dropped. Check your signal and try again.'); return null; }
+  }catch(e){
+    const detail = (e && (e.name === 'AbortError')) ? 'the upload timed out' : ((e && e.message) || 'connection dropped');
+    toast('Upload failed — '+detail+'. Please try again.');
+    return null;
+  }
   if(!res.ok){ toast('Upload failed — '+(await safeErr(res))); return null; }
   return path;
 }
@@ -8879,7 +8897,7 @@ window.addPricingElementViaPopup = async function(siteId, subSiteId){
 function pricingElementCardHtml(el, d, ctx){
   const {siteId, canManage, fmt, figures} = ctx;
   const {autoBookedIn, hasOverride, bookedIn, priceTotal, awNotApprovedTotal, awApprovedTotal, balance} = figures;
-  const open = priceElementOpen[el.id] !== undefined ? priceElementOpen[el.id] : true;
+  const open = priceElementOpen[el.id] !== undefined ? priceElementOpen[el.id] : canManage;
   const selected = !!priceElementSelected[el.id];
   const renaming = priceElementRenamingId === el.id;
 
@@ -8913,9 +8931,12 @@ function pricingElementCardHtml(el, d, ctx){
   // Auto-open only when there are no files AND no priced sheet already
   // covering this element — once a Price Builder sheet has been issued into
   // it, the upload box is rarely needed so it starts collapsed by default.
-  const filesOpen = filesOpenState===undefined ? (d.priceFiles.length===0 && !d.pbSheet) : filesOpenState;
-  const variationOpen = variationSectionOpen[el.id] !== undefined ? variationSectionOpen[el.id] : true;
-  const weeklyOpen = weeklyPriceSectionOpen[el.id] !== undefined ? weeklyPriceSectionOpen[el.id] : true;
+  // Operatives never get the upload box at all, so for them every dropdown
+  // in this page starts collapsed until they tap it open.
+  const filesOpen = filesOpenState===undefined ? (canManage && d.priceFiles.length===0 && !d.pbSheet) : filesOpenState;
+  const variationOpen = variationSectionOpen[el.id] !== undefined ? variationSectionOpen[el.id] : canManage;
+  const weeklyOpen = weeklyPriceSectionOpen[el.id] !== undefined ? weeklyPriceSectionOpen[el.id] : canManage;
+  const labourListOpen = labourInvoicesListOpen[el.id] !== undefined ? labourInvoicesListOpen[el.id] : canManage;
   const awFormOpen = !!additionalWorksFormOpen[el.id];
   const applyAllChecked = !!priceFileApplyToAll[el.id];
 
@@ -8980,7 +9001,7 @@ function pricingElementCardHtml(el, d, ctx){
         </label>
         ` : ''}
 
-        <div class="formfield">
+        <div class="formfield" style="${canManage?'':'margin-top:12px;'}">
           <label class="field-label">Price Total</label>
           ${canManage
             ? `<div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${el.price_total!=null?el.price_total:''}" placeholder="0.00" onblur="savePriceField('${el.id}','price_total',this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></div>`
@@ -9146,9 +9167,9 @@ function pricingElementCardHtml(el, d, ctx){
           </p>
           ${filesOpen ? `
           <div style="padding:0 14px 14px;">
-            ${d.hasPriceAcc ? `
+            ${canManage ? `
             <div class="card" style="margin-bottom:14px;">
-              <p class="stub" style="margin:0 0 10px;">${canManage ? 'PDF or Excel — you can select more than one at a time.' : 'Anyone with price access can upload here. PDF or Excel — you can select more than one at a time.'}</p>
+              <p class="stub" style="margin:0 0 10px;">PDF or Excel — you can select more than one at a time.</p>
               <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
                 <input type="checkbox" style="width:auto;" ${applyAllChecked?'checked':''} onchange="togglePriceFileApplyToAll('${el.id}', this.checked)">
                 Apply to all Pricing Elements${el.sub_site_id ? ' at this address' : ''}
@@ -9165,7 +9186,7 @@ function pricingElementCardHtml(el, d, ctx){
                   ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deletePriceFile('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
                 </div>
               </div>
-            `).join('') : `<div class="empty">No price files uploaded yet${d.hasPriceAcc ? ' — add one above.' : '.'}</div>`}
+            `).join('') : `<div class="empty">No price files uploaded yet${canManage ? ' — add one above.' : '.'}</div>`}
 
             ${priceFilePreview.path ? `
             <p class="sectiontitle" style="display:flex;align-items:center;justify-content:space-between;">
@@ -9189,14 +9210,16 @@ function pricingElementCardHtml(el, d, ctx){
           ${labourInvoicesSectionOpen[el.id] ? `
           <div style="padding:8px 14px 14px;">
             <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
-              <p class="ddrow" style="margin:0;padding:14px 14px 12px;line-height:1.5;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesListOpen['${el.id}']=labourInvoicesListOpen['${el.id}']===false?true:false;render()">
-                <span class="arrow">${labourInvoicesListOpen[el.id]===false?'▶':'▼'}</span> Invoices
+              <p class="ddrow" style="margin:0;padding:14px 14px 12px;line-height:1.5;border:none;border-radius:0;background:transparent;" onclick="labourInvoicesListOpen['${el.id}']=${!labourListOpen};render()">
+                <span class="arrow">${labourListOpen?'▼':'▶'}</span> Invoices
               </p>
-              ${labourInvoicesListOpen[el.id]!==false ? `
+              ${labourListOpen ? `
               <div style="padding:0 14px 14px;">
+                ${canManage ? `
                 <p class="stub" style="margin:0 0 10px;">Upload any file type — you can select more than one at a time.</p>
                 <div class="ghostbtn" style="text-align:center;cursor:pointer;margin-bottom:10px;" onclick="document.getElementById('labourInvoiceUpload_${el.id}').click()">⬆ Upload files</div>
                 <input type="file" id="labourInvoiceUpload_${el.id}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadLabourInvoices('${siteId}','${el.id}', this)">
+                ` : ''}
                 ${d.labourFiles.length ? d.labourFiles.map(f=>`
                   <div class="sitecard">
                     <div class="info"><div class="name">${/\.(xlsx|xls|csv)$/i.test(f.filename)?'📊':/\.pdf$/i.test(f.filename)?'📄':'📎'} ${escapeHtml(f.filename)}</div><div class="addr">${new Date(f.uploaded_at).toLocaleString(undefined,{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
@@ -9205,7 +9228,7 @@ function pricingElementCardHtml(el, d, ctx){
                       ${canManage ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteLabourInvoice('${siteId}','${f.id}','${jsAttr(f.storage_path)}')">Delete</button>` : ''}
                     </div>
                   </div>
-                `).join('') : `<div class="empty">No invoices uploaded yet — add one above.</div>`}
+                `).join('') : `<div class="empty">No invoices uploaded yet${canManage ? ' — add one above.' : '.'}</div>`}
               </div>
               ` : ''}
             </div>
@@ -15161,21 +15184,57 @@ async function renderSiteInductions(siteId){
       <div class="formfield"><input type="tel" id="inductionEmergencyNumber" placeholder="Emergency contact number" value="${escapeHtml(inductionEmergencyNumber)}" oninput="inductionEmergencyNumber=this.value"></div>
     </div>
     <div class="card" style="margin-top:10px;">
-      <p class="sectiontitle" style="margin-top:0;">Your signature</p>
-      ${ME.signature_path ? `
-        <img src="${publicUrl('signatures', ME.signature_path)}" style="height:44px;max-width:100%;object-fit:contain;margin-bottom:10px;display:block;">
-        <button class="darkbtn" ${allTicked?'':'disabled'} onclick="submitSiteInduction('${siteId}')">${allTicked?'Sign & Complete Induction':'Tick every item to continue'}</button>
-      ` : `
-        <p class="stub" style="margin:0 0 10px;color:var(--warn);">Adopt your signature first — one tap and it's used everywhere.</p>
-        <button class="darkbtn" onclick="go('#/signature')">Adopt Your Signature</button>
-      `}
+      <p class="sectiontitle" style="margin-top:0;">Sign to confirm</p>
+      <p class="stub" style="margin:0 0 8px;">Tap below and sign with your finger or mouse.</p>
+      <canvas id="inductionSigCanvas" style="width:100%;height:160px;background:#fff;border:1.5px dashed var(--line);border-radius:8px;touch-action:none;display:block;"></canvas>
+      <div class="row-gap" style="margin-top:10px;">
+        <button class="ghostbtn" style="flex:1;" onclick="clearInductionSignature()">Clear</button>
+      </div>
+      <button class="darkbtn" style="margin-top:10px;" ${allTicked?'':'disabled'} onclick="submitSiteInduction('${siteId}')">${allTicked?'Sign & Complete Induction':'Tick every item to continue'}</button>
     </div>
   `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  attachInductionSignatureCanvas();
 }
+let inductionSigCtx = null;
+let inductionSigHasDrawn = false;
+function attachInductionSignatureCanvas(){
+  const canvas = document.getElementById('inductionSigCanvas');
+  if(!canvas) return;
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#101114';
+  inductionSigCtx = ctx;
+  inductionSigHasDrawn = false;
+  let drawing = false, lastX = 0, lastY = 0;
+  function posFromEvent(e){
+    const r = canvas.getBoundingClientRect();
+    return {x: e.clientX - r.left, y: e.clientY - r.top};
+  }
+  canvas.onpointerdown = (e)=>{ drawing = true; const p = posFromEvent(e); lastX = p.x; lastY = p.y; canvas.setPointerCapture(e.pointerId); };
+  canvas.onpointermove = (e)=>{
+    if(!drawing) return;
+    const p = posFromEvent(e);
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    lastX = p.x; lastY = p.y;
+    inductionSigHasDrawn = true;
+  };
+  canvas.onpointerup = ()=>{ drawing = false; };
+  canvas.onpointerleave = ()=>{ drawing = false; };
+}
+window.clearInductionSignature = function(){
+  const canvas = document.getElementById('inductionSigCanvas');
+  if(canvas && inductionSigCtx){ inductionSigCtx.clearRect(0,0,canvas.width,canvas.height); inductionSigHasDrawn = false; }
+};
 window.toggleInductionTick = function(i){ inductionTicks[i] = !inductionTicks[i]; render(); };
 window.submitSiteInduction = async function(siteId){
   try{
-    if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+    if(!inductionSigHasDrawn){ toast('Please sign before completing your induction.'); return; }
     if(!inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
     const emergencyName = (document.getElementById('inductionEmergencyName') ? document.getElementById('inductionEmergencyName').value : inductionEmergencyName || '').trim();
     const emergencyNumber = (document.getElementById('inductionEmergencyNumber') ? document.getElementById('inductionEmergencyNumber').value : inductionEmergencyNumber || '').trim();
@@ -15185,16 +15244,22 @@ window.submitSiteInduction = async function(siteId){
     toast('Saving…');
     const answers = {}; SITE_INDUCTION_ITEMS.forEach((t,i)=>{ answers['item_'+i]=true; });
     const site = SITES.find(s=>s.id===siteId);
-    const built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber);
+    const sigCanvas = document.getElementById('inductionSigCanvas');
+    const sigDataUrl = sigCanvas.toDataURL('image/png');
+    const sigPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'-sig.png';
+    const storedSig = await uploadDataUrl('signatures', sigPath, sigDataUrl);
+    if(!storedSig) return;
+    const built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber, storedSig);
     if(!built) return;
     const pdfPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'.pdf';
     const stored = await uploadToStorage('mc-documents', pdfPath, new Blob([built.bytes],{type:'application/pdf'}), 'application/pdf');
     if(!stored) return;
-    const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:ME.signature_path, pdf_path:stored, emergency_contact_name:emergencyName, emergency_contact_number:emergencyNumber});
+    const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:storedSig, pdf_path:stored, emergency_contact_name:emergencyName, emergency_contact_number:emergencyNumber});
     if(!rows) return;
     inductionTicks = [];
     inductionEmergencyName = '';
     inductionEmergencyNumber = '';
+    inductionSigHasDrawn = false;
     toast('Induction completed');
     render();
     // Best-effort push to a linked OneDrive folder — same silent-fail pattern
@@ -15236,7 +15301,7 @@ window.unlinkSiteInductionsFolder = async function(siteId){
   const row = await dbUpdate('sites', siteId, {site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null});
   if(row){ const idx = SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx] = row; toast('Folder unlinked'); render(); }
 };
-async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber){
+async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber, signaturePathOverride){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const pdfDoc = await PDFLib.PDFDocument.create();
   const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
@@ -15302,9 +15367,10 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   y -= 10;
   page.drawText('Signature', {x:MARGIN, y, size:9, font:bold, color:SLATE});
   y -= 8;
-  if(operative.signature_path){
+  const signaturePathForPdf = signaturePathOverride || operative.signature_path;
+  if(signaturePathForPdf){
     try{
-      const bytes = await pdfFetchImageBytes(publicUrl('signatures', operative.signature_path));
+      const bytes = await pdfFetchImageBytes(publicUrl('signatures', signaturePathForPdf));
       if(bytes){
         let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
         const dim = img.scale(1);
