@@ -1161,6 +1161,34 @@ async function sbFetchIdempotent(path, opts){
   try{ return await sbFetch(path, opts); }
   catch(e){ await new Promise(r=>setTimeout(r, 900)); return sbFetch(path, opts); }
 }
+// #(onedrive-authheader-hang): 2026-09-13 — every OneDrive edge function call
+// hung with zero response (proven across many redeploys — different code,
+// different verify_jwt setting, brand-new functions, a full project restart
+// — none of it mattered) whenever the request's Authorization header carried
+// a real signed-in user's token. Requests with no user token in Authorization
+// (a plain browser hit with nothing, or the scheduled background jobs that
+// use the service-role key) always completed instantly. So for the OneDrive
+// functions specifically, the user's token now travels in a custom header
+// (X-User-Token) instead, with Authorization left as just the anon key —
+// the matching server-side change reads it from there. Every other call in
+// the app is untouched; this is scoped to the one code path that was hanging.
+async function sbFetchOD(path, opts){
+  opts = opts || {};
+  await ensureFreshToken();
+  const headers = Object.assign({
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+    'X-User-Token': SESSION ? SESSION.access_token : '',
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+  }, opts.headers||{});
+  return fetchWithTimeout(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), 20000);
+}
+async function sbFetchODIdempotent(path, opts){
+  try{ return await sbFetchOD(path, opts); }
+  catch(e){ await new Promise(r=>setTimeout(r, 900)); return sbFetchOD(path, opts); }
+}
 
 let lastNetworkToastAt = 0;
 function toastNetworkIssue(){
@@ -4789,7 +4817,7 @@ window.connectOneDrive = async function(){
   odBusy = true; render();
   try{
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    const res = await sbFetch('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({native:isNative, origin: isNative ? null : location.origin})});
+    const res = await sbFetchOD('/functions/v1/onedrive-oauth-start', {method:'POST', body: JSON.stringify({native:isNative, origin: isNative ? null : location.origin})});
     const d = await res.json();
     odBusy = false;
     if(!res.ok || d.error){ toast(d.error || 'Could not start OneDrive connection.'); render(); return; }
@@ -4862,7 +4890,7 @@ window.manualSyncSiteOneDrive = async function(siteId){
   siteOdSyncBusy = siteId; render();
   try{
     const body = {parent_id: site.onedrive_folder_id, drive_id: site.onedrive_drive_id||undefined, includeFiles:true};
-    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const res = await sbFetchODIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Sync failed — '+(d.error||res.status)); siteOdSyncBusy=null; render(); return; }
     const remoteFiles = d.files || [];
@@ -4872,7 +4900,7 @@ window.manualSyncSiteOneDrive = async function(siteId){
     for(const f of remoteFiles){
       if(existingNames.has(f.name)) continue;
       try{
-        const dres = await sbFetchIdempotent('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
+        const dres = await sbFetchODIdempotent('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
         const dd = await dres.json();
         if(!dres.ok || dd.error || !dd.content_base64){ failed++; continue; }
         const bytes = Uint8Array.from(atob(dd.content_base64), c=>c.charCodeAt(0));
@@ -4934,7 +4962,7 @@ async function loadOdPickerFolders(){
           : current.driveId
             ? {parent_id: current.id, drive_id: current.driveId}
             : {parent_id: current.id};
-    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
+    const res = await sbFetchODIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body: JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ odPickerError = d.error || 'Could not load OneDrive folders.'; odPickerFolders = []; }
     else {
@@ -9971,7 +9999,7 @@ window.exportReportPDF = async function(submissionId){
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
   try{
-    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
+    await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 };
 window.emailReportPDF = async function(submissionId, fromBriefing){
@@ -11349,7 +11377,7 @@ window.taskPhoto = async function(input, siteId, taskId){
 async function syncPhotoToOneDrive(dataUrl, filename, siteId){
   try{
     const base64 = dataUrl.split(',')[1];
-    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, site_id: siteId})});
+    await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, site_id: siteId})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 }
 window.downloadScheduleTemplate = async function(){
@@ -19253,7 +19281,7 @@ async function pushDrawingToOneDrive(siteId, file){
     let binary = ''; const bytes = new Uint8Array(buf); const chunk = 0x8000;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode(...bytes.subarray(i, Math.min(i+chunk, bytes.length)));
     const base64 = btoa(binary);
-    await sbFetch('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: file.name, content_base64: base64, site_id: siteId})});
+    await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: file.name, content_base64: base64, site_id: siteId})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 }
 /* ---- Drawings import (pull half of the two-way OneDrive sync) ---- */
@@ -19280,7 +19308,7 @@ async function loadDrawingImportLevel(){
   try{
     const body = {includeFiles:true};
     if(current.id){ body.parent_id = current.id; if(current.driveId) body.drive_id = current.driveId; }
-    const res = await sbFetchIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
+    const res = await sbFetchODIdempotent('/functions/v1/onedrive-list-folders', {method:'POST', body:JSON.stringify(body)});
     const d = await res.json();
     if(!res.ok || d.error){ drawingImportError = d.error || 'Could not load OneDrive folders.'; drawingImportFolders = []; drawingImportFiles = []; }
     else { drawingImportFolders = d.folders || []; drawingImportFiles = d.files || []; drawingImportError = null; }
@@ -19305,7 +19333,7 @@ window.importSelectedDrawings = async function(){
   let imported = 0, failed = 0;
   for(const f of files){
     try{
-      const res = await sbFetch('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
+      const res = await sbFetchOD('/functions/v1/onedrive-download-file', {method:'POST', body:JSON.stringify({item_id:f.id, drive_id:f.driveId||null, name:f.name})});
       const d = await res.json();
       if(!res.ok || d.error || !d.content_base64){ failed++; continue; }
       const bytes = Uint8Array.from(atob(d.content_base64), c=>c.charCodeAt(0));
