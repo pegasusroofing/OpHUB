@@ -7540,6 +7540,15 @@ async function renderAssignTeam(siteId){
     <div class="card">
       <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
       <p class="stub" style="margin:8px 0 0;">When on, a single "Main Contractor" tile appears on this site's home page (position 2, right after Check In/Out) leading to Construction Phase Plan, Site Inductions, Subcontractors, Permits To Work, Inspections, Asbestos Register and F10 Notification. Site Rules &amp; Layout lives in Health &amp; Safety instead, since it applies to every site.</p>
+      <button class="ghostbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/mc/companylibrary')">📚 Company Library</button>
+    </div>
+    ` : ''}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('subcontractor')"><span class="arrow">${siteTeamSectionOpen.subcontractor?'▼':'▶'}</span> Subcontractor</p>
+    ${siteTeamSectionOpen.subcontractor ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Every subcontractor company's own document library (insurance, accreditations, RAMS templates) lives here — shared across every site that company is added to, so nothing needs re-uploading.</p>
+      <button class="ghostbtn" onclick="go('#/site/${siteId}/mc/companylibrary')">📚 Company Library</button>
     </div>
     ` : ''}
 
@@ -7674,7 +7683,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.saveSiteAddress = async function(siteId){
   const name = document.getElementById('editSiteName').value.trim();
@@ -14406,6 +14415,11 @@ window.confirmScheduleEmail = async function(siteId){
 // structure below.
 const MC_CATEGORY_LABEL = {cpp:'Construction Phase Plan', site_layout:'Site Rules & Layout', site_inductions:'Site Inductions', asbestos:'Asbestos Register', f10:'F10 Notification'};
 const MC_CATEGORY_ICON = {cpp:'📘', site_layout:'🗺', site_inductions:'🪪', asbestos:'☣️', f10:'📮'};
+// Upload panel on the CPP/Asbestos/F10 document pages: open by default until
+// the first document is uploaded, then collapses into a closed dropdown so
+// the page reads as "here's the document" rather than "here's an upload
+// form" — keyed per site+category so different pages don't share state.
+let mcDocUploadOpen = {};
 // #408: Permits To Work moved off the generic mc_documents upload-folder
 // model (like Site Layout and Site Inductions did before it) into its own
 // full issue → sign-off → close-down workflow — see the Permit to Work
@@ -14857,6 +14871,8 @@ async function renderMcDocuments(siteId, category){
   const canAdd = isManager(ME);
   const docs = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=eq.'+category+'&order=uploaded_at.desc');
   await loadAllProfiles();
+  const uploadKey = siteId+'_'+category;
+  if(!(uploadKey in mcDocUploadOpen)) mcDocUploadOpen[uploadKey] = !docs.length;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${docs.map(d=>`
       <div class="ramsdoc" style="padding:10px 12px;">
@@ -14864,21 +14880,33 @@ async function renderMcDocuments(siteId, category){
           <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(d.name)}</div>
           ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteMcDocument('${d.id}','${jsAttr(d.storage_path)}')">🗑</div></div>` : ''}
         </div>
-        <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('mc-documents', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</span></div>
+        <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
+        <button class="darkbtn" style="margin-top:10px;width:100%;" onclick="viewDrawing('${publicUrl('mc-documents', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">📄 View Document</button>
       </div>
     `).join('') || `<div class="empty">No documents uploaded.</div>`}
     ${canAdd ? `
-    <div class="card" style="margin-top:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Upload ${escapeHtml(MC_CATEGORY_LABEL[category])}</p>
-      <div class="formfield" style="margin-top:0;"><input type="text" id="mcDocName" placeholder="Document name"></div>
-      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('mcDocFile').click()">Choose PDF</div>
-      <input type="file" accept="application/pdf" id="mcDocFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('mcDocFileName').textContent=this.files[0]?this.files[0].name:''">
-      <p class="stub" id="mcDocFileName" style="margin:-4px 0 10px;"></p>
-      <button class="darkbtn" onclick="addMcDocument('${siteId}','${category}')">Upload</button>
+    <div class="card" style="padding:0;overflow:hidden;margin-top:14px;">
+      <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleMcDocUpload('${siteId}','${category}')">
+        <span class="arrow">${mcDocUploadOpen[uploadKey]?'▼':'▶'}</span> Upload ${escapeHtml(MC_CATEGORY_LABEL[category])}
+      </p>
+      ${mcDocUploadOpen[uploadKey] ? `
+      <div style="padding:0 14px 14px;">
+        <div class="formfield" style="margin-top:0;"><input type="text" id="mcDocName" placeholder="Document name"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('mcDocFile').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="mcDocFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('mcDocFileName').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="mcDocFileName" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" onclick="addMcDocument('${siteId}','${category}')">Upload</button>
+      </div>
+      ` : ''}
     </div>
     ` : ''}
   `, {title: MC_CATEGORY_LABEL[category], subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 }
+window.toggleMcDocUpload = function(siteId, category){
+  const key = siteId+'_'+category;
+  mcDocUploadOpen[key] = !mcDocUploadOpen[key];
+  render();
+};
 window.addMcDocument = async function(siteId, category){
   const name = document.getElementById('mcDocName').value.trim();
   const fileInput = document.getElementById('mcDocFile');
@@ -14888,7 +14916,7 @@ window.addMcDocument = async function(siteId, category){
   const stored = await uploadToStorage('mc-documents', path, file, 'application/pdf');
   if(!stored) return;
   const rows = await dbInsert('mc_documents', {org_id:ME.org_id, site_id:siteId, category, name, storage_path:stored, uploaded_by:ME.id});
-  if(rows){ toast('Uploaded'); render(); }
+  if(rows){ mcDocUploadOpen[siteId+'_'+category] = false; toast('Uploaded'); render(); }
 };
 window.deleteMcDocument = async function(id, storagePath){
   if(!await customConfirm('Delete this document?')) return;
@@ -15105,10 +15133,22 @@ function SITE_INDUCTION_ITEMS_LIVE(){
 let inductionTicks = [];
 let inductionEmergencyName = '';
 let inductionEmergencyNumber = '';
+let inductionPage = 1; // operative fill-in flow: 1 = checklist + emergency contact, 2 = health questionnaire + sign
+let healthAnswers = {}; // index -> 'yes' | 'no'
+let healthDetails = {}; // index -> string, mandatory whenever the matching answer is 'yes'
+const HEALTH_QUESTIONNAIRE_ITEMS = [
+  {category:'Physical Fitness', question:'Do you have any condition affecting your balance, mobility, or ability to lift loads?'},
+  {category:'Working at Height', question:'Do you suffer from vertigo, severe dizziness, or epilepsy?'},
+  {category:'Sensory / Alertness', question:'Do you have uncorrected visual or hearing impairments that impact site safety?'},
+  {category:'Respiratory Health', question:'Do you suffer from severe asthma or respiratory conditions aggravated by dust/fumes?'},
+  {category:'Medication / Safety', question:'Are you taking medication that causes drowsiness or restricts operating machinery?'},
+  {category:'Emergency Info', question:'Do you have any severe allergies (e.g., penicillin, latex, bee stings) or medical conditions (e.g., diabetes) that first aiders should be aware of?'},
+];
 let siteInductionQuestionsOpen = false; // PM: "Induction Form" dropdown in the Outstanding tab
 let siteInductionNewQuestion = '';
 let siteInductionFilter = 'outstanding'; // PM/client tab state: outstanding | completed
 let siteInductionOneDrivePanelOpen = false; // manager: OneDrive sync panel toggled from the "+" beside the tabs
+let siteInductionSelectedIds = new Set(); // manager: multi-tick selection on the Completed Inductions tab, for bulk export/email
 async function fetchSiteInductionData(siteId){
   const [assigned, completions] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -15133,8 +15173,8 @@ async function renderSiteInductions(siteId){
     const visibleRoster = siteInductionFilter==='completed' ? completedRoster : outstandingRoster;
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="row-gap" style="margin:0 0 10px;align-items:center;">
-        <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';render()">Outstanding</div>
-        <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';render()">Completed Inductions</div>
+        <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';siteInductionSelectedIds=new Set();render()">Outstanding</div>
+        <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';siteInductionSelectedIds=new Set();render()">Completed Inductions</div>
         ${siteInductionFilter==='completed' && canManage ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="Sync to OneDrive folder" onclick="siteInductionOneDrivePanelOpen=!siteInductionOneDrivePanelOpen;render()">+</div>` : ''}
       </div>
       ${siteInductionFilter==='completed' && canManage && siteInductionOneDrivePanelOpen ? `
@@ -15172,16 +15212,24 @@ async function renderSiteInductions(siteId){
       </div>
       ` : ''}
       <p class="stub" style="margin:0 0 10px;">${roster.length} on the roster · ${completions.length} completed</p>
+      ${siteInductionFilter==='completed' && canManage && siteInductionSelectedIds.size ? `
+      <div class="row-gap" style="margin-bottom:10px;">
+        <button class="ghostbtn" style="flex:1;" onclick="exportSelectedInductions()">⬇️ Export ${siteInductionSelectedIds.size} Selected</button>
+        <button class="darkbtn" style="flex:1;" onclick="emailSelectedInductions()">✉️ Email ${siteInductionSelectedIds.size} Selected</button>
+      </div>
+      ` : ''}
       ${visibleRoster.map(uid=>{
         const c = byOperative[uid];
         return `
         <div class="sitecard">
+          ${c && canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-right:2px;" ${siteInductionSelectedIds.has(c.id)?'checked':''} onclick="event.stopPropagation();toggleSiteInductionSelect('${c.id}')">` : ''}
           <div class="swatch">${operativeInitials(nameOf(uid))}</div>
           <div class="info">
             <div class="name">${escapeHtml(nameOf(uid))}</div>
             <div class="addr">${c ? '✓ Completed '+new Date(c.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '○ Not yet completed'}</div>
           </div>
           ${c ? `<div class="taskicon" title="Export PDF" onclick="event.stopPropagation();exportSiteInductionPdf('${c.id}')">⬇️</div>` : ''}
+          ${c && canManage ? `<div class="taskicon" title="Email PDF" onclick="event.stopPropagation();emailSiteInductionPdf('${c.id}','${jsAttr(nameOf(uid))}')">✉️</div>` : ''}
           ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
         </div>`;
       }).join('') || `<div class="empty">No ${siteInductionFilter==='completed' ? 'completed inductions yet' : 'outstanding operatives'}${siteInductionFilter==='completed'?'.':' — everyone on the roster has completed their induction.'}</div>`}
@@ -15207,8 +15255,50 @@ async function renderSiteInductions(siteId){
   }
   if(inductionTicks.length !== SITE_INDUCTION_ITEMS_LIVE().length) inductionTicks = SITE_INDUCTION_ITEMS_LIVE().map(()=>false);
   const allTicked = inductionTicks.every(Boolean);
+
+  // Page 2: Health Questionnaire, reached via "Next" from page 1, with a
+  // "Back" button returning to page 1 without losing anything already
+  // entered. Signing off (the actual save) happens at the end of page 2.
+  if(inductionPage === 2){
+    const allHealthAnswered = HEALTH_QUESTIONNAIRE_ITEMS.every((_,i)=> healthAnswers[i]==='yes' || healthAnswers[i]==='no');
+    const allYesDetailed = HEALTH_QUESTIONNAIRE_ITEMS.every((_,i)=> healthAnswers[i]!=='yes' || (healthDetails[i]||'').trim());
+    const canSign = allHealthAnswered && allYesDetailed;
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <p class="stub" style="margin:0 0 14px;">Health Questionnaire for ${escapeHtml(site.name)} — please answer every question. Any "Yes" needs a few details so we can keep you safe on site.</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+      ${HEALTH_QUESTIONNAIRE_ITEMS.map((item,i)=>`
+        <div class="card" style="margin:0;">
+          <p class="sectiontitle" style="margin:0 0 4px;font-size:11.5px;color:var(--slate);text-transform:uppercase;letter-spacing:.3px;">${escapeHtml(item.category)}</p>
+          <p style="margin:0 0 10px;font-size:13px;line-height:1.4;">${escapeHtml(item.question)}</p>
+          <div class="row-gap">
+            <div class="filterchip ${healthAnswers[i]==='no'?'active':''}" style="flex:1;text-align:center;" onclick="setHealthAnswer(${i},'no')">No</div>
+            <div class="filterchip ${healthAnswers[i]==='yes'?'active':''}" style="flex:1;text-align:center;" onclick="setHealthAnswer(${i},'yes')">Yes</div>
+          </div>
+          ${healthAnswers[i]==='yes' ? `
+            <div class="formfield" style="margin-top:10px;margin-bottom:0;"><textarea rows="2" id="healthDetail${i}" required placeholder="Please give details *" oninput="healthDetails[${i}]=this.value">${escapeHtml(healthDetails[i]||'')}</textarea></div>
+          ` : ''}
+        </div>
+      `).join('')}
+      </div>
+      <div class="card" style="margin-top:14px;">
+        <p class="sectiontitle" style="margin-top:0;">Sign to confirm</p>
+        ${ME.signature_path ? `
+          <div class="siglinebox" style="margin-top:0;cursor:pointer;${canSign?'':'opacity:.6;'}" onclick="submitSiteInduction('${siteId}')">
+            <img src="${publicUrl('signatures', ME.signature_path)}" style="height:32px;max-width:160px;object-fit:contain;">
+            <span>${canSign?'Tap to sign & complete induction':'Answer every health question first'}</span>
+          </div>
+        ` : `
+          <p class="stub" style="margin:0 0 10px;color:var(--warn);">Adopt your signature first — one tap and it's used everywhere.</p>
+          <button class="darkbtn" onclick="go('#/signature')">Adopt Your Signature</button>
+        `}
+      </div>
+      <button class="ghostbtn" style="margin-top:10px;" onclick="inductionPage=1;render()">‹ Back</button>
+    `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+    return;
+  }
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">Please read and confirm each item below, then sign to complete your site induction for ${escapeHtml(site.name)}.</p>
+    <p class="stub" style="margin:0 0 14px;">Please read and confirm each item below, then continue to the health questionnaire to complete your site induction for ${escapeHtml(site.name)}.</p>
     <div style="display:flex;flex-direction:column;gap:8px;">
     ${SITE_INDUCTION_ITEMS_LIVE().map((text,i)=>`
       <div class="inductionitem ${inductionTicks[i]?'ticked':''}" style="cursor:pointer;" onclick="toggleInductionTick(${i})">
@@ -15223,21 +15313,21 @@ async function renderSiteInductions(siteId){
       <div class="formfield"><input type="text" id="inductionEmergencyName" required placeholder="Emergency contact name *" value="${escapeHtml(inductionEmergencyName)}" oninput="inductionEmergencyName=this.value"></div>
       <div class="formfield"><input type="tel" id="inductionEmergencyNumber" required placeholder="Emergency contact number *" value="${escapeHtml(inductionEmergencyNumber)}" oninput="inductionEmergencyNumber=this.value"></div>
     </div>
-    <div class="card" style="margin-top:10px;">
-      <p class="sectiontitle" style="margin-top:0;">Sign to confirm</p>
-      ${ME.signature_path ? `
-        <div class="siglinebox" style="margin-top:0;cursor:pointer;${allTicked?'':'opacity:.6;'}" onclick="submitSiteInduction('${siteId}')">
-          <img src="${publicUrl('signatures', ME.signature_path)}" style="height:32px;max-width:160px;object-fit:contain;">
-          <span>${allTicked?'Tap to sign & complete induction':'Tick every item first'}</span>
-        </div>
-      ` : `
-        <p class="stub" style="margin:0 0 10px;color:var(--warn);">Adopt your signature first — one tap and it's used everywhere.</p>
-        <button class="darkbtn" onclick="go('#/signature')">Adopt Your Signature</button>
-      `}
-    </div>
+    <button class="darkbtn" style="margin-top:14px;" onclick="goInductionNext('${siteId}')">Next: Health Questionnaire ›</button>
   `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 }
 window.toggleInductionTick = function(i){ inductionTicks[i] = !inductionTicks[i]; render(); };
+window.setHealthAnswer = function(i, val){ healthAnswers[i] = val; if(val !== 'yes') delete healthDetails[i]; render(); };
+window.goInductionNext = function(siteId){
+  if(!inductionTicks || !inductionTicks.length || !inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
+  const emergencyName = (document.getElementById('inductionEmergencyName') ? document.getElementById('inductionEmergencyName').value : inductionEmergencyName || '').trim();
+  const emergencyNumber = (document.getElementById('inductionEmergencyNumber') ? document.getElementById('inductionEmergencyNumber').value : inductionEmergencyNumber || '').trim();
+  if(!emergencyName || !emergencyNumber){ toast('Please enter an emergency contact name and number.'); return; }
+  inductionEmergencyName = emergencyName;
+  inductionEmergencyNumber = emergencyNumber;
+  inductionPage = 2;
+  render();
+};
 window.submitSiteInduction = async function(siteId){
   console.log('[SiteInduction] tap received');
   try{
@@ -15248,12 +15338,17 @@ window.submitSiteInduction = async function(siteId){
     if(!emergencyName || !emergencyNumber){ toast('Please enter an emergency contact name and number.'); return; }
     inductionEmergencyName = emergencyName;
     inductionEmergencyNumber = emergencyNumber;
+    const allHealthAnswered = HEALTH_QUESTIONNAIRE_ITEMS.every((_,i)=> healthAnswers[i]==='yes' || healthAnswers[i]==='no');
+    if(!allHealthAnswered){ toast('Please answer every health questionnaire question.'); return; }
+    const allYesDetailed = HEALTH_QUESTIONNAIRE_ITEMS.every((_,i)=> healthAnswers[i]!=='yes' || (healthDetails[i]||'').trim());
+    if(!allYesDetailed){ toast('Please give details for every "Yes" answer on the health questionnaire.'); return; }
     toast('Saving — building PDF…');
     const answers = {}; SITE_INDUCTION_ITEMS_LIVE().forEach((t,i)=>{ answers['item_'+i]=true; });
+    answers.health = HEALTH_QUESTIONNAIRE_ITEMS.map((item,i)=>({category:item.category, question:item.question, answer:healthAnswers[i], details:healthAnswers[i]==='yes' ? (healthDetails[i]||'').trim() : null}));
     const site = SITES.find(s=>s.id===siteId);
     let built;
     try{
-      built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber, ME.signature_path);
+      built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber, ME.signature_path, healthAnswers, healthDetails);
     }catch(e){
       console.error('[SiteInduction] PDF build failed', e);
       toast('Could not build the induction PDF — '+(e && e.message ? e.message : 'unknown error')+'. Please try again.');
@@ -15270,6 +15365,9 @@ window.submitSiteInduction = async function(siteId){
     inductionTicks = [];
     inductionEmergencyName = '';
     inductionEmergencyNumber = '';
+    inductionPage = 1;
+    healthAnswers = {};
+    healthDetails = {};
     toast('Induction completed');
     render();
     // Best-effort push to a linked OneDrive folder — same silent-fail pattern
@@ -15301,6 +15399,56 @@ window.exportSiteInductionPdf = async function(completionId){
   if(!path){ toast('PDF not available.'); return; }
   viewDrawing(publicUrl('mc-documents', path), false, 'Site Induction.pdf');
 };
+window.toggleSiteInductionSelect = function(id){
+  if(siteInductionSelectedIds.has(id)) siteInductionSelectedIds.delete(id); else siteInductionSelectedIds.add(id);
+  render();
+};
+window.exportSelectedInductions = async function(){
+  const ids = Array.from(siteInductionSelectedIds);
+  if(!ids.length) return;
+  const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path');
+  const withPdf = rows.filter(r=>r.pdf_path);
+  withPdf.forEach(r=> window.open(publicUrl('mc-documents', r.pdf_path), '_blank'));
+  toast(`Opened ${withPdf.length} PDF${withPdf.length===1?'':'s'}`);
+};
+window.emailSiteInductionPdf = async function(completionId, operativeName){
+  const email = await customPrompt(`Email this induction PDF for ${operativeName||'this operative'} to:`, '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  const rows = await dbSelect('site_induction_completions', 'id=eq.'+completionId+'&select=pdf_path,site_id,operative_id');
+  const row = rows[0];
+  if(!row || !row.pdf_path){ toast('PDF not available.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
+      site_id: row.site_id,
+      recipient_email: trimmed,
+      items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
+    })});
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){ toast('Could not send the email — please try again.'); }
+};
+window.emailSelectedInductions = async function(){
+  const ids = Array.from(siteInductionSelectedIds);
+  if(!ids.length) return;
+  const email = await customPrompt(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path,operative_id,site_id');
+  const withPdf = rows.filter(r=>r.pdf_path);
+  if(!withPdf.length){ toast('Nothing to email.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
+      site_id: withPdf[0].site_id,
+      recipient_email: trimmed,
+      items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
+    })});
+    if(res && res.ok){ toast('Emailed'); siteInductionSelectedIds = new Set(); render(); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){ toast('Could not send the email — please try again.'); }
+};
 window.deleteSiteInductionCompletion = async function(completionId){
   if(!await customConfirm('Delete this completed induction? The operative will need to complete it again.')) return;
   const ok = await dbDelete('site_induction_completions', completionId);
@@ -15329,7 +15477,7 @@ window.removeSiteInductionQuestion = async function(i){
   const row = await dbUpdate('organizations', ORG.id, {site_induction_questions: items});
   if(row){ ORG = row; toast('Removed'); render(); }
 };
-async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber, signaturePathOverride){
+async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber, signaturePathOverride, healthAnswersArg, healthDetailsArg){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const pdfDoc = await PDFLib.PDFDocument.create();
   const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
@@ -15418,6 +15566,38 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   }
   page.drawText(operative.name+' — '+new Date().toLocaleDateString('en-GB'), {x:MARGIN, y:y-4, size:9.5, font:reg, color:SLATE});
 
+  // Page 2 — Health Questionnaire. Plain "Yes"/"No" text only (both are
+  // safely inside WinAnsi/cp1252) — no unicode glyphs, so this can't
+  // reintroduce the "WinAnsi cannot encode…" crash fixed for the checklist
+  // tick (see the vector-drawn tick above).
+  if(healthAnswersArg){
+    let page2 = pdfDoc.addPage([PAGE_W, PAGE_H]);
+    page2.drawRectangle({x:0, y:PAGE_H-70, width:PAGE_W, height:70, color:BRAND});
+    page2.drawText('HEALTH QUESTIONNAIRE', {x:MARGIN, y:PAGE_H-32, size:9, font:bold, color:WHITE, opacity:0.85});
+    page2.drawText(site.name, {x:MARGIN, y:PAGE_H-52, size:14, font:bold, color:WHITE});
+    let y2 = PAGE_H - 100;
+    page2.drawText('Operative: '+operative.name, {x:MARGIN, y:y2, size:11, font:bold, color:INK});
+    y2 -= 24;
+    const textWidth2 = PAGE_W - 2*MARGIN;
+    HEALTH_QUESTIONNAIRE_ITEMS.forEach((item, i)=>{
+      const ans = healthAnswersArg[i] || '';
+      const detail = (healthDetailsArg && healthDetailsArg[i]) || '';
+      const qLines = wrapText(item.category+': '+item.question, bold, 10, textWidth2);
+      const detailLines = detail ? wrapText('Details: '+detail, reg, 9.5, textWidth2) : [];
+      const blockH = qLines.length*13 + 16 + (detailLines.length ? detailLines.length*12+6 : 0) + 12;
+      if(y2 - blockH < 60){ page2 = pdfDoc.addPage([PAGE_W, PAGE_H]); y2 = PAGE_H - MARGIN; }
+      qLines.forEach((line,li)=>{ page2.drawText(line, {x:MARGIN, y:y2-(li*13), size:10, font:bold, color:INK}); });
+      y2 -= qLines.length*13 + 4;
+      page2.drawText('Answer: '+(ans==='yes'?'Yes':ans==='no'?'No':'-'), {x:MARGIN, y:y2, size:10, font:reg, color: ans==='yes'?PDFLib.rgb(0.72,0.28,0.22):SLATE});
+      y2 -= 16;
+      if(detailLines.length){
+        detailLines.forEach((line,li)=>{ page2.drawText(line, {x:MARGIN, y:y2-(li*12), size:9.5, font:reg, color:SLATE}); });
+        y2 -= detailLines.length*12 + 6;
+      }
+      y2 -= 12;
+    });
+  }
+
   const filename = exportFilename(site.name, 'Site Induction - '+operative.name, 'pdf');
   pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
   const outBytes = await pdfDoc.save();
@@ -15436,12 +15616,24 @@ async function renderSubcontractors(siteId){
   // open their own company's tile — the others are shown but not clickable.
   const mySubCompanyId = (!canAdd && !isClient(ME)) ? await getMySubcontractorCompanyId(siteId) : null;
   const canOpen = c => canAdd || isClient(ME) || c.id === mySubCompanyId;
+  // A company's name can only be edited here if it isn't "from the library"
+  // — i.e. its master profile (subcontractor_company_profiles) isn't shared
+  // with any other site. Renaming a shared/library company from inside one
+  // site's tile would silently rename it everywhere, so that has to happen
+  // from the Company Library instead (Settings & Admin).
+  let masterUsageCount = {};
+  if(canAdd && companies.some(c=>c.master_company_id)){
+    const allLinks = await dbSelect('subcontractor_companies', 'org_id=eq.'+site.org_id+'&select=master_company_id');
+    allLinks.forEach(l=>{ if(l.master_company_id) masterUsageCount[l.master_company_id] = (masterUsageCount[l.master_company_id]||0)+1; });
+  }
+  const isEditable = c => canAdd && (!c.master_company_id || (masterUsageCount[c.master_company_id]||0) <= 1);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Each subcontractor gets their own tile with RAMS, COSHH, Toolbox Talks, Daily Briefings and their own operatives — only operatives allocated to a company can open that company's tile.</p>
     ${companies.map(c=>`
       <div class="sitecard" style="${canOpen(c)?'cursor:pointer;':'opacity:.55;'}" onclick="${canOpen(c)?`go('#/site/${siteId}/mc/subcontractors/${c.id}')`:`toast("You don't have access to this subcontractor.")`}">
         <div class="swatch">${operativeInitials(c.name)}</div>
         <div class="info"><div class="name">${escapeHtml(c.name)}</div></div>
+        ${isEditable(c) ? `<div class="taskicon" title="Rename" onclick="event.stopPropagation();renameSubcontractorCompany('${siteId}','${c.id}','${c.master_company_id||''}','${jsAttr(c.name)}')">✏️</div>` : ''}
         ${canAdd ? `<div class="taskicon danger" title="Remove" onclick="event.stopPropagation();deleteSubcontractorCompany('${c.id}','${jsAttr(c.name)}')">🗑</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No subcontractors added yet.</div>`}
@@ -15475,6 +15667,18 @@ window.deleteSubcontractorCompany = async function(id, name){
   if(!await customConfirm(`Remove "${name}" and everything in their folder? This can't be undone.`)) return;
   const ok = await dbDelete('subcontractor_companies', id);
   if(ok){ toast('Removed'); render(); }
+};
+window.renameSubcontractorCompany = async function(siteId, companyId, masterCompanyId, currentName){
+  const next = await customPrompt('Rename subcontractor', currentName);
+  if(!next || !next.trim() || next.trim()===currentName) return;
+  const name = next.trim();
+  const row = await dbUpdate('subcontractor_companies', companyId, {name});
+  if(!row) return;
+  // Not "from the library" only ever means this master profile is used by
+  // no other site, so it's safe to keep the shared master's own name in
+  // sync too — this is the one and only place it's used.
+  if(masterCompanyId) await dbUpdate('subcontractor_company_profiles', masterCompanyId, {name});
+  toast('Renamed'); render();
 };
 async function renderSubcontractorHub(siteId, companyId){
   const __gen = RENDER_GEN;
@@ -15914,6 +16118,80 @@ const COMPANY_LIBRARY_CATEGORIES = [
 function companyLibraryCategoryLabel(key){ return (COMPANY_LIBRARY_CATEGORIES.find(c=>c.key===key)||{}).label || 'Other'; }
 let companyLibraryAddOpen = false;
 let companyLibraryUploading = false;
+// Org-wide Company Library hub — every subcontractor_company_profiles row
+// for this org, reachable from Settings & Admin (both the Main Contractor
+// and the Subcontractor dropdowns link here) rather than only via a
+// specific site's Subcontractors tile. Lets a PM/admin manage a company's
+// library documents even before that company has been added to any site.
+let companyLibraryNewName = '';
+let companyLibraryAddCompanyOpen = false;
+async function renderCompanyLibraryHub(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canManage = isManager(ME);
+  const profiles = await dbSelect('subcontractor_company_profiles', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Every subcontractor company's own document library — shared across every site that company is added to.</p>
+    ${profiles.map(p=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/companylibrary/${p.id}')">
+        <div class="swatch">${operativeInitials(p.name)}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div></div>
+        ${canManage ? `<div class="taskicon" title="Rename" onclick="event.stopPropagation();renameCompanyLibraryProfile('${p.id}','${jsAttr(p.name)}')">✏️</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No companies in the library yet.</div>`}
+    ${canManage ? (companyLibraryAddCompanyOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <div class="formfield" style="margin-top:0;"><input type="text" id="companyLibraryNewNameInput" placeholder="e.g. Acme Scaffolding" value="${escapeHtml(companyLibraryNewName)}" oninput="companyLibraryNewName=this.value"></div>
+        <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="companyLibraryAddCompanyOpen=false;render();">Cancel</button><button class="darkbtn" style="flex:1;" onclick="addCompanyLibraryProfile('${siteId}')">Add</button></div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="companyLibraryAddCompanyOpen=true;companyLibraryNewName='';render();">+ Add Company</button>`) : ''}
+  `, {title:'Company Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/team`, siteId, activeTab:'more'}); }
+}
+window.renameCompanyLibraryProfile = async function(id, currentName){
+  const next = await customPrompt('Rename company', currentName);
+  if(!next || !next.trim() || next.trim()===currentName) return;
+  const row = await dbUpdate('subcontractor_company_profiles', id, {name: next.trim()});
+  if(row){ toast('Renamed'); render(); }
+};
+window.addCompanyLibraryProfile = async function(siteId){
+  const name = (document.getElementById('companyLibraryNewNameInput')||{}).value ? document.getElementById('companyLibraryNewNameInput').value.trim() : companyLibraryNewName.trim();
+  if(!name){ toast('Enter a company name.'); return; }
+  const rows = await dbInsert('subcontractor_company_profiles', {org_id: ME.org_id, name, created_by:ME.id});
+  if(rows){ companyLibraryAddCompanyOpen=false; companyLibraryNewName=''; toast('Company added to the library'); render(); }
+};
+async function renderCompanyLibraryDocs(siteId, masterCompanyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const profileRows = await dbSelect('subcontractor_company_profiles', 'id=eq.'+masterCompanyId+'&select=*');
+  const profile = profileRows[0];
+  if(!profile){ go(`#/site/${siteId}/mc/companylibrary`); return; }
+  const canUpload = isManager(ME);
+  await loadAllProfiles();
+  const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+masterCompanyId+'&order=uploaded_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">${escapeHtml(profile.name)}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to.</p>
+    ${canUpload ? (companyLibraryAddOpen ? `
+      <div class="card" style="margin-bottom:12px;">
+        <p class="field-label" style="margin-bottom:6px;">Upload a document</p>
+        <select id="companyLibraryCategory" class="stub" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card);">
+          ${COMPANY_LIBRARY_CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}
+        </select>
+        <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('companyLibraryFileInput').click()">
+          <div style="font-size:20px;">${companyLibraryUploading?'⏳':'📎'}</div>${companyLibraryUploading?'Uploading…':'Tap to choose a file'}
+        </div>
+        <input type="file" id="companyLibraryFileInput" ${companyLibraryUploading?'disabled':''} style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addCompanyLibraryDoc(this,'${masterCompanyId}')">
+        <div class="row-gap" style="margin-top:10px;"><button class="ghostbtn" style="flex:1;" onclick="companyLibraryAddOpen=false;render();">Cancel</button></div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-bottom:12px;" onclick="companyLibraryAddOpen=true;render();">+ Add to Library</button>`) : ''}
+    ${docs.map(d=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(d.name)}</div><div class="addr">${companyLibraryCategoryLabel(d.category)} · ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString('en-GB')}${d.expiry_date ? ' · expires '+new Date(d.expiry_date).toLocaleDateString('en-GB') : ''}</div></div>
+        <a href="${publicUrl('mc-documents', d.storage_path)}" target="_blank" rel="noopener" class="ghostbtn" style="width:auto;padding:8px 12px;text-decoration:none;">View</a>
+        ${canUpload ? `<div class="taskicon danger" title="Delete" onclick="deleteCompanyLibraryDoc('${d.id}','${jsAttr(d.storage_path)}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No library documents yet.</div>`}
+  `, {title:'Company Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/companylibrary`, siteId, activeTab:'more'}); }
+}
 async function renderSubCompanyLibrary(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -23992,6 +24270,11 @@ async function renderRoute(){
         return renderMcInspections(siteId);
       }
       if(['cpp','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
+      if(sub==='companylibrary'){
+        const masterId = parts[4];
+        if(masterId) return renderCompanyLibraryDocs(siteId, masterId);
+        return renderCompanyLibraryHub(siteId);
+      }
       // Bare #/mc — the Main Contractor tile's own hub page, listing
       // CPP/Site Rules/Inductions/Subcontractors/Permits/Inspections/
       // Asbestos/F10 underneath the single "Main Contractor" tile on Home.
