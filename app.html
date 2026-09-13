@@ -832,9 +832,28 @@ function setupPdfViewerGestures(wrap){
   }
   wrap.addEventListener('pointerup', endPointer);
   wrap.addEventListener('pointercancel', endPointer);
+  // Only treat wheel as zoom for an actual pinch-zoom gesture (trackpads and
+  // browsers report these as a wheel event with ctrlKey set) or a held
+  // Ctrl/Cmd — mirroring how every other zoomable surface (Google Maps,
+  // PDF.js itself, image editors) tells plain scrolling apart from zooming.
+  // Previously EVERY wheel/trackpad scroll was hijacked into a zoom, which
+  // is what made the viewer feel like it "doesn't scroll, just zooms in and
+  // out" — plain two-finger scroll on a trackpad, or a mouse wheel, never
+  // reached the page at all.
   wrap.addEventListener('wheel', (e)=>{
+    if(e.ctrlKey || e.metaKey){
+      e.preventDefault();
+      pdfViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15, e.clientX, e.clientY);
+      return;
+    }
+    // Not zoomed in: let the browser handle normal page scroll untouched.
+    if(pdfViewerZoom.scale<=1) return;
+    // Zoomed in: pan with the wheel instead of scrolling the (overflow:
+    // hidden) body, so content doesn't get stuck off-screen.
     e.preventDefault();
-    pdfViewerZoomBy(e.deltaY<0 ? 1.15 : 1/1.15, e.clientX, e.clientY);
+    pdfViewerZoom.x -= e.deltaX;
+    pdfViewerZoom.y -= e.deltaY;
+    applyPdfViewerTransform();
   }, {passive:false});
 }
 window.viewPdfInApp = async function(source, filename){
@@ -7929,13 +7948,15 @@ async function renderPriceHome(siteId){
     pendingVariationCount = pendingAw.length;
   }
   let priceBuilderTileCount = 0;
-  // Price Builder itself (creating/issuing sheets) is admin-only for now —
-  // a non-admin PM is treated the same as an operative here: they only see
-  // issued sheets they actually have access to, same as before this flag
-  // was for anyone with isManager() PM/admin access.
+  // Creating/editing sheets (drafts) is admin-only for now (canUsePriceBuilder).
+  // Viewing an already-ISSUED sheet is a PM/admin default instead — a PM sees
+  // every issued sheet on their site same as admin does, but a plain
+  // operative only sees a sheet if they were specifically ticked "Assign to"
+  // when it was issued, not just because they can see the Price tile at all.
   if(canUsePriceBuilder()) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&select=id')).length;
-  else if(canSeePrice) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&status=eq.issued&select=id')).length;
-  const showPriceBuilderTile = canUsePriceBuilder() ? true : priceBuilderTileCount>0;
+  else if(isManager(ME)) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&status=eq.issued&select=id')).length;
+  else if(canSeePrice) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&status=eq.issued&assigned_user_ids=cs.{'+ME.id+'}&select=id')).length;
+  const showPriceBuilderTile = isManager(ME) ? true : priceBuilderTileCount>0;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price/elements')">
@@ -8914,7 +8935,7 @@ async function renderPriceBuilderSheets(siteId){
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
-    ${sheets.filter(s=>canManage || s.status==='issued').map(s=>`
+    ${sheets.filter(s=>canManage || (isManager(ME) && s.status==='issued') || (s.status==='issued' && (s.assigned_user_ids||[]).includes(ME.id))).map(s=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/pricebuilder/${s.status==='issued'?'view':'edit'}/${s.id}')">
         <div class="swatch">💷</div>
         <div class="info">
@@ -8982,18 +9003,15 @@ window.deletePriceBuilderSheet = async function(siteId, sheetId){
     }
   }
 
-  if(!await customConfirm(sheet.status==='issued' ? 'Delete this issued sheet? This removes its price tile too, and any Schedule of Works items it created that haven\'t been started. This can\'t be undone.' : 'Delete this draft sheet? This can\'t be undone.')) return;
+  if(!await customConfirm(sheet.status==='issued' ? 'Delete this issued sheet? This removes its price tile and its Schedule of Works section (with all its tasks) too. This can\'t be undone.' : 'Delete this draft sheet? This can\'t be undone.')) return;
 
+  // The reciprocal Schedule of Works section this sheet created goes with
+  // it — deleted in full, tasks and all, rather than left behind as an
+  // orphaned section once the sheet that populated it is gone.
   if(sheet.schedule_section_id){
-    const tasks = await dbSelect('schedule_tasks', 'section_id=eq.'+sheet.schedule_section_id+'&select=id,status,completed_at');
-    const anyStarted = tasks.some(t=>t.status==='done' || t.status==='in_progress' || t.completed_at);
-    if(!anyStarted){
-      for(const t of tasks) await dbDelete('schedule_tasks', t.id);
-      await dbDelete('schedule_sections', sheet.schedule_section_id);
-    }
-    // Otherwise leave the section/tasks in place — work's already under way
-    // there — the tasks' own sheet_item_id links clear themselves (ON DELETE
-    // SET NULL) once the sheet items are removed below.
+    const tasks = await dbSelect('schedule_tasks', 'section_id=eq.'+sheet.schedule_section_id+'&select=id');
+    for(const t of tasks) await dbDelete('schedule_tasks', t.id);
+    await dbDelete('schedule_sections', sheet.schedule_section_id);
   }
   if(sheet.pricing_element_id) await dbDelete('pricing_elements', sheet.pricing_element_id);
 
@@ -9232,10 +9250,10 @@ async function renderPriceBuilderEdit(siteId, sheetId){
             ` : ''}
             ${entry.isManualRate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual rate — non-conforming</div>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;font-size:15.5px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
-          <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
+          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;height:32px;line-height:32px;box-sizing:border-box;font-size:13.6px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
+          <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;height:32px;line-height:32px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
           <span class="stub" style="margin:2px 0 0;">${PRICE_UNIT_LABEL[it.unit]}</span>
-          <span class="stub" style="margin:2px 0 0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
+          <span class="stub" style="margin:2px 0 0;font-size:13.2px;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
           ${pbEntryAllocated(entry)
             ? `<div class="taskicon" title="Can't remove — already booked in against" style="justify-self:center;opacity:.35;cursor:not-allowed;">🔒</div>`
             : `<div class="taskicon danger" title="Untick" onclick="pbRemoveEntry('${key}')" style="justify-self:center;">🗑</div>`}
@@ -9250,8 +9268,11 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
           <input type="text" placeholder="Item description" value="${escapeHtml(row.name)}" style="flex:1 1 140px;min-width:110px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'name',this.value)">
           <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-            <input type="number" step="0.1" placeholder="Qty" value="${row.quantity!=null?row.quantity:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'quantity',this.value)">
-            <input type="number" step="0.01" placeholder="Rate £" value="${row.rate!=null?row.rate:''}" style="width:80px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'rate',this.value)">
+            <input type="number" step="0.1" placeholder="Qty" value="${row.quantity!=null?row.quantity:''}" style="width:64px;height:32px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:0 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'quantity',this.value)">
+            <select style="width:64px;height:32px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-size:12.5px;font-family:inherit;background:#fff;" onchange="pbSetCustomField(${idx},'unit',this.value)">
+              ${Object.keys(PRICE_UNIT_LABEL).map(u=>`<option value="${u}" ${(row.unit||'item')===u?'selected':''}>${PRICE_UNIT_LABEL[u]}</option>`).join('')}
+            </select>
+            <input type="number" step="0.01" placeholder="Rate £" value="${row.rate!=null?row.rate:''}" style="width:80px;height:32px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:0 8px;font-size:13.6px;font-family:inherit;" onblur="pbSetCustomField(${idx},'rate',this.value)">
           </div>
           <span class="stub" style="margin:0;font-weight:700;min-width:64px;text-align:right;">${PRICE_BUILDER_FMT(pbCustomLineTotal(row))}</span>
           ${row.id && Number(pbAllocatedByItemId[row.id]||0)>0
@@ -9386,6 +9407,7 @@ window.pbSetCustomField = function(idx, field, value){
   const row = pbWorking.customRows[idx]; if(!row) return;
   if(field==='name') row.name = value.trim();
   else if(field==='quantity') row.quantity = value==='' ? '' : pbRound2(parseFloat(value));
+  else if(field==='unit') row.unit = value || 'item';
   else row[field] = value==='' ? '' : parseFloat(value);
   render();
 };
@@ -9404,6 +9426,25 @@ window.pbSetCustomField = function(idx, field, value){
 async function pbPersist(siteId, sheetId, status){
   const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id);
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
+
+  // Existing DB rows for this sheet — fetched WITH enough fields to
+  // reconstruct the same content-based key pbWorking.items uses
+  // (rate_item_id, or rate_item_id::option_id for dropdown-derived items).
+  // We match on this key rather than trusting entry.id alone, because
+  // re-ticking an item (or any code path that rebuilds the in-memory entry
+  // object from scratch) drops the previously-saved id — and matching by
+  // id alone in that case would wrongly treat the still-existing DB row as
+  // "removed", deleting it (and, via pbSyncScheduleTasks, its linked SOW
+  // task) even though nothing was actually meant to be removed.
+  const existing = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id,rate_item_id,option_id');
+  const existingIds = existing.map(r=>r.id);
+  const existingKeyToId = {}; // content key -> db id, for rate-card-linked rows only
+  existing.forEach(r=>{
+    if(!r.rate_item_id) return; // custom row — no stable content key, matched by id only
+    const key = r.option_id ? (r.rate_item_id+'::'+r.option_id) : r.rate_item_id;
+    existingKeyToId[key] = r.id;
+  });
+
   const rows = [];
   let total = 0; let sortOrder = 0;
   Object.keys(pbWorking.items).forEach(key=>{
@@ -9414,8 +9455,13 @@ async function pbPersist(siteId, sheetId, status){
     if(item.is_dropdown && !entry.optionId) return; // ticked but no option chosen yet
     const lineTotal = pbLineTotal(entry, item);
     total += lineTotal;
+    // Prefer the id already tracked on the entry; if missing (e.g. the row
+    // was untouched but the in-memory entry was rebuilt), recover it from
+    // the existing DB rows via the content key so this row is UPDATED
+    // rather than mistaken for new/removed.
+    const resolvedId = entry.id || existingKeyToId[key] || null;
     rows.push({
-      id: entry.id || null,
+      id: resolvedId, _key: key,
       sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: item.unit,
       rate: pbResolvedRate(entry, item), quantity: qty,
       option_id: entry.optionId||null, option_label: entry.optionLabel||null,
@@ -9424,22 +9470,22 @@ async function pbPersist(siteId, sheetId, status){
     });
   });
   // Custom rows — no linked rate_item_id, name/rate saved directly on the row.
-  pbWorking.customRows.forEach(row=>{
+  // These can't be content-keyed reliably (name/rate can legitimately
+  // change), so they still rely on their own tracked .id.
+  pbWorking.customRows.forEach((row, rowIdx)=>{
     const qty = Number(row.quantity)||0;
     const rate = Number(row.rate)||0;
     if(!row.name || !qty || !rate) return; // incomplete custom row — don't save a blank/zero line
     const lineTotal = qty * rate;
     total += lineTotal;
     rows.push({
-      id: row.id || null,
+      id: row.id || null, _customIdx: rowIdx,
       sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'item',
       rate, quantity: qty, option_id: null, option_label: null,
       line_total: lineTotal, sort_order: sortOrder++,
     });
   });
 
-  const existing = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id');
-  const existingIds = existing.map(r=>r.id);
   const keptIds = new Set(rows.filter(r=>r.id).map(r=>r.id));
   const allocated = existingIds.length ? (await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=in.('+existingIds.join(',')+')&select=sheet_item_id,amount')) : [];
   const allocByItemId = {};
@@ -9453,13 +9499,31 @@ async function pbPersist(siteId, sheetId, status){
     removedIds.push(id);
   }
 
-  const toInsert = rows.filter(r=>!r.id).map(({id, ...rest})=>rest);
+  const toInsert = rows.filter(r=>!r.id).map(({id, _key, _customIdx, ...rest})=>({...rest, __key:_key, __customIdx:_customIdx}));
   const toUpdate = rows.filter(r=>r.id);
-  const insertedRows = toInsert.length ? (await dbInsert('price_builder_sheet_items', toInsert)) || [] : [];
+  const insertedRows = [];
+  if(toInsert.length){
+    const toInsertClean = toInsert.map(({__key, __customIdx, ...rest})=>rest);
+    const inserted = (await dbInsert('price_builder_sheet_items', toInsertClean)) || [];
+    // Match inserted rows back to their source (by sort_order, which is
+    // unique per save) so we can back-fill the new DB id onto pbWorking.
+    inserted.forEach(savedRow=>{
+      const src = toInsert.find(r=>r.sort_order===savedRow.sort_order);
+      if(src && src.__key && pbWorking.items[src.__key]) pbWorking.items[src.__key].id = savedRow.id;
+      if(src && src.__customIdx!=null && pbWorking.customRows[src.__customIdx]) pbWorking.customRows[src.__customIdx].id = savedRow.id;
+      insertedRows.push(savedRow);
+    });
+  }
   const updatedRows = [];
   for(const row of toUpdate){
-    const {id, ...patchRow} = row;
+    const {id, _key, _customIdx, ...patchRow} = row;
     const saved = await dbUpdate('price_builder_sheet_items', id, patchRow);
+    // Back-fill in case the id was recovered via content-key matching above
+    // (entry.id was missing but we found the existing row) — so the
+    // in-memory entry carries the correct id for any subsequent save in
+    // this same edit session.
+    if(_key && pbWorking.items[_key]) pbWorking.items[_key].id = id;
+    if(_customIdx!=null && pbWorking.customRows[_customIdx]) pbWorking.customRows[_customIdx].id = id;
     updatedRows.push(saved || row);
   }
 
@@ -9876,25 +9940,7 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
     if(cur) lines.push(cur);
     return lines;
   }
-  // Page 1: Terms & Conditions (org-wide text set in Settings & Admin ›
-  // Price Builder — Rate Card), verbatim — only when the org has actually
-  // set some, so a sheet never ships with fabricated/placeholder wording.
-  // The itemized SOW always starts on its own fresh page after this.
   const terms = ORG && ORG.price_builder_terms && ORG.price_builder_terms.trim();
-  if(terms){
-    newPage();
-    page.drawText('Terms & Conditions', {x:MARGIN, y, size:13, font:bold, color:INK});
-    y -= 22;
-    terms.split(/\n+/).forEach(para=>{
-      if(!para.trim()){ y -= 8; return; }
-      wrapText(para.trim(), reg, 9.5, CONTENT_W).forEach(line=>{
-        if(y < 70){ newPage(); }
-        page.drawText(line, {x:MARGIN, y, size:9.5, font:reg, color:INK});
-        y -= 14;
-      });
-      y -= 6;
-    });
-  }
   newPage();
   drawColumnHeaders();
   const nameColW = cols[0].w*CONTENT_W - 4;
@@ -9960,6 +10006,27 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
       drawCell(page, Number(w.amount||0).toFixed(2), wkCols[1], y, {size:9.5});
       drawCell(page, running.toFixed(2), wkCols[2], y, {size:9.5, font:bold});
       y -= 16;
+    });
+  }
+
+  // Terms & Conditions (org-wide text set in Settings & Admin › Price
+  // Builder — Rate Card), verbatim — only when the org has actually set
+  // some, so a sheet never ships with fabricated/placeholder wording.
+  // Placed on its own fresh page(s) at the very END of the document, after
+  // the priced items and booked-in breakdown, so the price/build-up is the
+  // first thing read.
+  if(terms){
+    newPage();
+    page.drawText('Terms & Conditions', {x:MARGIN, y, size:13, font:bold, color:INK});
+    y -= 22;
+    terms.split(/\n+/).forEach(para=>{
+      if(!para.trim()){ y -= 8; return; }
+      wrapText(para.trim(), reg, 9.5, CONTENT_W).forEach(line=>{
+        if(y < 70){ newPage(); }
+        page.drawText(line, {x:MARGIN, y, size:9.5, font:reg, color:INK});
+        y -= 14;
+      });
+      y -= 6;
     });
   }
 
