@@ -8626,6 +8626,12 @@ window.pbwSetManual = async function(sheetItemId, elId, siteId, wk, rate, value)
 const PRICE_BUILDER_FMT = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
 let priceBuilderNewOpen = false;
 let priceBuilderNewAssignees = []; // userIds ticked on the "+ New Sheet" form, before the sheet even exists
+// Ticking an assignee chip re-renders the whole form (to show it as
+// selected), which would otherwise wipe out a Title the user had typed but
+// not yet blurred out of — so the title is kept in this draft var and fed
+// back in as the input's value, the same way pbWorking.title survives
+// re-renders once a sheet exists.
+let priceBuilderNewTitleDraft = '';
 window.pbNewToggleAssignee = function(userId){
   const idx = priceBuilderNewAssignees.indexOf(userId);
   if(idx>-1) priceBuilderNewAssignees.splice(idx,1); else priceBuilderNewAssignees.push(userId);
@@ -8667,11 +8673,11 @@ async function renderPriceBuilderSheets(siteId){
     `).join('') || `<div class="empty">${canManage?'No sheets yet — create your first one below.':'Nothing issued yet.'}</div>`}
     ${canManage ? (priceBuilderNewOpen ? `
       <div class="card" style="margin-top:14px;">
-        <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" placeholder="e.g. Rear Pitched Roof"></div>
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" value="${escapeHtml(priceBuilderNewTitleDraft)}" placeholder="e.g. Rear Pitched Roof" oninput="priceBuilderNewTitleDraft=this.value"></div>
         <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, priceBuilderNewAssignees, 'pbNewToggleAssignee')}</div>
         <div class="row-gap">
           <button class="darkbtn" style="flex:1;" onclick="createPriceBuilderSheet('${siteId}')">Create</button>
-          <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;priceBuilderNewAssignees=[];render()">Cancel</button>
+          <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;priceBuilderNewAssignees=[];priceBuilderNewTitleDraft='';render()">Cancel</button>
         </div>
       </div>
     ` : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`) : ''}
@@ -8684,7 +8690,7 @@ window.createPriceBuilderSheet = async function(siteId){
   const assignedUserIds = priceBuilderNewAssignees.slice();
   const subcontractor_name = assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
   const rows = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name, assigned_user_ids:assignedUserIds, created_by:ME.id});
-  if(rows && rows[0]){ priceBuilderNewOpen = false; priceBuilderNewAssignees = []; go(`#/site/${siteId}/pricebuilder/edit/${rows[0].id}`); }
+  if(rows && rows[0]){ priceBuilderNewOpen = false; priceBuilderNewAssignees = []; priceBuilderNewTitleDraft = ''; go(`#/site/${siteId}/pricebuilder/edit/${rows[0].id}`); }
 };
 window.pbRenameSheet = async function(sheetId, value){
   const title = value.trim();
@@ -8711,6 +8717,10 @@ window.deletePriceBuilderSheet = async function(sheetId){
 // a sheet that already has ticked items on it jumps straight to 'confirm'
 // (see the phase default below) since there's nothing left to tick-only.
 let pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
+// Set at the top of every renderPriceBuilderEdit render so the global
+// pbChangeOption handler (an inline onchange, outside that function's own
+// closure) can still look up an option's label/rate by id.
+let pbOptionsByItemCache = {};
 function pbResolvedRate(entry, item){
   if(entry.isManualRate && entry.rateOverride!=null) return Number(entry.rateOverride);
   return item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
@@ -8740,6 +8750,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   const priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
   const optionsByItem = {};
   priceRateOptions.forEach(o=>{ (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o); });
+  pbOptionsByItemCache = optionsByItem;
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
   const assignedOperatives = await siteAssignedOperatives(siteId);
 
@@ -8768,7 +8779,13 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         const opt = (optionsByItem[row.rate_item_id]||[]).find(o=>o.id===row.option_id);
         optionRate = opt ? Number(opt.rate) : (row.is_manual_rate ? null : Number(row.rate));
       }
-      items[row.rate_item_id] = {
+      // Dropdown items are multi-select, so a saved row's key has to include
+      // its option_id (several rows can share the same rate_item_id, one per
+      // option ticked) — a plain item still keys off its own id, same as
+      // before, since it only ever has one row.
+      const key = row.option_id ? (row.rate_item_id+'::'+row.option_id) : row.rate_item_id;
+      items[key] = {
+        rateItemId: row.rate_item_id,
         quantity:row.quantity, optionId:row.option_id||null, optionRate, optionLabel:row.option_label||null, nameOverride,
         rateOverride: row.is_manual_rate ? Number(row.rate) : null,
         isManualRate: !!row.is_manual_rate,
@@ -8786,7 +8803,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   sortPriceRateCategories(categories);
 
   let grandTotal = 0;
-  Object.keys(pbWorking.items).forEach(id=>{ const item = itemsById[id]; if(item) grandTotal += pbLineTotal(pbWorking.items[id], item); });
+  Object.keys(pbWorking.items).forEach(key=>{ const entry = pbWorking.items[key]; const item = itemsById[entry.rateItemId]; if(item) grandTotal += pbLineTotal(entry, item); });
   pbWorking.customRows.forEach(row=>{ grandTotal += pbCustomLineTotal(row); });
   const tickedCount = Object.keys(pbWorking.items).length + pbWorking.customRows.length;
 
@@ -8804,28 +8821,39 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         return `
         <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
         ${open ? cat.items.map(it=>{
-          const entry = pbWorking.items[it.id];
-          const ticked = !!entry;
           const opts = optionsByItem[it.id]||[];
-          return `
-          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
-            <div style="display:flex;align-items:center;gap:8px;flex:1 1 130px;min-width:110px;cursor:pointer;" onclick="pbToggleItem('${it.id}',${!ticked})">
-              <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${ticked?'checked':''} onclick="event.stopPropagation();pbToggleItem('${it.id}',this.checked)" onchange="event.stopPropagation()">
-              <div class="info">
+          if(it.is_dropdown){
+            // Multi-select — any number of options can be ticked for the
+            // same item (e.g. two different tile types on one sheet), each
+            // becoming its own line with its own qty on the confirm page.
+            // There's no separate item-level checkbox here: picking any
+            // option is what ticks it.
+            return `
+            <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
+              <div class="info" style="flex:1 1 100%;">
                 <div class="name">${escapeHtml(it.name)}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                  ${opts.map(o=>{
+                    const key = it.id+'::'+o.id;
+                    const on = !!pbWorking.items[key];
+                    return `<div onclick="pbToggleDropdownOption('${it.id}','${o.id}',${!on},'${jsAttr(o.label)}',${o.rate})" style="padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${on?'var(--brand1)':'var(--line)'};background:${on?'var(--brand1)':'#fff'};color:${on?'var(--brand1-text)':'var(--ink)'};">${on?'✓ ':''}${escapeHtml(o.label)}</div>`;
+                  }).join('') || `<div class="empty" style="padding:6px;">No options set up for this item yet.</div>`}
+                </div>
               </div>
             </div>
-            ${it.is_dropdown ? `
-            <select style="flex:1 1 140px;min-width:120px;" onchange="event.stopPropagation();pbSetOption('${it.id}', this.value)" onclick="event.stopPropagation()">
-              <option value="">— Choose option —</option>
-              ${opts.map(o=>`<option value="${o.id}" ${entry&&entry.optionId===o.id?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}
-            </select>
-            ` : ''}
+          `;}
+          const ticked = !!pbWorking.items[it.id];
+          return `
+          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;cursor:pointer;" onclick="pbToggleItem('${it.id}',${!ticked})">
+            <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${ticked?'checked':''} onclick="event.stopPropagation();pbToggleItem('${it.id}',this.checked)" onchange="event.stopPropagation()">
+            <div class="info">
+              <div class="name">${escapeHtml(it.name)}</div>
+            </div>
           </div>
         `;}).join('') : ''}
       `;}).join('') || `<div class="empty">No rate card items yet — add some from Settings &amp; Admin › Price Builder — Rate Card first.</div>`}
 
-      <div class="card" style="margin-top:14px;position:sticky;bottom:70px;">
+      <div class="card" style="margin-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
           <span class="sectiontitle" style="margin:0;">Ticked</span>
           <span style="font-size:18px;font-weight:800;">${tickedCount}</span>
@@ -8846,28 +8874,46 @@ async function renderPriceBuilderEdit(siteId, sheetId){
     <p class="stub" style="margin:0 0 10px;">Every ticked item, grouped and ordered the same way as the rate card. Set a quantity for each — you can still edit the wording, or untick something you don't need after all.</p>
 
     ${categories.map(cat=>{
-      const catTicked = cat.items.filter(it=>pbWorking.items[it.id]);
-      if(!catTicked.length) return '';
+      // A plain item contributes at most one row (key === its own id); a
+      // multi-select dropdown item can contribute several — one per ticked
+      // option (key === "<itemId>::<optionId>") — so rows are built by
+      // scanning every ticked entry rather than assuming one-per-item.
+      const catRows = [];
+      cat.items.forEach(it=>{
+        Object.keys(pbWorking.items).forEach(key=>{
+          const entry = pbWorking.items[key];
+          if(entry.rateItemId===it.id) catRows.push({key, entry, it});
+        });
+      });
+      if(!catRows.length) return '';
       return `
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
-      ${catTicked.map(it=>{
-        const entry = pbWorking.items[it.id];
+      <div class="drawheaderrow" style="grid-template-columns:1fr 58px 48px 40px 62px 24px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
+        <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:right;">Qty</span><span>Unit</span><span style="text-align:right;">Total</span><span></span>
+      </div>
+      ${catRows.map(({key, entry, it})=>{
         const baseRate = it.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(it.rate||0);
         const displayRate = entry.isManualRate && entry.rateOverride!=null ? Number(entry.rateOverride) : baseRate;
+        const opts = optionsByItem[it.id]||[];
+        // Grid (not flex) so Rate/Qty/Unit/Total line up in fixed columns
+        // across every row regardless of how long the item text is or
+        // whether it wraps to a second line.
         return `
-        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
-          <div class="info" style="flex:1 1 160px;min-width:140px;">
-            <input type="text" value="${escapeHtml(entry.nameOverride||it.name)}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:inherit;box-sizing:border-box;" onblur="pbSetItemName('${it.id}', this.value)">
-            ${entry.optionLabel?`<div class="sub" style="margin-top:4px;">${escapeHtml(entry.optionLabel)}</div>`:''}
+        <div class="sitecard" style="display:grid;grid-template-columns:1fr 58px 48px 40px 62px 24px;gap:6px;align-items:start;padding:8px 10px;">
+          <div style="min-width:0;">
+            <input type="text" value="${escapeHtml(entry.nameOverride||it.name)}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:inherit;box-sizing:border-box;" onblur="pbSetItemName('${key}', this.value)">
+            ${it.is_dropdown ? `
+            <select style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:inherit;color:var(--slate);background:#fff;" onchange="pbChangeOption('${key}','${it.id}', this.value)">
+              ${opts.map(o=>`<option value="${o.id}" ${entry.optionId===o.id?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}
+            </select>
+            ` : ''}
             ${entry.isManualRate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual rate — non-conforming</div>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:3px;flex:0 0 auto;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:74px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetRateOverride('${it.id}', this.value, ${baseRate})"></div>
-          <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
-            <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${it.id}', this.value)">
-            <span class="stub" style="margin:0;">${PRICE_UNIT_LABEL[it.unit]}</span>
-          </div>
-          <span class="stub" style="margin:0;font-weight:700;min-width:64px;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
-          <div class="taskicon danger" title="Untick" onclick="pbToggleItem('${it.id}',false)">🗑</div>
+          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
+          <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
+          <span class="stub" style="margin:2px 0 0;">${PRICE_UNIT_LABEL[it.unit]}</span>
+          <span class="stub" style="margin:2px 0 0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
+          <div class="taskicon danger" title="Untick" onclick="pbRemoveEntry('${key}')" style="justify-self:center;">🗑</div>
         </div>
       `;}).join('')}
     `;}).join('')}
@@ -8918,8 +8964,15 @@ window.pbBackToTick = function(){
 };
 window.pbToggleSOW = function(checked){ pbWorking.populateSOW = checked; render(); };
 window.pbToggleItem = function(itemId, checked){
-  if(checked) pbWorking.items[itemId] = pbWorking.items[itemId] || {quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null, rateOverride:null, isManualRate:false};
+  if(checked) pbWorking.items[itemId] = pbWorking.items[itemId] || {rateItemId:itemId, quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null, rateOverride:null, isManualRate:false};
   else delete pbWorking.items[itemId];
+  render();
+};
+// Removes one line from the sheet, whether it's a plain item (key === the
+// rate item's own id) or one of possibly several option lines ticked off a
+// multi-select dropdown item (key === "<rateItemId>::<optionId>").
+window.pbRemoveEntry = function(key){
+  delete pbWorking.items[key];
   render();
 };
 window.pbToggleAssignee = function(userId){
@@ -8927,8 +8980,8 @@ window.pbToggleAssignee = function(userId){
   if(idx>-1) pbWorking.assignedUserIds.splice(idx,1); else pbWorking.assignedUserIds.push(userId);
   render();
 };
-window.pbSetItemName = function(itemId, value){
-  const entry = pbWorking.items[itemId]; if(!entry) return;
+window.pbSetItemName = function(key, value){
+  const entry = pbWorking.items[key]; if(!entry) return;
   entry.nameOverride = value.trim() || null;
   render();
 };
@@ -8936,35 +8989,48 @@ window.pbSetItemName = function(itemId, value){
 // number field underneath — typed values are just rounded to 2dp on blur so
 // measurements always store/display the same precision either way.
 const pbRound2 = n => Math.round((Number(n)||0)*100)/100;
-window.pbSetQuantity = function(itemId, value){
-  const entry = pbWorking.items[itemId]; if(!entry) return;
+window.pbSetQuantity = function(key, value){
+  const entry = pbWorking.items[key]; if(!entry) return;
   entry.quantity = value==='' ? '' : pbRound2(parseFloat(value));
   render();
 };
-window.pbSetOption = function(itemId, optionId){
-  // Dropdown items are picked straight from the tick (first) page now, so
-  // choosing an option here also ticks the item — there's no separate
-  // checkbox step for these. An empty entry only gets created once an
-  // option is actually chosen; clearing back to "— Choose option —" with
-  // nothing ticked yet is a no-op rather than creating a blank tick.
-  let entry = pbWorking.items[itemId];
-  if(!entry){
-    if(!optionId) return;
-    entry = pbWorking.items[itemId] = {quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null, rateOverride:null, isManualRate:false};
+// Dropdown items are multi-select on the tick (first) page — any number of
+// options can be ticked for the same item, each becoming its own line (its
+// own key, "<rateItemId>::<optionId>") with its own qty on the confirm
+// page. Label/rate come straight from the template that's already showing
+// them, so this never needs a round trip to look the option back up.
+window.pbToggleDropdownOption = function(itemId, optionId, checked, label, rate){
+  const key = itemId+'::'+optionId;
+  if(checked){
+    pbWorking.items[key] = {rateItemId:itemId, quantity:'', optionId, optionRate:Number(rate), optionLabel:label, nameOverride:null, rateOverride:null, isManualRate:false};
+  } else {
+    delete pbWorking.items[key];
   }
-  if(!optionId){ entry.optionId=null; entry.optionRate=null; entry.optionLabel=null; render(); return; }
-  dbSelect('price_rate_options', 'id=eq.'+optionId).then(rows=>{
-    const o = rows[0]; if(!o) return;
-    entry.optionId = o.id; entry.optionRate = o.rate; entry.optionLabel = o.label;
-    render();
-  });
+  render();
+};
+// Confirm-page select for a dropdown-derived line — lets the option itself
+// still be changed here (e.g. Valleys: GRP → Lead) rather than having to go
+// back to the tick page, pulling the new option's rate/formula through
+// automatically. Since the key encodes the option id, changing option means
+// moving the entry to a new key; any manual rate override is cleared
+// because it was flagging the OLD option's rate as non-conforming, not the
+// new one's.
+window.pbChangeOption = function(oldKey, itemId, newOptionId){
+  const entry = pbWorking.items[oldKey]; if(!entry) return;
+  const opts = pbOptionsByItemCache[itemId] || [];
+  const o = opts.find(o=>o.id===newOptionId); if(!o) return;
+  if(o.id===entry.optionId) return; // unchanged
+  const newKey = itemId+'::'+o.id;
+  delete pbWorking.items[oldKey];
+  pbWorking.items[newKey] = {...entry, optionId:o.id, optionRate:Number(o.rate), optionLabel:o.label, rateOverride:null, isManualRate:false};
+  render();
 };
 // Manual rate override on the confirm page — editing the £ cell away from
 // the rate-card/option value asks for confirmation and flags the line as a
 // manual, non-conforming rate (shown on the row and carried through to the
 // saved sheet item) rather than silently accepting it.
-window.pbSetRateOverride = async function(itemId, value, baseRate){
-  const entry = pbWorking.items[itemId]; if(!entry) return;
+window.pbSetRateOverride = async function(key, value, baseRate){
+  const entry = pbWorking.items[key]; if(!entry) return;
   const val = parseFloat(value);
   if(value===''||Number.isNaN(val)){ toast('Enter a valid rate.'); render(); return; }
   const base = Number(baseRate)||0;
@@ -8998,9 +9064,9 @@ async function pbPersist(siteId, sheetId, status){
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
   const rows = [];
   let total = 0; let sortOrder = 0;
-  Object.keys(pbWorking.items).forEach(id=>{
-    const item = itemsById[id]; if(!item) return;
-    const entry = pbWorking.items[id];
+  Object.keys(pbWorking.items).forEach(key=>{
+    const entry = pbWorking.items[key];
+    const item = itemsById[entry.rateItemId]; if(!item) return;
     const qty = Number(entry.quantity)||0;
     if(!qty) return; // ticked but no quantity yet — don't save a zero line
     if(item.is_dropdown && !entry.optionId) return; // ticked but no option chosen yet
@@ -9043,15 +9109,19 @@ window.savePriceBuilderDraft = async function(siteId, sheetId){
   render();
 };
 window.issuePriceBuilderSheet = async function(siteId, sheetId){
-  const itemIds = Object.keys(pbWorking.items);
-  if(!itemIds.length && !pbWorking.customRows.length){ toast('Tick at least one item, or add a custom row, before issuing.'); return; }
-  const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id);
-  const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
-  for(const id of itemIds){
-    const entry = pbWorking.items[id]; const item = itemsById[id];
-    if(!Number(entry.quantity)){ toast(`Enter a quantity for "${(entry.nameOverride||(item?item.name:'an item'))}" before issuing.`); return; }
-    if(item && item.is_dropdown && !entry.optionId){ toast(`Choose an option for "${entry.nameOverride||item.name}" before issuing.`); return; }
-  }
+  const itemKeys = Object.keys(pbWorking.items);
+  if(!itemKeys.length && !pbWorking.customRows.length){ toast('Tick at least one item, or add a custom row, before issuing.'); return; }
+  // A tick with no quantity typed in is treated as "not actually wanted" —
+  // pbPersist already silently drops these when saving a draft, but issuing
+  // used to hard-block on the very same thing (confusing when it's really
+  // just a stray tick left over from earlier, e.g. ticking a dropdown option
+  // by mistake while browsing). So issuing only needs to confirm there's at
+  // least ONE line that will actually make it onto the sheet — anything
+  // still qty-less at this point just quietly doesn't get saved, exactly
+  // like a draft save would treat it.
+  const hasQtyOnAnyTicked = itemKeys.some(key=>Number(pbWorking.items[key].quantity)>0);
+  const hasValidCustomRow = pbWorking.customRows.some(row=>row.name && Number(row.quantity) && Number(row.rate));
+  if(!hasQtyOnAnyTicked && !hasValidCustomRow){ toast('Enter a quantity for at least one ticked item (or add a custom row) before issuing.'); return; }
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
   if(!sheet){ toast('Sheet not found.'); return; }
