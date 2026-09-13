@@ -15288,13 +15288,7 @@ async function renderHealthSafety(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
       ${site.acting_as_main_contractor ? `
-      <div class="tile" onclick="go('#/site/${siteId}/mc/cpp')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.cpp}</div><div class="lbl">${MC_CATEGORY_LABEL.cpp}</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_layout}</div><div class="lbl">${MC_CATEGORY_LABEL.site_layout}</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Subcontractors</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.permits}</div><div class="lbl">${MC_CATEGORY_LABEL.permits}</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/asbestos')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.asbestos}</div><div class="lbl">${MC_CATEGORY_LABEL.asbestos}</div><div class="sub">Main Contractor</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/f10')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.f10}</div><div class="lbl">${MC_CATEGORY_LABEL.f10}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗️</div><div class="lbl">Main Contractor</div><div class="sub">CPP, Permits &amp; more</div></div>
       ` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
