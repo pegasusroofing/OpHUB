@@ -15062,6 +15062,7 @@ const SITE_INDUCTION_ITEMS = [
   'I agree to follow all site rules at all times, including signing in/out and wearing my ID badge.',
 ];
 let inductionTicks = [];
+let siteInductionFilter = 'outstanding'; // PM/client tab state: outstanding | completed
 async function fetchSiteInductionData(siteId){
   const [assigned, completions] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -15081,6 +15082,9 @@ async function renderSiteInductions(siteId){
 
   if(canManage || isClientView){
     const roster = assignedIds.length ? assignedIds : Object.keys(byOperative);
+    const outstandingRoster = roster.filter(uid=>!byOperative[uid]);
+    const completedRoster = roster.filter(uid=>byOperative[uid]).sort((a,b)=> new Date(byOperative[b].completed_at) - new Date(byOperative[a].completed_at));
+    const visibleRoster = siteInductionFilter==='completed' ? completedRoster : outstandingRoster;
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       ${canManage ? `
       <div class="card">
@@ -15096,8 +15100,12 @@ async function renderSiteInductions(siteId){
         `}
       </div>
       ` : ''}
-      <p class="stub" style="margin:14px 0 10px;">${roster.length} on the roster · ${completions.length} completed</p>
-      ${roster.map(uid=>{
+      <div class="row-gap" style="margin:14px 0 10px;">
+        <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';render()">Outstanding</div>
+        <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';render()">Completed Inductions</div>
+      </div>
+      <p class="stub" style="margin:0 0 10px;">${roster.length} on the roster · ${completions.length} completed</p>
+      ${visibleRoster.map(uid=>{
         const c = byOperative[uid];
         return `
         <div class="sitecard">
@@ -15109,7 +15117,7 @@ async function renderSiteInductions(siteId){
           ${c ? `<div class="taskicon" title="Export PDF" onclick="event.stopPropagation();exportSiteInductionPdf('${c.id}')">⬇️</div>` : ''}
           ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
         </div>`;
-      }).join('') || `<div class="empty">No operatives assigned to this site yet.</div>`}
+      }).join('') || `<div class="empty">No ${siteInductionFilter==='completed' ? 'completed inductions yet' : 'outstanding operatives'}${siteInductionFilter==='completed'?'.':' — everyone on the roster has completed their induction.'}</div>`}
     `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
     return;
   }
