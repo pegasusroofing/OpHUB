@@ -395,6 +395,8 @@
   .siglinebox.signed{border:1.5px solid var(--ok);background:var(--ok-bg);color:var(--ok);font-weight:600;animation:none;}
   .siglinebox.signed .name{font-family:'Segoe Script','Brush Script MT',cursive;font-size:20px;}
   @keyframes pulseSign{0%,100%{box-shadow:0 0 0 0 rgba(212,140,0,.28);}50%{box-shadow:0 0 0 6px rgba(212,140,0,0);}}
+  .inductionitem{border:1.5px solid var(--line);border-radius:8px;display:flex;align-items:flex-start;padding:10px;background:var(--card);transition:background .15s,border-color .15s;}
+  .inductionitem.ticked{border-color:var(--ok);background:var(--ok-bg);}
   .coshhsigbox{min-height:30px;padding:4px;margin-top:8px;font-size:10px;}
   .coshhsigbox.signed .name{font-size:14px;}
   .ramssigbox{min-height:30px;padding:4px;font-size:10px;}
@@ -1278,16 +1280,19 @@ async function dbDelete(table, id){
 }
 async function uploadToStorage(bucket, path, blobOrFile, contentType){
   await ensureFreshToken();
-  const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
-    method:'POST',
-    headers:{
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization':'Bearer '+SESSION.access_token,
-      'Content-Type': contentType || blobOrFile.type || 'application/octet-stream',
-      'x-upsert':'true'
-    },
-    body: blobOrFile
-  }, 60000); // photos/PDFs can be a few MB — give uploads more room than a plain API call
+  let res;
+  try{
+    res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
+      method:'POST',
+      headers:{
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization':'Bearer '+SESSION.access_token,
+        'Content-Type': contentType || blobOrFile.type || 'application/octet-stream',
+        'x-upsert':'true'
+      },
+      body: blobOrFile
+    }, 60000); // photos/PDFs can be a few MB — give uploads more room than a plain API call
+  }catch(e){ toast('Upload failed — connection dropped. Check your signal and try again.'); return null; }
   if(!res.ok){ toast('Upload failed — '+(await safeErr(res))); return null; }
   return path;
 }
@@ -15062,6 +15067,8 @@ const SITE_INDUCTION_ITEMS = [
   'I agree to follow all site rules at all times, including signing in/out and wearing my ID badge.',
 ];
 let inductionTicks = [];
+let inductionEmergencyName = '';
+let inductionEmergencyNumber = '';
 let siteInductionFilter = 'outstanding'; // PM/client tab state: outstanding | completed
 async function fetchSiteInductionData(siteId){
   const [assigned, completions] = await Promise.all([
@@ -15140,13 +15147,20 @@ async function renderSiteInductions(siteId){
   const allTicked = inductionTicks.every(Boolean);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Please read and confirm each item below, then sign to complete your site induction for ${escapeHtml(site.name)}.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;">
     ${SITE_INDUCTION_ITEMS.map((text,i)=>`
-      <div class="siglinebox" style="margin-top:0;margin-bottom:8px;cursor:pointer;align-items:flex-start;" onclick="toggleInductionTick(${i})">
-        <span style="font-size:18px;line-height:1.3;margin-right:8px;">${inductionTicks[i]?'☑':'☐'}</span>
+      <div class="inductionitem ${inductionTicks[i]?'ticked':''}" style="cursor:pointer;" onclick="toggleInductionTick(${i})">
+        <span style="font-size:18px;line-height:1.3;margin-right:8px;flex:0 0 auto;">${inductionTicks[i]?'☑':'☐'}</span>
         <span style="font-size:13px;line-height:1.4;">${escapeHtml(text)}</span>
       </div>
     `).join('')}
-    <div class="card" style="margin-top:6px;">
+    </div>
+    <div class="card" style="margin-top:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Emergency Contact Details</p>
+      <div class="formfield"><input type="text" id="inductionEmergencyName" placeholder="Emergency contact name" value="${escapeHtml(inductionEmergencyName)}" oninput="inductionEmergencyName=this.value"></div>
+      <div class="formfield"><input type="tel" id="inductionEmergencyNumber" placeholder="Emergency contact number" value="${escapeHtml(inductionEmergencyNumber)}" oninput="inductionEmergencyNumber=this.value"></div>
+    </div>
+    <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Your signature</p>
       ${ME.signature_path ? `
         <img src="${publicUrl('signatures', ME.signature_path)}" style="height:44px;max-width:100%;object-fit:contain;margin-bottom:10px;display:block;">
@@ -15160,38 +15174,50 @@ async function renderSiteInductions(siteId){
 }
 window.toggleInductionTick = function(i){ inductionTicks[i] = !inductionTicks[i]; render(); };
 window.submitSiteInduction = async function(siteId){
-  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
-  if(!inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
-  toast('Saving…');
-  const answers = {}; SITE_INDUCTION_ITEMS.forEach((t,i)=>{ answers['item_'+i]=true; });
-  const site = SITES.find(s=>s.id===siteId);
-  const built = await buildSiteInductionPdfBytes(site, ME);
-  if(!built) return;
-  const pdfPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'.pdf';
-  const stored = await uploadToStorage('mc-documents', pdfPath, new Blob([built.bytes],{type:'application/pdf'}), 'application/pdf');
-  if(!stored) return;
-  const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:ME.signature_path, pdf_path:stored});
-  if(!rows) return;
-  inductionTicks = [];
-  toast('Induction completed');
-  render();
-  // Best-effort push to a linked OneDrive folder — same silent-fail pattern
-  // used for photo/drawing sync elsewhere in the app.
-  if(site && site.site_inductions_folder_id){
-    try{
-      let binary=''; const chunk=0x8000;
-      for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
-      const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
-        filename: built.filename,
-        content_base64: btoa(binary),
-        folder_id: site.site_inductions_folder_id,
-        drive_id: site.site_inductions_drive_id || undefined,
-      })});
-      if(res.ok){
-        const d = await res.json().catch(()=>({}));
-        if(d.ok) await dbUpdate('site_induction_completions', rows[0].id, {pushed_to_onedrive_at: new Date().toISOString()});
-      }
-    }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+  try{
+    if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+    if(!inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
+    const emergencyName = (document.getElementById('inductionEmergencyName') ? document.getElementById('inductionEmergencyName').value : inductionEmergencyName || '').trim();
+    const emergencyNumber = (document.getElementById('inductionEmergencyNumber') ? document.getElementById('inductionEmergencyNumber').value : inductionEmergencyNumber || '').trim();
+    if(!emergencyName || !emergencyNumber){ toast('Please enter an emergency contact name and number.'); return; }
+    inductionEmergencyName = emergencyName;
+    inductionEmergencyNumber = emergencyNumber;
+    toast('Saving…');
+    const answers = {}; SITE_INDUCTION_ITEMS.forEach((t,i)=>{ answers['item_'+i]=true; });
+    const site = SITES.find(s=>s.id===siteId);
+    const built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber);
+    if(!built) return;
+    const pdfPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'.pdf';
+    const stored = await uploadToStorage('mc-documents', pdfPath, new Blob([built.bytes],{type:'application/pdf'}), 'application/pdf');
+    if(!stored) return;
+    const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:ME.signature_path, pdf_path:stored, emergency_contact_name:emergencyName, emergency_contact_number:emergencyNumber});
+    if(!rows) return;
+    inductionTicks = [];
+    inductionEmergencyName = '';
+    inductionEmergencyNumber = '';
+    toast('Induction completed');
+    render();
+    // Best-effort push to a linked OneDrive folder — same silent-fail pattern
+    // used for photo/drawing sync elsewhere in the app.
+    if(site && site.site_inductions_folder_id){
+      try{
+        let binary=''; const chunk=0x8000;
+        for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
+        const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+          filename: built.filename,
+          content_base64: btoa(binary),
+          folder_id: site.site_inductions_folder_id,
+          drive_id: site.site_inductions_drive_id || undefined,
+        })});
+        if(res.ok){
+          const d = await res.json().catch(()=>({}));
+          if(d.ok) await dbUpdate('site_induction_completions', rows[0].id, {pushed_to_onedrive_at: new Date().toISOString()});
+        }
+      }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+    }
+  }catch(e){
+    console.error('submitSiteInduction failed', e);
+    toast('Something went wrong saving your induction — please try again. If it keeps happening, check your signal and retry.');
   }
 };
 window.exportSiteInductionPdf = async function(completionId){
@@ -15210,7 +15236,7 @@ window.unlinkSiteInductionsFolder = async function(siteId){
   const row = await dbUpdate('sites', siteId, {site_inductions_folder_id: null, site_inductions_folder_name: null, site_inductions_drive_id: null});
   if(row){ const idx = SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx] = row; toast('Folder unlinked'); render(); }
 };
-async function buildSiteInductionPdfBytes(site, operative){
+async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const pdfDoc = await PDFLib.PDFDocument.create();
   const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
@@ -15258,6 +15284,10 @@ async function buildSiteInductionPdfBytes(site, operative){
   page.drawText('Operative: '+operative.name, {x:MARGIN, y, size:11, font:bold, color:INK});
   y -= 16;
   page.drawText('Completed: '+new Date().toLocaleString('en-GB'), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+  if(emergencyName || emergencyNumber){
+    y -= 16;
+    page.drawText('Emergency contact: '+[emergencyName, emergencyNumber].filter(Boolean).join(' — '), {x:MARGIN, y, size:9.5, font:reg, color:SLATE});
+  }
   y -= 26;
   const textWidth = PAGE_W - 2*MARGIN - 24;
   for(let i=0;i<SITE_INDUCTION_ITEMS.length;i++){
