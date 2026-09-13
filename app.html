@@ -466,6 +466,12 @@
      already checks `typeof XLSX/PDFLib/pdfjsLib==='undefined'` before use,
      so a slow network just delays those specific buttons, not app load. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<!-- SheetJS (xlsx, above) can't embed images in the .xlsx it writes — that's
+     a Pro-only feature there. ExcelJS can, so the Priced Sheet Excel export
+     (the only export that needs the company logo in the sheet itself) uses
+     it instead, purely for that one export; every other Excel export in the
+     app keeps using plain XLSX/SheetJS above, unchanged. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
 <script defer>if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
@@ -1768,6 +1774,16 @@ window.addEventListener('hashchange', function(){
   if(fromHash !== toHash) scrollPositionByHash[fromHash] = window.scrollY;
   lastScrollHash = toHash;
   SELF_NAV = false;
+  // A genuine navigation INTO a Price sub-tile's own page (not just a
+  // same-page re-render triggered by saving a figure, which calls render()
+  // directly without touching the hash) resets that tile's per-week
+  // open/closed state — so leaving the tile and coming back always lands
+  // on the default view (only the latest week open) again. Entering a
+  // figure and staying on the page must NOT trigger this — see the
+  // explicit priceWeekRowOpen[...] = true set alongside every save below.
+  if(typeof priceWeekRowOpen!=='undefined' && /^#\/site\/[^/]+\/price\/element\//.test(toHash) && !/^#\/site\/[^/]+\/price\/element\//.test(fromHash)){
+    priceWeekRowOpen = {};
+  }
   const pending = render();
   if(pending && pending.then){
     pending.then(function(){
@@ -2126,12 +2142,21 @@ function tabbar(siteId, active){
 // for "me" specifically, so the badge count and the page contents can never
 // drift apart again.
 async function computeMyOutstandingCount(){
+  // Managers now see the Notifications feed (computeNotificationRows) on
+  // this tile instead of the old generic Outstanding list — the badge must
+  // count from the same function the page itself renders from, or the
+  // number on the tile and what's actually on the page drift apart again
+  // (exactly the bug #(outstanding-badge-fix) below existed to prevent).
+  if(isManager(ME)){
+    const {rows} = await computeNotificationRows(ME.id);
+    return rows.reduce((sum,r)=>sum+r.items.length, 0);
+  }
   const {rows} = await computeOutstandingRows(ME.id);
   return rows.reduce((sum,r)=>sum+r.items.length, 0);
 }
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
-    {ic:'📌', lbl:'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
+    {ic:'📌', lbl: canAdd ? 'Notifications' : 'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
     ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
     ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard')"}] : []),
@@ -3139,23 +3164,164 @@ async function computeOutstandingRows(forId){
   }).filter(r=>r.items.length);
   return {rows, manager, isAdmin};
 }
+// A PM/admin's own personal "Notifications" feed — replaces the old
+// Outstanding tab for managers (operatives still get the plain Outstanding
+// view below, unchanged). Deliberately narrower and more specific than the
+// old generic Outstanding list: only the handful of things a PM personally
+// needs to act on — this month's mandatory Toolbox Talk, open snagging,
+// RAMS/COSHH still unsigned once work has actually started on site,
+// messages they haven't read, and to-dos allocated specifically to them —
+// plus a single combined "To Do" list of every open to-do across every site
+// they're on (not just ones assigned to them), so nothing needs a second
+// trip round every site to find.
+async function computeNotificationRows(forId){
+  const isAdmin = ME.role==='admin';
+  const viewingPmId = isAdmin ? (forId || ME.id) : ME.id;
+  const myPmAssignments = await dbSelect('site_assignments', 'user_id=eq.'+viewingPmId+'&select=site_id');
+  const myPmSiteIds = new Set(myPmAssignments.map(a=>a.site_id));
+  const sites = SITES.filter(s=>siteStatusKey(s)==='live' && (s.responsible_pm_id===viewingPmId || myPmSiteIds.has(s.id)));
+  const siteIds = sites.map(s=>s.id);
+  const idsCsv = siteIds.join(',');
+
+  const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos] = await Promise.all([
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&select=id,site_id,status,created_at') : Promise.resolve([]),
+    idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
+    idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
+    idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
+    idsCsv ? dbSelect('todos', 'site_id=in.('+idsCsv+')&done=eq.false&order=created_at.asc') : Promise.resolve([]),
+  ]);
+  const ramsIds = ramsDocs.map(d=>d.id).join(',');
+  const coshhIds = coshhDocs.map(d=>d.id).join(',');
+  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+    ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : Promise.resolve([]),
+    coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+  ]);
+  const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
+  const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
+
+  const rosterBySite = {};
+  assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
+  // #327: PMs/admins structurally can't sign COSHH, so they must not sit in
+  // the roster COSHH completion is checked against — same rule
+  // computeOutstandingRows already applies for RAMS/COSHH.
+  const operativeRosterBySite = {};
+  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
+  function unsignedCount(siteId, docs, sigs, fk, rosterMap){
+    const docsHere = docs.filter(d=>d.site_id===siteId);
+    const roster = (rosterMap||rosterBySite)[siteId]||[];
+    const signedByDoc = {};
+    sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
+    let missing = 0;
+    docsHere.forEach(d=>{ missing += roster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length; });
+    return missing;
+  }
+
+  // "SOW has started" — at least one Schedule of Works task on the site has
+  // moved off 'todo' (i.e. actual work is under way), not merely that a
+  // schedule exists. RAMS/COSHH only surface here once that's true — before
+  // work starts, nobody's expected to have signed anything yet.
+  const sowStartedBySite = {};
+  scheduleTasks.forEach(t=>{ if(t.status && t.status!=='todo') sowStartedBySite[t.site_id] = true; });
+
+  const snagsBySite = {}; openSnags.forEach(s=>{ snagsBySite[s.site_id]=(snagsBySite[s.site_id]||0)+1; });
+  const talksBySite = {}; allTalks.forEach(t=>{ (talksBySite[t.site_id]=talksBySite[t.site_id]||[]).push(t); });
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const myTodosBySite = {};
+  allTodos.forEach(t=>{ if(t.assigned_to===viewingPmId) myTodosBySite[t.site_id] = (myTodosBySite[t.site_id]||0)+1; });
+  // Unread messages, checked against whichever PM's notifications are being
+  // viewed — not always the signed-in admin — so an admin browsing another
+  // PM's Notifications sees THEIR unread state, not their own.
+  const unreadBySite = {};
+  await Promise.all(sites.map(async s=>{ unreadBySite[s.id] = await unreadCountForSiteForUser(s.id, viewingPmId, 'managers'); }));
+
+  const rows = sites.map(s=>{
+    const items = [];
+    // Toolbox Talk — same "still due" rule the site's own TBT page uses
+    // (issued this month AND at least one ever completed), so this never
+    // says something different to what you'd see once you tap through.
+    const talks = talksBySite[s.id]||[];
+    const issuedThisMonth = talks.some(t=>(t.status==='live'||t.status==='completed') && new Date(t.created_at)>=monthStart);
+    const everCompleted = talks.some(t=>t.status==='completed');
+    if(!issuedThisMonth || !everCompleted) items.push({lbl: !everCompleted ? 'Toolbox Talk — none ever completed at this site' : 'Toolbox Talk due for this month', href:`#/site/${s.id}/hs/tbt`});
+
+    const snags = snagsBySite[s.id]||0;
+    if(snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
+
+    if(sowStartedBySite[s.id]){
+      const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+      if(rams) items.push({lbl:`RAMS not signed by operatives (${rams})`, href:`#/site/${s.id}/hs/rams`});
+      const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
+      if(coshh) items.push({lbl:`COSHH not signed by operatives (${coshh})`, href:`#/site/${s.id}/hs/coshh`});
+    }
+
+    const unread = unreadBySite[s.id]||0;
+    if(unread) items.push({lbl:`Messages received (${unread})`, href:`#/site/${s.id}/messages`});
+
+    const mine = myTodosBySite[s.id]||0;
+    if(mine) items.push({lbl:`Tasks allocated to you (${mine})`, href:`#/site/${s.id}/todos`});
+
+    return {site:s, items};
+  }).filter(r=>r.items.length);
+
+  // The combined "To Do" list — every still-open to-do across every live
+  // site this PM is on, whoever it's assigned to, so there's one place to
+  // see everything outstanding without opening each site's own To Do tab.
+  const todoList = allTodos.map(t=>{
+    const site = sites.find(s=>s.id===t.site_id);
+    return {...t, siteName: site ? site.name : ''};
+  }).sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
+
+  return {rows, todoList, isAdmin};
+}
 async function renderOutstandingTasks(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
   const isAdmin = ME.role==='admin';
-  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
-  const {rows, manager} = await computeOutstandingRows(outstandingPmId || ME.id);
+  const manager = isManager(ME);
+  if(manager){
+    const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+    const {rows, todoList} = await computeNotificationRows(outstandingPmId || ME.id);
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <p class="stub" style="margin:0 0 14px;">Things that need your attention across your live projects — tap one to go straight to it.</p>
+      ${isAdmin && pmOptions.length ? `
+        <div class="formfield" style="margin-bottom:14px;">
+          <label class="field-label">Viewing notifications for</label>
+          <select onchange="outstandingPmId=this.value||null;render()">
+            <option value="" ${!outstandingPmId?'selected':''}>Me (${escapeHtml(ME.name)})</option>
+            ${pmOptions.filter(p=>p.id!==ME.id).map(p=>`<option value="${p.id}" ${outstandingPmId===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+      ${rows.length ? rows.map(r=>`
+        <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(r.site.name)}</p>
+        ${r.items.map(it=>`
+          <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
+            <div class="swatch" style="background:var(--warn-bg);color:var(--warn);">!</div>
+            <div class="info"><div class="name">${escapeHtml(it.lbl)}</div></div>
+          </div>
+        `).join('')}
+      `).join('') : `<div class="empty">Nothing needs your attention right now — nice work.</div>`}
+
+      <p class="sectiontitle" style="margin-top:22px;">📋 To Do — every open task on your sites</p>
+      ${todoList.length ? todoList.map(t=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${t.site_id}/todos')">
+          <div class="swatch">✓</div>
+          <div class="info">
+            <div class="name">${escapeHtml(t.text)}</div>
+            <div class="sub">${escapeHtml(t.siteName)}${t.assigned_to ? ' · Assigned to '+escapeHtml(nameOf(t.assigned_to)) : ''}</div>
+          </div>
+        </div>
+      `).join('') : `<div class="empty">No open to-dos on your sites.</div>`}
+    `, {title:'Notifications', back:'#/sites', tabs:false}); }
+    return;
+  }
+  const {rows} = await computeOutstandingRows(ME.id);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">${manager ? 'Outstanding items across your live projects — tap one to go straight to it.' : 'Outstanding items on your sites — tap one to go straight to it.'}</p>
-    ${isAdmin && pmOptions.length ? `
-      <div class="formfield" style="margin-bottom:14px;">
-        <label class="field-label">Viewing outstanding items for</label>
-        <select onchange="outstandingPmId=this.value||null;render()">
-          <option value="" ${!outstandingPmId?'selected':''}>Me (${escapeHtml(ME.name)})</option>
-          ${pmOptions.filter(p=>p.id!==ME.id).map(p=>`<option value="${p.id}" ${outstandingPmId===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
-        </select>
-      </div>
-    ` : ''}
+    <p class="stub" style="margin:0 0 14px;">Outstanding items on your sites — tap one to go straight to it.</p>
     ${rows.length ? rows.map(r=>`
       <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(r.site.name)}</p>
       ${r.items.map(it=>`
@@ -6132,14 +6298,17 @@ window.setResponsiblePM = async function(siteId, pmId){
   render();
 };
 async function unreadCountForSite(siteId){
-  const audience = isManager(ME) ? 'managers' : 'operatives';
-  // Exclude your own sends/raises — you already know about those. You still
-  // get counted in on anything else in the thread (someone else's reply or
-  // action), since those are separate rows authored by someone other than you.
-  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&sender_id=neq.${ME.id}&select=id`);
+  return unreadCountForSiteForUser(siteId, ME.id, isManager(ME) ? 'managers' : 'operatives');
+}
+// Same query unreadCountForSite runs, but parameterised on WHO's read
+// receipts to check — needed so an admin can view a specific PM's own
+// Notifications (see computeNotificationRows) without it silently reading
+// as the viewing admin's own unread state instead.
+async function unreadCountForSiteForUser(siteId, userId, audience){
+  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&sender_id=neq.${userId}&select=id`);
   if(!msgs.length) return 0;
   const ids = msgs.map(m=>m.id);
-  const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${ids.join(',')})&select=message_id`);
+  const reads = await dbSelect('message_reads', `user_id=eq.${userId}&message_id=in.(${ids.join(',')})&select=message_id`);
   const readSet = new Set(reads.map(r=>r.message_id));
   return msgs.filter(m=>!readSet.has(m.id)).length;
 }
@@ -7912,6 +8081,7 @@ window.savePriceWeek = async function(elementId, siteId, weekNumber, rawValue){
     // deletes the row itself when there are none, restoring the "auto"
     // formula behaviour rather than leaving a dead manual value behind.
     await rollUpPriceWeekFromOperativeEntries(elementId, siteId, weekNumber);
+    priceWeekRowOpen[elementId+':'+weekNumber] = true;
     render();
     return;
   }
@@ -7923,6 +8093,7 @@ window.savePriceWeek = async function(elementId, siteId, weekNumber, rawValue){
     body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:weekNumber, amount})
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); }
+  priceWeekRowOpen[elementId+':'+weekNumber] = true;
   render();
 };
 // Price landing page — the single "Price" tile on Site Home lands here, with
@@ -8456,13 +8627,13 @@ function pricingElementCardHtml(el, d, ctx){
           <label class="field-label">Variations Not Approved <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(currently allocated to original price labour)</span></label>
           <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(awNotApprovedTotal)}</p>
         </div>
-        <div class="formfield" style="margin-bottom:0;">
+        <div class="formfield" style="margin-bottom:14px;padding-bottom:14px;border-bottom:2px solid var(--brand1);">
           <label class="field-label">Balance</label>
           <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${balance<0?'var(--brand1)':'var(--ink)'};">${fmt(balance)}</p>
           ${balance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
         </div>
 
-        <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
+        <div class="card" style="padding:0;overflow:hidden;margin:28px 0 0;">
           <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="weeklyPriceSectionOpen['${el.id}']=${!weeklyOpen};render()">
             <span class="arrow">${weeklyOpen?'▼':'▶'}</span> Booked In
           </p>
@@ -8492,6 +8663,7 @@ function pricingElementCardHtml(el, d, ctx){
               </div>
               ${d.pbSheet ? priceBuilderItemWeekBreakdownHtml(el.id, siteId, wk, d.pbItems, pbWeeksByItem, canManage, fmt) : ''}
               ${d.pbSheet && canManage ? priceBuilderLabourWagesHtml(el.id, siteId, d.pbSheet.id, wk, assignedOperatives, orgOperativesForExtra, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
+              ${d.pbSheet && canManage ? `<button type="button" class="darkbtn" style="width:auto;padding:9px 16px;font-size:13px;margin-top:4px;" onclick="pbWeekSaveAll('${el.id}','${siteId}','${d.pbSheet.id}',${wk})">💾 Save</button>` : ''}
               ${!d.pbSheet && d.hasPriceAcc ? priceWeekOperativeBreakdownHtml(el.id, siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
               ` : ''}
             </div>
@@ -8577,7 +8749,10 @@ function pricingElementCardHtml(el, d, ctx){
 
         ${d.pbSheet ? `
         <div class="card" style="margin:14px 0 0;border-color:var(--brand1);">
-          <p class="sectiontitle" style="margin:0 0 4px;">💷 Priced Sheet — ${escapeHtml(d.pbSheet.title)}</p>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <p class="sectiontitle" style="margin:0 0 4px;">💷 Priced Sheet — ${escapeHtml(d.pbSheet.title)}</p>
+            ${canManage ? `<div class="roundplusbtn" style="width:28px;height:28px;font-size:17px;flex:0 0 auto;" title="Add another priced sheet" onclick="go('#/site/${siteId}/pricebuilder')">+</div>` : ''}
+          </div>
           <p class="stub" style="margin:0 0 10px;">${d.hasPriceAcc ? 'This element\'s own priced sheet — view or export it here, scoped to whoever has access to this element only.' : 'The priced sheet for this element of work.'}</p>
           <div class="row-gap">
             <button class="darkbtn" style="flex:1;" onclick="exportPriceBuilderSheetPdf('${siteId}','${d.pbSheet.id}')">📄 View PDF</button>
@@ -8586,6 +8761,7 @@ function pricingElementCardHtml(el, d, ctx){
         </div>
         ` : ''}
 
+        ${!d.pbSheet ? `
         <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
           <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="priceFilesSectionOpen['${el.id}']=${!filesOpen};render()">
             <span class="arrow">${filesOpen?'▼':'▶'}</span> Price Sheet
@@ -8625,6 +8801,7 @@ function pricingElementCardHtml(el, d, ctx){
           </div>
           ` : ''}
         </div>
+        ` : ''}
 
         ${d.canSeeLabour ? `
         <div class="card" style="padding:0;overflow:hidden;margin:14px 0 0;">
@@ -8682,6 +8859,14 @@ function pricingElementCardHtml(el, d, ctx){
 // every item for this week is what gets written through to price_weeks via
 // rollUpPriceWeekFromSheetItems, so the existing Booked-In/Balance/Overview
 // calc engine above keeps working completely unchanged.
+// Qty/Override inputs here are deliberately NOT saved on blur any more — see
+// pbWeekSaveAll. Typing a figure used to save-and-re-render immediately,
+// which (combined with a freshly-added week bumping which week counts as
+// "latest") made the row you were typing into visibly snap shut mid-entry.
+// Now nothing is written to the database, and the page doesn't re-render,
+// until the "Save" button at the bottom of the week is pressed — so nothing
+// can close under you while you're still entering figures. Each input keeps
+// a stable id so pbWeekSaveAll can read its live value straight off the DOM.
 function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem, canManage, fmt){
   return `
     <div style="margin:-6px 0 12px;">
@@ -8692,6 +8877,7 @@ function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem,
         const qty = row && !manual ? row.qty : null;
         const amount = row ? Number(row.amount||0) : 0;
         const rate = Number(it.rate||0);
+        const rowId = 'pbwRow_'+it.id+'_'+wk;
         return `
         <div style="display:grid;grid-template-columns:1fr 64px 92px 76px;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);">
           <div style="min-width:0;">
@@ -8699,18 +8885,38 @@ function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem,
             <div style="font-size:10.5px;color:var(--slate);">${it.quantity} ${escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)} on order @ ${fmt(rate)}</div>
           </div>
           ${canManage
-            ? `<input type="number" step="0.1" placeholder="Qty" value="${qty!=null?qty:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" onblur="pbwSetQty('${it.id}','${elId}','${siteId}',${wk},${rate},this.value)" ${manual?'disabled':''}>`
+            ? `<input type="number" id="pbwQtyInput_${it.id}_${wk}" step="0.1" placeholder="Qty" value="${qty!=null?qty:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})" ${manual?'disabled':''}>`
             : `<span class="stub" style="margin:0;">${qty!=null?qty:'—'}</span>`}
           ${canManage
-            ? `<input type="number" step="0.01" placeholder="Override £" value="${manual&&amount!=null?amount:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" onblur="pbwSetManual('${it.id}','${elId}','${siteId}',${wk},${rate},this.value)">`
+            ? `<input type="number" id="pbwManualInput_${it.id}_${wk}" step="0.01" placeholder="Override £" value="${manual&&amount!=null?amount:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})">`
             : (manual?`<span class="stub" style="margin:0;">${fmt(amount)}</span>`:'')}
-          <span class="stub" style="margin:0;font-weight:700;text-align:right;">${fmt(amount)}${manual?`<br><span style="font-size:8px;color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.03em;">Manual</span>`:''}</span>
+          <span class="stub" id="${rowId}" data-rate="${rate}" style="margin:0;font-weight:700;text-align:right;">${fmt(amount)}${manual?`<br><span style="font-size:8px;color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.03em;">Manual</span>`:''}</span>
         </div>
         `;
       }).join('') || `<div class="empty">This sheet has no priced items.</div>`}
+      ${canManage && (items||[]).length ? `<p class="stub" style="margin:8px 0 0;font-size:11px;font-style:italic;">Nothing is saved until you press Save below — labour wages entered this week must match the value of work entered here.</p>` : ''}
     </div>
   `;
 }
+// Live-updates just the one row's total text as you type — purely visual
+// (not saved), so the figure you're about to save is visible without
+// forcing a full page re-render (which is what caused rows to snap shut —
+// see the comment above priceBuilderItemWeekBreakdownHtml).
+window.pbwLiveRecalc = function(rowId, rate){
+  const span = document.getElementById(rowId);
+  // rowId is 'pbwRow_<itemId>_<wk>' — item ids are UUIDs (hyphens, no
+  // underscores) so splitting on '_' cleanly separates the three parts.
+  const parts = rowId.split('_');
+  const itemId = parts[1], wk = parts[2];
+  const manualEl = document.getElementById('pbwManualInput_'+itemId+'_'+wk);
+  const qtyEl = document.getElementById('pbwQtyInput_'+itemId+'_'+wk);
+  if(!span) return;
+  const manualVal = manualEl ? String(manualEl.value||'').trim() : '';
+  let amount;
+  if(manualVal!==''){ amount = Number(manualVal)||0; }
+  else { amount = (Number(qtyEl && qtyEl.value)||0) * Number(rate||0); }
+  span.textContent = '£' + amount.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+};
 // Labour wages entered against a Price-Builder-fed element's week (e.g.
 // "Demo weekly wages £300", "Andy's wages £650") — kept as its own ledger
 // (same price_week_operative_entries table the free-form build-up uses,
@@ -8718,24 +8924,49 @@ function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem,
 // be auto-allocated onto the sheet's own priced items further down, rather
 // than being typed in as a qty per item by hand.
 function priceBuilderLabourWagesHtml(elementId, siteId, sheetId, wk, assignedOperatives, orgOperatives, extraOpEntries, costEntries, fmt){
-  const rows = [
-    ...extraOpEntries.map(e=>({id:e.id, label: e.operative_id ? ((PROFILES[e.operative_id]&&PROFILES[e.operative_id].name)||'Unknown') : (e.label||'Unnamed'), amount:e.amount})),
+  // Every operative assigned to this site gets their own wage row up front —
+  // no need to click "+ Add wage" just to log the usual names every week.
+  // If they already have an entry this week (however it was created) it
+  // shows pre-filled and editable here like any other row; otherwise it's a
+  // blank input that creates the entry the moment a wage is typed in.
+  const extraOpByOperative = {};
+  extraOpEntries.forEach(e=>{ if(e.operative_id) extraOpByOperative[e.operative_id] = e; });
+  const assignedIds = new Set(assignedOperatives.map(o=>o.id));
+  const assignedRows = assignedOperatives.map(op=>{
+    const e = extraOpByOperative[op.id];
+    return {operativeId: op.id, entryId: e?e.id:null, label: op.name, amount: e?e.amount:null};
+  });
+  // Anything else already saved that isn't one of the assigned-operative
+  // quick rows above (a manually-typed name, a "cost" line, or an
+  // extra_operative entry for someone no longer assigned to the site) still
+  // shows as its own editable row underneath, exactly as before.
+  const otherRows = [
+    ...extraOpEntries.filter(e=>!e.operative_id || !assignedIds.has(e.operative_id)).map(e=>({id:e.id, label: e.operative_id ? ((PROFILES[e.operative_id]&&PROFILES[e.operative_id].name)||'Unknown') : (e.label||'Unnamed'), amount:e.amount})),
     ...costEntries.map(e=>({id:e.id, label:e.label, amount:e.amount})),
   ];
-  const total = rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const total = assignedRows.reduce((s,r)=>s+Number(r.amount||0),0) + otherRows.reduce((s,r)=>s+Number(r.amount||0),0);
   const key = 'pbwage_'+elementId+'_'+wk;
   const adding = !!priceAddOpen[key];
-  const pickable = assignedOperatives.concat(orgOperatives);
+  // Only operatives assigned to THIS site are offered here — previously
+  // every operative in the org was pulled in, which made it easy to pick
+  // the wrong person on a busy multi-site company.
+  const pickable = assignedOperatives;
   return `
     <div style="margin:6px 0 12px;border-top:1px dashed var(--line);padding-top:10px;">
       <p class="stub" style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--slate-light);">Labour wages this week</p>
-      ${rows.length ? rows.map(r=>`
+      ${assignedRows.map(r=>`
+        <div style="display:grid;grid-template-columns:1fr 96px;column-gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);">
+          <span style="font-size:12.5px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(r.label)}</span>
+          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${r.amount!=null?r.amount:''}" style="width:100%;" onblur="pbWageQuickSet('${elementId}','${siteId}',${wk},'${r.operativeId}',${r.entryId?`'${r.entryId}'`:'null'},this.value)"></div>
+        </div>
+      `).join('')}
+      ${otherRows.length ? otherRows.map(r=>`
         <div style="display:grid;grid-template-columns:1fr 96px 26px;column-gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);">
           <span style="font-size:12.5px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(r.label)}</span>
-          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${r.amount!=null?r.amount:''}" style="width:100%;" onblur="pbWageSetLineValue('${r.id}',this.value)"></div>
-          <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="pbWageDeleteEntry('${r.id}')">×</div>
+          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${r.amount!=null?r.amount:''}" style="width:100%;" onblur="pbWageSetLineValue('${r.id}','${elementId}',${wk},this.value)"></div>
+          <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="pbWageDeleteEntry('${r.id}','${elementId}',${wk})">×</div>
         </div>
-      `).join('') : `<div style="font-size:12px;color:var(--slate);padding:4px 0;">No wages entered yet — add who was paid and how much below.</div>`}
+      `).join('') : (assignedRows.length ? '' : `<div style="font-size:12px;color:var(--slate);padding:4px 0;">No operatives assigned to this site yet — add who was paid and how much below.</div>`)}
       <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-weight:800;font-size:12.5px;">
         <span>Total wages</span><span>${fmt(total)}</span>
       </div>
@@ -8764,6 +8995,27 @@ function priceBuilderLabourWagesHtml(elementId, siteId, sheetId, wk, assignedOpe
     </div>
   `;
 }
+// Pre-set assigned-operative quick row — creates the entry the first time a
+// wage is typed for that operative this week, updates it on subsequent
+// edits, and deletes it if the field is cleared back to blank.
+window.pbWageQuickSet = async function(elementId, siteId, week, operativeId, existingEntryId, rawValue){
+  const v = String(rawValue||'').trim();
+  if(v===''){
+    if(existingEntryId) await dbDelete('price_week_operative_entries', existingEntryId);
+    priceWeekRowOpen[elementId+':'+week] = true;
+    render();
+    return;
+  }
+  const amount = Number(v);
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
+  if(existingEntryId){
+    await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+existingEntryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
+  } else {
+    await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})});
+  }
+  priceWeekRowOpen[elementId+':'+week] = true;
+  render();
+};
 window.pbWageAddRow = async function(elementId, siteId, week, key){
   const sel = document.getElementById('pbwWhoSelect_'+key);
   const valEl = document.getElementById('pbwValue_'+key);
@@ -8779,18 +9031,21 @@ window.pbWageAddRow = async function(elementId, siteId, week, key){
     await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:sel.value, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})});
   }
   priceAddOpen[key] = false;
+  priceWeekRowOpen[elementId+':'+week] = true;
   render();
 };
-window.pbWageSetLineValue = async function(entryId, rawValue){
+window.pbWageSetLineValue = async function(entryId, elementId, week, rawValue){
   const v = String(rawValue||'').trim();
-  if(v===''){ await dbDelete('price_week_operative_entries', entryId); render(); return; }
+  if(v===''){ await dbDelete('price_week_operative_entries', entryId); if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true; render(); return; }
   const amount = Number(v);
   if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
   await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+entryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
+  if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true;
   render();
 };
-window.pbWageDeleteEntry = async function(entryId){
+window.pbWageDeleteEntry = async function(entryId, elementId, week){
   await dbDelete('price_week_operative_entries', entryId);
+  if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true;
   render();
 };
 // Distributes this week's total entered labour wages across the sheet's own
@@ -8828,6 +9083,7 @@ window.pbWageAutoAllocate = async function(elementId, siteId, sheetId, week){
     moneyLeft -= take;
   }
   await rollUpPriceWeekFromSheetItems(elementId, siteId, week);
+  priceWeekRowOpen[elementId+':'+week] = true;
   toast(moneyLeft > 0.01 ? `Allocated what the sheet can take — ${fmt2dp(moneyLeft)} of labour wages couldn't be matched (sheet may be fully booked).` : 'Labour wages allocated to items');
   render();
 };
@@ -8862,32 +9118,52 @@ async function rollUpPriceWeekFromSheetItems(elementId, siteId, wk){
   });
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); }
 }
-window.pbwSetQty = async function(sheetItemId, elId, siteId, wk, rate, value){
-  const v = String(value||'').trim();
-  const qty = v==='' ? null : pbRound2(parseFloat(v));
-  if(v!=='' && isNaN(qty)){ toast('Enter a number'); render(); return; }
-  const amount = Math.round((Number(qty)||0)*Number(rate||0)*100)/100;
-  const ok = await pbwUpsertRow(sheetItemId, wk, qty, amount, false);
-  if(ok) await rollUpPriceWeekFromSheetItems(elId, siteId, wk);
-  render();
-};
-window.pbwSetManual = async function(sheetItemId, elId, siteId, wk, rate, value){
-  const v = String(value||'').trim();
-  // Clearing the override reverts to whatever qty is on file, recalculated
-  // at the item's rate — matches how clearing a manual price_weeks value
-  // already falls back to the auto build-up total elsewhere on this page.
-  const existing = await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=eq.'+sheetItemId+'&week_number=eq.'+wk);
-  const priorQty = existing[0] ? existing[0].qty : null;
-  let ok;
-  if(v===''){
-    const amount = Math.round((Number(priorQty)||0)*Number(rate||0)*100)/100;
-    ok = await pbwUpsertRow(sheetItemId, wk, priorQty, amount, false);
-  } else {
-    const amount = Math.round((parseFloat(v)||0)*100)/100;
-    if(isNaN(amount)){ toast('Enter a number'); render(); return; }
-    ok = await pbwUpsertRow(sheetItemId, wk, priorQty, amount, true);
+// The single "Save" button for a Price-Builder-fed element's week — reads
+// every item's Qty/Override input straight off the DOM (they're no longer
+// auto-saved on blur, see priceBuilderItemWeekBreakdownHtml) and, crucially,
+// refuses to save at all unless the labour wages entered for this week add
+// up to the same £ value as the work being booked in. Without this check it
+// was possible to book in, say, £13.50 worth of tiling against only £10 of
+// wages and have it silently accepted — the two figures should always tie
+// out for a given week.
+window.pbWeekSaveAll = async function(elementId, siteId, sheetId, wk){
+  const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
+  if(!items.length){ toast('This sheet has no priced items.'); return; }
+  const pending = [];
+  let itemsWeekTotal = 0;
+  for(const it of items){
+    const rate = Number(it.rate||0);
+    const qtyEl = document.getElementById('pbwQtyInput_'+it.id+'_'+wk);
+    const manualEl = document.getElementById('pbwManualInput_'+it.id+'_'+wk);
+    const manualVal = manualEl ? String(manualEl.value||'').trim() : '';
+    const qtyVal = qtyEl ? String(qtyEl.value||'').trim() : '';
+    if(manualVal!==''){
+      const amount = Number(manualVal);
+      if(isNaN(amount)){ toast('Enter a valid override amount for '+it.name); return; }
+      pending.push({id:it.id, qty:null, amount, isManual:true});
+      itemsWeekTotal += amount;
+    } else {
+      const qty = qtyVal==='' ? null : pbRound2(parseFloat(qtyVal));
+      if(qtyVal!=='' && isNaN(qty)){ toast('Enter a valid qty for '+it.name); return; }
+      const amount = Math.round((Number(qty)||0)*rate*100)/100;
+      pending.push({id:it.id, qty, amount, isManual:false});
+      itemsWeekTotal += amount;
+    }
   }
-  if(ok) await rollUpPriceWeekFromSheetItems(elId, siteId, wk);
+  itemsWeekTotal = Math.round(itemsWeekTotal*100)/100;
+  const wageEntries = await dbSelect('price_week_operative_entries', 'element_id=eq.'+elementId+'&week_number=eq.'+wk+'&select=amount');
+  const wagesTotal = Math.round(wageEntries.reduce((s,e)=>s+Number(e.amount||0),0)*100)/100;
+  if(Math.abs(itemsWeekTotal - wagesTotal) > 0.01){
+    toast(`Labour wages (£${wagesTotal.toFixed(2)}) don't match the value of work entered (£${itemsWeekTotal.toFixed(2)}) — adjust one so they tie out before saving.`);
+    return;
+  }
+  for(const row of pending){
+    const ok = await pbwUpsertRow(row.id, wk, row.qty, row.amount, row.isManual);
+    if(!ok) return;
+  }
+  await rollUpPriceWeekFromSheetItems(elementId, siteId, wk);
+  priceWeekRowOpen[elementId+':'+wk] = true;
+  toast('Saved');
   render();
 };
 
@@ -9781,6 +10057,12 @@ window.exportPriceBuilderSheet = async function(sheetId){
   // Pricing Element's own Taken figure, so the export shows exactly how
   // "Taken" was arrived at rather than just the final number.
   const weekRows = sheet.pricing_element_id ? await dbSelect('price_weeks', 'element_id=eq.'+sheet.pricing_element_id+'&order=week_number.asc&select=week_number,amount') : [];
+  // Labour wages entered against this element, per week — same ledger the
+  // "Labour wages this week" section on the Price tile writes to.
+  const wageEntryRows = sheet.pricing_element_id ? await dbSelect('price_week_operative_entries', 'element_id=eq.'+sheet.pricing_element_id+'&select=week_number,amount') : [];
+  const wagesByWeek = {};
+  wageEntryRows.forEach(w=>{ wagesByWeek[w.week_number] = (wagesByWeek[w.week_number]||0) + Number(w.amount||0); });
+  const wageWeeks = Object.keys(wagesByWeek).map(Number).sort((a,b)=>a-b);
 
   const rows = [];
   rows.push([sheet.title || 'Priced Sheet']);
@@ -9819,6 +10101,64 @@ window.exportPriceBuilderSheet = async function(sheetId){
     weekDataEndIdx = rows.length - 1;
   }
 
+  let wageDataStartIdx = -1, wageDataEndIdx = -1;
+  if(wageWeeks.length){
+    rows.push([]);
+    rows.push(['Labour Wages']);
+    rows.push(['Week', 'Total Wages (£)']);
+    wageDataStartIdx = rows.length;
+    wageWeeks.forEach(wk=>{ rows.push(['Week '+wk, Math.round(wagesByWeek[wk]*100)/100]); });
+    wageDataEndIdx = rows.length - 1;
+  }
+
+  // ExcelJS builds the file when it's loaded (it's the only one of the two
+  // libraries that can embed an image), so the export carries the company
+  // logo top-right same as the PDF export does. If ExcelJS failed to load
+  // for any reason, fall back to the plain SheetJS/XLSX file below — same
+  // data, just without the logo — rather than blocking the export entirely.
+  if(typeof ExcelJS!=='undefined'){
+    try{
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Priced Sheet');
+      ws.columns = [{width:42},{width:8},{width:14},{width:12},{width:14},{width:22}];
+      rows.forEach(r=>ws.addRow(r));
+      const gbp = '"£"#,##0.00';
+      for(let r=totalRowIdx; r<=grandRowIdx; r++) ws.getCell('E'+(r+1)).numFmt = gbp;
+      for(let r=headerRowIdx+1; r<totalRowIdx; r++){ ws.getCell('D'+(r+1)).numFmt = gbp; ws.getCell('E'+(r+1)).numFmt = gbp; }
+      for(let r=weekDataStartIdx; r<=weekDataEndIdx; r++){ ws.getCell('B'+(r+1)).numFmt = gbp; ws.getCell('C'+(r+1)).numFmt = gbp; }
+      for(let r=wageDataStartIdx; r<=wageDataEndIdx; r++) ws.getCell('B'+(r+1)).numFmt = gbp;
+      ws.getRow(1).font = {bold:true, size:14};
+      ws.getRow(headerRowIdx+1).font = {bold:true};
+
+      const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+      if(logoUrl){
+        try{
+          const res = await fetch(logoUrl);
+          if(res.ok){
+            const buf = await res.arrayBuffer();
+            const ctype = (res.headers.get('content-type')||'').toLowerCase();
+            const ext = ctype.includes('png') ? 'png' : (ctype.includes('gif') ? 'gif' : 'jpeg');
+            const imageId = wb.addImage({buffer: buf, extension: ext});
+            // Anchored top-right, above the title/item table — column F is
+            // the sheet's last column (index 5, 0-based) so the logo sits
+            // clear of the Item/Qty/Rate columns.
+            ws.addImage(imageId, {tl:{col:5.1, row:0.1}, ext:{width:90, height:90}});
+          }
+        }catch(e){ /* logo is a nice-to-have — export still proceeds without it */ }
+      }
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const safeTitle = String(sheet.title||'Priced Sheet').replace(/[\\/?*\[\]:]/g,'').slice(0,60);
+      const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = safeTitle+'.xlsx';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      return;
+    }catch(e){ /* fall through to the plain SheetJS export below */ }
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{wch:42},{wch:8},{wch:14},{wch:12},{wch:14},{wch:22}];
   for(let r=totalRowIdx; r<=grandRowIdx; r++){ const addr = 'E'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00'; }
@@ -9831,6 +10171,9 @@ window.exportPriceBuilderSheet = async function(sheetId){
     const amtCell = ws['B'+(r+1)], runCell = ws['C'+(r+1)];
     if(amtCell) amtCell.z = '"£"#,##0.00';
     if(runCell) runCell.z = '"£"#,##0.00';
+  }
+  for(let r=wageDataStartIdx; r<=wageDataEndIdx; r++){
+    const addr = 'B'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00';
   }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
@@ -9886,11 +10229,17 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
     const headerH = jobLine ? 100 : 84;
     page.drawRectangle({x:0, y:PAGE_H-headerH, width:PAGE_W, height:headerH, color:BRAND});
     if(logoImg){
-      const dim = logoImg.scale(1); const s = 38/Math.max(dim.width, dim.height);
+      // Logo box is 1.3x its previous size (38 -> ~49) and vertically
+      // centred in the header band, rather than pinned high near the top —
+      // it used to read as sitting too high and too small against the
+      // title text below it.
+      const LOGO_BOX = 38*1.3;
+      const dim = logoImg.scale(1); const s = LOGO_BOX/Math.max(dim.width, dim.height);
       const w = dim.width*s, h = dim.height*s;
-      const logoX = PAGE_W-MARGIN-38;
-      page.drawRectangle({x:logoX, y:PAGE_H-62, width:38, height:38, color:WHITE});
-      page.drawImage(logoImg, {x:logoX+(38-w)/2, y:PAGE_H-62+(38-h)/2, width:w, height:h});
+      const logoX = PAGE_W-MARGIN-LOGO_BOX;
+      const logoY = PAGE_H - headerH/2 - LOGO_BOX/2;
+      page.drawRectangle({x:logoX, y:logoY, width:LOGO_BOX, height:LOGO_BOX, color:WHITE});
+      page.drawImage(logoImg, {x:logoX+(LOGO_BOX-w)/2, y:logoY+(LOGO_BOX-h)/2, width:w, height:h});
     }
     const textX = MARGIN;
     page.drawText('SUBCONTRACTOR SOW', {x:textX, y:PAGE_H-36, size:9, font:bold, color:WHITE, opacity:0.85});
