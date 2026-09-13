@@ -12408,6 +12408,27 @@ window.setTaskSubAddress = async function(siteId, taskId, subId){
     render();
   }
 };
+// Which task's "assign to a subcontractor" picker is open — see taskRowHtml.
+// Tagging a task here doesn't touch visibility_mode/assigned_*_ids at all;
+// it's a separate access path (see the "subcontractor own tasks
+// select/update" RLS policies) so a subcontractor's operatives can reach
+// their tagged tasks regardless of whatever PM/operative visibility a
+// section or task otherwise has.
+let subcontractorAssignPickerTaskId = null;
+window.openSubcontractorAssignPicker = function(taskId){
+  subcontractorAssignPickerTaskId = subcontractorAssignPickerTaskId===taskId ? null : taskId;
+  render();
+};
+window.setTaskSubcontractor = async function(siteId, taskId, companyId){
+  const row = await dbUpdate('schedule_tasks', taskId, {subcontractor_company_id: companyId||null});
+  if(row){
+    subcontractorAssignPickerTaskId = null;
+    toast(companyId ? 'Assigned to subcontractor' : 'Unassigned from subcontractor');
+    render();
+  }
+};
+let schedulePollTimer = null;
+let subSchedulePollTimer = null;
 let scheduleFilter = 'all';
 let scheduleLastSiteId; // undefined initially so the first render always sets a default
 let scheduleLastAnyStarted = null;
@@ -12610,7 +12631,7 @@ window.useScheduleLibraryTemplate = async function(siteId, templateId){
   scheduleLibraryOpen = false; scheduleLibraryPreviewId = null;
   render();
 };
-function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, subAddressesList){
+function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, subAddressesList, subCompanies, isMc){
   // Per the "allow all rows in whilst they're in to do to be editable text"
   // requirement — a To Do task's name is always a live-editable input
   // (autosaves on blur) rather than needing the separate pencil-edit toggle.
@@ -12620,6 +12641,15 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
   // on its own line underneath.
   const sitePillHtml = isMultiSite ? `
     <span ${canAdd?`onclick="addressPickerTaskId='${t.id}';render()" style="cursor:pointer;`:`style="`}display:inline-block;flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:${t.sub_site_id?'var(--slate)':'var(--warn)'};background:${t.sub_site_id?'var(--paper)':'var(--warn-bg)'};border:1px solid var(--line);border-radius:20px;padding:2px 8px;white-space:nowrap;">📍 ${t.sub_site_id && subAddrById[t.sub_site_id] ? escapeHtml(subAddrById[t.sub_site_id].name) : (canAdd ? 'Unlinked — tap to link' : 'Unlinked')}</span>
+  ` : '';
+  // Subcontractor tag — independent of the PM/operative visibility_mode
+  // picker above; a task tagged here shows live in that subcontractor's own
+  // Schedule of Works tile (see renderSubSchedule) since both views read the
+  // same row. Shown to everyone (not just canAdd) so operatives can see at a
+  // glance which company a task belongs to; only canAdd gets the picker.
+  const assignedCo = t.subcontractor_company_id ? (subCompanies||[]).find(c=>c.id===t.subcontractor_company_id) : null;
+  const subCoPillHtml = t.subcontractor_company_id ? `
+    <span ${canAdd?`onclick="openSubcontractorAssignPicker('${t.id}')" style="cursor:pointer;`:`style="`}display:inline-block;flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink);background:#E7E9EE;border:1px solid var(--line);border-radius:20px;padding:2px 8px;white-space:nowrap;">🏗 ${escapeHtml(assignedCo ? assignedCo.name : 'Subcontractor')}</span>
   ` : '';
   return `
       <div class="task">
@@ -12640,12 +12670,14 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               `}
               <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
                 ${sitePillHtml}
+                ${subCoPillHtml}
                 ${canAdd ? `
                   <div class="taskicons">
                     ${rowActionsMenuHtml('sowtask-'+t.id, `
                       ${!alwaysEditable ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;editingTaskId='${t.id}';render()">✎ Edit</div>` : ''}
                       ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
                       ${!t.section_id ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('task','${t.id}','${siteId}')">🔒 Assign visibility</div>` : ''}
+                      ${isMc ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubcontractorAssignPicker('${t.id}')">🏗 ${t.subcontractor_company_id?'Change':'Assign'} Subcontractor</div>` : ''}
                       <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
                     `)}
                   </div>
@@ -12661,6 +12693,16 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                 ${(subAddressesList||[]).map(a=>`<button class="${t.sub_site_id===a.id?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="setTaskSubAddress('${siteId}','${t.id}','${a.id}')">${escapeHtml(a.name)}</button>`).join('')}
               </div>
               <button class="ghostbtn" style="margin-top:8px;" onclick="addressPickerTaskId=null;render()">Close</button>
+            </div>
+          ` : ''}
+          ${canAdd && subcontractorAssignPickerTaskId===t.id ? `
+            <div class="card" style="margin:8px 0 0;padding:10px;">
+              <p class="stub" style="margin:0 0 8px;">Assign this task to a subcontractor — it'll show live in that company's own Schedule of Works tile, and any status/photo update they make shows back here automatically:</p>
+              <div class="row-gap" style="flex-wrap:wrap;">
+                <button class="${!t.subcontractor_company_id?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="setTaskSubcontractor('${siteId}','${t.id}',null)">RTB / No subcontractor</button>
+                ${(subCompanies||[]).map(c=>`<button class="${t.subcontractor_company_id===c.id?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="setTaskSubcontractor('${siteId}','${t.id}','${c.id}')">${escapeHtml(c.name)}</button>`).join('') || `<span class="stub" style="margin:0;">No subcontractors added for this site yet — add one from the Main Contractor tile.</span>`}
+              </div>
+              <button class="ghostbtn" style="margin-top:8px;" onclick="subcontractorAssignPickerTaskId=null;render()">Close</button>
             </div>
           ` : ''}
           ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')">`).join('')}</div>` : ''}
@@ -12797,17 +12839,19 @@ async function renderSchedule(siteId){
     dbUpdate('profiles', ME.id, {viewed_schedule_at: ME.viewed_schedule_at});
   }
   const isMultiSite = !!(site && site.multi_site);
+  const isMc = !!(site && site.acting_as_main_contractor);
   // schedule_tasks/schedule_sections are RLS-scoped server-side by assigned
   // visibility (see schedule_visibility_ok) — an operative or PM simply
   // never gets back a row they're not allowed to see, so nothing further
   // needs filtering client-side; admins always get everything back.
-  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions] = await Promise.all([
+  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
     dbSelect('schedule_section_flags', 'site_id=eq.'+siteId),
     canAdd ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
     canAdd ? loadPMList() : Promise.resolve([]),
+    site && site.acting_as_main_contractor ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name') : Promise.resolve([]),
   ]);
   scheduleSectionsCache = sections;
   if(canAdd) await loadAllProfiles();
@@ -12957,7 +13001,7 @@ async function renderSchedule(siteId){
           <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
         </p>
         ${open ? `<div style="padding:0 14px 14px;">
-          ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+          ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
           ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
         </div>` : ''}
       </div>
@@ -12981,7 +13025,7 @@ async function renderSchedule(siteId){
         ${open ? `
           <div style="padding:0 14px 14px;">
             ${canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : ''}
-            ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
+            ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
             ${canAdd && scheduleFilter==='all' ? `
               <div class="row-gap" style="margin-top:10px;">
                 <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
@@ -13020,7 +13064,24 @@ async function renderSchedule(siteId){
       <button class="ghostbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="openScheduleEmailPrompt('${siteId}')">✉ Email Report</button>
     </div>
     ` : ''}
+    <div id="scheduleLiveMarker" style="display:none;"></div>
   `, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+
+  // Live two-way sync with any subcontractor's own filtered Schedule of
+  // Works view (renderSubSchedule) — both pages read/write the exact same
+  // schedule_tasks rows, so a status/photo update a subcontractor makes on
+  // their tile needs to show up here without the PM navigating away and
+  // back, and vice versa. Full-page refresh (not a partial DOM patch, unlike
+  // the RAMS poll) since this page's structure is too nested to patch
+  // piecemeal — skipped whenever an inline editor/picker is open so a poll
+  // never clobbers something mid-edit.
+  if(schedulePollTimer) clearInterval(schedulePollTimer);
+  schedulePollTimer = setInterval(()=>{
+    if(!document.getElementById('scheduleLiveMarker')){ clearInterval(schedulePollTimer); schedulePollTimer = null; return; }
+    if(document.hidden || navigator.onLine === false) return;
+    if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || scheduleAssignTarget || scheduleAddPanel || pendingCompleteTaskId || pdfImportSiteId) return;
+    render();
+  }, 8000);
 }
 window.toggleScheduleSection = function(sectionId){
   const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
@@ -14555,18 +14616,21 @@ async function renderSubcontractorHub(siteId, companyId){
   const rows = await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*');
   const company = rows[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows] = await Promise.all([
+  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows] = await Promise.all([
     dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
     dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
     dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
+    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&select=status'),
   ]);
+  const scheduleDone = scheduleRows.filter(t=>t.status==='done').length;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${tbtRows.length} live</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/schedule')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📋</div><div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${scheduleRows.length} complete</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/briefings')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📝</div><div class="lbl">Daily Briefings</div><div class="sub">${briefingRows.length} logged</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operatives</div><div class="sub">${opRows.length} allocated</div></div>
     </div>
@@ -14727,6 +14791,54 @@ window.addSubToolboxTalk = async function(siteId, companyId){
   const rows = await dbInsert('toolbox_talks', {site_id:siteId, subcontractor_company_id:companyId, title, storage_path:stored, status:'live', created_by:ME.id});
   if(rows){ toast('Toolbox Talk issued'); render(); }
 };
+/* ---- Subcontractor's own filtered Schedule of Works — same schedule_tasks
+   rows as the main SOW (see the "🏗 Assign Subcontractor" picker in
+   taskRowHtml), just filtered to this company. Reuses taskRowHtml/
+   setTaskStatus/beginTaskComplete/completeTaskWithPhotos/taskPhoto directly
+   so a status change or photo add here is the exact same write the main SOW
+   reads back — there's nothing to keep "in sync" because it's one row, not a
+   copy. canAdd is intentionally false for everyone here (no edit/delete/
+   reassign) — RTB's PM/admin can still see and act on these tasks from the
+   main Schedule of Works page; this tile is deliberately read+update-status
+   only for the subcontractor's own team. */
+let subScheduleFilter = 'all';
+async function renderSubSchedule(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&order=position.asc.nullslast,created_at.asc');
+  let photosByTask = {};
+  if(allTasks.length){
+    const ids = allTasks.map(t=>t.id).join(',');
+    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+    photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+  }
+  const tasks = subScheduleFilter==='all' ? allTasks
+    : subScheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
+    : allTasks.filter(t=>t.status===subScheduleFilter);
+  const isMultiSite = !!(site && site.multi_site);
+  const subAddressesList = isMultiSite ? await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : [];
+  const subAddrById = {}; subAddressesList.forEach(a=>{ subAddrById[a.id] = a; });
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Only the work items assigned to ${escapeHtml(company.name)} — updates here show straight away on RTB's main Schedule of Works, and anything RTB assigns or updates shows here the same way.</p>
+    <div class="filterrow">
+      ${['all','todo','progress'].map(k=>`<div class="filterchip ${subScheduleFilter===k?'active':''}" onclick="subScheduleFilter='${k}';render()">${k==='all'?'All':k==='todo'?'To Do':'In Progress / Complete'}</div>`).join('')}
+    </div>
+    ${tasks.length ? tasks.map(t=>taskRowHtml(siteId,t,false,photosByTask,isMultiSite,subAddrById,subAddressesList,[company],false)).join('') : `<div class="empty">No work items assigned to ${escapeHtml(company.name)} yet${subScheduleFilter!=='all'?' for this filter':''}.</div>`}
+    <div id="subScheduleLiveMarker" style="display:none;"></div>
+  `, {title:company.name+' — Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+
+  // Same full-page-refresh live poll as the main SOW page (see
+  // renderSchedule) — skipped while any inline task editor/picker is open.
+  if(subSchedulePollTimer) clearInterval(subSchedulePollTimer);
+  subSchedulePollTimer = setInterval(()=>{
+    if(!document.getElementById('subScheduleLiveMarker')){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; return; }
+    if(document.hidden || navigator.onLine === false) return;
+    if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || pendingCompleteTaskId) return;
+    render();
+  }, 8000);
+}
 async function renderSubBriefings(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -22622,6 +22734,8 @@ async function render(){
 async function renderRoute(){
   RENDER_GEN++; // this render pass now supersedes any still-loading one
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
+  if(schedulePollTimer){ clearInterval(schedulePollTimer); schedulePollTimer = null; }
+  if(subSchedulePollTimer){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
   if(!SESSION || !ME){ return renderLogin(); }
@@ -22806,6 +22920,7 @@ async function renderRoute(){
           return renderSubTbt(siteId, companyId);
         }
         if(csub==='briefings') return renderSubBriefings(siteId, companyId);
+        if(csub==='schedule') return renderSubSchedule(siteId, companyId);
         if(csub==='operatives') return renderSubOperatives(siteId, companyId);
         return renderSubcontractorHub(siteId, companyId);
       }
