@@ -1668,6 +1668,28 @@ function orgLogoUrl(org){
 // 'admin' is a superset of 'pm' capabilities everywhere in this app —
 // mirrors the DB's is_pm() which now also means "pm or admin".
 function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
+// Client login — assigned to a site the same way an operative is
+// (site_assignments), but strictly view-only: RAMS, COSHH, Toolbox Talks,
+// Schedule of Works, PUWER (completed inspections), Snagging and the
+// Operative Dashboard roster. Everything else (messages, materials, price,
+// drawings, todos, check-in, etc.) is off-limits — enforced both by the
+// route guard (see the router's 'site' branch) and server-side by RLS
+// (has_client_view_access — see migration add_client_role_rls).
+function isClient(u){ return !!u && u.role==='client'; }
+const CLIENT_ALLOWED_SITE_PAGES = ['home','schedule','hs','snagging'];
+// Subcontractor operatives — a normal operative account, allocated by a PM
+// (see the Operatives sub-tile under a Subcontractors company) to exactly
+// one subcontractor company per site. Cached per site for the session since
+// it rarely changes mid-visit; cleared implicitly on reload.
+let subOpCache = {};
+async function getMySubcontractorCompanyId(siteId){
+  if(isManager(ME) || isClient(ME)) return null;
+  if(Object.prototype.hasOwnProperty.call(subOpCache, siteId)) return subOpCache[siteId];
+  const rows = await dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=subcontractor_company_id&limit=1');
+  const val = rows.length ? rows[0].subcontractor_company_id : null;
+  subOpCache[siteId] = val;
+  return val;
+}
 // Price Builder rollout is admin-only for now — PMs keep full access to the
 // existing (unrelated) manual Pricing Element "lump sum + tracker" sub
 // tiles, just not the sheet-building/issuing tool itself yet. Swap this back
@@ -2148,15 +2170,19 @@ async function computeMyOutstandingCount(){
   // number on the tile and what's actually on the page drift apart again
   // (exactly the bug #(outstanding-badge-fix) below existed to prevent).
   if(isManager(ME)){
-    const {rows} = await computeNotificationRows(ME.id);
-    return rows.reduce((sum,r)=>sum+r.items.length, 0);
+    // The home-bar badge for managers now reflects the combined HUB feed
+    // (Notifications + Messages merged — see computeHubItems/renderHub)
+    // instead of the old Notifications-only count, so the number on the
+    // tile always matches what HUB itself shows.
+    const {items} = await computeHubItems();
+    return items.length;
   }
   const {rows} = await computeOutstandingRows(ME.id);
   return rows.reduce((sum,r)=>sum+r.items.length, 0);
 }
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
-    {ic:'📌', lbl: canAdd ? 'Notifications' : 'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
+    {ic:'📌', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
     ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
     ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard')"}] : []),
@@ -3334,6 +3360,180 @@ async function renderOutstandingTasks(){
   `, {title:'Outstanding Tasks', back:'#/sites', tabs:false}); }
 }
 
+/* ================= HUB (combined Notifications + Messages) ================= */
+// Per the user's request: fold the PM Notifications feed and the Messages
+// tile into one "HUB" page — a single flat, filterable feed of every item a
+// manager needs to act on (Toolbox Talk due, open snags, RAMS/COSHH unsigned,
+// unread messages, tasks allocated), filterable by type, site, PM (whose
+// site it is — admin only, mirrors the old outstandingPmId picker), and due
+// date. Tapping an item still jumps straight to the real page (site's own
+// RAMS tab, Inbox thread, etc.) — HUB is the unified index, not a
+// reimplementation of those pages.
+let hubFilterType = 'all'; // 'all'|'tbt'|'snag'|'rams'|'coshh'|'message'|'task'
+let hubFilterSiteId = '';   // '' = all sites
+let hubFilterPmId = '';     // '' = all PMs (admin only)
+let hubFilterDue = 'all';   // 'all'|'overdue'|'week'|'nodate'
+async function computeHubItems(){
+  const isAdmin = ME.role==='admin';
+  let sites;
+  if(isAdmin){
+    // Admins see the whole company's HUB feed by default, filterable down to
+    // one PM's sites via hubFilterPmId.
+    sites = SITES.filter(s=>siteStatusKey(s)==='live');
+  } else {
+    const myPmAssignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
+    const myPmSiteIds = new Set(myPmAssignments.map(a=>a.site_id));
+    sites = SITES.filter(s=>siteStatusKey(s)==='live' && (s.responsible_pm_id===ME.id || myPmSiteIds.has(s.id)));
+  }
+  const siteIds = sites.map(s=>s.id);
+  const idsCsv = siteIds.join(',');
+  const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos, mgrMsgs] = await Promise.all([
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&select=id,site_id,status,created_at') : Promise.resolve([]),
+    idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=id,site_id,created_at') : Promise.resolve([]),
+    idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
+    idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
+    idsCsv ? dbSelect('todos', 'site_id=in.('+idsCsv+')&done=eq.false&order=created_at.asc') : Promise.resolve([]),
+    idsCsv ? dbSelect('messages', 'audience=eq.managers&or=(site_id.in.('+idsCsv+'),site_id.is.null)&sender_id=neq.'+ME.id+'&select=id,site_id,created_at') : Promise.resolve([]),
+  ]);
+  const ramsIds = ramsDocs.map(d=>d.id).join(',');
+  const coshhIds = coshhDocs.map(d=>d.id).join(',');
+  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+    ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : Promise.resolve([]),
+    coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+  ]);
+  const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
+  const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
+  const rosterBySite = {};
+  assignments.forEach(a=>{ (rosterBySite[a.site_id]=rosterBySite[a.site_id]||[]).push(a.user_id); });
+  const operativeRosterBySite = {};
+  assignments.forEach(a=>{ if(PROFILES[a.user_id] && PROFILES[a.user_id].role==='operative') (operativeRosterBySite[a.site_id]=operativeRosterBySite[a.site_id]||[]).push(a.user_id); });
+  function unsignedCount(siteId, docs, sigs, fk, rosterMap){
+    const docsHere = docs.filter(d=>d.site_id===siteId);
+    const roster = (rosterMap||rosterBySite)[siteId]||[];
+    const signedByDoc = {};
+    sigs.forEach(s=>{ (signedByDoc[s[fk]]=signedByDoc[s[fk]]||new Set()).add(s.user_id); });
+    let missing = 0;
+    docsHere.forEach(d=>{ missing += roster.filter(uid=>!(signedByDoc[d.id]||new Set()).has(uid)).length; });
+    return missing;
+  }
+  const sowStartedBySite = {};
+  scheduleTasks.forEach(t=>{ if(t.status && t.status!=='todo') sowStartedBySite[t.site_id]=true; });
+  const talksBySite = {}; allTalks.forEach(t=>{ (talksBySite[t.site_id]=talksBySite[t.site_id]||[]).push(t); });
+  const snagsBySite = {}; openSnags.forEach(s=>{ (snagsBySite[s.site_id]=snagsBySite[s.site_id]||[]).push(s); });
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // TBT has no explicit due-date field — the whole site is treated as due by
+  // the 7th of the current month, same "compulsory by the 7th" rule used
+  // everywhere else in the app.
+  const dueTbt = new Date(now.getFullYear(), now.getMonth(), 7, 23, 59, 59);
+
+  const items = [];
+  sites.forEach(s=>{
+    const talks = talksBySite[s.id]||[];
+    const issuedThisMonth = talks.some(t=>(t.status==='live'||t.status==='completed') && new Date(t.created_at)>=monthStart);
+    const everCompleted = talks.some(t=>t.status==='completed');
+    if(!issuedThisMonth || !everCompleted){
+      items.push({type:'tbt', typeLbl:'Toolbox Talk', label: !everCompleted ? 'Toolbox Talk — none ever completed at this site' : 'Toolbox Talk due for this month', siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:dueTbt, href:`#/site/${s.id}/hs/tbt`});
+    }
+    (snagsBySite[s.id]||[]).forEach(sn=>{
+      items.push({type:'snag', typeLbl:'Snag', label:'Open snag', siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/snagging/list`});
+    });
+    if(sowStartedBySite[s.id]){
+      const rams = unsignedCount(s.id, ramsDocs, ramsSigsCur, 'rams_id');
+      if(rams) items.push({type:'rams', typeLbl:'RAMS', label:`RAMS not signed by operatives (${rams})`, siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/hs/rams`});
+      const coshh = unsignedCount(s.id, coshhDocs, coshhSigsCur, 'coshh_id', operativeRosterBySite);
+      if(coshh) items.push({type:'coshh', typeLbl:'COSHH', label:`COSHH not signed by operatives (${coshh})`, siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:null, href:`#/site/${s.id}/hs/coshh`});
+    }
+  });
+  allTodos.forEach(t=>{
+    const site = sites.find(s=>s.id===t.site_id);
+    if(!site) return;
+    items.push({type:'task', typeLbl:'Task', label:t.text, siteId:t.site_id, siteName:site.name, pmId:t.assigned_to||null, dueDate: t.date_required_by ? new Date(t.date_required_by+'T00:00:00') : null, href:`#/site/${t.site_id}/todos`});
+  });
+  const msgIds = mgrMsgs.map(m=>m.id);
+  const reads = msgIds.length ? await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+msgIds.join(',')+')&select=message_id') : [];
+  const readSet = new Set(reads.map(r=>r.message_id));
+  mgrMsgs.filter(m=>!readSet.has(m.id)).forEach(m=>{
+    const site = m.site_id ? sites.find(s=>s.id===m.site_id) : null;
+    items.push({type:'message', typeLbl:'Message', label: site ? 'New message' : 'New message (all sites)', siteId: m.site_id||null, siteName: site ? site.name : 'All sites', pmId: site ? site.responsible_pm_id : null, dueDate: new Date(m.created_at), href: site ? `#/site/${site.id}/messages` : '#/my-messages'});
+  });
+  return {items, sites, isAdmin};
+}
+async function renderHub(){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const {items, sites, isAdmin} = await computeHubItems();
+  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const typeChips = [
+    {k:'all', lbl:'All'}, {k:'tbt', lbl:'Toolbox Talk'}, {k:'snag', lbl:'Snags'},
+    {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'},
+  ];
+  const now = new Date();
+  const weekAhead = new Date(now.getTime() + 7*24*60*60*1000);
+  let filtered = items.filter(it=>{
+    if(hubFilterType!=='all' && it.type!==hubFilterType) return false;
+    if(hubFilterSiteId && it.siteId!==hubFilterSiteId) return false;
+    if(isAdmin && hubFilterPmId && it.pmId!==hubFilterPmId) return false;
+    if(hubFilterDue==='overdue' && !(it.dueDate && it.dueDate<now)) return false;
+    if(hubFilterDue==='week' && !(it.dueDate && it.dueDate>=now && it.dueDate<=weekAhead)) return false;
+    if(hubFilterDue==='nodate' && it.dueDate) return false;
+    return true;
+  });
+  // Soonest due date first; items with no due date (RAMS/COSHH/snags have no
+  // natural one) sort to the end rather than being treated as most urgent.
+  filtered = filtered.sort((a,b)=>{
+    if(a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
+    if(a.dueDate) return -1;
+    if(b.dueDate) return 1;
+    return 0;
+  });
+  const fmtDue = d => !d ? '—' : d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Everything needing your attention — Toolbox Talks, RAMS/COSHH, snags, tasks and messages — in one place. Tap a row to jump straight to it.</p>
+    <div class="filterrow" style="flex-wrap:wrap;">
+      ${typeChips.map(c=>`<div class="filterchip ${hubFilterType===c.k?'active':''}" onclick="hubFilterType='${c.k}';render()">${escapeHtml(c.lbl)}</div>`).join('')}
+    </div>
+    <div class="formfield" style="margin-top:12px;">
+      <label class="field-label">Site</label>
+      <select onchange="hubFilterSiteId=this.value;render()">
+        <option value="">All sites</option>
+        ${sites.map(s=>`<option value="${s.id}" ${hubFilterSiteId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${isAdmin && pmOptions.length ? `
+      <div class="formfield">
+        <label class="field-label">PM whose site it is</label>
+        <select onchange="hubFilterPmId=this.value;render()">
+          <option value="">All PMs</option>
+          ${pmOptions.map(p=>`<option value="${p.id}" ${hubFilterPmId===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
+        </select>
+      </div>
+    ` : ''}
+    <div class="formfield">
+      <label class="field-label">Due date</label>
+      <select onchange="hubFilterDue=this.value;render()">
+        <option value="all" ${hubFilterDue==='all'?'selected':''}>Any time</option>
+        <option value="overdue" ${hubFilterDue==='overdue'?'selected':''}>Overdue</option>
+        <option value="week" ${hubFilterDue==='week'?'selected':''}>Due within 7 days</option>
+        <option value="nodate" ${hubFilterDue==='nodate'?'selected':''}>No due date</option>
+      </select>
+    </div>
+    <div style="margin-top:14px;">
+      ${filtered.length ? filtered.map(it=>`
+        <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
+          <div class="swatch" style="background:var(--warn-bg);color:var(--warn);">!</div>
+          <div class="info">
+            <div class="name">${escapeHtml(it.label)}</div>
+            <div class="sub">${escapeHtml(it.typeLbl)} · ${escapeHtml(it.siteName)}${it.dueDate?' · Due '+fmtDue(it.dueDate):''}</div>
+          </div>
+        </div>
+      `).join('') : `<div class="empty">Nothing matches these filters right now.</div>`}
+    </div>
+  `, {title:'HUB', back:'#/sites', tabs:false}); }
+}
+
 /* ================= OPERATIVE ONBOARDING CHECKLIST ================= */
 // Only shown to operatives, and only once at least one live site is
 // assigned to them — self-hides for good once every step is ticked off.
@@ -4333,8 +4533,14 @@ async function renderTeam(){
         <button class="darkbtn" ${inviteEmailBusy?'disabled':''} onclick="sendInviteEmail()">${inviteEmailBusy?'Sending…':'Send Invite Email'}</button>
       ` : `
         <p class="stub" style="margin:0 0 8px;">Prefer a single-use link for one person instead of the permanent link above?</p>
+        <div class="formfield"><label class="field-label">Invite as</label>
+          <select id="newInviteRole">
+            <option value="operative">Operative</option>
+            <option value="client">Client (view-only)</option>
+          </select>
+        </div>
         <button class="ghostbtn" ${invitesBusy?'disabled':''} onclick="generateInvite()">${invitesBusy?'Creating…':'Generate One-Time Invite Link'}</button>
-        <p class="stub" style="margin:8px 0 0;">New joiners always start as an Operative — a Company Admin can promote them to Project Manager below once they've joined.</p>
+        <p class="stub" style="margin:8px 0 0;">A Client invite gives read-only access (RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard) once a PM assigns them to a site — they can view and export, but never sign or edit anything. An Operative can be promoted to Project Manager below once they've joined.</p>
       `}
       ${pendingInvites.length ? `
         <p class="sectiontitle" style="margin-top:14px;">Pending invites</p>
@@ -4395,6 +4601,19 @@ async function renderTeam(){
         ` : ''}
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Clients</p>
+    ${people.filter(p=>p.role==='client').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${userActionsOpenFor[p.id] ? `
+        <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+        </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No clients yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first).</p>
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
@@ -6019,8 +6238,10 @@ window.removeTeamMember = async function(userId, name){
   }catch(e){ toast('Could not remove — check your connection and try again.'); }
 };
 window.generateInvite = async function(){
+  const roleEl = document.getElementById('newInviteRole');
+  const role = roleEl ? roleEl.value : 'operative';
   invitesBusy = true; render();
-  const rows = await dbInsert('invites', {org_id: ME.org_id, role:'operative', created_by: ME.id});
+  const rows = await dbInsert('invites', {org_id: ME.org_id, role, created_by: ME.id});
   invitesBusy = false;
   if(rows && rows[0]){
     newInviteId = rows[0].id;
@@ -6097,6 +6318,34 @@ async function renderSiteHome(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
+  // Client login: a minimal, view-only home — Schedule of Works, Health &
+  // Safety (RAMS/COSHH/TBT/PUWER/Operative Dashboard), and Snagging. No
+  // stat row (on-site counts, price, materials etc. aren't theirs to see),
+  // no tab bar (Check-in/Inbox/Settings don't apply to them either).
+  if(isClient(ME)){
+    const [tasks, openSnags] = await Promise.all([
+      dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+      dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
+    ]);
+    const scheduleDone = tasks.filter(t=>t.status==='done').length;
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <div class="tilegrid" style="grid-auto-rows:1fr;">
+        <div class="tile" onclick="go('#/site/${siteId}/schedule')">
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+        </div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs')">
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+          <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
+        </div>
+        <div class="tile" onclick="go('#/site/${siteId}/snagging/list')">
+          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🔧</div>
+          <div class="lbl">Snagging</div><div class="sub">${openSnags.length} open</div>
+        </div>
+      </div>
+    `, {title:site.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:'#/sites', siteId, tabs:false}); }
+    return;
+  }
 
   // #384: an active site with nobody assigned yet gets a one-tick-list
   // pop-up the first time its responsible PM/admin opens it, so operatives
@@ -7138,6 +7387,7 @@ async function renderAssignTeam(siteId){
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  const clients = Object.values(PROFILES).filter(p=>p.role==='client').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
@@ -7247,7 +7497,29 @@ async function renderAssignTeam(siteId){
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
     ` : ''}
 
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('clients')"><span class="arrow">${siteTeamSectionOpen.clients?'▼':'▶'}</span> Assign Clients</p>
+    ${siteTeamSectionOpen.clients ? `
+    <p class="stub" style="margin:0 0 14px;">Clients get a read-only view of this site — RAMS, COSHH, Toolbox Talks, Schedule of Works, completed inspections, snagging and the operative dashboard. They can view and export, never sign or edit.</p>
+    ${clients.map(p=>`
+      <div class="sitecard" style="padding:7px 9px;gap:8px;">
+        <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
+        <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
+          ${assignedIds.has(p.id) ? 'Assigned ✓' : 'Assign'}
+        </button>
+      </div>
+    `).join('') || `<div class="empty">No clients yet — invite one from Invites &amp; Users.</div>`}
+    ` : ''}
+
     <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('maincontractor')"><span class="arrow">${siteTeamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
+    ${siteTeamSectionOpen.maincontractor ? `
+    <div class="card">
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
+      <p class="stub" style="margin:8px 0 0;">When on, this site's home page and Health &amp; Safety area get extra tiles before RAMS: Construction Phase Plan, Site Layout, Site Inductions, Subcontractors, Permits To Work, Asbestos Register and F10 Notification.</p>
+    </div>
+    ` : ''}
 
     ${ME.role==='admin' ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
@@ -7283,7 +7555,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, price:false, multisite:false, activity:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 window.saveSiteAddress = async function(siteId){
   const name = document.getElementById('editSiteName').value.trim();
@@ -7383,6 +7655,15 @@ window.toggleAssignOpModal = async function(siteId, userId, checked){
     assignOpModalAssignedIds.delete(userId);
   }
   toast(checked ? 'Assigned to site' : 'Removed from site');
+};
+window.toggleMainContractor = async function(siteId, checked){
+  const row = await dbUpdate('sites', siteId, {acting_as_main_contractor: checked});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(checked ? 'Main Contractor tiles enabled' : 'Main Contractor tiles disabled');
+    render();
+  }
 };
 window.togglePriceEnabled = async function(siteId, checked){
   const row = await dbUpdate('sites', siteId, {price_enabled: checked});
@@ -13906,9 +14187,406 @@ window.confirmScheduleEmail = async function(siteId){
   }
 };
 
+/* ================= MAIN CONTRACTOR TILES ================= */
+// Turned on per-site via the "Acting as a Main Contractor?" tick box in
+// Settings & Admin (toggleMainContractor / site.acting_as_main_contractor).
+// Six simple document tiles (mc_documents, one table shared across all six,
+// distinguished by `category`) plus Subcontractors, which is its own
+// structure below.
+const MC_CATEGORY_LABEL = {cpp:'Construction Phase Plan', site_layout:'Site Layout', site_inductions:'Site Inductions', permits:'Permits To Work', asbestos:'Asbestos Register', f10:'F10 Notification'};
+const MC_CATEGORY_ICON = {cpp:'📘', site_layout:'🗺', site_inductions:'🪪', permits:'🧾', asbestos:'☣️', f10:'📮'};
+async function renderMcHome(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&select=category');
+  const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
+  const companies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="go('#/site/${siteId}/mc/cpp')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.cpp}</div><div class="lbl">${MC_CATEGORY_LABEL.cpp}</div><div class="sub">${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_layout}</div><div class="lbl">${MC_CATEGORY_LABEL.site_layout}</div><div class="sub">${countByCat.site_layout||0} document${(countByCat.site_layout||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">${countByCat.site_inductions||0} document${(countByCat.site_inductions||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Subcontractors</div><div class="sub">${companies.length} compan${companies.length===1?'y':'ies'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.permits}</div><div class="lbl">${MC_CATEGORY_LABEL.permits}</div><div class="sub">${countByCat.permits||0} document${(countByCat.permits||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/asbestos')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.asbestos}</div><div class="lbl">${MC_CATEGORY_LABEL.asbestos}</div><div class="sub">${countByCat.asbestos||0} document${(countByCat.asbestos||0)===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/f10')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.f10}</div><div class="lbl">${MC_CATEGORY_LABEL.f10}</div><div class="sub">${countByCat.f10||0} document${(countByCat.f10||0)===1?'':'s'}</div></div>
+    </div>
+  `, {title:'Main Contractor', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+async function renderMcDocuments(siteId, category){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const docs = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=eq.'+category+'&order=uploaded_at.desc');
+  await loadAllProfiles();
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${docs.map(d=>`
+      <div class="ramsdoc" style="padding:10px 12px;">
+        <div class="taskrowtop">
+          <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(d.name)}</div>
+          ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteMcDocument('${d.id}','${jsAttr(d.storage_path)}')">🗑</div></div>` : ''}
+        </div>
+        <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('mc-documents', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</span></div>
+      </div>
+    `).join('') || `<div class="empty">No documents uploaded.</div>`}
+    ${canAdd ? `
+    <div class="card" style="margin-top:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Upload ${escapeHtml(MC_CATEGORY_LABEL[category])}</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="mcDocName" placeholder="Document name"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('mcDocFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="mcDocFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('mcDocFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="mcDocFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addMcDocument('${siteId}','${category}')">Upload</button>
+    </div>
+    ` : ''}
+  `, {title: MC_CATEGORY_LABEL[category], subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+}
+window.addMcDocument = async function(siteId, category){
+  const name = document.getElementById('mcDocName').value.trim();
+  const fileInput = document.getElementById('mcDocFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/'+category+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('mc_documents', {org_id:ME.org_id, site_id:siteId, category, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('Uploaded'); render(); }
+};
+window.deleteMcDocument = async function(id, storagePath){
+  if(!await customConfirm('Delete this document?')) return;
+  const ok = await dbDelete('mc_documents', id);
+  if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
+};
+
+/* ---- Subcontractors ---- */
+let subcoAddOpen = false;
+let subcoNewName = '';
+async function renderSubcontractors(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const companies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Each subcontractor gets their own tile with RAMS, COSHH, Toolbox Talks, Daily Briefings and their own operatives — only operatives allocated to a company can see that company's tile.</p>
+    ${companies.map(c=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}')">
+        <div class="swatch">${operativeInitials(c.name)}</div>
+        <div class="info"><div class="name">${escapeHtml(c.name)}</div></div>
+        ${canAdd ? `<div class="taskicon danger" title="Remove" onclick="event.stopPropagation();deleteSubcontractorCompany('${c.id}','${jsAttr(c.name)}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No subcontractors added yet.</div>`}
+    ${canAdd ? (subcoAddOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <div class="formfield" style="margin-top:0;"><input type="text" id="subcoNewNameInput" placeholder="e.g. Acme Scaffolding" value="${escapeHtml(subcoNewName)}" oninput="subcoNewName=this.value"></div>
+        <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="subcoAddOpen=false;render();">Cancel</button><button class="darkbtn" style="flex:1;" onclick="addSubcontractorCompany('${siteId}')">Add</button></div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="subcoAddOpen=true;subcoNewName='';render();">+ Add Subcontractor</button>`) : ''}
+  `, {title:'Subcontractors', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+}
+window.addSubcontractorCompany = async function(siteId){
+  const name = (document.getElementById('subcoNewNameInput')||{}).value ? document.getElementById('subcoNewNameInput').value.trim() : subcoNewName.trim();
+  if(!name){ toast('Enter a company name.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const rows = await dbInsert('subcontractor_companies', {org_id: site.org_id, site_id:siteId, name, created_by:ME.id});
+  if(rows){ subcoAddOpen=false; subcoNewName=''; toast('Subcontractor added'); render(); }
+};
+window.deleteSubcontractorCompany = async function(id, name){
+  if(!await customConfirm(`Remove "${name}" and everything in their folder? This can't be undone.`)) return;
+  const ok = await dbDelete('subcontractor_companies', id);
+  if(ok){ toast('Removed'); render(); }
+};
+async function renderSubcontractorHub(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const rows = await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*');
+  const company = rows[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows] = await Promise.all([
+    dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
+    dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
+    dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
+    dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
+    dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
+  ]);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${tbtRows.length} live</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/briefings')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📝</div><div class="lbl">Daily Briefings</div><div class="sub">${briefingRows.length} logged</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operatives</div><div class="sub">${opRows.length} allocated</div></div>
+    </div>
+  `, {title:company.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors`, siteId, activeTab:'more'}); }
+}
+// Only the operative designated as a subcontractor's own "admin" (see
+// renderSubOperatives) can upload into their company's folder — RTB's own
+// PMs/admins can view, oversee and delete, but no longer upload on the
+// subcontractor's behalf; every document has to come from the subcontractor
+// themselves.
+async function isSubcontractorAdmin(companyId){
+  if(isManager(ME) || isClient(ME)) return false;
+  const rows = await dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&user_id=eq.'+ME.id+'&is_admin=eq.true&select=id&limit=1');
+  return rows.length>0;
+}
+async function fetchSubRamsData(siteId, companyId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [docs, assigned] = await Promise.all([
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&status=eq.current&order=uploaded_at.desc'),
+    dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
+  ]);
+  let sigsByDoc = {};
+  if(docs.length){
+    const ids = docs.map(d=>d.id).join(',');
+    let sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
+    sigs = filterCurrentCycleSigs(sigs, docs, 'rams_id', site);
+    sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
+  }
+  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
+}
+async function renderSubRams(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  // "canAdd" here only controls the display mode (static signed-count
+  // summary vs a personal sign box) and the delete icon — RTB's PM/admin and
+  // the subcontractor's own admin both get that view; uploading itself is
+  // restricted further below to the subcontractor admin only, since RTB no
+  // longer puts files into a subcontractor's folder.
+  const canAdd = isManager(ME) || isSubAdmin;
+  await loadAllProfiles();
+  const {docs, sigsByDoc, assignedIds} = await fetchSubRamsData(siteId, companyId);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
+    ${isSubAdmin ? `
+    <div class="card" style="margin-top:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="subRamsName" placeholder="Document name"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('subRamsFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="subRamsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('subRamsFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="subRamsFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addSubRams('${siteId}','${companyId}')">Upload</button>
+    </div>
+    ` : ''}
+  `, {title:company.name+' — RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubRams = async function(siteId, companyId){
+  const name = document.getElementById('subRamsName').value.trim();
+  const fileInput = document.getElementById('subRamsFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/subcontractor-rams/'+companyId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('rams_docs', {site_id:siteId, subcontractor_company_id:companyId, name, storage_path:stored, uploaded_by:ME.id, doc_type:'RAMS'});
+  if(rows){ toast('RAMS uploaded'); render(); }
+};
+async function fetchSubCoshhData(siteId, companyId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [docs, assigned] = await Promise.all([
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&order=uploaded_at.desc'),
+    dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
+  ]);
+  let sigsByDoc = {};
+  if(docs.length){
+    const ids = docs.map(d=>d.id).join(',');
+    let sigs = await dbSelect('coshh_signatures', 'coshh_id=in.('+ids+')');
+    sigs = filterCurrentCycleSigs(sigs, docs, 'coshh_id', site);
+    sigs.forEach(s=>{ (sigsByDoc[s.coshh_id]=sigsByDoc[s.coshh_id]||[]).push(s); });
+  }
+  return {docs, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
+}
+async function renderSubCoshh(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const canAdd = isManager(ME) || isSubAdmin;
+  await loadAllProfiles();
+  const {docs, sigsByDoc, assignedIds} = await fetchSubCoshhData(siteId, companyId);
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
+    ${isSubAdmin ? `
+    <div class="card" style="margin-top:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Upload COSHH</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="subCoshhName" placeholder="Document name"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('subCoshhFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="subCoshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('subCoshhFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="subCoshhFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addSubCoshh('${siteId}','${companyId}')">Upload</button>
+    </div>
+    ` : ''}
+  `, {title:company.name+' — COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubCoshh = async function(siteId, companyId){
+  const name = document.getElementById('subCoshhName').value.trim();
+  const fileInput = document.getElementById('subCoshhFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/subcontractor-coshh/'+companyId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('coshh-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('coshh_docs', {site_id:siteId, subcontractor_company_id:companyId, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('COSHH uploaded'); render(); }
+};
+// Subcontractor Toolbox Talks — deliberately simpler than the main site's
+// Bank/Live/Completed workflow: uploaded straight in as 'live' (issued
+// immediately) since a subcontractor's own crew is a small, fixed roster.
+async function renderSubTbt(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const talks = await dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&order=created_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${talks.map(t=>`
+      <div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt/${t.id}')">
+        <div class="top" style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+          <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+        </div>
+      </div>
+    `).join('') || `<div class="empty">No toolbox talks yet.</div>`}
+    ${isSubAdmin ? `
+    <div class="card" style="margin-top:10px;">
+      <p class="sectiontitle" style="margin-top:0;">Issue a toolbox talk</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="subTbtTitle" placeholder="Title, e.g. Working at Height"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('subTbtFile').click()">Choose PDF</div>
+      <input type="file" accept="application/pdf" id="subTbtFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('subTbtFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="subTbtFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addSubToolboxTalk('${siteId}','${companyId}')">Issue</button>
+    </div>
+    ` : ''}
+  `, {title:company.name+' — Toolbox Talks', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubToolboxTalk = async function(siteId, companyId){
+  const title = document.getElementById('subTbtTitle').value.trim();
+  const fileInput = document.getElementById('subTbtFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!title || !file){ toast('Add a title and choose a PDF.'); return; }
+  const path = siteId+'/subcontractor-tbt/'+companyId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('toolbox_talks', {site_id:siteId, subcontractor_company_id:companyId, title, storage_path:stored, status:'live', created_by:ME.id});
+  if(rows){ toast('Toolbox Talk issued'); render(); }
+};
+async function renderSubBriefings(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const canManageEntries = isManager(ME) || isSubAdmin; // delete/oversight — RTB can still remove a bad entry
+  await loadAllProfiles();
+  const briefings = await dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&order=submitted_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${briefings.map(b=>`
+      <div class="card" style="margin-bottom:8px;">
+        <div class="name" style="font-weight:700;">${escapeHtml(b.title)}</div>
+        <div class="meta">${escapeHtml(nameOf(b.submitted_by))} · ${new Date(b.submitted_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
+        ${b.storage_path ? `<div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', b.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(b.title)?b.title:b.title+'.pdf')}')">View document ↗</div>` : ''}
+        ${canManageEntries ? `<div class="taskicon danger" style="margin-top:6px;" onclick="deleteSubBriefing('${b.id}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No daily briefings logged yet.</div>`}
+    ${isSubAdmin ? `
+    <div class="card" style="margin-top:10px;">
+      <p class="sectiontitle" style="margin-top:0;">Log a briefing</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="subBriefTitle" placeholder="e.g. Monday morning briefing"></div>
+      <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('subBriefFile').click()">Choose PDF (optional)</div>
+      <input type="file" accept="application/pdf" id="subBriefFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('subBriefFileName').textContent=this.files[0]?this.files[0].name:''">
+      <p class="stub" id="subBriefFileName" style="margin:-4px 0 10px;"></p>
+      <button class="darkbtn" onclick="addSubBriefing('${siteId}','${companyId}')">Log Briefing</button>
+    </div>
+    ` : ''}
+  `, {title:company.name+' — Daily Briefings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubBriefing = async function(siteId, companyId){
+  const title = document.getElementById('subBriefTitle').value.trim();
+  if(!title){ toast('Add a title.'); return; }
+  const fileInput = document.getElementById('subBriefFile');
+  const file = fileInput.files && fileInput.files[0];
+  let storagePath = null;
+  if(file){
+    const path = siteId+'/subcontractor-briefings/'+companyId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    storagePath = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+    if(!storagePath) return;
+  }
+  const rows = await dbInsert('subcontractor_briefings', {subcontractor_company_id:companyId, site_id:siteId, title, storage_path:storagePath, submitted_by:ME.id});
+  if(rows){ toast('Briefing logged'); render(); }
+};
+window.deleteSubBriefing = async function(id){
+  if(!await customConfirm('Delete this briefing?')) return;
+  const ok = await dbDelete('subcontractor_briefings', id);
+  if(ok){ toast('Deleted'); render(); }
+};
+async function renderSubOperatives(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  const canAdd = isManager(ME);
+  await loadAllProfiles();
+  const [allocated, siteAssignments, allSubOpRows] = await Promise.all([
+    dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=*'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=user_id'),
+  ]);
+  const allocatedIds = new Set(allocated.map(a=>a.user_id));
+  const alreadyElsewhere = new Set(allSubOpRows.map(a=>a.user_id));
+  // Only operatives assigned to this site, and not already allocated to a
+  // (possibly different) subcontractor company here, can be picked — each
+  // operative belongs to at most one subcontractor company per site.
+  const pickable = siteAssignments.map(a=>PROFILES[a.user_id]).filter(p=>p && p.role==='operative' && !alreadyElsewhere.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 12px;">The subcontractor admin is the only one who can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views and signs, the same as an RTB operative does on the main site.</p>
+    ${allocated.map(a=>`
+      <div class="sitecard">
+        <div class="swatch personswatch">${escapeHtml((nameOf(a.user_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(nameOf(a.user_id))}</div><div class="addr">${a.is_admin ? '⭐ Subcontractor admin' : ''}</div></div>
+        ${canAdd ? `
+        <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="toggleSubOperativeAdmin('${a.id}', ${!a.is_admin})">${a.is_admin ? 'Remove admin' : 'Make admin'}</button>
+        <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="removeSubOperative('${a.id}')">Remove</button>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No operatives allocated yet.</div>`}
+    ${canAdd ? `
+    <div class="card" style="margin-top:14px;">
+      <p class="sectiontitle" style="margin-top:0;">Allocate an operative</p>
+      <p class="stub" style="margin:0 0 8px;">Only operatives already assigned to this site, and not already with another subcontractor here, are listed.</p>
+      <select id="subOpPicker">
+        <option value="">Choose an operative…</option>
+        ${pickable.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}
+      </select>
+      <label class="stub" style="display:flex;align-items:center;gap:6px;margin:8px 0 0;"><input type="checkbox" id="subOpAsAdmin" style="width:auto;">Make this their subcontractor admin (upload rights)</label>
+      <button class="darkbtn" style="margin-top:8px;" onclick="addSubOperative('${siteId}','${companyId}')">Allocate</button>
+    </div>
+    ` : ''}
+  `, {title:company.name+' — Operatives', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubOperative = async function(siteId, companyId){
+  const sel = document.getElementById('subOpPicker');
+  const userId = sel ? sel.value : '';
+  if(!userId){ toast('Choose an operative.'); return; }
+  const asAdmin = document.getElementById('subOpAsAdmin') && document.getElementById('subOpAsAdmin').checked;
+  const rows = await dbInsert('subcontractor_operatives', {site_id:siteId, subcontractor_company_id:companyId, user_id:userId, assigned_by:ME.id, is_admin:!!asAdmin});
+  if(rows){ toast('Allocated'); subOpCache = {}; render(); }
+};
+window.toggleSubOperativeAdmin = async function(rowId, makeAdmin){
+  const row = await dbUpdate('subcontractor_operatives', rowId, {is_admin: makeAdmin});
+  if(row){ toast(makeAdmin ? 'Now the subcontractor admin' : 'Admin removed'); render(); }
+};
+window.removeSubOperative = async function(rowId){
+  if(!await customConfirm('Remove this operative from the subcontractor?')) return;
+  const ok = await dbDelete('subcontractor_operatives', rowId);
+  if(ok){ toast('Removed'); subOpCache = {}; render(); }
+};
+
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
-function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
+function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView){
   const roster = assignedIds||[];
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
@@ -13933,10 +14611,16 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
       </div>
       <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
-          ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
-        </div>
-        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
+        ${isClientView ? `
+          <div class="siglinebox" style="flex:1;margin-top:0;cursor:default;">
+            <span class="name">${sigs.length} signed</span><span>${roster.length ? notSigned.length+' outstanding' : ''}</span>
+          </div>
+        ` : `
+          <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
+            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+          </div>
+        `}
+        ${sigs.length && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
     </div>`;
@@ -14028,15 +14712,16 @@ async function hsPolicySectionHtml(siteId){
   hsPolicyInRamsOpenDefault = !iSigned;
   const isOpen = hsPolicyInRamsOverride===null ? hsPolicyInRamsOpenDefault : hsPolicyInRamsOverride;
   const canManage = isManager(ME);
+  const isClientView = ME.role==='client';
   return `
-    <p class="ddrow" onclick="toggleHsPolicyInRams()"><span class="arrow">${isOpen?'▼':'▶'}</span> H&amp;S Policy ${iSigned?'':'<span class="badge-count" style="position:static;display:inline-block;margin-left:4px;">!</span>'}</p>
+    <p class="ddrow" onclick="toggleHsPolicyInRams()"><span class="arrow">${isOpen?'▼':'▶'}</span> H&amp;S Policy ${(iSigned||isClientView)?'':'<span class="badge-count" style="position:static;display:inline-block;margin-left:4px;">!</span>'}</p>
     ${isOpen ? `
     <div class="card">
       <div style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</div>
       <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
       <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
       <div style="margin-top:12px;">
-        ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(mySig.signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<div class="siglinebox" style="margin-top:0;cursor:pointer;" onclick="signHsPolicy('${doc.id}')">Tap to confirm you've read and understood this policy</div>`}
+        ${isClientView ? '' : (iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(mySig.signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<div class="siglinebox" style="margin-top:0;cursor:pointer;" onclick="signHsPolicy('${doc.id}')">Tap to confirm you've read and understood this policy</div>`)}
       </div>
       ${canManage ? `<p class="stub" style="margin-top:12px;cursor:pointer;text-decoration:underline;" onclick="go('#/site/${siteId}/hs/policy')">View signed status / superseded versions</p><p class="stub" style="margin-top:4px;">Upload a new version from Settings &amp; Admin → Health &amp; Safety.</p>` : ''}
     </div>
@@ -14047,6 +14732,7 @@ async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
+  const isClientView = ME.role==='client';
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
@@ -14072,9 +14758,9 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${hsPolicyHtml}
-    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site)}</div>
+    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
 
-    ${docs.length ? `
+    ${docs.length && !isClientView ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
         ${unsignedRamsCount ? `Sign All RAMS Documents (${unsignedRamsCount} unsigned)` : 'All RAMS documents signed'}
       </button>
@@ -14117,7 +14803,7 @@ async function renderRams(siteId){
     try{
       const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
       const freshEl = document.getElementById('ramsDocsList');
-      if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+      if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView);
     } finally { ramsPollBusy = false; }
   }, 7000);
 }
@@ -14222,7 +14908,7 @@ window.sendRamsSignReminder = async function(siteId){
 
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
-function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
+function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView){
   const roster = assignedIds||[];
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
@@ -14254,7 +14940,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
       </div>
       <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        ${canAdd ? `
+        ${canAdd || isClientView ? `
           <div class="siglinebox" style="flex:1;margin-top:0;cursor:default;">
             <span class="name">${signedCount} signed</span><span>${roster.length ? outstandingCount+' outstanding' : ''}</span>
           </div>
@@ -14263,7 +14949,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site){
             ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet'}
           </div>
         `}
-        ${sigs.length && canAdd ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedCoshh('${r.id}')">Export Signed PDF</button>` : ''}
+        ${sigs.length && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedCoshh('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
     </div>`;
@@ -14296,6 +14982,7 @@ async function renderCoshh(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
+  const isClientView = ME.role==='client';
   await loadAllProfiles();
   const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
   const unsignedCoshhCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
@@ -14311,9 +14998,9 @@ async function renderCoshh(siteId){
   `;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site)}</div>
+    <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
 
-    ${!canAdd && docs.length ? `
+    ${!canAdd && !isClientView && docs.length ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedCoshhCount?'':'disabled'} onclick="signAllCoshh('${siteId}')">
         ${unsignedCoshhCount ? `Sign All COSHH Documents (${unsignedCoshhCount} unsigned)` : 'All COSHH documents signed'}
       </button>
@@ -14346,7 +15033,7 @@ async function renderCoshh(siteId){
     try{
       const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
       const freshEl = document.getElementById('coshhDocsList');
-      if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site);
+      if(freshEl) freshEl.innerHTML = coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView);
     } finally { coshhPollBusy = false; }
   }, 7000);
 }
@@ -14504,6 +15191,23 @@ window.sendCoshhSignReminder = async function(siteId){
 async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  if(isClient(ME)){
+    const [ramsRows, coshhRows, liveTbts] = await Promise.all([
+      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
+      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
+      dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
+    ]);
+    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
+        <div class="tile" onclick="go('#/site/${siteId}/hs/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${liveTbts.length} live</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🛠</div><div class="lbl">Completed Inspections</div><div class="sub">PUWER</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operative Dashboard</div><div class="sub">Roster &amp; certificates</div></div>
+      </div>
+    `, {title:'Health & Safety', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+    return;
+  }
   const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates, incidentCount] = await Promise.all([
     // status=eq.current — RAMS docs can be superseded (see renderRams, which
     // already filters this way); without it a superseded document still
@@ -14583,6 +15287,15 @@ async function renderHealthSafety(siteId){
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
+      ${site.acting_as_main_contractor ? `
+      <div class="tile" onclick="go('#/site/${siteId}/mc/cpp')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.cpp}</div><div class="lbl">${MC_CATEGORY_LABEL.cpp}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_layout}</div><div class="lbl">${MC_CATEGORY_LABEL.site_layout}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Subcontractors</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.permits}</div><div class="lbl">${MC_CATEGORY_LABEL.permits}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/asbestos')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.asbestos}</div><div class="lbl">${MC_CATEGORY_LABEL.asbestos}</div><div class="sub">Main Contractor</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/f10')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.f10}</div><div class="lbl">${MC_CATEGORY_LABEL.f10}</div><div class="sub">Main Contractor</div></div>
+      ` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
@@ -16400,7 +17113,8 @@ async function renderOperativeDashboard(siteId){
   if(siteId && !site){ go('#/sites'); return; }
   const backHash = siteId ? `#/site/${siteId}/hs` : '#/sites';
 
-  if(siteId && isManager(ME)){
+  if(siteId && (isManager(ME) || ME.role==='client')){
+    const isClientView = ME.role==='client';
     await loadAllProfiles();
     const [assignedRows, myCerts, manualPeople] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -16434,38 +17148,40 @@ async function renderOperativeDashboard(siteId){
     });
 
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+      ${isClientView ? '' : `
       <p class="ddrow" style="margin-top:0;" onclick="siteCertOpen.__self=!siteCertOpen.__self;render();"><span class="arrow">${siteCertOpen.__self?'▼':'▶'}</span> Your Certificates</p>
       ${siteCertOpen.__self ? `
         ${certListSelectionBarHtml(myCerts, 'sitecertself', ME.id, pmList)}
         ${certAddToggleHtml(ME.id, 'sitecertself')}
         ${operativeCertListHtml(myCerts, true, {compact:true, selectable:true})}
       ` : ''}
+      `}
 
       <p class="sectiontitle" style="margin-top:20px;">Assigned Operatives (${assignedOperatives.length})</p>
       ${assignedOperatives.length ? assignedOperatives.map(o=>`
         <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub" style="margin-left:4px;">${certCountByOp[o.id]||0} cert${(certCountByOp[o.id]||0)===1?'':'s'}</span></p>
         ${siteCertOpen[o.id] ? `
-          ${certListSelectionBarHtml(allCertsByOp[o.id]||[], 'siteop-'+o.id, o.id, pmList)}
+          ${isClientView ? '' : certListSelectionBarHtml(allCertsByOp[o.id]||[], 'siteop-'+o.id, o.id, pmList)}
           ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true, selectable:true})}
-          <button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>
+          ${isClientView ? '' : `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>`}
         ` : ''}
       `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
 
       <p class="sectiontitle" style="margin-top:20px;">Other People (${manualPeople.length})</p>
       <p class="stub" style="margin:0 0 10px;">For someone with certificates to track who isn't a registered operative — a subcontractor, for example. No account or login is created for them.</p>
       ${manualPeople.map(p=>`
-        <div class="sitecard" style="cursor:pointer;" onclick="siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();">
+        <div class="sitecard" ${isClientView?'':'style="cursor:pointer;"'} onclick="${isClientView?'':`siteCertManualOpen['${p.id}']=!siteCertManualOpen['${p.id}'];render();`}">
           <div class="swatch">${operativeInitials(p.name)}</div>
           <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${certCountByManual[p.id]||0} certificate${(certCountByManual[p.id]||0)===1?'':'s'}</div></div>
-          <div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>
+          ${isClientView ? '' : `<div class="taskicon danger" title="Remove" onclick="event.stopPropagation();removeManualCertPerson('${p.id}')">🗑</div>`}
         </div>
-        ${siteCertManualOpen[p.id] ? `
+        ${siteCertManualOpen[p.id] && !isClientView ? `
           ${certListSelectionBarHtml(manualCertsById[p.id]||[], 'sitemanual-'+p.id, null, pmList)}
           ${manualCertAddToggleHtml(p.id, 'sitecertmanual'+p.id.replace(/[^a-zA-Z0-9]/g,''))}
           ${operativeCertListHtml(manualCertsById[p.id]||[], true, {compact:true, selectable:true})}
         ` : ''}
       `).join('')}
-      ${siteCertManualAddOpen ? `
+      ${isClientView ? '' : (siteCertManualAddOpen ? `
         <div class="card" style="margin-top:6px;">
           <p class="field-label" style="margin-bottom:6px;">Name</p>
           <input type="text" id="manualCertPersonName" placeholder="e.g. Joe Bloggs (subcontractor)" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;">
@@ -16474,7 +17190,7 @@ async function renderOperativeDashboard(siteId){
             <button class="darkbtn" style="flex:1;" onclick="addManualCertPerson('${siteId}')">Add</button>
           </div>
         </div>
-      ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`}
+      ` : `<button class="ghostbtn" style="margin-top:2px;" onclick="siteCertManualAddOpen=true;render();">+ Add a person</button>`)}
     `, {title:'Operative Dashboard', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHash, siteId, activeTab:'more'}); }
     return;
   }
@@ -16543,6 +17259,8 @@ async function renderPuwer(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
+  const isClientView = ME.role==='client';
+  const viewAsManager = canManage || isClientView; // clients get the same read-only roster view as managers, minus any edit/manage controls (gated separately below by canManage)
   await loadAllProfiles();
   const weekStartISO = puwerWeekStartISO(puwerWeekOffset);
   const [assignedRows, inspections, completionRows] = await Promise.all([
@@ -16551,7 +17269,7 @@ async function renderPuwer(siteId){
     dbSelect('puwer_weekly_completions', 'site_id=eq.'+siteId+'&week_start=eq.'+weekStartISO+'&select=id,completed_at,completed_by'),
   ]);
   const completion = completionRows[0] || null;
-  const operatives = canManage
+  const operatives = viewAsManager
     ? assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name))
     : [ME];
   const inspectedIds = new Set(inspections.map(i=>i.user_id));
@@ -16573,18 +17291,18 @@ async function renderPuwer(siteId){
     ${completion ? `<div class="card" style="margin-bottom:14px;background:var(--ok-bg);"><p class="stub" style="margin:0;color:var(--ok);font-weight:700;">✓ Week marked complete — ${new Date(completion.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</p></div>` : ''}
     ${canManage ? `<p class="stub" style="margin:0 0 8px;">Tick an operative to include them in Export Selected below.</p>` : ''}
     ${operatives.map(op=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/hs/puwer/${op.id}')">
+      <div class="sitecard" ${isClientView?'':'style="cursor:pointer;"'} ${isClientView?'':`onclick="go('#/site/${siteId}/hs/puwer/${op.id}')"`}>
         ${canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${puwerExportSelectedIds.includes(op.id)?'checked':''} onclick="event.stopPropagation();togglePuwerExportSelected('${op.id}')">` : ''}
         <div class="swatch personswatch">${escapeHtml((op.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}${canManage ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();openAdminOperativeTools('${op.id}')">🔧 ${toolCountByUser[op.id]||0} tool${(toolCountByUser[op.id]||0)===1?'':'s'} — open in Admin Centre</span>` : ''}</div></div>
         <div class="status ${inspectedIds.has(op.id)?'active':'upcoming'}">${inspectedIds.has(op.id)?'Done':'Pending'}</div>
-        ${canManage && inspectedIds.has(op.id) ? `<div class="ghostbtn" style="flex:0 0 auto;width:auto;padding:4px 8px;font-size:10px;" onclick="event.stopPropagation();exportPuwerIndividual('${siteId}','${op.id}')">Export</div>` : ''}
+        ${(canManage||isClientView) && inspectedIds.has(op.id) ? `<div class="ghostbtn" style="flex:0 0 auto;width:auto;padding:4px 8px;font-size:10px;" onclick="event.stopPropagation();exportPuwerIndividual('${siteId}','${op.id}')">Export</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No operatives assigned to this site.</div>`}
-    ${canManage && operatives.length ? `
+    ${viewAsManager && operatives.length ? `
       <div style="display:flex;gap:8px;margin-top:12px;">
         <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${puwerExportAllBusy?'disabled':''} onclick="exportPuwerCollective('${siteId}')">${puwerExportAllBusy?'Building…':'Export All Operatives Weekly PUWER'}</button>
-        <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${puwerEmailAllBusy?'disabled':''} onclick="emailPuwerCollective('${siteId}')">${puwerEmailAllBusy?'Sending…':'Email All Operatives Weekly PUWER'}</button>
+        ${canManage ? `<button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:11px;" ${puwerEmailAllBusy?'disabled':''} onclick="emailPuwerCollective('${siteId}')">${puwerEmailAllBusy?'Sending…':'Email All Operatives Weekly PUWER'}</button>` : ''}
       </div>
       ${puwerExportSelectedIds.length ? `
       <button class="ghostbtn" style="width:100%;margin-top:8px;padding:7px 6px;font-size:11px;" onclick="exportPuwerSelected('${siteId}')">Export Selected (${puwerExportSelectedIds.length})</button>
@@ -17931,6 +18649,7 @@ async function renderToolboxTalkView(siteId, tbtId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
+  const isClientView = ME.role==='client';
   const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
   const talk = rows && rows[0];
   if(!talk){ toast('Could not load that toolbox talk — it may no longer be live.'); go(`#/site/${siteId}/hs/tbt`); return; }
@@ -17960,9 +18679,16 @@ async function renderToolboxTalkView(siteId, tbtId){
         <span class="statustag2 ${TBT_STATUS_CLASS[talk.status]||'closed'}">${TBT_STATUS_LABEL[talk.status]||talk.status}</span>
       </div>
       <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', talk.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(talk.title)?talk.title:talk.title+'.pdf')}')">View document ↗</div>
+      ${isClientView ? `
+      <div class="siglinebox" style="margin-top:14px;cursor:default;">
+        <span class="name">${sigs.length} signed</span>
+      </div>
+      ${sigs.length ? `<button class="ghostbtn exportbtn" style="margin-top:8px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>` : ''}
+      ` : `
       <div class="siglinebox ${mine?'signed':''}" style="margin-top:14px;${mine||!isLive?'':'cursor:pointer;'}" onclick="${mine||!isLive?'':`signToolboxTalk('${siteId}','${tbtId}')`}">
         ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:34px;max-width:140px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (isLive ? 'Tap to sign' : 'Not live — can\'t sign')}
       </div>
+      `}
     </div>
     ${isPM ? `
     <div class="card">
@@ -21677,6 +22403,7 @@ async function renderRoute(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
+  if(parts[0]==='hub'){ if(!ME || !isManager(ME)){ go('#/sites'); return; } return renderHub(); }
   if(parts[0]==='my-messages'){ return renderMyMessages(); }
   if(parts[0]==='operative-dashboard'){ return renderOperativeDashboard(); }
   if(parts[0]==='account'){ return renderAccountSettings(); }
@@ -21714,6 +22441,23 @@ async function renderRoute(){
       const site = SITES.find(s=>s.id===siteId);
       if(site && site.status==='closed'){ toast('This job is closed.'); go('#/sites'); return; }
     }
+    // Clients only ever get home/schedule/hs(rams,coshh,tbt,puwer)/snagging —
+    // anything else (messages, materials, price, drawings, todos, check-in,
+    // team/admin pages) bounces back to this site's home. Mirrors the
+    // server-side RLS lockdown (has_client_view_access) so there's no page
+    // that half-loads with an access error.
+    if(isClient(ME) && !CLIENT_ALLOWED_SITE_PAGES.includes(page)){ go(`#/site/${siteId}/home`); return; }
+    // Subcontractor operatives (see subcontractor_operatives / #(subcontractor-lockdown))
+    // only ever see the Main Contractor tile at this site (the CPP/Site
+    // Layout/Inductions/Permits/Asbestos/F10 documents, plus their own
+    // company's folder under Subcontractors) — nothing else on the site
+    // (schedule, snagging, check-in, messages, etc). They still sign up and
+    // pick a site normally; once a PM allocates them to a subcontractor
+    // company, this is what they get here.
+    if(!isManager(ME) && !isClient(ME)){
+      const mySubCompanyId = await getMySubcontractorCompanyId(siteId);
+      if(mySubCompanyId && page!=='mc'){ go(`#/site/${siteId}/mc/subcontractors/${mySubCompanyId}`); return; }
+    }
     // Keep the bottom tab bar's Messages badge fresh on every site-scoped
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ refreshUnreadBadge(siteId); }
@@ -21724,7 +22468,8 @@ async function renderRoute(){
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging'){
       const sub = parts[3];
-      if(!sub) return renderSnaggingFolder(siteId);
+      if(isClient(ME) && sub && sub!=='list'){ go(`#/site/${siteId}/snagging/list`); return; }
+      if(!sub) return isClient(ME) ? renderSnagging(siteId) : renderSnaggingFolder(siteId);
       if(sub==='list') return renderSnagging(siteId);
       if(sub==='variations') return renderVariations(siteId);
       if(sub==='templates') return renderSiteReportTemplates(siteId);
@@ -21746,6 +22491,9 @@ async function renderRoute(){
     if(page==='drawings-import') return renderDrawingImportPicker(siteId);
     if(page==='hs'){
       const sub = parts[3];
+      // Clients get a cut-down H&S area — RAMS/COSHH/TBT/PUWER only, no
+      // briefings/HAVS/incidents/my-tools/policy-as-its-own-page/operatives.
+      if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams') return renderRams(siteId);
       if(sub==='coshh') return renderCoshh(siteId);
@@ -21783,6 +22531,38 @@ async function renderRoute(){
         return renderIncidents(siteId);
       }
       return renderHealthSafety(siteId);
+    }
+    if(page==='mc'){
+      // Main Contractor tiles — only reachable at all once a site's been
+      // switched on for it (see toggleMainContractor / site.acting_as_main_contractor).
+      const site = SITES.find(s=>s.id===siteId);
+      if(!site || !site.acting_as_main_contractor){ go(`#/site/${siteId}/home`); return; }
+      const sub = parts[3];
+      if(sub==='subcontractors'){
+        const companyId = parts[4];
+        const csub = parts[5];
+        // A subcontractor operative only ever sees their own company's
+        // folder here — never the company list, and never another
+        // subcontractor's folder.
+        if(!isManager(ME) && !isClient(ME)){
+          const mySubCompanyId = await getMySubcontractorCompanyId(siteId);
+          if(mySubCompanyId && companyId!==mySubCompanyId){ go(`#/site/${siteId}/mc/subcontractors/${mySubCompanyId}`); return; }
+        }
+        if(!companyId) return renderSubcontractors(siteId);
+        if(!csub) return renderSubcontractorHub(siteId, companyId);
+        if(csub==='rams') return renderSubRams(siteId, companyId);
+        if(csub==='coshh') return renderSubCoshh(siteId, companyId);
+        if(csub==='tbt'){
+          const tbtId = parts[6];
+          if(tbtId) return renderToolboxTalkView(siteId, tbtId);
+          return renderSubTbt(siteId, companyId);
+        }
+        if(csub==='briefings') return renderSubBriefings(siteId, companyId);
+        if(csub==='operatives') return renderSubOperatives(siteId, companyId);
+        return renderSubcontractorHub(siteId, companyId);
+      }
+      if(['cpp','site_layout','site_inductions','permits','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
+      return renderMcHome(siteId);
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
