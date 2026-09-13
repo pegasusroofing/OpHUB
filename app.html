@@ -4276,7 +4276,7 @@ async function renderTeam(){
     ` : ''}
     ` : ''}
     ${canUsePriceBuilder() && PRICE_BUILDER_LIVE ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="rolechip" style="margin-left:4px;">Admin only for now</span></p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="plaintag" style="margin-left:4px;color:var(--slate-light);font-size:11px;font-weight:600;">Admin only for now</span></p>
     ${teamSectionOpen.pricebuilder ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
@@ -6509,11 +6509,11 @@ async function renderSiteHome(siteId){
       hsOperativeGap = ramsGapHere || coshhGapHere;
     }
   }
-  // Main Contractor tiles (CPP, Site Rules & Layout, Site Inductions,
-  // Subcontractors, Permits, Inspections, Asbestos, F10) live behind a
-  // single "Main Contractor" tile — that tile itself sits at position 2 on
-  // Home (right after Check In/Out) whenever a site's switched on for it;
-  // see renderMcHome for what's underneath it.
+  // Main Contractor tiles (CPP, Site Inductions, Subcontractors, Permits,
+  // Inspections, Asbestos, F10) live behind a single "Main Contractor" tile
+  // — that tile itself sits at position 2 on Home (right after Check
+  // In/Out) whenever a site's switched on for it; see renderMcHome for
+  // what's underneath it.
   const mcAreaCount = site.acting_as_main_contractor ? (await getMcTiles(siteId, site)).visibleTiles.length : 0;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
@@ -7505,6 +7505,15 @@ async function renderAssignTeam(siteId){
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
     ` : ''}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('maincontractor')"><span class="arrow">${siteTeamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
+    ${siteTeamSectionOpen.maincontractor ? `
+    <div class="card">
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
+      <p class="stub" style="margin:8px 0 0;">When on, a single "Main Contractor" tile appears on this site's home page (position 2, right after Check In/Out) leading to Construction Phase Plan, Site Inductions, Subcontractors, Permits To Work, Inspections, Asbestos Register and F10 Notification. Site Rules &amp; Layout lives in Health &amp; Safety instead, since it applies to every site.</p>
+    </div>
+    ` : ''}
+
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('multisite')"><span class="arrow">${siteTeamSectionOpen.multisite?'▼':'▶'}</span> Multi-Site</p>
     ${siteTeamSectionOpen.multisite ? `
     <div class="card">
@@ -7601,14 +7610,6 @@ async function renderAssignTeam(siteId){
     ` : ''}
 
     <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
-
-    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('maincontractor')"><span class="arrow">${siteTeamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
-    ${siteTeamSectionOpen.maincontractor ? `
-    <div class="card">
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
-      <p class="stub" style="margin:8px 0 0;">When on, this site's home page and Health &amp; Safety area get extra tiles before RAMS: Construction Phase Plan, Site Layout, Site Inductions, Subcontractors, Permits To Work, Asbestos Register and F10 Notification.</p>
-    </div>
-    ` : ''}
 
     ${ME.role==='admin' ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
@@ -14396,26 +14397,26 @@ function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
   `;
 }
 // Shared data-fetch + tile-array builder for the Main Contractor tiles
-// (CPP, Site Rules & Layout, Site Inductions, Subcontractors, Permits,
-// Inspections, Asbestos, F10) — used by renderMcHome (the page the single
-// "Main Contractor" tile on Home leads to) and by Home itself just for the
-// area count shown on that tile, so the two never drift apart. Gated on
+// (CPP, Site Inductions, Subcontractors, Permits, Inspections, Asbestos,
+// F10) — used by renderMcHome (the page the single "Main Contractor" tile
+// on Home leads to) and by Home itself just for the area count shown on
+// that tile, so the two never drift apart. Gated on
 // site.acting_as_main_contractor and respecting the ⋮ hide-from-operatives
-// toggle below.
+// toggle below. Site Rules & Layout lives in Health & Safety instead — it
+// applies to every site — but Site Inductions is deliberately kept
+// Main-Contractor-only, nowhere else.
 async function getMcTiles(siteId, site){
   const canAdd = isManager(ME);
   const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
   const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const [companies, inductionAssigned, inductionDone, layoutDone, openPermits, mcInspectionTemplates] = await Promise.all([
+  const [companies, inductionAssigned, inductionDone, openPermits, mcInspectionTemplates] = await Promise.all([
     dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
-    dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('permits', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&select=id'),
   ]);
   const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
-  const layoutSub = layoutDone.length ? `${layoutDone.length} document${layoutDone.length===1?'':'s'}` : 'No documents yet';
   const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
   let mcInspectionsCount = 0;
   if(mcInspectionTemplates.length){
@@ -14427,7 +14428,6 @@ async function getMcTiles(siteId, site){
   const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
   const tiles = [
     {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},
-    {key:'site_layout', href:`#/site/${siteId}/mc/site_layout`, icon:MC_CATEGORY_ICON.site_layout, lbl:MC_CATEGORY_LABEL.site_layout, sub:layoutSub},
     {key:'site_inductions', href:`#/site/${siteId}/mc/site_inductions`, icon:MC_CATEGORY_ICON.site_inductions, lbl:MC_CATEGORY_LABEL.site_inductions, sub:inductionSub},
     {key:'subcontractors', href:`#/site/${siteId}/mc/subcontractors`, icon:'👷', lbl:'Subcontractors', sub:`${companies.length} compan${companies.length===1?'y':'ies'}`},
     {key:'permits', href:`#/site/${siteId}/mc/permits`, icon:'🧾', lbl:'Permits To Work', sub:permitsSub},
@@ -16440,15 +16440,17 @@ async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(isClient(ME)){
-    const [ramsRows, coshhRows, liveTbts] = await Promise.all([
+    const [ramsRows, coshhRows, liveTbts, layoutRows] = await Promise.all([
       dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
       dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
       dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
+      dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
     ]);
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/hs/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🗺</div><div class="lbl">Site Rules &amp; Layout</div><div class="sub">${layoutRows.length} document${layoutRows.length===1?'':'s'}</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${liveTbts.length} live</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🛠</div><div class="lbl">Completed Inspections</div><div class="sub">PUWER</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operative Dashboard</div><div class="sub">Roster &amp; certificates</div></div>
@@ -16493,15 +16495,18 @@ async function renderHealthSafety(siteId){
   // still haven't signed the current RAMS/COSHH — a simple "!" flag, not a
   // count, mirroring the roster-completion logic computeOutstandingRows uses
   // for the same purpose elsewhere.
-  let ramsOperativeGap = false, coshhOperativeGap = false;
-  if(isManager(ME) && (ramsCurrentRows.length || coshhCurrentRows.length)){
+  let ramsOperativeGap = false, coshhOperativeGap = false, layoutOperativeGap = false;
+  const {docs: layoutDocs, sigsByDoc: layoutSigsByDoc} = await fetchSiteLayoutData(siteId);
+  const layoutUnsignedCount = layoutDocs.filter(r=>!(layoutSigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+  if(isManager(ME) && (ramsCurrentRows.length || coshhCurrentRows.length || layoutDocs.length)){
     await loadAllProfiles();
     const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
     const operativeIds = assignedRows.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
     if(operativeIds.length){
-      [ramsOperativeGap, coshhOperativeGap] = await Promise.all([
+      [ramsOperativeGap, coshhOperativeGap, layoutOperativeGap] = await Promise.all([
         anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentRows, site, operativeIds),
         anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhCurrentRows, site, operativeIds),
+        anyOperativeMissingSignature('site_layout_signatures', 'layout_id', layoutDocs, site, operativeIds),
       ]);
     }
   }
@@ -16544,6 +16549,11 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
         <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
         ${isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'')}
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')">
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🗺</div>
+        <div class="lbl">Site Rules &amp; Layout</div><div class="sub">${layoutDocs.length} document${layoutDocs.length===1?'':'s'}</div>
+        ${isManager(ME) ? (layoutOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (layoutUnsignedCount?`<span class="badge-count">${layoutUnsignedCount}</span>`:'')}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
@@ -23778,11 +23788,18 @@ async function renderRoute(){
       return renderHealthSafety(siteId);
     }
     if(page==='mc'){
-      // Main Contractor tiles — only reachable at all once a site's been
-      // switched on for it (see toggleMainContractor / site.acting_as_main_contractor).
       const site = SITES.find(s=>s.id===siteId);
-      if(!site || !site.acting_as_main_contractor){ go(`#/site/${siteId}/home`); return; }
       const sub = parts[3];
+      // Site Rules & Layout applies to every site regardless of
+      // site.acting_as_main_contractor, so it stays reachable here. Site
+      // Inductions is deliberately Main-Contractor-only — it belongs
+      // exclusively under the Main Contractor tile, nowhere else.
+      if(sub==='site_layout') return renderSiteLayout(siteId);
+      // Main Contractor tiles — everything from here on is only reachable
+      // once a site's been switched on for it (see toggleMainContractor /
+      // site.acting_as_main_contractor).
+      if(!site || !site.acting_as_main_contractor){ go(`#/site/${siteId}/home`); return; }
+      if(sub==='site_inductions') return renderSiteInductions(siteId);
       if(sub==='subcontractors'){
         const companyId = parts[4];
         const csub = parts[5];
@@ -23819,8 +23836,6 @@ async function renderRoute(){
         if(csub==='library') return renderSubCompanyLibrary(siteId, companyId);
         return renderSubcontractorHub(siteId, companyId);
       }
-      if(sub==='site_inductions') return renderSiteInductions(siteId);
-      if(sub==='site_layout') return renderSiteLayout(siteId);
       if(sub==='permits'){
         const permitId = parts[4];
         if(permitId) return renderPermitView(siteId, permitId, null);
