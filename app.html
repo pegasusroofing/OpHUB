@@ -1848,10 +1848,16 @@ window.addEventListener('hashchange', function(){
   if(typeof priceWeekRowOpen!=='undefined' && /^#\/site\/[^/]+\/price\/element\//.test(toHash) && !/^#\/site\/[^/]+\/price\/element\//.test(fromHash)){
     priceWeekRowOpen = {};
   }
+  // Only restore a saved scroll position when this is genuinely a "back up"
+  // move (the hash we're leaving is a deeper path under the one we're going
+  // to — e.g. stepping back out of a folder list). Any other navigation,
+  // including going back INTO a folder you'd previously scrolled down in,
+  // must land at the top so its header is never hidden on first view.
+  const isBackUp = fromHash.indexOf(toHash) === 0 && fromHash !== toHash;
   const pending = render();
   if(pending && pending.then){
     pending.then(function(){
-      requestAnimationFrame(function(){ window.scrollTo(0, scrollPositionByHash[toHash] || 0); });
+      requestAnimationFrame(function(){ window.scrollTo(0, isBackUp ? (scrollPositionByHash[toHash] || 0) : 0); });
     });
   }
 });
@@ -15094,6 +15100,7 @@ let inductionEmergencyName = '';
 let inductionEmergencyNumber = '';
 let siteInductionFilter = 'outstanding'; // PM/client tab state: outstanding | completed
 let siteInductionOpTab = 'form'; // operative tab state: form | completed
+let siteInductionOneDrivePanelOpen = false; // manager: OneDrive sync panel toggled from the "+" beside the tabs
 async function fetchSiteInductionData(siteId){
   const [assigned, completions] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -15117,8 +15124,13 @@ async function renderSiteInductions(siteId){
     const completedRoster = roster.filter(uid=>byOperative[uid]).sort((a,b)=> new Date(byOperative[b].completed_at) - new Date(byOperative[a].completed_at));
     const visibleRoster = siteInductionFilter==='completed' ? completedRoster : outstandingRoster;
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-      ${canManage ? `
-      <div class="card">
+      <div class="row-gap" style="margin:0 0 10px;align-items:center;">
+        <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';render()">Outstanding</div>
+        <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';render()">Completed Inductions</div>
+        ${siteInductionFilter==='completed' && canManage ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="Sync to OneDrive folder" onclick="siteInductionOneDrivePanelOpen=!siteInductionOneDrivePanelOpen;render()">+</div>` : ''}
+      </div>
+      ${siteInductionFilter==='completed' && canManage && siteInductionOneDrivePanelOpen ? `
+      <div class="card" style="margin-bottom:10px;">
         ${linked ? `
           <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Signed inductions are pushed to "${escapeHtml(site.site_inductions_folder_name||'')}"</p>
           <div class="row-gap">
@@ -15131,10 +15143,6 @@ async function renderSiteInductions(siteId){
         `}
       </div>
       ` : ''}
-      <div class="row-gap" style="margin:14px 0 10px;">
-        <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';render()">Outstanding</div>
-        <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';render()">Completed Inductions</div>
-      </div>
       <p class="stub" style="margin:0 0 10px;">${roster.length} on the roster · ${completions.length} completed</p>
       ${visibleRoster.map(uid=>{
         const c = byOperative[uid];
@@ -15221,7 +15229,7 @@ async function renderSiteInductions(siteId){
     <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Sign to confirm</p>
       ${ME.signature_path ? `
-        <div class="siglinebox ${allTicked?'':''}" style="margin-top:0;${allTicked?'cursor:pointer;':'cursor:default;opacity:.6;'}" onclick="${allTicked?`submitSiteInduction('${siteId}')`:''}">
+        <div class="siglinebox" style="margin-top:0;cursor:pointer;${allTicked?'':'opacity:.6;'}" onclick="submitSiteInduction('${siteId}')">
           <img src="${publicUrl('signatures', ME.signature_path)}" style="height:32px;max-width:160px;object-fit:contain;">
           <span>${allTicked?'Tap to sign & complete induction':'Tick every item first'}</span>
         </div>
@@ -15234,24 +15242,34 @@ async function renderSiteInductions(siteId){
 }
 window.toggleInductionTick = function(i){ inductionTicks[i] = !inductionTicks[i]; render(); };
 window.submitSiteInduction = async function(siteId){
+  console.log('[SiteInduction] tap received');
   try{
     if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
-    if(!inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
+    if(!inductionTicks || !inductionTicks.length || !inductionTicks.every(Boolean)){ toast('Tick every item first.'); return; }
     const emergencyName = (document.getElementById('inductionEmergencyName') ? document.getElementById('inductionEmergencyName').value : inductionEmergencyName || '').trim();
     const emergencyNumber = (document.getElementById('inductionEmergencyNumber') ? document.getElementById('inductionEmergencyNumber').value : inductionEmergencyNumber || '').trim();
     if(!emergencyName || !emergencyNumber){ toast('Please enter an emergency contact name and number.'); return; }
     inductionEmergencyName = emergencyName;
     inductionEmergencyNumber = emergencyNumber;
-    toast('Saving…');
+    toast('Saving — building PDF…');
     const answers = {}; SITE_INDUCTION_ITEMS.forEach((t,i)=>{ answers['item_'+i]=true; });
     const site = SITES.find(s=>s.id===siteId);
-    const built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber, ME.signature_path);
-    if(!built) return;
+    let built;
+    try{
+      built = await buildSiteInductionPdfBytes(site, ME, emergencyName, emergencyNumber, ME.signature_path);
+    }catch(e){
+      console.error('[SiteInduction] PDF build failed', e);
+      toast('Could not build the induction PDF — '+(e && e.message ? e.message : 'unknown error')+'. Please try again.');
+      return;
+    }
+    if(!built){ toast('Could not build the induction PDF. Please try again.'); return; }
+    toast('Saving — uploading PDF…');
     const pdfPath = siteId+'/site-inductions/'+uid()+'-'+ME.id+'.pdf';
     const stored = await uploadToStorage('mc-documents', pdfPath, new Blob([built.bytes],{type:'application/pdf'}), 'application/pdf');
-    if(!stored) return;
+    if(!stored) return; // uploadToStorage already toasted a specific reason
+    toast('Saving — writing record…');
     const rows = await dbInsert('site_induction_completions', {site_id:siteId, operative_id:ME.id, answers, signature_image_path:ME.signature_path, pdf_path:stored, emergency_contact_name:emergencyName, emergency_contact_number:emergencyNumber});
-    if(!rows) return;
+    if(!rows){ toast('The PDF uploaded but the record failed to save — please try again.'); return; } // dbInsert already toasted the specific reason too
     inductionTicks = [];
     inductionEmergencyName = '';
     inductionEmergencyNumber = '';
@@ -22170,14 +22188,14 @@ async function renderSiteCalendar(siteId){
       <div class="card" style="margin:8px 0 14px;">
         <div class="formfield"><label class="field-label">What's happening</label><input type="text" id="calTitle" placeholder="e.g. Scaffold delivery" value="${escapeHtml(calDraft.title)}" oninput="calDraft.title=this.value"></div>
         <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Date</label><input type="date" id="calDate" min="${startStr}" value="${escapeHtml(calDraft.date)}" oninput="calDraft.date=this.value"></div>
-        ${!calEditId ? `
+        ${mgr && !calEditId ? `
           <p class="field-label" style="margin:0 0 6px;">Repeats</p>
           <div class="row-gap" style="margin-bottom:12px;flex-wrap:wrap;">
             ${Object.keys(CAL_REPEAT_LABELS).map(freq=>`<div class="filterchip ${calDraft.repeat===freq?'active':''}" style="flex:1;min-width:70px;text-align:center;" onclick="calDraft.repeat='${freq}';render();">${CAL_REPEAT_LABELS[freq]}</div>`).join('')}
           </div>
           ${calDraft.repeat!=='none' ? `<p class="stub" style="margin:-6px 0 12px;">Creates this key date on a repeating basis (up to a year ahead) and stops automatically once the site is closed.</p>` : ''}
         ` : ''}
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>
+        ${mgr ? `<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.private?'checked':''} onchange="calDraft.private=this.checked">Private — only PMs/admins can see this</label>` : `<p class="stub" style="margin:0 0 10px;">A PM/admin can open this afterwards to make it private or add an email reminder.</p>`}
         ${recipientOptions.length ? `
           <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${calDraft.remind?'checked':''} onchange="calDraft.remind=this.checked;render();">Email a reminder</label>
           ${calDraft.remind ? `
@@ -22208,19 +22226,17 @@ async function renderSiteCalendar(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${calViewModeDropdownHtml()}
     <p class="stub" style="margin:0 0 14px;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
-    ${mgr ? `
-      <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
-        <span>Add a key date</span>
-        <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
-      </div>
-      ${calAddOpen ? calFormHtml() : ''}
-    ` : ''}
+    <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
+      <span>Add a key date</span>
+      <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
+    </div>
+    ${calAddOpen ? calFormHtml() : ''}
     ${days.map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
       const isWeekend = d.getDay()===0 || d.getDay()===6;
-      const inlineHere = mgr && calInlineDate===dStr;
+      const inlineHere = calInlineDate===dStr;
       return `
         <div style="padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="display:flex;gap:12px;">
@@ -22241,7 +22257,7 @@ async function renderSiteCalendar(siteId){
                 </div>
               `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
             </div>
-            ${mgr ? `<div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;align-self:flex-start;margin-top:2px;${inlineHere?'background:var(--brand1);color:#fff;':''}" title="Add a key date for this day" onclick="openCalAddForDate('${dStr}')">${inlineHere?'−':'+'}</div>` : ''}
+            <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;align-self:flex-start;margin-top:2px;${inlineHere?'background:var(--brand1);color:#fff;':''}" title="Add a key date for this day" onclick="openCalAddForDate('${dStr}')">${inlineHere?'−':'+'}</div>
           </div>
           ${inlineHere ? calFormHtml() : ''}
         </div>
@@ -22270,14 +22286,19 @@ window.addCalEvent = async function(siteId){
   const title = (calDraft.title||'').trim();
   if(!title){ toast('Enter what this date is for.'); return; }
   if(!calDraft.date){ toast('Pick a date.'); return; }
-  if(calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
-  const remind = calDraft.remind && calDraft.recipientIds.size>0;
+  // Operatives can add a key date, but only a plain one — no private
+  // toggle, no repeat, no email reminder (a PM/admin can open it afterwards
+  // to add any of that; see the "operative insert key date" RLS policy,
+  // which requires exactly these defaults from a non-PM caller).
+  const mgr = isManager(ME);
+  if(!mgr && calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
+  const remind = mgr && calDraft.remind && calDraft.recipientIds.size>0;
   const site = SITES.find(s=>s.id===siteId);
-  const repeat = calDraft.repeat || 'none';
+  const repeat = mgr ? (calDraft.repeat || 'none') : 'none';
   const occurrences = calRecurrenceOccurrences(calDraft.date, repeat, site);
   const recurrenceGroupId = (repeat!=='none' && occurrences.length>1) ? (crypto.randomUUID ? crypto.randomUUID() : (Date.now()+'-'+Math.random().toString(36).slice(2))) : null;
   const rows = occurrences.map(eventDate=>({
-    site_id:siteId, org_id:ME.org_id, title, event_date:eventDate, is_private:calDraft.private,
+    site_id:siteId, org_id:ME.org_id, title, event_date:eventDate, is_private: mgr ? calDraft.private : false,
     reminder_recipient_ids: remind ? [...calDraft.recipientIds] : [],
     reminder_timing: remind ? calDraft.timing : null,
     reminder_date: remind ? calReminderDateFor(eventDate, calDraft.timing, calDraft.customDate) : null,
