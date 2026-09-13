@@ -4433,6 +4433,13 @@ window.deleteSowLibTask = async function(templateId, taskId){
 };
 /* ================= PRICE BUILDER — shared helpers (WIP feature) ================= */
 const PRICE_UNIT_LABEL = {lm:'lm', m2:'m2', each:'ea', item:'item'};
+// Bonnets & Valleys / Valleys are only relevant on a plain-tile roof — they
+// stay hidden on the tick page until one of the 2 "Plain Tiles" dropdown
+// options (one per Strip/Felt & Batten build-up) has actually been ticked
+// on this sheet, rather than cluttering every sheet regardless of roof type.
+const PB_PLAIN_TILE_KEYS = ['dc9f0840-07e5-4e75-80f2-57779696cfb4::368563ce-5118-4789-8cd4-b112a7a62d48', '572111b5-8768-44ce-af25-f2b917fd18fc::bc79a3a6-6ba9-49e8-ad9b-cc0c3b28645b'];
+const PB_HIDE_UNLESS_PLAIN_TILE_IDS = new Set(['ee8d64ba-87c8-4ead-af3f-e68e3b62f777', '29bbdd65-43e0-449f-8fcb-fcfb2491fb02']); // Bonnets & Valleys, Valleys
+function pbPlainTileTicked(){ return PB_PLAIN_TILE_KEYS.some(k=>!!pbWorking.items[k]); }
 // Categories render in this fixed order rather than alphabetically — any
 // category not in this list (e.g. one someone adds later) is appended after,
 // alphabetically among themselves.
@@ -7440,6 +7447,20 @@ let variationSectionOpen = {}; // elementId -> bool, default true (read with ??t
 // other two above it defaults OPEN rather than open-only-while-empty — true
 // until the user explicitly collapses it.
 let weeklyPriceSectionOpen = {}; // elementId -> bool, default true (read with ??true below)
+// Each individual week row inside "Booked In" collapses to a one-line
+// summary once it's not the latest week — only the current/latest week (the
+// one you'd actually still be filling in) opens by default; anything older
+// is history you can still expand, just not what the page leads with.
+let priceWeekRowOpen = {}; // `${elId}:${wk}` -> explicit bool override, else defaults to (wk===latest week)
+function priceWeekRowIsOpen(elId, wk, isLatest){
+  const key = elId+':'+wk;
+  return priceWeekRowOpen[key] !== undefined ? priceWeekRowOpen[key] : isLatest;
+}
+window.togglePriceWeekRow = function(elId, wk, isLatest){
+  const key = elId+':'+wk;
+  priceWeekRowOpen[key] = !priceWeekRowIsOpen(elId, wk, isLatest);
+  render();
+};
 let awRevisingId = null; // id of the additional_works_requests row currently being revised/revisited by a PM, or null
 let awRevisingOriginalStatus = null; // status the row was in when revision started — decides what Save does (see saveRevisedAdditionalWorks)
 let awRejectingId = null; // id of the row whose reject-reason box is open (#301)
@@ -7928,7 +7949,6 @@ async function renderPriceHome(siteId){
       ${showPriceBuilderTile ? `<div class="tile" onclick="go('#/site/${siteId}/pricebuilder')">
         <div class="icon" style="background:#FFF3D9;color:#8A6300;">🧮</div>
         <div class="lbl">Price Builder</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (canUsePriceBuilder()?'No sheets yet':'None issued')}</div>
-        ${priceBuilderTileCount?`<span class="badge-count">${priceBuilderTileCount}</span>`:''}
       </div>` : ''}
     </div>
   `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
@@ -7948,11 +7968,15 @@ async function loadPriceTileData(siteId){
   // its variations — fetched once and reused both for the job-level
   // Overview (always ALL elements, whichever sub-address tab is picked
   // below) and for each element's own card.
-  const [allElements, allWeeks, allAwRows, subAddressesList, pbLinkedSheets] = await Promise.all([
+  const [allElements, allWeeks, allAwRows, subAddressesList, elementGroups, pbLinkedSheets] = await Promise.all([
     dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&order=sort_order.asc,created_at.asc'),
     dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number,amount'),
     dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&select=element_id,amount,status'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
+    // Groups let a PM visually cluster related sub tiles (e.g. every element
+    // on one elevation) with a shared coloured border and one combined
+    // figures card — set up per tile via its own "⋮" menu.
+    dbSelect('pricing_element_groups', 'site_id=eq.'+siteId+'&order=created_at.asc'),
     // Price Builder sheets that have been issued into a Pricing Element on
     // this site — keyed by element so each card can show its priced-item
     // weekly booking breakdown instead of the free-form operative build-up.
@@ -7995,24 +8019,6 @@ async function loadPriceTileData(siteId){
     elementFigures[el.id] = {autoBookedIn, hasOverride, bookedIn, priceTotal, awNotApprovedTotal, awApprovedTotal, balance};
   });
 
-  // #400 Overview: totals every element into one Price Total and one Booked
-  // In, across the whole job. An operative's view only ever totals elements
-  // they have price access to — and a closed element without "show when
-  // closed" contributes nothing to that either, same as its own card.
-  const overviewElements = allElements.filter(el=>{
-    if(el.include_in_summary===false) return false;
-    if(canManage) return true;
-    if(!hasPriceAccessTo(el.id)) return false;
-    if(el.closed && !el.closed_show_price_to_operatives) return false;
-    return true;
-  });
-  const overview = overviewElements.reduce((o,el)=>{
-    const f = elementFigures[el.id];
-    o.priceTotal += f.priceTotal; o.bookedIn += f.bookedIn; o.awApprovedTotal += f.awApprovedTotal; o.awNotApprovedTotal += f.awNotApprovedTotal;
-    return o;
-  }, {priceTotal:0, bookedIn:0, awApprovedTotal:0, awNotApprovedTotal:0});
-  const overviewBalance = (overview.priceTotal + overview.awApprovedTotal) - overview.bookedIn;
-
   // #400: on a multi-site job, each address manages its own Pricing
   // Elements — pick which address's elements are shown/edited below,
   // remembering the choice per site.
@@ -8032,6 +8038,20 @@ async function loadPriceTileData(siteId){
   const visibleElements = allElements.filter(el => (isMultiSite ? el.sub_site_id===selectedSubId : !el.sub_site_id) && (hasPriceAccessTo(el.id) || canSeeLabourInvoicesFor(el.id)));
   const openElements = visibleElements.filter(el=>!el.closed);
   const closedElements = visibleElements.filter(el=>el.closed);
+
+  // Grouped tiles get one combined figures card (Price Total/Booked In/
+  // Balance summed across every member currently visible/open) shown above
+  // that group's own tiles — replaces the old single job-wide Overview,
+  // scoped instead to whichever tiles someone has actually chosen to link.
+  const groupsById = {}; elementGroups.forEach(g=>{ groupsById[g.id] = g; });
+  const groupFigures = {};
+  openElements.forEach(el=>{
+    if(!el.group_id || !groupsById[el.group_id]) return;
+    const f = elementFigures[el.id];
+    const g = groupFigures[el.group_id] = groupFigures[el.group_id] || {priceTotal:0, bookedIn:0, awApprovedTotal:0, awNotApprovedTotal:0, count:0};
+    g.priceTotal += f.priceTotal; g.bookedIn += f.bookedIn; g.awApprovedTotal += f.awApprovedTotal; g.awNotApprovedTotal += f.awNotApprovedTotal; g.count++;
+  });
+  Object.keys(groupFigures).forEach(gid=>{ groupFigures[gid].balance = (groupFigures[gid].priceTotal + groupFigures[gid].awApprovedTotal) - groupFigures[gid].bookedIn; });
 
   const elementData = {};
   await Promise.all(visibleElements.map(async el=>{
@@ -8061,7 +8081,7 @@ async function loadPriceTileData(siteId){
     elementData[el.id] = {priceFiles, labourFiles, awRows, weekEntries, assignedRows, labourOperatives, labourAccessRows, priceAccessRows, canSeeLabour, hasPriceAcc, pbSheet, pbItems, pbItemWeeks};
   }));
 
-  return {site, canManage, isMultiSite, fmt, allElements, elementFigures, weeksByElement, overview, overviewBalance, subAddressesList, selectedSubId, visibleElements, openElements, closedElements, elementData};
+  return {site, canManage, isMultiSite, fmt, allElements, elementFigures, weeksByElement, elementGroups, groupsById, groupFigures, subAddressesList, selectedSubId, visibleElements, openElements, closedElements, elementData};
 }
 // #430: the Price tile's main page — a grid of tappable sub-tiles, one per
 // Pricing Element (whether it's a plain manual lump-sum + tracker element,
@@ -8072,11 +8092,88 @@ async function loadPriceTileData(siteId){
 // cards — the point being a multi-discipline job (e.g. "Flat Roofing" and
 // "Pitched Roofing" issued as separate sheets/elements) reads as clearly
 // separate tiles, and a PM can drill into just the one they want.
+// A tile's own colour-coded group is set up per tile (see the ⋮ menu in
+// tileHtml below) rather than from one page-level control — pick an existing
+// group to join, or start a new one, right from the tile it applies to.
+const PB_GROUP_COLORS = [
+  {name:'Blue', hex:'#1E88E5'}, {name:'Green', hex:'#2E7D32'}, {name:'Orange', hex:'#E67E22'},
+  {name:'Purple', hex:'#8E44AD'}, {name:'Red', hex:'#C0392B'}, {name:'Teal', hex:'#00897B'},
+];
+window.pbCreateGroupForElement = async function(siteId, subSiteId, elementId){
+  const name = await customPrompt('Name this group of tiles', '');
+  if(name===null) return;
+  const trimmed = name.trim();
+  if(!trimmed){ toast('Enter a name for the group.'); return; }
+  const existing = await dbSelect('pricing_element_groups', 'site_id=eq.'+siteId+(subSiteId?('&sub_site_id=eq.'+subSiteId):'&sub_site_id=is.null')+'&select=id');
+  const color = PB_GROUP_COLORS[existing.length % PB_GROUP_COLORS.length].hex;
+  const rows = await dbInsert('pricing_element_groups', {site_id:siteId, sub_site_id:subSiteId||null, name:trimmed, color, created_by:ME.id});
+  if(!rows || !rows[0]) return;
+  await dbUpdate('pricing_elements', elementId, {group_id: rows[0].id});
+  rowActionsMenuOpenFor = null;
+  toast('Group created');
+  render();
+};
+window.pbAddElementToGroup = async function(elementId, groupId){
+  await dbUpdate('pricing_elements', elementId, {group_id: groupId});
+  rowActionsMenuOpenFor = null;
+  toast('Added to group');
+  render();
+};
+window.pbRemoveElementFromGroup = async function(elementId){
+  await dbUpdate('pricing_elements', elementId, {group_id: null});
+  rowActionsMenuOpenFor = null;
+  toast('Removed from group');
+  render();
+};
+window.pbRenameGroup = async function(groupId, currentName){
+  const name = await customPrompt('Rename group', currentName||'');
+  if(name===null) return;
+  const trimmed = name.trim();
+  if(!trimmed){ toast("Group name can't be empty."); return; }
+  await dbUpdate('pricing_element_groups', groupId, {name:trimmed});
+  rowActionsMenuOpenFor = null;
+  render();
+};
+window.pbRecolorGroup = async function(groupId){
+  const list = PB_GROUP_COLORS.map(c=>c.name).join(', ');
+  const typed = await customPrompt(`Colour for this group (one of: ${list})`, '');
+  if(typed===null) return;
+  const match = PB_GROUP_COLORS.find(c=>c.name.toLowerCase()===typed.trim().toLowerCase());
+  if(!match){ toast('Type one of: '+list); return; }
+  await dbUpdate('pricing_element_groups', groupId, {color: match.hex});
+  rowActionsMenuOpenFor = null;
+  render();
+};
 async function renderPriceTile(siteId){
   const __gen = RENDER_GEN;
   const d = await loadPriceTileData(siteId);
-  const {site, canManage, isMultiSite, fmt, overview, overviewBalance, subAddressesList, selectedSubId, openElements, closedElements, elementFigures} = d;
+  const {site, canManage, isMultiSite, fmt, elementGroups, groupsById, groupFigures, subAddressesList, selectedSubId, openElements, closedElements, elementFigures} = d;
   const anyClosedSelected = Object.keys(priceElementSelected).length>0;
+  // Groups scoped to whichever address tab is currently selected (or the
+  // single, non-multi-site set of tiles) — a group from another address
+  // shouldn't show up as a place to file a tile here.
+  const groupsHere = elementGroups.filter(g => isMultiSite ? g.sub_site_id===selectedSubId : !g.sub_site_id);
+
+  function tileMenuHtml(el){
+    if(!canManage) return '';
+    const key = 'pbtile-'+el.id;
+    const items = el.group_id
+      ? `
+        <div class="statusmenu-item" onclick="pbRenameGroup('${el.group_id}','${jsAttr((groupsById[el.group_id]||{}).name||'')}')">✎ Rename group</div>
+        <div class="statusmenu-item" onclick="pbRecolorGroup('${el.group_id}')">🎨 Change colour</div>
+        <div class="statusmenu-item danger" onclick="pbRemoveElementFromGroup('${el.id}')">Remove from group</div>
+      `
+      : `
+        ${groupsHere.map(g=>`<div class="statusmenu-item" onclick="pbAddElementToGroup('${el.id}','${g.id}')">Add to "${escapeHtml(g.name)}"</div>`).join('')}
+        <div class="statusmenu-item" onclick="pbCreateGroupForElement('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'},'${el.id}')">+ New group…</div>
+      `;
+    return `
+      <div style="position:absolute;top:4px;left:4px;" data-rowactions-root onclick="event.stopPropagation();">
+        <span class="taskicon" title="Group this tile" style="background:transparent;" onclick="toggleRowActionsMenu('${key}')">⋮</span>
+        ${rowActionsMenuOpenFor===key ? `<div class="statusmenu" style="left:0;right:auto;">${items}</div>` : ''}
+      </div>
+    `;
+  }
 
   function tileHtml(el){
     const f = elementFigures[el.id];
@@ -8084,43 +8181,44 @@ async function renderPriceTile(siteId){
     const closedHidden = el.closed && !canManage && !el.closed_show_price_to_operatives;
     if(closedHidden) return `<div class="tile" style="opacity:.55;cursor:default;"><div class="icon" style="background:#EDEDED;color:#666;">🔒</div><div class="lbl">${escapeHtml(el.name)}</div><div class="sub">Closed</div></div>`;
     const icon = d.elementData[el.id] && d.elementData[el.id].pbSheet ? '💷' : '🧾';
-    return `<div class="tile" style="${el.closed?'opacity:.7;':''}${overbooked?'border-color:var(--warn);':''}" onclick="go('#/site/${siteId}/price/element/${el.id}')">
+    const group = el.group_id ? groupsById[el.group_id] : null;
+    const borderStyle = overbooked ? 'border-color:var(--warn);' : (group ? `border-color:${group.color};border-width:2px;` : '');
+    return `<div class="tile" style="${el.closed?'opacity:.7;':''}${borderStyle}" onclick="go('#/site/${siteId}/price/element/${el.id}')">
+      ${tileMenuHtml(el)}
       <div class="icon" style="background:#FFF3D9;color:#8A6300;">${icon}</div>
       <div class="lbl">${escapeHtml(el.name)}${el.closed?' <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
       <div class="sub">${fmt(f.priceTotal)} · ${fmt(f.bookedIn)} booked</div>
+      <div class="sub" style="font-weight:700;color:${f.balance<0?'var(--warn)':'var(--ink)'};">Bal: ${fmt(f.balance)}</div>
       ${overbooked?`<span class="badge-count" style="background:var(--warn);">!</span>`:''}
     </div>`;
   }
 
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="card" style="margin-bottom:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Overview</p>
-      <p class="stub" style="margin:0 0 10px;">${isMultiSite ? 'Totals every Pricing Element across every address on this job.' : 'Totals every Pricing Element for this site.'}</p>
-      <div class="formfield">
-        <label class="field-label">Price Total</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.priceTotal)}</p>
+  function groupCardHtml(groupId){
+    const g = groupsById[groupId]; const fig = groupFigures[groupId];
+    if(!g || !fig) return '';
+    return `
+    <div class="card" style="margin-bottom:10px;border:1.5px solid ${g.color};">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${g.color};flex:0 0 auto;"></span>
+        <span class="sectiontitle" style="margin:0;">${escapeHtml(g.name)}</span>
+        <span class="stub" style="margin:0 0 0 auto;">${fig.count} tile${fig.count===1?'':'s'}</span>
       </div>
-      ${(canManage || overview.awApprovedTotal>0) ? `
-      <div class="formfield">
-        <label class="field-label">Agreed Variation Costs</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.awApprovedTotal)}</p>
-      </div>
-      ` : ''}
-      <div class="formfield">
-        <label class="field-label">Booked In</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.bookedIn)}</p>
-      </div>
-      <div class="formfield">
-        <label class="field-label">Variations Not Approved</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:var(--ink);">${fmt(overview.awNotApprovedTotal)}</p>
-      </div>
-      <div class="formfield">
-        <label class="field-label">Balance</label>
-        <p class="stub" style="margin:0;padding-left:12px;font-size:15px;font-weight:700;color:${overviewBalance<0?'var(--brand1)':'var(--ink)'};">${fmt(overviewBalance)}</p>
-        ${overviewBalance<0 ? `<p class="stub" style="margin:4px 0 0;font-size:12px;font-weight:800;color:var(--warn);">Speak to Project Manager ASAP as price is overbooked</p>` : ''}
-      </div>
+      <div class="sub" style="margin:0;">${fmt(fig.priceTotal)} price · ${fmt(fig.bookedIn)} booked</div>
+      <div class="sub" style="margin:2px 0 0;font-weight:700;color:${fig.balance<0?'var(--warn)':'var(--ink)'};">Balance: ${fmt(fig.balance)}</div>
     </div>
+    `;
+  }
 
+  // Tiles are laid out as: any group cards (each followed by that group's own
+  // member tiles, bordered to match), then a final grid of everything not in
+  // a group — a grouped set of tiles reads as visually linked without a
+  // job-wide Overview mixing every element together.
+  const groupIdsInOrder = groupsHere.map(g=>g.id).filter(gid=>groupFigures[gid]);
+  const groupedElementIds = new Set();
+  groupIdsInOrder.forEach(gid=>{ openElements.forEach(el=>{ if(el.group_id===gid) groupedElementIds.add(el.id); }); });
+  const ungroupedOpenElements = openElements.filter(el=>!groupedElementIds.has(el.id));
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isMultiSite ? `
     <div class="filterrow" style="margin-bottom:14px;">
       ${subAddressesList.map(a=>`<div class="filterchip ${selectedSubId===a.id?'active':''}" onclick="priceSubAddrSelected['${siteId}']='${a.id}';render()">${escapeHtml(a.name)}</div>`).join('') || `<div class="stub" style="margin:0;">No addresses added yet — add one from Site Settings › Multi-Site.</div>`}
@@ -8138,15 +8236,28 @@ async function renderPriceTile(siteId){
     ` : ''}
 
     ${canManage && !isMultiSite || (isMultiSite && selectedSubId && canManage) ? `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
-      <button class="ghostbtn" style="width:auto;padding:8px 14px;" onclick="addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add Sub Tile</button>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
+      <span class="ghostbtn" style="width:auto;padding:8px 14px;cursor:pointer;" onclick="toggleRowActionsMenu('pbtile-page')">⋮ Manage</span>
+      ${rowActionsMenuOpenFor==='pbtile-page' ? `<div class="statusmenu" style="top:100%;right:0;left:auto;">
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add Sub Tile</div>
+      </div>` : ''}
     </div>
     ` : ''}
 
     ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No sub tiles yet — add one above. Each is its own price total &amp; tracker, or a Price Builder sheet once issued ("+ New Sheet" in Price Builder creates its own tile automatically).'}</div>` : ''}
+
+    ${groupIdsInOrder.map(gid=>`
+      ${groupCardHtml(gid)}
+      <div class="tilegrid" style="margin-bottom:14px;">
+        ${openElements.filter(el=>el.group_id===gid).map(el=>tileHtml(el)).join('')}
+      </div>
+    `).join('')}
+
+    ${ungroupedOpenElements.length ? `
     <div class="tilegrid" style="margin-bottom:14px;">
-      ${openElements.map(el=>tileHtml(el)).join('')}
+      ${ungroupedOpenElements.map(el=>tileHtml(el)).join('')}
     </div>
+    ` : ''}
 
     ${closedElements.length ? `
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px;">
@@ -8230,7 +8341,10 @@ function pricingElementCardHtml(el, d, ctx){
   const pbWeeksByItem = {};
   (d.pbItemWeeks||[]).forEach(w=>{ (pbWeeksByItem[w.sheet_item_id]=pbWeeksByItem[w.sheet_item_id]||{})[w.week_number]=w; });
   const filesOpenState = priceFilesSectionOpen[el.id];
-  const filesOpen = filesOpenState===undefined ? d.priceFiles.length===0 : filesOpenState;
+  // Auto-open only when there are no files AND no priced sheet already
+  // covering this element — once a Price Builder sheet has been issued into
+  // it, the upload box is rarely needed so it starts collapsed by default.
+  const filesOpen = filesOpenState===undefined ? (d.priceFiles.length===0 && !d.pbSheet) : filesOpenState;
   const variationOpen = variationSectionOpen[el.id] !== undefined ? variationSectionOpen[el.id] : true;
   const weeklyOpen = weeklyPriceSectionOpen[el.id] !== undefined ? weeklyPriceSectionOpen[el.id] : true;
   const awFormOpen = !!additionalWorksFormOpen[el.id];
@@ -8334,20 +8448,34 @@ function pricingElementCardHtml(el, d, ctx){
           ${weeklyOpen ? `
           <div style="padding:0 14px 14px;">
           ${weeksToShow<1 ? `<p class="stub" style="margin:0;">${canManage?'Add a figure for Week 1 below.':'No weekly figures yet.'}</p>` : ''}
-          ${Array.from({length:Math.max(weeksToShow,0)}, (_,i)=>i+1).map(wk=>`
-            <div class="formfield">
-              <label class="field-label">Week ${wk}${(d.hasPriceAcc||d.pbSheet) ? ' <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto, from build-up below)</span>' : ''}</label>
-              ${d.pbSheet
-                ? `<p class="stub" style="margin:0;font-size:15px;font-weight:700;color:var(--ink);">${weekMap[wk]!=null?fmt(weekMap[wk]):fmt(0)}</p>`
-                : canManage
-                ? `<div style="display:flex;gap:6px;align-items:center;">
-                    <input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" style="flex:1;" onblur="savePriceWeek('${el.id}','${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-                    ${d.hasPriceAcc ? `<button type="button" class="ghostbtn" style="width:auto;padding:9px 10px;font-size:13px;flex:0 0 auto;" title="Recalculate from build-up rows" onclick="recalcPriceWeek('${el.id}','${siteId}',${wk})">↻</button>` : ''}
-                  </div>`
-                : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
+          ${Array.from({length:Math.max(weeksToShow,0)}, (_,i)=>i+1).map(wk=>{
+            const isLatest = wk===weeksToShow;
+            const wkOpen = priceWeekRowIsOpen(el.id, wk, isLatest);
+            return `
+            <div style="border-bottom:1px solid var(--line);margin-bottom:6px;padding-bottom:${wkOpen?'6px':'0'};">
+              <p class="ddrow" style="margin:0;padding:8px 0;border:none;border-radius:0;background:transparent;display:flex;align-items:center;gap:6px;" onclick="togglePriceWeekRow('${el.id}',${wk},${isLatest})">
+                <span class="arrow">${wkOpen?'▼':'▶'}</span> Week ${wk}
+                <span style="margin-left:auto;font-weight:700;font-size:13px;">${weekMap[wk]!=null?fmt(weekMap[wk]):fmt(0)}</span>
+              </p>
+              ${wkOpen ? `
+              <div class="formfield">
+                <label class="field-label">${(d.hasPriceAcc||d.pbSheet) ? 'Amount <span style="font-size:9px;font-style:italic;font-weight:600;text-transform:none;letter-spacing:normal;">(auto, from build-up below)</span>' : 'Amount'}</label>
+                ${d.pbSheet
+                  ? `<p class="stub" style="margin:0;font-size:15px;font-weight:700;color:var(--ink);">${weekMap[wk]!=null?fmt(weekMap[wk]):fmt(0)}</p>`
+                  : canManage
+                  ? `<div style="display:flex;gap:6px;align-items:center;">
+                      <input type="number" step="0.01" inputmode="decimal" value="${weekMap[wk]!=null?weekMap[wk]:''}" placeholder="0.00" style="flex:1;" onblur="savePriceWeek('${el.id}','${siteId}',${wk},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+                      ${d.hasPriceAcc ? `<button type="button" class="ghostbtn" style="width:auto;padding:9px 10px;font-size:13px;flex:0 0 auto;" title="Recalculate from build-up rows" onclick="recalcPriceWeek('${el.id}','${siteId}',${wk})">↻</button>` : ''}
+                    </div>`
+                  : `<p class="stub" style="margin:0;">${weekMap[wk]!=null?fmt(weekMap[wk]):'—'}</p>`}
+              </div>
+              ${d.pbSheet ? priceBuilderItemWeekBreakdownHtml(el.id, siteId, wk, d.pbItems, pbWeeksByItem, canManage, fmt) : ''}
+              ${d.pbSheet && canManage ? priceBuilderLabourWagesHtml(el.id, siteId, d.pbSheet.id, wk, assignedOperatives, orgOperativesForExtra, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
+              ${!d.pbSheet && d.hasPriceAcc ? priceWeekOperativeBreakdownHtml(el.id, siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : ''}
+              ` : ''}
             </div>
-            ${d.pbSheet ? priceBuilderItemWeekBreakdownHtml(el.id, siteId, wk, d.pbItems, pbWeeksByItem, canManage, fmt) : (d.hasPriceAcc ? priceWeekOperativeBreakdownHtml(el.id, siteId, wk, assignedOperatives, orgOperativesForExtra, opEntriesByWeek[wk]||{}, extraOpEntriesByWeek[wk]||[], costEntriesByWeek[wk]||[], fmt) : '')}
-          `).join('')}
+            `;
+          }).join('')}
           </div>
           ` : ''}
         </div>
@@ -8562,6 +8690,127 @@ function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem,
     </div>
   `;
 }
+// Labour wages entered against a Price-Builder-fed element's week (e.g.
+// "Demo weekly wages £300", "Andy's wages £650") — kept as its own ledger
+// (same price_week_operative_entries table the free-form build-up uses,
+// but never rolled straight into price_weeks here) purely so its total can
+// be auto-allocated onto the sheet's own priced items further down, rather
+// than being typed in as a qty per item by hand.
+function priceBuilderLabourWagesHtml(elementId, siteId, sheetId, wk, assignedOperatives, orgOperatives, extraOpEntries, costEntries, fmt){
+  const rows = [
+    ...extraOpEntries.map(e=>({id:e.id, label: e.operative_id ? ((PROFILES[e.operative_id]&&PROFILES[e.operative_id].name)||'Unknown') : (e.label||'Unnamed'), amount:e.amount})),
+    ...costEntries.map(e=>({id:e.id, label:e.label, amount:e.amount})),
+  ];
+  const total = rows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const key = 'pbwage_'+elementId+'_'+wk;
+  const adding = !!priceAddOpen[key];
+  const pickable = assignedOperatives.concat(orgOperatives);
+  return `
+    <div style="margin:6px 0 12px;border-top:1px dashed var(--line);padding-top:10px;">
+      <p class="stub" style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--slate-light);">Labour wages this week</p>
+      ${rows.length ? rows.map(r=>`
+        <div style="display:grid;grid-template-columns:1fr 96px 26px;column-gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--line);">
+          <span style="font-size:12.5px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(r.label)}</span>
+          <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" step="0.01" inputmode="decimal" value="${r.amount!=null?r.amount:''}" style="width:100%;" onblur="pbWageSetLineValue('${r.id}',this.value)"></div>
+          <div class="roundplusbtn" style="width:24px;height:24px;font-size:14px;" title="Remove" onclick="pbWageDeleteEntry('${r.id}')">×</div>
+        </div>
+      `).join('') : `<div style="font-size:12px;color:var(--slate);padding:4px 0;">No wages entered yet — add who was paid and how much below.</div>`}
+      <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-weight:800;font-size:12.5px;">
+        <span>Total wages</span><span>${fmt(total)}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button class="ghostbtn" style="width:auto;padding:7px 12px;font-size:11px;" onclick="priceAddOpen['${key}']=!priceAddOpen['${key}'];render()">${adding?'× Cancel':'+ Add wage'}</button>
+        ${total>0 ? `<button class="darkbtn" style="width:auto;padding:7px 12px;font-size:11px;" onclick="pbWageAutoAllocate('${elementId}','${siteId}','${sheetId}',${wk})" title="Fills each item's qty booked in this week from this total, top-down in sheet order">Auto-allocate to items ↓</button>` : ''}
+      </div>
+      ${adding ? `
+      <div class="formfield" style="margin:8px 0 0;background:color-mix(in srgb, var(--brand1) 5%, transparent);padding:8px;border-radius:8px;">
+        <label class="field-label">Who</label>
+        <select id="pbwWhoSelect_${key}" style="width:100%;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" onchange="document.getElementById('pbwManualWrap_${key}').hidden = this.value!=='__manual__';">
+          ${pickable.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')}
+          <option value="__manual__" ${!pickable.length?'selected':''}>Someone else (type name)…</option>
+        </select>
+        <div id="pbwManualWrap_${key}" ${pickable.length?'hidden':''} style="margin-top:6px;">
+          <input type="text" id="pbwManualName_${key}" placeholder="Name" style="width:100%;font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;">
+        </div>
+        <label class="field-label" style="margin-top:8px;">Wage</label>
+        <div class="currency-input-wrap"><span class="currency-prefix">£</span><input type="number" id="pbwValue_${key}" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="darkbtn" style="width:auto;padding:8px 12px;" onclick="pbWageAddRow('${elementId}','${siteId}',${wk},'${key}')">Add</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="priceAddOpen['${key}']=false;render()">Cancel</button>
+        </div>
+      </div>
+      ` : ''}
+    </div>
+  `;
+}
+window.pbWageAddRow = async function(elementId, siteId, week, key){
+  const sel = document.getElementById('pbwWhoSelect_'+key);
+  const valEl = document.getElementById('pbwValue_'+key);
+  const v = String(valEl && valEl.value || '').trim();
+  const amount = v===''?0:Number(v);
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); return; }
+  if(!sel || sel.value==='__manual__'){
+    const nameEl = document.getElementById('pbwManualName_'+key);
+    const name = String(nameEl && nameEl.value || '').trim();
+    if(!name){ toast('Enter a name'); return; }
+    await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:null, kind:'cost', label:name, amount, entered_by:ME.id, updated_at:new Date().toISOString()})});
+  } else {
+    await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:sel.value, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})});
+  }
+  priceAddOpen[key] = false;
+  render();
+};
+window.pbWageSetLineValue = async function(entryId, rawValue){
+  const v = String(rawValue||'').trim();
+  if(v===''){ await dbDelete('price_week_operative_entries', entryId); render(); return; }
+  const amount = Number(v);
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
+  await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+entryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
+  render();
+};
+window.pbWageDeleteEntry = async function(entryId){
+  await dbDelete('price_week_operative_entries', entryId);
+  render();
+};
+// Distributes this week's total entered labour wages across the sheet's own
+// priced items, top-down in the same order they're listed on the sheet —
+// each item soaks up money (converted to a quantity at its own rate) up to
+// however much of it is still left to book (its ordered qty minus whatever
+// other weeks have already booked), then whatever's left over rolls onto the
+// next item down, and so on until the money or the items run out. Skips —
+// and doesn't count against the pool — any item already manually overridden
+// for this week, so a PM's own typed-in figure is never silently replaced.
+window.pbWageAutoAllocate = async function(elementId, siteId, sheetId, week){
+  const entries = await dbSelect('price_week_operative_entries', 'element_id=eq.'+elementId+'&week_number=eq.'+week+'&select=amount');
+  let moneyLeft = entries.reduce((s,e)=>s+Number(e.amount||0), 0);
+  if(moneyLeft<=0){ toast('Enter at least one labour wage amount first.'); return; }
+  const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
+  if(!items.length){ toast('This sheet has no priced items to allocate to.'); return; }
+  const itemIds = items.map(i=>i.id);
+  const allItemWeeks = await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=in.('+itemIds.join(',')+')');
+  const priorQtyByItem = {}, thisWeekByItem = {};
+  allItemWeeks.forEach(w=>{
+    if(w.week_number===week){ thisWeekByItem[w.sheet_item_id] = w; return; }
+    priorQtyByItem[w.sheet_item_id] = (priorQtyByItem[w.sheet_item_id]||0) + Number(w.qty||0);
+  });
+  for(const it of items){
+    const existingRow = thisWeekByItem[it.id];
+    if(existingRow && existingRow.is_manual){ moneyLeft -= Number(existingRow.amount||0); continue; }
+    const rate = Number(it.rate||0);
+    const orderedQty = Number(it.quantity||0);
+    const remainingQty = Math.max(0, orderedQty - (priorQtyByItem[it.id]||0));
+    const remainingValue = remainingQty*rate;
+    if(moneyLeft<=0 || remainingValue<=0 || rate<=0){ await pbwUpsertRow(it.id, week, null, 0, false); continue; }
+    const take = Math.min(moneyLeft, remainingValue);
+    const qty = pbRound2(take/rate);
+    await pbwUpsertRow(it.id, week, qty, take, false);
+    moneyLeft -= take;
+  }
+  await rollUpPriceWeekFromSheetItems(elementId, siteId, week);
+  toast(moneyLeft > 0.01 ? `Allocated what the sheet can take — ${fmt2dp(moneyLeft)} of labour wages couldn't be matched (sheet may be fully booked).` : 'Labour wages allocated to items');
+  render();
+};
+function fmt2dp(n){ return '£'+Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2}); }
 // Upserts one item's week row (qty and/or manual amount) by sheet_item_id +
 // week_number — mirrors the on_conflict pattern used for price_weeks itself.
 async function pbwUpsertRow(sheetItemId, wk, qty, amount, isManual){
@@ -8674,7 +8923,8 @@ async function renderPriceBuilderSheets(siteId){
         </div>
         <span class="pill ${s.status==='issued'?'on':'off'}">${s.status==='issued'?'Issued':'Draft'}</span>
         ${s.status==='issued' ? `<div class="taskicon" onclick="event.stopPropagation();exportPriceBuilderSheet('${s.id}')">⬇</div>` : ''}
-        ${canManage && s.status==='draft' ? `<div class="taskicon danger" onclick="event.stopPropagation();deletePriceBuilderSheet('${s.id}')">🗑</div>` : ''}
+        ${canManage && s.status==='issued' ? `<div class="taskicon" title="Edit" onclick="event.stopPropagation();go('#/site/${siteId}/pricebuilder/edit/${s.id}')">✏️</div>` : ''}
+        ${canManage ? `<div class="taskicon danger" title="Delete" onclick="event.stopPropagation();deletePriceBuilderSheet('${siteId}','${s.id}')">🗑</div>` : ''}
       </div>
     `).join('') || `<div class="empty">${canManage?'No sheets yet — create your first one below.':'Nothing issued yet.'}</div>`}
     ${canManage ? (priceBuilderNewOpen ? `
@@ -8704,10 +8954,51 @@ window.pbRenameSheet = async function(sheetId, value){
   const row = await dbUpdate('price_builder_sheets', sheetId, {title});
   if(row) toast('Sheet renamed'); else render();
 };
-window.deletePriceBuilderSheet = async function(sheetId){
-  if(!await customConfirm('Delete this draft sheet? This can\'t be undone.')) return;
+// Deleting a draft is unconditional (nothing's been booked against a sheet
+// that was never issued). Deleting an issued sheet is only allowed once
+// nothing's booked/allocated against any of its items — checked both via
+// price_builder_sheet_item_weeks (the per-item weekly build-up) and via a
+// manual Booked In override on the Pricing Element it fed, since either one
+// would otherwise be silently orphaned. If it goes ahead, the Pricing
+// Element and any still-untouched Schedule of Works section/tasks it
+// created are cleaned up too rather than left behind as an empty tile.
+window.deletePriceBuilderSheet = async function(siteId, sheetId){
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const sheet = sheetRows[0];
+  if(!sheet){ toast('Sheet not found.'); render(); return; }
+
+  let el = null;
+  if(sheet.status==='issued'){
+    const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id');
+    if(items.length){
+      const itemIds = items.map(i=>i.id).join(',');
+      const weeks = await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=in.('+itemIds+')&select=amount');
+      const totalAllocated = weeks.reduce((s,w)=>s+Number(w.amount||0),0);
+      if(totalAllocated > 0){ toast("Can't delete — this sheet has bookings against it. Remove them first."); return; }
+    }
+    if(sheet.pricing_element_id){
+      el = (await dbSelect('pricing_elements', 'id=eq.'+sheet.pricing_element_id))[0] || null;
+      if(el && el.price_booked_override!=null && Number(el.price_booked_override)>0){ toast("Can't delete — its price tile has a manual Booked In amount set. Clear that first."); return; }
+    }
+  }
+
+  if(!await customConfirm(sheet.status==='issued' ? 'Delete this issued sheet? This removes its price tile too, and any Schedule of Works items it created that haven\'t been started. This can\'t be undone.' : 'Delete this draft sheet? This can\'t be undone.')) return;
+
+  if(sheet.schedule_section_id){
+    const tasks = await dbSelect('schedule_tasks', 'section_id=eq.'+sheet.schedule_section_id+'&select=id,status,completed_at');
+    const anyStarted = tasks.some(t=>t.status==='done' || t.status==='in_progress' || t.completed_at);
+    if(!anyStarted){
+      for(const t of tasks) await dbDelete('schedule_tasks', t.id);
+      await dbDelete('schedule_sections', sheet.schedule_section_id);
+    }
+    // Otherwise leave the section/tasks in place — work's already under way
+    // there — the tasks' own sheet_item_id links clear themselves (ON DELETE
+    // SET NULL) once the sheet items are removed below.
+  }
+  if(sheet.pricing_element_id) await dbDelete('pricing_elements', sheet.pricing_element_id);
+
   const ok = await dbDelete('price_builder_sheets', sheetId);
-  if(ok){ toast('Sheet deleted'); render(); }
+  if(ok){ toast('Sheet deleted'); go(`#/site/${siteId}/pricebuilder`); }
 };
 
 // Working state for the sheet currently being built — items keyed by
@@ -8727,6 +9018,12 @@ let pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', popul
 // pbChangeOption handler (an inline onchange, outside that function's own
 // closure) can still look up an option's label/rate by id.
 let pbOptionsByItemCache = {};
+// Sum of price_builder_sheet_item_weeks.amount already booked in against each
+// saved sheet-item id (set alongside pbOptionsByItemCache, on every reload of
+// a sheet's items from the DB) — a row with anything booked against it can't
+// be removed from the sheet, since that would orphan the booking history.
+let pbAllocatedByItemId = {};
+function pbEntryAllocated(entry){ return !!(entry && entry.id && Number(pbAllocatedByItemId[entry.id]||0) > 0); }
 function pbResolvedRate(entry, item){
   if(entry.isManualRate && entry.rateOverride!=null) return Number(entry.rateOverride);
   return item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
@@ -8749,7 +9046,6 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
   if(!sheet){ toast('Sheet not found.'); go(`#/site/${siteId}/pricebuilder`); return; }
-  if(sheet.status==='issued'){ go(`#/site/${siteId}/pricebuilder/view/${sheetId}`); return; }
 
   const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
   const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
@@ -8774,13 +9070,23 @@ async function renderPriceBuilderEdit(siteId, sheetId){
     const existingItems = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId);
     const items = {};
     const customRows = [];
+    // Booked/allocated amounts already logged per sheet item — needed so a
+    // row that's had money booked in against it (weekly build-up on the
+    // linked Pricing Element) can't be silently deleted out from under that
+    // booking when this sheet is re-edited after issuing.
+    pbAllocatedByItemId = {};
+    if(existingItems.length){
+      const itemIdList = existingItems.map(r=>r.id).join(',');
+      const weeks = await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=in.('+itemIdList+')&select=sheet_item_id,amount');
+      weeks.forEach(w=>{ pbAllocatedByItemId[w.sheet_item_id] = (pbAllocatedByItemId[w.sheet_item_id]||0) + Number(w.amount||0); });
+    }
     existingItems.forEach(row=>{
       if(!row.rate_item_id){
         // No linked rate item — either a genuine custom row, or a rate item
         // since deleted from the card. Either way it still has its own
         // name/rate/quantity saved on the row itself, so keep it as a
         // custom row rather than silently dropping it.
-        customRows.push({localId:uid(), name:row.name||'', rate:row.rate, quantity:row.quantity, unit:row.unit||'item'});
+        customRows.push({localId:uid(), id:row.id, name:row.name||'', rate:row.rate, quantity:row.quantity, unit:row.unit||'item'});
         return;
       }
       const linkedItem = itemsById[row.rate_item_id];
@@ -8801,6 +9107,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       // before, since it only ever has one row.
       const key = row.option_id ? (row.rate_item_id+'::'+row.option_id) : row.rate_item_id;
       items[key] = {
+        id: row.id,
         rateItemId: row.rate_item_id,
         quantity:row.quantity, optionId:row.option_id||null, optionRate, optionLabel:row.option_label||null, nameOverride,
         rateOverride: row.is_manual_rate ? Number(row.rate) : null,
@@ -8836,7 +9143,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         const open = pbCategoryOpen[cat.name]!==false;
         return `
         <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
-        ${open ? cat.items.map(it=>{
+        ${open ? cat.items.filter(it=>!PB_HIDE_UNLESS_PLAIN_TILE_IDS.has(it.id) || pbPlainTileTicked()).map(it=>{
           const opts = optionsByItem[it.id]||[];
           if(it.is_dropdown){
             // Multi-select — any number of options can be ticked for the
@@ -8929,7 +9236,9 @@ async function renderPriceBuilderEdit(siteId, sheetId){
           <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;border:1px solid var(--line);border-radius:6px;padding:7px 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
           <span class="stub" style="margin:2px 0 0;">${PRICE_UNIT_LABEL[it.unit]}</span>
           <span class="stub" style="margin:2px 0 0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
-          <div class="taskicon danger" title="Untick" onclick="pbRemoveEntry('${key}')" style="justify-self:center;">🗑</div>
+          ${pbEntryAllocated(entry)
+            ? `<div class="taskicon" title="Can't remove — already booked in against" style="justify-self:center;opacity:.35;cursor:not-allowed;">🔒</div>`
+            : `<div class="taskicon danger" title="Untick" onclick="pbRemoveEntry('${key}')" style="justify-self:center;">🗑</div>`}
         </div>
       `;}).join('')}
     `;}).join('')}
@@ -8945,7 +9254,9 @@ async function renderPriceBuilderEdit(siteId, sheetId){
             <input type="number" step="0.01" placeholder="Rate £" value="${row.rate!=null?row.rate:''}" style="width:80px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetCustomField(${idx},'rate',this.value)">
           </div>
           <span class="stub" style="margin:0;font-weight:700;min-width:64px;text-align:right;">${PRICE_BUILDER_FMT(pbCustomLineTotal(row))}</span>
-          <div class="taskicon danger" onclick="pbRemoveCustomRow(${idx})">🗑</div>
+          ${row.id && Number(pbAllocatedByItemId[row.id]||0)>0
+            ? `<div class="taskicon" title="Can't remove — already booked in against" style="opacity:.35;cursor:not-allowed;">🔒</div>`
+            : `<div class="taskicon danger" onclick="pbRemoveCustomRow(${idx})">🗑</div>`}
         </div>
       `).join('') || ''}
       <button class="ghostbtn" style="margin-top:4px;" onclick="pbAddCustomRow()">+ Add item</button>
@@ -8962,12 +9273,16 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         <span style="font-size:18px;font-weight:800;">${PRICE_BUILDER_FMT(grandTotal)}</span>
       </div>
     </div>
+    ${sheet.status==='issued' ? `
+    <button class="darkbtn" style="margin-top:8px;" onclick="savePriceBuilderEdits('${siteId}','${sheetId}')">Save Changes</button>
+    ` : `
     <div class="row-gap" style="margin-top:10px;">
       <button class="ghostbtn" style="flex:1;" onclick="pbBackToTick()">← Back to tick list</button>
       <button class="ghostbtn" style="flex:1;" onclick="savePriceBuilderDraft('${siteId}','${sheetId}')">Save Draft</button>
     </div>
     <button class="darkbtn" style="margin-top:8px;" onclick="issuePriceBuilderSheet('${siteId}','${sheetId}')">Submit for Issuing</button>
-  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
+    `}
+  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:sheet.status==='issued'?`#/site/${siteId}/pricebuilder/view/${sheetId}`:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
 }
 window.pbGoToConfirm = function(){
   if(!Object.keys(pbWorking.items).length && !pbWorking.customRows.length){ toast('Tick at least one item first.'); return; }
@@ -8988,6 +9303,8 @@ window.pbToggleItem = function(itemId, checked){
 // rate item's own id) or one of possibly several option lines ticked off a
 // multi-select dropdown item (key === "<rateItemId>::<optionId>").
 window.pbRemoveEntry = function(key){
+  const entry = pbWorking.items[key];
+  if(pbEntryAllocated(entry)){ toast("Can't remove — this item already has bookings against it."); return; }
   delete pbWorking.items[key];
   render();
 };
@@ -9056,10 +9373,12 @@ window.pbSetRateOverride = async function(key, value, baseRate){
   entry.rateOverride = val; entry.isManualRate = true; render();
 };
 window.pbAddCustomRow = function(){
-  pbWorking.customRows.push({localId:uid(), name:'', rate:'', quantity:'', unit:'item'});
+  pbWorking.customRows.push({localId:uid(), id:null, name:'', rate:'', quantity:'', unit:'item'});
   render();
 };
 window.pbRemoveCustomRow = function(idx){
+  const row = pbWorking.customRows[idx];
+  if(row && row.id && Number(pbAllocatedByItemId[row.id]||0)>0){ toast("Can't remove — this item already has bookings against it."); return; }
   pbWorking.customRows.splice(idx,1);
   render();
 };
@@ -9070,11 +9389,18 @@ window.pbSetCustomField = function(idx, field, value){
   else row[field] = value==='' ? '' : parseFloat(value);
   render();
 };
-// Shared by Save Draft and Issue — persists pbWorking to the DB (delete-all
-// then re-insert this sheet's line items is simplest and safe here: sheets
-// are edited by one PM at a time and item counts are small). Returns the
-// rows it just wrote (so Issue can reuse the same names/order for the
-// Pricing Element and Schedule of Works) alongside the grand total.
+// Shared by Save Draft, Issue and Save Changes (editing an already-issued
+// sheet) — persists pbWorking to the DB. Existing line items are UPDATED in
+// place, keeping their own id, rather than deleted-and-reinserted — a sheet
+// item's id is what price_builder_sheet_item_weeks (weekly bookings/
+// allocations) hangs off, and ON DELETE CASCADE there means delete-and-
+// reinsert would silently wipe any booking already logged against it. A row
+// that's no longer ticked but still has a booking against it is left in
+// place rather than deleted (the UI already stops you removing it — see
+// pbEntryAllocated — so this is just a safety net for anything that slips
+// through). Returns the grand total plus which rows were kept/added/removed,
+// so Issue/Save Changes can mirror the same changes onto the linked Schedule
+// of Works.
 async function pbPersist(siteId, sheetId, status){
   const priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id);
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
@@ -9089,6 +9415,7 @@ async function pbPersist(siteId, sheetId, status){
     const lineTotal = pbLineTotal(entry, item);
     total += lineTotal;
     rows.push({
+      id: entry.id || null,
       sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: item.unit,
       rate: pbResolvedRate(entry, item), quantity: qty,
       option_id: entry.optionId||null, option_label: entry.optionLabel||null,
@@ -9104,24 +9431,54 @@ async function pbPersist(siteId, sheetId, status){
     const lineTotal = qty * rate;
     total += lineTotal;
     rows.push({
+      id: row.id || null,
       sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'item',
       rate, quantity: qty, option_id: null, option_label: null,
       line_total: lineTotal, sort_order: sortOrder++,
     });
   });
+
   const existing = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id');
-  for(const row of existing){ await dbDelete('price_builder_sheet_items', row.id); }
-  const inserted = rows.length ? await dbInsert('price_builder_sheet_items', rows) : [];
+  const existingIds = existing.map(r=>r.id);
+  const keptIds = new Set(rows.filter(r=>r.id).map(r=>r.id));
+  const allocated = existingIds.length ? (await dbSelect('price_builder_sheet_item_weeks', 'sheet_item_id=in.('+existingIds.join(',')+')&select=sheet_item_id,amount')) : [];
+  const allocByItemId = {};
+  allocated.forEach(w=>{ allocByItemId[w.sheet_item_id] = (allocByItemId[w.sheet_item_id]||0) + Number(w.amount||0); });
+
+  const removedIds = []; let blockedRemovalCount = 0;
+  for(const id of existingIds){
+    if(keptIds.has(id)) continue;
+    if(Number(allocByItemId[id]||0) > 0){ blockedRemovalCount++; continue; } // safety net — see comment above
+    await dbDelete('price_builder_sheet_items', id);
+    removedIds.push(id);
+  }
+
+  const toInsert = rows.filter(r=>!r.id).map(({id, ...rest})=>rest);
+  const toUpdate = rows.filter(r=>r.id);
+  const insertedRows = toInsert.length ? (await dbInsert('price_builder_sheet_items', toInsert)) || [] : [];
+  const updatedRows = [];
+  for(const row of toUpdate){
+    const {id, ...patchRow} = row;
+    const saved = await dbUpdate('price_builder_sheet_items', id, patchRow);
+    updatedRows.push(saved || row);
+  }
+
   await loadAllProfiles();
   const subcontractor_name = pbWorking.assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const existingSheet = sheetRows[0];
   const patch = {title: pbWorking.title, subcontractor_name, assigned_user_ids: pbWorking.assignedUserIds, total, updated_at: new Date().toISOString()};
-  if(status){ patch.status = status; patch.issued_by = ME.id; patch.issued_at = new Date().toISOString(); }
+  if(status){
+    patch.status = status;
+    // Keep the original issue stamp on a re-save of an already-issued sheet.
+    if(!existingSheet || !existingSheet.issued_at){ patch.issued_by = ME.id; patch.issued_at = new Date().toISOString(); }
+  }
   await dbUpdate('price_builder_sheets', sheetId, patch);
-  return {total, rows: inserted||rows};
+  return {total, rows: [...updatedRows, ...insertedRows], addedRows: insertedRows, removedIds, blockedRemovalCount};
 }
 window.savePriceBuilderDraft = async function(siteId, sheetId){
-  await pbPersist(siteId, sheetId, null);
-  toast('Draft saved');
+  const {blockedRemovalCount} = await pbPersist(siteId, sheetId, null);
+  toast(blockedRemovalCount ? `Draft saved — ${blockedRemovalCount} item(s) kept because they already have bookings against them.` : 'Draft saved');
   render();
 };
 window.issuePriceBuilderSheet = async function(siteId, sheetId){
@@ -9186,7 +9543,7 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
     if(newSection){
       scheduleSectionId = newSection.id;
       let taskPos = await nextTaskPosition(siteId);
-      const taskRows = rows.map(r=>({site_id:siteId, section_id:newSection.id, name:r.name, status:'todo', position: taskPos++}));
+      const taskRows = rows.map(r=>({site_id:siteId, section_id:newSection.id, sheet_item_id:r.id, name:r.name, status:'todo', position: taskPos++}));
       if(taskRows.length) await dbInsert('schedule_tasks', taskRows);
     }
   }
@@ -9197,6 +9554,68 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(Object.keys(linkPatch).length) await dbUpdate('price_builder_sheets', sheetId, linkPatch);
 
   toast('Sheet issued');
+  pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
+  go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
+};
+// Mirrors a Price Builder edit onto the Schedule of Works section it already
+// fed (only relevant once a sheet has been issued with "populate SOW"
+// ticked) — renames a linked task when its item's wording changed, adds a
+// task for any newly-added item, and removes the task for a removed item
+// (unless that task's already done/in progress, in which case it's just
+// unlinked so the completed record stays on the schedule rather than
+// vanishing).
+async function pbSyncScheduleTasks(siteId, sheet, persistResult){
+  if(!sheet.schedule_section_id) return;
+  const tasks = await dbSelect('schedule_tasks', 'section_id=eq.'+sheet.schedule_section_id+'&sheet_item_id=not.is.null');
+  const taskByItemId = {}; tasks.forEach(t=>{ taskByItemId[t.sheet_item_id] = t; });
+
+  // Kept items whose wording changed — update the linked task's name to match.
+  for(const row of persistResult.rows){
+    const task = taskByItemId[row.id];
+    if(task && task.name !== row.name) await dbUpdate('schedule_tasks', task.id, {name: row.name});
+  }
+  // Newly added items — one new task each, appended to the same section.
+  if(persistResult.addedRows.length){
+    let taskPos = await nextTaskPosition(siteId);
+    const taskRows = persistResult.addedRows.map(r=>({site_id:siteId, section_id:sheet.schedule_section_id, sheet_item_id:r.id, name:r.name, status:'todo', position: taskPos++}));
+    await dbInsert('schedule_tasks', taskRows);
+  }
+  // Removed items — delete the linked task if it hasn't been started or
+  // finished yet, otherwise just unlink it so the completed task stays put
+  // as a record of the work actually done.
+  for(const itemId of persistResult.removedIds){
+    const task = taskByItemId[itemId];
+    if(!task) continue;
+    if(task.status==='done' || task.completed_at) await dbUpdate('schedule_tasks', task.id, {sheet_item_id:null});
+    else await dbDelete('schedule_tasks', task.id);
+  }
+}
+// Editing an already-issued sheet — unlike the one-way "Submit for Issuing"
+// action, this can be used any number of times. Persists the same way a
+// fresh issue does (so a row's own id, and any bookings hanging off it,
+// survive — see pbPersist), then keeps the Pricing Element's price total and
+// the mirrored Schedule of Works section in sync with whatever changed.
+window.savePriceBuilderEdits = async function(siteId, sheetId){
+  const itemKeys = Object.keys(pbWorking.items);
+  const hasQtyOnAnyTicked = itemKeys.some(key=>Number(pbWorking.items[key].quantity)>0);
+  const hasValidCustomRow = pbWorking.customRows.some(row=>row.name && Number(row.quantity) && Number(row.rate));
+  if(!hasQtyOnAnyTicked && !hasValidCustomRow){ toast('Enter a quantity for at least one ticked item (or add a custom row).'); return; }
+  if(!await customConfirm('Save changes to this issued sheet? Anything already booked in against a line stays untouched.')) return;
+
+  const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
+  const sheet = sheetRows[0];
+  if(!sheet){ toast('Sheet not found.'); return; }
+
+  const persistResult = await pbPersist(siteId, sheetId, 'issued');
+
+  if(sheet.pricing_element_id){
+    await dbUpdate('pricing_elements', sheet.pricing_element_id, {price_total: persistResult.total});
+    await grantElementAccessBulk(sheet.pricing_element_id, siteId, pbWorking.assignedUserIds);
+  }
+
+  await pbSyncScheduleTasks(siteId, sheet, persistResult);
+
+  toast(persistResult.blockedRemovalCount ? `Sheet updated — ${persistResult.blockedRemovalCount} item(s) kept because they already have bookings against them.` : 'Sheet updated');
   pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
   go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
 };
@@ -9223,18 +9642,17 @@ async function renderPriceBuilderView(siteId, sheetId){
     ${categories.map(cat=>`
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
       <div class="drawheaderrow" style="grid-template-columns:1fr 70px 48px 40px 62px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
-        <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:right;">Qty</span><span>Unit</span><span style="text-align:right;">Total</span>
+        <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:center;">Qty</span><span style="text-align:center;">Unit</span><span style="text-align:right;">Total</span>
       </div>
       ${cat.items.map(it=>`
         <div class="sitecard" style="display:grid;grid-template-columns:1fr 70px 48px 40px 62px;gap:6px;align-items:center;padding:8px 10px;">
           <div style="min-width:0;">
-            <div class="name">${escapeHtml(it.name)}</div>
-            ${it.option_label?`<div class="sub" style="margin-top:2px;">${escapeHtml(it.option_label)}</div>`:''}
+            <div class="name" style="font-size:0.9em;">${escapeHtml(it.option_label ? it.name+' - '+it.option_label : it.name)}</div>
             ${it.is_manual_rate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual</div>`:''}
           </div>
           <span class="stub" style="margin:0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(it.rate)}</span>
-          <span class="stub" style="margin:0;text-align:right;">${it.quantity}</span>
-          <span class="stub" style="margin:0;">${PRICE_UNIT_LABEL[it.unit]||it.unit}</span>
+          <span class="stub" style="margin:0;text-align:center;">${it.quantity}</span>
+          <span class="stub" style="margin:0;text-align:center;">${PRICE_UNIT_LABEL[it.unit]||it.unit}</span>
           <span class="stub" style="margin:0;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(it.line_total)}</span>
         </div>
       `).join('')}
@@ -9249,6 +9667,12 @@ async function renderPriceBuilderView(siteId, sheetId){
       <button class="darkbtn" style="flex:1;" onclick="exportPriceBuilderSheetPdf('${siteId}','${sheetId}')">📄 View PDF</button>
       <button class="ghostbtn" style="flex:1;" onclick="exportPriceBuilderSheet('${sheetId}')">⬇ Export to Excel</button>
     </div>
+    ${canUsePriceBuilder() ? `
+    <div class="row-gap" style="margin-top:8px;">
+      <button class="ghostbtn" style="flex:1;" onclick="go('#/site/${siteId}/pricebuilder/edit/${sheetId}')">✏️ Edit</button>
+      <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deletePriceBuilderSheet('${siteId}','${sheetId}')">🗑 Delete</button>
+    </div>
+    ` : ''}
   `, {title:'Priced Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
 }
 // Live Total/Taken/Balance for a Price Builder sheet — once issued, a sheet
@@ -9289,6 +9713,10 @@ window.exportPriceBuilderSheet = async function(sheetId){
   items.forEach(it=>{ let c=categories.find(c=>c.name===it.category); if(!c){c={name:it.category, items:[]};categories.push(c);} c.items.push(it); });
   sortPriceRateCategories(categories);
   const {total, taken, balance} = await pbSheetLiveFigures(sheet);
+  // Live week-by-week booked-in breakdown — same weeks that drive the
+  // Pricing Element's own Taken figure, so the export shows exactly how
+  // "Taken" was arrived at rather than just the final number.
+  const weekRows = sheet.pricing_element_id ? await dbSelect('price_weeks', 'element_id=eq.'+sheet.pricing_element_id+'&order=week_number.asc&select=week_number,amount') : [];
 
   const rows = [];
   rows.push([sheet.title || 'Priced Sheet']);
@@ -9300,28 +9728,45 @@ window.exportPriceBuilderSheet = async function(sheetId){
   if(sheet.subcontractor_name) rows.push(['For:', sheet.subcontractor_name]);
   rows.push([sheet.status==='issued' ? 'Issued:' : 'Status:', sheet.status==='issued' ? new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : 'Draft']);
   rows.push([]);
-  rows.push(['Item', 'Choice', 'Qty', 'Unit', 'Rate (£)', 'Line Total (£)', 'Rate']);
+  rows.push(['Item', 'Qty', 'Unit', 'Rate (£)', 'Line Total (£)', 'Notes']);
   const headerRowIdx = rows.length - 1;
   categories.forEach(cat=>{
     rows.push([cat.name]);
     cat.items.forEach(it=>{
-      rows.push([it.name, it.option_label||'', Number(it.quantity), PRICE_UNIT_LABEL[it.unit]||it.unit, Number(it.rate), Number(it.line_total), it.is_manual_rate?'Manual — non-conforming':'']);
+      const itemText = it.option_label ? `${it.name} - ${it.option_label}` : it.name;
+      rows.push([itemText, Number(it.quantity), PRICE_UNIT_LABEL[it.unit]||it.unit, Number(it.rate), Number(it.line_total), it.is_manual_rate?'Manual — non-conforming':'']);
     });
   });
   rows.push([]);
-  rows.push(['', '', '', '', 'Total', total]);
-  rows.push(['', '', '', '', 'Taken', taken]);
-  rows.push(['', '', '', '', 'Balance', balance]);
+  rows.push(['', '', '', 'Total', total]);
+  rows.push(['', '', '', 'Taken', taken]);
+  rows.push(['', '', '', 'Balance', balance]);
   const totalRowIdx = rows.length - 3;
   const grandRowIdx = rows.length - 1;
 
+  let weekDataStartIdx = -1, weekDataEndIdx = -1;
+  if(weekRows.length){
+    rows.push([]);
+    rows.push(['Weekly Booked In']);
+    rows.push(['Week', 'Amount (£)', 'Running Total (£)']);
+    let running = 0;
+    weekDataStartIdx = rows.length;
+    weekRows.forEach(w=>{ running += Number(w.amount||0); rows.push(['Week '+w.week_number, Number(w.amount||0), running]); });
+    weekDataEndIdx = rows.length - 1;
+  }
+
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:42},{wch:20},{wch:8},{wch:14},{wch:12},{wch:14},{wch:22}];
-  for(let r=totalRowIdx; r<=grandRowIdx; r++){ const addr = 'F'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00'; }
+  ws['!cols'] = [{wch:42},{wch:8},{wch:14},{wch:12},{wch:14},{wch:22}];
+  for(let r=totalRowIdx; r<=grandRowIdx; r++){ const addr = 'E'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00'; }
   for(let r=headerRowIdx+1; r<totalRowIdx; r++){
-    const rateCell = ws['E'+(r+1)], totalCell = ws['F'+(r+1)];
+    const rateCell = ws['D'+(r+1)], totalCell = ws['E'+(r+1)];
     if(rateCell && typeof rateCell.v==='number') rateCell.z = '"£"#,##0.00';
     if(totalCell && typeof totalCell.v==='number') totalCell.z = '"£"#,##0.00';
+  }
+  for(let r=weekDataStartIdx; r<=weekDataEndIdx; r++){
+    const amtCell = ws['B'+(r+1)], runCell = ws['C'+(r+1)];
+    if(amtCell) amtCell.z = '"£"#,##0.00';
+    if(runCell) runCell.z = '"£"#,##0.00';
   }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
@@ -9343,6 +9788,7 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   await loadAllProfiles();
   const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
   const {total, taken, balance} = await pbSheetLiveFigures(sheet);
+  const weekRows = sheet.pricing_element_id ? await dbSelect('price_weeks', 'element_id=eq.'+sheet.pricing_element_id+'&order=week_number.asc&select=week_number,amount') : [];
 
   const pdfDoc = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(pdfDoc);
@@ -9378,10 +9824,11 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
     if(logoImg){
       const dim = logoImg.scale(1); const s = 38/Math.max(dim.width, dim.height);
       const w = dim.width*s, h = dim.height*s;
-      page.drawRectangle({x:MARGIN, y:PAGE_H-62, width:38, height:38, color:WHITE});
-      page.drawImage(logoImg, {x:MARGIN+(38-w)/2, y:PAGE_H-62+(38-h)/2, width:w, height:h});
+      const logoX = PAGE_W-MARGIN-38;
+      page.drawRectangle({x:logoX, y:PAGE_H-62, width:38, height:38, color:WHITE});
+      page.drawImage(logoImg, {x:logoX+(38-w)/2, y:PAGE_H-62+(38-h)/2, width:w, height:h});
     }
-    const textX = logoImg ? MARGIN+50 : MARGIN;
+    const textX = MARGIN;
     page.drawText('SUBCONTRACTOR SOW', {x:textX, y:PAGE_H-36, size:9, font:bold, color:WHITE, opacity:0.85});
     page.drawText(sheet.title||'Priced Sheet', {x:textX, y:PAGE_H-58, size:16, font:bold, color:WHITE});
     const addrLine = site ? fullSiteAddress(site) : null;
@@ -9389,7 +9836,17 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
       page.drawText(addrLine, {x:textX, y:PAGE_H-73, size:9, font:italic, color:WHITE, opacity:0.85});
     }
     if(jobLine){
-      page.drawText(jobLine, {x:textX, y:PAGE_H-88, size:8.5, font:reg, color:WHITE, opacity:0.85});
+      // Job number itself is bolded so it stands out against the PM name
+      // alongside it, rather than the whole line reading with equal weight.
+      let cx = textX;
+      const drawPart = (text, f)=>{ page.drawText(text, {x:cx, y:PAGE_H-88, size:8.5, font:f, color:WHITE, opacity:0.85}); cx += f.widthOfTextAtSize(text, 8.5); };
+      if(site && site.job_number){
+        drawPart('Job No: ', reg);
+        drawPart(site.job_number, bold);
+        if(site.responsible_pm_id) drawPart('   ·   PM: '+nameOf(site.responsible_pm_id), reg);
+      } else if(site && site.responsible_pm_id){
+        drawPart('PM: '+nameOf(site.responsible_pm_id), reg);
+      }
     }
   }
   function drawFooter(){
@@ -9440,17 +9897,26 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   }
   newPage();
   drawColumnHeaders();
+  const nameColW = cols[0].w*CONTENT_W - 4;
   items.forEach(it=>{
-    ensureSpace(24);
     const nameText = it.option_label ? `${it.name} — ${it.option_label}` : it.name;
-    const maxChars = Math.floor((cols[0].w*CONTENT_W)/5);
-    drawCell(page, nameText.length>maxChars ? nameText.slice(0,maxChars-1)+'…' : nameText, cols[0], y, {size:10});
+    // Wrap the item text to the Item column's own width instead of
+    // truncating with an ellipsis — a row that wraps to more than one line
+    // grows to fit, and the row height is reserved up front (ensureSpace)
+    // so a wrapped row is never split across a page break.
+    const nameLines = wrapText(nameText, reg, 10, nameColW);
+    const lineH = 13;
+    const rowH = Math.max(24, nameLines.length*lineH + 10);
+    ensureSpace(rowH);
+    nameLines.forEach((line, i)=>{
+      page.drawText(line, {x: MARGIN + cols[0].x*CONTENT_W, y: y - i*lineH, size:10, font:reg, color:INK});
+    });
     drawCell(page, String(it.quantity), cols[1], y, {size:10});
     drawCell(page, PRICE_UNIT_LABEL[it.unit]||it.unit||'', cols[2], y, {size:10});
     drawCell(page, Number(it.rate).toFixed(2), cols[3], y, {size:10});
     drawCell(page, Number(it.line_total).toFixed(2), cols[4], y, {font:bold, size:10});
-    y -= 24;
-    page.drawLine({start:{x:MARGIN,y:y+10}, end:{x:PAGE_W-MARGIN,y:y+10}, thickness:0.5, color:LINE});
+    y -= rowH;
+    page.drawLine({start:{x:MARGIN,y:y+(rowH-14)}, end:{x:PAGE_W-MARGIN,y:y+(rowH-14)}, thickness:0.5, color:LINE});
   });
 
   ensureSpacePlain(90);
@@ -9466,6 +9932,36 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
     page.drawText(valText, {x:boxX+boxW-w, y:rowY, size:10, font, color: i===2 && val<0 ? PDFLib.rgb(0.757,0.231,0.231) : INK});
   });
   page.drawLine({start:{x:boxX,y:y-27}, end:{x:boxX+boxW,y:y-27}, thickness:0.75, color:LINE});
+  y -= 3*18 + 10;
+
+  // Live week-by-week booked-in breakdown, same figures that drive the
+  // Taken total above — shows the maths behind it rather than just the
+  // final number.
+  if(weekRows.length){
+    ensureSpacePlain(40);
+    y -= 20;
+    page.drawText('Weekly Booked In', {x:MARGIN, y, size:11, font:bold, color:INK});
+    y -= 18;
+    const wkCols = [
+      {label:'Week', x:0, w:0.3, align:'left'},
+      {label:'Amount £', x:0.3, w:0.35, align:'right'},
+      {label:'Running Total £', x:0.65, w:0.35, align:'right'},
+    ];
+    ensureSpacePlain(20);
+    wkCols.forEach(col=>drawCell(page, col.label, col, y, {font:bold, size:9, color:SLATE}));
+    y -= 8;
+    page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:INK});
+    y -= 16;
+    let running = 0;
+    weekRows.forEach(w=>{
+      running += Number(w.amount||0);
+      ensureSpacePlain(18);
+      drawCell(page, 'Week '+w.week_number, wkCols[0], y, {size:9.5});
+      drawCell(page, Number(w.amount||0).toFixed(2), wkCols[1], y, {size:9.5});
+      drawCell(page, running.toFixed(2), wkCols[2], y, {size:9.5, font:bold});
+      y -= 16;
+    });
+  }
 
   const bytes = await pdfDoc.save();
   await deliverPdf(bytes, exportFilename(site?site.name:'', sheet.title||'Priced Sheet', 'pdf'));
