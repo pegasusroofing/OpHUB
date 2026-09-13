@@ -7226,6 +7226,35 @@ window.toggleElementAccess = async function(elementId, siteId, userId, hasAccess
   }
   render();
 };
+// Bulk version of the grant half of toggleElementAccess above — used by
+// Price Builder to carry the operatives ticked on the sheet itself straight
+// through to the Pricing Element's access list the moment the sheet is
+// issued, instead of making the PM open "Select Operatives" separately
+// afterwards. Silently skips anyone who already has the grant (e.g. issuing
+// a second sheet into the same element) rather than erroring on a duplicate.
+async function grantElementAccessBulk(elementId, siteId, userIds){
+  if(!userIds || !userIds.length) return;
+  const [existingPrice, existingLabour] = await Promise.all([
+    dbSelect('site_price_access', 'element_id=eq.'+elementId+'&select=user_id'),
+    dbSelect('site_labour_invoice_access', 'element_id=eq.'+elementId+'&select=user_id'),
+  ]);
+  const havePrice = new Set(existingPrice.map(r=>r.user_id));
+  const haveLabour = new Set(existingLabour.map(r=>r.user_id));
+  const priceRows = userIds.filter(uid=>!havePrice.has(uid)).map(uid=>({site_id:siteId, element_id:elementId, user_id:uid, granted_by:ME.id}));
+  const labourRows = userIds.filter(uid=>!haveLabour.has(uid)).map(uid=>({site_id:siteId, element_id:elementId, user_id:uid, granted_by:ME.id}));
+  await Promise.all([
+    priceRows.length ? dbInsert('site_price_access', priceRows) : Promise.resolve([]),
+    labourRows.length ? dbInsert('site_labour_invoice_access', labourRows) : Promise.resolve([]),
+  ]);
+}
+// Operatives assigned to a site, for the "who's this for" tick-list in Price
+// Builder (replaces the old free-text Subcontractor field) — same roster
+// the Pricing Element's own "Select Operatives" picker draws from.
+async function siteAssignedOperatives(siteId){
+  await loadAllProfiles();
+  const rows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  return rows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+}
 
 /* ================= PRICING ELEMENTS ================= */
 // #400: a site's Price page is split into named "Pricing Elements" (e.g.
@@ -8128,13 +8157,6 @@ async function renderPriceTile(siteId){
     </div>
     ` : ''}
   `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: PRICE_BUILDER_LIVE ? `#/site/${siteId}/price` : `#/site/${siteId}/home`, siteId, tabs:false}); }
-  // Fire-and-forget: only a manager's own view can flip the flag (updating
-  // `sites` needs is_pm() per RLS), so this silently no-ops for an operative
-  // just viewing the price. Only actually hits the DB on a state change —
-  // once notified it stays quiet until the balance recovers above -£50.
-  // #400: now driven off the job-level Overview balance (every element
-  // combined) rather than a single site-wide figure.
-  if(canManage) checkPriceOverbookedNotification(siteId, overviewBalance);
 }
 // #430: a single Pricing Element's own page — everything that used to live
 // inline inside its card on the old one-long-page Price tile (Price Total,
@@ -8603,11 +8625,32 @@ window.pbwSetManual = async function(sheetItemId, elId, siteId, wk, rate, value)
    read-only to anyone assigned to the site. */
 const PRICE_BUILDER_FMT = n => '£' + (Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
 let priceBuilderNewOpen = false;
+let priceBuilderNewAssignees = []; // userIds ticked on the "+ New Sheet" form, before the sheet even exists
+window.pbNewToggleAssignee = function(userId){
+  const idx = priceBuilderNewAssignees.indexOf(userId);
+  if(idx>-1) priceBuilderNewAssignees.splice(idx,1); else priceBuilderNewAssignees.push(userId);
+  render();
+};
+// Shared tick-chip UI for "who is this sheet for" — ticking someone here is
+// what (once the sheet is issued) grants them access to the Pricing Element
+// in the Price tile, via grantElementAccessBulk — replacing the old
+// free-text Subcontractor field, which never linked through to anything.
+function pbAssigneeChipsHtml(operatives, selectedIds, toggleFn){
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;">
+    ${(operatives||[]).map(p=>{
+      const on = selectedIds.includes(p.id);
+      return `<div onclick="${toggleFn}('${p.id}')" style="padding:6px 10px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${on?'var(--brand1)':'var(--line)'};background:${on?'var(--brand1)':'#fff'};color:${on?'var(--brand1-text)':'var(--ink)'};">${on?'✓ ':''}${escapeHtml(p.name)}</div>`;
+    }).join('') || `<div class="empty" style="padding:8px;">No operatives assigned to this site yet.</div>`}
+  </div>`;
+}
 async function renderPriceBuilderSheets(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = canUsePriceBuilder(); // admin-only for now, see canUsePriceBuilder
-  const sheets = await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  const [sheets, assignedOperatives] = await Promise.all([
+    dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&order=created_at.desc'),
+    priceBuilderNewOpen ? siteAssignedOperatives(siteId) : Promise.resolve([]),
+  ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
     ${sheets.filter(s=>canManage || s.status==='issued').map(s=>`
@@ -8625,10 +8668,10 @@ async function renderPriceBuilderSheets(siteId){
     ${canManage ? (priceBuilderNewOpen ? `
       <div class="card" style="margin-top:14px;">
         <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" placeholder="e.g. Rear Pitched Roof"></div>
-        <div class="formfield"><label class="field-label">Subcontractor (optional)</label><input type="text" id="pbNewSub" placeholder="Who this is being priced for"></div>
+        <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, priceBuilderNewAssignees, 'pbNewToggleAssignee')}</div>
         <div class="row-gap">
           <button class="darkbtn" style="flex:1;" onclick="createPriceBuilderSheet('${siteId}')">Create</button>
-          <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;render()">Cancel</button>
+          <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;priceBuilderNewAssignees=[];render()">Cancel</button>
         </div>
       </div>
     ` : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`) : ''}
@@ -8636,10 +8679,18 @@ async function renderPriceBuilderSheets(siteId){
 }
 window.createPriceBuilderSheet = async function(siteId){
   const title = document.getElementById('pbNewTitle').value.trim();
-  const subcontractor_name = document.getElementById('pbNewSub').value.trim() || null;
   if(!title){ toast('Enter a title for this sheet.'); return; }
-  const rows = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name, created_by:ME.id});
-  if(rows && rows[0]){ priceBuilderNewOpen = false; go(`#/site/${siteId}/pricebuilder/edit/${rows[0].id}`); }
+  await loadAllProfiles();
+  const assignedUserIds = priceBuilderNewAssignees.slice();
+  const subcontractor_name = assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
+  const rows = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name, assigned_user_ids:assignedUserIds, created_by:ME.id});
+  if(rows && rows[0]){ priceBuilderNewOpen = false; priceBuilderNewAssignees = []; go(`#/site/${siteId}/pricebuilder/edit/${rows[0].id}`); }
+};
+window.pbRenameSheet = async function(sheetId, value){
+  const title = value.trim();
+  if(!title){ toast("Title can't be empty."); render(); return; }
+  const row = await dbUpdate('price_builder_sheets', sheetId, {title});
+  if(row) toast('Sheet renamed'); else render();
 };
 window.deletePriceBuilderSheet = async function(sheetId){
   if(!await customConfirm('Delete this draft sheet? This can\'t be undone.')) return;
@@ -8659,10 +8710,14 @@ window.deletePriceBuilderSheet = async function(sheetId){
 // card spreadsheet, each with its qty/option/text now editable). Re-opening
 // a sheet that already has ticked items on it jumps straight to 'confirm'
 // (see the phase default below) since there's nothing left to tick-only.
-let pbWorking = {sheetId:null, title:'', subcontractorName:'', phase:'tick', populateSOW:true, items:{}, customRows:[]};
+let pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
+function pbResolvedRate(entry, item){
+  if(entry.isManualRate && entry.rateOverride!=null) return Number(entry.rateOverride);
+  return item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
+}
 function pbLineTotal(entry, item){
   const qty = Number(entry.quantity)||0;
-  const rate = item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
+  const rate = pbResolvedRate(entry, item);
   return qty * rate;
 }
 function pbCustomLineTotal(row){ return (Number(row.quantity)||0) * (Number(row.rate)||0); }
@@ -8686,6 +8741,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   const optionsByItem = {};
   priceRateOptions.forEach(o=>{ (optionsByItem[o.rate_item_id]=optionsByItem[o.rate_item_id]||[]).push(o); });
   const itemsById = {}; priceRateItems.forEach(it=>itemsById[it.id]=it);
+  const assignedOperatives = await siteAssignedOperatives(siteId);
 
   if(pbWorking.sheetId !== sheetId){
     const existingItems = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId);
@@ -8702,9 +8758,23 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       }
       const linkedItem = itemsById[row.rate_item_id];
       const nameOverride = (linkedItem && row.name && row.name!==linkedItem.name) ? row.name : null;
-      items[row.rate_item_id] = {quantity:row.quantity, optionId:row.option_id||null, optionRate:row.option_id?row.rate:null, optionLabel:row.option_label||null, nameOverride};
+      // row.rate is whatever was actually charged — the option's own rate,
+      // or (if is_manual_rate) an override typed on the confirm page. Look
+      // the option's real rate up from the current rate card rather than
+      // trusting row.rate for it, so a manual override on reload doesn't
+      // get mistaken for the option's price (or vice versa).
+      let optionRate = null;
+      if(row.option_id){
+        const opt = (optionsByItem[row.rate_item_id]||[]).find(o=>o.id===row.option_id);
+        optionRate = opt ? Number(opt.rate) : (row.is_manual_rate ? null : Number(row.rate));
+      }
+      items[row.rate_item_id] = {
+        quantity:row.quantity, optionId:row.option_id||null, optionRate, optionLabel:row.option_label||null, nameOverride,
+        rateOverride: row.is_manual_rate ? Number(row.rate) : null,
+        isManualRate: !!row.is_manual_rate,
+      };
     });
-    pbWorking = {sheetId, title:sheet.title, subcontractorName:sheet.subcontractor_name||'', phase:(existingItems.length?'confirm':'tick'), populateSOW: !sheet.schedule_section_id, items, customRows};
+    pbWorking = {sheetId, title:sheet.title, assignedUserIds:(sheet.assigned_user_ids||[]).slice(), phase:(existingItems.length?'confirm':'tick'), populateSOW: !sheet.schedule_section_id, items, customRows};
   }
 
   const categories = [];
@@ -8726,22 +8796,31 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   if(pbWorking.phase!=='confirm'){
     document.getElementById('app').innerHTML = shell(`
       <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" value="${escapeHtml(pbWorking.title)}" onblur="pbWorking.title=this.value.trim()||pbWorking.title;render()"></div>
-      <div class="formfield"><label class="field-label">Subcontractor (optional)</label><input type="text" value="${escapeHtml(pbWorking.subcontractorName)}" onblur="pbWorking.subcontractorName=this.value.trim();render()"></div>
+      <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, pbWorking.assignedUserIds, 'pbToggleAssignee')}</div>
       <p class="stub" style="margin:0 0 10px;">Tick everything that belongs on this sheet — you'll set quantities next, once everything's ticked.</p>
 
       ${categories.map(cat=>{
         const open = pbCategoryOpen[cat.name]!==false;
         return `
-        <p class="ddrow" style="margin-top:14px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
+        <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
         ${open ? cat.items.map(it=>{
-          const ticked = !!pbWorking.items[it.id];
+          const entry = pbWorking.items[it.id];
+          const ticked = !!entry;
+          const opts = optionsByItem[it.id]||[];
           return `
-          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;cursor:pointer;" onclick="pbToggleItem('${it.id}',${!ticked})">
-            <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${ticked?'checked':''} onclick="event.stopPropagation();pbToggleItem('${it.id}',this.checked)" onchange="event.stopPropagation()">
-            <div class="info" style="flex:1 1 130px;min-width:110px;">
-              <div class="name">${escapeHtml(it.name)}</div>
-              ${!it.is_dropdown?`<div class="sub">${PRICE_BUILDER_FMT(it.rate)} ${PRICE_UNIT_LABEL[it.unit]}</div>`:`<div class="sub">Choice of options — pick one next</div>`}
+          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1 1 130px;min-width:110px;cursor:pointer;" onclick="pbToggleItem('${it.id}',${!ticked})">
+              <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${ticked?'checked':''} onclick="event.stopPropagation();pbToggleItem('${it.id}',this.checked)" onchange="event.stopPropagation()">
+              <div class="info">
+                <div class="name">${escapeHtml(it.name)}</div>
+              </div>
             </div>
+            ${it.is_dropdown ? `
+            <select style="flex:1 1 140px;min-width:120px;" onchange="event.stopPropagation();pbSetOption('${it.id}', this.value)" onclick="event.stopPropagation()">
+              <option value="">— Choose option —</option>
+              ${opts.map(o=>`<option value="${o.id}" ${entry&&entry.optionId===o.id?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}
+            </select>
+            ` : ''}
           </div>
         `;}).join('') : ''}
       `;}).join('') || `<div class="empty">No rate card items yet — add some from Settings &amp; Admin › Price Builder — Rate Card first.</div>`}
@@ -8763,7 +8842,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   // ---------- Phase 2: confirm — grouped in spreadsheet order, qty/text/options ----------
   document.getElementById('app').innerHTML = shell(`
     <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" value="${escapeHtml(pbWorking.title)}" onblur="pbWorking.title=this.value.trim()||pbWorking.title;render()"></div>
-    <div class="formfield"><label class="field-label">Subcontractor (optional)</label><input type="text" value="${escapeHtml(pbWorking.subcontractorName)}" onblur="pbWorking.subcontractorName=this.value.trim();render()"></div>
+    <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, pbWorking.assignedUserIds, 'pbToggleAssignee')}</div>
     <p class="stub" style="margin:0 0 10px;">Every ticked item, grouped and ordered the same way as the rate card. Set a quantity for each — you can still edit the wording, or untick something you don't need after all.</p>
 
     ${categories.map(cat=>{
@@ -8773,19 +8852,16 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
       ${catTicked.map(it=>{
         const entry = pbWorking.items[it.id];
-        const opts = optionsByItem[it.id]||[];
+        const baseRate = it.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(it.rate||0);
+        const displayRate = entry.isManualRate && entry.rateOverride!=null ? Number(entry.rateOverride) : baseRate;
         return `
         <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
           <div class="info" style="flex:1 1 160px;min-width:140px;">
             <input type="text" value="${escapeHtml(entry.nameOverride||it.name)}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:inherit;box-sizing:border-box;" onblur="pbSetItemName('${it.id}', this.value)">
-            ${!it.is_dropdown?`<div class="sub" style="margin-top:4px;">${PRICE_BUILDER_FMT(it.rate)} ${PRICE_UNIT_LABEL[it.unit]}</div>`:''}
+            ${entry.optionLabel?`<div class="sub" style="margin-top:4px;">${escapeHtml(entry.optionLabel)}</div>`:''}
+            ${entry.isManualRate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual rate — non-conforming</div>`:''}
           </div>
-          ${it.is_dropdown ? `
-          <select style="flex:1 1 140px;min-width:120px;" onchange="pbSetOption('${it.id}', this.value)">
-            <option value="">— Choose —</option>
-            ${opts.map(o=>`<option value="${o.id}" ${entry.optionId===o.id?'selected':''}>${escapeHtml(o.label)} (${PRICE_BUILDER_FMT(o.rate)})</option>`).join('')}
-          </select>
-          ` : ''}
+          <div style="display:flex;align-items:center;gap:3px;flex:0 0 auto;">£<input type="number" step="0.01" value="${displayRate!=null?displayRate:''}" style="width:74px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetRateOverride('${it.id}', this.value, ${baseRate})"></div>
           <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
             <input type="number" step="0.1" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:7px 8px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${it.id}', this.value)">
             <span class="stub" style="margin:0;">${PRICE_UNIT_LABEL[it.unit]}</span>
@@ -8842,8 +8918,13 @@ window.pbBackToTick = function(){
 };
 window.pbToggleSOW = function(checked){ pbWorking.populateSOW = checked; render(); };
 window.pbToggleItem = function(itemId, checked){
-  if(checked) pbWorking.items[itemId] = pbWorking.items[itemId] || {quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null};
+  if(checked) pbWorking.items[itemId] = pbWorking.items[itemId] || {quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null, rateOverride:null, isManualRate:false};
   else delete pbWorking.items[itemId];
+  render();
+};
+window.pbToggleAssignee = function(userId){
+  const idx = pbWorking.assignedUserIds.indexOf(userId);
+  if(idx>-1) pbWorking.assignedUserIds.splice(idx,1); else pbWorking.assignedUserIds.push(userId);
   render();
 };
 window.pbSetItemName = function(itemId, value){
@@ -8861,13 +8942,36 @@ window.pbSetQuantity = function(itemId, value){
   render();
 };
 window.pbSetOption = function(itemId, optionId){
-  const entry = pbWorking.items[itemId]; if(!entry) return;
+  // Dropdown items are picked straight from the tick (first) page now, so
+  // choosing an option here also ticks the item — there's no separate
+  // checkbox step for these. An empty entry only gets created once an
+  // option is actually chosen; clearing back to "— Choose option —" with
+  // nothing ticked yet is a no-op rather than creating a blank tick.
+  let entry = pbWorking.items[itemId];
+  if(!entry){
+    if(!optionId) return;
+    entry = pbWorking.items[itemId] = {quantity:'', optionId:null, optionRate:null, optionLabel:null, nameOverride:null, rateOverride:null, isManualRate:false};
+  }
   if(!optionId){ entry.optionId=null; entry.optionRate=null; entry.optionLabel=null; render(); return; }
   dbSelect('price_rate_options', 'id=eq.'+optionId).then(rows=>{
     const o = rows[0]; if(!o) return;
     entry.optionId = o.id; entry.optionRate = o.rate; entry.optionLabel = o.label;
     render();
   });
+};
+// Manual rate override on the confirm page — editing the £ cell away from
+// the rate-card/option value asks for confirmation and flags the line as a
+// manual, non-conforming rate (shown on the row and carried through to the
+// saved sheet item) rather than silently accepting it.
+window.pbSetRateOverride = async function(itemId, value, baseRate){
+  const entry = pbWorking.items[itemId]; if(!entry) return;
+  const val = parseFloat(value);
+  if(value===''||Number.isNaN(val)){ toast('Enter a valid rate.'); render(); return; }
+  const base = Number(baseRate)||0;
+  if(Math.abs(val-base) < 0.005){ entry.isManualRate=false; entry.rateOverride=null; render(); return; }
+  const ok = await customConfirm(`This changes the rate from ${PRICE_BUILDER_FMT(base)} to ${PRICE_BUILDER_FMT(val)} — different from the rate card. It'll be flagged as a manual, non-conforming rate on this sheet. Continue?`);
+  if(!ok){ render(); return; }
+  entry.rateOverride = val; entry.isManualRate = true; render();
 };
 window.pbAddCustomRow = function(){
   pbWorking.customRows.push({localId:uid(), name:'', rate:'', quantity:'', unit:'each'});
@@ -8904,8 +9008,9 @@ async function pbPersist(siteId, sheetId, status){
     total += lineTotal;
     rows.push({
       sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: item.unit,
-      rate: item.is_dropdown ? entry.optionRate : item.rate, quantity: qty,
+      rate: pbResolvedRate(entry, item), quantity: qty,
       option_id: entry.optionId||null, option_label: entry.optionLabel||null,
+      is_manual_rate: !!entry.isManualRate,
       line_total: lineTotal, sort_order: sortOrder++,
     });
   });
@@ -8925,7 +9030,9 @@ async function pbPersist(siteId, sheetId, status){
   const existing = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&select=id');
   for(const row of existing){ await dbDelete('price_builder_sheet_items', row.id); }
   const inserted = rows.length ? await dbInsert('price_builder_sheet_items', rows) : [];
-  const patch = {title: pbWorking.title, subcontractor_name: pbWorking.subcontractorName||null, total, updated_at: new Date().toISOString()};
+  await loadAllProfiles();
+  const subcontractor_name = pbWorking.assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
+  const patch = {title: pbWorking.title, subcontractor_name, assigned_user_ids: pbWorking.assignedUserIds, total, updated_at: new Date().toISOString()};
   if(status){ patch.status = status; patch.issued_by = ME.id; patch.issued_at = new Date().toISOString(); }
   await dbUpdate('price_builder_sheets', sheetId, patch);
   return {total, rows: inserted||rows};
@@ -8978,6 +9085,11 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
     await dbUpdate('pricing_elements', pricingElementId, {price_total: total});
   }
 
+  // Whoever was ticked "Assign to" on this sheet gets access to the
+  // Pricing Element it just fed, straight away — no separate trip into the
+  // Price tile's own "Select Operatives" picker needed for these people.
+  if(pricingElementId) await grantElementAccessBulk(pricingElementId, siteId, pbWorking.assignedUserIds);
+
   // Optionally mirror this sheet into the Schedule of Works — one section
   // named after the sheet, one task per item, in the same order.
   let scheduleSectionId = sheet.schedule_section_id;
@@ -8999,7 +9111,7 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(Object.keys(linkPatch).length) await dbUpdate('price_builder_sheets', sheetId, linkPatch);
 
   toast('Sheet issued');
-  pbWorking = {sheetId:null, title:'', subcontractorName:'', phase:'tick', populateSOW:true, items:{}, customRows:[]};
+  pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
   go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
 };
 async function renderPriceBuilderView(siteId, sheetId){
@@ -9018,7 +9130,7 @@ async function renderPriceBuilderView(siteId, sheetId){
   sortPriceRateCategories(categories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:14px;">
-      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sheet.title)}</p>
+      <input type="text" class="sectiontitle" value="${escapeHtml(sheet.title)}" style="margin:0 0 6px;width:100%;box-sizing:border-box;border:none;background:transparent;padding:0;font-family:inherit;" onblur="pbRenameSheet('${sheetId}', this.value)">
       ${sheet.subcontractor_name ? `<p class="stub" style="margin:0 0 6px;">For: ${escapeHtml(sheet.subcontractor_name)}</p>` : ''}
       <p class="stub" style="margin:0;">Issued ${new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(sheet.issued_by))}</p>
     </div>
@@ -9026,7 +9138,7 @@ async function renderPriceBuilderView(siteId, sheetId){
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
       ${cat.items.map(it=>`
         <div class="sitecard" style="padding:8px 10px;">
-          <div class="info"><div class="name">${escapeHtml(it.name)}${it.option_label?' — '+escapeHtml(it.option_label):''}</div><div class="sub">${it.quantity} ${PRICE_UNIT_LABEL[it.unit]||it.unit} @ ${PRICE_BUILDER_FMT(it.rate)}</div></div>
+          <div class="info"><div class="name">${escapeHtml(it.name)}${it.option_label?' — '+escapeHtml(it.option_label):''}</div><div class="sub">${it.quantity} ${PRICE_UNIT_LABEL[it.unit]||it.unit} @ ${PRICE_BUILDER_FMT(it.rate)}${it.is_manual_rate?' <span style="color:var(--warn);font-weight:700;">⚠ Manual</span>':''}</div></div>
           <span class="stub" style="margin:0;font-weight:700;">${PRICE_BUILDER_FMT(it.line_total)}</span>
         </div>
       `).join('')}
@@ -9092,12 +9204,12 @@ window.exportPriceBuilderSheet = async function(sheetId){
   if(sheet.subcontractor_name) rows.push(['For:', sheet.subcontractor_name]);
   rows.push([sheet.status==='issued' ? 'Issued:' : 'Status:', sheet.status==='issued' ? new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : 'Draft']);
   rows.push([]);
-  rows.push(['Item', 'Choice', 'Qty', 'Unit', 'Rate (£)', 'Line Total (£)']);
+  rows.push(['Item', 'Choice', 'Qty', 'Unit', 'Rate (£)', 'Line Total (£)', 'Rate']);
   const headerRowIdx = rows.length - 1;
   categories.forEach(cat=>{
     rows.push([cat.name]);
     cat.items.forEach(it=>{
-      rows.push([it.name, it.option_label||'', Number(it.quantity), PRICE_UNIT_LABEL[it.unit]||it.unit, Number(it.rate), Number(it.line_total)]);
+      rows.push([it.name, it.option_label||'', Number(it.quantity), PRICE_UNIT_LABEL[it.unit]||it.unit, Number(it.rate), Number(it.line_total), it.is_manual_rate?'Manual — non-conforming':'']);
     });
   });
   rows.push([]);
@@ -9108,7 +9220,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   const grandRowIdx = rows.length - 1;
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{wch:42},{wch:20},{wch:8},{wch:14},{wch:12},{wch:14}];
+  ws['!cols'] = [{wch:42},{wch:20},{wch:8},{wch:14},{wch:12},{wch:14},{wch:22}];
   for(let r=totalRowIdx; r<=grandRowIdx; r++){ const addr = 'F'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00'; }
   for(let r=headerRowIdx+1; r<totalRowIdx; r++){
     const rateCell = ws['E'+(r+1)], totalCell = ws['F'+(r+1)];
@@ -9221,21 +9333,6 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   const bytes = await pdfDoc.save();
   await deliverPdf(bytes, exportFilename(site?site.name:'', sheet.title||'Priced Sheet', 'pdf'));
 };
-
-async function checkPriceOverbookedNotification(siteId, balance){
-  const site = SITES.find(s=>s.id===siteId);
-  if(!site) return;
-  const isOverbooked = balance <= -50;
-  if(isOverbooked && !site.overbooked_notified){
-    const row = await dbUpdate('sites', siteId, {overbooked_notified:true});
-    if(row){ const idx=SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx]=row; }
-    const fmt = n => '£' + Math.abs(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
-    postSystemMessage(siteId, 'price_overbooked', `${site.name}: Price is overbooked by ${fmt(balance)} — please review as soon as possible.`);
-  } else if(!isOverbooked && site.overbooked_notified){
-    const row = await dbUpdate('sites', siteId, {overbooked_notified:false});
-    if(row){ const idx=SITES.findIndex(s=>s.id===siteId); if(idx>-1) SITES[idx]=row; }
-  }
-}
 
 /* ================= LABOUR INVOICES ================= */
 // Lives as a dropdown inside each Pricing Element's card — visible to
