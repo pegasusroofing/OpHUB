@@ -1471,7 +1471,7 @@ const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // "Price Builder — Rate Card" section stays hidden. Flip to true once
 // that work is finished and ready to ship — all the code for it stays in
 // place either way, just unreachable until then.
-const PRICE_BUILDER_LIVE = false;
+const PRICE_BUILDER_LIVE = true;
 const DEFAULT_BRAND2 = '#101114';
 // Inline SVG, can never 404 — the last-resort fallback so a missing/slow
 // asset never causes an onerror retry loop (which shows as a "flashing" broken image).
@@ -1643,6 +1643,12 @@ function orgLogoUrl(org){
 // 'admin' is a superset of 'pm' capabilities everywhere in this app —
 // mirrors the DB's is_pm() which now also means "pm or admin".
 function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
+// Price Builder rollout is admin-only for now — PMs keep full access to the
+// existing (unrelated) manual Pricing Element "lump sum + tracker" sub
+// tiles, just not the sheet-building/issuing tool itself yet. Swap this back
+// to isManager(ME) (or drop it and use isManager directly) once it's ready
+// for every PM.
+function canUsePriceBuilder(){ return !!ME && ME.role==='admin'; }
 // Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
@@ -3576,11 +3582,10 @@ async function renderTeam(){
   const deviceLocks = (iAmAdmin && teamSectionOpen.devicelocks) ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
   const suppliers = (isManager(ME) && teamSectionOpen.suppliers) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
   const havsTools = (isManager(ME) && teamSectionOpen.havstools) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
-  // Price Builder rate card — PM/admin only, org-wide (mirrors Suppliers).
-  // Kept hidden while it's still being built out (#PB-wip) since it's not
-  // wired into anything live yet.
+  // Price Builder rate card — admin only for now (rollout gate, see
+  // canUsePriceBuilder), org-wide (mirrors Suppliers).
   let priceRateItems = [], priceRateOptions = [];
-  if(PRICE_BUILDER_LIVE && isManager(ME) && teamSectionOpen.pricebuilder){
+  if(PRICE_BUILDER_LIVE && canUsePriceBuilder() && teamSectionOpen.pricebuilder){
     priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
     const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
     priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
@@ -3820,8 +3825,8 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    ${isManager(ME) && PRICE_BUILDER_LIVE ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="rolechip" style="margin-left:4px;">Work in progress</span></p>
+    ${canUsePriceBuilder() && PRICE_BUILDER_LIVE ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="rolechip" style="margin-left:4px;">Admin only for now</span></p>
     ${teamSectionOpen.pricebuilder ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
@@ -7868,9 +7873,13 @@ async function renderPriceHome(siteId){
     pendingVariationCount = pendingAw.length;
   }
   let priceBuilderTileCount = 0;
-  if(isManager(ME)) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&select=id')).length;
+  // Price Builder itself (creating/issuing sheets) is admin-only for now —
+  // a non-admin PM is treated the same as an operative here: they only see
+  // issued sheets they actually have access to, same as before this flag
+  // was for anyone with isManager() PM/admin access.
+  if(canUsePriceBuilder()) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&select=id')).length;
   else if(canSeePrice) priceBuilderTileCount = (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&status=eq.issued&select=id')).length;
-  const showPriceBuilderTile = isManager(ME) ? true : priceBuilderTileCount>0;
+  const showPriceBuilderTile = canUsePriceBuilder() ? true : priceBuilderTileCount>0;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       ${canSeePrice ? `<div class="tile" onclick="go('#/site/${siteId}/price/elements')">
@@ -7883,7 +7892,7 @@ async function renderPriceHome(siteId){
       </div>`}
       ${showPriceBuilderTile ? `<div class="tile" onclick="go('#/site/${siteId}/pricebuilder')">
         <div class="icon" style="background:#FFF3D9;color:#8A6300;">🧮</div>
-        <div class="lbl">Price Builder</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (isManager(ME)?'No sheets yet':'None issued')}</div>
+        <div class="lbl">Price Builder</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (canUsePriceBuilder()?'No sheets yet':'None issued')}</div>
         ${priceBuilderTileCount?`<span class="badge-count">${priceBuilderTileCount}</span>`:''}
       </div>` : ''}
     </div>
@@ -8597,7 +8606,7 @@ let priceBuilderNewOpen = false;
 async function renderPriceBuilderSheets(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const canManage = isManager(ME);
+  const canManage = canUsePriceBuilder(); // admin-only for now, see canUsePriceBuilder
   const sheets = await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&order=created_at.desc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
@@ -8664,7 +8673,7 @@ let pbCategoryOpen = {};
 window.pbToggleCategory = function(name){ pbCategoryOpen[name] = pbCategoryOpen[name]===false ? true : false; render(); };
 async function renderPriceBuilderEdit(siteId, sheetId){
   const __gen = RENDER_GEN;
-  if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/price`); return; }
+  if(!canUsePriceBuilder()){ toast('Price Builder is admin-only for now.'); go(`#/site/${siteId}/price`); return; }
   const site = SITES.find(s=>s.id===siteId);
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
