@@ -2172,9 +2172,10 @@ async function computeMyOutstandingCount(){
   if(isManager(ME)){
     // The home-bar badge for managers now reflects the combined HUB feed
     // (Notifications + Messages merged — see computeHubItems/renderHub)
-    // instead of the old Notifications-only count, so the number on the
-    // tile always matches what HUB itself shows.
-    const {items} = await computeHubItems();
+    // instead of the old Notifications-only count. Forced to '' (self)
+    // regardless of hubFilterPmId so the badge is always YOUR OWN count,
+    // never whatever another PM/"All PMs" view you last left HUB on.
+    const {items} = await computeHubItems('');
     return items.length;
   }
   const {rows} = await computeOutstandingRows(ME.id);
@@ -2182,7 +2183,7 @@ async function computeMyOutstandingCount(){
 }
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
-    {ic:'📌', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
+    {ic:'📝', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
     ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
     ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard')"}] : []),
@@ -3069,6 +3070,7 @@ window.deleteSite = async function(siteId, name){
 // across every live site; operatives see only their own, on sites they're
 // assigned to.
 let outstandingPmId = null; // company admin only — null = "my own", else a specific PM's id
+let outstandingFilterType = 'all'; // operative-facing Outstanding page: 'all'|'rams'|'coshh'|'tbt'
 // Shared by renderOutstandingTasks (the actual page) and
 // computeMyOutstandingCount (the home-bar badge) so the two can never drift
 // out of sync again — see the note on computeMyOutstandingCount above.
@@ -3180,12 +3182,12 @@ async function computeOutstandingRows(forId){
     const snags = snagsBySite[s.id]||0;
     const materialsPending = materialsBySite[s.id]||0;
     const items = [];
-    if(rams) items.push({lbl:`RAMS to sign (${rams})`, href:`#/site/${s.id}/hs/rams`});
-    if(coshh) items.push({lbl:`COSHH to sign (${coshh})`, href:`#/site/${s.id}/hs/coshh`});
-    if(tbt) items.push({lbl:`Toolbox Talk to sign (${tbt})`, href:`#/site/${s.id}/hs/tbt`});
-    if(manager && materialsPending) items.push({lbl:`Material requests pending (${materialsPending})`, href:`#/site/${s.id}/materials`});
-    if(manager && tasks) items.push({lbl:`Schedule tasks open (${tasks})`, href:`#/site/${s.id}/schedule`});
-    if(manager && snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`});
+    if(rams) items.push({lbl:`RAMS to sign (${rams})`, href:`#/site/${s.id}/hs/rams`, type:'rams'});
+    if(coshh) items.push({lbl:`COSHH to sign (${coshh})`, href:`#/site/${s.id}/hs/coshh`, type:'coshh'});
+    if(tbt) items.push({lbl:`Toolbox Talk to sign (${tbt})`, href:`#/site/${s.id}/hs/tbt`, type:'tbt'});
+    if(manager && materialsPending) items.push({lbl:`Material requests pending (${materialsPending})`, href:`#/site/${s.id}/materials`, type:'materials'});
+    if(manager && tasks) items.push({lbl:`Schedule tasks open (${tasks})`, href:`#/site/${s.id}/schedule`, type:'task'});
+    if(manager && snags) items.push({lbl:`Open snags (${snags})`, href:`#/site/${s.id}/snagging/list`, type:'snag'});
     return {site:s, items};
   }).filter(r=>r.items.length);
   return {rows, manager, isAdmin};
@@ -3346,9 +3348,22 @@ async function renderOutstandingTasks(){
     return;
   }
   const {rows} = await computeOutstandingRows(ME.id);
+  // #405: an operative is always locked to their own items here — there's
+  // no "viewing for" picker like the manager HUB has, they can never
+  // choose a different person — but they can still narrow the list down
+  // by type (RAMS/COSHH/Toolbox Talk), same idea as the HUB's type chips.
+  const outstandingTypeChips = [
+    {k:'all', lbl:'All'}, {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'tbt', lbl:'Toolbox Talk'},
+  ];
+  const filteredRows = rows
+    .map(r=>({site:r.site, items: outstandingFilterType==='all' ? r.items : r.items.filter(it=>it.type===outstandingFilterType)}))
+    .filter(r=>r.items.length);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Outstanding items on your sites — tap one to go straight to it.</p>
-    ${rows.length ? rows.map(r=>`
+    <div class="filterrow" style="flex-wrap:wrap;margin-bottom:10px;">
+      ${outstandingTypeChips.map(c=>`<div class="filterchip ${outstandingFilterType===c.k?'active':''}" onclick="outstandingFilterType='${c.k}';render()">${escapeHtml(c.lbl)}</div>`).join('')}
+    </div>
+    ${filteredRows.length ? filteredRows.map(r=>`
       <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(r.site.name)}</p>
       ${r.items.map(it=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('${it.href}')">
@@ -3369,21 +3384,34 @@ async function renderOutstandingTasks(){
 // date. Tapping an item still jumps straight to the real page (site's own
 // RAMS tab, Inbox thread, etc.) — HUB is the unified index, not a
 // reimplementation of those pages.
+// #405: HUB defaults to the signed-in PM/admin's own items — hubFilterPmId
+// '' means exactly that — but any manager (not just an admin, as before)
+// can switch it to 'all' (every PM company-wide, the old admin-only
+// default) or to one specific colleague's id via the dropdown in renderHub.
+// Whichever they pick persists for the rest of the session, same as the
+// type/site/due filters below already did.
 let hubFilterType = 'all'; // 'all'|'tbt'|'snag'|'rams'|'coshh'|'message'|'task'
 let hubFilterSiteId = '';   // '' = all sites
-let hubFilterPmId = '';     // '' = all PMs (admin only)
+let hubFilterPmId = '';     // '' = me (default), 'all' = every PM, else a specific PM's id
 let hubFilterDue = 'all';   // 'all'|'overdue'|'week'|'nodate'
-async function computeHubItems(){
+// `forcedPmId`, when passed, overrides the ambient hubFilterPmId — used by
+// the Home bottom-bar badge (computeMyOutstandingCount) so the badge always
+// counts YOUR OWN outstanding items, even if you last left the HUB page
+// itself switched to viewing "All PMs" or a colleague — the badge is a
+// personal nudge, not a mirror of whatever HUB was last filtered to.
+async function computeHubItems(forcedPmId){
   const isAdmin = ME.role==='admin';
+  const effectivePmId = forcedPmId!==undefined ? forcedPmId : hubFilterPmId;
+  const allLiveSites = SITES.filter(s=>siteStatusKey(s)==='live');
   let sites;
-  if(isAdmin){
-    // Admins see the whole company's HUB feed by default, filterable down to
-    // one PM's sites via hubFilterPmId.
-    sites = SITES.filter(s=>siteStatusKey(s)==='live');
+  if(effectivePmId === 'all'){
+    sites = allLiveSites;
   } else {
-    const myPmAssignments = await dbSelect('site_assignments', 'user_id=eq.'+ME.id+'&select=site_id');
-    const myPmSiteIds = new Set(myPmAssignments.map(a=>a.site_id));
-    sites = SITES.filter(s=>siteStatusKey(s)==='live' && (s.responsible_pm_id===ME.id || myPmSiteIds.has(s.id)));
+    // '' (default) means "me"; anything else is a specific chosen PM's id.
+    const targetPmId = effectivePmId || ME.id;
+    const targetAssignments = await dbSelect('site_assignments', 'user_id=eq.'+targetPmId+'&select=site_id');
+    const targetSiteIds = new Set(targetAssignments.map(a=>a.site_id));
+    sites = allLiveSites.filter(s=>s.responsible_pm_id===targetPmId || targetSiteIds.has(s.id));
   }
   const siteIds = sites.map(s=>s.id);
   const idsCsv = siteIds.join(',');
@@ -3464,8 +3492,12 @@ async function computeHubItems(){
 async function renderHub(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
-  const {items, sites, isAdmin} = await computeHubItems();
-  const pmOptions = isAdmin ? Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  const {items, sites} = await computeHubItems();
+  // #405: every manager gets the switcher now, not just admins — defaults
+  // to "Me", with "All PMs" (the old admin-only default) and each named
+  // colleague (excluding yourself — "Me" already covers that) as the
+  // other choices.
+  const pmOptions = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.id!==ME.id).sort((a,b)=>a.name.localeCompare(b.name));
   const typeChips = [
     {k:'all', lbl:'All'}, {k:'tbt', lbl:'Toolbox Talk'}, {k:'snag', lbl:'Snags'},
     {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'},
@@ -3475,7 +3507,9 @@ async function renderHub(){
   let filtered = items.filter(it=>{
     if(hubFilterType!=='all' && it.type!==hubFilterType) return false;
     if(hubFilterSiteId && it.siteId!==hubFilterSiteId) return false;
-    if(isAdmin && hubFilterPmId && it.pmId!==hubFilterPmId) return false;
+    // Who this feed is "for" is already resolved into `sites` inside
+    // computeHubItems (self by default, or whoever hubFilterPmId names) —
+    // no separate per-item pmId check needed here on top of that.
     if(hubFilterDue==='overdue' && !(it.dueDate && it.dueDate<now)) return false;
     if(hubFilterDue==='week' && !(it.dueDate && it.dueDate>=now && it.dueDate<=weekAhead)) return false;
     if(hubFilterDue==='nodate' && it.dueDate) return false;
@@ -3502,11 +3536,12 @@ async function renderHub(){
         ${sites.map(s=>`<option value="${s.id}" ${hubFilterSiteId===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
       </select>
     </div>
-    ${isAdmin && pmOptions.length ? `
+    ${pmOptions.length ? `
       <div class="formfield">
-        <label class="field-label">PM whose site it is</label>
+        <label class="field-label">Viewing</label>
         <select onchange="hubFilterPmId=this.value;render()">
-          <option value="">All PMs</option>
+          <option value="" ${hubFilterPmId===''?'selected':''}>Me (${escapeHtml(ME.name)})</option>
+          <option value="all" ${hubFilterPmId==='all'?'selected':''}>All PMs</option>
           ${pmOptions.map(p=>`<option value="${p.id}" ${hubFilterPmId===p.id?'selected':''}>${escapeHtml(p.name)}${p.role==='admin'?' (Admin)':''}</option>`).join('')}
         </select>
       </div>
@@ -6444,6 +6479,13 @@ async function renderSiteHome(siteId){
       hsOperativeGap = ramsGapHere || coshhGapHere;
     }
   }
+  // #404: Main Contractor's tiles (CPP, Site Rules & Layout, Site
+  // Inductions, Subcontractors, Permits, Asbestos, F10) used to live
+  // behind their own "Main Contractor" tile; they're now merged straight
+  // into this grid instead — still only for a site switched on as Main
+  // Contractor, and still respecting each tile's own ⋮ hide-from-
+  // operatives toggle (getMcTiles already filters that for a non-manager).
+  const mcTiles = site.acting_as_main_contractor ? await getMcTiles(siteId, site) : null;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
@@ -6492,6 +6534,11 @@ async function renderSiteHome(siteId){
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
       ];
+      // #404: Main Contractor's own tiles slot in here, right after the
+      // fixed core set — same ⋮ hide-toggle markup (mcTileHtml) the old
+      // standalone hub page used, so hiding/showing a tile still works
+      // exactly the same for a PM/admin.
+      if(mcTiles) regularTiles.push(...mcTiles.visibleTiles.map(t=>mcTileHtml(t.key, t.href, t.icon, t.lbl, t.sub, mcTiles.canAdd, mcTiles.hiddenSet.has(t.key), siteId)));
       // Messages/Inbox is reached via the bottom bar only now — no separate
       // Home tile (it was a duplicate entry point, see the bottom tabbar).
       if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
@@ -6513,8 +6560,14 @@ async function renderSiteHome(siteId){
           <div class="lbl">Calendar</div><div class="sub">Key dates</div>
         </div>`);
       if(regularTiles.length % 2 === 1){
+        // A stretched tile might already carry its own style="..." (the
+        // Main Contractor tiles do, for their ⋮ menu positioning) — merge
+        // into that existing attribute rather than bolting on a second
+        // style="" (a duplicate attribute, which HTML silently drops).
         const lastIdx = regularTiles.length-1;
-        regularTiles[lastIdx] = regularTiles[lastIdx].replace('class="tile"', 'class="tile" style="grid-column:1 / -1;"');
+        regularTiles[lastIdx] = regularTiles[lastIdx].replace(/class="tile"(\s+style="([^"]*)")?/, (m, stylePart, styleVal)=>
+          stylePart ? `class="tile" style="${styleVal}grid-column:1 / -1;"` : `class="tile" style="grid-column:1 / -1;"`
+        );
       }
       return `
     <div class="tilegrid hometiles" style="margin-bottom:-16px;">
@@ -10805,6 +10858,26 @@ window.removeTemplateFromDailyBriefings = async function(siteId, templateId){
   const row = await dbUpdate('report_templates', templateId, {is_daily_briefing:false});
   if(row){ toast('Removed from Daily Briefings'); render(); }
 };
+// #409: same "quick create, pre-tagged" pattern as createDailyBriefingTemplate
+// above — the actual Main Contractor Inspection templates (daily site
+// inspection, fencing, fire extinguishers, welfare, etc.) are being defined
+// separately; this just seeds an empty one already flagged correctly and
+// sent to the MC Inspections template library instead of the generic one.
+window.createMcInspectionTemplate = async function(siteId){
+  templatesReturnSiteId = null;
+  templatesReturnPath = `#/site/${siteId}/mc/inspections/templates`;
+  const rows = await dbInsert('report_templates', {org_id:ME.org_id, name:'Main Contractor Inspection', created_by:ME.id, is_mc_inspection:true, sections:[{id:uid(), title:'Section 1', items:[]}]});
+  if(rows && rows[0]) go('#/templates/'+rows[0].id);
+};
+window.useTemplateAsMcInspection = async function(siteId, templateId){
+  const row = await dbUpdate('report_templates', templateId, {is_mc_inspection:true});
+  if(row){ toast('Added to Main Contractor Inspections'); render(); }
+};
+window.removeTemplateFromMcInspections = async function(siteId, templateId){
+  if(!await customConfirm('Remove this template from Main Contractor Inspections? The template itself is kept — this just stops new inspections using it, and existing inspections stay where they are.')) return;
+  const row = await dbUpdate('report_templates', templateId, {is_mc_inspection:false});
+  if(row){ toast('Removed from Main Contractor Inspections'); render(); }
+};
 window.duplicateTemplate = async function(id){
   const rows = await dbSelect('report_templates', 'id=eq.'+id+'&limit=1');
   if(!rows[0]) return;
@@ -10829,8 +10902,11 @@ async function renderTemplateEditor(templateId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="formfield" style="margin-top:0;"><label class="field-label">Template Name</label><input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name=this.value"></div>
     <div class="formfield"><label class="field-label">Description (optional)</label><textarea oninput="editingTemplate.description=this.value">${escapeHtml(t.description||'')}</textarea></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:-6px 0 14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:-6px 0 8px;">
       <input type="checkbox" ${t.is_daily_briefing?'checked':''} onchange="editingTemplate.is_daily_briefing=this.checked"> Use as a Daily Briefing template — submissions from this template appear in the Daily Briefings tile (Health &amp; Safety) instead of Reports
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 14px;">
+      <input type="checkbox" ${t.is_mc_inspection?'checked':''} onchange="editingTemplate.is_mc_inspection=this.checked"> Use as a Main Contractor Inspection template — submissions from this template appear in the Inspections tile (Main Contractor) instead of Reports
     </label>
     ${t.sections.map((s,si)=>`
       <div class="card">
@@ -11025,6 +11101,7 @@ window.saveTemplate = async function(){
     description: editingTemplate.description || null,
     sections: editingTemplate.sections,
     is_daily_briefing: !!editingTemplate.is_daily_briefing,
+    is_mc_inspection: !!editingTemplate.is_mc_inspection,
     updated_at: new Date().toISOString(),
   });
   templateBusy = false;
@@ -14259,30 +14336,437 @@ window.confirmScheduleEmail = async function(siteId){
 // Six simple document tiles (mc_documents, one table shared across all six,
 // distinguished by `category`) plus Subcontractors, which is its own
 // structure below.
-const MC_CATEGORY_LABEL = {cpp:'Construction Phase Plan', site_layout:'Site Layout', site_inductions:'Site Inductions', permits:'Permits To Work', asbestos:'Asbestos Register', f10:'F10 Notification'};
-const MC_CATEGORY_ICON = {cpp:'📘', site_layout:'🗺', site_inductions:'🪪', permits:'🧾', asbestos:'☣️', f10:'📮'};
-async function renderMcHome(siteId){
-  const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
+const MC_CATEGORY_LABEL = {cpp:'Construction Phase Plan', site_layout:'Site Rules & Layout', site_inductions:'Site Inductions', asbestos:'Asbestos Register', f10:'F10 Notification'};
+const MC_CATEGORY_ICON = {cpp:'📘', site_layout:'🗺', site_inductions:'🪪', asbestos:'☣️', f10:'📮'};
+// #408: Permits To Work moved off the generic mc_documents upload-folder
+// model (like Site Layout and Site Inductions did before it) into its own
+// full issue → sign-off → close-down workflow — see the Permit to Work
+// module below. PERMIT_TYPE_* is the fixed library of permit types the
+// user named (hot works, working at height, ACM, hazardous areas); unlike
+// the MC document categories these aren't a customisable admin-managed
+// list, just a fixed set picked at issue time.
+const PERMIT_TYPE_LABEL = {hot_works:'Hot Works', height:'Working at Height', acm:'Working with ACM (Asbestos)', hazardous:'Hazardous Areas'};
+const PERMIT_TYPE_ICON = {hot_works:'🔥', height:'🪜', acm:'☣️', hazardous:'⚠️'};
+// Main Contractor tiles a PM/admin can hide from operatives (per site) via
+// the ⋮ menu below — purely a display toggle (site.mc_hidden_tiles, a plain
+// jsonb array of tile keys) so a PM can tuck away whichever of these don't
+// apply to a given job without needing a code change; PMs/admins/clients
+// always see every tile regardless, with a "hidden from operatives" note.
+function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
+  return `
+    <div class="tile" style="position:relative;" onclick="go('${href}')">
+      ${canAdd ? `<div style="position:absolute;top:6px;right:6px;z-index:1;" onclick="event.stopPropagation()">${rowActionsMenuHtml('mctile-'+key, `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleMcTileHidden('${siteId}','${key}',${hidden?'false':'true'})">${hidden?'👁 Show to operatives':'🙈 Hide from operatives'}</div>`)}</div>` : ''}
+      <div class="icon" style="background:#E7E9EE;color:var(--ink);">${icon}</div>
+      <div class="lbl">${lbl}</div>
+      <div class="sub">${sub}${canAdd && hidden ? ' · hidden from operatives' : ''}</div>
+    </div>
+  `;
+}
+// #404: the Main Contractor tiles used to live behind their own "Main
+// Contractor" hub tile/page (renderMcHome). They're now merged straight
+// onto the site Home page instead (still gated on
+// site.acting_as_main_contractor, still respecting the ⋮ hide-from-
+// operatives toggle below) — this is the shared data-fetch + tile-array
+// builder both Home and the (now-unused-but-harmless) direct #/mc route
+// draw from, so the two never drift apart.
+async function getMcTiles(siteId, site){
+  const canAdd = isManager(ME);
   const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
   const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const [companies, inductionAssigned, inductionDone] = await Promise.all([
+  const [companies, inductionAssigned, inductionDone, layoutDone, openPermits, mcInspectionTemplates] = await Promise.all([
     dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
+    dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('permits', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
+    dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&select=id'),
   ]);
   const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
+  const layoutSub = layoutDone.length ? `${layoutDone.length} document${layoutDone.length===1?'':'s'}` : 'No documents yet';
+  const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
+  let mcInspectionsCount = 0;
+  if(mcInspectionTemplates.length){
+    const ids = mcInspectionTemplates.map(t=>t.id).join(',');
+    const subs = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id');
+    mcInspectionsCount = subs.length;
+  }
+  const inspectionsSub = mcInspectionsCount ? `${mcInspectionsCount} logged` : (mcInspectionTemplates.length ? 'None logged yet' : 'Set up templates');
+  const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
+  const tiles = [
+    {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},
+    {key:'site_layout', href:`#/site/${siteId}/mc/site_layout`, icon:MC_CATEGORY_ICON.site_layout, lbl:MC_CATEGORY_LABEL.site_layout, sub:layoutSub},
+    {key:'site_inductions', href:`#/site/${siteId}/mc/site_inductions`, icon:MC_CATEGORY_ICON.site_inductions, lbl:MC_CATEGORY_LABEL.site_inductions, sub:inductionSub},
+    {key:'subcontractors', href:`#/site/${siteId}/mc/subcontractors`, icon:'👷', lbl:'Subcontractors', sub:`${companies.length} compan${companies.length===1?'y':'ies'}`},
+    {key:'permits', href:`#/site/${siteId}/mc/permits`, icon:'🧾', lbl:'Permits To Work', sub:permitsSub},
+    {key:'inspections', href:`#/site/${siteId}/mc/inspections`, icon:'🔍', lbl:'Inspections', sub:inspectionsSub},
+    {key:'asbestos', href:`#/site/${siteId}/mc/asbestos`, icon:MC_CATEGORY_ICON.asbestos, lbl:MC_CATEGORY_LABEL.asbestos, sub:`${countByCat.asbestos||0} document${(countByCat.asbestos||0)===1?'':'s'}`},
+    {key:'f10', href:`#/site/${siteId}/mc/f10`, icon:MC_CATEGORY_ICON.f10, lbl:MC_CATEGORY_LABEL.f10, sub:`${countByCat.f10||0} document${(countByCat.f10||0)===1?'':'s'}`},
+  ];
+  const visibleTiles = canAdd ? tiles : tiles.filter(t=>!hiddenSet.has(t.key));
+  return {canAdd, hiddenSet, visibleTiles};
+}
+window.toggleMcTileHidden = async function(siteId, key, hide){
+  const site = SITES.find(s=>s.id===siteId);
+  const current = new Set((site && site.mc_hidden_tiles) || []);
+  if(hide) current.add(key); else current.delete(key);
+  const row = await dbUpdate('sites', siteId, {mc_hidden_tiles: Array.from(current)});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(hide ? 'Hidden from operatives' : 'Now visible to everyone');
+    render();
+  }
+};
+/* ================= PERMIT TO WORK ================= */
+// #408: a full issue → sign-off → close-down workflow, task-specific (a
+// fixed library of permit types — PERMIT_TYPE_LABEL/ICON above) rather
+// than a plain upload folder like the other MC document categories. Two
+// entry points share this same code: the main "Permits To Work" tile on
+// Home (companyId null — every permit at the site; any PM can issue,
+// optionally attributing it to a subcontractor) and a subcontractor's own
+// "Permits To Work" tile (companyId set — filtered to just their permits;
+// only that company's own admin, or a PM, can issue). RLS (see the
+// permit_to_work migration) enforces the company isolation and the
+// "only a PM or that company's own admin can issue — never a plain
+// operative" rule server-side too, not just in this UI.
+let permitFilter = 'open'; // 'open'|'closed'
+let permitIssueOpen = false;
+let permitNewType = 'hot_works';
+let permitNewDescription = '';
+let permitNewDate = '';
+let permitNewCompanyId = ''; // main-level issue form only — which subcontractor (if any) this is for
+let permitNewAssigneeIds = new Set();
+let permitCloseState = {}; // permitId -> {photo1, photo2, notes}
+async function renderPermits(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = companyId ? (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0] : null;
+  if(companyId && !company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  await loadAllProfiles();
+  const amSubAdmin = companyId ? await isSubcontractorAdmin(companyId) : false;
+  const canIssue = isManager(ME) || amSubAdmin;
+  const filterQ = companyId ? '&subcontractor_company_id=eq.'+companyId : '';
+  const permits = await dbSelect('permits', 'site_id=eq.'+siteId+filterQ+'&status=eq.'+permitFilter+'&order=created_at.desc');
+  const companiesById = {};
+  if(!companyId){
+    const allCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name');
+    allCompanies.forEach(c=>{ companiesById[c.id]=c.name; });
+  }
+  if(!permitNewDate) permitNewDate = localISODate(new Date());
+  // Roster to pick assignees from when issuing: the chosen subcontractor's
+  // own allocated operatives if one's picked (or forced, from within a
+  // subcontractor's own tile), otherwise every operative assigned to site.
+  let assigneeRoster = [];
+  if(canIssue && permitIssueOpen){
+    const effectiveCompanyId = companyId || permitNewCompanyId || '';
+    if(effectiveCompanyId){
+      const opRows = await dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+effectiveCompanyId+'&select=user_id');
+      assigneeRoster = opRows.map(r=>PROFILES[r.user_id]).filter(Boolean);
+    } else {
+      const assigned = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+      assigneeRoster = assigned.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative');
+    }
+    assigneeRoster.sort((a,b)=>a.name.localeCompare(b.name));
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid" style="grid-auto-rows:1fr;">
-      <div class="tile" onclick="go('#/site/${siteId}/mc/cpp')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.cpp}</div><div class="lbl">${MC_CATEGORY_LABEL.cpp}</div><div class="sub">${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_layout}</div><div class="lbl">${MC_CATEGORY_LABEL.site_layout}</div><div class="sub">${countByCat.site_layout||0} document${(countByCat.site_layout||0)===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_inductions')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.site_inductions}</div><div class="lbl">${MC_CATEGORY_LABEL.site_inductions}</div><div class="sub">${inductionSub}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Subcontractors</div><div class="sub">${companies.length} compan${companies.length===1?'y':'ies'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.permits}</div><div class="lbl">${MC_CATEGORY_LABEL.permits}</div><div class="sub">${countByCat.permits||0} document${(countByCat.permits||0)===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/asbestos')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.asbestos}</div><div class="lbl">${MC_CATEGORY_LABEL.asbestos}</div><div class="sub">${countByCat.asbestos||0} document${(countByCat.asbestos||0)===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/f10')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">${MC_CATEGORY_ICON.f10}</div><div class="lbl">${MC_CATEGORY_LABEL.f10}</div><div class="sub">${countByCat.f10||0} document${(countByCat.f10||0)===1?'':'s'}</div></div>
+    <div class="filterrow">
+      <div class="filterchip ${permitFilter==='open'?'active':''}" onclick="permitFilter='open';permitIssueOpen=false;render()">Open</div>
+      <div class="filterchip ${permitFilter==='closed'?'active':''}" onclick="permitFilter='closed';permitIssueOpen=false;render()">Closed</div>
     </div>
-  `, {title:'Main Contractor', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+    ${permits.length ? permits.map(p=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${companyId ? `#/site/${siteId}/mc/subcontractors/${companyId}/permits/${p.id}` : `#/site/${siteId}/mc/permits/${p.id}`}')">
+        <div class="swatch">${PERMIT_TYPE_ICON[p.permit_type]||'🧾'}</div>
+        <div class="info">
+          <div class="name">${escapeHtml(PERMIT_TYPE_LABEL[p.permit_type]||p.permit_type)}</div>
+          <div class="addr">${escapeHtml(p.description||'')}${!companyId && p.subcontractor_company_id ? ' · '+escapeHtml(companiesById[p.subcontractor_company_id]||'Subcontractor') : ''}</div>
+        </div>
+        <span class="statustag2 ${p.status}">${p.status}</span>
+      </div>
+    `).join('') : `<div class="empty">No ${permitFilter} permits.</div>`}
+    ${canIssue && permitFilter==='open' ? (permitIssueOpen ? `
+      <div class="card" style="margin-top:14px;">
+        <p class="sectiontitle" style="margin-top:0;">Issue a permit</p>
+        <div class="formfield">
+          <label class="field-label">Permit type</label>
+          <select onchange="permitNewType=this.value;render()">
+            ${Object.keys(PERMIT_TYPE_LABEL).map(k=>`<option value="${k}" ${permitNewType===k?'selected':''}>${PERMIT_TYPE_ICON[k]} ${escapeHtml(PERMIT_TYPE_LABEL[k])}</option>`).join('')}
+          </select>
+        </div>
+        ${!companyId ? `
+        <div class="formfield">
+          <label class="field-label">Subcontractor (optional)</label>
+          <select onchange="permitNewCompanyId=this.value;permitNewAssigneeIds=new Set();render()">
+            <option value="">— None / RTB's own operatives —</option>
+            ${Object.keys(companiesById).map(id=>`<option value="${id}" ${permitNewCompanyId===id?'selected':''}>${escapeHtml(companiesById[id])}</option>`).join('')}
+          </select>
+        </div>
+        ` : ''}
+        <div class="formfield">
+          <label class="field-label">Description of works</label>
+          <input type="text" value="${escapeHtml(permitNewDescription)}" oninput="permitNewDescription=this.value" placeholder="e.g. Hot works to re-felt the plant room roof">
+        </div>
+        <div class="formfield">
+          <label class="field-label">Location</label>
+          <input type="text" value="${escapeHtml(fullSiteAddress(site))}" disabled style="background:#F3F4F6;">
+        </div>
+        <div class="formfield">
+          <label class="field-label">Date</label>
+          <input type="date" value="${permitNewDate}" onchange="permitNewDate=this.value">
+        </div>
+        <div class="formfield">
+          <label class="field-label">Who needs to sign this permit? (required)</label>
+          ${assigneeRoster.length ? assigneeRoster.map(p=>`
+            <label class="stub" style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+              <input type="checkbox" style="width:auto;" ${permitNewAssigneeIds.has(p.id)?'checked':''} onchange="togglePermitAssignee('${p.id}')">${escapeHtml(p.name)}
+            </label>
+          `).join('') : `<p class="stub" style="margin:0;">No operatives available to pick from yet.</p>`}
+        </div>
+        ${!ME.signature_path ? `<p class="stub" style="color:var(--warn);margin:0 0 10px;">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before issuing.</p>` : ''}
+        <div class="row-gap">
+          <button class="ghostbtn" style="flex:1;" onclick="permitIssueOpen=false;render()">Cancel</button>
+          <button class="darkbtn" style="flex:1;" onclick="submitIssuePermit('${siteId}','${companyId||''}')">Issue Permit</button>
+        </div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-top:14px;" onclick="permitIssueOpen=true;render()">+ Issue Permit</button>`) : ''}
+  `, {title:'Permits To Work', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: companyId ? `#/site/${siteId}/mc/subcontractors/${companyId}` : `#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+}
+window.togglePermitAssignee = function(userId){
+  if(permitNewAssigneeIds.has(userId)) permitNewAssigneeIds.delete(userId); else permitNewAssigneeIds.add(userId);
+  render();
+};
+window.submitIssuePermit = async function(siteId, fixedCompanyId){
+  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+  if(!permitNewDescription.trim()){ toast('Add a description of the works.'); return; }
+  if(!permitNewAssigneeIds.size){ toast('Select at least one employee to sign this permit.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const effectiveCompanyId = fixedCompanyId || permitNewCompanyId || null;
+  const rows = await dbInsert('permits', {
+    org_id: site.org_id, site_id: siteId, subcontractor_company_id: effectiveCompanyId,
+    permit_type: permitNewType, description: permitNewDescription.trim(), location: fullSiteAddress(site),
+    work_date: permitNewDate || null, assigned_user_ids: Array.from(permitNewAssigneeIds),
+    issued_by: ME.id, issuer_signature_path: ME.signature_path,
+  });
+  if(rows){
+    postSystemMessage(siteId, 'permit_issued', `${ME.name} issued a ${PERMIT_TYPE_LABEL[permitNewType]} permit`);
+    logSiteActivity(siteId, 'permit_issued', `Issued a ${PERMIT_TYPE_LABEL[permitNewType]} permit`);
+    permitIssueOpen = false;
+    permitNewDescription = '';
+    permitNewCompanyId = '';
+    permitNewAssigneeIds = new Set();
+    toast('Permit issued');
+    render();
+  }
+};
+async function renderPermitView(siteId, permitId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const rows = await dbSelect('permits', 'id=eq.'+permitId+'&select=*');
+  const permit = rows[0];
+  const backHash = companyId ? `#/site/${siteId}/mc/subcontractors/${companyId}/permits` : `#/site/${siteId}/mc/permits`;
+  if(!permit){ go(backHash); return; }
+  await loadAllProfiles();
+  const signoffs = await dbSelect('permit_signoffs', 'permit_id=eq.'+permitId+'&select=*');
+  const signedById = {}; signoffs.forEach(s=>{ signedById[s.user_id]=s; });
+  const assignedProfiles = (permit.assigned_user_ids||[]).map(id=>PROFILES[id]).filter(Boolean);
+  const amAssigned = (permit.assigned_user_ids||[]).includes(ME.id);
+  const amSigned = !!signedById[ME.id];
+  const amSubAdmin = permit.subcontractor_company_id ? await isSubcontractorAdmin(permit.subcontractor_company_id) : false;
+  const canManage = isManager(ME) || amSubAdmin;
+  const canClose = permit.status==='open' && (canManage || amAssigned);
+  const isHotWorks = permit.permit_type==='hot_works';
+  const closeState = permitCloseState[permitId] || (permitCloseState[permitId] = {photo1:null, photo2:null, notes:''});
+  const company = permit.subcontractor_company_id ? (await dbSelect('subcontractor_companies', 'id=eq.'+permit.subcontractor_company_id+'&select=name'))[0] : null;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">${PERMIT_TYPE_ICON[permit.permit_type]||'🧾'} ${escapeHtml(PERMIT_TYPE_LABEL[permit.permit_type]||permit.permit_type)}</p>
+      <p class="stub" style="margin:0 0 6px;">${escapeHtml(permit.description||'')}</p>
+      <p class="stub" style="margin:0 0 2px;"><b>Location:</b> ${escapeHtml(permit.location||fullSiteAddress(site))}</p>
+      <p class="stub" style="margin:0 0 2px;"><b>Date:</b> ${permit.work_date ? new Date(permit.work_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '—'}</p>
+      ${company ? `<p class="stub" style="margin:0 0 2px;"><b>Subcontractor:</b> ${escapeHtml(company.name)}</p>` : ''}
+      <p class="stub" style="margin:0 0 10px;"><b>Status:</b> <span class="statustag2 ${permit.status}">${permit.status}</span></p>
+      <p class="stub" style="margin:0 0 4px;"><b>Issued by</b> ${escapeHtml(nameOf(permit.issued_by))} on ${new Date(permit.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</p>
+      ${permit.issuer_signature_path ? `<img src="${publicUrl('signatures', permit.issuer_signature_path)}" style="height:40px;max-width:180px;object-fit:contain;">` : ''}
+    </div>
+
+    <p class="sectiontitle" style="margin-top:18px;">Sign-off required</p>
+    ${assignedProfiles.length ? assignedProfiles.map(p=>{
+      const sig = signedById[p.id];
+      return `
+      <div class="sitecard">
+        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${sig ? 'Signed '+new Date(sig.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : 'Awaiting signature'}</div></div>
+        ${sig ? `<img src="${publicUrl('signatures', sig.signature_image_path)}" style="height:32px;max-width:100px;object-fit:contain;">` : ''}
+      </div>
+    `;
+    }).join('') : `<div class="empty">No employees selected.</div>`}
+    ${amAssigned && !amSigned && permit.status==='open' ? `
+      <div class="card" style="margin-top:10px;">
+        ${!ME.signature_path ? `<p class="stub" style="color:var(--warn);margin:0;">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before signing.</p>` : `
+        <button class="darkbtn" onclick="signPermit('${permitId}')">Sign this permit</button>
+        `}
+      </div>
+    ` : ''}
+
+    ${permit.status==='closed' ? `
+      <p class="sectiontitle" style="margin-top:18px;">Closed down</p>
+      <div class="card">
+        <p class="stub" style="margin:0 0 4px;"><b>Closed by</b> ${escapeHtml(nameOf(permit.closed_by))} on ${permit.closed_at ? new Date(permit.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : ''}</p>
+        ${permit.closed_notes ? `<p class="stub" style="margin:0 0 8px;">${escapeHtml(permit.closed_notes)}</p>` : ''}
+        ${permit.closer_signature_path ? `<img src="${publicUrl('signatures', permit.closer_signature_path)}" style="height:40px;max-width:180px;object-fit:contain;margin-bottom:8px;display:block;">` : ''}
+        ${permit.closedown_photo_path_1 || permit.closedown_photo_path_2 ? `
+          <p class="field-label" style="margin-bottom:6px;">Fire extinguisher photos</p>
+          <div style="display:flex;gap:8px;">
+            ${permit.closedown_photo_path_1 ? `<img src="${publicUrl('site-photos', permit.closedown_photo_path_1)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;">` : ''}
+            ${permit.closedown_photo_path_2 ? `<img src="${publicUrl('site-photos', permit.closedown_photo_path_2)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;">` : ''}
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
+
+    ${canClose ? `
+      <p class="sectiontitle" style="margin-top:18px;">Close this permit down</p>
+      <div class="card">
+        ${isHotWorks ? `
+          <p class="stub" style="margin:0 0 8px;">Hot works can't be closed down without both fire-extinguisher photos attached.</p>
+          <div style="display:flex;gap:10px;margin-bottom:10px;">
+            ${[1,2].map(n=>`
+              <div>
+                <p class="field-label" style="margin-bottom:4px;">Photo ${n}</p>
+                ${closeState['photo'+n] ? `<img src="${closeState['photo'+n]}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;display:block;margin-bottom:4px;">` : ''}
+                <div class="photoupload" style="cursor:pointer;width:90px;padding:8px;" onclick="document.getElementById('permitClosePhoto${n}Input').click()">
+                  <div style="font-size:16px;">📷</div>${closeState['photo'+n]?'Retake':'Add photo'}
+                </div>
+                <input type="file" id="permitClosePhoto${n}Input" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="permitClosePhotoChosen(this,'${permitId}',${n})">
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+        <div class="formfield">
+          <label class="field-label">Closing notes (optional)</label>
+          <input type="text" value="${escapeHtml(closeState.notes)}" oninput="permitCloseState['${permitId}'].notes=this.value" placeholder="Anything worth noting">
+        </div>
+        ${!ME.signature_path ? `<p class="stub" style="color:var(--warn);margin:0 0 10px;">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before closing.</p>` : ''}
+        <button class="darkbtn" onclick="closePermit('${siteId}','${permitId}')">Close Permit</button>
+      </div>
+    ` : ''}
+  `, {title:PERMIT_TYPE_LABEL[permit.permit_type]||'Permit', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHash, siteId, activeTab:'more'}); }
+}
+window.permitClosePhotoChosen = async function(input, permitId, n){
+  const file = input.files && input.files[0]; if(!file) return;
+  try{
+    const dataUrl = await compressImage(file);
+    if(!permitCloseState[permitId]) permitCloseState[permitId] = {photo1:null, photo2:null, notes:''};
+    permitCloseState[permitId]['photo'+n] = dataUrl;
+    render();
+  }catch(e){ toast('Could not process photo.'); }
+  input.value = '';
+};
+window.signPermit = async function(permitId){
+  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+  const rows = await dbInsert('permit_signoffs', {permit_id:permitId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed'); render(); }
+};
+window.closePermit = async function(siteId, permitId){
+  if(!ME.signature_path){ toast('Adopt your signature first.'); go('#/signature'); return; }
+  const existing = await dbSelect('permits', 'id=eq.'+permitId+'&select=permit_type');
+  const permit = existing[0];
+  const state = permitCloseState[permitId] || {photo1:null, photo2:null, notes:''};
+  if(permit && permit.permit_type==='hot_works' && (!state.photo1 || !state.photo2)){
+    toast('Both fire-extinguisher photos are required to close a hot works permit.');
+    return;
+  }
+  let photoPath1 = null, photoPath2 = null;
+  if(state.photo1) photoPath1 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext1-'+uid()+'.jpg', state.photo1);
+  if(state.photo2) photoPath2 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext2-'+uid()+'.jpg', state.photo2);
+  const row = await dbUpdate('permits', permitId, {
+    status:'closed', closed_by:ME.id, closed_at:new Date().toISOString(), closed_notes: state.notes||null,
+    closer_signature_path: ME.signature_path,
+    closedown_photo_path_1: photoPath1, closedown_photo_path_2: photoPath2,
+  });
+  if(row){
+    delete permitCloseState[permitId];
+    postSystemMessage(siteId, 'permit_closed', `${ME.name} closed a permit`);
+    logSiteActivity(siteId, 'permit_closed', `Closed a ${PERMIT_TYPE_LABEL[row.permit_type]||''} permit`);
+    toast('Permit closed');
+    render();
+  }
+};
+
+/* ================= MAIN CONTRACTOR INSPECTIONS ================= */
+// #409: infrastructure/library shell only — the user is defining the
+// actual templates (daily site inspection: fencing, fire extinguishers,
+// welfare inspection, etc.) separately, so this just needs somewhere for
+// that library and its inspections to live. Reuses the exact same
+// templated report_templates/report_submissions mechanism the main
+// Reports tile and Daily Briefings already share (see the is_daily_briefing
+// comment block above renderDailyBriefings) — a template flagged
+// is_mc_inspection surfaces here instead of Reports, and starting one
+// (startReport — unchanged, it already doesn't care which flavour of
+// template it's given) drops straight into the same fill/view pages
+// Reports itself uses. Those pages return to the general Reports list when
+// done rather than back here — Daily Briefings only got its own bespoke
+// fill/view/back-routing once its extra behaviour (issuing for signing,
+// weekly grouping) was actually built; MC Inspections can get the same
+// treatment once its real templates and behaviour are defined.
+let mcInspectionPickerOpen = false;
+async function renderMcInspectionTemplates(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canEdit = isManager(ME);
+  const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&order=name.asc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canEdit ? `<p class="stub" style="margin:0 0 10px;">Build and manage Main Contractor Inspection templates here — separate from the site's general Report Templates. Editing a template never changes inspections already started from it.</p>` : ''}
+    ${templates.map(t=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+        ${canEdit ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="ghostbtn" style="width:auto;padding:8px 10px;" onclick="openTemplateEditor('${t.id}','${siteId}','#/site/${siteId}/mc/inspections/templates')">Edit</button>
+            <button class="ghostbtn" style="width:auto;padding:8px 10px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No Main Contractor Inspection templates yet${canEdit?'.':' — ask a Project Manager to create one.'}</div>`}
+    ${canEdit ? `<button class="darkbtn" style="margin-top:10px;" onclick="createMcInspectionTemplate('${siteId}')">+ New Template</button>` : ''}
+  `, {title:'Inspection Templates', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/inspections`, siteId, activeTab:'more'}); }
+}
+async function renderMcInspections(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const templates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&order=name.asc');
+  let submissions = [];
+  if(templates.length){
+    const ids = templates.map(t=>t.id).join(',');
+    submissions = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&order=submitted_at.desc&limit=100');
+  }
+  await loadAllProfiles();
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canAdd ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/mc/inspections/templates')">Manage Templates</button>` : ''}
+    ${canAdd ? `
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="mcInspectionPickerOpen=!mcInspectionPickerOpen;render()">${mcInspectionPickerOpen?'Cancel':'+ New Inspection'}</button>
+      ${mcInspectionPickerOpen ? `
+        <div class="card" style="margin-bottom:14px;">
+          <p class="stub" style="margin:0 0 8px;">Pick a template to start a new inspection:</p>
+          ${templates.map(t=>`
+            <div class="sitecard">
+              <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.description?`<div class="addr">${escapeHtml(t.description)}</div>`:''}</div>
+              <button class="darkbtn" style="width:auto;padding:8px 14px;" onclick="startReport('${siteId}','${t.id}')">Start</button>
+            </div>
+          `).join('') || `<div class="empty">No inspection templates yet — set one up first via "Manage Templates".</div>`}
+        </div>
+      ` : ''}
+    ` : ''}
+    ${submissions.map(s=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+        <div class="info">
+          <div class="name">${escapeHtml(s.template_name)}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Submitted'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
+        </div>
+        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+      </div>
+    `).join('') || `<div class="empty">No inspections logged yet${templates.length?'.':' — set up a template first.'}</div>`}
+  `, {title:'Inspections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 async function renderMcDocuments(siteId, category){
   const __gen = RENDER_GEN;
@@ -14310,7 +14794,7 @@ async function renderMcDocuments(siteId, category){
       <button class="darkbtn" onclick="addMcDocument('${siteId}','${category}')">Upload</button>
     </div>
     ` : ''}
-  `, {title: MC_CATEGORY_LABEL[category], subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+  `, {title: MC_CATEGORY_LABEL[category], subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 window.addMcDocument = async function(siteId, category){
   const name = document.getElementById('mcDocName').value.trim();
@@ -14327,6 +14811,186 @@ window.deleteMcDocument = async function(id, storagePath){
   if(!await customConfirm('Delete this document?')) return;
   const ok = await dbDelete('mc_documents', id);
   if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
+};
+
+/* ================= SITE RULES & LAYOUT (signable, like COSHH — everyone on
+   site must acknowledge it, not just a generic upload folder). Mirrors the
+   COSHH doc/signature pattern exactly (site_layout_docs/site_layout_signatures
+   tables, same shape as coshh_docs/coshh_signatures) so the same "sign all"
+   / roster-outstanding UX applies; stored in the mc-documents bucket since
+   it's still a Main-Contractor tile. */
+let siteLayoutPollTimer = null;
+let siteLayoutUploadOpen = false;
+function siteLayoutDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView){
+  const roster = assignedIds||[];
+  return docs.map(r=>{
+    const sigs = sigsByDoc[r.id]||[];
+    const mine = sigs.find(s=>s.user_id===ME.id);
+    const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
+    let outstandingHtml;
+    if(!roster.length){
+      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>` : '';
+    } else if(!notSigned.length){
+      outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ Signed by everyone on site</div></div>`;
+    } else {
+      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>${notSigned.map(id=>`<div style="display:flex;align-items:center;gap:8px;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>`;
+    }
+    const signedCount = sigs.length;
+    const outstandingCount = notSigned.length;
+    return `
+    <div class="ramsdoc" style="padding:10px 12px;">
+      <div class="taskrowtop">
+        <div class="name" style="font-size:19px;font-weight:800;">${escapeHtml(r.name)}</div>
+        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteSiteLayout('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
+      </div>
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('mc-documents', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        ${canAdd || isClientView ? `
+          <div class="siglinebox" style="flex:1;margin-top:0;cursor:default;">
+            <span class="name">${signedCount} signed</span><span>${roster.length ? outstandingCount+' outstanding' : ''}</span>
+          </div>
+        ` : `
+          <div class="siglinebox coshhsigbox ${mine?'signed':''}" onclick="${mine?'':`signSiteLayout('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
+            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Not signed yet'}
+          </div>
+        `}
+        ${sigs.length && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedSiteLayout('${r.id}')">Export Signed PDF</button>` : ''}
+      </div>
+      ${outstandingHtml}
+    </div>`;
+  }).join('') || `<div class="empty">No Site Rules &amp; Layout documents uploaded.</div>`;
+}
+async function fetchSiteLayoutData(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const [docs, assigned] = await Promise.all([
+    dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+  ]);
+  await loadAllProfiles();
+  const rosterUserIds = assigned.map(a=>a.user_id).filter(uid => PROFILES[uid] && PROFILES[uid].role==='operative');
+  let sigsByDoc = {};
+  if(docs.length){
+    const ids = docs.map(d=>d.id).join(',');
+    let sigs = await dbSelect('site_layout_signatures', 'layout_id=in.('+ids+')');
+    sigs = filterCurrentCycleSigs(sigs, docs, 'layout_id', site);
+    sigs.forEach(s=>{ (sigsByDoc[s.layout_id]=sigsByDoc[s.layout_id]||[]).push(s); });
+  }
+  return {docs, sigsByDoc, assignedIds: rosterUserIds};
+}
+async function renderSiteLayout(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const canAdd = isManager(ME);
+  const isClientView = ME.role==='client';
+  await loadAllProfiles();
+  const {docs, sigsByDoc, assignedIds} = await fetchSiteLayoutData(siteId);
+  const unsignedCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+  const uploadForm = `
+        <div class="formfield" style="margin-top:0;"><input type="text" id="siteLayoutName" placeholder="Document name, e.g. Site Rules &amp; Layout Plan"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('siteLayoutFile').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="siteLayoutFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('siteLayoutFileName').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="siteLayoutFileName" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" style="padding:8px 6px;font-size:11.5px;" onclick="addSiteLayout('${siteId}')">Upload</button>
+        <p class="stub">Everyone assigned to this site will need to sign to confirm they've read it — same as COSHH.</p>
+  `;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div id="siteLayoutDocsList">${siteLayoutDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
+    ${!canAdd && !isClientView && docs.length ? `
+      <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedCount?'':'disabled'} onclick="signAllSiteLayout('${siteId}')">
+        ${unsignedCount ? `Sign All (${unsignedCount} unsigned)` : 'All documents signed'}
+      </button>
+    ` : ''}
+    ${canAdd ? (docs.length ? `
+      <div class="ddrow" onclick="siteLayoutUploadOpen=!siteLayoutUploadOpen;render()"><span class="arrow">${siteLayoutUploadOpen?'▼':'▶'}</span> Upload Document</div>
+      ${siteLayoutUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
+    ` : `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Upload Document</p>
+        ${uploadForm}
+      </div>
+    `) : ''}
+  `, {title:'Site Rules & Layout', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+
+  if(siteLayoutPollTimer) clearInterval(siteLayoutPollTimer);
+  let siteLayoutPollBusy = false;
+  siteLayoutPollTimer = setInterval(async ()=>{
+    const el = document.getElementById('siteLayoutDocsList');
+    if(!el){ clearInterval(siteLayoutPollTimer); siteLayoutPollTimer = null; return; }
+    if(siteLayoutPollBusy || document.hidden || navigator.onLine === false) return;
+    siteLayoutPollBusy = true;
+    try{
+      const {docs, sigsByDoc, assignedIds} = await fetchSiteLayoutData(siteId);
+      const freshEl = document.getElementById('siteLayoutDocsList');
+      if(freshEl) freshEl.innerHTML = siteLayoutDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView);
+    } finally { siteLayoutPollBusy = false; }
+  }, 7000);
+}
+window.addSiteLayout = async function(siteId){
+  const name = document.getElementById('siteLayoutName').value.trim();
+  const fileInput = document.getElementById('siteLayoutFile');
+  const file = fileInput.files && fileInput.files[0];
+  if(!name || !file){ toast('Add a name and choose a PDF.'); return; }
+  const path = siteId+'/site-layout/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, file, 'application/pdf');
+  if(!stored) return;
+  const rows = await dbInsert('site_layout_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id});
+  if(rows){ toast('Uploaded'); render(); }
+};
+window.signSiteLayout = async function(siteId, layoutId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const rows = await dbInsert('site_layout_signatures', {layout_id:layoutId, user_id:ME.id, signature_image_path:ME.signature_path});
+  if(rows){ toast('Signed — archived automatically'); render(); }
+};
+window.signAllSiteLayout = async function(siteId){
+  if(!ME.signature_path){
+    toast('Adopt your signature first — one tap and it\'s used everywhere.');
+    go('#/signature');
+    return;
+  }
+  const {docs, sigsByDoc} = await fetchSiteLayoutData(siteId);
+  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
+  if(!toSign.length){ toast('Already signed everything.'); render(); return; }
+  const rows = await dbInsert('site_layout_signatures', toSign.map(r=>({layout_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
+  if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
+};
+window.deleteSiteLayout = async function(id, storagePath){
+  if(!await customConfirm('Delete this document? Any signatures on it will be lost.')) return;
+  const ok = await dbDelete('site_layout_docs', id);
+  if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
+};
+async function buildSignedSiteLayoutPdf(layoutId){
+  if(typeof PDFLib==='undefined') return null;
+  const docs = await dbSelect('site_layout_docs', 'id=eq.'+layoutId+'&select=*');
+  const doc = docs[0];
+  if(!doc) return null;
+  const sigs = await dbSelect('site_layout_signatures', 'layout_id=eq.'+layoutId+'&order=signed_at.asc');
+  if(!sigs.length) return null;
+  try{
+    const srcBytes = await (await fetch(publicUrl('mc-documents', doc.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
+    const disclaimer = `I have read and understood this Site Rules & Layout document (${doc.name}) and agree to follow it at all times while on this site.`;
+    const signers = sigs.map(s=>({
+      name: nameOf(s.user_id),
+      when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      imagePath: s.signature_image_path,
+    }));
+    await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
+    const laySite = SITES.find(s=>s.id===doc.site_id);
+    const filename = exportFilename(laySite?laySite.name:'', doc.name+' (Signed)', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await pdfDoc.save();
+    return {bytes: outBytes, filename};
+  }catch(e){ console.error(e); return null; }
+}
+window.exportSignedSiteLayout = async function(layoutId){
+  toast('Building signed PDF…');
+  const built = await buildSignedSiteLayoutPdf(layoutId);
+  if(!built){ toast('Could not build the signed PDF — check there are signatures and the source file is a valid PDF.'); return; }
+  await deliverPdf(built.bytes, built.filename);
 };
 
 /* ================= SITE INDUCTIONS (tick-box sign-off, one per operative per site) =================
@@ -14397,7 +15061,7 @@ async function renderSiteInductions(siteId){
           ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
         </div>`;
       }).join('') || `<div class="empty">No operatives assigned to this site yet.</div>`}
-    `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+    `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
     return;
   }
 
@@ -14596,13 +15260,24 @@ async function renderSubcontractors(siteId){
         <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="subcoAddOpen=false;render();">Cancel</button><button class="darkbtn" style="flex:1;" onclick="addSubcontractorCompany('${siteId}')">Add</button></div>
       </div>
     ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="subcoAddOpen=true;subcoNewName='';render();">+ Add Subcontractor</button>`) : ''}
-  `, {title:'Subcontractors', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
+  `, {title:'Subcontractors', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
 window.addSubcontractorCompany = async function(siteId){
   const name = (document.getElementById('subcoNewNameInput')||{}).value ? document.getElementById('subcoNewNameInput').value.trim() : subcoNewName.trim();
   if(!name){ toast('Enter a company name.'); return; }
   const site = SITES.find(s=>s.id===siteId);
-  const rows = await dbInsert('subcontractor_companies', {org_id: site.org_id, site_id:siteId, name, created_by:ME.id});
+  // #411: find-or-create the org-level "master" company profile by exact
+  // name match, so a company's library documents (insurance, accreditations
+  // etc.) persist across every site that company is chosen for, instead of
+  // each site's subcontractor_companies row starting with an empty folder.
+  let masterId = null;
+  const existingMaster = await dbSelect('subcontractor_company_profiles', 'org_id=eq.'+site.org_id+'&name=eq.'+encodeURIComponent(name)+'&select=id');
+  if(existingMaster.length){ masterId = existingMaster[0].id; }
+  else {
+    const createdMaster = await dbInsert('subcontractor_company_profiles', {org_id: site.org_id, name, created_by:ME.id});
+    if(createdMaster) masterId = createdMaster[0].id;
+  }
+  const rows = await dbInsert('subcontractor_companies', {org_id: site.org_id, site_id:siteId, name, created_by:ME.id, master_company_id: masterId});
   if(rows){ subcoAddOpen=false; subcoNewName=''; toast('Subcontractor added'); render(); }
 };
 window.deleteSubcontractorCompany = async function(id, name){
@@ -14616,13 +15291,16 @@ async function renderSubcontractorHub(siteId, companyId){
   const rows = await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*');
   const company = rows[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows] = await Promise.all([
+  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows, openPermitRows, inspectionRows, libraryRows] = await Promise.all([
     dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
     dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
     dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=user_id'),
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&select=status'),
+    dbSelect('permits', 'subcontractor_company_id=eq.'+companyId+'&status=eq.open&select=id'),
+    dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
+    company.master_company_id ? dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&select=id') : Promise.resolve([]),
   ]);
   const scheduleDone = scheduleRows.filter(t=>t.status==='done').length;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -14631,8 +15309,11 @@ async function renderSubcontractorHub(siteId, companyId){
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${tbtRows.length} live</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/schedule')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📋</div><div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${scheduleRows.length} complete</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧾</div><div class="lbl">Permits To Work</div><div class="sub">${openPermitRows.length ? openPermitRows.length+' open' : 'None open'}</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/inspections')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🔍</div><div class="lbl">Inspections</div><div class="sub">${inspectionRows.length} file${inspectionRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/briefings')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📝</div><div class="lbl">Daily Briefings</div><div class="sub">${briefingRows.length} logged</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operatives</div><div class="sub">${opRows.length} allocated</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/library')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📚</div><div class="lbl">Company Library</div><div class="sub">${libraryRows.length} document${libraryRows.length===1?'':'s'}</div></div>
     </div>
   `, {title:company.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors`, siteId, activeTab:'more'}); }
 }
@@ -14948,6 +15629,158 @@ window.removeSubOperative = async function(rowId){
   if(!await customConfirm('Remove this operative from the subcontractor?')) return;
   const ok = await dbDelete('subcontractor_operatives', rowId);
   if(ok){ toast('Removed'); subOpCache = {}; render(); }
+};
+
+/* ================= SUBCONTRACTOR INSPECTIONS ================= */
+// #410: a plain upload area inside a subcontractor's own tiles — any of
+// their allocated operatives can upload (not admin-only, unlike RAMS/
+// COSHH), every upload is also emailed to the PM automatically (see
+// send-subcontractor-inspection-email), and — unlike the compressed-JPEG
+// photo flows used for snags/tools/permit closedown elsewhere in this
+// app — files here are uploaded exactly as chosen, no client-side
+// recompression, so a hi-res inspection photo stays hi-res.
+let subInspectionUploading = false;
+async function renderSubInspections(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  await loadAllProfiles();
+  const files = await dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+'&order=uploaded_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">Upload inspection files here — kept full resolution, never compressed — and the site's PM is emailed automatically each time.</p>
+    <div class="formfield" style="margin-top:0;">
+      <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('subInspectionFileInput').click()">
+        <div style="font-size:20px;">${subInspectionUploading?'⏳':'📎'}</div>${subInspectionUploading?'Uploading…':'Tap to choose a file (photo, PDF, etc.)'}
+      </div>
+      <input type="file" id="subInspectionFileInput" ${subInspectionUploading?'disabled':''} style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addSubInspection(this,'${siteId}','${companyId}')">
+    </div>
+    ${files.map(f=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(f.file_name)}</div><div class="addr">${escapeHtml(nameOf(f.uploaded_by))} · ${new Date(f.uploaded_at).toLocaleString('en-GB')}</div></div>
+        <a href="${publicUrl('mc-documents', f.storage_path)}" target="_blank" rel="noopener" class="ghostbtn" style="width:auto;padding:8px 12px;text-decoration:none;">View</a>
+        ${isManager(ME) ? `<div class="taskicon danger" title="Delete" onclick="deleteSubInspection('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No inspection files uploaded yet.</div>`}
+  `, {title:'Inspections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addSubInspection = async function(input, siteId, companyId){
+  const file = input.files && input.files[0]; if(!file) return;
+  subInspectionUploading = true; render();
+  try{
+    const site = SITES.find(s=>s.id===siteId);
+    const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=name'))[0];
+    const cleanName = file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = siteId+'/subcontractor-inspections/'+companyId+'/'+uid()+'-'+cleanName;
+    // Uploaded exactly as chosen — no compressImage() pass, unlike every
+    // other photo-upload flow in the app — so resolution is never lost.
+    const stored = await uploadToStorage('mc-documents', path, file, file.type || 'application/octet-stream');
+    if(!stored){ subInspectionUploading = false; render(); return; }
+    const rows = await dbInsert('subcontractor_inspections', {
+      org_id: ME.org_id, site_id: siteId, subcontractor_company_id: companyId,
+      uploaded_by: ME.id, file_name: file.name, storage_path: stored, content_type: file.type || null,
+    });
+    if(rows){
+      toast('Uploaded');
+      // Best-effort — silently fails if email isn't configured, same
+      // "opportunistic, never blocks the user" spirit as the OneDrive push.
+      try{
+        await sbFetch('/functions/v1/send-subcontractor-inspection-email', {method:'POST', body: JSON.stringify({
+          site_id: siteId, company_name: company ? company.name : null,
+          file_name: file.name, file_url: publicUrl('mc-documents', stored),
+        })});
+      }catch(e){}
+    }
+  }catch(e){ toast('Upload failed.'); }
+  subInspectionUploading = false;
+  input.value = '';
+  render();
+};
+window.deleteSubInspection = async function(id, storagePath){
+  if(!await customConfirm('Delete this inspection file?')) return;
+  const ok = await dbDelete('subcontractor_inspections', id);
+  if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
+};
+
+/* ================= SUBCONTRACTOR COMPANY LIBRARY (#411) =================
+   A single library of documents (insurance, accreditations, RAMS/method
+   statement templates, operative certificates the company wants on file,
+   etc.) that belongs to the subcontractor COMPANY itself rather than to any
+   one site — keyed by subcontractor_company_profiles (the org-level
+   "master" identity created/matched by name in addSubcontractorCompany).
+   Because every site's subcontractor_companies row for "Acme Scaffolding"
+   points at the same master_company_id, whatever's uploaded here shows up
+   automatically the next time Acme is chosen on any other site — no
+   re-uploading required. */
+const COMPANY_LIBRARY_CATEGORIES = [
+  {key:'public_liability_insurance', label:'Public Liability Insurance'},
+  {key:'employers_liability_insurance', label:"Employer's Liability Insurance"},
+  {key:'accreditation', label:'Accreditation / Certification'},
+  {key:'rams_template', label:'RAMS / Method Statement Template'},
+  {key:'operative_certificate', label:'Operative Certificate'},
+  {key:'other', label:'Other'},
+];
+function companyLibraryCategoryLabel(key){ return (COMPANY_LIBRARY_CATEGORIES.find(c=>c.key===key)||{}).label || 'Other'; }
+let companyLibraryAddOpen = false;
+let companyLibraryUploading = false;
+async function renderSubCompanyLibrary(siteId, companyId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
+  if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
+  if(!company.master_company_id){ go(`#/site/${siteId}/mc/subcontractors/${companyId}`); return; }
+  const canManage = isManager(ME);
+  const canUpload = canManage || await isSubcontractorAdmin(companyId);
+  await loadAllProfiles();
+  const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&order=uploaded_at.desc');
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 14px;">${company.name}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
+    ${canUpload ? (companyLibraryAddOpen ? `
+      <div class="card" style="margin-bottom:12px;">
+        <p class="field-label" style="margin-bottom:6px;">Upload a document</p>
+        <select id="companyLibraryCategory" class="stub" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card);">
+          ${COMPANY_LIBRARY_CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}
+        </select>
+        <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('companyLibraryFileInput').click()">
+          <div style="font-size:20px;">${companyLibraryUploading?'⏳':'📎'}</div>${companyLibraryUploading?'Uploading…':'Tap to choose a file'}
+        </div>
+        <input type="file" id="companyLibraryFileInput" ${companyLibraryUploading?'disabled':''} style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addCompanyLibraryDoc(this,'${company.master_company_id}')">
+        <div class="row-gap" style="margin-top:10px;"><button class="ghostbtn" style="flex:1;" onclick="companyLibraryAddOpen=false;render();">Cancel</button></div>
+      </div>
+    ` : `<button class="ghostbtn" style="margin-bottom:12px;" onclick="companyLibraryAddOpen=true;render();">+ Add to Library</button>`) : ''}
+    ${docs.map(d=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${escapeHtml(d.name)}</div><div class="addr">${companyLibraryCategoryLabel(d.category)} · ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString('en-GB')}${d.expiry_date ? ' · expires '+new Date(d.expiry_date).toLocaleDateString('en-GB') : ''}</div></div>
+        <a href="${publicUrl('mc-documents', d.storage_path)}" target="_blank" rel="noopener" class="ghostbtn" style="width:auto;padding:8px 12px;text-decoration:none;">View</a>
+        ${canUpload ? `<div class="taskicon danger" title="Delete" onclick="deleteCompanyLibraryDoc('${d.id}','${jsAttr(d.storage_path)}')">🗑</div>` : ''}
+      </div>
+    `).join('') || `<div class="empty">No library documents yet.</div>`}
+  `, {title:'Company Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+}
+window.addCompanyLibraryDoc = async function(input, masterCompanyId){
+  const file = input.files && input.files[0]; if(!file) return;
+  const category = (document.getElementById('companyLibraryCategory')||{}).value || 'other';
+  companyLibraryUploading = true; render();
+  try{
+    const cleanName = file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = 'company-library/'+masterCompanyId+'/'+uid()+'-'+cleanName;
+    const stored = await uploadToStorage('mc-documents', path, file, file.type || 'application/octet-stream');
+    if(!stored){ companyLibraryUploading = false; render(); return; }
+    const rows = await dbInsert('subcontractor_company_documents', {
+      org_id: ME.org_id, master_company_id: masterCompanyId, category,
+      uploaded_by: ME.id, name: file.name, storage_path: stored,
+      content_type: file.type || null, size: file.size || null,
+    });
+    if(rows){ toast('Uploaded'); companyLibraryAddOpen = false; }
+  }catch(e){ toast('Upload failed.'); }
+  companyLibraryUploading = false;
+  input.value = '';
+  render();
+};
+window.deleteCompanyLibraryDoc = async function(id, storagePath){
+  if(!await customConfirm('Delete this document? This can\'t be undone.')) return;
+  const ok = await dbDelete('subcontractor_company_documents', id);
+  if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
 };
 
 /* ================= RAMS ================= */
@@ -15653,9 +16486,6 @@ async function renderHealthSafety(siteId){
   }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
-      ${site.acting_as_main_contractor ? `
-      <div class="tile" onclick="go('#/site/${siteId}/mc')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗️</div><div class="lbl">Main Contractor</div><div class="sub">CPP, Permits &amp; more</div></div>
-      ` : ''}
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
         <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
@@ -22734,8 +23564,10 @@ async function render(){
 async function renderRoute(){
   RENDER_GEN++; // this render pass now supersedes any still-loading one
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
+  if(coshhPollTimer){ clearInterval(coshhPollTimer); coshhPollTimer = null; }
   if(schedulePollTimer){ clearInterval(schedulePollTimer); schedulePollTimer = null; }
   if(subSchedulePollTimer){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; }
+  if(siteLayoutPollTimer){ clearInterval(siteLayoutPollTimer); siteLayoutPollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
   if(!SESSION || !ME){ return renderLogin(); }
@@ -22904,11 +23736,16 @@ async function renderRoute(){
         const companyId = parts[4];
         const csub = parts[5];
         // A subcontractor operative only ever sees their own company's
-        // folder here — never the company list, and never another
-        // subcontractor's folder.
+        // folder here — never the company list, never another
+        // subcontractor's folder, and (#406) not even their own company's
+        // folder just because they're assigned to the site: being on
+        // site_assignments never implies a subcontractor_operatives
+        // allocation, so an operative with no allocation at all gets sent
+        // home rather than falling through to whatever companyId was in
+        // the URL.
         if(!isManager(ME) && !isClient(ME)){
           const mySubCompanyId = await getMySubcontractorCompanyId(siteId);
-          if(mySubCompanyId && companyId!==mySubCompanyId){ go(`#/site/${siteId}/mc/subcontractors/${mySubCompanyId}`); return; }
+          if(companyId!==mySubCompanyId){ go(mySubCompanyId ? `#/site/${siteId}/mc/subcontractors/${mySubCompanyId}` : `#/site/${siteId}/home`); return; }
         }
         if(!companyId) return renderSubcontractors(siteId);
         if(!csub) return renderSubcontractorHub(siteId, companyId);
@@ -22922,11 +23759,33 @@ async function renderRoute(){
         if(csub==='briefings') return renderSubBriefings(siteId, companyId);
         if(csub==='schedule') return renderSubSchedule(siteId, companyId);
         if(csub==='operatives') return renderSubOperatives(siteId, companyId);
+        if(csub==='permits'){
+          const permitId = parts[6];
+          if(permitId) return renderPermitView(siteId, permitId, companyId);
+          return renderPermits(siteId, companyId);
+        }
+        if(csub==='inspections') return renderSubInspections(siteId, companyId);
+        if(csub==='library') return renderSubCompanyLibrary(siteId, companyId);
         return renderSubcontractorHub(siteId, companyId);
       }
       if(sub==='site_inductions') return renderSiteInductions(siteId);
-      if(['cpp','site_layout','permits','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
-      return renderMcHome(siteId);
+      if(sub==='site_layout') return renderSiteLayout(siteId);
+      if(sub==='permits'){
+        const permitId = parts[4];
+        if(permitId) return renderPermitView(siteId, permitId, null);
+        return renderPermits(siteId, null);
+      }
+      if(sub==='inspections'){
+        const isub = parts[4];
+        if(isub==='templates') return renderMcInspectionTemplates(siteId);
+        return renderMcInspections(siteId);
+      }
+      if(['cpp','asbestos','f10'].includes(sub)) return renderMcDocuments(siteId, sub);
+      // #404: the old standalone Main Contractor hub page is gone — its
+      // tiles now live directly on Home — so a bare #/mc (an old bookmark
+      // or back-link) just lands there instead of a page that no longer
+      // has a route in.
+      go(`#/site/${siteId}/home`); return;
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
