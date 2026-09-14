@@ -1016,20 +1016,37 @@ function compressImage(file, opts){
   const maxW = opts.maxW || 1600;
   const quality = opts.quality != null ? opts.quality : 0.85;
   return new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onerror=()=>reject(new Error('read failed'));
-    reader.onload=()=>{
-      const img=new Image();
-      img.onerror=()=>reject(new Error('load failed'));
-      img.onload=()=>{
+    // Load the source photo via an object URL rather than a base64 data:
+    // URL. FileReader.readAsDataURL on a modern phone camera photo (often
+    // 5-15MB) produces an even bigger base64 string, and Android's WebView
+    // — unlike desktop Chrome — can fail to decode an <img> whose src is a
+    // very large data: URL, silently firing img.onerror on essentially
+    // every camera photo ("Could not process that photo" on every upload).
+    // createObjectURL avoids building that string at all, so it sidesteps
+    // the size limit entirely and is the lower-memory, faster path anyway.
+    let objectUrl = null;
+    const cleanup = ()=>{ if(objectUrl){ URL.revokeObjectURL(objectUrl); objectUrl=null; } };
+    const img = new Image();
+    img.onerror = ()=>{ cleanup(); reject(new Error('image decode failed')); };
+    img.onload = ()=>{
+      try{
         const scale=Math.min(1,maxW/img.width);
         const w=Math.round(img.width*scale), h=Math.round(img.height*scale);
         const c=document.createElement('canvas'); c.width=w;c.height=h;
         c.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(c.toDataURL('image/jpeg',quality));
-      };
-      img.src=reader.result;
+        const out = c.toDataURL('image/jpeg',quality);
+        cleanup();
+        resolve(out);
+      }catch(e){ cleanup(); reject(e); }
     };
+    if(window.URL && URL.createObjectURL){
+      try{ objectUrl = URL.createObjectURL(file); img.src = objectUrl; return; }
+      catch(e){ /* fall through to FileReader below */ }
+    }
+    // Fallback for the rare environment without createObjectURL support.
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('read failed'));
+    reader.onload=()=>{ img.src=reader.result; };
     reader.readAsDataURL(file);
   });
 }
@@ -11830,7 +11847,7 @@ window.onReportPhotoChosen = async function(input, key){
   let failed = 0;
   for(const file of files){
     try{ cur.push(await compressImage(file)); }
-    catch(e){ failed++; }
+    catch(e){ failed++; console.error('compressImage failed for', file && file.name, file && file.type, e); }
   }
   reportFillDraft.answers[key] = cur;
   render();
@@ -14050,7 +14067,7 @@ window.snagAddPhoto = async function(input){
   let failed = 0;
   for(const file of files){
     try{ snagNewPhotos.push(await compressImage(file)); }
-    catch(e){ failed++; }
+    catch(e){ failed++; console.error('compressImage failed for', file && file.name, file && file.type, e); }
   }
   render();
   if(failed) toast(failed===files.length ? 'Could not process photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
