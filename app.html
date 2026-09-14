@@ -1707,9 +1707,22 @@ function mediaRequiredFor(it, answers){
 function orgLogoUrl(org){
   return org && org.logo_path ? publicUrl('org-logos', org.logo_path) : OPHUB_LOGO;
 }
-// 'admin' is a superset of 'pm' capabilities everywhere in this app —
-// mirrors the DB's is_pm() which now also means "pm or admin".
-function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
+// 'admin' is a superset of 'pm' capabilities everywhere in this app, and
+// 'site_manager' is a day-to-day-operational subset of 'pm' — mirrors the
+// DB's is_pm() (pm/admin/site_manager: uploads, sign-offs, schedule,
+// subcontractor management, etc.). A handful of things stay stricter than
+// isManager() on purpose (true PM/admin only, excluding site_manager) —
+// see isFullManager(): seeing every site without being assigned, creating/
+// editing/deleting a site, becoming a site's Responsible PM, and managing
+// other people's roles/accounts. Those are enforced server-side (RLS) so
+// this client-side split is a UI convenience, not the actual boundary.
+function isManager(u){ return !!u && (u.role==='pm' || u.role==='admin' || u.role==='site_manager'); }
+function isSiteManager(u){ return !!u && u.role==='site_manager'; }
+// The stricter "true PM or admin" check — used wherever a Site Manager
+// should NOT get the same rights as a Project Manager (site creation/
+// deletion, becoming a Responsible PM, managing other users' roles). Mirrors
+// the DB's is_pm_or_admin().
+function isFullManager(u){ return !!u && (u.role==='pm' || u.role==='admin'); }
 // Client login — assigned to a site the same way an operative is
 // (site_assignments), but strictly view-only: RAMS, COSHH, Toolbox Talks,
 // Schedule of Works, PUWER (completed inspections), Snagging and the
@@ -1745,7 +1758,7 @@ function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections &amp; Snaggi
 function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
-  return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
+  return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='site_manager' ? 'Site Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
 }
 
 // loadAllProfiles() is called from nearly every render() — almost every
@@ -2606,7 +2619,7 @@ async function renderAdmin(){
     ${orgs.map(o=>{
       const sub = subByOrg[o.id];
       const people = (peopleByOrg[o.id]||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      const ROLES = ['operative','pm','admin'];
+      const ROLES = ['operative','site_manager','pm','admin'];
       const expanded = adminExpandedOrg === o.id;
       return `
       <div class="card">
@@ -2903,7 +2916,10 @@ window.goSitesSection = function(key){ siteSectionOpen[key] = true; go('#/sites'
 async function renderSites(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
-  const canAdd = isManager(ME);
+  // Creating/deleting sites and the PM-filtered sectioned view stay true
+  // PM/Admin only — a Site Manager sees the same site list as an operative,
+  // scoped to whichever sites they've been assigned to (see isFullManager).
+  const canAdd = isFullManager(ME);
   await loadAllProfiles(); // so nameOf() can resolve each site's responsible_pm_id for the initials badge
   const pmOptions = Object.values(PROFILES).filter(p=>p.role==='pm'||p.role==='admin').sort((a,b)=>a.name.localeCompare(b.name));
   const filtered = (canAdd && siteFilterPmIds.length) ? SITES.filter(s=>siteFilterPmIds.includes(s.responsible_pm_id)) : SITES;
@@ -4668,18 +4684,35 @@ async function renderTeam(){
 
     <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
     ${people.filter(p=>p.role==='pm').map(p=>`
-      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && isManager(ME) && userActionsOpenFor[p.id] ? `
+        ${p.id!==ME.id && isFullManager(ME) && userActionsOpenFor[p.id] ? `
           <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-            ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>` : ''}
+            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
+            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','site_manager')">Make Site Manager</button>
             ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
             ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
           </div>
         ` : ''}
       </div>
     `).join('') || `<div class="empty">No project managers yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Site Managers</p>
+    ${people.filter(p=>p.role==='site_manager').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,#6B6F78,#3a3c40);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${p.id!==ME.id && isFullManager(ME) && userActionsOpenFor[p.id] ? `
+          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
+            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
+            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
+            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `).join('') || `<div class="empty">No site managers yet.</div>`}
 
     <p class="sectiontitle" style="margin-top:18px;">Operatives</p>
     ${people.filter(p=>p.role==='operative').map(p=>`
@@ -4688,9 +4721,10 @@ async function renderTeam(){
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         ${userActionsOpenFor[p.id] ? `
         <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-          ${isManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
+          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','site_manager')">Make Site Manager</button>` : ''}
           ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
+          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
         </div>
         ` : ''}
       </div>
@@ -4701,14 +4735,14 @@ async function renderTeam(){
       <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${userActionsOpenFor[p.id] ? `
+        ${userActionsOpenFor[p.id] && isFullManager(ME) ? `
         <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
           <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
         </div>
         ` : ''}
       </div>
     `).join('') || `<div class="empty">No clients yet.</div>`}
-    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first).</p>
+    <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives and Site Managers. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Site Manager, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first). A Site Manager works day-to-day like a Project Manager but only on the sites they're assigned to, and can't create/delete sites or manage other people's accounts.</p>
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
     ${teamSectionOpen.checkinlogs ? `
@@ -7506,6 +7540,7 @@ async function renderAssignTeam(siteId){
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
   const clients = Object.values(PROFILES).filter(p=>p.role==='client').sort((a,b)=>a.name.localeCompare(b.name));
+  const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
   const [assigned, odConnRows, subAddresses] = await Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
@@ -7513,6 +7548,17 @@ async function renderAssignTeam(siteId){
   ]);
   const assignedIds = new Set(assigned.map(a=>a.user_id));
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
+  // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
+  // on Settings & Admin, so a PM doesn't have to go via Subcontractors > the
+  // company > Operatives (one-at-a-time) just to build a crew list. Only
+  // fetched when this site is acting as a Main Contractor, since that's the
+  // only time subcontractor companies exist at all.
+  const subCompanies = site.acting_as_main_contractor ? await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc') : [];
+  let subOpByCompany = {};
+  if(subCompanies.length){
+    const allSubOps = await dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=*');
+    allSubOps.forEach(r=>{ (subOpByCompany[r.subcontractor_company_id] = subOpByCompany[r.subcontractor_company_id]||new Map()).set(r.user_id, r); });
+  }
   // Cached for toggleSubAddrForm() to pull an address's current values into
   // the edit form without a second round-trip.
   assignTeamSubAddresses = subAddresses;
@@ -7523,6 +7569,7 @@ async function renderAssignTeam(siteId){
     : [];
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
     <div class="card">
@@ -7534,12 +7581,13 @@ async function renderAssignTeam(siteId){
       <button class="darkbtn" onclick="saveSiteAddress('${siteId}')">Save</button>
     </div>
     ` : ''}
+    ` : ''}
 
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('maincontractor')"><span class="arrow">${siteTeamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
     ${siteTeamSectionOpen.maincontractor ? `
     <div class="card">
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
-      <p class="stub" style="margin:8px 0 0;">When on, a single "Main Contractor" tile appears on this site's home page (position 2, right after Check In/Out) leading to Construction Phase Plan, Site Inductions, Subcontractors, Permits To Work, Inspections, Asbestos Register and F10 Notification. Site Rules &amp; Layout lives in Health &amp; Safety instead, since it applies to every site.</p>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.acting_as_main_contractor?'checked':''} ${isFullManager(ME)?'':'disabled'} onchange="toggleMainContractor('${siteId}', this.checked)">Acting as a Main Contractor?</label>
+      <p class="stub" style="margin:8px 0 0;">When on, a single "Main Contractor" tile appears on this site's home page (position 2, right after Check In/Out) leading to Construction Phase Plan, Site Rules &amp; Layout, Site Inductions, Subcontractors, Permits To Work, Inspections, Asbestos Register and F10 Notification. Site Rules &amp; Layout also stays reachable from Health &amp; Safety, since it applies to every site.</p>
       <button class="ghostbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/mc/companylibrary')">📚 Company Library</button>
     </div>
     ` : ''}
@@ -7555,7 +7603,7 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('multisite')"><span class="arrow">${siteTeamSectionOpen.multisite?'▼':'▶'}</span> Multi-Site</p>
     ${siteTeamSectionOpen.multisite ? `
     <div class="card">
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.multi_site?'checked':''} onchange="toggleMultiSite('${siteId}', this.checked)">This is a multi-site project (several separate addresses under one job)</label>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.multi_site?'checked':''} ${isFullManager(ME)?'':'disabled'} onchange="toggleMultiSite('${siteId}', this.checked)">This is a multi-site project (several separate addresses under one job)</label>
       <p class="stub" style="margin:8px 0 0;">When on, Check In becomes per-address with its own GPS geofence, and the Schedule of Works "+" button lets a task be linked to a specific address (or left unlinked and linked later).</p>
     </div>
     ${site.multi_site ? `
@@ -7595,7 +7643,7 @@ async function renderAssignTeam(siteId){
       ` : `<button class="ghostbtn" onclick="toggleSubAddrForm()">+ Add Address</button>`}
     ` : ''}
     ` : ''}
-    ${odCompanyConnected ? `
+    ${odCompanyConnected && isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
     ${siteTeamSectionOpen.sync ? `
     <div class="card" style="padding:10px 14px;">
@@ -7619,9 +7667,9 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
-    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives</p>
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives to RTB</p>
     ${siteTeamSectionOpen.operatives ? `
-    <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers can always see every site.</p>
+    <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers and Admins can always see every site; Site Managers need to be assigned like anyone else.</p>
     ${operatives.map(p=>`
       <div class="sitecard" style="padding:7px 9px;gap:8px;">
         <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
@@ -7632,6 +7680,42 @@ async function renderAssignTeam(siteId){
       </div>
     `).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
     ` : ''}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sitemanagers')"><span class="arrow">${siteTeamSectionOpen.sitemanagers?'▼':'▶'}</span> Assign Site Managers</p>
+    ${siteTeamSectionOpen.sitemanagers ? `
+    <p class="stub" style="margin:0 0 14px;">Unlike a Project Manager, a Site Manager only sees the sites assigned here — assign them to every site they run.</p>
+    ${siteManagerPeople.map(p=>`
+      <div class="sitecard" style="padding:7px 9px;gap:8px;">
+        <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
+        <button class="${assignedIds.has(p.id)?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="toggleAssignment('${siteId}','${p.id}',${assignedIds.has(p.id)})">
+          ${assignedIds.has(p.id) ? 'Assigned ✓' : 'Assign'}
+        </button>
+      </div>
+    `).join('') || `<div class="empty">No site managers yet — promote someone from Operatives in Admin Centre &gt; Users.</div>`}
+    ` : ''}
+
+    ${subCompanies.map(c=>{
+      const allocMap = subOpByCompany[c.id] || new Map();
+      const open = !!siteSubOperativesOpen[c.id];
+      return `
+      <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteSubOperatives('${c.id}')"><span class="arrow">${open?'▼':'▶'}</span> Assign Operatives to ${escapeHtml(c.name)}</p>
+      ${open ? `
+      <p class="stub" style="margin:0 0 14px;">Tick every operative working for ${escapeHtml(c.name)} on this site — an operative can be ticked here as well as under RTB above, if they work both. Ticking here also gives them access to this site if they don't have it already.</p>
+      ${operatives.map(p=>{
+        const alloc = allocMap.get(p.id);
+        return `
+        <div class="sitecard" style="padding:7px 9px;gap:8px;">
+          <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+          <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div><div class="addr" style="font-size:10px;">${escapeHtml(p.email)}</div></div>
+          <button class="${alloc?'darkbtn':'ghostbtn'}" style="width:auto;padding:6px 10px;font-size:11.5px;" onclick="toggleSubOperativeAssignment('${siteId}','${c.id}','${jsAttr(c.name)}','${p.id}',${alloc?`'${alloc.id}'`:'null'})">
+            ${alloc ? 'Assigned ✓' : 'Assign'}
+          </button>
+        </div>`;
+      }).join('') || `<div class="empty">No operatives yet — they need to sign up first.</div>`}
+      ` : ''}
+      `;
+    }).join('')}
 
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('clients')"><span class="arrow">${siteTeamSectionOpen.clients?'▼':'▶'}</span> Assign Clients</p>
     ${siteTeamSectionOpen.clients ? `
@@ -7683,8 +7767,41 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
+let siteTeamSectionOpen = {address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
+// Per-subcontractor-company "Assign Operatives to X" dropdowns on Settings &
+// Admin — keyed by subcontractor_companies.id, separate from siteTeamSectionOpen
+// since there can be any number of them.
+let siteSubOperativesOpen = {};
+window.toggleSiteSubOperatives = function(companyId){ siteSubOperativesOpen[companyId] = !siteSubOperativesOpen[companyId]; render(); };
+window.toggleSubOperativeAssignment = async function(siteId, companyId, companyName, userId, allocRowId){
+  if(allocRowId){
+    const ok = await dbDelete('subcontractor_operatives', allocRowId);
+    if(ok){ toast('Removed from '+companyName); subOpCache = {}; render(); }
+    return;
+  }
+  // Same "one subcontractor company per site" rule enforced in the picker
+  // under Subcontractors > company > Operatives — an operative can't be
+  // allocated to two different companies on the same site at once.
+  const existing = await dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&select=id,subcontractor_company_id');
+  if(existing.length && existing[0].subcontractor_company_id !== companyId){
+    toast('Already allocated to a different subcontractor on this site — remove them there first.');
+    return;
+  }
+  const rows = await dbInsert('subcontractor_operatives', {site_id:siteId, subcontractor_company_id:companyId, user_id:userId, assigned_by:ME.id, is_admin:false});
+  if(!rows) return;
+  // A subcontractor allocation is enough on its own to give site access —
+  // no need to separately tick "Assign Operatives to RTB" first, since an
+  // operative may work only for the subcontractor, not RTB directly.
+  const alreadyOnSite = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&select=user_id&limit=1');
+  if(!alreadyOnSite.length){
+    const siteRows = await dbInsert('site_assignments', {site_id:siteId, user_id:userId, assigned_by:ME.id});
+    if(siteRows) notifySiteAssignment(siteId, userId);
+  }
+  toast('Assigned to '+companyName);
+  subOpCache = {};
+  render();
+};
 window.saveSiteAddress = async function(siteId){
   const name = document.getElementById('editSiteName').value.trim();
   const address = document.getElementById('editSiteAddress').value.trim();
@@ -14450,19 +14567,21 @@ function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
 // on Home leads to) and by Home itself just for the area count shown on
 // that tile, so the two never drift apart. Gated on
 // site.acting_as_main_contractor and respecting the ⋮ hide-from-operatives
-// toggle below. Site Rules & Layout lives in Health & Safety instead — it
-// applies to every site — but Site Inductions is deliberately kept
-// Main-Contractor-only, nowhere else.
+// toggle below. Site Rules & Layout is tile two here (right after CPP) and
+// also stays reachable from Health & Safety, since it applies to every
+// site — but Site Inductions is deliberately kept Main-Contractor-only,
+// nowhere else.
 async function getMcTiles(siteId, site){
   const canAdd = isManager(ME);
   const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
   const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const [companies, inductionAssigned, inductionDone, openPermits, mcInspectionTemplates] = await Promise.all([
+  const [companies, inductionAssigned, inductionDone, openPermits, mcInspectionTemplates, layoutRows] = await Promise.all([
     dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
     dbSelect('permits', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&select=id'),
+    dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
   ]);
   const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
   const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
@@ -14476,6 +14595,7 @@ async function getMcTiles(siteId, site){
   const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
   const tiles = [
     {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},
+    {key:'site_layout', href:`#/site/${siteId}/mc/site_layout`, icon:MC_CATEGORY_ICON.site_layout, lbl:MC_CATEGORY_LABEL.site_layout, sub:`${layoutRows.length} document${layoutRows.length===1?'':'s'}`},
     {key:'site_inductions', href:`#/site/${siteId}/mc/site_inductions`, icon:MC_CATEGORY_ICON.site_inductions, lbl:MC_CATEGORY_LABEL.site_inductions, sub:inductionSub},
     {key:'subcontractors', href:`#/site/${siteId}/mc/subcontractors`, icon:'👷', lbl:'Subcontractors', sub:`${companies.length} compan${companies.length===1?'y':'ies'}`},
     {key:'permits', href:`#/site/${siteId}/mc/permits`, icon:'🧾', lbl:'Permits To Work', sub:permitsSub},
@@ -15175,20 +15295,12 @@ async function renderSiteInductions(siteId){
       <div class="row-gap" style="margin:0 0 10px;align-items:center;">
         <div class="filterchip ${siteInductionFilter==='outstanding'?'active':''}" onclick="siteInductionFilter='outstanding';siteInductionSelectedIds=new Set();render()">Outstanding</div>
         <div class="filterchip ${siteInductionFilter==='completed'?'active':''}" onclick="siteInductionFilter='completed';siteInductionSelectedIds=new Set();render()">Completed Inductions</div>
-        ${siteInductionFilter==='completed' && canManage ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="Sync to OneDrive folder" onclick="siteInductionOneDrivePanelOpen=!siteInductionOneDrivePanelOpen;render()">+</div>` : ''}
+        ${siteInductionFilter==='completed' && canManage && !linked ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="Sync to OneDrive folder" onclick="siteInductionOneDrivePanelOpen=!siteInductionOneDrivePanelOpen;render()">+</div>` : ''}
       </div>
-      ${siteInductionFilter==='completed' && canManage && siteInductionOneDrivePanelOpen ? `
+      ${siteInductionFilter==='completed' && canManage && !linked && siteInductionOneDrivePanelOpen ? `
       <div class="card" style="margin-bottom:10px;">
-        ${linked ? `
-          <p class="stub" style="margin:0 0 8px;color:var(--ok);">📁 Signed inductions are pushed to "${escapeHtml(site.site_inductions_folder_name||'')}"</p>
-          <div class="row-gap">
-            <button class="ghostbtn" style="flex:1;" onclick="startOneDriveFolderPicker('${siteId}','siteinductions')">Change Folder</button>
-            <button class="ghostbtn" style="flex:1;" onclick="unlinkSiteInductionsFolder('${siteId}')">Unlink</button>
-          </div>
-        ` : `
-          <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and every signed induction PDF will be pushed there automatically as operatives complete them.</p>
-          <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','siteinductions')">Link OneDrive Folder</button>
-        `}
+        <p class="stub" style="margin:0 0 10px;">Link a OneDrive folder and every signed induction PDF will be pushed there automatically as operatives complete them.</p>
+        <button class="darkbtn" onclick="startOneDriveFolderPicker('${siteId}','siteinductions')">Link OneDrive Folder</button>
       </div>
       ` : ''}
       ${siteInductionFilter==='outstanding' && canManage ? `
@@ -15233,6 +15345,17 @@ async function renderSiteInductions(siteId){
           ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
         </div>`;
       }).join('') || `<div class="empty">No ${siteInductionFilter==='completed' ? 'completed inductions yet' : 'outstanding operatives'}${siteInductionFilter==='completed'?'.':' — everyone on the roster has completed their induction.'}</div>`}
+      ${siteInductionFilter==='completed' && canManage && linked ? `
+      <div style="margin-top:14px;position:relative;display:inline-block;" data-rowactions-root onclick="event.stopPropagation();">
+        <p class="stub" style="margin:0;color:var(--ok);cursor:pointer;" onclick="toggleRowActionsMenu('siteinductionsod')">📁 Signed inductions are pushed to "<span style="text-decoration:underline;">${escapeHtml(site.site_inductions_folder_name||'')}</span>"</p>
+        ${rowActionsMenuOpenFor==='siteinductionsod' ? `
+        <div class="statusmenu" style="left:0;right:auto;top:100%;">
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;startOneDriveFolderPicker('${siteId}','siteinductions')">📁 Change Folder</div>
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;unlinkSiteInductionsFolder('${siteId}')">🗑 Unlink</div>
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
     `, {title:'Site Inductions', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
     return;
   }
@@ -15712,11 +15835,11 @@ async function renderSubcontractorHub(siteId, companyId){
     </div>
   `, {title:company.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors`, siteId, activeTab:'more'}); }
 }
-// Only the operative designated as a subcontractor's own "admin" (see
-// renderSubOperatives) can upload into their company's folder — RTB's own
-// PMs/admins can view, oversee and delete, but no longer upload on the
-// subcontractor's behalf; every document has to come from the subcontractor
-// themselves.
+// RTB's own PM/admin has exactly the same upload rights inside a
+// subcontractor's tile as they do on RTB's own documents (RAMS, COSHH,
+// Toolbox Talks, Daily Briefings) — isSubcontractorAdmin additionally lets
+// the subcontractor's own designated "admin" operative (see
+// renderSubOperatives) upload on their own company's behalf too.
 async function isSubcontractorAdmin(companyId){
   if(isManager(ME) || isClient(ME)) return false;
   const rows = await dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&user_id=eq.'+ME.id+'&is_admin=eq.true&select=id&limit=1');
@@ -15753,7 +15876,7 @@ async function renderSubRams(siteId, companyId){
   const {docs, sigsByDoc, assignedIds} = await fetchSubRamsData(siteId, companyId);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
-    ${isSubAdmin ? `
+    ${canAdd ? `
     <div class="card" style="margin-top:14px;">
       <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
       <div class="formfield" style="margin-top:0;"><input type="text" id="subRamsName" placeholder="Document name"></div>
@@ -15802,7 +15925,7 @@ async function renderSubCoshh(siteId, companyId){
   const {docs, sigsByDoc, assignedIds} = await fetchSubCoshhData(siteId, companyId);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
-    ${isSubAdmin ? `
+    ${canAdd ? `
     <div class="card" style="margin-top:14px;">
       <p class="sectiontitle" style="margin-top:0;">Upload COSHH</p>
       <div class="formfield" style="margin-top:0;"><input type="text" id="subCoshhName" placeholder="Document name"></div>
@@ -15834,6 +15957,7 @@ async function renderSubTbt(siteId, companyId){
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const canAdd = isManager(ME) || isSubAdmin;
   const talks = await dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&order=created_at.desc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${talks.map(t=>`
@@ -15844,7 +15968,7 @@ async function renderSubTbt(siteId, companyId){
         </div>
       </div>
     `).join('') || `<div class="empty">No toolbox talks yet.</div>`}
-    ${isSubAdmin ? `
+    ${canAdd ? `
     <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Issue a toolbox talk</p>
       <div class="formfield" style="margin-top:0;"><input type="text" id="subTbtTitle" placeholder="Title, e.g. Working at Height"></div>
@@ -15933,7 +16057,7 @@ async function renderSubBriefings(siteId, companyId){
         ${canManageEntries ? `<div class="taskicon danger" style="margin-top:6px;" onclick="deleteSubBriefing('${b.id}')">🗑</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No daily briefings logged yet.</div>`}
-    ${isSubAdmin ? `
+    ${canManageEntries ? `
     <div class="card" style="margin-top:10px;">
       <p class="sectiontitle" style="margin-top:0;">Log a briefing</p>
       <div class="formfield" style="margin-top:0;"><input type="text" id="subBriefTitle" placeholder="e.g. Monday morning briefing"></div>
@@ -15983,7 +16107,7 @@ async function renderSubOperatives(siteId, companyId){
   // operative belongs to at most one subcontractor company per site.
   const pickable = siteAssignments.map(a=>PROFILES[a.user_id]).filter(p=>p && p.role==='operative' && !alreadyElsewhere.has(p.id)).sort((a,b)=>a.name.localeCompare(b.name));
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 12px;">The subcontractor admin is the only one who can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views and signs, the same as an RTB operative does on the main site.</p>
+    <p class="stub" style="margin:0 0 12px;">RTB's own PM/admin and the subcontractor admin can upload RAMS, COSHH, Toolbox Talks and Daily Briefings into this folder — everyone else allocated here just views and signs, the same as an RTB operative does on the main site.</p>
     ${allocated.map(a=>`
       <div class="sitecard">
         <div class="swatch personswatch">${escapeHtml((nameOf(a.user_id)||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
@@ -16860,17 +16984,15 @@ async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(isClient(ME)){
-    const [ramsRows, coshhRows, liveTbts, layoutRows] = await Promise.all([
+    const [ramsRows, coshhRows, liveTbts] = await Promise.all([
       dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
       dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
       dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
-      dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
     ]);
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/hs/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
-        <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🗺</div><div class="lbl">Site Rules &amp; Layout</div><div class="sub">${layoutRows.length} document${layoutRows.length===1?'':'s'}</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${liveTbts.length} live</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🛠</div><div class="lbl">Completed Inspections</div><div class="sub">PUWER</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operative Dashboard</div><div class="sub">Roster &amp; certificates</div></div>
@@ -16969,11 +17091,6 @@ async function renderHealthSafety(siteId){
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
         <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
         ${isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'')}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/site_layout')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🗺</div>
-        <div class="lbl">Site Rules &amp; Layout</div><div class="sub">${layoutDocs.length} document${layoutDocs.length===1?'':'s'}</div>
-        ${isManager(ME) ? (layoutOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (layoutUnsignedCount?`<span class="badge-count">${layoutUnsignedCount}</span>`:'')}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
