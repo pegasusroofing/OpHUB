@@ -78,7 +78,7 @@
     #app{
       max-width:1180px;box-shadow:none;
     }
-    .appbar{padding:17.1px 27.36px;padding-top:calc(17.1px + env(safe-area-inset-top));}
+    .appbar{padding:17.1px 27.36px;padding-top:calc(17.1px + env(safe-area-inset-top) + 10px);}
     .scrollarea{padding:24px 32px 32px;}
     .tabbar{position:sticky;bottom:0;max-width:none;left:auto;right:auto;}
   }
@@ -110,7 +110,7 @@
      continuous sleek surface — the org's brand colour still shows via the
      .stripe-edge accent line above this, plus every button/badge/tile icon
      that uses --brand1 elsewhere. */
-  .appbar{background:var(--card);color:var(--ink);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top));flex:0 0 auto;border-bottom:2px solid var(--brand1);}
+  .appbar{background:var(--card);color:var(--ink);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top) + 10px);flex:0 0 auto;border-bottom:2px solid var(--brand1);}
   .appbar .row{display:flex;align-items:center;gap:12.825px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
@@ -2475,6 +2475,7 @@ window.doJoin = async function(inviteId){
       joinBusyLabel = 'Getting your sites…'; render();
       const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
       SITES = sites;
+      try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
       go('#/sites');
     } else {
       joinInfo = undefined;
@@ -3187,14 +3188,18 @@ async function computeOutstandingRows(forId){
     // page/badge could say "RAMS to sign (1)" for a site whose RAMS page
     // itself showed "signed by all operatives": the RAMS page's own fetch
     // (fetchRamsData) already selected these columns and was never affected.
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    // subcontractor_company_id=is.null — a subcontractor's own RAMS/COSHH/
+    // TBT (uploaded via renderSubRams/renderSubCoshh/renderSubTbt, same
+    // tables) must never count towards RTB's own outstanding-signature
+    // totals here; they're scoped to that subcontractor's own operatives.
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
     // Live TBTs count as outstanding for OPERATIVES personally (they need to
     // sign) — this used to only live in the old computeMyOutstandingCount
     // and never showed on the Outstanding page itself, so an operative's
     // badge could show a number with nothing to click through to. Folding it
     // in here fixes that mismatch.
-    (!manager && idsCsv) ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+idsCsv+')&select=id,site_id') : Promise.resolve([]),
+    (!manager && idsCsv) ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id') : Promise.resolve([]),
   ]);
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
@@ -3287,9 +3292,12 @@ async function computeNotificationRows(forId){
   const idsCsv = siteIds.join(',');
 
   const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos] = await Promise.all([
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&select=id,site_id,status,created_at') : Promise.resolve([]),
+    // subcontractor_company_id=is.null — same fix as computeOutstandingRows:
+    // subcontractor RAMS/COSHH/TBT must never surface in a PM's own
+    // notification feed, only RTB's own.
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,status,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=site_id') : Promise.resolve([]),
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
     idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
@@ -3491,9 +3499,11 @@ async function computeHubItems(forcedPmId){
   const siteIds = sites.map(s=>s.id);
   const idsCsv = siteIds.join(',');
   const [ramsDocs, coshhDocs, allTalks, openSnags, scheduleTasks, assignments, allTodos, mgrMsgs] = await Promise.all([
-    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
-    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&select=id,site_id,status,created_at') : Promise.resolve([]),
+    // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
+    // computeNotificationRows: keep subcontractor RAMS/COSHH/TBT out of HUB.
+    idsCsv ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('coshh_docs', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : Promise.resolve([]),
+    idsCsv ? dbSelect('toolbox_talks', 'site_id=in.('+idsCsv+')&subcontractor_company_id=is.null&select=id,site_id,status,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('snags', 'site_id=in.('+idsCsv+')&status=eq.open&select=id,site_id,created_at') : Promise.resolve([]),
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
     idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
@@ -3788,12 +3798,15 @@ async function renderDashboard(){
 
   const [openSnags, ramsDocs, coshhDocs, assignments, scheduleTasks, incidentsRecent, liveTbts] = await Promise.all([
     liveIds.length ? dbSelect('snags', 'status=eq.open&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
-    liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
-    liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    // subcontractor_company_id=is.null — same fix as computeOutstandingRows/
+    // computeNotificationRows/computeHubItems: keep subcontractor RAMS/
+    // COSHH/TBT out of the company-wide admin dashboard totals.
+    liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
+    liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
     liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status') : [],
     dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
-    liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&select=id,site_id') : [],
+    liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id') : [],
   ]);
   const tbtIds = liveTbts.map(t=>t.id).join(',');
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
@@ -6495,7 +6508,7 @@ async function renderSiteHome(siteId){
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&select=id'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
@@ -6560,8 +6573,8 @@ async function renderSiteHome(siteId){
     await loadAllProfiles();
     const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
       dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id,resign_cycle_start,uploaded_at'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
     ]);
     const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
     if(operativeIdsHere.length){
@@ -14653,6 +14666,7 @@ let permitNewDescription = '';
 let permitNewDate = '';
 let permitNewCompanyId = ''; // main-level issue form only — which subcontractor (if any) this is for
 let permitNewAssigneeIds = new Set();
+let permitAssigneeFilterText = ''; // live text filter over the "who needs to sign" roster below
 let permitCloseState = {}; // permitId -> {photo1, photo2, notes}
 async function renderPermits(siteId, companyId){
   const __gen = RENDER_GEN;
@@ -14711,13 +14725,28 @@ async function renderPermits(siteId, companyId){
         </div>
         ${!companyId ? `
         <div class="formfield">
-          <label class="field-label">Subcontractor (optional)</label>
-          <select onchange="permitNewCompanyId=this.value;permitNewAssigneeIds=new Set();render()">
-            <option value="">— None / RTB's own operatives —</option>
+          <label class="field-label">Contractor</label>
+          <select onchange="permitNewCompanyId=this.value;permitNewAssigneeIds=new Set();permitAssigneeFilterText='';render()">
+            <option value="">— RTB (no subcontractor) —</option>
             ${Object.keys(companiesById).map(id=>`<option value="${id}" ${permitNewCompanyId===id?'selected':''}>${escapeHtml(companiesById[id])}</option>`).join('')}
           </select>
         </div>
         ` : ''}
+        <div class="formfield">
+          <label class="field-label">Who needs to sign this permit? (required)</label>
+          <input type="text" placeholder="Filter by name…" value="${escapeHtml(permitAssigneeFilterText)}" oninput="permitAssigneeFilterText=this.value;render()" style="margin-bottom:8px;">
+          ${assigneeRoster.length ? (() => {
+            const q = permitAssigneeFilterText.trim().toLowerCase();
+            const filtered = q ? assigneeRoster.filter(p=>(p.name||'').toLowerCase().includes(q)) : assigneeRoster;
+            return filtered.length ? `<div style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px;">
+              ${filtered.map(p=>`
+                <label class="stub" style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+                  <input type="checkbox" style="width:auto;" ${permitNewAssigneeIds.has(p.id)?'checked':''} onchange="togglePermitAssignee('${p.id}')">${escapeHtml(p.name)}
+                </label>
+              `).join('')}
+            </div>` : `<p class="stub" style="margin:0;">No operatives match "${escapeHtml(permitAssigneeFilterText)}".</p>`;
+          })() : `<p class="stub" style="margin:0;">No operatives available to pick from yet.</p>`}
+        </div>
         <div class="formfield">
           <label class="field-label">Description of works</label>
           <input type="text" value="${escapeHtml(permitNewDescription)}" oninput="permitNewDescription=this.value" placeholder="e.g. Hot works to re-felt the plant room roof">
@@ -14730,17 +14759,9 @@ async function renderPermits(siteId, companyId){
           <label class="field-label">Date</label>
           <input type="date" value="${permitNewDate}" onchange="permitNewDate=this.value">
         </div>
-        <div class="formfield">
-          <label class="field-label">Who needs to sign this permit? (required)</label>
-          ${assigneeRoster.length ? assigneeRoster.map(p=>`
-            <label class="stub" style="display:flex;align-items:center;gap:8px;margin:4px 0;">
-              <input type="checkbox" style="width:auto;" ${permitNewAssigneeIds.has(p.id)?'checked':''} onchange="togglePermitAssignee('${p.id}')">${escapeHtml(p.name)}
-            </label>
-          `).join('') : `<p class="stub" style="margin:0;">No operatives available to pick from yet.</p>`}
-        </div>
         ${!ME.signature_path ? `<p class="stub" style="color:var(--warn);margin:0 0 10px;">You haven't adopted a signature yet — <span style="text-decoration:underline;cursor:pointer;" onclick="go('#/signature')">set one up</span> before issuing.</p>` : ''}
         <div class="row-gap">
-          <button class="ghostbtn" style="flex:1;" onclick="permitIssueOpen=false;render()">Cancel</button>
+          <button class="ghostbtn" style="flex:1;" onclick="permitIssueOpen=false;permitAssigneeFilterText='';render()">Cancel</button>
           <button class="darkbtn" style="flex:1;" onclick="submitIssuePermit('${siteId}','${companyId||''}')">Issue Permit</button>
         </div>
       </div>
@@ -14770,6 +14791,7 @@ window.submitIssuePermit = async function(siteId, fixedCompanyId){
     permitNewDescription = '';
     permitNewCompanyId = '';
     permitNewAssigneeIds = new Set();
+    permitAssigneeFilterText = '';
     toast('Permit issued');
     render();
   }
@@ -14926,6 +14948,7 @@ window.closePermit = async function(siteId, permitId){
 // weekly grouping) was actually built; MC Inspections can get the same
 // treatment once its real templates and behaviour are defined.
 let mcInspectionPickerOpen = false;
+let mcInspectionSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main Inspections page
 async function renderMcInspectionTemplates(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -14958,6 +14981,25 @@ async function renderMcInspections(siteId){
     submissions = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&order=submitted_at.desc&limit=100');
   }
   await loadAllProfiles();
+  // Subcontractor inspections (uploaded files, not templated reports) are
+  // surfaced here too — but only for PM/admin/site_manager (isManager), and
+  // grouped per-company in a dropdown, so e.g. Brothers Scaffold's own
+  // scaffold inspection shows up on the main site Inspections page without
+  // merging into RTB's own templated inspection list above.
+  let subCompanies = [], subInspectionsByCompany = {}, subFoldersByCompany = {};
+  if(canAdd){
+    subCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
+    if(subCompanies.length){
+      const companyIds = subCompanies.map(c=>c.id).join(',');
+      const [allFiles, allFolders] = await Promise.all([
+        dbSelect('subcontractor_inspections', 'subcontractor_company_id=in.('+companyIds+')&order=uploaded_at.desc'),
+        dbSelect('subcontractor_inspection_folders', 'subcontractor_company_id=in.('+companyIds+')&select=id,name,subcontractor_company_id'),
+      ]);
+      allFiles.forEach(f=>{ (subInspectionsByCompany[f.subcontractor_company_id]=subInspectionsByCompany[f.subcontractor_company_id]||[]).push(f); });
+      allFolders.forEach(fo=>{ (subFoldersByCompany[fo.subcontractor_company_id]=subFoldersByCompany[fo.subcontractor_company_id]||{})[fo.id]=fo.name; });
+      subCompanies = subCompanies.filter(c=>(subInspectionsByCompany[c.id]||[]).length);
+    }
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${canAdd ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/mc/inspections/templates')">Manage Templates</button>` : ''}
     ${canAdd ? `
@@ -14983,8 +15025,36 @@ async function renderMcInspections(siteId){
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
     `).join('') || `<div class="empty">No inspections logged yet${templates.length?'.':' — set up a template first.'}</div>`}
+    ${canAdd && subCompanies.length ? `
+    <p class="sectiontitle" style="margin-top:22px;">Subcontractor Inspections</p>
+    ${subCompanies.map(c=>{
+      const files = subInspectionsByCompany[c.id]||[];
+      const folderNames = subFoldersByCompany[c.id]||{};
+      const open = !!mcInspectionSubOpenFor[c.id];
+      return `
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleMcInspectionSub('${c.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(c.name)} <span class="stub" style="display:inline;">(${files.length} file${files.length===1?'':'s'})</span>
+        </p>
+        ${open ? `<div style="padding:0 14px 14px;">
+          ${files.map(f=>`
+            <div class="sitecard">
+              <div class="info"><div class="name">${escapeHtml(f.file_name)}</div><div class="addr">${f.folder_id && folderNames[f.folder_id] ? '📁 '+escapeHtml(folderNames[f.folder_id])+' · ' : ''}${escapeHtml(nameOf(f.uploaded_by))} · ${new Date(f.uploaded_at).toLocaleString('en-GB')}</div></div>
+              <a href="${publicUrl('mc-documents', f.storage_path)}" target="_blank" rel="noopener" class="ghostbtn" style="width:auto;padding:8px 12px;text-decoration:none;">View</a>
+            </div>
+          `).join('')}
+          <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/inspections')">Open ${escapeHtml(c.name)}'s Inspections</button>
+        </div>` : ''}
+      </div>
+      `;
+    }).join('')}
+    ` : ''}
   `, {title:'Inspections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 }
+window.toggleMcInspectionSub = function(companyId){
+  mcInspectionSubOpenFor[companyId] = !mcInspectionSubOpenFor[companyId];
+  render();
+};
 async function renderMcDocuments(siteId, category){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -14998,7 +15068,7 @@ async function renderMcDocuments(siteId, category){
       <div class="ramsdoc" style="padding:10px 12px;">
         <div class="taskrowtop">
           <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(d.name)}</div>
-          ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteMcDocument('${d.id}','${jsAttr(d.storage_path)}')">🗑</div></div>` : ''}
+          ${canAdd ? `<div class="taskicons"><div class="taskicon" title="Rename" onclick="renameMcDocument('${d.id}','${jsAttr(d.name)}')">✏️</div><div class="taskicon danger" onclick="deleteMcDocument('${d.id}','${jsAttr(d.storage_path)}')">🗑</div></div>` : ''}
         </div>
         <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(d.uploaded_by))} · ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
         <button class="darkbtn" style="margin-top:10px;width:100%;" onclick="viewDrawing('${publicUrl('mc-documents', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">📄 View Document</button>
@@ -15037,6 +15107,12 @@ window.addMcDocument = async function(siteId, category){
   if(!stored) return;
   const rows = await dbInsert('mc_documents', {org_id:ME.org_id, site_id:siteId, category, name, storage_path:stored, uploaded_by:ME.id});
   if(rows){ mcDocUploadOpen[siteId+'_'+category] = false; toast('Uploaded'); render(); }
+};
+window.renameMcDocument = async function(id, currentName){
+  const next = await customPrompt('Rename document', currentName);
+  if(!next || !next.trim() || next.trim()===currentName) return;
+  const ok = await dbUpdate('mc_documents', id, {name: next.trim()});
+  if(ok){ toast('Renamed'); render(); }
 };
 window.deleteMcDocument = async function(id, storagePath){
   if(!await customConfirm('Delete this document?')) return;
@@ -15140,7 +15216,7 @@ async function renderSiteLayout(siteId){
         ${uploadForm}
       </div>
     `) : ''}
-  `, {title:'Site Rules & Layout', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
+  `, {title:'Site Rules & Layout', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 
   if(siteLayoutPollTimer) clearInterval(siteLayoutPollTimer);
   let siteLayoutPollBusy = false;
@@ -15340,9 +15416,12 @@ async function renderSiteInductions(siteId){
             <div class="name">${escapeHtml(nameOf(uid))}</div>
             <div class="addr">${c ? '✓ Completed '+new Date(c.completed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}) : '○ Not yet completed'}</div>
           </div>
-          ${c ? `<div class="taskicon" title="Export PDF" onclick="event.stopPropagation();exportSiteInductionPdf('${c.id}')">⬇️</div>` : ''}
-          ${c && canManage ? `<div class="taskicon" title="Email PDF" onclick="event.stopPropagation();emailSiteInductionPdf('${c.id}','${jsAttr(nameOf(uid))}')">✉️</div>` : ''}
-          ${c && canManage ? `<div class="taskicon danger" title="Delete — they'll need to redo it" onclick="event.stopPropagation();deleteSiteInductionCompletion('${c.id}')">🗑</div>` : ''}
+          ${c ? `<div class="taskicon" title="View PDF" onclick="event.stopPropagation();exportSiteInductionPdf('${c.id}')">👁</div>` : ''}
+          ${c && canManage ? rowActionsMenuHtml('siteinductionrow'+c.id, `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSiteInductionPdf('${c.id}')">⬇️ Export PDF</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailSiteInductionPdf('${c.id}','${jsAttr(nameOf(uid))}')">✉️ Email PDF</div>
+            <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSiteInductionCompletion('${c.id}')">🗑 Delete — they'll need to redo it</div>
+          `) : ''}
         </div>`;
       }).join('') || `<div class="empty">No ${siteInductionFilter==='completed' ? 'completed inductions yet' : 'outstanding operatives'}${siteInductionFilter==='completed'?'.':' — everyone on the roster has completed their induction.'}</div>`}
       ${siteInductionFilter==='completed' && canManage && linked ? `
@@ -15809,7 +15888,7 @@ async function renderSubcontractorHub(siteId, companyId){
   const rows = await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*');
   const company = rows[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows, openPermitRows, inspectionRows, libraryRows] = await Promise.all([
+  const [ramsRows, coshhRows, tbtRows, briefingRows, opRows, scheduleRows, openPermitRows, inspectionRows] = await Promise.all([
     dbSelect('rams_docs', 'subcontractor_company_id=eq.'+companyId+'&status=eq.current&select=id'),
     dbSelect('coshh_docs', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
     dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&status=eq.live&select=id'),
@@ -15818,7 +15897,6 @@ async function renderSubcontractorHub(siteId, companyId){
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&subcontractor_company_id=eq.'+companyId+'&select=status'),
     dbSelect('permits', 'subcontractor_company_id=eq.'+companyId+'&status=eq.open&select=id'),
     dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+'&select=id'),
-    company.master_company_id ? dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&select=id') : Promise.resolve([]),
   ]);
   const scheduleDone = scheduleRows.filter(t=>t.status==='done').length;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -15831,7 +15909,6 @@ async function renderSubcontractorHub(siteId, companyId){
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/inspections')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🔍</div><div class="lbl">Inspections</div><div class="sub">${inspectionRows.length} file${inspectionRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/briefings')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📝</div><div class="lbl">Daily Briefings</div><div class="sub">${briefingRows.length} logged</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operatives</div><div class="sub">${opRows.length} allocated</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/library')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📚</div><div class="lbl">Company Library</div><div class="sub">${libraryRows.length} document${libraryRows.length===1?'':'s'}</div></div>
     </div>
   `, {title:company.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors`, siteId, activeTab:'more'}); }
 }
@@ -16159,20 +16236,39 @@ window.removeSubOperative = async function(rowId){
 // app — files here are uploaded exactly as chosen, no client-side
 // recompression, so a hi-res inspection photo stays hi-res.
 let subInspectionUploading = false;
-async function renderSubInspections(siteId, companyId){
+async function renderSubInspections(siteId, companyId, folderId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   await loadAllProfiles();
-  const files = await dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+'&order=uploaded_at.desc');
+  const [folders, files, currentFolder] = await Promise.all([
+    folderId ? Promise.resolve([]) : dbSelect('subcontractor_inspection_folders', 'subcontractor_company_id=eq.'+companyId+'&order=name.asc'),
+    dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+(folderId ? '&folder_id=eq.'+folderId : '&folder_id=is.null')+'&order=uploaded_at.desc'),
+    folderId ? dbSelect('subcontractor_inspection_folders', 'id=eq.'+folderId+'&select=id,name') : Promise.resolve([]),
+  ]);
+  const folderRow = currentFolder[0];
+  if(folderId && !folderRow){ go(`#/site/${siteId}/mc/subcontractors/${companyId}/inspections`); return; }
+  const canManageFolders = isManager(ME) || await isSubcontractorAdmin(companyId);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Upload inspection files here — kept full resolution, never compressed — and the site's PM is emailed automatically each time.</p>
+    ${!folderId ? `
+    ${folders.map(f=>`
+      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/inspections/${f.id}')">
+        <div class="swatch">📁</div>
+        <div class="info"><div class="name">${escapeHtml(f.name)}</div></div>
+        ${canManageFolders ? `<div class="taskicon" title="Rename" onclick="event.stopPropagation();renameSubInspectionFolder('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
+      </div>
+    `).join('')}
+    ${canManageFolders ? `<button class="ghostbtn" style="margin-bottom:14px;" onclick="createSubInspectionFolder('${siteId}','${companyId}')">📁 New Folder</button>` : ''}
+    ` : `
+    <p class="stub" style="margin:-8px 0 10px;font-weight:700;">📁 ${escapeHtml(folderRow.name)}</p>
+    `}
     <div class="formfield" style="margin-top:0;">
       <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('subInspectionFileInput').click()">
         <div style="font-size:20px;">${subInspectionUploading?'⏳':'📎'}</div>${subInspectionUploading?'Uploading…':'Tap to choose a file (photo, PDF, etc.)'}
       </div>
-      <input type="file" id="subInspectionFileInput" ${subInspectionUploading?'disabled':''} style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addSubInspection(this,'${siteId}','${companyId}')">
+      <input type="file" id="subInspectionFileInput" ${subInspectionUploading?'disabled':''} style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addSubInspection(this,'${siteId}','${companyId}','${folderId||''}')">
     </div>
     ${files.map(f=>`
       <div class="sitecard">
@@ -16180,10 +16276,22 @@ async function renderSubInspections(siteId, companyId){
         <a href="${publicUrl('mc-documents', f.storage_path)}" target="_blank" rel="noopener" class="ghostbtn" style="width:auto;padding:8px 12px;text-decoration:none;">View</a>
         ${isManager(ME) ? `<div class="taskicon danger" title="Delete" onclick="deleteSubInspection('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
       </div>
-    `).join('') || `<div class="empty">No inspection files uploaded yet.</div>`}
-  `, {title:'Inspections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
+    `).join('') || `<div class="empty">No inspection files ${folderId?'in this folder':'uploaded'} yet.</div>`}
+  `, {title:'Inspections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: folderId ? `#/site/${siteId}/mc/subcontractors/${companyId}/inspections` : `#/site/${siteId}/mc/subcontractors/${companyId}`, siteId, activeTab:'more'}); }
 }
-window.addSubInspection = async function(input, siteId, companyId){
+window.createSubInspectionFolder = async function(siteId, companyId){
+  const name = await customPrompt('Folder name', '');
+  if(!name || !name.trim()) return;
+  const rows = await dbInsert('subcontractor_inspection_folders', {org_id:ME.org_id, site_id:siteId, subcontractor_company_id:companyId, name:name.trim(), created_by:ME.id});
+  if(rows){ toast('Folder created'); render(); }
+};
+window.renameSubInspectionFolder = async function(id, currentName){
+  const next = await customPrompt('Rename folder', currentName);
+  if(!next || !next.trim() || next.trim()===currentName) return;
+  const ok = await dbUpdate('subcontractor_inspection_folders', id, {name: next.trim()});
+  if(ok){ toast('Renamed'); render(); }
+};
+window.addSubInspection = async function(input, siteId, companyId, folderId){
   const file = input.files && input.files[0]; if(!file) return;
   subInspectionUploading = true; render();
   try{
@@ -16196,7 +16304,7 @@ window.addSubInspection = async function(input, siteId, companyId){
     const stored = await uploadToStorage('mc-documents', path, file, file.type || 'application/octet-stream');
     if(!stored){ subInspectionUploading = false; render(); return; }
     const rows = await dbInsert('subcontractor_inspections', {
-      org_id: ME.org_id, site_id: siteId, subcontractor_company_id: companyId,
+      org_id: ME.org_id, site_id: siteId, subcontractor_company_id: companyId, folder_id: folderId || null,
       uploaded_by: ME.id, file_name: file.name, storage_path: stored, content_type: file.type || null,
     });
     if(rows){
@@ -16398,7 +16506,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     return `
     <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
-        <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)} <span class="rolechip" style="margin-left:4px;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
+        <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)}</div>
         ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
       <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
@@ -16467,8 +16575,13 @@ async function anyOperativeMissingSignature(table, docKeyField, docRows, site, o
 async function fetchRamsData(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [docs, superseded, assigned] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&order=uploaded_at.desc'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.superseded&order=uploaded_at.desc'),
+    // subcontractor_company_id=is.null excludes subcontractor-specific RAMS
+    // (uploaded via renderSubRams into this same table) from RTB's own main
+    // site roster — those are scoped to that subcontractor's own operatives
+    // only (see renderSubRams/fetchSubRamsData) and should never be pulled
+    // into every ordinary company operative's sign list here.
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&order=uploaded_at.desc'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.superseded&subcontractor_company_id=is.null&order=uploaded_at.desc'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
   ]);
   let sigsByDoc = {};
@@ -16520,6 +16633,11 @@ async function hsPolicySectionHtml(siteId){
     ` : ''}
   `;
 }
+let ramsSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main RAMS page
+window.toggleRamsSub = function(companyId){
+  ramsSubOpenFor[companyId] = !ramsSubOpenFor[companyId];
+  render();
+};
 async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -16528,6 +16646,21 @@ async function renderRams(siteId){
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
+  // Completed subcontractor RAMS surface here too (read-only, grouped per
+  // company in a dropdown) — same idea as the Subcontractor Inspections
+  // section on the main Inspections page — but they stay out of the sign
+  // roster/count above (fetchRamsData excludes them) since they're scoped
+  // to that subcontractor's own operatives only.
+  let ramsSubCompanies = [], ramsByCompany = {};
+  if(canAdd){
+    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
+    if(allSubCompanies.length){
+      const companyIds = allSubCompanies.map(c=>c.id).join(',');
+      const subRamsDocs = await dbSelect('rams_docs', 'subcontractor_company_id=in.('+companyIds+')&status=eq.current&order=uploaded_at.desc');
+      subRamsDocs.forEach(d=>{ (ramsByCompany[d.subcontractor_company_id]=ramsByCompany[d.subcontractor_company_id]||[]).push(d); });
+      ramsSubCompanies = allSubCompanies.filter(c=>(ramsByCompany[c.id]||[]).length);
+    }
+  }
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
         <div class="formfield"><label class="field-label">Document Type</label>
@@ -16572,11 +16705,35 @@ async function renderRams(siteId){
     <p class="ddrow" onclick="ramsSupersededOpen=!ramsSupersededOpen;render()"><span class="arrow">${ramsSupersededOpen?'▼':'▶'}</span> Superseded Documents (${superseded.length})</p>
     ${ramsSupersededOpen ? `<div class="card">${superseded.map(r=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--line);">
-        <div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</span><span class="rolechip" style="margin:0;">${escapeHtml(r.doc_type||'RAMS')}</span></div>
+        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</div>
         <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
       </div>
     `).join('')}</div>` : ''}
+    ` : ''}
+    ${canAdd && ramsSubCompanies.length ? `
+    <p class="sectiontitle" style="margin-top:22px;">Subcontractor RAMS</p>
+    ${ramsSubCompanies.map(c=>{
+      const cdocs = ramsByCompany[c.id]||[];
+      const open = !!ramsSubOpenFor[c.id];
+      return `
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleRamsSub('${c.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(c.name)} <span class="stub" style="display:inline;">(${cdocs.length} document${cdocs.length===1?'':'s'})</span>
+        </p>
+        ${open ? `<div style="padding:0 14px 14px;">
+          ${cdocs.map(d=>`
+            <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+              <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
+              <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
+              <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+            </div>
+          `).join('')}
+          <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/rams')">Open ${escapeHtml(c.name)}'s RAMS</button>
+        </div>` : ''}
+      </div>
+      `;
+    }).join('')}
     ` : ''}
   `, {title:'RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
@@ -16755,7 +16912,9 @@ async function fetchCoshhData(siteId){
   // they structurally have no way to sign, inflating the outstanding count
   // forever and never letting it reach zero.
   const [docs, assigned] = await Promise.all([
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.desc'),
+    // subcontractor_company_id=is.null — same fix as fetchRamsData: exclude
+    // subcontractor-specific COSHH from the main site roster.
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&order=uploaded_at.desc'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
   ]);
   await loadAllProfiles();
@@ -16770,6 +16929,11 @@ async function fetchCoshhData(siteId){
   return {docs, sigsByDoc, assignedIds: rosterUserIds};
 }
 let coshhUploadOpen = false;
+let coshhSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main COSHH page
+window.toggleCoshhSub = function(companyId){
+  coshhSubOpenFor[companyId] = !coshhSubOpenFor[companyId];
+  render();
+};
 async function renderCoshh(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -16779,6 +16943,18 @@ async function renderCoshh(siteId){
   const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
   const unsignedCoshhCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
   const signedCoshhCount = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0).length;
+  // Completed subcontractor COSHH — same read-only dropdown-per-company
+  // pattern as Subcontractor RAMS/Inspections above.
+  let coshhSubCompanies = [], coshhByCompany = {};
+  if(canAdd){
+    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
+    if(allSubCompanies.length){
+      const companyIds = allSubCompanies.map(c=>c.id).join(',');
+      const subCoshhDocs = await dbSelect('coshh_docs', 'subcontractor_company_id=in.('+companyIds+')&order=uploaded_at.desc');
+      subCoshhDocs.forEach(d=>{ (coshhByCompany[d.subcontractor_company_id]=coshhByCompany[d.subcontractor_company_id]||[]).push(d); });
+      coshhSubCompanies = allSubCompanies.filter(c=>(coshhByCompany[c.id]||[]).length);
+    }
+  }
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
@@ -16813,6 +16989,30 @@ async function renderCoshh(siteId){
         ${uploadForm}
       </div>
     `) : ''}
+    ${canAdd && coshhSubCompanies.length ? `
+    <p class="sectiontitle" style="margin-top:22px;">Subcontractor COSHH</p>
+    ${coshhSubCompanies.map(c=>{
+      const cdocs = coshhByCompany[c.id]||[];
+      const open = !!coshhSubOpenFor[c.id];
+      return `
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleCoshhSub('${c.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(c.name)} <span class="stub" style="display:inline;">(${cdocs.length} document${cdocs.length===1?'':'s'})</span>
+        </p>
+        ${open ? `<div style="padding:0 14px 14px;">
+          ${cdocs.map(d=>`
+            <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+              <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
+              <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
+              <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+            </div>
+          `).join('')}
+          <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/coshh')">Open ${escapeHtml(c.name)}'s COSHH</button>
+        </div>` : ''}
+      </div>
+      `;
+    }).join('')}
+    ` : ''}
   `, {title:'COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(coshhPollTimer) clearInterval(coshhPollTimer);
@@ -16985,9 +17185,12 @@ async function renderHealthSafety(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(isClient(ME)){
     const [ramsRows, coshhRows, liveTbts] = await Promise.all([
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
-      dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id'),
+      // subcontractor_company_id=is.null on all three — same fix as
+      // fetchRamsData/fetchCoshhData: subcontractor-specific docs are scoped
+      // to their own tile, not RTB's main Health & Safety counts.
+      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
+      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+      dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id'),
     ]);
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
@@ -17005,9 +17208,9 @@ async function renderHealthSafety(siteId){
     // already filters this way); without it a superseded document still
     // padded out the "X documents" count shown on this tile even though it
     // no longer appears, or needs signing, on the actual RAMS page.
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id'),
-    dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id,title'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+    dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
   ]);
@@ -17024,7 +17227,7 @@ async function renderHealthSafety(siteId){
   }
   const [ramsCurrentRows, coshhCurrentRows] = await Promise.all([
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id,resign_cycle_start,uploaded_at'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
   ]);
   const [ramsUnsignedCount, coshhUnsignedCount] = await Promise.all([
     pendingSignCount('rams_signatures', 'rams_id', ramsCurrentRows),
@@ -20245,6 +20448,11 @@ window.exportDailyBriefingPDF = async function(submissionId){
    signature as RAMS, and once complete a PM can export a signed PDF just like
    RAMS. */
 let tbtFilter = 'live'; // PM tab state: bank | live | completed
+let tbtSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main Toolbox Talks page
+window.toggleTbtSub = function(companyId){
+  tbtSubOpenFor[companyId] = !tbtSubOpenFor[companyId];
+  render();
+};
 let tbtLastSiteId = null, tbtLastHasLive = null; // tracks when to auto-reapply the default tab (see renderToolboxTalks)
 let selectedTbtIds = new Set(); // ticked toolbox talks in the Completed tab, for a combined email
 window.toggleTbtSelect = function(id){
@@ -20257,8 +20465,23 @@ async function renderToolboxTalks(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  // subcontractor_company_id=is.null — same fix as fetchRamsData: a
+  // subcontractor's own Toolbox Talks (renderSubTbt, same table) must never
+  // surface on RTB's own main Toolbox Talks list/sign roster.
+  const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&order=created_at.desc');
   await loadAllProfiles();
+  // Completed subcontractor Toolbox Talks — same read-only dropdown-per-
+  // company pattern as Subcontractor RAMS/COSHH/Inspections above.
+  let tbtSubCompanies = [], tbtByCompany = {};
+  if(isPM){
+    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
+    if(allSubCompanies.length){
+      const companyIds = allSubCompanies.map(c=>c.id).join(',');
+      const subTalks = await dbSelect('toolbox_talks', 'subcontractor_company_id=in.('+companyIds+')&order=created_at.desc');
+      subTalks.forEach(t=>{ (tbtByCompany[t.subcontractor_company_id]=tbtByCompany[t.subcontractor_company_id]||[]).push(t); });
+      tbtSubCompanies = allSubCompanies.filter(c=>(tbtByCompany[c.id]||[]).length);
+    }
+  }
   let sigCounts = {};
   let outstandingByTalk = {};
   if(isPM && talks.length){
@@ -20343,6 +20566,29 @@ async function renderToolboxTalks(siteId){
       <p class="stub">New uploads go into Bank TBT — operatives can't see them until you tap "Issue for Signing".</p>
     </div>
     ` : ''}
+    ${isPM && tbtSubCompanies.length ? `
+    <p class="sectiontitle" style="margin-top:22px;">Subcontractor Toolbox Talks</p>
+    ${tbtSubCompanies.map(c=>{
+      const ctalks = tbtByCompany[c.id]||[];
+      const open = !!tbtSubOpenFor[c.id];
+      return `
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleTbtSub('${c.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(c.name)} <span class="stub" style="display:inline;">(${ctalks.length})</span>
+        </p>
+        ${open ? `<div style="padding:0 14px 14px;">
+          ${ctalks.map(t=>`
+            <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/tbt/${t.id}')">
+              <div class="info"><div class="name">${escapeHtml(t.title)}</div><div class="addr">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+              <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+            </div>
+          `).join('')}
+          <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/tbt')">Open ${escapeHtml(c.name)}'s Toolbox Talks</button>
+        </div>` : ''}
+      </div>
+      `;
+    }).join('')}
+    ` : ''}
   `, {title:'Toolbox Talks', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }
 let tbtReplaceFileOpen = null;
@@ -20385,7 +20631,7 @@ window.issueToolboxTalkCompanyWide = async function(tbtId, title){
     let issued = 0;
     for(const site of liveSites){
       try{
-        const others = await dbSelect('toolbox_talks', 'site_id=eq.'+site.id+'&status=eq.live&select=id');
+        const others = await dbSelect('toolbox_talks', 'site_id=eq.'+site.id+'&status=eq.live&subcontractor_company_id=is.null&select=id');
         for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
         const created = await dbInsert('toolbox_talks', {site_id:site.id, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
         if(created && created[0]) issued++;
@@ -20701,8 +20947,10 @@ async function emailCompletedTbtToPM(siteId, tbtId){
 window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
   if(newStatus==='live'){
     // Only one toolbox talk is ever "live" per site at a time — automatically
-    // mark any other live talk at this site as completed first.
-    const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&select=id');
+    // mark any other live talk at this site as completed first. Scoped to
+    // subcontractor_company_id=is.null so issuing RTB's own TBT never
+    // auto-completes a subcontractor's own separately-live toolbox talk.
+    const others = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id');
     for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
 
     // Issuing a Bank TBT for signing makes an independent live copy rather
@@ -24372,7 +24620,10 @@ async function renderRoute(){
           if(permitId) return renderPermitView(siteId, permitId, companyId);
           return renderPermits(siteId, companyId);
         }
-        if(csub==='inspections') return renderSubInspections(siteId, companyId);
+        if(csub==='inspections'){
+          const folderId = parts[6];
+          return renderSubInspections(siteId, companyId, folderId);
+        }
         if(csub==='library') return renderSubCompanyLibrary(siteId, companyId);
         return renderSubcontractorHub(siteId, companyId);
       }
