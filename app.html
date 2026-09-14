@@ -1371,6 +1371,75 @@ async function deliverExcelFile(wb, filename){
   XLSX.writeFile(wb, filename);
   toast('Excel file downloaded');
 }
+// Same "deliver a file" problem as deliverPdf/deliverExcelFile, for a .ics
+// calendar file — iPhone (Apple Calendar) and Android (Google Calendar etc.)
+// both know how to import a standard .ics when it's opened, so a single
+// export works for both without needing separate native calendar APIs.
+async function deliverIcsFile(icsText, filename){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const blob = new Blob([icsText], {type:'text/calendar;charset=utf-8'});
+  if(isNative){
+    toast('Opening calendar file…');
+    try{
+      const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
+      const path = 'exports/'+uid()+'-'+safeName;
+      const stored = await uploadToStorage('site-photos', path, blob, 'text/calendar');
+      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)});
+        return;
+      }
+    }catch(e){ /* fall through to the direct-download fallback below */ }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('Calendar file downloaded — open it to add these to your phone calendar');
+}
+function icsEscapeText(s){
+  return String(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function icsDateStamp(d){
+  return d.getUTCFullYear() + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0') + 'T' + String(d.getUTCHours()).padStart(2,'0') + String(d.getUTCMinutes()).padStart(2,'0') + String(d.getUTCSeconds()).padStart(2,'0') + 'Z';
+}
+// Builds a standard all-day-event .ics calendar from site_calendar_events
+// rows (title + event_date only — no time field on these key dates).
+function buildCalendarIcs(events, calName){
+  const now = icsDateStamp(new Date());
+  const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//OpHUB//Site Calendar//EN','CALSCALE:GREGORIAN'];
+  events.forEach(e=>{
+    const dateCompact = String(e.event_date).replace(/-/g,'');
+    // All-day events: DTEND is exclusive per RFC5545, so it's the day after.
+    const endD = new Date(e.event_date+'T00:00:00'); endD.setDate(endD.getDate()+1);
+    const endCompact = endD.getFullYear() + String(endD.getMonth()+1).padStart(2,'0') + String(endD.getDate()).padStart(2,'0');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:'+e.id+'@ophub.app');
+    lines.push('DTSTAMP:'+now);
+    lines.push('DTSTART;VALUE=DATE:'+dateCompact);
+    lines.push('DTEND;VALUE=DATE:'+endCompact);
+    lines.push('SUMMARY:'+icsEscapeText(e.title||'Key date'));
+    if(calName) lines.push('LOCATION:'+icsEscapeText(calName));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+window.exportSiteCalendarIcs = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  toast('Building calendar file…');
+  try{
+    const todayStr = localISODate(new Date());
+    const events = await dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+todayStr+'&order=event_date.asc');
+    if(!events.length){ toast('No upcoming key dates to export.'); return; }
+    const ics = buildCalendarIcs(events, site?site.name:'');
+    const filename = exportFilename(site?site.name:'', 'Key Dates', 'ics');
+    await deliverIcsFile(ics, filename);
+  }catch(e){
+    console.error(e);
+    toast('Could not build the calendar file — please try again.');
+  }
+};
 
 /* ================= auth ================= */
 // `extra` becomes the new account's auth metadata. Only `invite_id` matters
@@ -4330,6 +4399,16 @@ async function renderTeam(){
       ` : `
         <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
       `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('maincontractor')"><span class="arrow">${teamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
+    ${teamSectionOpen.maincontractor ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Company-wide Main Contractor tools — shared across every site.</p>
+      <button class="ghostbtn" style="display:block;margin-bottom:8px;" onclick="go('#/companylibrary')">📚 Subcontractor Library</button>
+      <button class="ghostbtn" style="display:block;" onclick="teamSectionOpen.reporttemplates=true;teamSectionOpen.maincontractor=false;render();document.getElementById('teamSectionReporttemplates')?.scrollIntoView();">📋 Templates (Report Templates, below)</button>
     </div>
     ` : ''}
     ` : ''}
@@ -9098,7 +9177,7 @@ function pricingElementCardHtml(el, d, ctx){
               <button class="ghostbtn" style="width:auto;padding:6px 10px;font-size:11px;" onclick="cancelRenamePricingElement()">Cancel</button>
             </div>
             ` : `
-            <div style="margin:0;cursor:pointer;font-family:'Sora',-apple-system,sans-serif;font-size:15.5px;font-weight:800;letter-spacing:.01em;color:${el.closed?'var(--ink)':'var(--brand1)'};" onclick="priceElementOpen['${el.id}']=${!open};render()">${open?'▼':'▶'} ${escapeHtml(el.name)}${el.closed?' <span style="font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
+            <div style="margin:0;cursor:pointer;font-family:'Sora',-apple-system,sans-serif;font-size:15.5px;font-weight:800;letter-spacing:.01em;color:var(--ink);" onclick="priceElementOpen['${el.id}']=${!open};render()">${open?'▼':'▶'} ${escapeHtml(el.name)}${el.closed?' <span style="font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--slate);">Closed</span>':''}</div>
             <div class="stub" style="margin:2px 0 0;">${fmt(priceTotal)} price · ${fmt(bookedIn)} booked in</div>
             `}
           </div>
@@ -9140,7 +9219,7 @@ function pricingElementCardHtml(el, d, ctx){
         </label>
         ` : ''}
         ${canManage ? `
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:10px 0 12px;padding:8px 10px;background:var(--paper);border-radius:8px;">
           <input type="checkbox" style="width:auto;" ${el.include_in_summary!==false?'checked':''} onchange="toggleIncludeInSummary('${el.id}', this.checked)">
           Include in the Overview summary at the top of the Price tile
         </label>
@@ -9773,35 +9852,39 @@ async function renderPriceBuilderSheets(siteId){
     priceBuilderNewOpen ? siteAssignedOperatives(siteId) : Promise.resolve([]),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
+    <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
+      <p class="stub" style="margin:0;flex:1;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
+      ${canManage && sheets.length ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="New Sheet" onclick="priceBuilderNewOpen=!priceBuilderNewOpen;render()">+</div>` : ''}
+    </div>
     ${sheets.filter(s=>canManage || (isManager(ME) && s.status==='issued') || (s.status==='issued' && (s.assigned_user_ids||[]).includes(ME.id))).map(s=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/pricebuilder/${s.status==='issued'?'view':'edit'}/${s.id}')">
-        <div class="swatch">💷</div>
         <div class="info">
-          <div class="name">${escapeHtml(s.title)}</div>
-          <div class="sub">${s.subcontractor_name?escapeHtml(s.subcontractor_name)+' · ':''}${PRICE_BUILDER_FMT(s.total)}</div>
+          <div class="name">${escapeHtml(s.title||'Price')}</div>
+          ${s.subcontractor_name?`<div class="sub">${escapeHtml(s.subcontractor_name)}</div>`:''}
         </div>
         <span class="pill ${s.status==='issued'?'on':'off'}">${s.status==='issued'?'Issued':'Draft'}</span>
-        ${s.status==='issued' ? `<div class="taskicon" onclick="event.stopPropagation();exportPriceBuilderSheet('${s.id}')">⬇</div>` : ''}
-        ${canManage && s.status==='issued' ? `<div class="taskicon" title="Edit" onclick="event.stopPropagation();go('#/site/${siteId}/pricebuilder/edit/${s.id}')">✏️</div>` : ''}
-        ${canManage ? `<div class="taskicon danger" title="Delete" onclick="event.stopPropagation();deletePriceBuilderSheet('${siteId}','${s.id}')">🗑</div>` : ''}
+        ${rowActionsMenuHtml('pbsheetrow'+s.id, `
+          ${s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportPriceBuilderSheet('${s.id}')">⬇ Export to Excel</div>` : ''}
+          ${s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailPriceBuilderSheetPdf('${siteId}','${s.id}')">✉️ Email</div>` : ''}
+          ${canManage && s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/site/${siteId}/pricebuilder/edit/${s.id}')">✏️ Edit</div>` : ''}
+          ${canManage ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePriceBuilderSheet('${siteId}','${s.id}')">🗑 Delete</div>` : ''}
+        `)}
       </div>
     `).join('') || `<div class="empty">${canManage?'No sheets yet — create your first one below.':'Nothing issued yet.'}</div>`}
     ${canManage ? (priceBuilderNewOpen ? `
       <div class="card" style="margin-top:14px;">
-        <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" value="${escapeHtml(priceBuilderNewTitleDraft)}" placeholder="e.g. Rear Pitched Roof" oninput="priceBuilderNewTitleDraft=this.value"></div>
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Title</label><input type="text" id="pbNewTitle" value="${escapeHtml(priceBuilderNewTitleDraft)}" placeholder="Price" oninput="const p=this.selectionStart; this.value=titleCaseWords(this.value); this.setSelectionRange(p,p); priceBuilderNewTitleDraft=this.value"></div>
         <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, priceBuilderNewAssignees, 'pbNewToggleAssignee')}</div>
         <div class="row-gap">
           <button class="darkbtn" style="flex:1;" onclick="createPriceBuilderSheet('${siteId}')">Create</button>
           <button class="ghostbtn" style="flex:1;" onclick="priceBuilderNewOpen=false;priceBuilderNewAssignees=[];priceBuilderNewTitleDraft='';render()">Cancel</button>
         </div>
       </div>
-    ` : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`) : ''}
+    ` : (sheets.length ? '' : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`)) : ''}
   `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
 }
 window.createPriceBuilderSheet = async function(siteId){
-  const title = document.getElementById('pbNewTitle').value.trim();
-  if(!title){ toast('Enter a title for this sheet.'); return; }
+  const title = document.getElementById('pbNewTitle').value.trim() || 'Price';
   await loadAllProfiles();
   const assignedUserIds = priceBuilderNewAssignees.slice();
   const subcontractor_name = assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
@@ -10538,7 +10621,7 @@ async function renderPriceBuilderView(siteId, sheetId){
   sortPriceRateCategories(categories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:14px;">
-      <input type="text" class="sectiontitle" value="${escapeHtml(sheet.title)}" style="margin:0 0 6px;width:100%;box-sizing:border-box;border:none;background:transparent;padding:0;font-family:inherit;" onblur="pbRenameSheet('${sheetId}', this.value)">
+      <input type="text" class="sectiontitle" value="${escapeHtml(sheet.title)}" style="margin:0 0 6px;width:100%;box-sizing:border-box;border:none;background:transparent;padding:0;font-family:inherit;" oninput="const p=this.selectionStart; this.value=titleCaseWords(this.value); this.setSelectionRange(p,p);" onblur="pbRenameSheet('${sheetId}', this.value)">
       ${sheet.subcontractor_name ? `<p class="stub" style="margin:0 0 6px;">For: ${escapeHtml(sheet.subcontractor_name)}</p>` : ''}
       <p class="stub" style="margin:0;">Issued ${new Date(sheet.issued_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(sheet.issued_by))}</p>
     </div>
@@ -10566,16 +10649,15 @@ async function renderPriceBuilderView(siteId, sheetId){
         <span style="font-size:18px;font-weight:800;">${PRICE_BUILDER_FMT(sheet.total)}</span>
       </div>
     </div>
-    <div class="row-gap" style="margin-top:10px;">
+    <div class="row-gap" style="margin-top:10px;align-items:stretch;">
       <button class="darkbtn" style="flex:1;" onclick="exportPriceBuilderSheetPdf('${siteId}','${sheetId}')">📄 View PDF</button>
-      <button class="ghostbtn" style="flex:1;" onclick="exportPriceBuilderSheet('${sheetId}')">⬇ Export to Excel</button>
+      ${rowActionsMenuHtml('pbsheetview'+sheetId, `
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportPriceBuilderSheet('${sheetId}')">⬇ Export to Excel</div>
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailPriceBuilderSheetPdf('${siteId}','${sheetId}')">✉️ Email</div>
+        ${canUsePriceBuilder() ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/site/${siteId}/pricebuilder/edit/${sheetId}')">✏️ Edit</div>` : ''}
+        ${canUsePriceBuilder() ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePriceBuilderSheet('${siteId}','${sheetId}')">🗑 Delete</div>` : ''}
+      `)}
     </div>
-    ${canUsePriceBuilder() ? `
-    <div class="row-gap" style="margin-top:8px;">
-      <button class="ghostbtn" style="flex:1;" onclick="go('#/site/${siteId}/pricebuilder/edit/${sheetId}')">✏️ Edit</button>
-      <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deletePriceBuilderSheet('${siteId}','${sheetId}')">🗑 Delete</button>
-    </div>
-    ` : ''}
   `, {title:'Priced Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
 }
 // Live Total/Taken/Balance for a Price Builder sheet — once issued, a sheet
@@ -10749,11 +10831,17 @@ window.exportPriceBuilderSheet = async function(sheetId){
 // conventions (org logo + brand colour bar, same fonts/spacing every other
 // export in OpHUB uses) instead of a plain black-and-white look. Taken and
 // Balance are always the live figures off the linked Pricing Element.
-window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+// Shared PDF-building logic for a Priced Sheet — factored out so both the
+// "View PDF" download flow (exportPriceBuilderSheetPdf) and the "Email"
+// flow (emailPriceBuilderSheetPdf, added alongside the row-actions dropdown
+// on renderPriceBuilderView) build from exactly the same bytes rather than
+// duplicating this whole function. Returns null (after its own toast) on
+// any failure instead of throwing, so both callers can just check for that.
+async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
-  if(!sheet){ toast('Sheet not found.'); return; }
+  if(!sheet){ toast('Sheet not found.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
@@ -10943,7 +11031,37 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   }
 
   const bytes = await pdfDoc.save();
-  await deliverPdf(bytes, exportFilename(site?site.name:'', sheet.title||'Priced Sheet', 'pdf'));
+  const filename = exportFilename(site?site.name:'', sheet.title||'Priced Sheet', 'pdf');
+  return {bytes, filename, site, sheet};
+}
+window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
+  const built = await buildPriceBuilderSheetPdfBytes(siteId, sheetId);
+  if(!built) return;
+  await deliverPdf(built.bytes, built.filename);
+};
+// Emails a Priced Sheet PDF to an address typed in — same pattern as
+// emailSiteInductionPdf: upload the freshly-built PDF to storage, then hand
+// the edge function a link rather than a base64 attachment (some of these
+// can run to several pages with a full rate breakdown).
+window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
+  const email = await customPrompt('Email this priced sheet PDF to:', '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  toast('Building PDF…');
+  const built = await buildPriceBuilderSheetPdfBytes(siteId, sheetId);
+  if(!built) return;
+  const path = siteId+'/price-builder/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored){ toast('Could not upload the PDF — try again.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-price-builder-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipient_email: trimmed,
+      sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
+    })});
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){ toast('Could not send the email — please try again.'); }
 };
 
 /* ================= LABOUR INVOICES ================= */
@@ -11736,6 +11854,43 @@ window.submitReport = async function(siteId){
   (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
     if(it.type==='signature' && ME.signature_path) answers[it.id] = ME.signature_path;
   }));
+  // Photos are captured as data: URLs for instant on-device preview (see
+  // compressImage), but were previously saved into the answers JSONB as
+  // that same raw base64 — unlike every other photo feature in the app
+  // (snags, RAMS, etc.), which uploads to Storage and keeps only the URL.
+  // That made completed reports balloon in size and, worse, is why photos
+  // weren't reliably making it into the exported/emailed PDF — so convert
+  // every photo answer to an uploaded Storage URL here, at submit time,
+  // same as everywhere else. Already-uploaded URLs (re-submitting an
+  // edited draft) are left alone.
+  toast('Uploading photos…');
+  const photoUploadTasks = [];
+  (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+    if(it.type==='photo' && Array.isArray(answers[it.id])){
+      answers[it.id] = answers[it.id].slice();
+      answers[it.id].forEach((val,idx)=>{
+        if(typeof val==='string' && val.startsWith('data:')){
+          photoUploadTasks.push((async()=>{
+            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+uid()+'.jpg', val);
+            if(path) answers[it.id][idx] = publicUrl('site-photos', path);
+          })());
+        }
+      });
+    }
+    const mediaKey = it.id+'__media';
+    if(Array.isArray(answers[mediaKey])){
+      answers[mediaKey] = answers[mediaKey].slice();
+      answers[mediaKey].forEach((val,idx)=>{
+        if(typeof val==='string' && val.startsWith('data:')){
+          photoUploadTasks.push((async()=>{
+            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+uid()+'.jpg', val);
+            if(path) answers[mediaKey][idx] = publicUrl('site-photos', path);
+          })());
+        }
+      });
+    }
+  }));
+  if(photoUploadTasks.length) await Promise.all(photoUploadTasks);
   let rows = null;
   try{
     rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, {
@@ -11950,9 +12105,19 @@ async function buildReportPdf(submissionId, opts){
     // drawn — the same numbers are reused later in the Media Summary
     // appendix rather than starting the count over.
     const allPhotos = []; // {url, num}
-    async function embedFromDataUrl(dataUrl){
-      const b64 = dataUrl.split(',')[1];
-      const bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+    // Handles both a real data: URL (older reports, saved before photos were
+    // uploaded to Storage at submit time — see submitReport) and a plain
+    // Storage URL (current reports) — fetching the bytes for the latter via
+    // the same helper already used for logos/signatures above.
+    async function embedFromDataUrl(urlOrDataUrl){
+      let bytes;
+      if(String(urlOrDataUrl).startsWith('data:')){
+        const b64 = urlOrDataUrl.split(',')[1];
+        bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+      } else {
+        bytes = await pdfFetchImageBytes(urlOrDataUrl);
+        if(!bytes) throw new Error('Could not fetch photo');
+      }
       try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
     }
     async function drawPhotoGrid(urls){
@@ -12180,6 +12345,7 @@ window.exportReportPDF = async function(submissionId){
   toast('Building PDF…');
   const built = await buildReportPdf(submissionId);
   if(!built) return;
+  if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); return; }
   await deliverPdf(built.bytes, built.filename);
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
@@ -12187,19 +12353,36 @@ window.exportReportPDF = async function(submissionId){
     await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 };
+// Emails a link to the report PDF (uploaded to storage first) rather than
+// attaching the full PDF's base64 directly in the request body — a report
+// with several photos can produce a large attachment, and posting that in
+// one go to the edge function was what surfaced as "server not found" for
+// bigger reports. Same pattern as emailSignedRams/emailSignedCoshh, and now
+// prompts for a recipient the same way (was previously silently sent only
+// to the PM's own address with no way to pick who).
 window.emailReportPDF = async function(submissionId, fromBriefing){
+  const email = await customPrompt('Email this report PDF to:', ME.email||'');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   reportEmailBusy = submissionId; render();
   toast('Building PDF…');
-  const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
-  if(!built){ reportEmailBusy = null; render(); return; }
   try{
-    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({
-      submission_id: submissionId, filename: built.filename, content_base64: built.base64,
+    const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
+    if(!built){ reportEmailBusy = null; render(); return; }
+    if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
+    const path = built.sub.site_id+'/report-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
+    toast('Sending…');
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      site_id: built.sub.site_id, recipient_email: trimmed, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
     })});
-    const d = await res.json();
-    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
-    else toast('Report emailed to '+ME.email);
-  }catch(e){ toast('Email failed — could not reach the server.'); }
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){
+    console.error(e);
+    toast('Could not send the email — please try again.');
+  }
   reportEmailBusy = null; render();
 };
 
@@ -16359,13 +16542,14 @@ let companyLibraryNewName = '';
 let companyLibraryAddCompanyOpen = false;
 async function renderCompanyLibraryHub(siteId){
   const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
+  const site = siteId ? SITES.find(s=>s.id===siteId) : null;
   const canManage = isManager(ME);
+  const linkBase = siteId ? `#/site/${siteId}/mc/companylibrary` : '#/companylibrary';
   const profiles = await dbSelect('subcontractor_company_profiles', 'org_id=eq.'+ME.org_id+'&order=name.asc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Every subcontractor company's own document library — shared across every site that company is added to.</p>
     ${profiles.map(p=>`
-      <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/companylibrary/${p.id}')">
+      <div class="sitecard" style="cursor:pointer;" onclick="go('${linkBase}/${p.id}')">
         <div class="swatch">${operativeInitials(p.name)}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div></div>
         ${canManage ? `<div class="taskicon" title="Rename" onclick="event.stopPropagation();renameCompanyLibraryProfile('${p.id}','${jsAttr(p.name)}')">✏️</div>` : ''}
@@ -16377,7 +16561,7 @@ async function renderCompanyLibraryHub(siteId){
         <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="companyLibraryAddCompanyOpen=false;render();">Cancel</button><button class="darkbtn" style="flex:1;" onclick="addCompanyLibraryProfile('${siteId}')">Add</button></div>
       </div>
     ` : `<button class="ghostbtn" style="margin-top:10px;" onclick="companyLibraryAddCompanyOpen=true;companyLibraryNewName='';render();">+ Add Company</button>`) : ''}
-  `, {title:'Company Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/team`, siteId, activeTab:'more'}); }
+  `, {title:'Company Library', subtitle: site ? fullSiteAddress(site) : null, siteNameSubtitle:!!site, back: siteId ? `#/site/${siteId}/team` : '#/team', siteId, activeTab:'more'}); }
 }
 window.renameCompanyLibraryProfile = async function(id, currentName){
   const next = await customPrompt('Rename company', currentName);
@@ -16393,10 +16577,11 @@ window.addCompanyLibraryProfile = async function(siteId){
 };
 async function renderCompanyLibraryDocs(siteId, masterCompanyId){
   const __gen = RENDER_GEN;
-  const site = SITES.find(s=>s.id===siteId);
+  const site = siteId ? SITES.find(s=>s.id===siteId) : null;
+  const linkBase = siteId ? `#/site/${siteId}/mc/companylibrary` : '#/companylibrary';
   const profileRows = await dbSelect('subcontractor_company_profiles', 'id=eq.'+masterCompanyId+'&select=*');
   const profile = profileRows[0];
-  if(!profile){ go(`#/site/${siteId}/mc/companylibrary`); return; }
+  if(!profile){ go(linkBase); return; }
   const canUpload = isManager(ME);
   await loadAllProfiles();
   const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+masterCompanyId+'&order=uploaded_at.desc');
@@ -16422,7 +16607,7 @@ async function renderCompanyLibraryDocs(siteId, masterCompanyId){
         ${canUpload ? `<div class="taskicon danger" title="Delete" onclick="deleteCompanyLibraryDoc('${d.id}','${jsAttr(d.storage_path)}')">🗑</div>` : ''}
       </div>
     `).join('') || `<div class="empty">No library documents yet.</div>`}
-  `, {title:'Company Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc/companylibrary`, siteId, activeTab:'more'}); }
+  `, {title:'Company Library', subtitle: site ? fullSiteAddress(site) : null, siteNameSubtitle:!!site, back: linkBase, siteId, activeTab:'more'}); }
 }
 async function renderSubCompanyLibrary(siteId, companyId){
   const __gen = RENDER_GEN;
@@ -16726,7 +16911,11 @@ async function renderRams(siteId){
             <div style="padding:8px 0;border-bottom:1px solid var(--line);">
               <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
               <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
-              <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+              <div class="row-gap" style="margin-top:2px;">
+                <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+                <div class="viewlink" style="cursor:pointer;" onclick="exportSignedRams('${d.id}')">⬇ Export</div>
+                <div class="viewlink" style="cursor:pointer;" onclick="emailSignedRams('${siteId}','${d.id}')">✉️ Email</div>
+              </div>
             </div>
           `).join('')}
           <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/rams')">Open ${escapeHtml(c.name)}'s RAMS</button>
@@ -16798,14 +16987,18 @@ window.signAllRams = async function(siteId){
   const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
-window.exportSignedRams = async function(ramsId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
-  toast('Building signed PDF…');
+// Shared builder — factored out of exportSignedRams so emailSignedRams (new,
+// lets a PM email a subcontractor's signed RAMS straight from the main RAMS
+// page's Subcontractor RAMS dropdown, not just from within that
+// subcontractor's own tile) can build from exactly the same bytes. Returns
+// null (after its own toast) on any failure/no-signatures-yet.
+async function buildSignedRamsPdfBytes(ramsId){
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const docs = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
   const doc = docs[0];
-  if(!doc){ toast('Document not found.'); return; }
+  if(!doc){ toast('Document not found.'); return null; }
   const sigs = await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc');
-  if(!sigs.length){ toast('No signatures yet.'); return; }
+  if(!sigs.length){ toast('No signatures yet.'); return null; }
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
@@ -16821,11 +17014,37 @@ window.exportSignedRams = async function(ramsId){
     const filename = exportFilename(ramsSite?ramsSite.name:'', doc.name+' (Signed)', 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    await deliverPdf(outBytes, filename);
+    return {bytes: outBytes, filename, doc, site: ramsSite};
   }catch(e){
     console.error(e);
     toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+    return null;
   }
+}
+window.exportSignedRams = async function(ramsId){
+  toast('Building signed PDF…');
+  const built = await buildSignedRamsPdfBytes(ramsId);
+  if(!built) return;
+  await deliverPdf(built.bytes, built.filename);
+};
+window.emailSignedRams = async function(siteId, ramsId){
+  const email = await customPrompt('Email this signed RAMS PDF to:', '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  toast('Building signed PDF…');
+  const built = await buildSignedRamsPdfBytes(ramsId);
+  if(!built) return;
+  const path = siteId+'/rams-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored){ toast('Could not upload the PDF — try again.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipient_email: trimmed, doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+    })});
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){ toast('Could not send the email — please try again.'); }
 };
 window.deleteRams = async function(ramsId, storagePath){
   if(!await customConfirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
@@ -17004,7 +17223,11 @@ async function renderCoshh(siteId){
             <div style="padding:8px 0;border-bottom:1px solid var(--line);">
               <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
               <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
-              <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+              <div class="row-gap" style="margin-top:2px;">
+                <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
+                <div class="viewlink" style="cursor:pointer;" onclick="exportSignedCoshh('${d.id}')">⬇ Export</div>
+                <div class="viewlink" style="cursor:pointer;" onclick="emailSignedCoshh('${siteId}','${d.id}')">✉️ Email</div>
+              </div>
             </div>
           `).join('')}
           <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/coshh')">Open ${escapeHtml(c.name)}'s COSHH</button>
@@ -17154,6 +17377,29 @@ window.emailAllSignedCoshh = async function(siteId){
     else toast(`${attachments.length} signed COSHH document${attachments.length===1?'':'s'} emailed to ${ME.email}`);
   }catch(e){ console.error(e); toast('Email failed — could not reach the server.'); }
   coshhEmailAllBusy = false; render();
+};
+// Emails ONE signed COSHH document via a typed-in address — as opposed to
+// emailAllSignedCoshh above, which emails every signed doc at a site to
+// the caller's own address. Lets a PM email a subcontractor's signed COSHH
+// straight from the main COSHH page's Subcontractor COSHH dropdown.
+window.emailSignedCoshh = async function(siteId, coshhId){
+  const email = await customPrompt('Email this signed COSHH PDF to:', '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  toast('Building signed PDF…');
+  const built = await buildSignedCoshhPdf(coshhId);
+  if(!built){ toast('Could not build the signed PDF — check there are signatures and the source file is a valid PDF.'); return; }
+  const path = siteId+'/coshh-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored){ toast('Could not upload the PDF — try again.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipient_email: trimmed, doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+    })});
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){ toast('Could not send the email — please try again.'); }
 };
 window.deleteCoshh = async function(coshhId, storagePath){
   if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
@@ -20578,9 +20824,15 @@ async function renderToolboxTalks(siteId){
         </p>
         ${open ? `<div style="padding:0 14px 14px;">
           ${ctalks.map(t=>`
-            <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/tbt/${t.id}')">
-              <div class="info"><div class="name">${escapeHtml(t.title)}</div><div class="addr">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
-              <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+            <div style="padding:8px 0;border-bottom:1px solid var(--line);">
+              <div class="sitecard" style="cursor:pointer;padding:0;border:none;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/tbt/${t.id}')">
+                <div class="info"><div class="name">${escapeHtml(t.title)}</div><div class="addr">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
+                <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+              </div>
+              <div class="row-gap" style="margin-top:4px;">
+                <div class="viewlink" style="cursor:pointer;" onclick="exportSignedToolboxTalk('${t.id}')">⬇ Export</div>
+                <div class="viewlink" style="cursor:pointer;" onclick="emailSignedToolboxTalk('${siteId}','${t.id}')">✉️ Email</div>
+              </div>
             </div>
           `).join('')}
           <button class="ghostbtn" style="margin-top:6px;" onclick="go('#/site/${siteId}/mc/subcontractors/${c.id}/tbt')">Open ${escapeHtml(c.name)}'s Toolbox Talks</button>
@@ -21044,6 +21296,28 @@ window.exportSignedToolboxTalk = async function(tbtId){
   }catch(e){
     console.error(e);
     toast('Could not build the signed PDF — the source file may not be a valid PDF.');
+  }
+};
+window.emailSignedToolboxTalk = async function(siteId, tbtId){
+  const email = await customPrompt('Email this signed Toolbox Talk PDF to:', '');
+  if(!email) return;
+  const trimmed = email.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  toast('Building signed PDF…');
+  try{
+    const built = await buildSignedToolboxTalkPdfBytes(tbtId);
+    if(!built){ toast('No signatures yet.'); return; }
+    const path = siteId+'/tbt-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, new Blob([built.outBytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored){ toast('Could not upload the PDF — try again.'); return; }
+    toast('Sending…');
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipient_email: trimmed, doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+    })});
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+  }catch(e){
+    console.error(e);
+    toast('Could not send the email — please try again.');
   }
 };
 
@@ -22889,7 +23163,10 @@ async function renderSiteCalendar(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${calViewModeDropdownHtml()}
-    <p class="stub" style="margin:0 0 14px;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+    <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
+      <p class="stub" style="margin:0;flex:1;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+      <div class="ghostbtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex:0 0 auto;" onclick="exportSiteCalendarIcs('${siteId}')">📅 Add to Phone Calendar</div>
+    </div>
     <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
       <span>Add a key date</span>
       <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
@@ -24443,6 +24720,11 @@ async function renderRoute(){
     }
     if(parts[1]==='onedrive-quicklinks') return renderOneDriveFolderPicker(null);
     return renderTeam();
+  }
+  if(parts[0]==='companylibrary'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    if(parts[1]) return renderCompanyLibraryDocs(null, parts[1]);
+    return renderCompanyLibraryHub(null);
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
