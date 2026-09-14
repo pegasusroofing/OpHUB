@@ -11637,12 +11637,20 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
     if(sub.status==='completed'){
       // A completed Daily Briefing stays editable by a PM/admin right up
       // until the first operative signature — after that it's locked (same
-      // "locked after first signature" rule as TBT). Anything that isn't an
-      // unsigned briefing bounces to the read-only view as before.
+      // "locked after first signature" rule as TBT). A completed
+      // Inspection/Report has no signature mechanism, so it stays editable
+      // by a PM/admin/site manager at any time — e.g. to correct a report
+      // that was submitted without its photos. Anything else (an operative
+      // viewing a completed report, or a signed briefing) bounces to the
+      // read-only view as before.
       let editable = false;
-      if(fromBriefing && isManager(ME)){
-        const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&select=id&limit=1');
-        editable = !sigs.length;
+      if(isManager(ME)){
+        if(fromBriefing){
+          const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&select=id&limit=1');
+          editable = !sigs.length;
+        } else {
+          editable = true;
+        }
       }
       if(!editable){ go(`${listPath}/view/${submissionId}`); return; }
     }
@@ -11813,12 +11821,20 @@ window.toggleReportMultichoice = function(itemId, value, checked){
 };
 window.onReportPhotoChosen = async function(input, key){
   const files = input.files ? Array.from(input.files) : []; if(!files.length) return;
-  try{
-    const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : (reportFillDraft.answers[key] ? [reportFillDraft.answers[key]] : []);
-    for(const file of files){ cur.push(await compressImage(file)); }
-    reportFillDraft.answers[key] = cur;
-    render();
-  }catch(e){ toast('Could not process that photo.'); }
+  // Process each photo independently: one bad/unsupported file (e.g. a HEIC
+  // capture compressImage can't decode) must not silently discard the whole
+  // batch, including photos that already compressed fine — that was quietly
+  // dropping entire report submissions' worth of photos before they ever
+  // reached reportFillDraft.answers, let alone the database.
+  const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : (reportFillDraft.answers[key] ? [reportFillDraft.answers[key]] : []);
+  let failed = 0;
+  for(const file of files){
+    try{ cur.push(await compressImage(file)); }
+    catch(e){ failed++; }
+  }
+  reportFillDraft.answers[key] = cur;
+  render();
+  if(failed) toast(failed===files.length ? 'Could not process that photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
 };
 window.removeReportPhoto = function(key, idx){
   const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : [];
@@ -11942,6 +11958,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       </div>
     ` : ''}
     ${fromBriefing && isManager(ME) && !sigs.length ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/hs/briefings/fill/${sub.id}')">Edit Briefing</button>` : ''}
+    ${!fromBriefing && isManager(ME) ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/snagging/reports/fill/${sub.id}')">Edit Report</button>` : ''}
     <div class="row-gap">
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}',${fromBriefing?'true':'false'})">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>` : ''}
@@ -14028,10 +14045,15 @@ async function renderSnagging(siteId){
 }
 window.snagAddPhoto = async function(input){
   const files = input.files && Array.from(input.files); if(!files || !files.length) return;
-  try{
-    for(const file of files){ snagNewPhotos.push(await compressImage(file)); }
-    render();
-  }catch(e){ toast('Could not process photo.'); }
+  // Same all-or-nothing risk as onReportPhotoChosen: process each photo on
+  // its own so one bad file doesn't drop the rest of the batch.
+  let failed = 0;
+  for(const file of files){
+    try{ snagNewPhotos.push(await compressImage(file)); }
+    catch(e){ failed++; }
+  }
+  render();
+  if(failed) toast(failed===files.length ? 'Could not process photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
   input.value = '';
 };
 window.removeSnagNewPhoto = function(idx){
