@@ -931,13 +931,26 @@ window.viewPdfInApp = async function(source, filename){
     const dpr = Math.min(3, window.devicePixelRatio || 1);
     const ZOOM_HEADROOM = 4;
     const MAX_CANVAS_DIM = 6000; // headroom for modern devices while staying under older/low-end phones' canvas size ceiling
+    // A photo-heavy report can run to 20+ pages, and rendering every one of
+    // them at full headroom (each canvas here can be ~100MB uncompressed)
+    // can exceed iOS/Android WebView's per-tab canvas memory ceiling and
+    // crash/hang the app. Keep a total pixel budget across the WHOLE
+    // document and scale each page's render resolution down as page count
+    // grows, rather than always rendering every page at max headroom — a
+    // 2-page report still gets full quality, a 30-page one renders smaller
+    // (but still legible — never below a 1400px-long-edge floor).
+    const TOTAL_PIXEL_BUDGET = 60000000; // ~240MB across the whole doc at 4 bytes/px
+    const MIN_LONG_EDGE = 1400;
     for(let i=1; i<=pdf.numPages; i++){
       const page = await pdf.getPage(i);
       const baseViewport = page.getViewport({scale:1});
       const fitScale = containerWidth / baseViewport.width;
       let renderScale = fitScale * dpr * ZOOM_HEADROOM;
-      if(baseViewport.width*renderScale > MAX_CANVAS_DIM || baseViewport.height*renderScale > MAX_CANVAS_DIM){
-        renderScale = Math.min(MAX_CANVAS_DIM/baseViewport.width, MAX_CANVAS_DIM/baseViewport.height);
+      const aspect = baseViewport.height / baseViewport.width;
+      const perPageBudgetDim = Math.sqrt((TOTAL_PIXEL_BUDGET/pdf.numPages) / Math.max(aspect, 0.01));
+      const maxDim = Math.min(MAX_CANVAS_DIM, Math.max(perPageBudgetDim, MIN_LONG_EDGE));
+      if(baseViewport.width*renderScale > maxDim || baseViewport.height*renderScale > maxDim){
+        renderScale = Math.min(maxDim/baseViewport.width, maxDim/baseViewport.height);
       }
       const viewport = page.getViewport({scale: renderScale});
       const canvas = document.createElement('canvas');
@@ -1628,7 +1641,12 @@ const PRICE_BUILDER_LIVE = true;
 const DEFAULT_BRAND2 = '#101114';
 // Inline SVG, can never 404 — the last-resort fallback so a missing/slow
 // asset never causes an onerror retry loop (which shows as a "flashing" broken image).
-const OPHUB_LOGO_INLINE = 'data:image/png;base64,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';
+const OPHUB_LOGO_INLINE = 'data:image/png;base64,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';
+// Small neutral "photo unavailable" placeholder (light grey square with a
+// simple picture glyph) swapped in via onerror when a job/incident/snag/
+// tool photo fails to load (deleted from storage, network blip, stale
+// path) — previously these just showed the browser's bare broken-image icon.
+const PHOTO_PLACEHOLDER_INLINE = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120" viewBox="0 0 160 120"><rect width="160" height="120" fill="#E9EAEE"/><path d="M40 82 L64 54 L82 74 L98 58 L120 82 Z" fill="#C7CAD3"/><circle cx="58" cy="42" r="9" fill="#C7CAD3"/><text x="80" y="104" font-family="Arial,sans-serif" font-size="11" fill="#8A8D97" text-anchor="middle">Photo unavailable</text></svg>');
 
 async function loadOrg(){
   if(!ME || !ME.org_id){ ORG = null; applyTheme(null); return; }
@@ -2248,7 +2266,7 @@ function shell(innerHtml, opts){
               ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
               <div style="width:28px;height:2.5px;background:var(--line);margin:3px auto;"></div>` : ''}
               <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
-              ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${opts.title}</h2>` : ''}
+              ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${escapeHtml(opts.title)}</h2>` : ''}
             </div>
             <div style="flex:0 0 72px;display:flex;align-items:center;justify-content:center;">
               ${ME && opts.showRefresh ? `
@@ -2261,8 +2279,8 @@ function shell(innerHtml, opts){
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
-            <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${opts.title||''}</h2>
-            ${opts.subtitle ? `<div class="meta">${opts.subtitle}</div>` : ''}
+            <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${escapeHtml(opts.title||'')}</h2>
+            ${opts.subtitle ? `<div class="meta">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
@@ -4241,7 +4259,7 @@ async function renderTeam(){
           <div class="card" style="margin-bottom:10px;">
             ${tools.map(t=>`
               <div class="sitecard" style="padding:8px 10px;">
-                ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
+                ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
                 <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.serial_number?`<div class="addr">Serial: ${escapeHtml(t.serial_number)}</div>`:''}</div>
                 <span class="stub" style="text-decoration:underline;cursor:pointer;flex:0 0 auto;" onclick="document.getElementById('opToolEditPhoto-${t.id}').click()">${operativeToolsEditPhotoBusyId===t.id?'Uploading…':(t.photo_path?'Change photo':'Add photo')}</span>
                 <input type="file" id="opToolEditPhoto-${t.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsEditPhotoChosen(this,'${t.id}','${p.id}')">
@@ -5142,8 +5160,11 @@ window.addOperativeToolFor = async function(userId){
   if(!name){ toast('Enter a tool name.'); return; }
   let photoPath = null;
   if(operativeToolsPhotoFile){
-    const path = ME.org_id+'/'+userId+'/'+uid()+'-'+operativeToolsPhotoFile.name.replace(/[^a-z0-9.\-]+/gi,'_');
-    photoPath = await uploadToStorage('operative-tools', path, operativeToolsPhotoFile, operativeToolsPhotoFile.type||'image/jpeg');
+    let dataUrl;
+    try{ dataUrl = await compressImage(operativeToolsPhotoFile); }
+    catch(e){ toast('Could not process that photo — tool was not saved.'); return false; }
+    photoPath = await uploadDataUrl('operative-tools', ME.org_id+'/'+userId+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+    if(!photoPath){ toast('Photo failed to upload — check your connection and try again.'); return false; }
   }
   const rows = await dbInsert('operative_tools', {org_id:ME.org_id, user_id:userId, name, serial_number:serial||null, photo_path:photoPath, created_by:ME.id});
   if(rows){ toast('Tool added'); operativeToolsAddOpenFor=null; operativeToolsPhotoFile=null; operativeToolsNameDraft=''; operativeToolsSerialDraft=''; render(); }
@@ -5155,8 +5176,11 @@ window.onOperativeToolsEditPhotoChosen = async function(input, toolId, userId){
   const file = input.files && input.files[0];
   if(!file) return;
   operativeToolsEditPhotoBusyId = toolId; render();
-  const path = ME.org_id+'/'+userId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-  const photoPath = await uploadToStorage('operative-tools', path, file, file.type||'image/jpeg');
+  let photoPath = null;
+  try{
+    const dataUrl = await compressImage(file);
+    photoPath = await uploadDataUrl('operative-tools', ME.org_id+'/'+userId+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+  }catch(e){ photoPath = null; }
   if(photoPath) await dbUpdate('operative_tools', toolId, {photo_path:photoPath});
   operativeToolsEditPhotoBusyId = null;
   toast(photoPath ? 'Photo updated' : 'Photo upload failed');
@@ -8372,7 +8396,7 @@ window.uploadAwPhoto = async function(input, siteId, id){
   const file = input.files && input.files[0]; if(!file) return;
   try{
     const dataUrl = await compressImage(file);
-    const path = await uploadDataUrl('site-photos', siteId+'/variations-to-price/'+id+'-'+uid()+'.jpg', dataUrl);
+    const path = await uploadDataUrl('site-photos', siteId+'/variations-to-price/'+id+'-'+crypto.randomUUID()+'.jpg', dataUrl);
     if(!path) return;
     const row = await dbUpdate('additional_works_requests', id, {photo_path:path});
     if(row){ toast('Photo added'); render(); }
@@ -11544,7 +11568,7 @@ async function renderSiteReports(siteId){
         ${isManager(ME) ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedReportIds.has(s.id)?'checked':''} onclick="toggleReportSelect('${s.id}')">` : ''}
         <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
           <div class="name">${escapeHtml(s.template_name)}</div>
-          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Submitted'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>
         </div>
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
@@ -11588,9 +11612,11 @@ window.exportSelectedReports = async function(siteId){
     const ids = Array.from(selectedReportIds);
     const merged = await PDFLib.PDFDocument.create();
     let any = false;
+    let totalPhotoFailures = 0;
     for(const id of ids){
       const built = await buildReportPdf(id);
       if(!built) continue;
+      totalPhotoFailures += built.photoEmbedFailures||0;
       const src = await PDFLib.PDFDocument.load(built.bytes);
       const pages = await merged.copyPages(src, src.getPageIndices());
       pages.forEach(p=>merged.addPage(p));
@@ -11601,6 +11627,7 @@ window.exportSelectedReports = async function(siteId){
     const filename = exportFilename(site?site.name:'', `Reports (${ids.length})`, 'pdf');
     merged.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await merged.save();
+    if(totalPhotoFailures>0) toast(`${totalPhotoFailures} photo${totalPhotoFailures>1?'s':''} across these reports could not be included — check your connection and re-export if needed.`);
     await deliverPdf(outBytes, filename);
     selectedReportIds = new Set();
   }catch(e){ console.error(e); toast('Could not build the combined PDF.'); }
@@ -11610,19 +11637,32 @@ window.emailSelectedReports = async function(){
   if(!selectedReportIds.size) return;
   bulkEmailBusy = true; render();
   toast('Building PDFs…');
-  try{
-    const ids = Array.from(selectedReportIds);
-    const attachments = [];
-    for(const id of ids){
+  // Each PDF is uploaded to Storage and emailed as a link (same pattern as
+  // the single-report "Email" action), rather than posting every report's
+  // full PDF as base64 in one request body — that's what "server not
+  // found" turned out to be for photo-heavy reports on the single-report
+  // path, and posting SEVERAL of them at once in one request is the same
+  // problem, worse. Sent one at a time so one bad/huge report doesn't sink
+  // the rest.
+  const ids = Array.from(selectedReportIds);
+  let sent = 0, failed = 0, totalPhotoFailures = 0;
+  for(const id of ids){
+    try{
       const built = await buildReportPdf(id);
-      if(built) attachments.push({submission_id:id, filename:built.filename, content_base64:built.base64});
-    }
-    if(!attachments.length){ toast('Could not build any of the selected reports.'); bulkEmailBusy=false; render(); return; }
-    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
-    const d = await res.json();
-    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
-    else { toast(`${attachments.length} report(s) emailed to ${ME.email}`); selectedReportIds = new Set(); }
-  }catch(e){ toast('Email failed — could not reach the server.'); }
+      if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
+      totalPhotoFailures += built.photoEmbedFailures||0;
+      const path = built.sub.site_id+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+      const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+      if(!stored){ failed++; continue; }
+      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+        site_id: built.sub.site_id, recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      })});
+      if(res && res.ok) sent++; else failed++;
+    }catch(e){ failed++; }
+  }
+  if(sent) toast(`${sent} report(s) emailed to ${ME.email}${failed?`, ${failed} failed`:''}${totalPhotoFailures>0?` (${totalPhotoFailures} photo(s) could not be included)`:''}`);
+  else toast('Could not email the selected reports — check your connection and try again.');
+  if(sent) selectedReportIds = new Set();
   bulkEmailBusy = false; render();
 };
 window.deleteSelectedReports = async function(siteId){
@@ -11883,9 +11923,16 @@ window.submitReport = async function(siteId){
     }
   }
   reportSubmitBusy = true; render();
+  const isPmEdit = !!reportFillDraft.editingCompleted;
   const answers = Object.assign({}, reportFillDraft.answers);
   (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
-    if(it.type==='signature' && ME.signature_path) answers[it.id] = ME.signature_path;
+    // On a fresh submission, stamp the current user's adopted signature into
+    // any signature field. On a PM re-editing an already-completed report,
+    // do NOT do this — it would silently replace the original operative's
+    // signature with the editing PM's own. Only fill signature fields that
+    // are still genuinely empty (e.g. a field added to the template after
+    // the original submission).
+    if(it.type==='signature' && ME.signature_path && (!isPmEdit || !answers[it.id])) answers[it.id] = ME.signature_path;
   }));
   // Photos are captured as data: URLs for instant on-device preview (see
   // compressImage), but were previously saved into the answers JSONB as
@@ -11898,14 +11945,15 @@ window.submitReport = async function(siteId){
   // edited draft) are left alone.
   toast('Uploading photos…');
   const photoUploadTasks = [];
+  let failedPhotoUploads = 0;
   (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
     if(it.type==='photo' && Array.isArray(answers[it.id])){
       answers[it.id] = answers[it.id].slice();
       answers[it.id].forEach((val,idx)=>{
         if(typeof val==='string' && val.startsWith('data:')){
           photoUploadTasks.push((async()=>{
-            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+uid()+'.jpg', val);
-            if(path) answers[it.id][idx] = publicUrl('site-photos', path);
+            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', val);
+            if(path) answers[it.id][idx] = publicUrl('site-photos', path); else failedPhotoUploads++;
           })());
         }
       });
@@ -11916,24 +11964,37 @@ window.submitReport = async function(siteId){
       answers[mediaKey].forEach((val,idx)=>{
         if(typeof val==='string' && val.startsWith('data:')){
           photoUploadTasks.push((async()=>{
-            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+uid()+'.jpg', val);
-            if(path) answers[mediaKey][idx] = publicUrl('site-photos', path);
+            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', val);
+            if(path) answers[mediaKey][idx] = publicUrl('site-photos', path); else failedPhotoUploads++;
           })());
         }
       });
     }
   }));
   if(photoUploadTasks.length) await Promise.all(photoUploadTasks);
+  if(failedPhotoUploads>0){
+    reportSubmitBusy = false;
+    toast(`${failedPhotoUploads} photo${failedPhotoUploads>1?'s':''} failed to upload — check your connection and try submitting again.`);
+    render();
+    return;
+  }
   let rows = null;
+  // A PM editing an already-completed report keeps the original
+  // submitted_by/submitted_at (that's the operative's record of when THEY
+  // submitted it) and instead appends to an edit history kept inside
+  // answers, so it's always clear the report was later changed, by whom,
+  // and when — rather than looking indistinguishable from the original
+  // submission.
+  const updatePayload = isPmEdit
+    ? { answers: Object.assign({}, answers, { _editHistory: (Array.isArray(answers._editHistory) ? answers._editHistory : []).concat([{ by: ME.id, byName: ME.name, at: new Date().toISOString() }]) }), status:'completed' }
+    : { answers, status:'completed', submitted_at:new Date().toISOString() };
   try{
-    rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, {
-      answers, status:'completed', submitted_at:new Date().toISOString(),
-    });
+    rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, updatePayload);
   }catch(e){ console.error(e); }
   reportSubmitBusy = false;
   if(rows){
     const fromBriefing = reportFillDraft.fromBriefing;
-    toast(fromBriefing ? 'Briefing completed' : 'Report submitted');
+    toast(fromBriefing ? 'Briefing completed' : (isPmEdit ? 'Report updated' : 'Report submitted'));
     const submissionId = reportFillDraft.submissionId;
     reportFillDraft = null;
     go(fromBriefing ? `#/site/${siteId}/hs/briefings/view/${submissionId}` : `#/site/${siteId}/snagging/reports/view/${submissionId}`);
@@ -11953,7 +12014,8 @@ async function renderReportView(siteId, submissionId, fromBriefing){
   const sc = scoreSections(sub.sections, sub.answers);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
-    <p class="stub">${fromBriefing?'Completed':'Submitted'} ${new Date(sub.submitted_at).toLocaleString('en-GB')} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
+    <p class="stub">${fromBriefing?'Completed':'Submitted'} ${sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
+    ${Array.isArray(sub.answers && sub.answers._editHistory) && sub.answers._editHistory.length ? `<p class="stub" style="color:var(--slate);">${sub.answers._editHistory.map(e=>`Edited ${new Date(e.at).toLocaleString('en-GB')} by ${escapeHtml(e.byName||nameOf(e.by))}`).join(' · ')}</p>` : ''}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${(sub.sections||[]).map(s=>`
       <div class="card">
@@ -12074,9 +12136,15 @@ async function buildReportPdf(submissionId, opts){
       page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
+    const editHistory = Array.isArray(sub.answers && sub.answers._editHistory) ? sub.answers._editHistory : [];
+    const lastEdit = editHistory.length ? editHistory[editHistory.length-1] : null;
     function drawFooter(){
       page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
       page.drawText('Generated via OpHUB', {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      if(lastEdit){
+        const editedTxt = 'Edited '+new Date(lastEdit.at).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' by '+(lastEdit.byName||nameOf(lastEdit.by));
+        page.drawText(editedTxt, {x:PAGE_W-MARGIN-reg.widthOfTextAtSize(editedTxt,8), y:20, size:8, font:reg, color:SLATE});
+      }
     }
     function newPage(){
       page = pdfDoc.addPage([PAGE_W, PAGE_H]);
@@ -12139,6 +12207,7 @@ async function buildReportPdf(submissionId, opts){
     // drawn — the same numbers are reused later in the Media Summary
     // appendix rather than starting the count over.
     const allPhotos = []; // {url, num}
+    let photoEmbedFailures = 0; // count of photos/signature that failed to embed — surfaced to the user after export instead of silently vanishing
     // Handles both a real data: URL (older reports, saved before photos were
     // uploaded to Storage at submit time — see submitReport) and a plain
     // Storage URL (current reports) — fetching the bytes for the latter via
@@ -12172,7 +12241,12 @@ async function buildReportPdf(submissionId, opts){
             page.drawImage(img, {x:cx, y:y-h, width:w, height:h});
             page.drawText('Photo '+entry.num, {x:cx, y:y-boxH-13, size:8.5, font:reg, color:SLATE});
             maxH = Math.max(maxH, h);
-          }catch(e){}
+          }catch(e){
+            photoEmbedFailures++;
+            page.drawRectangle({x:cx, y:y-boxH, width:colW, height:boxH, color:HEADBAR});
+            page.drawText('Photo '+entry.num+' — could not be loaded', {x:cx+8, y:y-boxH/2, size:9, font:reg, color:SLATE});
+            page.drawText('Photo '+entry.num, {x:cx, y:y-boxH-13, size:8.5, font:reg, color:SLATE});
+          }
         }
         y -= boxH+capH+10;
       }
@@ -12207,7 +12281,12 @@ async function buildReportPdf(submissionId, opts){
               const w = dim.width*sc, h = dim.height*sc;
               page.drawImage(img, {x:cx+(cellW-w)/2, y:rowTop-cellH+(cellH-h)/2, width:w, height:h});
               page.drawText('Photo '+entry.num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
-            }catch(e){}
+            }catch(e){
+              photoEmbedFailures++;
+              page.drawRectangle({x:cx, y:rowTop-cellH, width:cellW, height:cellH, color:HEADBAR});
+              page.drawText('Photo '+entry.num+' — could not be loaded', {x:cx+8, y:rowTop-cellH/2, size:9, font:reg, color:SLATE});
+              page.drawText('Photo '+entry.num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
+            }
           }
         }
         y = startY - rows*(cellH+capH+gutter);
@@ -12311,12 +12390,16 @@ async function buildReportPdf(submissionId, opts){
               const w = dim.width*sc2, h = dim.height*sc2;
               page.drawImage(img, {x:MARGIN, y:y-h, width:w, height:h});
               const signer = nameOf(sub.submitted_by);
-              const when = new Date(sub.submitted_at).toLocaleString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}).replace(',', '');
+              const when = sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}).replace(',', '') : '';
               page.drawText(signer, {x:MARGIN+150, y:y-16, size:9.5, font:reg, color:INK});
-              if(!suppressSignatureTimestamp) page.drawText(when, {x:MARGIN+150, y:y-29, size:9, font:reg, color:SLATE});
+              if(!suppressSignatureTimestamp && when) page.drawText(when, {x:MARGIN+150, y:y-29, size:9, font:reg, color:SLATE});
               y -= h+16;
+            } else {
+              photoEmbedFailures++;
+              page.drawText('Signature could not be loaded', {x:MARGIN, y:y-10, size:9, font:reg, color:SLATE});
+              y -= 20;
             }
-          }catch(e){ y -= 16; }
+          }catch(e){ photoEmbedFailures++; page.drawText('Signature could not be loaded', {x:MARGIN, y:y-10, size:9, font:reg, color:SLATE}); y -= 20; }
           page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:LINE}); y -= 12;
           continue;
         }
@@ -12368,7 +12451,7 @@ async function buildReportPdf(submissionId, opts){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
     const base64 = btoa(binary);
-    return {bytes: outBytes, base64, filename, sub};
+    return {bytes: outBytes, base64, filename, sub, photoEmbedFailures};
   }catch(e){
     console.error(e);
     toast('Could not build the PDF.');
@@ -12380,6 +12463,7 @@ window.exportReportPDF = async function(submissionId){
   const built = await buildReportPdf(submissionId);
   if(!built) return;
   if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); return; }
+  if(built.photoEmbedFailures>0) toast(`${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included in the PDF — check your connection and re-export if needed.`);
   await deliverPdf(built.bytes, built.filename);
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
@@ -12405,14 +12489,14 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
-    const path = built.sub.site_id+'/report-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = built.sub.site_id+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
       site_id: built.sub.site_id, recipient_email: trimmed, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
     })});
-    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
+    if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
     console.error(e);
     toast('Could not send the email — please try again.');
@@ -13206,7 +13290,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               <button class="ghostbtn" style="margin-top:8px;" onclick="subcontractorAssignPickerTaskId=null;render()">Close</button>
             </div>
           ` : ''}
-          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')">`).join('')}</div>` : ''}
+          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : ''}
           ${pendingCompleteTaskId===t.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
               <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
@@ -13726,7 +13810,7 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
   for(const file of files){
     try{
       const dataUrl = await compressImage(file);
-      const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
+      const path = siteId+'/schedule/'+taskId+'/'+crypto.randomUUID()+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(!stored) continue;
       const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
@@ -13814,7 +13898,7 @@ window.taskPhoto = async function(input, siteId, taskId){
   for(const file of files){
     try{
       const dataUrl = await compressImage(file);
-      const path = siteId+'/schedule/'+taskId+'/'+uid()+'.jpg';
+      const path = siteId+'/schedule/'+taskId+'/'+crypto.randomUUID()+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(!stored) continue;
       const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
@@ -13975,11 +14059,11 @@ window.toggleSnagExpand = function(id){
 };
 function snagCardBody(siteId, s, canAdd){
   return `
-        ${(s.photo_paths && s.photo_paths.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">${s.photo_paths.map(p=>`<img class="snagthumb" src="${publicUrl('site-photos',p)}">`).join('')}</div>` : s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}">` : ''}
+        ${(s.photo_paths && s.photo_paths.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">${s.photo_paths.map(p=>`<img class="snagthumb" src="${publicUrl('site-photos',p)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',s.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">` : ''}
         ${s.pdf_path ? `<div class="ghostbtn" style="display:block;margin-top:10px;text-align:center;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos',s.pdf_path)}', false, '${jsAttr((s.title||'Snag')+' - Attachment.pdf')}')">📄 View PDF</div>` : ''}
         ${s.status==='closed' ? `
           <div class="closurerow">
-            ${s.closed_photo_path ? `<img src="${publicUrl('site-photos',s.closed_photo_path)}">` : ''}
+            ${s.closed_photo_path ? `<img src="${publicUrl('site-photos',s.closed_photo_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',s.closed_photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">` : ''}
             <div class="stub" style="margin-top:0;">Closed by ${escapeHtml(nameOf(s.closed_by))} · ${s.closed_at ? new Date(s.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : ''}</div>
           </div>
         ` : `
@@ -14082,11 +14166,16 @@ window.addSnag = async function(siteId){
   const location = snagNewLocation.trim();
   if(!title) return;
   let photoPaths = [];
+  let failedPhotos = 0;
   for(const dataUrl of snagNewPhotos){
-    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+uid()+'.jpg', dataUrl);
-    if(path) photoPaths.push(path);
+    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+crypto.randomUUID()+'.jpg', dataUrl);
+    if(path) photoPaths.push(path); else failedPhotos++;
   }
   const rows = await dbInsert('snags', {site_id:siteId, title, location, photo_path:photoPaths[0]||null, photo_paths:photoPaths.length?photoPaths:null, status:'open', created_by:ME.id});
+  if(rows && failedPhotos>0){
+    toast(`Snag added, but ${failedPhotos} photo${failedPhotos>1?'s':''} failed to upload — check your connection.`);
+    snagNewPhotos = []; snagNewTitle = ''; snagNewLocation = ''; render(); return;
+  }
   if(rows){
     snagNewPhotos = [];
     snagNewTitle = '';
@@ -14099,7 +14188,7 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
   const file = input.files && input.files[0]; if(!file) return;
   try{
     const dataUrl = await compressImage(file);
-    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+snagId+'-closed-'+uid()+'.jpg', dataUrl);
+    const path = await uploadDataUrl('site-photos', siteId+'/snags/'+snagId+'-closed-'+crypto.randomUUID()+'.jpg', dataUrl);
     if(!path) return;
     const row = await dbUpdate('snags', snagId, {status:'closed', closed_photo_path:path, closed_by:ME.id, closed_at:new Date().toISOString()});
     if(row){
@@ -15137,8 +15226,12 @@ window.closePermit = async function(siteId, permitId){
     return;
   }
   let photoPath1 = null, photoPath2 = null;
-  if(state.photo1) photoPath1 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext1-'+uid()+'.jpg', state.photo1);
-  if(state.photo2) photoPath2 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext2-'+uid()+'.jpg', state.photo2);
+  if(state.photo1) photoPath1 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext1-'+crypto.randomUUID()+'.jpg', state.photo1);
+  if(state.photo2) photoPath2 = await uploadDataUrl('site-photos', siteId+'/permits/'+permitId+'-ext2-'+crypto.randomUUID()+'.jpg', state.photo2);
+  if(permit && permit.permit_type==='hot_works' && (!photoPath1 || !photoPath2)){
+    toast('One or both fire-extinguisher photos failed to upload — check your connection and try again before closing.');
+    return;
+  }
   const row = await dbUpdate('permits', permitId, {
     status:'closed', closed_by:ME.id, closed_at:new Date().toISOString(), closed_notes: state.notes||null,
     closer_signature_path: ME.signature_path,
@@ -15242,7 +15335,7 @@ async function renderMcInspections(siteId){
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
         <div class="info">
           <div class="name">${escapeHtml(s.template_name)}</div>
-          <div class="addr">${s.status==='in_progress' ? 'Started' : 'Submitted'} ${new Date(s.submitted_at).toLocaleString('en-GB')} · ${escapeHtml(nameOf(s.submitted_by))}</div>
+          <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>
         </div>
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
@@ -19263,8 +19356,11 @@ window.addMyTool = async function(){
   if(!name){ toast('Enter a tool name.'); return; }
   let photoPath = null;
   if(myToolsPhotoFile){
-    const path = ME.org_id+'/'+ME.id+'/'+uid()+'-'+myToolsPhotoFile.name.replace(/[^a-z0-9.\-]+/gi,'_');
-    photoPath = await uploadToStorage('operative-tools', path, myToolsPhotoFile, myToolsPhotoFile.type||'image/jpeg');
+    let dataUrl;
+    try{ dataUrl = await compressImage(myToolsPhotoFile); }
+    catch(e){ toast('Could not process that photo — tool was not saved.'); return; }
+    photoPath = await uploadDataUrl('operative-tools', ME.org_id+'/'+ME.id+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+    if(!photoPath){ toast('Photo failed to upload — check your connection and try again.'); return; }
   }
   const rows = await dbInsert('operative_tools', {org_id:ME.org_id, user_id:ME.id, name, serial_number:serial||null, photo_path:photoPath, created_by:ME.id});
   if(rows){ toast('Tool added'); myToolsAddOpen=false; myToolsPhotoFile=null; myToolsNameDraft=''; myToolsSerialDraft=''; render(); }
@@ -19276,8 +19372,11 @@ window.onMyToolEditPhotoChosen = async function(input, toolId){
   const file = input.files && input.files[0];
   if(!file) return;
   myToolsEditPhotoBusyId = toolId; render();
-  const path = ME.org_id+'/'+ME.id+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-  const photoPath = await uploadToStorage('operative-tools', path, file, file.type||'image/jpeg');
+  let photoPath = null;
+  try{
+    const dataUrl = await compressImage(file);
+    photoPath = await uploadDataUrl('operative-tools', ME.org_id+'/'+ME.id+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+  }catch(e){ photoPath = null; }
   if(photoPath) await dbUpdate('operative_tools', toolId, {photo_path:photoPath});
   myToolsEditPhotoBusyId = null;
   toast(photoPath ? 'Photo updated' : 'Photo upload failed');
@@ -19307,7 +19406,7 @@ function myToolsBodyHtml(tools, compact){
     <p class="stub" style="margin:0 0 14px;">Your own power tools — name, serial/item number, and a photo. Used to auto-populate PUWER Tool Inspections.</p>
     ${tools.map(t=>`
       <div class="card" style="display:flex;align-items:center;gap:${compact?'8px':'10px'};padding:${cardPad};margin-bottom:${compact?'6px':'10px'};">
-        ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:8px;flex:0 0 ${imgSize}px;border:1px solid var(--line);">` : `<div class="swatch" style="flex:0 0 ${imgSize}px;width:${imgSize}px;height:${imgSize}px;">🔧</div>`}
+        ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:${imgSize}px;height:${imgSize}px;object-fit:cover;border-radius:8px;flex:0 0 ${imgSize}px;border:1px solid var(--line);" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<div class="swatch" style="flex:0 0 ${imgSize}px;width:${imgSize}px;height:${imgSize}px;">🔧</div>`}
         <div style="flex:1;min-width:0;">
           <div style="font-weight:700;font-size:${nameSize};color:var(--ink);white-space:normal;word-break:break-word;">${escapeHtml(t.name)}</div>
           ${t.serial_number ? `<div class="stub" style="margin:2px 0 0;${compact?'font-size:10px;':''}">Serial: ${escapeHtml(t.serial_number)}</div>` : ''}
@@ -20133,12 +20232,14 @@ window.uploadIncidentPhoto = async function(input, siteId, field){
   if(!files.length || !incidentDraft) return;
   captureIncidentTextFields();
   incidentPhotoBusy = true; render();
+  let failedPhotos = 0;
   for(const file of files){
-    const path = siteId+'/incidents/tmp/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = siteId+'/incidents/tmp/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('incident-photos', path, file, file.type);
-    if(stored) incidentDraft[field].push(stored);
+    if(stored) incidentDraft[field].push(stored); else failedPhotos++;
   }
   incidentPhotoBusy = false; render();
+  if(failedPhotos>0) toast(`${failedPhotos} photo${failedPhotos>1?'s':''} failed to upload — check your connection and try again.`);
 };
 window.removeIncidentPhoto = function(field, idx){ if(!incidentDraft) return; captureIncidentTextFields(); incidentDraft[field].splice(idx,1); render(); };
 async function renderIncidents(siteId){
@@ -20332,7 +20433,7 @@ async function renderIncidentView(siteId, reportId){
       ${incidentFieldRow('Operatives involved', r.operatives_involved)}
       ${incidentFieldRow('Form filed by', r.filed_by_name)}
       ${incidentFieldRow('Detail of the incident', r.detail)}
-      ${r.area_photo_paths && r.area_photo_paths.length ? `<div class="meta" style="font-weight:700;">Photo of area of incident</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.area_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')">`).join('')}</div>` : ''}
+      ${r.area_photo_paths && r.area_photo_paths.length ? `<div class="meta" style="font-weight:700;">Photo of area of incident</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.area_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : ''}
       ${incidentFieldRow('Date and time of incident', r.incident_datetime ? new Date(r.incident_datetime).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '')}
       ${incidentFieldRow('Date and time incident was reported', r.reported_datetime ? new Date(r.reported_datetime).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '')}
       ${incidentFieldRow('Reported to', r.reported_to)}
@@ -20346,7 +20447,7 @@ async function renderIncidentView(siteId, reportId){
       ${incidentFieldRow('Further medical treatment required', incidentYesNo(r.injury_further_treatment))}
       ${incidentFieldRow('Damage to property/plant', incidentYesNo(r.damage_occurred))}
       ${incidentFieldRow('Damage severity', r.damage_severity ? r.damage_severity.charAt(0).toUpperCase()+r.damage_severity.slice(1) : '')}
-      ${r.damage_photo_paths && r.damage_photo_paths.length ? `<div class="meta" style="font-weight:700;">Photo of damage</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.damage_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')">`).join('')}</div>` : ''}
+      ${r.damage_photo_paths && r.damage_photo_paths.length ? `<div class="meta" style="font-weight:700;">Photo of damage</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;">${r.damage_photo_paths.map(p=>`<img src="${publicUrl('incident-photos',p)}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="viewDrawing('${publicUrl('incident-photos',p)}', true, 'photo.jpg')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : ''}
       ${incidentFieldRow('How the incident happened', r.damage_description)}
       ${incidentFieldRow('Contributing factors', r.contributing_factors)}
       ${incidentFieldRow('Corrective action', r.corrective_action)}
@@ -23510,7 +23611,7 @@ async function renderVariations(siteId){
       </div>
       ${open ? `
       <div class="snag" style="margin-top:-6px;">
-        ${v.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos', v.photo_path)}">` : ''}
+        ${v.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos', v.photo_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', v.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">` : ''}
         ${v.approval_status==='declined' && v.decline_reason ? `<div class="stub" style="margin:6px 0 0;color:var(--red);">Reason: ${escapeHtml(v.decline_reason)}</div>` : ''}
         ${v.status==='closed' ? `
           <div class="closurerow">
@@ -23587,7 +23688,7 @@ window.varPhoto = async function(input){
 };
 window.submitVariation = async function(siteId){
   const desc = (varDraft.desc||'').trim();
-  const path = await uploadDataUrl('site-photos', siteId+'/variations/'+uid()+'.jpg', varDraft.photo);
+  const path = await uploadDataUrl('site-photos', siteId+'/variations/'+crypto.randomUUID()+'.jpg', varDraft.photo);
   if(!path) return;
   const rows = await dbInsert('variations', {site_id:siteId, photo_path:path, description:desc||'—', created_by:ME.id, status:'live'});
   if(rows){
