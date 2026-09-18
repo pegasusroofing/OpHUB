@@ -301,7 +301,7 @@
   .tilegrid .tile{border-color:color-mix(in srgb, var(--brand2) 50%, var(--line));}
   .tile:active{transform:scale(.98);}
   .tile .icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
-  .tile .lbl{font-size:15.94px;font-weight:700;line-height:1.2;font-family:'Sora',Calibri,sans-serif;letter-spacing:-.005em;}
+  .tile .lbl{font-size:15.94px;font-weight:700;line-height:1.2;font-family:'Sora',Calibri,sans-serif;letter-spacing:-.005em;max-width:100%;overflow-wrap:break-word;word-break:break-word;white-space:normal;}
   .tile .sub{font-size:13.39px;color:var(--slate-light);font-family:Calibri,'Open Sans',sans-serif;}
   /* Site Home's tile grid specifically, scaled down from the standard tile
      sizing above (used everywhere else in the app) so the whole page of
@@ -1582,6 +1582,7 @@ async function registerPushNotifications(){
     PN.addListener('pushNotificationActionPerformed', (action)=>{
       try{
         const data = (action && action.notification && action.notification.data) || {};
+        if(data.kind==='delivery_complete' && data.task_id){ go(`#/delivery/edit/${data.task_id}`); return; }
         if(!data.site_id) return;
         const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh', material_pickup:'materialrequired' };
         const dest = routes[data.kind] || 'messages';
@@ -1862,7 +1863,62 @@ function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections &amp; Snaggi
 function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
-  return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='site_manager' ? 'Site Manager' : role==='superadmin' ? 'Super Admin' : 'Operative';
+  return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='site_manager' ? 'Site Manager' : role==='superadmin' ? 'Super Admin' : role==='client' ? 'Client' : role==='driver' ? 'Delivery Driver' : 'Operative';
+}
+// Admin Centre > Users role-change control: what roles a given viewer (ME)
+// is allowed to move a given person into, and whether they may remove them.
+// Mirrors the exact permission rules that used to be spread across separate
+// "Make X" buttons per role group — kept here in one place so the dropdown
+// in each group renders consistently and stays in sync with those rules.
+function roleActionsFor(ME, p, allPeople){
+  const iAmAdmin = ME.role==='admin';
+  const iAmFullManager = isFullManager(ME);
+  const isSelf = p.id===ME.id;
+  const adminCount = allPeople.filter(x=>x.role==='admin').length;
+  let options = null, canRemove = false;
+  if(isSelf) return {options:null, canRemove:false};
+  if(p.role==='admin'){
+    if(!iAmAdmin) return {options:null, canRemove:false};
+    options = [{value:'admin', label:'Company Admin'}];
+    if(adminCount>1) options.push({value:'pm', label:'Project Manager'}, {value:'operative', label:'Operative'});
+    canRemove = true;
+  } else if(p.role==='pm'){
+    if(!iAmFullManager) return {options:null, canRemove:false};
+    options = [{value:'pm', label:'Project Manager'}, {value:'operative', label:'Operative'}, {value:'site_manager', label:'Site Manager'}];
+    if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
+    canRemove = iAmAdmin;
+  } else if(p.role==='site_manager'){
+    if(!iAmFullManager) return {options:null, canRemove:false};
+    options = [{value:'site_manager', label:'Site Manager'}, {value:'operative', label:'Operative'}, {value:'pm', label:'Project Manager'}];
+    if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
+    canRemove = iAmAdmin;
+  } else if(p.role==='operative'){
+    options = [{value:'operative', label:'Operative'}];
+    if(iAmFullManager) options.push({value:'pm', label:'Project Manager'}, {value:'site_manager', label:'Site Manager'});
+    if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
+    canRemove = iAmFullManager;
+  } else if(p.role==='driver'){
+    options = [{value:'driver', label:'Delivery Driver'}];
+    if(iAmFullManager) options.push({value:'operative', label:'Operative'});
+    canRemove = iAmFullManager;
+  } else if(p.role==='client'){
+    options = null; // clients aren't moved between roles from here, same as before
+    canRemove = iAmFullManager;
+  }
+  return {options, canRemove};
+}
+function roleActionsHtml(ME, p, allPeople){
+  const {options, canRemove} = roleActionsFor(ME, p, allPeople);
+  if(!options && !canRemove) return '';
+  const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;'; // matches the smallBtn style used elsewhere in this admin screen
+  return `
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
+      ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
+        ${options.map(o=>`<option value="${o.value}" ${o.value===p.role?'selected':''}>${o.label}</option>`).join('')}
+      </select>` : ''}
+      ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+    </div>
+  `;
 }
 
 // loadAllProfiles() is called from nearly every render() — almost every
@@ -2359,7 +2415,7 @@ function homeBottomBar(canAdd, outstandingCount){
     {ic:'📝', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
     ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
-    ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard')"}] : []),
+    ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard-choice')"}] : []),
     // Styled in the company's theme colour (brand1) rather than the plain
     // paper/border look the other tabs use, so it reads as the primary
     // action in the row.
@@ -3884,11 +3940,27 @@ function renderAccountSettings(){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Your Account</p>
       <p class="stub" style="margin:0 0 10px;">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</p>
-      <button class="ghostbtn" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</button>
+      <div class="formfield"><label class="field-label">Phone number</label>
+        <input type="tel" id="myPhoneInput" placeholder="e.g. 07123 456789" value="${escapeHtml(ME.phone||'')}">
+      </div>
+      <p class="stub" style="margin:0 0 10px;">Shown to delivery drivers when you're the site contact for a delivery.</p>
+      <button class="ghostbtn" ${myPhoneSaveBusy?'disabled':''} onclick="saveMyPhone()">${myPhoneSaveBusy?'Saving…':'Save Phone Number'}</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</button>
       <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="doSignOut()">Sign out</button>
     </div>
-  `, {title:'Settings', back:'#/sites', tabs:false}); }
+  `, {title:'Settings', back: ME.role==='driver' ? '#/driver' : '#/sites', tabs:false}); }
 }
+let myPhoneSaveBusy = false;
+window.saveMyPhone = async function(){
+  const el = document.getElementById('myPhoneInput');
+  const phone = el ? el.value.trim() : '';
+  myPhoneSaveBusy = true; render();
+  const row = await dbUpdate('profiles', ME.id, {phone: phone || null});
+  myPhoneSaveBusy = false;
+  if(row){ ME.phone = row.phone; if(PROFILES[ME.id]) PROFILES[ME.id].phone = row.phone; toast('Phone number saved'); }
+  else { toast('Could not save — try again.'); }
+  render();
+};
 
 /* ================= COMPANY DASHBOARD (admin-only, management overview across every live project) ================= */
 async function renderDashboard(){
@@ -4299,8 +4371,10 @@ async function renderTeam(){
   });
   sortPriceRateCategories(priceRateCategories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="ddrow" style="margin-top:0;" onclick="go('#/delivery')">🚚 Delivery Schedule</p>
+    <p class="ddrow" onclick="go('#/vehicle-checklists')">🚐 Vehicle Checklists</p>
     ${iAmAdmin ? `
-    <p class="ddrow" style="margin-top:0;" onclick="go('#/dashboard')">📊 Dashboard</p>
+    <p class="ddrow" onclick="go('#/dashboard')">📊 Dashboard</p>
     <p class="ddrow" onclick="go('#/operatives')">👷 Operatives</p>
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
     ${teamSectionOpen.branding ? `
@@ -4773,6 +4847,7 @@ async function renderTeam(){
         <div class="formfield"><label class="field-label">Invite as</label>
           <select id="newInviteRole">
             <option value="operative">Operative</option>
+            <option value="driver">Delivery Driver</option>
             <option value="client">Client (view-only)</option>
           </select>
         </div>
@@ -4797,15 +4872,7 @@ async function renderTeam(){
       <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && iAmAdmin ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && iAmAdmin ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && iAmAdmin && userActionsOpenFor[p.id] ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-            ${people.filter(x=>x.role==='admin').length>1 ? `
-              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
-              <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
-            ` : ''}
-            <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
-          </div>
-        ` : ''}
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No other admins yet.</div>`}
 
@@ -4814,14 +4881,7 @@ async function renderTeam(){
       <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && isFullManager(ME) && userActionsOpenFor[p.id] ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
-            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','site_manager')">Make Site Manager</button>
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
-          </div>
-        ` : ''}
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No project managers yet.</div>`}
 
@@ -4830,14 +4890,7 @@ async function renderTeam(){
       <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#6B6F78,#3a3c40);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${p.id!==ME.id && isFullManager(ME) && userActionsOpenFor[p.id] ? `
-          <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','operative')">Make Operative</button>
-            <button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-            ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
-          </div>
-        ` : ''}
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No site managers yet.</div>`}
 
@@ -4846,27 +4899,25 @@ async function renderTeam(){
       <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${userActionsOpenFor[p.id] ? `
-        <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','pm')">Make PM</button>` : ''}
-          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','site_manager')">Make Site Manager</button>` : ''}
-          ${iAmAdmin ? `<button class="ghostbtn" style="${smallBtn}" onclick="setUserRole('${p.id}','admin')">Make Admin</button>` : ''}
-          ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
-        </div>
-        ` : ''}
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No operatives yet.</div>`}
+
+    <p class="sectiontitle" style="margin-top:18px;">Delivery Drivers</p>
+    ${people.filter(p=>p.role==='driver').map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
+        <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand1),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
+      </div>
+    `).join('') || `<div class="empty">No delivery drivers yet.</div>`}
 
     <p class="sectiontitle" style="margin-top:18px;">Clients</p>
     ${people.filter(p=>p.role==='client').map(p=>`
       <div class="sitecard" style="flex-wrap:wrap;cursor:pointer;" onclick="toggleUserActions('${p.id}')">
         <div class="swatch personswatch" style="background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)}</div></div>
-        ${userActionsOpenFor[p.id] && isFullManager(ME) ? `
-        <div style="display:flex;gap:6px;flex-wrap:wrap;" onclick="event.stopPropagation()">
-          <button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>
-        </div>
-        ` : ''}
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No clients yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives and Site Managers. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Site Manager, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first). A Site Manager works day-to-day like a Project Manager but only on the sites they're assigned to, and can't create/delete sites or manage other people's accounts.</p>
@@ -16218,7 +16269,7 @@ async function renderSubcontractorHub(siteId, companyId){
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
-      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${tbtRows.length} live</div></div>
+      <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">TBT</div><div class="sub">${tbtRows.length} live</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/schedule')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📋</div><div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${scheduleRows.length} complete</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/permits')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧾</div><div class="lbl">Permits To Work</div><div class="sub">${openPermitRows.length ? openPermitRows.length+' open' : 'None open'}</div></div>
       <div class="tile" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/inspections')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🔍</div><div class="lbl">Inspections</div><div class="sub">${inspectionRows.length} file${inspectionRows.length===1?'':'s'}</div></div>
@@ -17574,7 +17625,7 @@ async function renderHealthSafety(siteId){
       <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/hs/rams')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div><div class="lbl">RAMS</div><div class="sub">${ramsRows.length} document${ramsRows.length===1?'':'s'}</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div><div class="lbl">COSHH</div><div class="sub">${coshhRows.length} document${coshhRows.length===1?'':'s'}</div></div>
-        <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">Toolbox Talks</div><div class="sub">${liveTbts.length} live</div></div>
+        <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">📢</div><div class="lbl">TBT</div><div class="sub">${liveTbts.length} live</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">🛠</div><div class="lbl">Completed Inspections</div><div class="sub">PUWER</div></div>
         <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')"><div class="icon" style="background:#E7E9EE;color:var(--ink);">👷</div><div class="lbl">Operative Dashboard</div><div class="sub">Roster &amp; certificates</div></div>
       </div>
@@ -17675,7 +17726,7 @@ async function renderHealthSafety(siteId){
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
-        <div class="lbl">Toolbox Talks</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
+        <div class="lbl">TBT</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/hs/briefings')">
         <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
@@ -23297,6 +23348,7 @@ async function renderSiteCalendar(siteId){
           <button class="darkbtn" style="flex:1;" onclick="${calEditId?`saveCalEventEdit('${siteId}')`:`addCalEvent('${siteId}')`}">${calEditId?'Save':'Add Key Date'}</button>
           <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="closeCalForm()">Cancel</button>
         </div>
+        ${!calEditId && mgr ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="addCalEventToDeliverySchedule('${siteId}')">🚚 Also Add to Delivery Schedule</button>` : ''}
       </div>
     `;
   }
@@ -23362,6 +23414,32 @@ window.openCalEditEvent = function(id, title, date, isPrivate, recipientIds, rem
     recipientIds:new Set(recipientIds||[]),
   };
   render();
+};
+// "Add to delivery schedule" from a site's Key Dates calendar — pulls the
+// title/date straight through into a stub delivery (YARD collection, 7am
+// slot, no site contact yet) and saves it immediately rather than sending
+// the PM into the full delivery form. It's deliberately incomplete, so it's
+// flagged needs_completing — the PM Delivery Schedule list shows a "Needs
+// completing" badge on it until someone opens and saves it properly.
+window.addCalEventToDeliverySchedule = async function(siteId){
+  const title = (calDraft.title||'').trim();
+  if(!title){ toast('Enter what this date is for first.'); return; }
+  if(!calDraft.date){ toast('Pick a date first.'); return; }
+  const payload = {
+    org_id: ME.org_id, site_id: siteId, created_by: ME.id,
+    description: title, scheduled_date: calDraft.date, time_slot: '7am',
+    collection_type: 'yard', high_priority: false, needs_completing: true,
+  };
+  const rows = await dbInsert('delivery_tasks', payload);
+  if(rows && rows[0]){
+    await resequenceSlot(calDraft.date, '7am');
+    toast('Added to Delivery Schedule — open it to fill in collection details, time slot and site contact.');
+    calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
+    deliveryFormDraft = null;
+    go('#/delivery/edit/'+rows[0].id);
+  } else {
+    toast('Could not add — check your connection and try again.');
+  }
 };
 window.addCalEvent = async function(siteId){
   const title = (calDraft.title||'').trim();
@@ -24525,14 +24603,23 @@ async function postSystemMessage(siteId, kind, body){
   }catch(e){ /* silent */ }
 }
 // Downward variant of the above — PM/admin action that needs to land in
-// operatives' Inbox (e.g. a material pick-up assignment). The messages
-// table only supports broadcast audiences (all operatives on a site, or
-// company-wide), not a single named recipient, so this reaches every
-// operative assigned to the site; the body should name who it's actually
-// for.
+// operatives' Inbox (e.g. a material pick-up assignment). Reaches every
+// operative assigned to the site (audience='operatives'); the body should
+// name who it's actually for. For a single named person, use
+// postSystemMessageToUser below instead (audience='single').
 async function postSystemMessageTo(siteId, kind, body){
   try{
     await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'operatives', kind, body});
+  }catch(e){ /* silent */ }
+}
+// Targeted push to exactly one person — audience='single' + recipient_id,
+// which send-message-push resolves to just that one person's devices
+// instead of a whole role/site broadcast. relatedId (optional) rides along
+// in the messages.parent_id column purely so the push payload can carry a
+// deep-link id (e.g. a delivery_tasks.id) — it isn't a reply thread here.
+async function postSystemMessageToUser(userId, siteId, kind, body, relatedId){
+  try{
+    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId||null, sender_id: ME.id, audience:'single', recipient_id:userId, kind, body, parent_id: relatedId||null});
   }catch(e){ /* silent */ }
 }
 async function markMessagesRead(ids){
@@ -24804,6 +24891,735 @@ window.sendMessageReply = async function(siteId, parentId, audience, targetSiteI
   }
 };
 
+/* ================= DELIVERY DRIVER ================= */
+// A Delivery Driver is a simplified role: no site list, just two tiles —
+// GPS check in/out (not geofenced, see doDriverCheckAction) and today's
+// delivery schedule. Delivery tasks themselves are created by PMs (Phase 3
+// of this build) — until then this view just shows "nothing scheduled",
+// which is the correct empty state, not a bug.
+const DELIVERY_TIME_SLOTS = [
+  {key:'7am', label:'7:00am'},
+  {key:'8am', label:'8:00am'},
+  {key:'10-12', label:'10am – 12pm'},
+  {key:'12-2', label:'12 – 2pm'},
+  {key:'2-4', label:'2 – 4pm'},
+];
+let driverCheckinBusy = false, driverCheckinError = null;
+let driverScheduleDateOffset = 0; // 0 = today, +1 = tomorrow, -1 = yesterday
+async function renderDriverHome(){
+  const __gen = RENDER_GEN;
+  const todayISO = localISODate(new Date());
+  const [lastCheckin, todayTasks] = await Promise.all([
+    dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
+    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+todayISO+'&order=time_slot.asc'),
+  ]);
+  const onDuty = !!(lastCheckin[0] && lastCheckin[0].type==='in');
+  const myTasksToday = todayTasks.filter(t=>!t.driver_id || t.driver_id===ME.id);
+  const pendingToday = myTasksToday.filter(t=>t.status!=='completed').length;
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="go('#/driver/checkin')">
+        <div class="icon" style="background:${onDuty?'var(--ok-bg)':'#E7E9EE'};color:${onDuty?'var(--ok)':'var(--ink)'};">📍</div>
+        <div class="lbl">Check In / Out</div><div class="sub">${onDuty?'Currently checked in':'Not checked in'}</div>
+      </div>
+      <div class="tile" onclick="go('#/driver/schedule')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📅</div>
+        <div class="lbl">Today's Schedule</div><div class="sub">${pendingToday} ${pendingToday===1?'delivery':'deliveries'} today</div>
+      </div>
+      <div class="tile" onclick="go('#/driver/vehicle-checklist')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚐</div>
+        <div class="lbl">Vehicle Checklist</div><div class="sub">Weekly inspection</div>
+      </div>
+    </div>
+    <p class="stub" style="text-align:center;margin-top:22px;"><a href="#/account" onclick="event.preventDefault();go('#/account')" style="color:var(--blue);">Account &amp; Settings</a></p>
+  `, {title:ME.name, subtitle:'Delivery Driver', tabs:false});
+}
+window.doDriverCheckAction = async function(type){
+  driverCheckinError = null; driverCheckinBusy = true; render();
+  const g = await getGeo();
+  if(g.error){ driverCheckinBusy = false; driverCheckinError = g.error; render(); return; }
+  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  driverCheckinBusy = false;
+  if(rows){ toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})); }
+  else { driverCheckinError = 'Could not save — check your connection and try again.'; }
+  render();
+};
+async function renderDriverCheckin(){
+  const __gen = RENDER_GEN;
+  const history = await dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=20');
+  const last = history[0];
+  const onDuty = !!(last && last.type==='in');
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="text-align:center;padding:24px 16px;">
+      <p class="stub" style="margin:0 0 14px;">${last ? `${onDuty?'Checked in':'Checked out'} ${new Date(last.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}` : 'You are not currently checked in.'}</p>
+      ${driverCheckinError ? `<p class="stub" style="color:var(--warn);margin:0 0 14px;">${escapeHtml(driverCheckinError)}</p>` : ''}
+      <button class="darkbtn" style="width:100%;padding:16px;font-size:16px;" ${driverCheckinBusy?'disabled':''} onclick="doDriverCheckAction('${onDuty?'out':'in'}')">
+        ${driverCheckinBusy ? 'Getting your location…' : onDuty ? 'Check Out' : 'Check In'}
+      </button>
+      <p class="stub" style="margin-top:10px;">Your GPS location is recorded with each check in/out so the office can see where you checked in/out from — this isn't tied to a specific site or geofence.</p>
+    </div>
+    <p class="sectiontitle" style="margin-top:20px;">Recent</p>
+    ${history.length ? history.map(c=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">${c.type==='in'?'Checked In':'Checked Out'}</div><div class="addr">${new Date(c.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+      </div>
+    `).join('') : `<div class="empty">No check-ins yet.</div>`}
+  `, {title:'Check In / Out', back:'#/driver'});
+}
+function deliveryCollectionLabel(t){
+  if(t.collection_type==='yard') return 'YARD';
+  if(t.collection_type==='supplier') return t._supplierName || 'Supplier';
+  return t.collection_address_manual || 'Collection address';
+}
+async function renderDriverSchedule(){
+  const __gen = RENDER_GEN;
+  const d = new Date(); d.setDate(d.getDate()+driverScheduleDateOffset);
+  const dateISO = localISODate(d);
+  const dateLabel = d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'});
+  const [tasks, suppliers] = await Promise.all([
+    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&order=sub_priority.asc'),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
+  ]);
+  await loadAllProfiles();
+  const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
+  const myTasks = tasks.filter(t=>!t.driver_id || t.driver_id===ME.id);
+  myTasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
+  const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
+  myTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span class="homebtn" onclick="driverScheduleDateOffset--;render()">‹</span>
+      <div style="font-weight:700;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
+      <span class="homebtn" onclick="driverScheduleDateOffset++;render()">›</span>
+    </div>
+    ${DELIVERY_TIME_SLOTS.map(slot=>`
+      <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
+      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
+        <div class="card" style="margin-bottom:8px;${t.status==='completed'?'opacity:.6;':''}">
+          ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">! HIGH PRIORITY<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This delivery needs to happen first — treat it as urgent.</span></p>` : ''}
+          <p style="margin:0 0 4px;font-weight:700;">${escapeHtml((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site')}</p>
+          <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
+          <p class="stub" style="margin:0 0 4px;">📦 Collect from: ${escapeHtml(deliveryCollectionLabel(t))}</p>
+          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
+          ${t.photo_path ? `<img src="${publicUrl('site-photos', t.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin:4px 0;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', t.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
+          ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order in this slot: ${t.sub_priority}</p>` : ''}
+          ${t.status==='completed' ? `
+            <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
+          ` : `
+            <label class="ghostbtn" style="display:block;text-align:center;margin-top:8px;cursor:pointer;">
+              ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '☐ Mark Complete (photo required)'}
+              <input type="file" accept="image/*" capture="environment" style="display:none;" ${deliveryCompletionBusyId===t.id?'disabled':''} onchange="completeDeliveryTask(this,'${t.id}')">
+            </label>
+          `}
+        </div>
+      `).join('') : `<div class="empty">Nothing in this slot.</div>`}
+    `).join('')}
+  `, {title:'Delivery Schedule', back:'#/driver'});
+}
+let deliveryCompletionBusyId = null;
+window.completeDeliveryTask = async function(input, taskId){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  deliveryCompletionBusyId = taskId; render();
+  let photoPath = null;
+  try{
+    const dataUrl = await compressImage(file);
+    photoPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/'+taskId+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+  }catch(e){ photoPath = null; }
+  if(!photoPath){
+    deliveryCompletionBusyId = null;
+    toast('Photo upload failed — check your connection and try again.');
+    render();
+    return;
+  }
+  const row = await dbUpdate('delivery_tasks', taskId, {status:'completed', completed_at:new Date().toISOString(), completed_by:ME.id, completion_photo_path:photoPath});
+  deliveryCompletionBusyId = null;
+  if(row){ toast('Delivery marked complete'); notifyDeliveryComplete(taskId).catch(()=>{}); }
+  else { toast('Could not save — try again.'); }
+  render();
+};
+// Site contact push notification on completion — the assigned site contact
+// gets told with the completion photo, date and time, via the targeted
+// (single-recipient) push added in Phase 5. Silently does nothing if the
+// task has no site contact set, or the site contact has no phone/whatever
+// — it's a best-effort notification, never something that should block the
+// driver's "mark complete" action.
+async function notifyDeliveryComplete(taskId){
+  const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
+  const t = rows[0];
+  if(!t || !t.site_contact_id) return;
+  const site = SITES.find(s=>s.id===t.site_id);
+  const when = t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+  const body = `Delivery to ${site?site.name:'your site'} completed by ${ME.name}${when?' at '+when:''}.${t.completion_photo_path?' Photo attached.':''}`;
+  await postSystemMessageToUser(t.site_contact_id, t.site_id, 'delivery_complete', body, taskId);
+}
+// Weekly vehicle inspection — a fixed pass/fail checklist (researched from
+// the standard DVSA/GOV.UK van daily-walkaround-check items, grouped into
+// categories) rather than the general-purpose report_templates builder,
+// since it isn't site-scoped and needs a fixed, always-the-same-every-week
+// structure. Every item is mandatory pass/fail; any item marked Fail
+// requires a photo + note before the checklist can be submitted, and a
+// submission with any fail posts a message to managers so it gets seen.
+const VEHICLE_CHECKLIST_ITEMS = [
+  {key:'windscreen', cat:'Cab / Interior', label:'Windscreen is undamaged and the view is unobscured'},
+  {key:'mirrors', cat:'Cab / Interior', label:'Mirrors are present, secure and unbroken'},
+  {key:'wipers', cat:'Cab / Interior', label:'Washers and wipers work properly'},
+  {key:'warning_lights', cat:'Cab / Interior', label:'No dashboard warning lights stay on after starting'},
+  {key:'steering', cat:'Cab / Interior', label:'Steering moves freely, no excessive play or jamming'},
+  {key:'horn', cat:'Cab / Interior', label:'Horn works'},
+  {key:'footbrake', cat:'Cab / Interior', label:'Footbrake is firm, no excessive travel'},
+  {key:'handbrake', cat:'Cab / Interior', label:'Handbrake holds the vehicle securely'},
+  {key:'seats_belts', cat:'Cab / Interior', label:'Seats are secure and seatbelts are undamaged, latch and retract properly'},
+  {key:'lights', cat:'Exterior', label:'All lights and indicators work, lenses clean and correct colour'},
+  {key:'plates', cat:'Exterior', label:'Number plates are secure, clean and legible'},
+  {key:'bodywork', cat:'Exterior', label:'Bodywork and doors undamaged, no sharp edges, doors shut and lock securely'},
+  {key:'exhaust', cat:'Exterior', label:'No exhaust leaks, excessive smoke or noise'},
+  {key:'oil', cat:'Fluids & Fuel', label:'Engine oil level OK'},
+  {key:'coolant', cat:'Fluids & Fuel', label:'Coolant level OK'},
+  {key:'brake_fluid', cat:'Fluids & Fuel', label:'Brake fluid level OK, no leaks'},
+  {key:'washer_fluid', cat:'Fluids & Fuel', label:'Washer fluid topped up'},
+  {key:'fuel_cap', cat:'Fluids & Fuel', label:'Fuel cap secure, no fuel leaks'},
+  {key:'adblue', cat:'Fluids & Fuel', label:'AdBlue level OK (if applicable)'},
+  {key:'battery', cat:'Battery', label:'Battery is secure, in good condition and not leaking'},
+  {key:'tyre_tread', cat:'Tyres & Wheels', label:'Legal tread depth on all tyres'},
+  {key:'tyre_pressure', cat:'Tyres & Wheels', label:'Tyre pressures correct'},
+  {key:'tyre_damage', cat:'Tyres & Wheels', label:'No cuts, bulges or sidewall damage, no wire/cord visible'},
+  {key:'wheels', cat:'Tyres & Wheels', label:'Wheels and wheel nuts secure, undamaged'},
+  {key:'load_area', cat:'Load Securing', label:'Load area / racking secure, nothing loose'},
+  {key:'rear_doors', cat:'Load Securing', label:'Rear doors / tailgate lock properly'},
+];
+let vehicleChecklistDraft = null; // {id, vehicle_reg, week_start, items:{key:{result,note,photo_path}}, status}
+let vehicleChecklistBusy = false;
+let vehicleChecklistPhotoBusyKey = null;
+function vehicleChecklistWeekStart(){ return localISODate(startOfWeek(new Date())); }
+async function loadOrStartVehicleChecklist(){
+  const weekStart = vehicleChecklistWeekStart();
+  const rows = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+weekStart+'&limit=1');
+  if(rows[0]){
+    const itemsMap = {};
+    (rows[0].items||[]).forEach(it=>{ itemsMap[it.key] = it; });
+    vehicleChecklistDraft = {id:rows[0].id, vehicle_reg:rows[0].vehicle_reg||'', week_start:weekStart, items:itemsMap, status:rows[0].status};
+  } else {
+    vehicleChecklistDraft = {id:null, vehicle_reg:'', week_start:weekStart, items:{}, status:'in_progress'};
+  }
+}
+async function renderDriverVehicleChecklist(){
+  const __gen = RENDER_GEN;
+  if(!vehicleChecklistDraft || vehicleChecklistDraft.week_start !== vehicleChecklistWeekStart()){
+    await loadOrStartVehicleChecklist();
+  }
+  const history = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&status=eq.submitted&order=week_start.desc&limit=8');
+  if(__gen !== RENDER_GEN) return;
+  const d = vehicleChecklistDraft;
+  const submitted = d.status==='submitted';
+  const cats = [...new Set(VEHICLE_CHECKLIST_ITEMS.map(i=>i.cat))];
+  const answeredCount = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key] && d.items[i.key].result).length;
+  const weekLabel = new Date(d.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:14px;">
+      <p style="margin:0 0 4px;font-weight:700;">Week commencing ${weekLabel}</p>
+      ${submitted ? `<p class="stub" style="color:var(--ok);margin:0;">✓ Submitted</p>` : `<p class="stub" style="margin:0;">${answeredCount} of ${VEHICLE_CHECKLIST_ITEMS.length} checked</p>`}
+      <label style="display:block;margin-top:10px;">Vehicle registration
+        <input type="text" value="${jsAttr(d.vehicle_reg)}" ${submitted?'disabled':''} placeholder="e.g. AB12 CDE" oninput="vehicleChecklistDraft.vehicle_reg=this.value" onblur="saveVehicleChecklistDraft()">
+      </label>
+    </div>
+    ${cats.map(cat=>`
+      <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(cat)}</p>
+      ${VEHICLE_CHECKLIST_ITEMS.filter(i=>i.cat===cat).map(item=>{
+        const ans = d.items[item.key] || {};
+        return `
+        <div class="card" style="margin-bottom:8px;">
+          <p style="margin:0 0 8px;">${escapeHtml(item.label)}</p>
+          <div class="row" style="gap:8px;">
+            <button class="ghostbtn" style="flex:1;${ans.result==='pass'?'background:var(--ok-bg);color:var(--ok);border-color:var(--ok);':''}" ${submitted?'disabled':''} onclick="setVehicleChecklistResult('${item.key}','pass')">✓ Pass</button>
+            <button class="ghostbtn" style="flex:1;${ans.result==='fail'?'background:var(--warn-bg);color:var(--warn);border-color:var(--warn);':''}" ${submitted?'disabled':''} onclick="setVehicleChecklistResult('${item.key}','fail')">✕ Fail</button>
+          </div>
+          ${ans.result==='fail' ? `
+            <div style="margin-top:8px;">
+              <textarea rows="2" style="width:100%;font-family:inherit;font-size:13px;padding:10px;border-radius:8px;border:1px solid var(--line);box-sizing:border-box;" placeholder="What's wrong? (required)" ${submitted?'disabled':''} oninput="vehicleChecklistDraft.items['${item.key}'].note=this.value" onblur="saveVehicleChecklistDraft()">${escapeHtml(ans.note||'')}</textarea>
+              ${ans.photo_path ? `<img src="${publicUrl('site-photos', ans.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-top:6px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', ans.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
+              ${!submitted ? `
+                <label class="ghostbtn" style="display:block;text-align:center;margin-top:6px;cursor:pointer;">
+                  ${vehicleChecklistPhotoBusyKey===item.key ? 'Uploading…' : (ans.photo_path?'📷 Retake Photo':'📷 Add Photo (required)')}
+                  <input type="file" accept="image/*" capture="environment" style="display:none;" ${vehicleChecklistPhotoBusyKey===item.key?'disabled':''} onchange="uploadVehicleChecklistPhoto(this,'${item.key}')">
+                </label>
+              ` : ''}
+              ${!ans.photo_path && !submitted ? `<p class="stub" style="color:var(--warn);margin:4px 0 0;">Photo required for a failed item</p>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `}).join('')}
+    `).join('')}
+    ${!submitted ? `
+      <button class="darkbtn" style="width:100%;padding:16px;font-size:16px;margin-top:16px;" ${vehicleChecklistBusy?'disabled':''} onclick="submitVehicleChecklist()">
+        ${vehicleChecklistBusy ? 'Submitting…' : 'Submit Checklist'}
+      </button>
+    ` : ''}
+    <p class="sectiontitle" style="margin-top:24px;">Previous Weeks</p>
+    ${history.length ? history.map(h=>`
+      <div class="sitecard">
+        <div class="info"><div class="name">Week of ${new Date(h.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</div><div class="addr">${h.has_fails?'⚠ Had failed items':'All passed'}</div></div>
+      </div>
+    `).join('') : `<div class="empty">No previous checklists yet.</div>`}
+  `, {title:'Vehicle Checklist', back:'#/driver'});
+}
+window.setVehicleChecklistResult = function(key, result){
+  if(!vehicleChecklistDraft.items[key]) vehicleChecklistDraft.items[key] = {key};
+  vehicleChecklistDraft.items[key].result = result;
+  render();
+  saveVehicleChecklistDraft();
+};
+window.uploadVehicleChecklistPhoto = async function(input, key){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  vehicleChecklistPhotoBusyKey = key; render();
+  let photoPath = null;
+  try{
+    const dataUrl = await compressImage(file);
+    photoPath = await uploadDataUrl('site-photos', ME.org_id+'/vehicle-checklist/'+ME.id+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+  }catch(e){ photoPath = null; }
+  vehicleChecklistPhotoBusyKey = null;
+  if(!photoPath){ toast('Photo upload failed — check your connection and try again.'); render(); return; }
+  if(!vehicleChecklistDraft.items[key]) vehicleChecklistDraft.items[key] = {key};
+  vehicleChecklistDraft.items[key].photo_path = photoPath;
+  render();
+  await saveVehicleChecklistDraft();
+};
+async function saveVehicleChecklistDraft(){
+  const d = vehicleChecklistDraft;
+  const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
+  const hasFails = itemsArr.some(it=>it.result==='fail');
+  if(d.id){
+    await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+  } else {
+    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
+    if(rows && rows[0]) d.id = rows[0].id;
+  }
+}
+window.submitVehicleChecklist = async function(){
+  const d = vehicleChecklistDraft;
+  const missing = VEHICLE_CHECKLIST_ITEMS.find(i=>!d.items[i.key] || !d.items[i.key].result);
+  if(missing){ toast('Every item needs a Pass or Fail before you can submit.'); return; }
+  const badFail = VEHICLE_CHECKLIST_ITEMS.find(i=>{
+    const it = d.items[i.key];
+    return it.result==='fail' && (!it.photo_path || !it.note);
+  });
+  if(badFail){ toast('Every failed item needs both a photo and a note before you can submit.'); return; }
+  vehicleChecklistBusy = true; render();
+  const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
+  const hasFails = itemsArr.some(it=>it.result==='fail');
+  let row;
+  if(d.id){
+    row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+  } else {
+    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+    row = rows && rows[0];
+  }
+  vehicleChecklistBusy = false;
+  if(!row){ toast('Could not save — try again.'); render(); return; }
+  d.id = row.id; d.status = 'submitted';
+  toast('Checklist submitted');
+  if(hasFails){
+    const failedLabels = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key].result==='fail').map(i=>i.label);
+    postSystemMessage(null, 'vehicle_checklist_fail', `${ME.name}'s weekly vehicle checklist (${d.vehicle_reg||'no reg given'}) has ${failedLabels.length} failed item${failedLabels.length===1?'':'s'}: ${failedLabels.join('; ')}.`).catch(()=>{});
+  }
+  render();
+};
+
+/* ================= DASHBOARD CHOICE (bottom bar "Dashboard" button) ================= */
+// The bottom bar's Dashboard button used to jump straight to the company
+// overview dashboard. Now it stops here first so a PM/admin can pick
+// between that and the Delivery Dashboard (the Delivery Schedule PM view).
+async function renderDashboardChoice(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="go('#/dashboard')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
+        <div class="lbl">Dashboard</div><div class="sub">Company-wide overview</div>
+      </div>
+      <div class="tile" onclick="go('#/delivery')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
+        <div class="lbl">Delivery Dashboard</div><div class="sub">This week's deliveries</div>
+      </div>
+    </div>
+  `, {title:'Dashboard', back:'#/sites', tabs:false});
+}
+
+/* ================= DELIVERY SCHEDULE (PM/admin side) ================= */
+// A 7-day, slot-by-slot view. Days in the past default collapsed (nothing
+// to plan there any more); today and future days default expanded. Each
+// slot can hold more than one delivery — the ▲▼ buttons both reorder
+// within a slot AND, at the top/bottom of a slot, hop the delivery into
+// the adjacent time slot, which is what "moving the tile changes its
+// time" means here. Sub-priority (1..n) is only ever shown/stored when a
+// slot actually has more than one delivery in it — see resequenceSlot.
+let pmDeliveryWeekOffset = 0;
+let pmDeliveryDayOpen = {}; // dateISO -> bool, seeded lazily per day below
+let pmDeliveryDefaultDate = null; // set right before go('#/delivery/new') so the form defaults to the day it was opened from
+async function resequenceSlot(dateISO, slotKey){
+  const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+slotKey);
+  rows.sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
+  for(let i=0;i<rows.length;i++){
+    const want = rows.length>1 ? i+1 : null;
+    if(rows[i].sub_priority !== want){ await dbUpdate('delivery_tasks', rows[i].id, {sub_priority:want}); }
+  }
+}
+window.moveDeliveryTask = async function(taskId, dir){
+  const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
+  const task = rows[0];
+  if(!task) return;
+  const dateISO = task.scheduled_date;
+  const oldSlot = task.time_slot;
+  const slotIdx = DELIVERY_TIME_SLOTS.findIndex(s=>s.key===oldSlot);
+  const slotTasks = (await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+oldSlot))
+    .sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
+  const pos = slotTasks.findIndex(t=>t.id===taskId);
+  if(dir==='up'){
+    if(pos>0){
+      const other = slotTasks[pos-1];
+      await dbUpdate('delivery_tasks', task.id, {sub_priority: other.sub_priority});
+      await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
+    } else if(slotIdx>0){
+      const destSlot = DELIVERY_TIME_SLOTS[slotIdx-1].key;
+      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: 999}); // 999 = "goes last" until resequenceSlot renumbers it
+      await resequenceSlot(dateISO, oldSlot);
+      await resequenceSlot(dateISO, destSlot);
+    } else { toast('Already the earliest slot of the day.'); return; }
+  } else {
+    if(pos < slotTasks.length-1){
+      const other = slotTasks[pos+1];
+      await dbUpdate('delivery_tasks', task.id, {sub_priority: other.sub_priority});
+      await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
+    } else if(slotIdx < DELIVERY_TIME_SLOTS.length-1){
+      const destSlot = DELIVERY_TIME_SLOTS[slotIdx+1].key;
+      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999}); // -999 = "goes first" until resequenceSlot renumbers it
+      await resequenceSlot(dateISO, oldSlot);
+      await resequenceSlot(dateISO, destSlot);
+    } else { toast('Already the last slot of the day.'); return; }
+  }
+  render();
+};
+function deliveryTaskCardHtml(t, opts){
+  const showOrder = opts.slotCount>1;
+  return `
+    <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
+      <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site')}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+        <div class="addr">${escapeHtml(t.description||'')} · ${escapeHtml(deliveryCollectionLabel(t))}${t.status==='completed'?' · ✓ Completed':''}</div>
+        <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px;" onclick="event.stopPropagation()">
+        <span class="homebtn" style="width:26px;height:26px;font-size:13px;" onclick="moveDeliveryTask('${t.id}','up')">▲</span>
+        <span class="homebtn" style="width:26px;height:26px;font-size:13px;" onclick="moveDeliveryTask('${t.id}','down')">▼</span>
+      </div>
+    </div>
+  `;
+}
+async function renderDeliverySchedulePM(){
+  const __gen = RENDER_GEN;
+  const weekStart = new Date(startOfWeek(Date.now()) + pmDeliveryWeekOffset*7*24*60*60*1000);
+  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(weekStart); d.setDate(d.getDate()+i); return d; });
+  const daysISO = days.map(localISODate);
+  const todayISO = localISODate(new Date());
+  const [tasks, suppliers] = await Promise.all([
+    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=in.('+daysISO.join(',')+')&order=time_slot.asc'),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
+    loadAllProfiles(),
+  ]);
+  const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
+  tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
+  const byDate = {}; daysISO.forEach(iso=>byDate[iso]=[]);
+  tasks.forEach(t=>{ if(byDate[t.scheduled_date]) byDate[t.scheduled_date].push(t); });
+  daysISO.forEach(iso=>{
+    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = iso >= todayISO; // seed once — past days start collapsed, today/future start expanded
+  });
+  const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <span class="homebtn" onclick="pmDeliveryWeekOffset--;render()">‹</span>
+      <div style="font-weight:700;">${escapeHtml(weekLabel)}${pmDeliveryWeekOffset===0?' (This week)':''}</div>
+      <span class="homebtn" onclick="pmDeliveryWeekOffset++;render()">›</span>
+    </div>
+    ${days.map((d,i)=>{
+      const iso = daysISO[i];
+      const dayTasks = byDate[iso];
+      const isPast = iso < todayISO;
+      const open = !!pmDeliveryDayOpen[iso];
+      const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
+      dayTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
+      Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
+      return `
+      <p class="ddrow" style="margin-top:${i===0?'0':'14px'};${isPast?'opacity:.65;':''}" onclick="pmDeliveryDayOpen['${iso}']=!pmDeliveryDayOpen['${iso}'];render()">
+        <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}))}${iso===todayISO?' (Today)':''} <span class="stub">(${dayTasks.length})</span>
+      </p>
+      ${open ? `
+        <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate='${iso}';deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery to this day</button>
+        ${DELIVERY_TIME_SLOTS.map(slot=>`
+          <p class="sectiontitle" style="margin-top:12px;">${slot.label}</p>
+          ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
+        `).join('')}
+      ` : ''}
+      `;
+    }).join('')}
+  `, {title:'Delivery Schedule', back:'#/team'});
+}
+let deliveryFormBusy = false, deliveryFormDraft = null, deliveryFormSiteOperatives = [], deliveryFormPhotoBusy = false, deliveryFormDrivers = [];
+async function loadDeliveryFormSiteOperatives(siteId){
+  if(!siteId){ deliveryFormSiteOperatives = []; return; }
+  await loadAllProfiles();
+  const rows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+  deliveryFormSiteOperatives = rows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+}
+async function renderDeliveryForm(taskId){
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
+  if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
+    if(taskId){
+      const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
+      const t = rows[0];
+      if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
+      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
+    } else {
+      deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
+      pmDeliveryDefaultDate = null;
+    }
+    await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
+  }
+  // Single driver in the org? Assign them automatically — nothing for the
+  // PM to pick. More than one, and it's ambiguous who's doing this
+  // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
+  if(deliveryFormDrivers.length===1 && !deliveryFormDraft.driver_id){
+    deliveryFormDraft.driver_id = deliveryFormDrivers[0].id;
+  }
+  const draft = deliveryFormDraft;
+  const sites = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>a.name.localeCompare(b.name));
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    ${draft._status==='completed' ? `
+    <div class="card" style="border-color:var(--ok);margin-bottom:16px;">
+      <p style="margin:0 0 6px;font-weight:800;color:var(--ok);">✓ Completed${draft._completedAt?' '+new Date(draft._completedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
+      ${draft._completedBy && PROFILES[draft._completedBy] ? `<p class="stub" style="margin:0 0 6px;">By ${escapeHtml(PROFILES[draft._completedBy].name)}</p>` : ''}
+      ${draft._completionPhotoPath ? `<img src="${publicUrl('site-photos', draft._completionPhotoPath)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', draft._completionPhotoPath)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<p class="stub" style="margin:0;">No completion photo on file.</p>`}
+    </div>
+    ` : ''}
+    <div class="formfield"><label class="field-label">Site</label>
+      <select onchange="onDeliveryFormSiteChange(this.value)">
+        <option value="">Choose a site…</option>
+        ${sites.map(s=>`<option value="${s.id}" ${draft.site_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="formfield"><label class="field-label">Description</label>
+      <textarea rows="3" oninput="deliveryFormDraft.description=this.value" placeholder="What's needed?">${escapeHtml(draft.description)}</textarea>
+    </div>
+    <div class="formfield"><label class="field-label">Collection</label>
+      <select onchange="onDeliveryCollectionChange(this.value)">
+        <option value="yard" ${draft.collection_type==='yard'?'selected':''}>YARD</option>
+        ${suppliers.map(s=>`<option value="supplier:${s.id}" ${draft.collection_type==='supplier'&&draft.supplier_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+        <option value="manual" ${draft.collection_type==='manual'?'selected':''}>Other (type address)</option>
+      </select>
+    </div>
+    ${draft.collection_type==='manual' ? `
+    <div class="formfield"><label class="field-label">Collection address</label>
+      <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
+    </div>` : ''}
+    <div class="formfield"><label class="field-label">Site contact</label>
+      <select onchange="deliveryFormDraft.site_contact_id=this.value">
+        <option value="">None</option>
+        ${deliveryFormSiteOperatives.map(o=>`<option value="${o.id}" ${draft.site_contact_id===o.id?'selected':''}>${escapeHtml(o.name)}${o.phone?' — '+escapeHtml(o.phone):' (no phone saved)'}</option>`).join('')}
+      </select>
+      ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
+    </div>
+    <div class="formfield"><label class="field-label">Date</label>
+      <input type="date" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value">
+    </div>
+    <div class="formfield"><label class="field-label">Time slot</label>
+      <select onchange="deliveryFormDraft.time_slot=this.value">
+        ${DELIVERY_TIME_SLOTS.map(s=>`<option value="${s.key}" ${draft.time_slot===s.key?'selected':''}>${s.label}</option>`).join('')}
+      </select>
+    </div>
+    ${deliveryFormDrivers.length>1 ? `
+    <div class="formfield"><label class="field-label">Driver</label>
+      <select onchange="deliveryFormDraft.driver_id=this.value">
+        <option value="">Choose a driver…</option>
+        ${deliveryFormDrivers.map(dr=>`<option value="${dr.id}" ${draft.driver_id===dr.id?'selected':''}>${escapeHtml(dr.name)}</option>`).join('')}
+      </select>
+    </div>
+    ` : deliveryFormDrivers.length===1 ? `
+    <p class="stub" style="margin:0 0 12px;">Assigned to ${escapeHtml(deliveryFormDrivers[0].name)} — your only delivery driver.</p>
+    ` : `
+    <p class="stub" style="margin:0 0 12px;color:var(--warn);">No delivery drivers set up yet — this will sit unassigned until one is added.</p>
+    `}
+    <div class="formfield">
+      <label class="field-label">Photo (optional)</label>
+      ${draft.photo_path ? `<img src="${publicUrl('site-photos', draft.photo_path)}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
+      <input type="file" accept="image/*" onchange="onDeliveryPhotoChosen(this)" ${deliveryFormPhotoBusy?'disabled':''}>
+      ${deliveryFormPhotoBusy ? `<p class="stub">Uploading…</p>` : ''}
+    </div>
+    <div class="card" style="cursor:pointer;" onclick="deliveryFormDraft.high_priority=!deliveryFormDraft.high_priority;render()">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" ${draft.high_priority?'checked':''} onclick="event.stopPropagation();deliveryFormDraft.high_priority=this.checked">
+        <span style="font-weight:800;color:var(--brand1);">! HIGH PRIORITY</span>
+      </label>
+      <p class="stub" style="margin:6px 0 0;">Tick this if the driver needs to see this delivery flagged as urgent — it shows in bold at the top of their view for this time slot.</p>
+    </div>
+    <button class="darkbtn" style="width:100%;margin-top:16px;" ${deliveryFormBusy?'disabled':''} onclick="saveDeliveryTask()">${deliveryFormBusy?'Saving…':(taskId?'Save Changes':'Add to Delivery Schedule')}</button>
+    ${taskId ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--warn);" onclick="deleteDeliveryTask('${taskId}')">Delete Delivery</button>` : ''}
+  `, {title: taskId?'Edit Delivery':'Add Delivery', back:'#/delivery'});
+}
+window.onDeliveryFormSiteChange = async function(siteId){
+  deliveryFormDraft.site_id = siteId;
+  deliveryFormDraft.site_contact_id = '';
+  await loadDeliveryFormSiteOperatives(siteId);
+  render();
+};
+window.onDeliveryCollectionChange = function(val){
+  if(val==='yard'){ deliveryFormDraft.collection_type='yard'; deliveryFormDraft.supplier_id=''; }
+  else if(val==='manual'){ deliveryFormDraft.collection_type='manual'; deliveryFormDraft.supplier_id=''; }
+  else { deliveryFormDraft.collection_type='supplier'; deliveryFormDraft.supplier_id=val.split(':')[1]; }
+  render();
+};
+window.onDeliveryPhotoChosen = async function(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  deliveryFormPhotoBusy = true; render();
+  let photoPath = null;
+  try{
+    const dataUrl = await compressImage(file);
+    photoPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/drafts/'+crypto.randomUUID()+'.jpg', dataUrl);
+  }catch(e){ photoPath = null; }
+  deliveryFormPhotoBusy = false;
+  if(photoPath){ deliveryFormDraft.photo_path = photoPath; } else { toast('Photo upload failed — try again.'); }
+  render();
+};
+window.saveDeliveryTask = async function(){
+  const d = deliveryFormDraft;
+  if(!d.site_id){ toast('Choose a site.'); return; }
+  if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
+  if(!d.scheduled_date){ toast('Choose a date.'); return; }
+  if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
+  if(d.collection_type==='supplier' && !d.supplier_id){ toast('Choose a supplier.'); return; }
+  if(deliveryFormDrivers.length>1 && !d.driver_id){ toast('Choose a driver.'); return; }
+  deliveryFormBusy = true; render();
+  const payload = {
+    org_id: ME.org_id,
+    site_id: d.site_id,
+    description: d.description.trim(),
+    collection_type: d.collection_type,
+    supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
+    collection_address_manual: d.collection_type==='manual' ? d.collection_address_manual.trim() : null,
+    site_contact_id: d.site_contact_id || null,
+    photo_path: d.photo_path || null,
+    scheduled_date: d.scheduled_date,
+    time_slot: d.time_slot,
+    high_priority: !!d.high_priority,
+    driver_id: d.driver_id || null,
+    needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
+  };
+  let ok;
+  if(d._id && d._id!=='new'){
+    ok = await dbUpdate('delivery_tasks', d._id, payload);
+  } else {
+    payload.created_by = ME.id;
+    const rows = await dbInsert('delivery_tasks', payload);
+    ok = rows && rows[0];
+  }
+  deliveryFormBusy = false;
+  if(ok){
+    // Keep whichever slot(s) this touched fully, sequentially ordered —
+    // both the slot it landed in, and (on an edit that moved it) the slot
+    // it left behind, so nobody's left with a gap or an orphaned sub-order.
+    if(d._origDate && (d._origDate!==payload.scheduled_date || d._origSlot!==payload.time_slot)){
+      await resequenceSlot(d._origDate, d._origSlot);
+    }
+    await resequenceSlot(payload.scheduled_date, payload.time_slot);
+    toast(d._id && d._id!=='new' ? 'Delivery updated' : 'Added to delivery schedule');
+    deliveryFormDraft = null;
+    go('#/delivery');
+  } else {
+    toast('Could not save — check your connection and try again.');
+    render();
+  }
+};
+window.deleteDeliveryTask = async function(taskId){
+  if(!await customConfirm('Delete this delivery? This cannot be undone.')) return;
+  const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
+  const t = rows[0];
+  const ok = await dbDelete('delivery_tasks', taskId);
+  if(ok){
+    if(t) await resequenceSlot(t.scheduled_date, t.time_slot);
+    deliveryFormDraft = null;
+    toast('Delivery deleted');
+    go('#/delivery');
+  }
+  else { toast('Could not delete — try again.'); }
+};
+
+/* ================= VEHICLE CHECKLISTS (PM/admin view) ================= */
+// Read-only for managers — drivers own their own checklists (see the RLS
+// policies added in the vehicle_checklists_table migration). This is just a
+// list of submissions, newest first, with a filter for failed-item ones,
+// and a detail view that shows every item plus fail photos/notes.
+let vehicleChecklistsAdminFilter = 'all'; // 'all' | 'fails'
+async function renderVehicleChecklistsAdmin(){
+  const __gen = RENDER_GEN;
+  const rows = await dbSelect('vehicle_checklists', 'org_id=eq.'+ME.org_id+'&status=eq.submitted&order=submitted_at.desc&limit=200');
+  await loadAllProfiles();
+  const filtered = vehicleChecklistsAdminFilter==='fails' ? rows.filter(r=>r.has_fails) : rows;
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="row" style="gap:8px;margin-bottom:14px;">
+      <button class="ghostbtn" style="flex:1;${vehicleChecklistsAdminFilter==='all'?'background:var(--blue-bg);color:var(--blue);border-color:var(--blue);':''}" onclick="vehicleChecklistsAdminFilter='all';render()">All</button>
+      <button class="ghostbtn" style="flex:1;${vehicleChecklistsAdminFilter==='fails'?'background:var(--warn-bg);color:var(--warn);border-color:var(--warn);':''}" onclick="vehicleChecklistsAdminFilter='fails';render()">⚠ Had Fails</button>
+    </div>
+    ${filtered.length ? filtered.map(r=>`
+      <div class="sitecard" onclick="go('#/vehicle-checklists/${r.id}')" style="cursor:pointer;">
+        <div class="info">
+          <div class="name">${escapeHtml((PROFILES[r.driver_id]||{}).name || 'Unknown driver')}${r.vehicle_reg?' · '+escapeHtml(r.vehicle_reg):''}</div>
+          <div class="addr">Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} · ${r.has_fails?'⚠ Had failed items':'All passed'}</div>
+        </div>
+      </div>
+    `).join('') : `<div class="empty">No submitted checklists${vehicleChecklistsAdminFilter==='fails'?' with failed items':''} yet.</div>`}
+  `, {title:'Vehicle Checklists', back:'#/team'});
+}
+async function renderVehicleChecklistDetail(id){
+  const __gen = RENDER_GEN;
+  const rows = await dbSelect('vehicle_checklists', 'id=eq.'+id+'&limit=1');
+  const r = rows[0];
+  if(!r){ go('#/vehicle-checklists'); return; }
+  await loadAllProfiles();
+  if(__gen !== RENDER_GEN) return;
+  const itemsMap = {}; (r.items||[]).forEach(it=>{ itemsMap[it.key]=it; });
+  const cats = [...new Set(VEHICLE_CHECKLIST_ITEMS.map(i=>i.cat))];
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:14px;">
+      <p style="margin:0 0 4px;font-weight:700;">${escapeHtml((PROFILES[r.driver_id]||{}).name || 'Unknown driver')}</p>
+      <p class="stub" style="margin:0;">${r.vehicle_reg?escapeHtml(r.vehicle_reg)+' · ':''}Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</p>
+      <p class="stub" style="margin:4px 0 0;">Submitted ${r.submitted_at?new Date(r.submitted_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
+    </div>
+    ${cats.map(cat=>`
+      <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(cat)}</p>
+      ${VEHICLE_CHECKLIST_ITEMS.filter(i=>i.cat===cat).map(item=>{
+        const ans = itemsMap[item.key] || {};
+        return `
+        <div class="card" style="margin-bottom:8px;">
+          <p style="margin:0 0 4px;">${escapeHtml(item.label)}</p>
+          <p style="margin:0;font-weight:700;color:${ans.result==='fail'?'var(--warn)':'var(--ok)'};">${ans.result==='fail'?'✕ Fail':ans.result==='pass'?'✓ Pass':'— Not answered'}</p>
+          ${ans.result==='fail' ? `
+            <p class="stub" style="margin:6px 0 0;">${escapeHtml(ans.note||'')}</p>
+            ${ans.photo_path ? `<img src="${publicUrl('site-photos', ans.photo_path)}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;margin-top:6px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', ans.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
+          ` : ''}
+        </div>
+      `}).join('')}
+    `).join('')}
+  `, {title:'Vehicle Checklist', back:'#/vehicle-checklists'});
+}
+
 /* ================= router / render ================= */
 // Thin wrapper around the real router (renderRoute) so an uncaught error
 // anywhere in a page's render — a bad query, a missing field on some older
@@ -24846,6 +25662,18 @@ async function renderRoute(){
   // and come straight back.
   if(preParts[0]!=='signature' && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
+  // Delivery drivers get their own simplified home instead of the normal
+  // site list — they don't work "on a site" the way operatives do, so
+  // sending them into renderSites() would show them a screen with nothing
+  // for them to do. Any other top-level route (account, signature, etc.)
+  // still works normally for them.
+  if(ME.role==='driver' && (!parts.length || parts[0]==='sites')){ go('#/driver'); return; }
+  if(parts[0]==='driver'){
+    if(parts[1]==='checkin') return renderDriverCheckin();
+    if(parts[1]==='schedule') return renderDriverSchedule();
+    if(parts[1]==='vehicle-checklist') return renderDriverVehicleChecklist();
+    return renderDriverHome();
+  }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
@@ -24888,6 +25716,21 @@ async function renderRoute(){
   if(parts[0]==='calendar'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     return renderUnifiedCalendar();
+  }
+  if(parts[0]==='dashboard-choice'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    return renderDashboardChoice();
+  }
+  if(parts[0]==='delivery'){
+    if(!ME || !isFullManager(ME)){ go('#/sites'); return; }
+    if(parts[1]==='new') return renderDeliveryForm(null);
+    if(parts[1]==='edit' && parts[2]) return renderDeliveryForm(parts[2]);
+    return renderDeliverySchedulePM();
+  }
+  if(parts[0]==='vehicle-checklists'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    if(parts[1]) return renderVehicleChecklistDetail(parts[1]);
+    return renderVehicleChecklistsAdmin();
   }
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
