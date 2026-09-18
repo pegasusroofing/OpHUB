@@ -69,6 +69,9 @@
     background:var(--paper);
     display:flex;flex-direction:column;
     box-shadow:0 0 40px rgba(0,0,0,0.08);
+    overflow-x:hidden; /* a single misbehaving element (e.g. a native date-picker's
+      internal minimum width on some WebViews) must never widen the whole page —
+      that shifted the header/back-arrow off-screen and made it hard to tap */
   }
   /* Same app, same layout, same everything below this width — on a wide
      desktop browser window this just widens #app into a real page (like
@@ -1185,6 +1188,10 @@ async function fetchWithRetry(url, opts, ms){
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
+  // No connection at all — don't burn a 10s timeout finding that out; the
+  // stale-but-present token gets sent as-is, and dbSelect's own offline
+  // fallback (cache, or navigator.onLine's fast-path) takes it from there.
+  if(navigator.onLine === false) return;
   try{
     const res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
@@ -1282,14 +1289,104 @@ function toastNetworkIssue(){
   lastNetworkToastAt = Date.now();
   toast('Connection is weak — some data may not have loaded. Pull to refresh once signal improves.');
 }
+
+/* ================= offline read cache =================
+   Read-only offline support: every successful dbSelect() response is
+   written through to persistent storage (the same window.storage used for
+   the session — Capacitor Preferences natively, localStorage on the web),
+   keyed by exactly the table+querystring that produced it. If a later call
+   with that same table+querystring can't reach the network, the cached copy
+   is served instead of an empty result, so whatever screens someone last
+   opened while online (Home, a site's SOW, etc.) keep working with no
+   signal — deliberately nothing more than that: this never queues up
+   writes, so dbInsert/dbUpdate/dbDelete still just fail with a toast when
+   offline, exactly as before.
+   Two things keep this from ever slowing the app down: (1) the cache write
+   after a successful fetch is fire-and-forget — it happens after the data
+   has already been handed back to the caller, not before; (2) when the
+   device is known to have no connection at all (navigator.onLine===false),
+   the network attempt — which would otherwise wait out sbFetch's ~20s
+   timeout (plus a retry) before failing — is skipped entirely, so a truly
+   offline screen resolves from cache near-instantly instead of hanging. */
+const CACHE_PREFIX = 'rtb-cache-v1:';
+const CACHE_INDEX_KEY = 'rtb-cache-index-v1';
+const CACHE_MAX_ENTRIES = 300; // LRU-capped so long-term use can't grow this unbounded
+let cacheIndexMem = null;
+// Set true by dbSelect whenever it had to fall back to a cached copy during
+// the render pass currently in flight; reset per-pass at the top of
+// renderRoute(). shell() reads it to show the "showing saved data" banner.
+let OFFLINE_CACHE_USED = false;
+async function getCacheIndex(){
+  if(cacheIndexMem) return cacheIndexMem;
+  const idx = await getJSON(CACHE_INDEX_KEY, false, []);
+  cacheIndexMem = Array.isArray(idx) ? idx : [];
+  return cacheIndexMem;
+}
+async function touchCacheIndex(key){
+  try{
+    const idx = await getCacheIndex();
+    const pos = idx.indexOf(key);
+    if(pos!==-1) idx.splice(pos,1);
+    idx.push(key);
+    const evicted = [];
+    while(idx.length > CACHE_MAX_ENTRIES){ evicted.push(idx.shift()); }
+    cacheIndexMem = idx;
+    await setJSON(CACHE_INDEX_KEY, idx, false);
+    evicted.forEach(k=>{ sdelete(CACHE_PREFIX+k, false).catch(()=>{}); });
+  }catch(e){ /* best-effort — a failed cache write is never worth surfacing */ }
+}
+async function cacheRows(table, qs, rows){
+  const key = table+'?'+qs;
+  try{
+    await setJSON(CACHE_PREFIX+key, {data:rows, at:Date.now()}, false);
+    await touchCacheIndex(key);
+  }catch(e){ /* best-effort */ }
+}
+async function getCachedRows(table, qs){
+  try{
+    const v = await getJSON(CACHE_PREFIX+(table+'?'+qs), false, null);
+    return (v && Array.isArray(v.data)) ? v : null;
+  }catch(e){ return null; }
+}
+// Wipes every cached read on sign-out — this app's device-lock model means a
+// phone is usually one operative's own, but nothing here should assume that;
+// a shared or handed-down device shouldn't keep showing the previous
+// person's cached site data to whoever signs in next.
+async function clearOfflineCache(){
+  try{
+    const idx = await getCacheIndex();
+    for(const k of idx){ await sdelete(CACHE_PREFIX+k, false); }
+    cacheIndexMem = [];
+    await sdelete(CACHE_INDEX_KEY, false);
+  }catch(e){ /* best-effort */ }
+}
 async function dbSelect(table, qs){
+  if(navigator.onLine === false){
+    const cached = await getCachedRows(table, qs);
+    if(cached){ OFFLINE_CACHE_USED = true; return cached.data; }
+    return [];
+  }
   let res;
   try{
     res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
-  }catch(e){ toastNetworkIssue(); return []; }
+  }catch(e){
+    const cached = await getCachedRows(table, qs);
+    if(cached){ OFFLINE_CACHE_USED = true; return cached.data; }
+    toastNetworkIssue();
+    return [];
+  }
   if(!res.ok){ console.error(await safeErr(res)); return []; }
-  return res.json();
+  const data = await res.json();
+  cacheRows(table, qs, data); // fire-and-forget — see comment block above
+  return data;
 }
+// The moment signal comes back, quietly re-render whatever's on screen so it
+// swaps from cached data to live data without anyone having to pull to
+// refresh themselves — only fires if something was actually shown from
+// cache during the current screen's last render.
+window.addEventListener('online', function(){
+  if(OFFLINE_CACHE_USED) render();
+});
 async function dbInsert(table, rowOrRows){
   let res;
   try{
@@ -1542,6 +1639,7 @@ window.doSignOut = async function(){
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   applyTheme(null);
   await sdelete(K_SESSION, false);
+  await clearOfflineCache();
   location.hash = '';
   render();
 };
@@ -1943,7 +2041,7 @@ async function loadAllProfiles(force){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
   profilesLoadedAt = Date.now();
@@ -2308,6 +2406,7 @@ function shell(innerHtml, opts){
   return `
     <div style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
+      ${OFFLINE_CACHE_USED ? `<div style="background:var(--warn-bg);color:var(--warn);padding:6px 14px;font-size:12px;font-weight:700;text-align:center;">📡 Offline — showing saved data from earlier</div>` : ''}
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
@@ -19531,6 +19630,18 @@ window.sendCertEmailFor = async function(key, ids){
 // #/sites — and if the viewer is a PM/admin, they get the site-wide
 // all-operatives overview (merged in from the old separate Certifications
 // page + Dashboard/Certification picker hub) instead of their own tools.
+// PMs/admins can now set an operative's contact number directly from the
+// Operative Dashboard (not just the operative themselves from their own
+// Account Settings) — the same profiles.phone column either side writes to,
+// so whichever one is set last is what shows everywhere it's read (delivery
+// site contacts, this dashboard, their own settings).
+window.saveOperativePhone = async function(operativeId){
+  const input = document.getElementById('opPhone_'+operativeId);
+  const phone = input ? input.value.trim() : '';
+  const row = await dbUpdate('profiles', operativeId, {phone: phone||null});
+  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].phone = phone||null; toast('Contact number saved'); render(); }
+  else { toast('Could not save — check your connection and try again.'); }
+};
 async function renderOperativeDashboard(siteId){
   const __gen = RENDER_GEN;
   const site = siteId ? SITES.find(s=>s.id===siteId) : null;
@@ -19583,8 +19694,17 @@ async function renderOperativeDashboard(siteId){
 
       <p class="sectiontitle" style="margin-top:20px;">Assigned Operatives (${assignedOperatives.length})</p>
       ${assignedOperatives.length ? assignedOperatives.map(o=>`
-        <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub" style="margin-left:4px;">${certCountByOp[o.id]||0} cert${(certCountByOp[o.id]||0)===1?'':'s'}</span></p>
+        <p class="ddrow" onclick="siteCertOpen['${o.id}']=!siteCertOpen['${o.id}'];render();"><span class="arrow">${siteCertOpen[o.id]?'▼':'▶'}</span> ${escapeHtml(o.name)} <span class="stub" style="margin-left:4px;">${certCountByOp[o.id]||0} cert${(certCountByOp[o.id]||0)===1?'':'s'}${o.phone?' · 📞 '+escapeHtml(o.phone):''}</span></p>
         ${siteCertOpen[o.id] ? `
+          ${isClientView ? '' : `
+          <div class="card" style="margin-bottom:10px;">
+            <label class="field-label">Contact number</label>
+            <div style="display:flex;gap:8px;">
+              <input type="tel" id="opPhone_${o.id}" value="${escapeHtml(o.phone||'')}" placeholder="e.g. 07123 456789" style="flex:1;">
+              <button class="darkbtn" style="flex:none;" onclick="saveOperativePhone('${o.id}')">Save</button>
+            </div>
+          </div>
+          `}
           ${isClientView ? '' : certListSelectionBarHtml(allCertsByOp[o.id]||[], 'siteop-'+o.id, o.id, pmList)}
           ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true, selectable:true})}
           ${isClientView ? '' : `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>`}
@@ -24900,9 +25020,15 @@ window.sendMessageReply = async function(siteId, parentId, audience, targetSiteI
 const DELIVERY_TIME_SLOTS = [
   {key:'7am', label:'7:00am'},
   {key:'8am', label:'8:00am'},
-  {key:'10-12', label:'10am – 12pm'},
-  {key:'12-2', label:'12 – 2pm'},
-  {key:'2-4', label:'2 – 4pm'},
+  {key:'9am', label:'9:00am'},
+  {key:'10am', label:'10:00am'},
+  {key:'11am', label:'11:00am'},
+  {key:'12pm', label:'12:00pm'},
+  {key:'1pm', label:'1:00pm'},
+  {key:'2pm', label:'2:00pm'},
+  {key:'3pm', label:'3:00pm'},
+  {key:'4pm', label:'4:00pm'},
+  {key:'5pm', label:'5:00pm'},
 ];
 let driverCheckinBusy = false, driverCheckinError = null;
 let driverScheduleDateOffset = 0; // 0 = today, +1 = tomorrow, -1 = yesterday
@@ -24990,10 +25116,10 @@ async function renderDriverSchedule(){
   myTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
-    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <span class="homebtn" onclick="driverScheduleDateOffset--;render()">‹</span>
-      <div style="font-weight:700;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
-      <span class="homebtn" onclick="driverScheduleDateOffset++;render()">›</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset--;render()">‹</span>
+      <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
+      <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset++;render()">›</span>
     </div>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
@@ -25327,10 +25453,16 @@ function deliveryTaskCardHtml(t, opts){
 }
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
-  const weekStart = new Date(startOfWeek(Date.now()) + pmDeliveryWeekOffset*7*24*60*60*1000);
-  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(weekStart); d.setDate(d.getDate()+i); return d; });
-  const daysISO = days.map(localISODate);
   const todayISO = localISODate(new Date());
+  // A rolling 7-day window anchored on today, not a fixed Mon–Sun calendar
+  // week — offset 0 is always "today plus the next 6 days", so today is
+  // always the first row instead of sitting somewhere mid-week under
+  // earlier days from the same calendar week. Each ‹ step moves the whole
+  // window back 7 days, so yesterday (and the days before it) fall into
+  // that previous block rather than cluttering the view above today.
+  const anchor = new Date(); anchor.setHours(0,0,0,0); anchor.setDate(anchor.getDate() + pmDeliveryWeekOffset*7);
+  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(anchor); d.setDate(d.getDate()+i); return d; });
+  const daysISO = days.map(localISODate);
   const [tasks, suppliers] = await Promise.all([
     dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=in.('+daysISO.join(',')+')&order=time_slot.asc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
@@ -25342,30 +25474,31 @@ async function renderDeliverySchedulePM(){
   tasks.forEach(t=>{ if(byDate[t.scheduled_date]) byDate[t.scheduled_date].push(t); });
   daysISO.forEach((iso,i)=>{
     const isWeekend = days[i].getDay()===0 || days[i].getDay()===6;
-    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = (iso >= todayISO) && !isWeekend; // seed once — past days start collapsed, weekends start collapsed, today/future weekdays start expanded
+    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = (iso >= todayISO) && !isWeekend; // past days (a previous window) and weekends start collapsed; today/future weekdays start expanded
   });
-  const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const weekLabel = pmDeliveryWeekOffset===0
+    ? 'Today – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
+    : days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
-    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <span class="homebtn" onclick="pmDeliveryWeekOffset--;render()">‹</span>
-      <div style="font-weight:700;">${escapeHtml(weekLabel)}${pmDeliveryWeekOffset===0?' (This week)':''}</div>
-      <span class="homebtn" onclick="pmDeliveryWeekOffset++;render()">›</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset--;render()">‹</span>
+      <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(weekLabel)}</div>
+      <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset++;render()">›</span>
     </div>
+    <button class="darkbtn" style="width:100%;margin-bottom:16px;" onclick="pmDeliveryDefaultDate=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
     ${days.map((d,i)=>{
       const iso = daysISO[i];
       const dayTasks = byDate[iso];
-      const isPast = iso < todayISO;
       const open = !!pmDeliveryDayOpen[iso];
       const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
       dayTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
       Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
       return `
-      <p class="ddrow" style="margin-top:${i===0?'0':'14px'};${isPast?'opacity:.65;':''}" onclick="pmDeliveryDayOpen['${iso}']=!pmDeliveryDayOpen['${iso}'];render()">
+      <p class="ddrow" style="margin-top:${i===0?'0':'14px'};" onclick="pmDeliveryDayOpen['${iso}']=!pmDeliveryDayOpen['${iso}'];render()">
         <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}))}${iso===todayISO?' (Today)':''} <span class="stub">(${dayTasks.length})</span>
       </p>
       ${open ? `
-        <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate='${iso}';deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery to this day</button>
         ${DELIVERY_TIME_SLOTS.map(slot=>`
           <p class="sectiontitle" style="margin-top:12px;">${slot.label}</p>
           ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
@@ -25392,7 +25525,7 @@ async function renderDeliveryForm(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
+      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
     } else {
       deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null;
@@ -25443,8 +25576,8 @@ async function renderDeliveryForm(taskId){
       </select>
       ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
     </div>
-    <div class="formfield"><label class="field-label">Date</label>
-      <input type="date" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value">
+    <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
+      <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value">
     </div>
     <div class="formfield"><label class="field-label">Time slot</label>
       <select onchange="deliveryFormDraft.time_slot=this.value">
@@ -25529,13 +25662,15 @@ window.saveDeliveryTask = async function(){
     driver_id: d.driver_id || null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
   };
-  let ok;
+  let ok, savedId;
   if(d._id && d._id!=='new'){
     ok = await dbUpdate('delivery_tasks', d._id, payload);
+    savedId = d._id;
   } else {
     payload.created_by = ME.id;
     const rows = await dbInsert('delivery_tasks', payload);
     ok = rows && rows[0];
+    savedId = ok && ok.id;
   }
   deliveryFormBusy = false;
   if(ok){
@@ -25546,6 +25681,7 @@ window.saveDeliveryTask = async function(){
       await resequenceSlot(d._origDate, d._origSlot);
     }
     await resequenceSlot(payload.scheduled_date, payload.time_slot);
+    if(savedId) await syncDeliveryCalendarEvent(savedId, d._calendarEventId, payload);
     toast(d._id && d._id!=='new' ? 'Delivery updated' : 'Added to delivery schedule');
     deliveryFormDraft = null;
     go('#/delivery');
@@ -25554,13 +25690,35 @@ window.saveDeliveryTask = async function(){
     render();
   }
 };
+// Every delivery on the schedule now shows up on that site's own Key Dates
+// calendar too — kept in sync via delivery_tasks.calendar_event_id, same
+// linked-record pattern as a Material PO's scheduled delivery date (see
+// changeMaterialDeliveryDate above). No reminder is ever configured on the
+// synced entry (reminder_recipient_ids stays empty), so creating/updating it
+// never triggers a notification on its own — the only delivery notification
+// stays the single one on completion (notifyDeliveryComplete).
+async function syncDeliveryCalendarEvent(taskId, existingEventId, payload){
+  const title = 'Delivery: '+payload.description;
+  try{
+    if(existingEventId){
+      await dbUpdate('site_calendar_events', existingEventId, {title, event_date:payload.scheduled_date, site_id:payload.site_id, reminder_sent:false});
+    } else {
+      const rows = await dbInsert('site_calendar_events', {org_id:payload.org_id, site_id:payload.site_id, title, event_date:payload.scheduled_date, is_private:false, reminder_recipient_ids:[], created_by:ME.id});
+      const newEventId = rows && rows[0] && rows[0].id;
+      if(newEventId) await dbUpdate('delivery_tasks', taskId, {calendar_event_id:newEventId});
+    }
+  }catch(e){ /* best-effort — never blocks the delivery save itself */ }
+}
 window.deleteDeliveryTask = async function(taskId){
   if(!await customConfirm('Delete this delivery? This cannot be undone.')) return;
   const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
   const t = rows[0];
   const ok = await dbDelete('delivery_tasks', taskId);
   if(ok){
-    if(t) await resequenceSlot(t.scheduled_date, t.time_slot);
+    if(t){
+      await resequenceSlot(t.scheduled_date, t.time_slot);
+      if(t.calendar_event_id) await dbDelete('site_calendar_events', t.calendar_event_id).catch(()=>{});
+    }
     deliveryFormDraft = null;
     toast('Delivery deleted');
     go('#/delivery');
@@ -25653,6 +25811,7 @@ async function render(){
 }
 async function renderRoute(){
   RENDER_GEN++; // this render pass now supersedes any still-loading one
+  OFFLINE_CACHE_USED = false; // re-earned by dbSelect this pass if anything actually had to fall back to cache
   if(ramsPollTimer){ clearInterval(ramsPollTimer); ramsPollTimer = null; }
   if(coshhPollTimer){ clearInterval(coshhPollTimer); coshhPollTimer = null; }
   if(schedulePollTimer){ clearInterval(schedulePollTimer); schedulePollTimer = null; }
