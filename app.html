@@ -4371,7 +4371,7 @@ async function renderTeam(){
   });
   sortPriceRateCategories(priceRateCategories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="ddrow" style="margin-top:0;" onclick="go('#/delivery')">🚚 Delivery Schedule</p>
+    <p class="ddrow" style="margin-top:0;" onclick="deliveryScheduleBackHash='#/team';go('#/delivery')">🚚 Delivery Schedule</p>
     <p class="ddrow" onclick="go('#/vehicle-checklists')">🚐 Vehicle Checklists</p>
     ${iAmAdmin ? `
     <p class="ddrow" onclick="go('#/dashboard')">📊 Dashboard</p>
@@ -25240,7 +25240,7 @@ async function renderDashboardChoice(){
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
         <div class="lbl">Dashboard</div><div class="sub">Company-wide overview</div>
       </div>
-      <div class="tile" onclick="go('#/delivery')">
+      <div class="tile" onclick="deliveryScheduleBackHash='#/dashboard-choice';go('#/delivery')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Delivery Dashboard</div><div class="sub">This week's deliveries</div>
       </div>
@@ -25259,6 +25259,13 @@ async function renderDashboardChoice(){
 let pmDeliveryWeekOffset = 0;
 let pmDeliveryDayOpen = {}; // dateISO -> bool, seeded lazily per day below
 let pmDeliveryDefaultDate = null; // set right before go('#/delivery/new') so the form defaults to the day it was opened from
+// Delivery Schedule has two entry points (Admin Centre's quick link, and the
+// Delivery Dashboard tile off the Dashboard chooser) that land on the same
+// '#/delivery' route — so its back arrow can't be a fixed hash. Whichever
+// entry point was actually tapped sets this right before navigating in, and
+// renderDeliverySchedulePM's shell() reads it back, instead of always going
+// to Admin Centre regardless of where you came from.
+let deliveryScheduleBackHash = '#/team';
 async function resequenceSlot(dateISO, slotKey){
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+slotKey);
   rows.sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
@@ -25333,8 +25340,9 @@ async function renderDeliverySchedulePM(){
   tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
   const byDate = {}; daysISO.forEach(iso=>byDate[iso]=[]);
   tasks.forEach(t=>{ if(byDate[t.scheduled_date]) byDate[t.scheduled_date].push(t); });
-  daysISO.forEach(iso=>{
-    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = iso >= todayISO; // seed once — past days start collapsed, today/future start expanded
+  daysISO.forEach((iso,i)=>{
+    const isWeekend = days[i].getDay()===0 || days[i].getDay()===6;
+    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = (iso >= todayISO) && !isWeekend; // seed once — past days start collapsed, weekends start collapsed, today/future weekdays start expanded
   });
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if(__gen !== RENDER_GEN) return;
@@ -25365,7 +25373,7 @@ async function renderDeliverySchedulePM(){
       ` : ''}
       `;
     }).join('')}
-  `, {title:'Delivery Schedule', back:'#/team'});
+  `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
 let deliveryFormBusy = false, deliveryFormDraft = null, deliveryFormSiteOperatives = [], deliveryFormPhotoBusy = false, deliveryFormDrivers = [];
 async function loadDeliveryFormSiteOperatives(siteId){
