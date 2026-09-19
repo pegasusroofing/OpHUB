@@ -199,10 +199,17 @@
     width:100%;max-width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
     font-size:14px;background:#fff;color:var(--ink);font-family:inherit;box-sizing:border-box;
   }
+  /* Native date inputs can ignore width:100%/max-width:100% on some mobile
+     WebViews (iOS especially) and impose their own internal minimum width,
+     pushing the whole page wider than the viewport and shifting the header/
+     back-arrow off-screen. display:block plus an explicit overflow guard on
+     the wrapping .formfield (below) closes that gap everywhere a date field
+     is used — daily briefing / report "conducted on" dates included. */
+  input[type=date]{display:block;}
   textarea{resize:vertical;min-height:70px;}
   label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
     text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
-  .formfield{margin-bottom:12px;min-width:0;max-width:100%;box-sizing:border-box;}
+  .formfield{margin-bottom:12px;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;}
   .currency-input-wrap{position:relative;}
   .currency-input-wrap .currency-prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--slate);font-weight:700;font-size:14px;pointer-events:none;}
   .currency-input-wrap input{padding-left:25px;}
@@ -614,7 +621,12 @@ function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${String(o).repla
 function toast(msg){
   const host=document.getElementById('toastHost');
   const el=document.createElement('div'); el.className='toast';
-  el.innerHTML='<div class="stripe"></div><div>'+msg+'</div>';
+  // #(toast-xss-fix): msg can trace back to another user's self-chosen
+  // display name or org name (e.g. "X removed"/"X deleted" toasts built
+  // from a profile/org name) — escape it before insertion via innerHTML,
+  // same as customConfirm/customAlert already do, so a malicious name
+  // can't execute script in the admin's session who acts on it.
+  el.innerHTML='<div class="stripe"></div><div>'+escapeHtml(msg)+'</div>';
   host.innerHTML=''; host.appendChild(el);
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); },3200);
 }
@@ -1498,6 +1510,32 @@ async function deliverExcelFile(wb, filename){
   XLSX.writeFile(wb, filename);
   toast('Excel file downloaded');
 }
+// Same idea as deliverExcelFile, but for an ExcelJS-built workbook buffer
+// (used by the branded exports that embed the company logo — ExcelJS is the
+// only one of the two spreadsheet libraries that can do that) rather than a
+// SheetJS/XLSX workbook object.
+async function deliverExcelBuffer(buffer, filename){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(isNative){
+    toast('Opening file…');
+    try{
+      const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
+      const path = 'exports/'+uid()+'-'+safeName;
+      const stored = await uploadToStorage('site-photos', path, blob, blob.type);
+      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)});
+        return;
+      }
+    }catch(e){ /* fall through to the direct-download fallback below */ }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+  toast('Excel file downloaded');
+}
 // Same "deliver a file" problem as deliverPdf/deliverExcelFile, for a .ics
 // calendar file — iPhone (Apple Calendar) and Android (Google Calendar etc.)
 // both know how to import a standard .ics when it's opened, so a single
@@ -1511,8 +1549,17 @@ async function deliverIcsFile(icsText, filename){
       const safeName = filename.replace(/[^a-z0-9.\-]+/gi,'-');
       const path = 'exports/'+uid()+'-'+safeName;
       const stored = await uploadToStorage('site-photos', path, blob, 'text/calendar');
-      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
-        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)});
+      if(stored){
+        // #(ics-in-app-browser-fix): a .ics only gets iOS's native "Add to
+        // Calendar" import prompt when the OS's own Safari opens it — inside
+        // Capacitor's in-app Browser plugin (an embedded view, not real
+        // Safari) iOS just displays or silently drops the raw file instead,
+        // which looked to the user like "nothing happens"/an error and
+        // never actually saved anything to their calendar. window.open with
+        // the '_system' target is what Capacitor recognises as "hand this
+        // off to the real system browser" instead of opening its own view,
+        // which is what lets iOS's Calendar-import handoff actually fire.
+        window.open(publicUrl('site-photos', stored), '_system');
         return;
       }
     }catch(e){ /* fall through to the direct-download fallback below */ }
@@ -1957,7 +2004,7 @@ function canUsePriceBuilder(){ return !!ME && ME.role==='admin'; }
 // Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
-function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections &amp; Snagging' : 'Snagging &amp; Variations'; }
+function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections & Reports' : 'Snagging & Variations'; }
 function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function roleLabel(role){
@@ -2294,6 +2341,43 @@ window._promptAnswer = function(result){
   _promptResolve = null;
   if(resolve) resolve(result);
 };
+// Same overlay/resolve plumbing as customPrompt, plus a "CC me a copy" tick
+// box — used everywhere a single typed recipient email is collected for
+// sending a document (RAMS/COSHH/TBT/Site Induction/Priced Sheet). Resolves
+// to {value, ccMe} on OK, or null on Cancel (same falsy-on-cancel contract
+// as customPrompt).
+function customPromptWithCc(message, defaultValue){
+  return new Promise(resolve=>{
+    _promptResolve = resolve;
+    let ov = document.getElementById('confirmModalOverlay');
+    if(!ov){
+      ov = document.createElement('div');
+      ov.id = 'confirmModalOverlay';
+      ov.className = 'geo-modal-overlay';
+      document.body.appendChild(ov);
+    }
+    ov.onclick = (e)=>{ if(e.target===ov) window._promptAnswer(null); };
+    ov.innerHTML = `
+      <div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 10px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+        <div class="formfield" style="margin-top:0;"><input type="text" id="customPromptInput" value="${escapeHtml(defaultValue||'')}" onkeyup="if(event.key==='Enter')window._promptAnswerCc();"></div>
+        <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;">
+          <input type="checkbox" id="customPromptCcMe" style="width:18px;height:18px;flex:none;">
+          CC me a copy
+        </label>
+        <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswerCc()">OK</button>
+        <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+    const input = document.getElementById('customPromptInput');
+    if(input){ input.focus(); input.select(); }
+  });
+}
+window._promptAnswerCc = function(){
+  const input = document.getElementById('customPromptInput');
+  const cc = document.getElementById('customPromptCcMe');
+  window._promptAnswer({value: input?input.value:'', ccMe: !!(cc&&cc.checked)});
+};
 // Same overlay/resolve plumbing as customPrompt above, just a date input
 // instead of text — used anywhere a single date needs picking outside a
 // full form (e.g. the "Starts <date>" chip on the site list).
@@ -2386,12 +2470,15 @@ function fitTileLabelsOneLine(){
     document.querySelectorAll('.hometiles .tile .lbl').forEach(el=>{
       el.style.fontSize = '';
       let guard = 0;
+      // Floor raised from 9.5px to 12px — past that point it now wraps onto
+      // a second line at a still-legible size instead of continuing to
+      // shrink towards an eventually-tiny, hard-to-read single line.
       while(guard++ < 14){
         const cs = getComputedStyle(el);
         let lh = parseFloat(cs.lineHeight);
         if(isNaN(lh)) lh = parseFloat(cs.fontSize)*1.2;
         const size = parseFloat(cs.fontSize);
-        if(el.getBoundingClientRect().height <= lh*1.3 || size<=9.5) break;
+        if(el.getBoundingClientRect().height <= lh*1.3 || size<=12) break;
         el.style.fontSize = (size-0.5)+'px';
       }
     });
@@ -3086,7 +3173,7 @@ function siteCardHtml(s, canAdd, pmOptions){
         <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
-      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;${canAdd?'text-decoration:underline;cursor:pointer;':''}" title="${canAdd?'Tap to change start date':''}" ${canAdd?`onclick="event.stopPropagation();changeSiteStartDate('${s.id}','${s.start_date}')"`:''}>Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : (statusKey==='upcoming' && canAdd ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeSiteStartDate('${s.id}','')">Set start date</span>` : '')}
+      ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;${canAdd?'text-decoration:underline;cursor:pointer;':''}" title="${canAdd?'Tap to change start date':''}" ${canAdd?`onclick="event.stopPropagation();changeSiteStartDate('${s.id}','${s.start_date}')"`:''}>Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : (statusKey==='upcoming' && canAdd ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeSiteStartDate('${s.id}','')">Set start date</span>` : '')}
       ${canAdd ? `
         <span class="rolechip" title="${pmLocked?'Responsible PM: '+escapeHtml(nameOf(s.responsible_pm_id))+(canChangePm?' — tap to change':''):'No project manager assigned yet — tap to choose (locks once set)'}"
           style="margin-left:4px;width:24px;height:16.8px;flex:0 0 24px;font-size:9.36px;${pmLocked?'background:var(--brand1);color:#fff;':'background:var(--line);color:var(--slate);'}${canSetPm?'cursor:pointer;':''}"
@@ -3695,7 +3782,7 @@ async function renderOutstandingTasks(){
   // choose a different person — but they can still narrow the list down
   // by type (RAMS/COSHH/Toolbox Talk), same idea as the HUB's type chips.
   const outstandingTypeChips = [
-    {k:'all', lbl:'All'}, {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'tbt', lbl:'Toolbox Talk'},
+    {k:'all', lbl:'All'}, {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'tbt', lbl:'TBT'},
   ];
   const filteredRows = rows
     .map(r=>({site:r.site, items: outstandingFilterType==='all' ? r.items : r.items.filter(it=>it.type===outstandingFilterType)}))
@@ -3843,7 +3930,7 @@ async function renderHub(){
   // other choices.
   const pmOptions = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.id!==ME.id).sort((a,b)=>a.name.localeCompare(b.name));
   const typeChips = [
-    {k:'all', lbl:'All'}, {k:'tbt', lbl:'Toolbox Talk'}, {k:'snag', lbl:'Snags'},
+    {k:'all', lbl:'All'}, {k:'tbt', lbl:'TBT'}, {k:'snag', lbl:'Snags'},
     {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'},
   ];
   const now = new Date();
@@ -6131,7 +6218,9 @@ function operativeCertListHtml(certs, canManage, opts){
               <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):escapeHtml(certDisplayName(f))}</div>
             </div>
             ${canManage?`
-              <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="flex:0 0 auto;width:78px;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
+              <div style="flex:0 0 78px;width:78px;max-width:78px;overflow:hidden;">
+                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
+              </div>
             `:''}
             <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;position:relative;top:-2px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(certDisplayName(f))}')">👁</div>
             ${canManage?rowActionsMenuHtml('certrow-'+f.id, `
@@ -6168,7 +6257,7 @@ window.uploadOperativeCert = async function(operativeId, prefix){
 };
 window.viewOperativeCertFile = async function(storagePath, name){
   try{
-    const res = await sbFetch('/functions/v1/operative-certification-file-access', {method:'POST', body: JSON.stringify({storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/operative-certification-file-access', {method:'POST', body: JSON.stringify({storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
     viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
@@ -6235,6 +6324,7 @@ function certListSelectionBarHtml(certs, key, operativeId, pmList){
         <option value="custom" ${recipChoice==='custom'?'selected':''}>Custom email address…</option>
       </select>
       ${recipChoice==='custom' ? `<input type="text" placeholder="name@example.com" value="${escapeHtml(certEmailCustomAddrFor[key]||'')}" oninput="certEmailCustomAddrFor['${key}']=this.value;" style="width:100%;padding:8px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;box-sizing:border-box;">` : ''}
+      ${recipChoice ? `<label style="display:flex;align-items:center;gap:8px;padding:2px 2px 8px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" ${certEmailCcMeFor[key]?'checked':''} onchange="certEmailCcMeFor['${key}']=this.checked;" style="width:18px;height:18px;flex:none;"> CC me a copy</label>` : ''}
       <button class="darkbtn" style="width:100%;" ${certBulkEmailBusy?'disabled':''} onclick='sendCertEmailFor(${JSON.stringify(key)},${JSON.stringify(selectedHere)})'>${certBulkEmailBusy?'Sending…':'Send'}</button>
     </div>
     ` : ''}
@@ -6255,7 +6345,7 @@ async function buildCertBundlePdf(certIds){
   const fonts = await havsPdfFonts(merged);
   for(const c of certs){
     try{
-      const res = await sbFetch('/functions/v1/operative-certification-file-access', {method:'POST', body: JSON.stringify({storage_path:c.storage_path})});
+      const res = await sbFetchOD('/functions/v1/operative-certification-file-access', {method:'POST', body: JSON.stringify({storage_path:c.storage_path})});
       const d = await res.json();
       if(!res.ok || d.error || !d.url) continue;
       const fr = await fetch(d.url);
@@ -6542,19 +6632,63 @@ async function trainingMatrixData(){
 window.exportTrainingMatrixExcel = async function(){
   const {operatives, byOp} = await trainingMatrixData();
   if(!operatives.length){ toast('No operatives to report.'); return; }
-  const data = operatives.map(o=>{
+  const filename = exportFilename('', 'Training Matrix', 'xlsx');
+  const rowFor = o=>{
     const row = {Operative: o.name};
     CERT_CATEGORIES.forEach(c=>{
       const entry = (byOp[o.id]||{})[c.key];
       row[c.label] = entry ? (entry.expiry ? 'Expires '+new Date(entry.expiry+'T00:00:00').toLocaleDateString('en-GB') : '✓') : '';
     });
     return row;
-  });
+  };
+  // Branded via ExcelJS (company logo top-right, brand-coloured header row,
+  // org name as the sheet title) — same treatment as the Priced Sheet Excel
+  // export. Falls back to the plain SheetJS file below if ExcelJS isn't
+  // available, same "nice-to-have, never blocks the export" rule as there.
+  if(typeof ExcelJS!=='undefined'){
+    try{
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Training Matrix');
+      const cols = ['Operative', ...CERT_CATEGORIES.map(c=>c.label)];
+      ws.columns = [{width:26}, ...CERT_CATEGORIES.map(()=>({width:18}))];
+      ws.mergeCells(1,1,1,cols.length);
+      ws.getCell('A1').value = ((ORG && ORG.name) || 'OpHUB') + ' — Training Matrix';
+      ws.getCell('A1').font = {bold:true, size:14};
+      ws.getCell('A2').value = 'Exported '+new Date().toLocaleDateString('en-GB');
+      ws.getCell('A2').font = {italic:true, size:9, color:{argb:'FF7A7A7A'}};
+      const headerRow = ws.addRow(cols);
+      headerRow.eachCell(cell=>{
+        cell.font = {bold:true, color:{argb:'FFFFFFFF'}};
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF'+((ORG && ORG.color_primary) || DEFAULT_BRAND1).replace('#','').toUpperCase()}};
+      });
+      operatives.forEach(o=>{
+        const r = rowFor(o);
+        ws.addRow(cols.map(c=>r[c]));
+      });
+      const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+      if(logoUrl){
+        try{
+          const res = await fetch(logoUrl);
+          if(res.ok){
+            const buf = await res.arrayBuffer();
+            const ctype = (res.headers.get('content-type')||'').toLowerCase();
+            const ext = ctype.includes('png') ? 'png' : (ctype.includes('gif') ? 'gif' : 'jpeg');
+            const imageId = wb.addImage({buffer: buf, extension: ext});
+            ws.addImage(imageId, {tl:{col:cols.length-1.1, row:0.05}, ext:{width:60, height:60}});
+          }
+        }catch(e){ /* logo is a nice-to-have — export still proceeds without it */ }
+      }
+      const buffer = await wb.xlsx.writeBuffer();
+      await deliverExcelBuffer(buffer, filename);
+      return;
+    }catch(e){ /* fall through to the plain SheetJS export below */ }
+  }
+  const data = operatives.map(rowFor);
   const ws = XLSX.utils.json_to_sheet(data);
   ws['!cols'] = [{wch:24}, ...CERT_CATEGORIES.map(()=>({wch:18}))];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Training Matrix');
-  await deliverExcelFile(wb, exportFilename('', 'Training Matrix', 'xlsx'));
+  await deliverExcelFile(wb, filename);
 };
 window.exportTrainingMatrixPdf = async function(){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
@@ -6905,7 +7039,7 @@ async function renderSiteHome(siteId){
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/snagging')">
           <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
-          <div class="lbl">${snaggingFolderLabel()}</div><div class="sub">${openSnags.length} open</div>
+          <div class="lbl">${escapeHtml(snaggingFolderLabel())}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
       ];
@@ -7301,7 +7435,11 @@ async function renderTodoList(siteId){
               </div>
             ` : `
               <div style="font-size:16.5px;font-weight:600;${t.done?'text-decoration:line-through;color:var(--slate);':''}">${escapeHtml(t.text)}</div>
-              ${t.date_required_by ? `<div style="margin-top:7px;font-size:11.7px;color:var(--slate);text-decoration:underline;cursor:pointer;" onclick="openTodoDateEdit('${siteId}','${t.id}','${t.date_required_by||''}','${jsAttr(t.text)}')">Required by ${new Date(t.date_required_by+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
+              ${t.date_required_by ? (()=>{
+                const isOverdue = !t.done && t.date_required_by < localISODate(new Date());
+                const dLabel = new Date(t.date_required_by+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
+                return `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:700;cursor:pointer;${isOverdue?'background:var(--warn-bg);color:var(--warn);':'background:var(--line);color:var(--slate);'}" onclick="openTodoDateEdit('${siteId}','${t.id}','${t.date_required_by||''}','${jsAttr(t.text)}')">${isOverdue?'⚠ Overdue — ':'Required by '}${dLabel}</div>`;
+              })() : ''}
             `}
             ${t.done ? `
               <div style="margin-top:6px;font-size:10.8px;font-style:italic;color:var(--slate);">
@@ -7324,14 +7462,14 @@ async function renderTodoList(siteId){
               </div>
             `}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;">
-            <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:10px;font-weight:800;white-space:nowrap;background:var(--ok-bg);color:var(--ok);border-color:var(--ok);" onclick="toggleTodo('${siteId}','${t.id}',${t.done})">${t.done?'✓ Completed':'Mark Complete'}</button>
-            <div onclick="event.stopPropagation();">
-              ${rowActionsMenuHtml('todo-'+t.id, `
-                ${!t.done ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;todoEditId='${t.id}';todoEditTextDraft='${jsAttr(t.text)}';todoEditDateDraft='${t.date_required_by||''}';render()">✎ Edit</div>` : ''}
-                <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTodo('${siteId}','${t.id}')">🗑 Delete</div>
-              `)}
-            </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          <button class="ghostbtn" style="width:auto;padding:5px 10px;font-size:10px;font-weight:800;white-space:nowrap;background:var(--ok-bg);color:var(--ok);border-color:var(--ok);" onclick="toggleTodo('${siteId}','${t.id}',${t.done})">${t.done?'✓ Completed':'Mark Complete'}</button>
+          <div onclick="event.stopPropagation();">
+            ${rowActionsMenuHtml('todo-'+t.id, `
+              ${!t.done ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;todoEditId='${t.id}';todoEditTextDraft='${jsAttr(t.text)}';todoEditDateDraft='${t.date_required_by||''}';render()">✎ Edit</div>` : ''}
+              <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTodo('${siteId}','${t.id}')">🗑 Delete</div>
+            `)}
           </div>
         </div>
         <div style="margin-top:10px;padding-top:9px;border-top:1px solid var(--line);">
@@ -7449,7 +7587,7 @@ window.uploadTodoAttachmentNow = async function(input, siteId, todoId){
 };
 window.viewTodoAttachment = async function(todoId, storagePath, name){
   try{
-    const res = await sbFetch('/functions/v1/todo-attachment-access', {method:'POST', body: JSON.stringify({todo_id:todoId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/todo-attachment-access', {method:'POST', body: JSON.stringify({todo_id:todoId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
     viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
@@ -8410,7 +8548,7 @@ window.deletePriceFile = async function(siteId, fileId, storagePath){
 window.viewPriceFile = async function(siteId, storagePath, filename){
   const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
   if(!isSheet){
-    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
     if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
@@ -8420,7 +8558,7 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
   priceFilePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
   render();
   try{
-    const res = await sbFetch('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ priceFilePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
     if(typeof XLSX==='undefined'){ priceFilePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
@@ -11235,9 +11373,9 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
 // the edge function a link rather than a base64 attachment (some of these
 // can run to several pages with a full rate breakdown).
 window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
-  const email = await customPrompt('Email this priced sheet PDF to:', '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc('Email this priced sheet PDF to:', '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Building PDF…');
   const built = await buildPriceBuilderSheetPdfBytes(siteId, sheetId);
@@ -11248,7 +11386,7 @@ window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-price-builder-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed,
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined,
       sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
@@ -11293,7 +11431,7 @@ window.deleteLabourInvoice = async function(siteId, fileId, storagePath){
 window.viewLabourInvoice = async function(siteId, storagePath, filename){
   const isSheet = /\.(xlsx|xls|csv)$/i.test(filename);
   if(!isSheet){
-    const res = await sbFetch('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
     if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
@@ -11303,7 +11441,7 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
   labourInvoicePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
   render();
   try{
-    const res = await sbFetch('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ labourInvoicePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
     if(typeof XLSX==='undefined'){ labourInvoicePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
@@ -12277,8 +12415,13 @@ async function buildReportPdf(submissionId, opts){
         const dim = logoImg.scale(1);
         const s = 40/Math.max(dim.width, dim.height);
         const w = dim.width*s, h = dim.height*s;
-        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+        // Logo box vertically centred against the optical centre of the
+        // 3-line title block beside it (label/title/subtitle baselines run
+        // PAGE_H-40 .. PAGE_H-76), not against the plain band height — the
+        // old y:PAGE_H-66 box sat ~10pt higher than that text block, which
+        // read as "the logo sits too high" next to it.
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('INSPECTION REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -12471,11 +12614,23 @@ async function buildReportPdf(submissionId, opts){
       page.drawText(st, {x:PAGE_W-MARGIN-10-sw, y:y-20, size:11, font:bold, color:INK});
       y -= rowH;
     }
+    // Date-type answers are stored as a raw "YYYY-MM-DD" string — shown
+    // as-is that reads as a cramped, technical-looking date compared to the
+    // "19 Sep 2026" format every other date in the app (and in this same
+    // PDF's own footer/header) uses. Reformat just for display; the stored
+    // answer itself is untouched.
+    function formatAnswerDisplay(it, val){
+      if(it.type==='date' && val){
+        const d = new Date(val+'T00:00:00');
+        if(!isNaN(d)) return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      }
+      return (val!=null && val!=='') ? String(val) : '—';
+    }
     if(titleSection){
       for(const it of titleSection.items){
         if(!itemVisible(it, sub.answers)) continue;
         const val = sub.answers[it.id];
-        const display = (val!=null && val!=='') ? String(val) : '—';
+        const display = formatAnswerDisplay(it, val);
         const rowH = 30;
         ensureSpace(rowH);
         page.drawText(it.label, {x:MARGIN+8, y:y-20, size:11, font:bold, color:INK});
@@ -12557,7 +12712,7 @@ async function buildReportPdf(submissionId, opts){
         // freeform text — plain paragraph, no colour bar (matches how
         // free-text answers like "any other issues" read in the reference)
         if(it.type==='text' || it.type==='textarea' || it.type==='number' || it.type==='date'){
-          const display = (val!=null && val!=='') ? String(val) : '—';
+          const display = formatAnswerDisplay(it, val);
           drawParagraphAnswer(it.label, display);
         } else {
           let display = '—', color = GRAY;
@@ -12629,9 +12784,9 @@ window.exportReportPDF = async function(submissionId){
 // prompts for a recipient the same way (was previously silently sent only
 // to the PM's own address with no way to pick who).
 window.emailReportPDF = async function(submissionId, fromBriefing){
-  const email = await customPrompt('Email this report PDF to:', ME.email||'');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc('Email this report PDF to:', ME.email||'');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   reportEmailBusy = submissionId; render();
   toast('Building PDF…');
@@ -12644,7 +12799,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: built.sub.site_id, recipient_email: trimmed, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      site_id: built.sub.site_id, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -13972,9 +14127,30 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
   if(row){
     pendingCompleteTaskId = null;
     toast('Task marked complete');
+    if(row.section_id) await maybeAutoCloseVariationForSection(siteId, row.section_id);
     render();
   }
 };
+// A variation added to the Schedule of Works becomes its own section
+// (see addVariationToSchedule) — once every task in that section is done,
+// the variation itself is finished too, so it's auto-closed rather than
+// left sitting in "Live" indefinitely waiting for someone to remember to
+// close it by hand. Only touches variations still 'live' and linked to
+// this exact section; does nothing if the section isn't a variation's.
+async function maybeAutoCloseVariationForSection(siteId, sectionId){
+  try{
+    const vRows = await dbSelect('variations', 'schedule_section_id=eq.'+sectionId+'&status=eq.live&select=id,description');
+    const v = vRows[0];
+    if(!v) return;
+    const tasks = await dbSelect('schedule_tasks', 'section_id=eq.'+sectionId+'&select=status');
+    if(!tasks.length || tasks.some(t=>t.status!=='done')) return;
+    const closed = await dbUpdate('variations', v.id, {status:'closed', closed_at:new Date().toISOString()});
+    if(closed){
+      toast('All work complete — variation auto-closed');
+      logSiteActivity(siteId, 'variation_closed', `Auto-closed variation "${v.description||''}" (all Schedule of Works tasks complete)`);
+    }
+  }catch(e){ /* non-fatal — worst case the PM closes it manually */ }
+}
 // Kept separate from created_at deliberately -- created_at ties (e.g. from a
 // bulk Excel import) have no reliable scan order, and an UPDATE (like
 // marking a task in-progress) can shuffle rows tied on created_at. Position
@@ -14476,30 +14652,32 @@ async function drawSignatureTablePages(pdfDoc, opts){
         y -= 13;
       });
       y -= 12;
-      // Optional standalone "Conducted by" row — a PM/admin who ran the
-      // session, kept separate from the operative signature grid below
-      // (used by the TBT export; other callers simply omit conductedBy).
-      if(opts.conductedBy){
-        const boxH = 40;
-        page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:HEADBG});
-        page.drawText('Conducted by: '+opts.conductedBy.name, {x:MARGIN+10, y:y-16, size:10.5, font:bold, color:INK});
-        if(opts.conductedBy.signaturePath){
-          try{
-            const bytes = await pdfFetchImageBytes(publicUrl('signatures', opts.conductedBy.signaturePath));
-            if(bytes){
-              let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
-              const dim = img.scale(1);
-              const bh = 22, bw = 120;
-              const s2 = Math.min(bw/dim.width, bh/dim.height);
-              const w = dim.width*s2, h = dim.height*s2;
-              page.drawImage(img, {x:MARGIN+10, y:y-boxH+8, width:w, height:h});
-            }
-          }catch(e){}
-        }
-        y -= boxH + 14;
-      }
     }
     drawTableHeader();
+  }
+  // Optional standalone "Conducted by" row — a PM/admin who ran the
+  // session. Drawn AFTER every operative signature row (not up at the top
+  // with the disclaimer) — used by the TBT export; other callers simply
+  // omit conductedBy.
+  async function drawConductedByBox(){
+    const boxH = 40;
+    if(y - boxH < 70) await newPage(true);
+    page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:HEADBG});
+    page.drawText('Conducted by: '+opts.conductedBy.name, {x:MARGIN+10, y:y-16, size:10.5, font:bold, color:INK});
+    if(opts.conductedBy.signaturePath){
+      try{
+        const bytes = await pdfFetchImageBytes(publicUrl('signatures', opts.conductedBy.signaturePath));
+        if(bytes){
+          let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); }
+          const dim = img.scale(1);
+          const bh = 22, bw = 120;
+          const s2 = Math.min(bw/dim.width, bh/dim.height);
+          const w = dim.width*s2, h = dim.height*s2;
+          page.drawImage(img, {x:MARGIN+10, y:y-boxH+8, width:w, height:h});
+        }
+      }catch(e){}
+    }
+    y -= boxH + 14;
   }
   await newPage(false);
   for(const s of opts.signers){
@@ -14526,6 +14704,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
     y = rowTop - ROW_H;
   }
   y -= 16;
+  if(opts.conductedBy) await drawConductedByBox();
   if(y < 60) await newPage(true);
   page.drawText('Generated ' + new Date().toLocaleString('en-GB') + ' — original document pages are unmodified above.', {x:MARGIN, y, size:8.5, font:reg, color:SLATE});
 }
@@ -14579,8 +14758,8 @@ async function buildSnaggingPdfBytes(siteId, scope){
         const dim = logoImg.scale(1);
         const s = 40/Math.max(dim.width, dim.height);
         const w = dim.width*s, h = dim.height*s;
-        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('SNAGGING REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -14763,8 +14942,8 @@ async function buildSchedulePdfBytes(siteId){
         const dim = logoImg.scale(1);
         const s = 40/Math.max(dim.width, dim.height);
         const w = dim.width*s, h = dim.height*s;
-        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -16079,9 +16258,9 @@ window.exportSelectedInductions = async function(){
   toast(`Opened ${withPdf.length} PDF${withPdf.length===1?'':'s'}`);
 };
 window.emailSiteInductionPdf = async function(completionId, operativeName){
-  const email = await customPrompt(`Email this induction PDF for ${operativeName||'this operative'} to:`, '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc(`Email this induction PDF for ${operativeName||'this operative'} to:`, '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   const rows = await dbSelect('site_induction_completions', 'id=eq.'+completionId+'&select=pdf_path,site_id,operative_id');
   const row = rows[0];
@@ -16091,6 +16270,7 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: row.site_id,
       recipient_email: trimmed,
+      cc_email: answer.ccMe ? ME.email : undefined,
       items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
@@ -16099,9 +16279,9 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
 window.emailSelectedInductions = async function(){
   const ids = Array.from(siteInductionSelectedIds);
   if(!ids.length) return;
-  const email = await customPrompt(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path,operative_id,site_id');
   const withPdf = rows.filter(r=>r.pdf_path);
@@ -16111,6 +16291,7 @@ window.emailSelectedInductions = async function(){
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: withPdf[0].site_id,
       recipient_email: trimmed,
+      cc_email: answer.ccMe ? ME.email : undefined,
       items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
     })});
     if(res && res.ok){ toast('Emailed'); siteInductionSelectedIds = new Set(); render(); } else { toast('Could not send the email — please try again.'); }
@@ -16181,8 +16362,8 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
     const dim = logoImg.scale(1);
     const s = 40/Math.max(dim.width, dim.height);
     const w = dim.width*s, h = dim.height*s;
-    page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+    page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
   }
   const textX = logoImg ? MARGIN+52 : MARGIN;
   page.drawText('SITE INDUCTION', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -17150,7 +17331,7 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${hsPolicyHtml}
-    <div id="ramsDocsList">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
+    <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
 
     ${docs.length && !isClientView ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
@@ -17310,9 +17491,9 @@ window.exportSignedRams = async function(ramsId){
   await deliverPdf(built.bytes, built.filename);
 };
 window.emailSignedRams = async function(siteId, ramsId){
-  const email = await customPrompt('Email this signed RAMS PDF to:', '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc('Email this signed RAMS PDF to:', '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Building signed PDF…');
   const built = await buildSignedRamsPdfBytes(ramsId);
@@ -17323,7 +17504,7 @@ window.emailSignedRams = async function(siteId, ramsId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -17665,9 +17846,9 @@ window.emailAllSignedCoshh = async function(siteId){
 // the caller's own address. Lets a PM email a subcontractor's signed COSHH
 // straight from the main COSHH page's Subcontractor COSHH dropdown.
 window.emailSignedCoshh = async function(siteId, coshhId){
-  const email = await customPrompt('Email this signed COSHH PDF to:', '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc('Email this signed COSHH PDF to:', '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Building signed PDF…');
   const built = await buildSignedCoshhPdf(coshhId);
@@ -17678,7 +17859,7 @@ window.emailSignedCoshh = async function(siteId, coshhId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -18511,8 +18692,8 @@ async function buildPpeIssuancePdf(issuanceId){
   if(logoImg){
     const dim = logoImg.scale(1); const s = 40/Math.max(dim.width, dim.height);
     const w = dim.width*s, h = dim.height*s;
-    page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+    page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+    page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
   }
   const textX = logoImg ? MARGIN+52 : MARGIN;
   page.drawText('PPE ISSUANCE RECORD', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -18834,7 +19015,7 @@ async function renderHavs(siteId){
   });
 
   function minuteInput(entryKey, onblurJs, currentVal){
-    return `<input type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="Mins" value="${escapeHtml(currentVal||'')}" style="width:70px;flex:0 0 70px;padding:4px 6px;font-size:11.5px;" data-havs-entry-input="${entryKey}" oninput="${onblurJs.oninput}" onblur="${onblurJs.onblur}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
+    return `<input type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="Mins" value="${escapeHtml(currentVal||'')}" style="width:52px;flex:0 0 52px;padding:4px 5px;font-size:11.5px;min-width:0;box-sizing:border-box;" data-havs-entry-input="${entryKey}" oninput="${onblurJs.oninput}" onblur="${onblurJs.onblur}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -18847,7 +19028,13 @@ async function renderHavs(siteId){
       <span style="font-weight:800;font-size:13.5px;">${escapeHtml(weekLabel)}</span>
       <span class="taskicon" style="width:36px;height:36px;font-size:20px;font-weight:700;${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1)">›</span>
     </div>
-    <p class="stub" style="text-align:center;margin:0 0 14px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
+    <p class="stub" style="text-align:center;margin:0 0 10px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
+    ${operatives.length ? `
+    <div class="row-gap" style="margin-bottom:14px;">
+      <button class="ghostbtn exportbtn" style="flex:1;" ${havsExportAllBusy?'disabled':''} onclick="exportHavsCollective('${siteId}')">${havsExportAllBusy?'Building…':'Export'}</button>
+      <button class="ghostbtn exportbtn" style="flex:1;" ${havsEmailAllBusy?'disabled':''} onclick="emailHavsCollective('${siteId}')">${havsEmailAllBusy?'Sending…':'Email'}</button>
+    </div>
+    ` : ''}
     ${!operatives.length ? `<div class="empty">${canManage ? 'No operatives assigned to this site yet.' : 'You are not assigned to this site.'}</div>` : ''}
 
     <p class="ddrow" style="margin-top:0;${havsSiteToolPickerOpen?'':'margin-bottom:14px;'}" onclick="toggleHavsSiteToolPicker()"><span class="arrow">${havsSiteToolPickerOpen?'▼':'▶'}</span> Tools On This Site (${tools.length})</p>
@@ -18876,7 +19063,7 @@ async function renderHavs(siteId){
     ${weeklySummaryOpen ? `
     <div class="card" style="margin-bottom:14px;">
       <p class="stub" style="margin:0 0 8px;">Tick an operative to include them in Export Selected below.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
         ${operatives.map(op=>{
           const st = opStats[op.id] || {byDay:[0,0,0,0,0], week:0};
           return `
@@ -18917,7 +19104,7 @@ async function renderHavs(siteId){
       </p>
       ${isOpen ? `
       <div class="card" style="margin-bottom:4px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
           ${tools.map(tool=>{
             const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
               const pts = havsPoints(tool.vibration_magnitude, e.minutes);
@@ -19312,13 +19499,31 @@ async function drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg){
 // Fetches the org logo once per export and embeds it into the given
 // PDFDocument — every HAVS page header draws it top-right (per RTB's
 // request; the app's other exports put it top-left).
+// Picks the embed method by the file's actual magic bytes instead of
+// guessing with embedJpg-then-embedPng try/catch — that order could hand a
+// PNG's bytes to embedJpg, and on some malformed/interlaced PNGs pdf-lib's
+// lenient JPEG parser doesn't always throw before producing a corrupted
+// decode, which renders as a solid black square in the PDF (the "little
+// black box" next to the logo). Sniffing the signature first means each
+// file only ever goes through its own correct decoder.
+async function pdfEmbedImageBytes(pdfDoc, bytes){
+  if(!bytes || bytes.length<4) return null;
+  const isPng = bytes[0]===0x89 && bytes[1]===0x50 && bytes[2]===0x4E && bytes[3]===0x47;
+  const isJpg = bytes[0]===0xFF && bytes[1]===0xD8;
+  try{
+    if(isPng) return await pdfDoc.embedPng(bytes);
+    if(isJpg) return await pdfDoc.embedJpg(bytes);
+    // Unknown signature (rare) — fall back to trying both.
+    try{ return await pdfDoc.embedPng(bytes); }catch(e){ return await pdfDoc.embedJpg(bytes); }
+  }catch(e){ return null; }
+}
 async function havsFetchLogoImg(pdfDoc){
   try{
     const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
     if(!logoUrl) return null;
     const bytes = await pdfFetchImageBytes(logoUrl);
     if(!bytes) return null;
-    try{ return await pdfDoc.embedJpg(bytes); }catch(e){ try{ return await pdfDoc.embedPng(bytes); }catch(e2){ return null; } }
+    return await pdfEmbedImageBytes(pdfDoc, bytes);
   }catch(e){ return null; }
 }
 // Builds one HAVS PDF for an explicit week (days[0..4]) and operative list:
@@ -19602,6 +19807,7 @@ async function renderMyTools(siteId){
 let certEmailPickerOpenFor = {};
 let certEmailRecipientChoiceFor = {}; // key -> '' (unset) | a pm user id | 'custom'
 let certEmailCustomAddrFor = {};
+let certEmailCcMeFor = {}; // key -> bool, "CC me a copy" when sending to someone else
 window.toggleCertEmailPickerFor = function(key){ certEmailPickerOpenFor[key] = !certEmailPickerOpenFor[key]; render(); };
 window.setCertEmailRecipientChoiceFor = function(key, v){ certEmailRecipientChoiceFor[key] = v; render(); };
 // #336: Certifications now live inside the Operative Dashboard as their own
@@ -19620,8 +19826,9 @@ window.sendCertEmailFor = async function(key, ids){
   } else if(choice){
     recipient = {to_user_id: choice};
   }
+  if(choice && certEmailCcMeFor[key]) recipient = Object.assign({}, recipient, {cc_email: ME.email});
   await emailSelectedCerts(ids, recipient);
-  certEmailPickerOpenFor[key] = false; certEmailRecipientChoiceFor[key]=''; certEmailCustomAddrFor[key]='';
+  certEmailPickerOpenFor[key] = false; certEmailRecipientChoiceFor[key]=''; certEmailCustomAddrFor[key]=''; certEmailCcMeFor[key]=false;
 };
 // #381/#383: renderOperativeDashboard now takes an optional siteId. With no
 // siteId (the Home bar's "My Dashboard") it's exactly the personal view it
@@ -19700,8 +19907,8 @@ async function renderOperativeDashboard(siteId){
           <div class="card" style="margin-bottom:10px;">
             <label class="field-label">Contact number</label>
             <div style="display:flex;gap:8px;">
-              <input type="tel" id="opPhone_${o.id}" value="${escapeHtml(o.phone||'')}" placeholder="e.g. 07123 456789" style="flex:1;">
-              <button class="darkbtn" style="flex:none;" onclick="saveOperativePhone('${o.id}')">Save</button>
+              <input type="tel" id="opPhone_${o.id}" value="${escapeHtml(o.phone||'')}" placeholder="e.g. 07123 456789" style="flex:2;min-width:0;">
+              <button class="darkbtn" style="flex:1;min-width:0;width:auto;padding:10px 6px;" onclick="saveOperativePhone('${o.id}')">Save</button>
             </div>
           </div>
           `}
@@ -20398,6 +20605,16 @@ function incidentToggleRow(field, value, options){
   return `<div class="row-gap" style="margin-bottom:14px;flex-wrap:wrap;">${options.map(opt=>`<button type="button" class="${value===opt.v?'darkbtn':'ghostbtn'}" style="flex:1;min-width:70px;" onclick="setIncidentField('${field}','${opt.v}')">${opt.l}</button>`).join('')}</div>`;
 }
 window.setIncidentField = function(field, value){ captureIncidentTextFields(); if(incidentDraft) incidentDraft[field] = value; render(); };
+window.toggleIncidentOperativeTick = function(name, checked){
+  const el = document.getElementById('incOperatives');
+  if(!el) return;
+  const names = el.value.split(',').map(s=>s.trim()).filter(Boolean);
+  const idx = names.indexOf(name);
+  if(checked && idx===-1) names.push(name);
+  else if(!checked && idx!==-1) names.splice(idx,1);
+  el.value = names.join(', ');
+  if(incidentDraft){ incidentDraft.textFields = incidentDraft.textFields||{}; incidentDraft.textFields.incOperatives = el.value; }
+};
 window.uploadIncidentPhoto = async function(input, siteId, field){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length || !incidentDraft) return;
@@ -20446,13 +20663,26 @@ window.deleteIncidentReport = async function(reportId, siteId){
   const ok = await dbDelete('incident_reports', reportId);
   if(ok){ toast('Report deleted'); if(incRow) logSiteActivity(siteId, 'incident_report_deleted', `Deleted ${incRow.incident_type||'incident'} report${incRow.incident_date?' ('+incRow.incident_date+')':''}`); render(); }
 };
-function renderIncidentFill(siteId){
+async function renderIncidentFill(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!incidentDraft) incidentDraft = newIncidentDraft();
   const d = incidentDraft;
   const tf = d.textFields || {};
   const tfv = (id, dflt) => tf[id]!==undefined ? tf[id] : (dflt||'');
+  // Tick-box operative picker (#292-style — matches the report-template
+  // "operatives" item): fetched once per draft and cached on the draft
+  // itself so re-renders (every toggle/field capture) don't refetch. Ticking
+  // a name adds/removes it from the same comma-separated incOperatives text
+  // field the manual typing already writes to, so nothing downstream (the
+  // DB column, the PDF export) needs to change — this is purely an easier
+  // way to fill that one field, still free-text-editable alongside it.
+  if(!d.assignedOperatives){
+    await loadAllProfiles();
+    const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+    d.assignedOperatives = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  }
+  const tickedNames = new Set(tfv('incOperatives').split(',').map(s=>s.trim()).filter(Boolean));
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Fill in what you can — the more detail the better. Fields marked * are required.</p>
 
@@ -20462,7 +20692,9 @@ function renderIncidentFill(siteId){
     <div class="formfield" style="margin-top:0;"><label class="field-label">Site of accident / incident / near miss</label><input type="text" id="incSiteAddress" value="${escapeHtml(tfv('incSiteAddress', site.name + (fullSiteAddress(site) ? ', '+fullSiteAddress(site) : '')))}"></div>
     <div class="formfield"><label class="field-label">Location of incident</label><input type="text" id="incLocation" value="${escapeHtml(tfv('incLocation'))}"></div>
     <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Date of incident</label><input type="date" id="incDate" value="${escapeHtml(tfv('incDate', localISODate(new Date())))}"></div>
-    <div class="formfield"><label class="field-label">Operatives involved</label><input type="text" id="incOperatives" value="${escapeHtml(tfv('incOperatives'))}"></div>
+    <label class="field-label">Operatives involved</label>
+    ${d.assignedOperatives.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${d.assignedOperatives.map(op=>`<label class="stub" style="display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;margin:0;"><input type="checkbox" style="width:auto;" ${tickedNames.has(op.name)?'checked':''} onchange="toggleIncidentOperativeTick('${jsAttr(op.name)}',this.checked)">${escapeHtml(op.name)}</label>`).join('')}</div>` : ''}
+    <div class="formfield"><input type="text" id="incOperatives" placeholder="Tick above, or type names not assigned to this site" value="${escapeHtml(tfv('incOperatives'))}"></div>
     <div class="formfield"><label class="field-label">Form filed by</label><input type="text" id="incFiledBy" value="${escapeHtml(tfv('incFiledBy', ME.name))}"></div>
 
     <div class="formfield"><label class="field-label">* Detail of the incident</label><textarea id="incDetail" rows="4" style="width:100%;box-sizing:border-box;">${escapeHtml(tfv('incDetail'))}</textarea></div>
@@ -20654,8 +20886,10 @@ async function buildIncidentPdf(reportId){
     if(logoImg){
       const dim = logoImg.scale(1); const s = 40/Math.max(dim.width, dim.height);
       const w = dim.width*s, h = dim.height*s;
-      page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-      page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+      // Aligned with the 3-line title block beside it (see buildReportPdf's
+      // drawHeaderBand) rather than the plain band height.
+      page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+      page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
     }
     const textX = logoImg ? MARGIN+52 : MARGIN;
     page.drawText('ACCIDENT / INCIDENT / NEAR MISS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -20743,7 +20977,7 @@ async function buildIncidentPdf(reportId){
   if(r.signature_image_path){
     try{
       const bytes = await pdfFetchImageBytes(publicUrl('signatures', r.signature_image_path));
-      if(bytes){ let img; try{ img = await pdfDoc.embedPng(bytes); }catch(e){ img = await pdfDoc.embedJpg(bytes); } const dim = img.scale(1); const s = 28/dim.height; page.drawImage(img, {x:MARGIN, y:y-28, width:dim.width*s, height:28}); }
+      if(bytes){ const img = await pdfEmbedImageBytes(pdfDoc, bytes); if(img){ const dim = img.scale(1); const s = 28/dim.height; page.drawImage(img, {x:MARGIN, y:y-28, width:dim.width*s, height:28}); } }
     }catch(e){}
   }
   const bytes = await pdfDoc.save();
@@ -21587,8 +21821,20 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
     when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
     imagePath: s.signature_image_path,
   }));
-  const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
-  const conductedBy = conductorProfile ? {name: conductorProfile.name, signaturePath: conductorProfile.signature_path} : null;
+  // Whoever actually tapped "sign" as the PM/manager running this talk is
+  // the one whose signature should show here — that's captured live in
+  // toolbox_talk_signatures (signature_image_path), same as an operative's.
+  // Falls back to the talk's creator (using their generally-adopted profile
+  // signature) only if no manager has signed it yet, e.g. an export pulled
+  // before anyone in charge has actually signed.
+  const managerSig = sigs.find(s=>PROFILES[s.user_id] && isManager(PROFILES[s.user_id]));
+  let conductedBy = null;
+  if(managerSig){
+    conductedBy = {name: nameOf(managerSig.user_id), signaturePath: managerSig.signature_image_path};
+  } else {
+    const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
+    conductedBy = conductorProfile ? {name: conductorProfile.name, signaturePath: conductorProfile.signature_path} : null;
+  }
   await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, conductedBy});
 
   const tbtSite = SITES.find(s=>s.id===talk.site_id);
@@ -21610,9 +21856,9 @@ window.exportSignedToolboxTalk = async function(tbtId){
   }
 };
 window.emailSignedToolboxTalk = async function(siteId, tbtId){
-  const email = await customPrompt('Email this signed Toolbox Talk PDF to:', '');
-  if(!email) return;
-  const trimmed = email.trim();
+  const answer = await customPromptWithCc('Email this signed Toolbox Talk PDF to:', '');
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Building signed PDF…');
   try{
@@ -21623,7 +21869,7 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     if(!stored){ toast('Could not upload the PDF — try again.'); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -21861,8 +22107,8 @@ async function renderMaterialRequests(siteId){
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       <div class="row-gap">
-        <div class="formfield" style="flex:1;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
-        <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>
+        <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
+        <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;min-width:0;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>
       </div>
       <button class="darkbtn" onclick="addMaterial('${siteId}')">Request Material Order</button>
     </div>
@@ -23235,7 +23481,7 @@ window.uploadMaterialOrderDocument = async function(input, siteId, folderId){
 window.syncMaterialOrdersNow = async function(siteId, silent){
   materialOrdersSyncBusy = true; if(!silent) render();
   try{
-    const res = await sbFetch('/functions/v1/sync-material-orders', {method:'POST', body: JSON.stringify({site_id:siteId})});
+    const res = await sbFetchOD('/functions/v1/sync-material-orders', {method:'POST', body: JSON.stringify({site_id:siteId})});
     const d = await res.json();
     if(!res.ok || d.error){ if(!silent) toast('Sync failed — '+(d.error||res.status)); }
     else{
@@ -23249,7 +23495,7 @@ window.syncMaterialOrdersNow = async function(siteId, silent){
 };
 window.viewMaterialOrderFile = async function(siteId, storagePath, name){
   try{
-    const res = await sbFetch('/functions/v1/material-order-file-access', {method:'POST', body: JSON.stringify({site_id:siteId, storage_path:storagePath})});
+    const res = await sbFetchOD('/functions/v1/material-order-file-access', {method:'POST', body: JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Could not open file — '+(d.error||res.status)); return; }
     viewDrawing(d.url, /\.(png|jpe?g|gif|webp)$/i.test(name), name);
@@ -23493,9 +23739,9 @@ async function renderSiteCalendar(siteId){
       return `
         <div style="padding:10px 0;border-bottom:1px solid var(--line);">
           <div style="display:flex;gap:12px;">
-            <div style="flex:0 0 58px;text-align:center;">
+            <div style="flex:0 0 64px;max-width:64px;overflow:hidden;text-align:center;">
               <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
-              <div style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 6px;border-radius:14px;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:14px;font-weight:800;white-space:nowrap;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${calDayBadgeLabel(d, today.getMonth())}</span></div>
+              <div style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;max-width:100%;padding:0 5px;border-radius:14px;box-sizing:border-box;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:${d.getMonth()===today.getMonth()?'14px':'11.5px'};font-weight:800;white-space:nowrap;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${calDayBadgeLabel(d, today.getMonth())}</span></div>
             </div>
             <div style="flex:1;min-width:0;">
               ${dayEvents.length ? dayEvents.map(e=>`
@@ -23839,13 +24085,13 @@ async function renderVariations(siteId){
             </div>
           </div>
           ` : `
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
-            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
-            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="startModifyVariation('${v.id}','${jsAttr(v.description)}')">Modify &amp; Approve</button>
-            ${v.approval_status==='approved' ? (v.schedule_section_id ? `<span class="stub" style="margin:0;color:var(--ok);align-self:center;">✓ In Schedule of Works</span>` : `<button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="addVariationToSchedule('${siteId}','${v.id}')">+ Add to Schedule of Works</button>`) : `<span class="stub" style="margin:0;align-self:center;font-size:11px;">Approve to add to Schedule of Works</span>`}
-            <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>
-            <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="deleteVariation('${siteId}','${v.id}')">Delete</button>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:10px;align-items:center;">
+            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--ok);border-color:var(--ok);" onclick="approveVariation('${siteId}','${v.id}')">Approve</button>` : ''}
+            ${v.approval_status==='pending' ? `<button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="startDeclineVariation('${v.id}')">Decline</button>` : ''}
+            <button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="startModifyVariation('${v.id}','${jsAttr(v.description)}')">Modify &amp; Approve</button>
+            ${v.approval_status==='approved' ? (v.schedule_section_id ? `<span class="stub" style="margin:0;color:var(--ok);align-self:center;">✓ In Schedule of Works</span>` : `<button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="addVariationToSchedule('${siteId}','${v.id}')">+ Add to Schedule of Works</button>`) : `<span class="stub" style="margin:0;align-self:center;font-size:11px;">Approve to add to Schedule of Works</span>`}
+            <button class="ghostbtn" style="width:100%;padding:8px 12px;" onclick="closeVariation('${siteId}','${v.id}')">Mark as closed</button>
+            <button class="ghostbtn" style="width:100%;padding:8px 12px;color:var(--red);border-color:var(--red);" onclick="deleteVariation('${siteId}','${v.id}')">Delete</button>
           </div>
           `
         ) : '')}
@@ -23946,8 +24192,8 @@ window.exportVariationsPDF = async function(siteId, scope){
         const dim = logoImg.scale(1);
         const s = 40/Math.max(dim.width, dim.height);
         const w = dim.width*s, h = dim.height*s;
-        page.drawRectangle({x:MARGIN, y:PAGE_H-66, width:40, height:40, color:WHITE});
-        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-66+(40-h)/2, width:w, height:h});
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('VARIATIONS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
@@ -25451,6 +25697,138 @@ function deliveryTaskCardHtml(t, opts){
     </div>
   `;
 }
+let deliveryExportBusy = null; // null | 'xlsx' | 'pdf' — which export (if any) is currently building
+// Pulls every delivery task across the given ISO dates, in the same
+// date→time-slot→sub_priority order the on-screen week view uses, so the
+// export always matches what the PM is looking at when they tap it.
+async function deliveryScheduleExportRows(daysISO){
+  const [tasks, suppliers] = await Promise.all([
+    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=in.('+daysISO.join(',')+')&order=scheduled_date.asc,time_slot.asc'),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
+    loadAllProfiles(),
+  ]);
+  const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
+  tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
+  const slotOrder = {}; DELIVERY_TIME_SLOTS.forEach((s,i)=>slotOrder[s.key]=i);
+  tasks.sort((a,b)=>{
+    if(a.scheduled_date!==b.scheduled_date) return a.scheduled_date<b.scheduled_date?-1:1;
+    const so = (slotOrder[a.time_slot]??99)-(slotOrder[b.time_slot]??99);
+    if(so) return so;
+    return (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority);
+  });
+  const slotLabel = {}; DELIVERY_TIME_SLOTS.forEach(s=>slotLabel[s.key]=s.label);
+  return tasks.map(t=>({
+    date: new Date(t.scheduled_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}),
+    time: slotLabel[t.time_slot] || t.time_slot || '',
+    site: (SITES.find(s=>s.id===t.site_id)||{}).name || 'Unknown site',
+    description: t.description || '',
+    collection: deliveryCollectionLabel(t),
+    driver: (t.driver_id && PROFILES[t.driver_id]) ? PROFILES[t.driver_id].name : 'Unassigned',
+    priority: t.high_priority ? 'High' : '',
+    status: t.status==='completed' ? 'Completed' : (t.needs_completing ? 'Needs completing' : 'Scheduled'),
+  }));
+}
+window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
+  if(deliveryExportBusy) return;
+  deliveryExportBusy = 'xlsx'; render();
+  try{
+    const rows = await deliveryScheduleExportRows(daysISO);
+    if(!rows.length){ toast('No deliveries in this week to export.'); return; }
+    const filename = exportFilename('', 'Delivery Schedule', 'xlsx');
+    const cols = ['Date','Time','Site','Description','Collection From','Driver','Priority','Status'];
+    const rowVals = r=>[r.date,r.time,r.site,r.description,r.collection,r.driver,r.priority,r.status];
+    if(typeof ExcelJS!=='undefined'){
+      try{
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet('Delivery Schedule');
+        ws.columns = [{width:16},{width:10},{width:24},{width:30},{width:18},{width:18},{width:9},{width:16}];
+        ws.mergeCells(1,1,1,cols.length);
+        ws.getCell('A1').value = ((ORG && ORG.name) || 'OpHUB') + ' — Delivery Schedule (' + weekLabel + ')';
+        ws.getCell('A1').font = {bold:true, size:13};
+        const headerRow = ws.addRow(cols);
+        headerRow.eachCell(cell=>{
+          cell.font = {bold:true, color:{argb:'FFFFFFFF'}};
+          cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF'+((ORG && ORG.color_primary) || DEFAULT_BRAND1).replace('#','').toUpperCase()}};
+        });
+        rows.forEach(r=>ws.addRow(rowVals(r)));
+        const buffer = await wb.xlsx.writeBuffer();
+        await deliverExcelBuffer(buffer, filename);
+        return;
+      }catch(e){ /* fall through to the plain SheetJS export below */ }
+    }
+    const ws = XLSX.utils.aoa_to_sheet([cols, ...rows.map(rowVals)]);
+    ws['!cols'] = [{wch:16},{wch:10},{wch:24},{wch:30},{wch:18},{wch:18},{wch:9},{wch:16}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Delivery Schedule');
+    await deliverExcelFile(wb, filename);
+  }catch(e){ console.error(e); toast('Could not build the export — please try again.'); }
+  deliveryExportBusy = null; render();
+};
+window.exportDeliverySchedulePdf = async function(daysISO, weekLabel){
+  if(deliveryExportBusy) return;
+  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  deliveryExportBusy = 'pdf'; render();
+  try{
+    const rows = await deliveryScheduleExportRows(daysISO);
+    if(!rows.length){ toast('No deliveries in this week to export.'); return; }
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const fonts = await havsPdfFonts(pdfDoc);
+    const {bold, reg, INK, SLATE, LINE} = fonts;
+    const logoImg = await havsFetchLogoImg(pdfDoc);
+    const PAGE_W = 841.89, PAGE_H = 595.28, MARGIN = 40, CONTENT_W = PAGE_W-2*MARGIN;
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const cols = [
+      {label:'Date', w:0.11}, {label:'Time', w:0.08}, {label:'Site', w:0.19}, {label:'Description', w:0.24},
+      {label:'Collection From', w:0.15}, {label:'Driver', w:0.13}, {label:'Status', w:0.10},
+    ];
+    let page, y;
+    function drawHeader(){
+      page.drawRectangle({x:0, y:PAGE_H-76, width:PAGE_W, height:76, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1); const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      page.drawText('DELIVERY SCHEDULE', {x:textX, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(((ORG && ORG.name) || ''), {x:textX, y:PAGE_H-54, size:13, font:bold, color:WHITE});
+      page.drawText(weekLabel, {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(){
+      page.drawLine({start:{x:MARGIN,y:26}, end:{x:PAGE_W-MARGIN,y:26}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
+      page.drawText('Generated via OpHUB', {x:MARGIN, y:14, size:8, font:reg, color:SLATE});
+    }
+    function drawColHeaders(){
+      let x = MARGIN;
+      cols.forEach(c=>{ page.drawText(c.label, {x, y, size:8.5, font:bold, color:SLATE}); x += c.w*CONTENT_W; });
+      y -= 8;
+      page.drawLine({start:{x:MARGIN,y}, end:{x:PAGE_W-MARGIN,y}, thickness:0.75, color:LINE});
+      y -= 14;
+    }
+    function newPage(){ page = pdfDoc.addPage([PAGE_W,PAGE_H]); drawHeader(); drawFooter(); y = PAGE_H-98; drawColHeaders(); }
+    function ensureSpace(h){ if(y-h<40) newPage(); }
+    newPage();
+    rows.forEach(r=>{
+      ensureSpace(16);
+      let x = MARGIN;
+      const vals = [r.date, r.time, r.site, r.description, r.collection, r.driver, r.status];
+      vals.forEach((v,i)=>{
+        const c = cols[i];
+        const maxChars = Math.floor((c.w*CONTENT_W)/4.6);
+        let text = String(v||'');
+        if(text.length>maxChars) text = text.slice(0,maxChars-1)+'…';
+        page.drawText(text, {x, y, size:8, font:reg, color: r.priority==='High' && i===2 ? PDFLib.rgb(0.7,0.15,0.15) : INK});
+        x += c.w*CONTENT_W;
+      });
+      y -= 15;
+    });
+    const bytes = await pdfDoc.save();
+    await deliverPdf(bytes, exportFilename('', 'Delivery Schedule', 'pdf'));
+  }catch(e){ console.error(e); toast('Could not build the export — please try again.'); }
+  deliveryExportBusy = null; render();
+};
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
@@ -25486,7 +25864,11 @@ async function renderDeliverySchedulePM(){
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(weekLabel)}</div>
       <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset++;render()">›</span>
     </div>
-    <button class="darkbtn" style="width:100%;margin-bottom:16px;" onclick="pmDeliveryDefaultDate=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
+    <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
+    <div class="row-gap" style="margin-bottom:16px;">
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
+    </div>
     ${days.map((d,i)=>{
       const iso = daysISO[i];
       const dayTasks = byDate[iso];
