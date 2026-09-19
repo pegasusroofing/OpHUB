@@ -3185,7 +3185,7 @@ function siteCardHtml(s, canAdd, pmOptions){
           ${statusKey!=='live' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','live')">Set Active</div>` : ''}
           ${statusKey!=='upcoming' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','upcoming')">Set Upcoming</div>` : ''}
           ${statusKey!=='closed' ? `<div class="statusmenu-item" onclick="setSiteStatus('${s.id}','closed')">Close</div>` : ''}
-          <div class="statusmenu-item danger" onclick="deleteSite('${s.id}','${jsAttr(s.name)}')">Delete permanently</div>
+          <div class="statusmenu-item danger" onclick="deleteSite('${s.id}','${jsAttr(s.name)}')">${(ME.role==='admin'||ME.role==='superadmin') ? 'Delete permanently' : 'Delete'}</div>
         </div>
       ` : ''}
       ${canSetPm && sitePmPickerOpenId===s.id ? `
@@ -3468,8 +3468,29 @@ window.syncTbtBankFromLibrary = async function(siteId){
   tbtSyncBusy = false; render();
 };
 window.deleteSite = async function(siteId, name){
-  if(!await customConfirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
   siteStatusMenuOpenId = null;
+  // #(pm-restricted-site-delete): a full hard delete is only safe once
+  // nothing has been entered into the site yet (e.g. a PM catches a
+  // mistyped address/job number right after creating it), or when an Admin
+  // does it deliberately. A PM hitting Delete on a site that already has
+  // real data gets it closed instead — same effect as the
+  // Close action, hidden from non-managers, still visible to an Admin in
+  // Closed Projects — so only an Admin can actually purge it for good.
+  // site_is_empty() runs under the caller's own RLS (see migration), so
+  // this can't be used to snoop on data the caller couldn't already see.
+  if(ME.role!=='admin' && ME.role!=='superadmin'){
+    let isEmpty = false; // fail closed: if the check errors, treat as non-empty
+    try{
+      const res = await sbFetch('/rest/v1/rpc/site_is_empty', {method:'POST', body: JSON.stringify({p_site_id: siteId})});
+      if(res.ok) isEmpty = !!(await res.json());
+    }catch(e){ /* isEmpty stays false */ }
+    if(!isEmpty){
+      if(!await customConfirm(`"${name}" already has data in it, so it can't be permanently deleted from here — this will close it instead (hidden from the team; an Admin can still delete it for good if needed). Continue?`)) return;
+      await setSiteStatus(siteId, 'closed');
+      return;
+    }
+  }
+  if(!await customConfirm(`Delete "${name}"? This permanently removes the site along with its schedule, RAMS, snags, materials, variations and check-in history. This can't be undone.`)) return;
   const ok = await dbDelete('sites', siteId);
   if(ok){
     SITES = SITES.filter(s=>s.id!==siteId);
