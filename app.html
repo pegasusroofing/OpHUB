@@ -13385,6 +13385,12 @@ let scheduleUploadOpen = false;
 // instead of a big always-there card at the bottom — this tracks which of
 // the three panels it opened, if any. null = nothing open.
 let scheduleAddPanel = null; // null | 'task' | 'section' | 'upload'
+// Multi-select delete — off by default; a task's own "..." menu has a
+// "Select Multiple" item (right below its single Delete) that turns this on
+// and pre-ticks that task, so a PM can then tick more lines and delete them
+// all in one go instead of one at a time.
+let scheduleMultiSelectMode = false;
+let scheduleMultiSelectedIds = new Set();
 // Multi-site "Add Task": once one task has been added to a given add-row
 // (keyed by sectionId, or '__ungrouped__' for the top-level Add Task panel)
 // with a sub-address actually chosen, later adds in that same row auto-tag
@@ -13570,6 +13576,19 @@ window.useScheduleLibraryTemplate = async function(siteId, templateId){
   render();
 };
 function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, subAddressesList, subCompanies, isMc){
+  if(canAdd && scheduleMultiSelectMode){
+    const checked = scheduleMultiSelectedIds.has(t.id);
+    return `
+      <div class="task">
+        <div class="taskbody">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${checked?'checked':''} onclick="toggleScheduleMultiSelectId('${t.id}')">
+            <span class="taskname ${t.status==='done'?'done':''}" style="flex:1;">${escapeHtml(t.name)}${t.status==='done'?' <span class="donetick">✓</span>':''}</span>
+          </label>
+        </div>
+      </div>
+    `;
+  }
   // Per the "allow all rows in whilst they're in to do to be editable text"
   // requirement — a To Do task's name is always a live-editable input
   // (autosaves on blur) rather than needing the separate pencil-edit toggle.
@@ -13617,6 +13636,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                       ${!t.section_id ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('task','${t.id}','${siteId}')">🔒 Assign visibility</div>` : ''}
                       ${isMc ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubcontractorAssignPicker('${t.id}')">🏗 ${t.subcontractor_company_id?'Change':'Assign'} Subcontractor</div>` : ''}
                       <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
+                      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;enterScheduleMultiSelect('${t.id}')">☑ Select Multiple</div>
                     `)}
                   </div>
                 ` : ''}
@@ -13825,6 +13845,8 @@ async function renderSchedule(siteId){
     scheduleLastNoTodoLeft = noTodoLeft;
     scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
     sectionFirstSubAddr = {};
+    scheduleMultiSelectMode = false;
+    scheduleMultiSelectedIds = new Set();
   } else if(scheduleLastAnyStarted !== anyStarted || scheduleLastNoTodoLeft !== noTodoLeft){
     scheduleLastAnyStarted = anyStarted;
     scheduleLastNoTodoLeft = noTodoLeft;
@@ -13855,6 +13877,15 @@ async function renderSchedule(siteId){
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
+    ${canAdd && scheduleMultiSelectMode ? `
+      <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:2;">
+        <span class="stub" style="margin:0;font-weight:700;">${scheduleMultiSelectedIds.size} selected</span>
+        <div class="row-gap" style="width:auto;">
+          <button class="darkbtn" style="width:auto;padding:8px 14px;" ${scheduleMultiSelectedIds.size?'':'disabled'} onclick="deleteScheduleMultiSelected('${siteId}')">🗑 Delete Selected</button>
+          <button class="ghostbtn" style="width:auto;padding:8px 14px;" onclick="cancelScheduleMultiSelect()">Cancel</button>
+        </div>
+      </div>
+    ` : ''}
     ${canAdd && scheduleAddPanel==='task' ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Add Task</p>
@@ -14282,6 +14313,34 @@ window.deleteTask = async function(siteId, taskId){
   const name = rows[0] && rows[0].name;
   const ok = await dbDelete('schedule_tasks', taskId);
   if(ok){ toast('Task deleted'); logSiteActivity(siteId, 'schedule_task_deleted', `Deleted Schedule of Works task "${name||''}"`); render(); }
+};
+window.enterScheduleMultiSelect = function(taskId){
+  scheduleMultiSelectMode = true;
+  scheduleMultiSelectedIds = new Set(taskId ? [taskId] : []);
+  render();
+};
+window.toggleScheduleMultiSelectId = function(taskId){
+  if(scheduleMultiSelectedIds.has(taskId)) scheduleMultiSelectedIds.delete(taskId); else scheduleMultiSelectedIds.add(taskId);
+  render();
+};
+window.cancelScheduleMultiSelect = function(){
+  scheduleMultiSelectMode = false;
+  scheduleMultiSelectedIds = new Set();
+  render();
+};
+window.deleteScheduleMultiSelected = async function(siteId){
+  if(!scheduleMultiSelectedIds.size) return;
+  const ids = Array.from(scheduleMultiSelectedIds);
+  const count = ids.length;
+  if(!await customConfirm(`Delete ${count} task${count===1?'':'s'}? This also removes their progress photos. This can't be undone.`)) return;
+  const res = await sbFetch('/rest/v1/schedule_tasks?id=in.('+ids.join(',')+')', {method:'DELETE'});
+  if(res.ok){
+    toast(`${count} task${count===1?'':'s'} deleted`);
+    logSiteActivity(siteId, 'schedule_task_deleted', `Deleted ${count} Schedule of Works task${count>1?'s':''}`);
+    scheduleMultiSelectMode = false;
+    scheduleMultiSelectedIds = new Set();
+    render();
+  } else toast('Could not delete — '+(await safeErr(res)));
 };
 window.taskPhoto = async function(input, siteId, taskId){
   const files = input.files ? Array.from(input.files) : [];
