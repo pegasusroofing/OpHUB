@@ -13370,6 +13370,12 @@ let scheduleLastNoTodoLeft = null;
 let pendingCompleteTaskId = null;
 let pdfImportSiteId = null;
 let pdfImportText = '';
+// Excel/CSV import now asks which column to use instead of always assuming
+// column A is the task name (some companies export a Line ID/Ref column
+// first and the actual scope/description sits further along the row).
+// null until a file's been chosen; then holds the parsed sheet so the
+// column picker can preview values before anything's actually imported.
+let scheduleImportPreview = null; // {headers:[...], dataRows:[[...],...], colIndex:number} | null
 // Sections default to OPEN (undefined/not-false = open) so switching a site
 // over to sections doesn't hide any tasks that were already visible.
 let scheduleSectionsOpen = {};
@@ -13892,19 +13898,60 @@ async function renderSchedule(siteId){
     ${canAdd && scheduleAddPanel==='upload' ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Upload schedule</p>
-        <p class="stub" style="margin:0 0 8px;">Excel/CSV: reads column A ("Task"), skips row 1 as a header — one task name per row.</p>
-        <div class="row-gap" style="margin-bottom:14px;">
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="downloadScheduleTemplate()">Download Template</div>
-        </div>
-        <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
-        <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
-        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
-          <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
-        </label>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
-        <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
-        <button class="ghostbtn" style="margin-top:14px;" onclick="scheduleAddPanel=null;render()">Close</button>
+        ${scheduleImportPreview && scheduleImportPreview.mode==='sections' ? (()=>{
+          const {groups, ungrouped} = scheduleImportPreview;
+          const total = groups.reduce((n,g)=>n+g.tasks.length,0) + ungrouped.length;
+          return `
+          <p class="stub" style="margin:0 0 8px;">Found a Description/Quantity/Unit layout — we've split it into ${groups.length} section${groups.length===1?'':'s'} automatically. Review below, then import.</p>
+          <div class="card" style="background:var(--paper);margin-bottom:10px;">
+            ${groups.map(g=>`
+              <p class="stub" style="margin:0 0 4px;font-weight:700;color:var(--ink);">${escapeHtml(g.name)} <span style="font-weight:400;color:var(--slate);">(${g.tasks.length})</span></p>
+              ${g.tasks.slice(0,4).map(t=>`<p class="stub" style="margin:0 0 3px 10px;">• ${escapeHtml(t)}</p>`).join('')}
+              ${g.tasks.length>4 ? `<p class="stub" style="margin:0 0 8px 10px;">…and ${g.tasks.length-4} more</p>` : `<div style="height:8px;"></div>`}
+            `).join('')}
+            ${ungrouped.length ? `
+              <p class="stub" style="margin:0 0 4px;font-weight:700;color:var(--ink);">Ungrouped <span style="font-weight:400;color:var(--slate);">(${ungrouped.length})</span></p>
+              ${ungrouped.slice(0,4).map(t=>`<p class="stub" style="margin:0 0 3px 10px;">• ${escapeHtml(t)}</p>`).join('')}
+              ${ungrouped.length>4 ? `<p class="stub" style="margin:0 0 0 10px;">…and ${ungrouped.length-4} more</p>` : ''}
+            ` : ''}
+          </div>
+          <div class="row-gap">
+            <button class="darkbtn" style="flex:1;" onclick="confirmScheduleImport('${siteId}')">Import ${total} Task(s)</button>
+            <button class="ghostbtn" style="flex:1;" onclick="cancelScheduleImport()">Choose Different File</button>
+          </div>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="switchScheduleImportToFlat()">Doesn't look right — import as one plain list instead</button>
+        `;})() : ''}
+        ${scheduleImportPreview && scheduleImportPreview.mode==='flat' ? `
+          <p class="stub" style="margin:0 0 8px;">Which column has the task/scope text? We've guessed one below — pick a different one if it's not right.</p>
+          <div class="formfield" style="margin-top:0;">
+            <select onchange="setScheduleImportColumn(parseInt(this.value,10))">
+              ${scheduleImportPreview.headers.map((h,i)=>`<option value="${i}" ${i===scheduleImportPreview.colIndex?'selected':''}>${escapeHtml(h)}</option>`).join('')}
+            </select>
+          </div>
+          <p class="stub" style="margin:0 0 4px;font-weight:700;">Preview (first ${Math.min(5,scheduleImportPreview.dataRows.length)} of ${scheduleImportPreview.dataRows.length} rows):</p>
+          <div class="card" style="background:var(--paper);margin-bottom:10px;">
+            ${scheduleImportPreview.dataRows.slice(0,5).map(r=>`<p class="stub" style="margin:0 0 4px;">${escapeHtml(r[scheduleImportPreview.colIndex]!=null?String(r[scheduleImportPreview.colIndex]):'(blank)')}</p>`).join('')}
+          </div>
+          <div class="row-gap">
+            <button class="darkbtn" style="flex:1;" onclick="confirmScheduleImport('${siteId}')">Import ${scheduleImportPreview.dataRows.length} Task(s)</button>
+            <button class="ghostbtn" style="flex:1;" onclick="cancelScheduleImport()">Choose Different File</button>
+          </div>
+        ` : ''}
+        ${!scheduleImportPreview ? `
+          <p class="stub" style="margin:0 0 8px;">Excel/CSV: pick which column to import after choosing the file — row 1 is treated as the header.</p>
+          <div class="row-gap" style="margin-bottom:14px;">
+            <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('scheduleExcelInput').click()">Choose Excel/CSV file</div>
+            <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="downloadScheduleTemplate()">Download Template</div>
+          </div>
+          <input type="file" id="scheduleExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importScheduleExcel(this,'${siteId}')">
+          <p class="stub" style="margin:0 0 8px;">PDF: we'll try to automatically pull the task list out for you, then let you review it before anything's added. Tick the box if it's a scanned or complex-layout PDF and you'd rather type/paste the list yourself instead.</p>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
+            <input type="checkbox" id="pdfManualMode"> I'll enter the list manually instead of relying on auto-extract
+          </label>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('schedulePdfInput').click()">Choose PDF file</div>
+          <input type="file" id="schedulePdfInput" accept="application/pdf" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSchedulePdf(this,'${siteId}')">
+        ` : ''}
+        <button class="ghostbtn" style="margin-top:14px;" onclick="scheduleImportPreview=null;scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
     ${canAdd && scheduleLibraryOpen ? `
@@ -14310,6 +14357,56 @@ window.downloadScheduleTemplate = async function(){
   XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
   await deliverExcelFile(wb, 'Schedule of Works - Upload Template.xlsx');
 };
+function scheduleImportCellStr(v){ return v==null ? '' : String(v).trim(); }
+// Real-world Schedules of Works (like RTB's own Bill-of-Quantities style
+// export — Description/Quantity/Unit columns, with a bare section-title row
+// like "Roof Area"/"Cladding Works"/"RWG" above each group of numbered line
+// items, and the Description/Quantity/Unit header repeating once per
+// section) don't fit a single "column A is the task" assumption — column A
+// there is the line number, not the scope, which is exactly the bug this
+// was rewritten to fix. This scans the whole sheet for a Description/
+// Quantity/Unit-style header (wherever it sits, however many times it
+// repeats) and if found, groups the rows underneath it into sections
+// automatically. Returns null if no such header is found anywhere, so the
+// caller can fall back to the manual "pick a column" flow for any other
+// layout (a plain single-column list, an arbitrarily-ordered export, etc).
+function detectSowSections(rows){
+  let descCol=-1, qtyCol=-1, unitCol=-1;
+  for(const row of rows){
+    row.forEach((v,i)=>{
+      const s = scheduleImportCellStr(v).toLowerCase();
+      if(descCol<0 && /^(description|scope|scope of works|task)$/.test(s)) descCol=i;
+      if(qtyCol<0 && /^(quantity|qty)$/.test(s)) qtyCol=i;
+      if(unitCol<0 && /^(unit|uom)$/.test(s)) unitCol=i;
+    });
+    if(descCol>=0) break; // layout's assumed consistent for the rest of the sheet
+  }
+  if(descCol<0) return null;
+  const hasQtyOrUnitCols = qtyCol>=0 || unitCol>=0;
+  const groups = []; // [{name, tasks:[string,...]}]
+  const ungrouped = [];
+  let current = null;
+  rows.forEach(row=>{
+    const desc = scheduleImportCellStr(row[descCol]);
+    const qty = qtyCol>=0 ? scheduleImportCellStr(row[qtyCol]) : '';
+    const unit = unitCol>=0 ? scheduleImportCellStr(row[unitCol]) : '';
+    if(!desc && !qty && !unit) return; // blank row — section separator
+    if(/^(description|scope|scope of works|task)$/i.test(desc)) return; // repeated header row
+    if(!desc) return;
+    if(hasQtyOrUnitCols && !qty && !unit){
+      // A row with a description but no quantity/unit, in a sheet that
+      // otherwise has those columns, is a section title (e.g. "Roof Area"),
+      // not a line item.
+      current = {name: desc, tasks: []};
+      groups.push(current);
+      return;
+    }
+    const taskName = unit ? `${desc} (${qty} ${unit})` : (qty ? `${desc} (${qty})` : desc);
+    (current ? current.tasks : ungrouped).push(taskName);
+  });
+  if(!groups.length && !ungrouped.length) return null;
+  return {groups, ungrouped};
+}
 window.importScheduleExcel = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
   if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
@@ -14318,13 +14415,92 @@ window.importScheduleExcel = async function(input, siteId){
     const wb = XLSX.read(buf, {type:'array'});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, {header:1});
-    const names = rows.slice(1).map(r=>r[0]).filter(v=>v!=null && String(v).trim()!=='');
-    if(!names.length){ toast('No task names found in column A.'); return; }
-    const startPos = await nextTaskPosition(siteId);
-    const newRows = names.map((n,i)=>({site_id:siteId, name:String(n).trim(), status:'todo', position:startPos+i}));
-    const inserted = await dbInsert('schedule_tasks', newRows);
-    if(inserted){ toast(`${names.length} task(s) imported`); render(); }
-  }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); }
+    if(!rows.length){ toast('That file looks empty.'); input.value=''; return; }
+    const sections = detectSowSections(rows);
+    if(sections){
+      scheduleImportPreview = {mode:'sections', groups:sections.groups, ungrouped:sections.ungrouped};
+      input.value = '';
+      render();
+      return;
+    }
+    // Fallback: no recognisable Description/Quantity/Unit structure found —
+    // let the user pick which column is the task name instead.
+    const headerRow = rows[0] || [];
+    const dataRows = rows.slice(1).filter(r=>r.some(v=>v!=null && String(v).trim()!==''));
+    if(!dataRows.length){ toast('No data rows found below the header row.'); input.value=''; return; }
+    const colCount = Math.max(headerRow.length, ...dataRows.map(r=>r.length));
+    const headers = [];
+    for(let i=0;i<colCount;i++){
+      const h = headerRow[i];
+      headers.push(h!=null && String(h).trim()!=='' ? String(h).trim() : 'Column '+String.fromCharCode(65+i));
+    }
+    // Guess the best default column: prefer one whose header suggests a
+    // description/scope of work, otherwise fall back to whichever column
+    // has the longest average text (an ID/ref column is typically short and
+    // numeric, so this naturally steers away from picking that by default).
+    let guess = headers.findIndex(h=>/scope|description|desc|task|item|work/i.test(h));
+    if(guess<0){
+      let bestLen = -1;
+      for(let i=0;i<colCount;i++){
+        const avgLen = dataRows.reduce((sum,r)=>sum+(r[i]!=null?String(r[i]).length:0),0)/dataRows.length;
+        if(avgLen>bestLen){ bestLen=avgLen; guess=i; }
+      }
+    }
+    scheduleImportPreview = {mode:'flat', headers, dataRows, colIndex: guess<0?0:guess};
+    input.value = ''; // so choosing the same file again still fires onchange
+    render();
+  }catch(e){ toast('Could not read that file — check it\'s a valid .xlsx or .csv.'); input.value=''; }
+};
+window.setScheduleImportColumn = function(idx){ scheduleImportPreview.colIndex = idx; render(); };
+window.cancelScheduleImport = function(){ scheduleImportPreview = null; render(); };
+// Lets someone back out of the auto-detected sections view and import
+// everything as one flat list instead, e.g. if the section grouping guessed
+// wrong for their particular file. Re-flattens what was already parsed
+// rather than asking them to re-choose the file.
+window.switchScheduleImportToFlat = function(){
+  if(!scheduleImportPreview || scheduleImportPreview.mode!=='sections') return;
+  const names = [];
+  scheduleImportPreview.groups.forEach(g=>{ names.push(...g.tasks); });
+  names.push(...scheduleImportPreview.ungrouped);
+  scheduleImportPreview = {mode:'flat', headers:['Task'], dataRows: names.map(n=>[n]), colIndex:0};
+  render();
+};
+window.confirmScheduleImport = async function(siteId){
+  if(!scheduleImportPreview) return;
+  if(scheduleImportPreview.mode==='sections'){
+    const {groups, ungrouped} = scheduleImportPreview;
+    const total = groups.reduce((n,g)=>n+g.tasks.length,0) + ungrouped.length;
+    if(!total){ toast('Nothing to import.'); return; }
+    const existing = await dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&select=id,name');
+    let secPos = await nextSectionPosition(siteId);
+    let taskPos = await nextTaskPosition(siteId);
+    for(const g of groups){
+      if(!g.tasks.length) continue;
+      let section = existing.find(s=>(s.name||'').trim().toLowerCase()===g.name.trim().toLowerCase());
+      if(!section){
+        const rows = await dbInsert('schedule_sections', {site_id:siteId, name:g.name, position:secPos++, created_by:ME.id});
+        section = rows && rows[0];
+        if(section) existing.push(section);
+      }
+      if(!section) continue; // couldn't create this section — skip its tasks rather than losing the whole import
+      const taskRows = g.tasks.map(name=>({site_id:siteId, section_id:section.id, name, status:'todo', position:taskPos++}));
+      await dbInsert('schedule_tasks', taskRows);
+    }
+    if(ungrouped.length){
+      const taskRows = ungrouped.map(name=>({site_id:siteId, name, status:'todo', position:taskPos++}));
+      await dbInsert('schedule_tasks', taskRows);
+    }
+    toast(`${total} task(s) imported across ${groups.length} section(s)`);
+    scheduleImportPreview = null; render();
+    return;
+  }
+  const {dataRows, colIndex} = scheduleImportPreview;
+  const names = dataRows.map(r=>r[colIndex]).filter(v=>v!=null && String(v).trim()!=='');
+  if(!names.length){ toast('That column is empty for every row.'); return; }
+  const startPos = await nextTaskPosition(siteId);
+  const newRows = names.map((n,i)=>({site_id:siteId, name:String(n).trim(), status:'todo', position:startPos+i}));
+  const inserted = await dbInsert('schedule_tasks', newRows);
+  if(inserted){ toast(`${names.length} task(s) imported`); scheduleImportPreview = null; render(); }
 };
 window.importSchedulePdf = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
