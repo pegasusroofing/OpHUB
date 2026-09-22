@@ -2601,7 +2601,11 @@ async function computeMyOutstandingCount(){
 function homeBottomBar(canAdd, outstandingCount){
   const items = [
     {ic:'📝', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
-    ...(!canAdd ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
+    // Inbox is the operative team's messages feed — a client shouldn't see
+    // it at all (they're not part of that audience), so it's excluded here
+    // even though clients otherwise fall into the same !canAdd bucket as
+    // operatives. The route itself is gated the same way below.
+    ...(!canAdd && !isClient(ME) ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
     ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard-choice')"}] : []),
     // Styled in the company's theme colour (brand1) rather than the plain
@@ -14573,7 +14577,7 @@ function snagCardBody(siteId, s, canAdd){
             ${s.closed_photo_path ? `<img src="${publicUrl('site-photos',s.closed_photo_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',s.closed_photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">` : ''}
             <div class="stub" style="margin-top:0;">Closed by ${escapeHtml(nameOf(s.closed_by))} · ${s.closed_at ? new Date(s.closed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'}) : ''}</div>
           </div>
-        ` : `
+        ` : isClient(ME) ? '' : `
           ${closingSnagId===s.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;">
               <p class="stub" style="margin:0 0 8px;">Upload a photo showing this is fixed.</p>
@@ -14692,6 +14696,10 @@ window.addSnag = async function(siteId){
   }
 };
 window.closeSnagPhoto = async function(input, siteId, snagId){
+  // Belt-and-braces: the "Close snag" button/photo-prompt is already hidden
+  // from clients entirely (see snagCardBody), but guard the handler itself
+  // too in case this is ever reached another way.
+  if(isClient(ME)) return;
   const file = input.files && input.files[0]; if(!file) return;
   try{
     const dataUrl = await compressImage(file);
@@ -26899,7 +26907,11 @@ async function renderRoute(){
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='hub'){ if(!ME || !isManager(ME)){ go('#/sites'); return; } return renderHub(); }
-  if(parts[0]==='my-messages'){ return renderMyMessages(); }
+  // Inbox is the operative team's messages feed — off-limits to clients,
+  // same as Materials/Team/etc; unlike those, this route had no gate at all
+  // before, so a client hitting #/my-messages (e.g. a stale link, or before
+  // the tab above was hidden) got straight through to real message content.
+  if(parts[0]==='my-messages'){ if(ME && isClient(ME)){ go('#/sites'); return; } return renderMyMessages(); }
   if(parts[0]==='operative-dashboard'){ return renderOperativeDashboard(); }
   if(parts[0]==='account'){ return renderAccountSettings(); }
   if(parts[0]==='onboarding-checklist'){ return renderOnboardingChecklist(); }
