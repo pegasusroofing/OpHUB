@@ -7588,6 +7588,7 @@ window.addTodo = async function(siteId){
     if(newTodoAssigneeDraft){
       const site = SITES.find(s=>s.id===siteId);
       postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'New to-do assigned to '+nameOf(newTodoAssigneeDraft)+': '+text);
+      notifyTodoAssigned(siteId, row.id, newTodoAssigneeDraft);
     }
     newTodoDraft = '';
     newTodoAssigneeDraft = '';
@@ -8300,6 +8301,15 @@ window.toggleAssignment = async function(siteId, userId, isAssigned){
 async function notifySiteAssignment(siteId, userId){
   try{
     await sbFetch('/functions/v1/notify-site-assignment', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId})});
+  }catch(e){ /* silent */ }
+}
+// Best-effort email to whoever a new to-do was just assigned to — the
+// in-app system message + push (via postSystemMessage) already goes out to
+// all PMs/admins, but this puts it straight in the assignee's inbox too.
+// Never blocks or errors out the to-do add itself, which has already saved.
+async function notifyTodoAssigned(siteId, todoId, userId){
+  try{
+    await sbFetch('/functions/v1/notify-todo-assigned', {method:'POST', body: JSON.stringify({site_id:siteId, todo_id:todoId, user_id:userId})});
   }catch(e){ /* silent */ }
 }
 // #384: first-visit "assign operatives" pop-up, triggered from
