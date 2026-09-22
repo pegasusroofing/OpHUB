@@ -358,6 +358,8 @@
   .taskmeta{font-size:11px;color:var(--slate);margin-top:3px;}
   .taskphoto{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;}
   .taskphoto img{width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
+  .taskphotowrap{position:relative;width:40px;height:40px;flex:0 0 auto;}
+  .taskphotodel{position:absolute;top:-6px;right:-6px;width:17px;height:17px;border-radius:50%;background:var(--danger,#C0392B);color:#fff;font-size:11px;line-height:17px;text-align:center;cursor:pointer;border:2px solid var(--paper);font-weight:700;}
   .addphotobtn{margin-top:8px;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--brand1);}
   .taskrowtop{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px;}
   /* #(taskname-collapse-fix): the "Completed {date}" annotation shown under
@@ -13359,10 +13361,8 @@ window.setTaskSubcontractor = async function(siteId, taskId, companyId){
 };
 let schedulePollTimer = null;
 let subSchedulePollTimer = null;
-let scheduleFilter = 'all';
+let scheduleFilter = 'active';
 let scheduleLastSiteId; // undefined initially so the first render always sets a default
-let scheduleLastAnyStarted = null;
-let scheduleLastNoTodoLeft = null;
 // A task moving to "Complete" isn't saved as done straight away — it sits
 // here as a pending completion until at least one completion photo is
 // uploaded, so nobody can mark a job done with no evidence attached. They
@@ -13663,7 +13663,12 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               <button class="ghostbtn" style="margin-top:8px;" onclick="subcontractorAssignPickerTaskId=null;render()">Close</button>
             </div>
           ` : ''}
-          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`<img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : ''}
+          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`
+            <div class="taskphotowrap">
+              <img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">
+              ${t.status!=='done' ? `<div class="taskphotodel" onclick="event.stopPropagation();deleteSchedulePhoto('${siteId}','${t.id}','${p.id}','${p.storage_path}')">×</div>` : ''}
+            </div>
+          `).join('')}</div>` : ''}
           ${pendingCompleteTaskId===t.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
               <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
@@ -13825,38 +13830,23 @@ async function renderSchedule(siteId){
   sectionFlags.forEach(f=>{ flagsBySection[f.section_id || '__ungrouped__'] = f; });
   const subAddrById = {};
   subAddressesList.forEach(a=>{ subAddrById[a.id] = a; });
-  // Once anything on this schedule has actually started, "All" moves out of
-  // pole position — To Do becomes the default view (what's left to start),
-  // with In Progress/Complete as the middle tab, and All pushed to the end.
-  // Before anything has started, the original All/To Do/In Progress order
-  // stays, defaulting to All. The default only re-applies the moment this
-  // site's started/not-started state actually flips (or on first load),
-  // so it doesn't fight a tab the user has deliberately picked otherwise.
-  const anyStarted = allTasks.some(t=>t.status==='progress'||t.status==='done');
-  // Once every task has moved past "to do" (none left at all, and there's
-  // at least one task), In Progress/Complete becomes the default view too —
-  // there's nothing left to start, so that's the tab with anything relevant
-  // in it. Re-applies the moment this flips, same as the anyStarted default
-  // below, so it doesn't fight a tab the user picked deliberately otherwise.
-  const noTodoLeft = allTasks.length>0 && !allTasks.some(t=>t.status==='todo');
+  // Fixed three-tab layout: To Do/In Progress, Complete, All — always in
+  // this order, never reshuffled by what state the site's tasks happen to
+  // be in. Only the default TAB on first opening a site is chosen (To Do/
+  // In Progress, since that's what's actionable), never re-applied after
+  // that, so it doesn't fight a tab the user has deliberately picked.
   if(scheduleLastSiteId !== siteId){
     scheduleLastSiteId = siteId;
-    scheduleLastAnyStarted = anyStarted;
-    scheduleLastNoTodoLeft = noTodoLeft;
-    scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
+    scheduleFilter = 'active';
     sectionFirstSubAddr = {};
     scheduleMultiSelectMode = false;
     scheduleMultiSelectedIds = new Set();
-  } else if(scheduleLastAnyStarted !== anyStarted || scheduleLastNoTodoLeft !== noTodoLeft){
-    scheduleLastAnyStarted = anyStarted;
-    scheduleLastNoTodoLeft = noTodoLeft;
-    scheduleFilter = noTodoLeft ? 'progress' : (anyStarted ? 'todo' : 'all');
   }
-  const scheduleTabOrder = noTodoLeft ? ['progress','todo','all'] : (anyStarted ? ['todo','progress','all'] : ['all','todo','progress']);
-  const scheduleTabLabel = {all:'All', todo:'To Do', progress:'In Progress / Complete'};
+  const scheduleTabOrder = ['active','done','all'];
+  const scheduleTabLabel = {active:'To Do / In Progress', done:'Complete', all:'All'};
   const tasks = scheduleFilter==='all' ? allTasks
-    : scheduleFilter==='progress' ? allTasks.filter(t=>t.status==='progress'||t.status==='done')
-    : allTasks.filter(t=>t.status===scheduleFilter);
+    : scheduleFilter==='done' ? allTasks.filter(t=>t.status==='done')
+    : allTasks.filter(t=>t.status==='todo'||t.status==='progress');
   let photosByTask = {};
   if(allTasks.length){
     const ids = allTasks.map(t=>t.id).join(',');
@@ -14368,6 +14358,18 @@ window.taskPhoto = async function(input, siteId, taskId){
   }
   if(uploaded){ toast(uploaded===1 ? 'Photo added' : `${uploaded} photos added`); render(); }
   else toast('Could not process photo(s).');
+};
+// Photos can be removed while a task is still To Do/In Progress — once it's
+// marked Complete its photos are the evidence record and are locked (the ×
+// button is hidden entirely in that state, see taskRowHtml), so this never
+// runs against a done task in normal use.
+window.deleteSchedulePhoto = async function(siteId, taskId, photoId, storagePath){
+  if(!await customConfirm('Delete this photo? This can\'t be undone.')) return;
+  const ok = await dbDelete('schedule_photos', photoId);
+  if(!ok) return;
+  if(storagePath){ try{ await sbFetch('/storage/v1/object/site-photos/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ } }
+  toast('Photo deleted');
+  render();
 };
 // Best-effort background sync — never blocks the UI or shows an error toast,
 // since most companies won't have OneDrive connected yet. If this site has
