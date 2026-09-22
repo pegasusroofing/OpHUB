@@ -558,6 +558,26 @@ function getDeviceId(){
   return id;
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Shared "CC client contact" tick box, dropped into every "email this"
+// picker in the app except Material and Price (those stay internal-only).
+// Renders nothing if the site has no client_email on file yet, so a site
+// with no Client Info entered just doesn't show the option. Each picker
+// gives its own inputId (must be unique per picker, since more than one can
+// theoretically be open... in practice only one modal is ever open at once,
+// but keeping them distinct avoids any cross-talk if that ever changes).
+function ccClientTickHtml(site, inputId){
+  if(!site || !site.client_email) return '';
+  return `<label style="display:flex;align-items:center;gap:8px;padding:8px 2px;font-size:12.5px;font-weight:600;cursor:pointer;">
+    <input type="checkbox" id="${inputId}" style="width:auto;">CC client contact${site.client_name?' ('+escapeHtml(site.client_name)+')':''}
+  </label>`;
+}
+// Reads back an inputId written by ccClientTickHtml — returns the site's
+// client_email if ticked, else null. Safe to call even when the checkbox
+// wasn't rendered (no client_email) since the element just won't exist.
+function ccClientEmailIfTicked(site, inputId){
+  const el = document.getElementById(inputId);
+  return (el && el.checked && site && site.client_email) ? site.client_email : null;
+}
 // Timezone-safe "YYYY-MM-DD" for a local Date — NOT the same as
 // d.toISOString().slice(0,10), which converts to UTC first and so silently
 // shifts the date back a day for any UTC+ timezone (e.g. British Summer
@@ -2348,7 +2368,13 @@ window._promptAnswer = function(result){
 // sending a document (RAMS/COSHH/TBT/Site Induction/Priced Sheet). Resolves
 // to {value, ccMe} on OK, or null on Cancel (same falsy-on-cancel contract
 // as customPrompt).
-function customPromptWithCc(message, defaultValue){
+// Optional `site` param (added alongside the "CC client contact" rollout):
+// when given and it has a client_email on file, a second tick box appears
+// below "CC me a copy" and the resolved answer carries `ccClient` (bool)
+// alongside `ccMe` — callers turn that into the site's client_email
+// themselves (see ccClientEmailFromPromptAnswer below) rather than this
+// generic prompt knowing about client_cc_email as a concept.
+function customPromptWithCc(message, defaultValue, site){
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -2363,10 +2389,15 @@ function customPromptWithCc(message, defaultValue){
       <div class="geo-modal-card">
         <p class="stub" style="margin:0 0 10px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
         <div class="formfield" style="margin-top:0;"><input type="text" id="customPromptInput" value="${escapeHtml(defaultValue||'')}" onkeyup="if(event.key==='Enter')window._promptAnswerCc();"></div>
-        <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 14px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;">
+        <label style="display:flex;align-items:center;gap:8px;margin:-4px 0 8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;">
           <input type="checkbox" id="customPromptCcMe" style="width:18px;height:18px;flex:none;">
           CC me a copy
         </label>
+        ${site && site.client_email ? `
+        <label style="display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;">
+          <input type="checkbox" id="customPromptCcClient" style="width:18px;height:18px;flex:none;">
+          CC client contact${site.client_name?' ('+escapeHtml(site.client_name)+')':''}
+        </label>` : ''}
         <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswerCc()">OK</button>
         <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
       </div>`;
@@ -2378,8 +2409,14 @@ function customPromptWithCc(message, defaultValue){
 window._promptAnswerCc = function(){
   const input = document.getElementById('customPromptInput');
   const cc = document.getElementById('customPromptCcMe');
-  window._promptAnswer({value: input?input.value:'', ccMe: !!(cc&&cc.checked)});
+  const ccClient = document.getElementById('customPromptCcClient');
+  window._promptAnswer({value: input?input.value:'', ccMe: !!(cc&&cc.checked), ccClient: !!(ccClient&&ccClient.checked)});
 };
+// Turns a customPromptWithCc answer + the site it was called with into the
+// literal email address to pass as client_cc_email, or null.
+function ccClientEmailFromPromptAnswer(answer, site){
+  return (answer && answer.ccClient && site && site.client_email) ? site.client_email : null;
+}
 // Same overlay/resolve plumbing as customPrompt above, just a date input
 // instead of text — used anywhere a single date needs picking outside a
 // full form (e.g. the "Starts <date>" chip on the site list).
@@ -7029,7 +7066,7 @@ async function renderSiteHome(siteId){
     </div>
     <div class="statrow">
       ${isManager(ME) ? `
-        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin')"><b>${onSiteCount}</b><span>Operatives on site</span></div>
+        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/client-info')"><b>Client</b><span>${site.client_name ? escapeHtml(site.client_name) : 'Add client info'}${site.client_phone ? ' · '+escapeHtml(site.client_phone) : ''}</span></div>
       ` : `
         <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
       `}
@@ -7307,6 +7344,7 @@ let todoEmailPmListCache = [];
 // those ticked to-do rows instead of the whole live list.
 window.openTodoEmailPicker = async function(siteId, selectedIds){
   const pmList = await loadPMList();
+  const site = SITES.find(s=>s.id===siteId);
   todoEmailPmListCache = pmList;
   todoEmailRecipientIds = [];
   todoEmailFilterText = '';
@@ -7325,6 +7363,7 @@ window.openTodoEmailPicker = async function(siteId, selectedIds){
       <p class="stub">Choose which project managers should receive the${todoEmailSelectedIds?' '+todoEmailSelectedIds.length+' selected to-do'+(todoEmailSelectedIds.length===1?'':'s'):' live to-do list'} for this site.</p>
       ${pmList.length>10 ? `<div class="formfield"><input type="text" id="todoEmailFilterInput" placeholder="Filter project managers…" oninput="filterTodoEmailPmList(this.value)"></div>` : ''}
       <div id="todoEmailPmListWrap" style="max-height:240px;overflow-y:auto;margin-bottom:14px;"></div>
+      ${ccClientTickHtml(site, 'todoEmailCcClient')}
       <button class="darkbtn" id="todoEmailConfirmBtn" style="width:100%;" onclick="confirmEmailTodoList('${siteId}')">Send</button>
       <button class="geo-modal-cancel" onclick="closeTodoEmailPicker()">Cancel</button>
     </div>`;
@@ -7358,7 +7397,7 @@ window.confirmEmailTodoList = async function(siteId){
   const btn = document.getElementById('todoEmailConfirmBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
   try{
-    const res = await sbFetch('/functions/v1/send-todo-email', {method:'POST', body: JSON.stringify({site_id: siteId, recipient_ids: todoEmailRecipientIds, todo_ids: todoEmailSelectedIds||undefined})});
+    const res = await sbFetch('/functions/v1/send-todo-email', {method:'POST', body: JSON.stringify({site_id: siteId, recipient_ids: todoEmailRecipientIds, todo_ids: todoEmailSelectedIds||undefined, client_cc_email: ccClientEmailIfTicked(SITES.find(s=>s.id===siteId), 'todoEmailCcClient')})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); if(btn){ btn.disabled=false; btn.textContent='Send'; } return; }
     toast('To-do list emailed');
@@ -8265,6 +8304,38 @@ window.saveSiteAddress = async function(siteId){
     if(idx>-1) SITES[idx] = row;
     toast('Details updated');
     render();
+  }
+};
+// Client Info — name, contact number and email for whoever the client
+// contact on this job is. Reached from the Client tile on Home (position 1,
+// where the PM/admin "Operatives on site" stat used to be). Kept as its own
+// page rather than folded into Settings & Admin's "Amend Site Name, Address"
+// card so it's a single tap from Home instead of two levels deep.
+async function renderClientInfo(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site) return;
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="card">
+      <div class="formfield"><label class="field-label">Client Name</label><input type="text" id="editClientName" placeholder="Optional" value="${escapeHtml(site.client_name||'')}" oninput="applyTitleCase(this)"></div>
+      <div class="formfield"><label class="field-label">Client Contact Number</label><input type="tel" id="editClientPhone" placeholder="Optional" value="${escapeHtml(site.client_phone||'')}"></div>
+      <div class="formfield"><label class="field-label">Client Email</label><input type="email" id="editClientEmail" placeholder="Optional" value="${escapeHtml(site.client_email||'')}"></div>
+      <p class="stub" style="margin:8px 0 0;">When an email address is entered here, a "CC client contact" tick box appears on the app's email pickers (Schedule of Works, Snags, To Do List, Reports and more) so whoever's sending can loop the client in on that same email.</p>
+      <button class="darkbtn" style="margin-top:14px;" onclick="saveClientInfo('${siteId}')">Save</button>
+    </div>
+  `, {title:'Client Info', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
+}
+window.saveClientInfo = async function(siteId){
+  const name = document.getElementById('editClientName').value.trim();
+  const phone = document.getElementById('editClientPhone').value.trim();
+  const email = document.getElementById('editClientEmail').value.trim();
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  const row = await dbUpdate('sites', siteId, {client_name: name||null, client_phone: phone||null, client_email: email||null});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast('Client info updated');
+    go(`#/site/${siteId}/home`);
   }
 };
 // Same field, reachable straight from the site list's "Starts <date>" chip —
@@ -12842,7 +12913,12 @@ window.exportReportPDF = async function(submissionId){
 // prompts for a recipient the same way (was previously silently sent only
 // to the PM's own address with no way to pick who).
 window.emailReportPDF = async function(submissionId, fromBriefing){
-  const answer = await customPromptWithCc('Email this report PDF to:', ME.email||'');
+  // A quick site_id-only lookup ahead of building the PDF — just enough to
+  // know whether to offer "CC client contact" on the prompt, without
+  // waiting on the (potentially slow, photo-heavy) full PDF build first.
+  const subRow = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&select=site_id&limit=1');
+  const site = subRow.length ? SITES.find(s=>s.id===subRow[0].site_id) : null;
+  const answer = await customPromptWithCc('Email this report PDF to:', ME.email||'', site);
   if(!answer || !answer.value) return;
   const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
@@ -12858,6 +12934,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
       site_id: built.sub.site_id, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -15075,15 +15152,24 @@ window.exportSnaggingPDF = async function(siteId, scope){
 let snagEmailBusy = null; // scope currently sending, or null
 window.emailSnaggingPDF = async function(siteId, scope){
   if(snagEmailBusy) return;
+  const site = SITES.find(s=>s.id===siteId);
+  // No recipient-picker modal here (this sends straight to the caller's own
+  // inbox) — so the "CC client contact" choice is a quick Yes/No prompt
+  // instead of a tick box, only asked at all when the site has a client
+  // email on file.
+  let ccClientEmail = null;
+  if(site && site.client_email){
+    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) ccClientEmail = site.client_email;
+  }
   snagEmailBusy = scope; render();
   try{
     const built = await buildSnaggingPdfBytes(siteId, scope);
     if(!built){ snagEmailBusy = null; render(); return; }
-    const site = SITES.find(s=>s.id===siteId);
     let binary=''; const chunk=0x8000;
     for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
     const scopeLabel = scope==='live' ? 'Live' : scope==='closed' ? 'Closed' : 'All';
-    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: btoa(binary), site_name: site?site.name:'', scope_label: scopeLabel})});
+    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: btoa(binary), site_name: site?site.name:'', scope_label: scopeLabel, client_cc_email: ccClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast('Snagging report emailed to '+(d.to||ME.email)); }
@@ -15341,6 +15427,7 @@ window.exportSchedulePDF = async function(siteId){
 // type any address) rather than being limited to their own inbox.
 window.openScheduleEmailPrompt = async function(siteId){
   await loadAllProfiles();
+  const site = SITES.find(s=>s.id===siteId);
   const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email);
   let ov = document.getElementById('scheduleEmailModalOverlay');
   if(!ov){
@@ -15364,6 +15451,7 @@ window.openScheduleEmailPrompt = async function(siteId){
         `).join('') || `<p class="stub">No other PMs/admins found.</p>`}
       </div>
       <div class="formfield"><label class="field-label">Add another address</label><input type="email" id="scheduleEmailExtraInput" placeholder="name@example.com"></div>
+      ${ccClientTickHtml(site, 'scheduleEmailCcClient')}
       <button class="darkbtn" id="scheduleEmailConfirmBtn" style="width:100%;" onclick="confirmScheduleEmail('${siteId}')">Confirm &amp; Send</button>
       <button class="geo-modal-cancel" onclick="closeScheduleEmailPrompt()">Cancel</button>
     </div>`;
@@ -15394,6 +15482,7 @@ window.confirmScheduleEmail = async function(siteId){
   try{
     const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', body: JSON.stringify({
       site_id: siteId, filename: built.filename, content_base64: base64, recipients,
+      client_cc_email: ccClientEmailIfTicked(SITES.find(s=>s.id===siteId), 'scheduleEmailCcClient'),
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -16494,19 +16583,21 @@ window.exportSelectedInductions = async function(){
   toast(`Opened ${withPdf.length} PDF${withPdf.length===1?'':'s'}`);
 };
 window.emailSiteInductionPdf = async function(completionId, operativeName){
-  const answer = await customPromptWithCc(`Email this induction PDF for ${operativeName||'this operative'} to:`, '');
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   const rows = await dbSelect('site_induction_completions', 'id=eq.'+completionId+'&select=pdf_path,site_id,operative_id');
   const row = rows[0];
   if(!row || !row.pdf_path){ toast('PDF not available.'); return; }
+  const site = SITES.find(s=>s.id===row.site_id);
+  const answer = await customPromptWithCc(`Email this induction PDF for ${operativeName||'this operative'} to:`, '', site);
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: row.site_id,
       recipient_email: trimmed,
       cc_email: answer.ccMe ? ME.email : undefined,
+      client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
       items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
@@ -16515,19 +16606,21 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
 window.emailSelectedInductions = async function(){
   const ids = Array.from(siteInductionSelectedIds);
   if(!ids.length) return;
-  const answer = await customPromptWithCc(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '');
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   const rows = await dbSelect('site_induction_completions', 'id=in.('+ids.join(',')+')&select=pdf_path,operative_id,site_id');
   const withPdf = rows.filter(r=>r.pdf_path);
   if(!withPdf.length){ toast('Nothing to email.'); return; }
+  const site = SITES.find(s=>s.id===withPdf[0].site_id);
+  const answer = await customPromptWithCc(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '', site);
+  if(!answer || !answer.value) return;
+  const trimmed = answer.value.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: withPdf[0].site_id,
       recipient_email: trimmed,
       cc_email: answer.ccMe ? ME.email : undefined,
+      client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
       items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
     })});
     if(res && res.ok){ toast('Emailed'); siteInductionSelectedIds = new Set(); render(); } else { toast('Could not send the email — please try again.'); }
@@ -17727,7 +17820,8 @@ window.exportSignedRams = async function(ramsId){
   await deliverPdf(built.bytes, built.filename);
 };
 window.emailSignedRams = async function(siteId, ramsId){
-  const answer = await customPromptWithCc('Email this signed RAMS PDF to:', '');
+  const site = SITES.find(s=>s.id===siteId);
+  const answer = await customPromptWithCc('Email this signed RAMS PDF to:', '', site);
   if(!answer || !answer.value) return;
   const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
@@ -17740,7 +17834,7 @@ window.emailSignedRams = async function(siteId, ramsId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -18058,6 +18152,12 @@ window.exportSignedCoshh = async function(coshhId){
 // Signed PDF which downloads one document at a time.
 let coshhEmailAllBusy = false;
 window.emailAllSignedCoshh = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  let ccClientEmail = null;
+  if(site && site.client_email){
+    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) ccClientEmail = site.client_email;
+  }
   coshhEmailAllBusy = true; render();
   toast('Building PDFs…');
   try{
@@ -18070,7 +18170,7 @@ window.emailAllSignedCoshh = async function(siteId){
       if(built) attachments.push({filename: built.filename, content_base64: built.base64});
     }
     if(!attachments.length){ toast('Could not build any of the signed COSHH documents.'); coshhEmailAllBusy=false; render(); return; }
-    const res = await sbFetch('/functions/v1/send-coshh-email', {method:'POST', body: JSON.stringify({site_id:siteId, attachments})});
+    const res = await sbFetch('/functions/v1/send-coshh-email', {method:'POST', body: JSON.stringify({site_id:siteId, attachments, client_cc_email: ccClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else toast(`${attachments.length} signed COSHH document${attachments.length===1?'':'s'} emailed to ${ME.email}`);
@@ -18082,7 +18182,8 @@ window.emailAllSignedCoshh = async function(siteId){
 // the caller's own address. Lets a PM email a subcontractor's signed COSHH
 // straight from the main COSHH page's Subcontractor COSHH dropdown.
 window.emailSignedCoshh = async function(siteId, coshhId){
-  const answer = await customPromptWithCc('Email this signed COSHH PDF to:', '');
+  const site = SITES.find(s=>s.id===siteId);
+  const answer = await customPromptWithCc('Email this signed COSHH PDF to:', '', site);
   if(!answer || !answer.value) return;
   const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
@@ -18095,7 +18196,7 @@ window.emailSignedCoshh = async function(siteId, coshhId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -19826,11 +19927,17 @@ async function havsExportOperativeSet(siteId, operatives, labelForFilename, days
   await deliverPdf(bytes, filename);
 }
 async function havsEmailOperativeSet(siteId, operatives, labelForFilename, daysOverride, weekLabelOverride){
+  const site = SITES.find(s=>s.id===siteId);
+  let ccClientEmail = null;
+  if(site && site.client_email){
+    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) ccClientEmail = site.client_email;
+  }
   const days = daysOverride || havsWeekDates(havsWeekOffset);
   const weekLabel = weekLabelOverride || havsWeekLabelFor(days);
   const {bytes, filename} = await buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename);
   const content_base64 = havsBytesToBase64(bytes);
-  const res = await sbFetch('/functions/v1/send-havs-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel})});
+  const res = await sbFetch('/functions/v1/send-havs-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: ccClientEmail})});
   const d = await res.json();
   if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return false; }
   toast('HAVS register emailed to '+ME.email);
@@ -20524,6 +20631,12 @@ window.exportPuwerInspection = async function(siteId, userId){
 window.emailPuwerInspection = async function(siteId, userId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
   if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
+  const puwerCcSite = SITES.find(s=>s.id===siteId);
+  let puwerCcClientEmail = null;
+  if(puwerCcSite && puwerCcSite.client_email){
+    const cc = await customConfirm('CC client contact'+(puwerCcSite.client_name?' ('+puwerCcSite.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) puwerCcClientEmail = puwerCcSite.client_email;
+  }
   puwerEmailBusy = true; render();
   toast('Building PDF…');
   try{
@@ -20531,7 +20644,7 @@ window.emailPuwerInspection = async function(siteId, userId){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
     const content_base64 = btoa(binary);
-    const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, operative_name:op.name})});
+    const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, operative_name:op.name, client_cc_email: puwerCcClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else toast('PUWER report emailed to '+ME.email);
@@ -20606,6 +20719,12 @@ window.exportPuwerCollective = async function(siteId){
 };
 window.emailPuwerCollective = async function(siteId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const puwerCcSite2 = SITES.find(s=>s.id===siteId);
+  let puwerCcClientEmail2 = null;
+  if(puwerCcSite2 && puwerCcSite2.client_email){
+    const cc = await customConfirm('CC client contact'+(puwerCcSite2.client_name?' ('+puwerCcSite2.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) puwerCcClientEmail2 = puwerCcSite2.client_email;
+  }
   puwerEmailAllBusy = true; render();
   try{
     const operatives = await puwerResolveAllOperatives(siteId);
@@ -20615,7 +20734,7 @@ window.emailPuwerCollective = async function(siteId){
       let binary=''; const chunk=0x8000;
       for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
       const content_base64 = btoa(binary);
-      const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel})});
+      const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: puwerCcClientEmail2})});
       const d = await res.json();
       if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
       else toast('PUWER register emailed to '+ME.email);
@@ -21235,6 +21354,12 @@ window.exportIncidentPdf = async function(reportId){
 };
 window.emailIncidentReport = async function(siteId, reportId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  const incidentSite = SITES.find(s=>s.id===siteId);
+  let incidentCcClientEmail = null;
+  if(incidentSite && incidentSite.client_email){
+    const cc = await customConfirm('CC client contact'+(incidentSite.client_name?' ('+incidentSite.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    if(cc) incidentCcClientEmail = incidentSite.client_email;
+  }
   toast('Building PDF…');
   try{
     const built = await buildIncidentPdf(reportId);
@@ -21242,7 +21367,7 @@ window.emailIncidentReport = async function(siteId, reportId){
     let binary=''; const chunk=0x8000; const bytes = built.bytes;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
     const content_base64 = btoa(binary);
-    const res = await sbFetch('/functions/v1/send-incident-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename: built.filename, content_base64})});
+    const res = await sbFetch('/functions/v1/send-incident-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename: built.filename, content_base64, client_cc_email: incidentCcClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return; }
     toast('Incident report emailed to '+ME.email);
@@ -22096,7 +22221,8 @@ window.exportSignedToolboxTalk = async function(tbtId){
   }
 };
 window.emailSignedToolboxTalk = async function(siteId, tbtId){
-  const answer = await customPromptWithCc('Email this signed Toolbox Talk PDF to:', '');
+  const site = SITES.find(s=>s.id===siteId);
+  const answer = await customPromptWithCc('Email this signed Toolbox Talk PDF to:', '', site);
   if(!answer || !answer.value) return;
   const trimmed = answer.value.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
@@ -22109,7 +22235,7 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     if(!stored){ toast('Could not upload the PDF — try again.'); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
@@ -27156,6 +27282,10 @@ async function renderRoute(){
     if(page==='team'){
       if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
       return renderAssignTeam(siteId);
+    }
+    if(page==='client-info'){
+      if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
+      return renderClientInfo(siteId);
     }
     if(page==='todos'){
       if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
