@@ -13678,7 +13678,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
             </div>
           ` : `
             <div class="addphotobtn" style="cursor:pointer;${t.status==='done'?'color:var(--ink);':''}" onclick="document.getElementById('taskPhotoInput-${t.id}').click()">📷 Add photo</div>
-            <input type="file" id="taskPhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="taskPhoto(this,'${siteId}','${t.id}')">
+            <input type="file" id="taskPhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="taskPhoto(this,'${siteId}','${t.id}','${t.status}')">
           `}
         </div>
         <div class="statusbtns">
@@ -14205,7 +14205,7 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
       const path = siteId+'/schedule/'+taskId+'/'+crypto.randomUUID()+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(!stored) continue;
-      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
+      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id, stage:'done'});
       if(rows){ uploaded++; syncPhotoToOneDrive(dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
     }catch(e){ /* skip this file, keep going with the rest */ }
   }
@@ -14332,9 +14332,24 @@ window.deleteScheduleMultiSelected = async function(siteId){
     render();
   } else toast('Could not delete — '+(await safeErr(res)));
 };
-window.taskPhoto = async function(input, siteId, taskId){
+// Every photo is tagged with the task's stage AT THE TIME it's taken
+// (stage: 'todo'/'progress'/'done'), not derived later from wherever the
+// task's status has since moved on to — that's what lets the Schedule of
+// Works export group each task's photos into Before / In Progress /
+// Completed Photos correctly even after the task itself has moved on.
+// A photo added while a task is still To Do prompts "has this started?" —
+// Yes tags the new photos as In Progress and moves the task there too
+// (rather than silently filing a during-work photo under "Before"); No
+// keeps both the task and the new photos exactly where they were.
+window.taskPhoto = async function(input, siteId, taskId, currentStatus){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
+  let stage = currentStatus === 'done' ? 'done' : (currentStatus === 'progress' ? 'progress' : 'todo');
+  let moveToProgress = false;
+  if(currentStatus === 'todo'){
+    const started = await customConfirm('Has this task started?', {confirmLabel:'Yes — move to In Progress', cancelLabel:'No — still To Do'});
+    if(started){ stage = 'progress'; moveToProgress = true; }
+  }
   let uploaded = 0;
   for(const file of files){
     try{
@@ -14342,7 +14357,7 @@ window.taskPhoto = async function(input, siteId, taskId){
       const path = siteId+'/schedule/'+taskId+'/'+crypto.randomUUID()+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(!stored) continue;
-      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id});
+      const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, uploaded_by:ME.id, stage});
       if(rows){
         uploaded++;
         const [existing, taskRows] = await Promise.all([
@@ -14356,7 +14371,11 @@ window.taskPhoto = async function(input, siteId, taskId){
       }
     }catch(e){ /* skip this file, keep going with the rest */ }
   }
-  if(uploaded){ toast(uploaded===1 ? 'Photo added' : `${uploaded} photos added`); render(); }
+  if(uploaded){
+    if(moveToProgress) await dbUpdate('schedule_tasks', taskId, {status:'progress'});
+    toast(uploaded===1 ? (moveToProgress?'Photo added — moved to In Progress':'Photo added') : (moveToProgress?`${uploaded} photos added — moved to In Progress`:`${uploaded} photos added`));
+    render();
+  }
   else toast('Could not process photo(s).');
 };
 // Photos can be removed while a task is still To Do/In Progress — once it's
@@ -15182,20 +15201,51 @@ async function buildSchedulePdfBytes(siteId){
       }
       return text.slice(0, lo) + '…';
     }
+    // Each task's photos are grouped by the stage they were taken at
+    // (recorded on the photo itself — see the `stage` column added for this
+    // — not by the task's current status, so a task that's since moved on
+    // to Complete still shows its earlier Before/In Progress photos under
+    // their own headings instead of everything collapsing into one bucket).
+    // A photo saved before this feature existed has no stage on file; it
+    // falls back to the task's current status, same as the one-time DB
+    // backfill did.
+    const STAGE_SECTIONS = [
+      {key:'todo', label:'Before'},
+      {key:'progress', label:'In Progress'},
+      {key:'done', label:'Completed Photos'},
+    ];
+    const MAX_THUMBS_PER_STAGE = 6;
+    function bucketPhotosByStage(photos, fallbackStatus){
+      const buckets = {todo:[], progress:[], done:[]};
+      photos.forEach(p=>{
+        const s = (p.stage==='todo'||p.stage==='progress'||p.stage==='done') ? p.stage : fallbackStatus;
+        (buckets[s] || buckets.todo).push(p);
+      });
+      return buckets;
+    }
     async function drawTaskRow(t, pillColor, pillBg){
       const taskPhotos = photosByTask[t.id] || [];
-      const hasPhoto = taskPhotos.length>0;
-      // Photo rows got taller (was 88) and the thumbnail now sits lower down,
-      // below the status pill and caption text, instead of overlapping them —
-      // previously the pill (and sometimes the name) shared the same top-right
-      // corner as the photo thumbnail, so the photo visually covered the text.
-      const blockH = hasPhoto ? 104 : 42;
+      const stageBuckets = bucketPhotosByStage(taskPhotos, t.status);
+      const cardWidth = PAGE_W-2*MARGIN;
+      const cardPad = 14;
+      const textLeft = MARGIN + cardPad;
+      const thumbSize = 44, thumbGap = 8;
+      const usableW = cardWidth - 2*cardPad;
+      const perRow = Math.max(1, Math.floor((usableW+thumbGap)/(thumbSize+thumbGap)));
+      const stageLayout = STAGE_SECTIONS.filter(s=>stageBuckets[s.key].length>0).map(s=>{
+        const photos = stageBuckets[s.key];
+        const shown = Math.min(photos.length, MAX_THUMBS_PER_STAGE);
+        const rows = Math.max(1, Math.ceil(shown/perRow));
+        return {...s, photos, shown, rows};
+      });
+      const headerH = 30;
+      const stagesH = stageLayout.reduce((sum,s)=> sum + 14 + s.rows*(thumbSize+thumbGap), 0);
+      const blockH = headerH + (stageLayout.length ? stagesH + 12 : 12);
       if(y - blockH < 60) newPage();
       const cardTop = y;
-      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:PAGE_W-2*MARGIN, height:blockH, color:CARDBG});
-      const textLeft = MARGIN + 14;
+      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:cardWidth, height:blockH, color:CARDBG});
       const pillW = 76;
-      const pillX = MARGIN+(PAGE_W-2*MARGIN)-16-pillW;
+      const pillX = MARGIN+cardWidth-16-pillW;
       let ty = cardTop - 20;
       const nameMaxWidth = pillX - 8 - textLeft;
       const name = truncateToWidth(bold, t.name, 11, nameMaxWidth);
@@ -15203,23 +15253,29 @@ async function buildSchedulePdfBytes(siteId){
       page.drawRectangle({x:pillX, y:ty-3, width:pillW, height:15, color:pillBg});
       const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
       page.drawText(pillLabel, {x:pillX+8, y:ty+1, size:7.5, font:bold, color:pillColor});
-      if(hasPhoto){
-        ty -= 16;
-        page.drawText(taskPhotos.length + ' progress photo' + (taskPhotos.length===1?'':'s') + ' on file', {x:textLeft, y:ty, size:8.5, font:reg, color:SLATE});
-        const boxSize = 56;
-        const imgX = MARGIN+(PAGE_W-2*MARGIN)-16-boxSize;
-        const imgY = cardTop - blockH + 10;
-        try{
-          const latest = taskPhotos[taskPhotos.length-1];
-          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', latest.storage_path));
-          if(bytes){
-            let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
-            const dim = img.scale(1);
-            const s2 = boxSize/Math.max(dim.width, dim.height);
-            const w = dim.width*s2, h = dim.height*s2;
-            page.drawImage(img, {x:imgX+(boxSize-w)/2, y:imgY+(boxSize-h)/2, width:w, height:h});
-          }
-        }catch(e){ /* skip photo if it fails to embed */ }
+      ty -= 22;
+      for(const s of stageLayout){
+        page.drawText(s.label.toUpperCase() + ' (' + s.photos.length + ')', {x:textLeft, y:ty, size:8, font:bold, color:SLATE});
+        ty -= 12;
+        let cx = textLeft, cy = ty;
+        for(let i=0; i<s.shown; i++){
+          if(i>0 && i%perRow===0){ cx = textLeft; cy -= (thumbSize+thumbGap); }
+          try{
+            const bytes = await pdfFetchImageBytes(publicUrl('site-photos', s.photos[i].storage_path));
+            if(bytes){
+              let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+              const dim = img.scale(1);
+              const sc = thumbSize/Math.max(dim.width, dim.height);
+              const w = dim.width*sc, h = dim.height*sc;
+              page.drawImage(img, {x:cx+(thumbSize-w)/2, y:cy-thumbSize+(thumbSize-h)/2, width:w, height:h});
+            }
+          }catch(e){ /* skip photo if it fails to embed */ }
+          cx += thumbSize+thumbGap;
+        }
+        ty = cy - thumbSize - thumbGap;
+        if(s.photos.length > MAX_THUMBS_PER_STAGE){
+          page.drawText('+' + (s.photos.length-MAX_THUMBS_PER_STAGE) + ' more in appendix', {x:textLeft, y:ty+thumbGap-3, size:7, font:reg, color:SLATE, opacity:0.8});
+        }
       }
       y = cardTop - blockH - 10;
     }
