@@ -7066,7 +7066,7 @@ async function renderSiteHome(siteId){
     </div>
     <div class="statrow">
       ${isManager(ME) ? `
-        <div class="stat" style="cursor:pointer;text-align:left;padding:10px 8px;display:flex;flex-direction:column;justify-content:center;gap:3px;" onclick="go('#/site/${siteId}/client-info')">
+        <div class="stat" style="cursor:pointer;text-align:center;padding:10px 8px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;" onclick="go('#/site/${siteId}/client-info')">
           ${(site.client_name || site.client_contact_name || site.client_phone) ? `
             <div style="font-size:11px;line-height:1.35;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500;"><strong>Client:</strong> ${escapeHtml(site.client_name||'—')}</div>
             <div style="font-size:11px;line-height:1.35;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500;"><strong>Client Contact:</strong> ${[site.client_contact_name, site.client_phone].filter(Boolean).map(escapeHtml).join(' · ')||'—'}</div>
