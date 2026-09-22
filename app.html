@@ -568,7 +568,7 @@ function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':
 function ccClientTickHtml(site, inputId){
   if(!site || !site.client_email) return '';
   return `<label style="display:flex;align-items:center;gap:8px;padding:8px 2px;font-size:12.5px;font-weight:600;cursor:pointer;">
-    <input type="checkbox" id="${inputId}" style="width:auto;">CC client contact${site.client_name?' ('+escapeHtml(site.client_name)+')':''}
+    <input type="checkbox" id="${inputId}" style="width:auto;">CC client contact${(site.client_contact_name||site.client_name)?' ('+escapeHtml(site.client_contact_name||site.client_name)+')':''}
   </label>`;
 }
 // Reads back an inputId written by ccClientTickHtml — returns the site's
@@ -2396,7 +2396,7 @@ function customPromptWithCc(message, defaultValue, site){
         ${site && site.client_email ? `
         <label style="display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;">
           <input type="checkbox" id="customPromptCcClient" style="width:18px;height:18px;flex:none;">
-          CC client contact${site.client_name?' ('+escapeHtml(site.client_name)+')':''}
+          CC client contact${(site.client_contact_name||site.client_name)?' ('+escapeHtml(site.client_contact_name||site.client_name)+')':''}
         </label>` : ''}
         <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._promptAnswerCc()">OK</button>
         <button class="geo-modal-cancel" onclick="window._promptAnswer(null)">Cancel</button>
@@ -7066,7 +7066,7 @@ async function renderSiteHome(siteId){
     </div>
     <div class="statrow">
       ${isManager(ME) ? `
-        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/client-info')"><b>Client</b><span>${site.client_name ? escapeHtml(site.client_name) : 'Add client info'}${site.client_phone ? ' · '+escapeHtml(site.client_phone) : ''}</span></div>
+        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/client-info')"><b>Client</b><span>${[site.client_name, site.client_contact_name, site.client_phone].filter(Boolean).map(escapeHtml).join(' · ') || 'Add client info'}</span></div>
       ` : `
         <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
       `}
@@ -8318,8 +8318,9 @@ async function renderClientInfo(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <div class="formfield"><label class="field-label">Client Name</label><input type="text" id="editClientName" placeholder="Optional" value="${escapeHtml(site.client_name||'')}" oninput="applyTitleCase(this)"></div>
+      <div class="formfield"><label class="field-label">Client Contact Name</label><input type="text" id="editClientContactName" placeholder="Optional" value="${escapeHtml(site.client_contact_name||'')}" oninput="applyTitleCase(this)"></div>
       <div class="formfield"><label class="field-label">Client Contact Number</label><input type="tel" id="editClientPhone" placeholder="Optional" value="${escapeHtml(site.client_phone||'')}"></div>
-      <div class="formfield"><label class="field-label">Client Email</label><input type="email" id="editClientEmail" placeholder="Optional" value="${escapeHtml(site.client_email||'')}"></div>
+      <div class="formfield"><label class="field-label">Client Contact Email</label><input type="email" id="editClientEmail" placeholder="Optional" value="${escapeHtml(site.client_email||'')}"></div>
       <p class="stub" style="margin:8px 0 0;">When an email address is entered here, a "CC client contact" tick box appears on the app's email pickers (Schedule of Works, Snags, To Do List, Reports and more) so whoever's sending can loop the client in on that same email.</p>
       <button class="darkbtn" style="margin-top:14px;" onclick="saveClientInfo('${siteId}')">Save</button>
     </div>
@@ -8327,10 +8328,11 @@ async function renderClientInfo(siteId){
 }
 window.saveClientInfo = async function(siteId){
   const name = document.getElementById('editClientName').value.trim();
+  const contactName = document.getElementById('editClientContactName').value.trim();
   const phone = document.getElementById('editClientPhone').value.trim();
   const email = document.getElementById('editClientEmail').value.trim();
   if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
-  const row = await dbUpdate('sites', siteId, {client_name: name||null, client_phone: phone||null, client_email: email||null});
+  const row = await dbUpdate('sites', siteId, {client_name: name||null, client_contact_name: contactName||null, client_phone: phone||null, client_email: email||null});
   if(row){
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
@@ -15159,7 +15161,7 @@ window.emailSnaggingPDF = async function(siteId, scope){
   // email on file.
   let ccClientEmail = null;
   if(site && site.client_email){
-    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((site.client_contact_name||site.client_name)?' ('+(site.client_contact_name||site.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) ccClientEmail = site.client_email;
   }
   snagEmailBusy = scope; render();
@@ -18155,7 +18157,7 @@ window.emailAllSignedCoshh = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
   let ccClientEmail = null;
   if(site && site.client_email){
-    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((site.client_contact_name||site.client_name)?' ('+(site.client_contact_name||site.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) ccClientEmail = site.client_email;
   }
   coshhEmailAllBusy = true; render();
@@ -19930,7 +19932,7 @@ async function havsEmailOperativeSet(siteId, operatives, labelForFilename, daysO
   const site = SITES.find(s=>s.id===siteId);
   let ccClientEmail = null;
   if(site && site.client_email){
-    const cc = await customConfirm('CC client contact'+(site.client_name?' ('+site.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((site.client_contact_name||site.client_name)?' ('+(site.client_contact_name||site.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) ccClientEmail = site.client_email;
   }
   const days = daysOverride || havsWeekDates(havsWeekOffset);
@@ -20634,7 +20636,7 @@ window.emailPuwerInspection = async function(siteId, userId){
   const puwerCcSite = SITES.find(s=>s.id===siteId);
   let puwerCcClientEmail = null;
   if(puwerCcSite && puwerCcSite.client_email){
-    const cc = await customConfirm('CC client contact'+(puwerCcSite.client_name?' ('+puwerCcSite.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((puwerCcSite.client_contact_name||puwerCcSite.client_name)?' ('+(puwerCcSite.client_contact_name||puwerCcSite.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) puwerCcClientEmail = puwerCcSite.client_email;
   }
   puwerEmailBusy = true; render();
@@ -20722,7 +20724,7 @@ window.emailPuwerCollective = async function(siteId){
   const puwerCcSite2 = SITES.find(s=>s.id===siteId);
   let puwerCcClientEmail2 = null;
   if(puwerCcSite2 && puwerCcSite2.client_email){
-    const cc = await customConfirm('CC client contact'+(puwerCcSite2.client_name?' ('+puwerCcSite2.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((puwerCcSite2.client_contact_name||puwerCcSite2.client_name)?' ('+(puwerCcSite2.client_contact_name||puwerCcSite2.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) puwerCcClientEmail2 = puwerCcSite2.client_email;
   }
   puwerEmailAllBusy = true; render();
@@ -21357,7 +21359,7 @@ window.emailIncidentReport = async function(siteId, reportId){
   const incidentSite = SITES.find(s=>s.id===siteId);
   let incidentCcClientEmail = null;
   if(incidentSite && incidentSite.client_email){
-    const cc = await customConfirm('CC client contact'+(incidentSite.client_name?' ('+incidentSite.client_name+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
+    const cc = await customConfirm('CC client contact'+((incidentSite.client_contact_name||incidentSite.client_name)?' ('+(incidentSite.client_contact_name||incidentSite.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) incidentCcClientEmail = incidentSite.client_email;
   }
   toast('Building PDF…');
