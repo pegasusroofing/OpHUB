@@ -7066,7 +7066,12 @@ async function renderSiteHome(siteId){
     </div>
     <div class="statrow">
       ${isManager(ME) ? `
-        <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/client-info')"><b>Client</b><span>${[site.client_name, site.client_contact_name, site.client_phone].filter(Boolean).map(escapeHtml).join(' · ') || 'Add client info'}</span></div>
+        <div class="stat" style="cursor:pointer;text-align:left;padding:10px 8px;display:flex;flex-direction:column;justify-content:center;gap:3px;" onclick="go('#/site/${siteId}/client-info')">
+          ${(site.client_name || site.client_contact_name || site.client_phone) ? `
+            <div style="font-size:11px;line-height:1.35;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500;"><strong>Client:</strong> ${escapeHtml(site.client_name||'—')}</div>
+            <div style="font-size:11px;line-height:1.35;color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500;"><strong>Client Contact:</strong> ${[site.client_contact_name, site.client_phone].filter(Boolean).map(escapeHtml).join(' · ')||'—'}</div>
+          ` : `<div style="font-size:12px;color:var(--slate-light);font-weight:700;text-align:center;width:100%;">Add client info</div>`}
+        </div>
       ` : `
         <div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>
       `}
