@@ -2017,12 +2017,11 @@ async function getMySubcontractorCompanyId(siteId){
   subOpCache[siteId] = val;
   return val;
 }
-// Price Builder rollout is admin-only for now — PMs keep full access to the
-// existing (unrelated) manual Pricing Element "lump sum + tracker" sub
-// tiles, just not the sheet-building/issuing tool itself yet. Swap this back
-// to isManager(ME) (or drop it and use isManager directly) once it's ready
-// for every PM.
-function canUsePriceBuilder(){ return !!ME && ME.role==='admin'; }
+// Price Builder: full create/edit/delete access for PMs and Admin (the same
+// "Full Manager" group used elsewhere for higher-trust pricing actions).
+// Site Managers still only see already-ISSUED sheets on their site (handled
+// separately in renderPriceHome/renderPriceBuilderSheets), same as before.
+function canUsePriceBuilder(){ return isFullManager(ME); }
 // Admins/PMs see this folder as "Snagging & Reports" (it's where inspections
 // now live too); operatives still see the original "Snagging / Variations"
 // name since Reports isn't visible to them anyway.
@@ -9181,7 +9180,7 @@ async function renderPriceHome(siteId){
     pendingVariationCount = pendingAw.length;
   }
   let priceBuilderTileCount = 0;
-  // Creating/editing sheets (drafts) is admin-only for now (canUsePriceBuilder).
+  // Creating/editing sheets (drafts) is PM/admin only (canUsePriceBuilder).
   // Viewing an already-ISSUED sheet is a PM/admin default instead — a PM sees
   // every issued sheet on their site same as admin does, but a plain
   // operative only sees a sheet if they were specifically ticked "Assign to"
@@ -10290,7 +10289,7 @@ function pbAssigneeChipsHtml(operatives, selectedIds, toggleFn){
 async function renderPriceBuilderSheets(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const canManage = canUsePriceBuilder(); // admin-only for now, see canUsePriceBuilder
+  const canManage = canUsePriceBuilder(); // PMs + admin, see canUsePriceBuilder
   const [sheets, assignedOperatives] = await Promise.all([
     dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     priceBuilderNewOpen ? siteAssignedOperatives(siteId) : Promise.resolve([]),
@@ -10425,7 +10424,7 @@ let pbCategoryOpen = {};
 window.pbToggleCategory = function(name){ pbCategoryOpen[name] = pbCategoryOpen[name]===false ? true : false; render(); };
 async function renderPriceBuilderEdit(siteId, sheetId){
   const __gen = RENDER_GEN;
-  if(!canUsePriceBuilder()){ toast('Price Builder is admin-only for now.'); go(`#/site/${siteId}/price`); return; }
+  if(!canUsePriceBuilder()){ toast('Only PMs and admins can edit Price Builder sheets.'); go(`#/site/${siteId}/price`); return; }
   const site = SITES.find(s=>s.id===siteId);
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
