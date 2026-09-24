@@ -2416,6 +2416,20 @@ window._promptAnswerCc = function(){
 function ccClientEmailFromPromptAnswer(answer, site){
   return (answer && answer.ccClient && site && site.client_email) ? site.client_email : null;
 }
+// Turns a customPromptWithCc answer into the actual {to, cc} pair to send
+// with — handles the case where "CC me a copy" is ticked but the typed
+// recipient row was left empty: that used to mean nothing sent at all (every
+// caller bailed out on `!answer.value` before even looking at ccMe), even
+// though "CC me a copy" ticked with no one else typed in clearly means "just
+// send it to me". Here that becomes `to: ME.email` with no separate cc
+// (there's no one else to distinguish it from). Returns null when there's
+// truly nothing to send to (empty row, "CC me" not ticked).
+function resolvePromptEmailTo(answer){
+  const typed = (answer && answer.value || '').trim();
+  if(typed) return {to: typed, cc: answer.ccMe ? ME.email : undefined};
+  if(answer && answer.ccMe) return {to: ME.email, cc: undefined};
+  return null;
+}
 // Same overlay/resolve plumbing as customPrompt above, just a date input
 // instead of text — used anywhere a single date needs picking outside a
 // full form (e.g. the "Starts <date>" chip on the site list).
@@ -10310,6 +10324,7 @@ async function renderPriceBuilderSheets(siteId){
           ${s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportPriceBuilderSheet('${s.id}')">⬇ Export to Excel</div>` : ''}
           ${s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailPriceBuilderSheetPdf('${siteId}','${s.id}')">✉️ Email</div>` : ''}
           ${canManage && s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/site/${siteId}/pricebuilder/edit/${s.id}')">✏️ Edit</div>` : ''}
+          ${canManage && s.status==='issued' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;unissuePriceBuilderSheet('${siteId}','${s.id}')">↩️ Un-issue</div>` : ''}
           ${canManage ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePriceBuilderSheet('${siteId}','${s.id}')">🗑 Delete</div>` : ''}
         `)}
       </div>
@@ -10867,9 +10882,20 @@ async function pbPersist(siteId, sheetId, status){
   const toInsert = rows.filter(r=>!r.id).map(({id, _key, _customIdx, ...rest})=>({...rest, __key:_key, __customIdx:_customIdx}));
   const toUpdate = rows.filter(r=>r.id);
   const insertedRows = [];
+  // dbInsert/dbUpdate already toast their own error on failure (e.g. a
+  // dropped connection out on site), but on their own that's easy to miss
+  // in the middle of ticking/issuing a sheet — and everything below this
+  // point (saving the sheet's total, marking it "issued") used to go ahead
+  // regardless, so a failed item save could leave a sheet that LOOKS issued
+  // successfully but has no line items behind its total. `itemSaveFailed`
+  // tracks that so the caller can stop and tell the user plainly, instead
+  // of quietly finishing with a total and nothing underneath it.
+  let itemSaveFailed = false;
   if(toInsert.length){
     const toInsertClean = toInsert.map(({__key, __customIdx, ...rest})=>rest);
-    const inserted = (await dbInsert('price_builder_sheet_items', toInsertClean)) || [];
+    const insertResult = await dbInsert('price_builder_sheet_items', toInsertClean);
+    if(!insertResult) itemSaveFailed = true;
+    const inserted = insertResult || [];
     // Match inserted rows back to their source (by sort_order, which is
     // unique per save) so we can back-fill the new DB id onto pbWorking.
     inserted.forEach(savedRow=>{
@@ -10883,6 +10909,7 @@ async function pbPersist(siteId, sheetId, status){
   for(const row of toUpdate){
     const {id, _key, _customIdx, ...patchRow} = row;
     const saved = await dbUpdate('price_builder_sheet_items', id, patchRow);
+    if(!saved) itemSaveFailed = true;
     // Back-fill in case the id was recovered via content-key matching above
     // (entry.id was missing but we found the existing row) — so the
     // in-memory entry carries the correct id for any subsequent save in
@@ -10890,6 +10917,13 @@ async function pbPersist(siteId, sheetId, status){
     if(_key && pbWorking.items[_key]) pbWorking.items[_key].id = id;
     if(_customIdx!=null && pbWorking.customRows[_customIdx]) pbWorking.customRows[_customIdx].id = id;
     updatedRows.push(saved || row);
+  }
+  if(itemSaveFailed){
+    // Stop here — don't save the sheet's total or flip its status. The
+    // per-request toast from dbInsert/dbUpdate already told the user why;
+    // this just makes sure the sheet itself doesn't end up in the
+    // "has a total, has no items" state that started this whole guard.
+    return {total, rows: [...updatedRows, ...insertedRows], addedRows: insertedRows, removedIds, blockedRemovalCount, failed: true};
   }
 
   await loadAllProfiles();
@@ -10906,7 +10940,8 @@ async function pbPersist(siteId, sheetId, status){
   return {total, rows: [...updatedRows, ...insertedRows], addedRows: insertedRows, removedIds, blockedRemovalCount};
 }
 window.savePriceBuilderDraft = async function(siteId, sheetId){
-  const {blockedRemovalCount} = await pbPersist(siteId, sheetId, null);
+  const {blockedRemovalCount, failed} = await pbPersist(siteId, sheetId, null);
+  if(failed){ toast('Draft NOT saved — some items failed to save. Check your signal and try again.'); render(); return; }
   toast(blockedRemovalCount ? `Draft saved — ${blockedRemovalCount} item(s) kept because they already have bookings against them.` : 'Draft saved');
   render();
 };
@@ -10943,7 +10978,8 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
 
   if(!await customConfirm('Issue this sheet? It becomes read-only and visible to everyone assigned to this site — you can\'t un-issue it.')) return;
 
-  const {total, rows} = await pbPersist(siteId, sheetId, 'issued');
+  const {total, rows, failed} = await pbPersist(siteId, sheetId, 'issued');
+  if(failed){ toast('Sheet NOT issued — some items failed to save. Check your signal and try again.'); render(); return; }
 
   // Create (or update) the single Pricing Element this sheet feeds — the
   // existing Price tile's own assignment/build-up UI takes it from here.
@@ -10985,6 +11021,22 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   toast('Sheet issued');
   pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
   go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
+};
+// Un-issue — PM/admin only. Issuing is normally one-way (the app says so at
+// the confirm prompt), but that assumes the sheet's line items actually made
+// it into the database when it was issued. When they didn't (a dropped
+// connection mid-issue used to leave a sheet marked "issued" with a total
+// but no items behind it — see the itemSaveFailed guard in pbPersist), the
+// only way back to a fixable state is un-issuing it. Just flips status back
+// to draft — the linked Pricing Element and Schedule of Works section (if
+// any) are left exactly as they are, so re-issuing later reuses them rather
+// than creating duplicates, same as any other re-save of an already-linked
+// sheet.
+window.unissuePriceBuilderSheet = async function(siteId, sheetId){
+  if(!canUsePriceBuilder()){ toast('Only PMs and admins can un-issue a sheet.'); return; }
+  if(!await customConfirm('Un-issue this sheet? It goes back to draft and stops being visible to whoever it was issued to, until it\'s issued again.', {confirmLabel:'Un-issue', cancelLabel:'Cancel'})) return;
+  const row = await dbUpdate('price_builder_sheets', sheetId, {status:'draft'});
+  if(row){ toast('Sheet un-issued — back to draft'); go(`#/site/${siteId}/pricebuilder/edit/${sheetId}`); }
 };
 // Mirrors a Price Builder edit onto the Schedule of Works section it already
 // fed (only relevant once a sheet has been issued with "populate SOW"
@@ -11098,6 +11150,7 @@ async function renderPriceBuilderView(siteId, sheetId){
         <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportPriceBuilderSheet('${sheetId}')">⬇ Export to Excel</div>
         <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailPriceBuilderSheetPdf('${siteId}','${sheetId}')">✉️ Email</div>
         ${canUsePriceBuilder() ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/site/${siteId}/pricebuilder/edit/${sheetId}')">✏️ Edit</div>` : ''}
+        ${canUsePriceBuilder() ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;unissuePriceBuilderSheet('${siteId}','${sheetId}')">↩️ Un-issue</div>` : ''}
         ${canUsePriceBuilder() ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePriceBuilderSheet('${siteId}','${sheetId}')">🗑 Delete</div>` : ''}
       `)}
     </div>
@@ -11135,6 +11188,12 @@ window.exportPriceBuilderSheet = async function(sheetId){
   const sheet = sheetRows[0];
   if(!sheet){ toast('Sheet not found.'); return; }
   const site = sheet.site_id ? SITES.find(s=>s.id===sheet.site_id) : null;
+  // "Project Name - Price Sheet name - Price List" — requested so the
+  // downloaded file is identifiable on its own once it's out of the app
+  // (in an email thread, a Downloads folder, sent on to a subcontractor),
+  // rather than just the sheet title which can be ambiguous across sites.
+  const exportFileName = [site && site.name, sheet.title||'Priced Sheet', 'Price List']
+    .filter(Boolean).join(' - ').replace(/[\\/?*\[\]:]/g,'').slice(0,150);
   await loadAllProfiles();
   const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
   const categories = [];
@@ -11155,6 +11214,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   const rows = [];
   rows.push([sheet.title || 'Priced Sheet']);
   if(site){
+    rows.push(['Site:', site.name || '']);
     rows.push(['Job No:', site.job_number || '']);
     rows.push(['Address:', fullSiteAddress(site) || '']);
     rows.push(['PM:', site.responsible_pm_id ? nameOf(site.responsible_pm_id) : '']);
@@ -11236,11 +11296,10 @@ window.exportPriceBuilderSheet = async function(sheetId){
       }
 
       const buffer = await wb.xlsx.writeBuffer();
-      const safeTitle = String(sheet.title||'Priced Sheet').replace(/[\\/?*\[\]:]/g,'').slice(0,60);
       const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = safeTitle+'.xlsx';
+      a.href = url; a.download = exportFileName+'.xlsx';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(()=>URL.revokeObjectURL(url), 4000);
       return;
@@ -11265,8 +11324,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
-  const safeTitle = String(sheet.title||'Priced Sheet').replace(/[\\/?*\[\]:]/g,'').slice(0,60);
-  XLSX.writeFile(wb, safeTitle+'.xlsx');
+  XLSX.writeFile(wb, exportFileName+'.xlsx');
 };
 // The "Subcontractor SOW" style PDF — same layout as the reference sheet
 // (site name, itemised list with no column header row, Total / Taken /
@@ -11338,7 +11396,11 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     const textX = MARGIN;
     page.drawText('SUBCONTRACTOR SOW', {x:textX, y:PAGE_H-36, size:9, font:bold, color:WHITE, opacity:0.85});
     page.drawText(sheet.title||'Priced Sheet', {x:textX, y:PAGE_H-58, size:16, font:bold, color:WHITE});
-    const addrLine = site ? fullSiteAddress(site) : null;
+    // Site NAME as well as its address — this used to be address-only, which
+    // reads fine for a site whose name already looks like an address, but is
+    // ambiguous wherever the two differ (multi-site jobs, a site named after
+    // the client rather than the postal address, etc).
+    const addrLine = site ? [site.name, fullSiteAddress(site)].filter(Boolean).join(' — ') : null;
     if(addrLine){
       page.drawText(addrLine, {x:textX, y:PAGE_H-73, size:9, font:italic, color:WHITE, opacity:0.85});
     }
@@ -11488,9 +11550,12 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
 // can run to several pages with a full rate breakdown).
 window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
   const answer = await customPromptWithCc('Email this priced sheet PDF to:', '');
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Building PDF…');
   const built = await buildPriceBuilderSheetPdfBytes(siteId, sheetId);
   if(!built) return;
@@ -11500,7 +11565,7 @@ window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-price-builder-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined,
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc,
       sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
@@ -12925,9 +12990,12 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
   const subRow = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&select=site_id&limit=1');
   const site = subRow.length ? SITES.find(s=>s.id===subRow[0].site_id) : null;
   const answer = await customPromptWithCc('Email this report PDF to:', ME.email||'', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   reportEmailBusy = submissionId; render();
   toast('Building PDF…');
   try{
@@ -12939,7 +13007,7 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: built.sub.site_id, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      site_id: built.sub.site_id, recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — please try again.'); }
@@ -16594,15 +16662,18 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
   if(!row || !row.pdf_path){ toast('PDF not available.'); return; }
   const site = SITES.find(s=>s.id===row.site_id);
   const answer = await customPromptWithCc(`Email this induction PDF for ${operativeName||'this operative'} to:`, '', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: row.site_id,
       recipient_email: trimmed,
-      cc_email: answer.ccMe ? ME.email : undefined,
+      cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
       items: [{operative_name: operativeName || nameOf(row.operative_id), file_url: publicUrl('mc-documents', row.pdf_path)}],
     })});
@@ -16617,15 +16688,18 @@ window.emailSelectedInductions = async function(){
   if(!withPdf.length){ toast('Nothing to email.'); return; }
   const site = SITES.find(s=>s.id===withPdf[0].site_id);
   const answer = await customPromptWithCc(`Email ${ids.length} selected induction${ids.length===1?'':'s'} to:`, '', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
       site_id: withPdf[0].site_id,
       recipient_email: trimmed,
-      cc_email: answer.ccMe ? ME.email : undefined,
+      cc_email: emailTo.cc,
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
       items: withPdf.map(r=>({operative_name: nameOf(r.operative_id), file_url: publicUrl('mc-documents', r.pdf_path)})),
     })});
@@ -17828,9 +17902,12 @@ window.exportSignedRams = async function(ramsId){
 window.emailSignedRams = async function(siteId, ramsId){
   const site = SITES.find(s=>s.id===siteId);
   const answer = await customPromptWithCc('Email this signed RAMS PDF to:', '', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Building signed PDF…');
   const built = await buildSignedRamsPdfBytes(ramsId);
   if(!built) return;
@@ -17840,7 +17917,7 @@ window.emailSignedRams = async function(siteId, ramsId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -18190,9 +18267,12 @@ window.emailAllSignedCoshh = async function(siteId){
 window.emailSignedCoshh = async function(siteId, coshhId){
   const site = SITES.find(s=>s.id===siteId);
   const answer = await customPromptWithCc('Email this signed COSHH PDF to:', '', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Building signed PDF…');
   const built = await buildSignedCoshhPdf(coshhId);
   if(!built){ toast('Could not build the signed PDF — check there are signatures and the source file is a valid PDF.'); return; }
@@ -18202,7 +18282,7 @@ window.emailSignedCoshh = async function(siteId, coshhId){
   toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: built.doc.name+' (Signed COSHH)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){ toast('Could not send the email — please try again.'); }
@@ -22229,9 +22309,12 @@ window.exportSignedToolboxTalk = async function(tbtId){
 window.emailSignedToolboxTalk = async function(siteId, tbtId){
   const site = SITES.find(s=>s.id===siteId);
   const answer = await customPromptWithCc('Email this signed Toolbox Talk PDF to:', '', site);
-  if(!answer || !answer.value) return;
-  const trimmed = answer.value.trim();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)){ toast('Enter a valid email address.'); return; }
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return; // nothing typed and "CC me a copy" wasn't ticked either
+  const trimmed = emailTo.to;
   toast('Building signed PDF…');
   try{
     const built = await buildSignedToolboxTalkPdfBytes(tbtId);
@@ -22241,7 +22324,7 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     if(!stored){ toast('Could not upload the PDF — try again.'); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, recipient_email: trimmed, cc_email: answer.ccMe ? ME.email : undefined, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
+      site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: (built.talk&&built.talk.title||'Toolbox Talk')+' (Signed Toolbox Talk)', file_url: publicUrl('mc-documents', stored),
     })});
     if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
   }catch(e){
