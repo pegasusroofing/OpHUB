@@ -148,7 +148,13 @@
   .geo-modal-btn:hover{border-color:var(--slate-light);}
   .geo-modal-cancel{display:block;width:100%;text-align:center;background:none;border:none;padding:10px;margin-top:4px;
     font-weight:700;font-size:13px;color:var(--slate);cursor:pointer;}
-  .backarrow{font-size:54.15px;font-weight:900;line-height:1;color:var(--ink);opacity:1;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;min-height:62.7px;min-width:51.3px;text-shadow:0 0 1px currentColor, 0.5px 0 0 currentColor;}
+  /* Was a huge text glyph ('‹' at 54px, font-weight 900, faked bolder with a
+     text-shadow offset) — at that size the font's own chevron glyph reads
+     with a slightly flattened/clipped tip (varies by platform font), which
+     is the "cropped point" look. An SVG stroke chevron renders identically
+     everywhere and stays crisp at any size, so it replaces the glyph. */
+  .backarrow{color:var(--ink);opacity:1;padding:5.7px 19.95px 5.7px 0;margin:-5.7px 0;display:flex;align-items:center;justify-content:center;min-height:62.7px;min-width:51.3px;}
+  .backarrow svg{display:block;width:26px;height:26px;}
   .rolechip{margin-left:auto;background:#232323;color:#ccc;font-size:7.8px;font-weight:800;
     font-family:Calibri,'Open Sans',sans-serif;border-radius:999px;letter-spacing:.03em;text-transform:uppercase;
     width:20px;height:14px;flex:0 0 20px;padding:0;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;}
@@ -266,6 +272,16 @@
     box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease;}
   .ddrow:first-child{margin-top:0;}
   .ddrow .arrow{font-size:10px;color:var(--slate);flex:0 0 auto;}
+  /* Card-style variant for a page's top-level section headers (Admin Centre
+     etc) — an icon swatch + bolder label, so a long list of settings groups
+     reads as a tidy stack of cards rather than plain text rows. Nested
+     sub-rows inside an opened group keep the plain .ddrow look, same as
+     before, so the visual weight still signals hierarchy. */
+  .ddrow-hdr{padding:11px 14px;gap:11px;}
+  .ddrow-hdr .icon{width:32px;height:32px;border-radius:9px;flex:0 0 32px;
+    display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .ddrow-hdr .lbl{flex:1;font-size:13.5px;font-weight:800;color:var(--ink);letter-spacing:0;}
+  .ddrow-hdr .arrow{font-size:11px;}
 
   .drawheaderrow{display:flex;align-items:center;justify-content:space-between;
     width:100%;box-sizing:border-box;padding:0 2px;margin:0 0 8px;
@@ -2570,10 +2586,10 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')">‹</span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
+          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
-            <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${escapeHtml(opts.title||'')}</h2>
+            <h2 ${(opts.titleIsSiteName || opts.siteNameSubtitle || opts.titleGoesHome) ? `style="cursor:pointer;" onclick="go('#/sites')"` : ''}>${escapeHtml(opts.title||'')}</h2>
             ${opts.subtitle ? `<div class="meta">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
@@ -4640,12 +4656,27 @@ async function renderTeam(){
   });
   sortPriceRateCategories(priceRateCategories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="ddrow" style="margin-top:0;" onclick="deliveryScheduleBackHash='#/team';go('#/delivery')">🚚 Delivery Schedule</p>
-    <p class="ddrow" onclick="go('#/vehicle-checklists')">🚐 Vehicle Checklists</p>
+    <div class="tilegrid" style="grid-auto-rows:1fr;margin-top:0;">
+      <div class="tile" onclick="go('#/deliveries')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
+        <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
+      </div>
+      ${iAmAdmin ? `
+      <div class="tile" onclick="go('#/dashboard')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
+        <div class="lbl">Dashboard</div>
+      </div>
+      <div class="tile" onclick="go('#/operatives')">
+        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">👷</div>
+        <div class="lbl">Operatives</div>
+      </div>
+      ` : ''}
+    </div>
     ${iAmAdmin ? `
-    <p class="ddrow" onclick="go('#/dashboard')">📊 Dashboard</p>
-    <p class="ddrow" onclick="go('#/operatives')">👷 Operatives</p>
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Branding</p>
+    <p class="ddrow ddrow-hdr" style="margin-top:14px;" onclick="toggleTeamSection('brandingintegrations')"><span class="icon" style="background:var(--brand1);color:var(--brand1-text);">🎨</span><span class="lbl">Branding &amp; Integrations</span><span class="arrow">${teamSectionOpen.brandingintegrations?'▼':'▶'}</span></p>
+    ${teamSectionOpen.brandingintegrations ? `
+    <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
+    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Company Logo &amp; Theme</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
@@ -4731,7 +4762,14 @@ async function renderTeam(){
       })()}
     </div>
     ` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('reporttemplates')"><span class="arrow">${teamSectionOpen.reporttemplates?'▼':'▶'}</span> Report Templates</p>
+    </div>
+    ` : ''}
+    ` : ''}
+    <p class="ddrow ddrow-hdr" style="margin-top:14px;" onclick="toggleTeamSection('libraries')"><span class="icon" style="background:var(--ok-bg);color:var(--ok);">📚</span><span class="lbl">Libraries</span><span class="arrow">${teamSectionOpen.libraries?'▼':'▶'}</span></p>
+    ${teamSectionOpen.libraries ? `
+    <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
+    ${isManager(ME) ? `
+    <p class="ddrow" id="teamSectionReporttemplates" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('reporttemplates')"><span class="arrow">${teamSectionOpen.reporttemplates?'▼':'▶'}</span> Report Templates</p>
     ${teamSectionOpen.reporttemplates ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</p>
@@ -4747,108 +4785,6 @@ async function renderTeam(){
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — create your first one below.</div>`}
       <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team')">+ New Template</button>
-    </div>
-    ` : ''}
-    ${isManager(ME) ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('suppliers')"><span class="arrow">${teamSectionOpen.suppliers?'▼':'▶'}</span> Suppliers (All Projects)</p>
-    ${teamSectionOpen.suppliers ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">One supplier list for the whole company — every site's Material Requests uses this same list.</p>
-      ${suppliers.map(s=>`
-        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
-            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
-            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
-          </div>
-          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
-          <div class="taskicon danger" onclick="deleteSupplier(null,'${s.id}')">🗑</div>
-        </div>
-      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
-      ${supplierAddOpen ? `
-        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
-        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
-        <div class="row-gap">
-          <button class="darkbtn" style="flex:1;" onclick="addSupplier(null)">Add Supplier</button>
-          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
-        </div>
-        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B). Anything that looks like an existing supplier (or a near-identical spelling) is skipped automatically.</p>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInputAdmin').click()">Choose Excel/CSV file</div>
-        <input type="file" id="supplierExcelInputAdmin" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,null)">
-      ` : `
-        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
-      `}
-    </div>
-    ` : ''}
-    ` : ''}
-    ${isManager(ME) ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('maincontractor')"><span class="arrow">${teamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
-    ${teamSectionOpen.maincontractor ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Company-wide Main Contractor tools — shared across every site.</p>
-      <button class="ghostbtn" style="display:block;margin-bottom:8px;" onclick="go('#/companylibrary')">📚 Subcontractor Library</button>
-      <button class="ghostbtn" style="display:block;" onclick="teamSectionOpen.reporttemplates=true;teamSectionOpen.maincontractor=false;render();document.getElementById('teamSectionReporttemplates')?.scrollIntoView();">📋 Templates (Report Templates, below)</button>
-    </div>
-    ` : ''}
-    ` : ''}
-    ${canUsePriceBuilder() && PRICE_BUILDER_LIVE ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="plaintag" style="margin-left:4px;color:var(--slate-light);font-size:11px;font-weight:600;">Admin only for now</span></p>
-    ${teamSectionOpen.pricebuilder ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
-      <div class="row-gap" style="margin-bottom:12px;">
-        <button class="ghostbtn" style="flex:1;" onclick="exportPriceRateExcel()">⬇ Download Rate Card (Excel)</button>
-        <button class="darkbtn" style="flex:1;" onclick="document.getElementById('priceRateExcelInputTop').click()">⬆ Upload Rate Card (Excel)</button>
-        <input type="file" id="priceRateExcelInputTop" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importPriceRateExcel(this)">
-      </div>
-      <div class="formfield" style="margin:0 0 16px;">
-        <label class="field-label">Terms &amp; Conditions</label>
-        <p class="stub" style="margin:0 0 6px;">Shown as its own page 1 on every Price Builder PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</p>
-        <textarea id="pbTermsField" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;box-sizing:border-box;" placeholder="Paste your subcontractor terms &amp; conditions here...">${escapeHtml((ORG && ORG.price_builder_terms) || '')}</textarea>
-        <button class="ghostbtn" style="margin-top:6px;" onclick="savePriceBuilderTerms()">Save Terms</button>
-      </div>
-      ${priceRateCategories.map(cat=>`
-        <p class="sectiontitle" style="margin:14px 0 6px;font-size:12.5px;">${escapeHtml(cat.name)}</p>
-        ${cat.items.map(it=>`
-          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-            <div class="info" style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
-              <input type="text" value="${escapeHtml(it.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','name')">
-              <div class="meta">${it.is_dropdown ? 'Dropdown — priced by option below' : escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)}</div>
-            </div>
-            ${!it.is_dropdown ? `
-            <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${it.rate!=null?it.rate:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','rate')"></div>
-            ` : ''}
-            <div class="taskicon danger" onclick="deletePriceRateItem('${it.id}','${jsAttr(it.name)}')">🗑</div>
-          </div>
-          ${it.is_dropdown ? `
-          <div style="margin:0 0 8px 14px;padding-left:10px;border-left:2px solid var(--line);">
-            ${(priceRateOptionsByItem[it.id]||[]).map(o=>`
-              <div class="sitecard" style="padding:6px 8px;">
-                <div class="info"><input type="text" value="${escapeHtml(o.label)}" style="border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);width:100%;box-sizing:border-box;" onblur="savePriceRateOptionField(this,'${o.id}','label')"></div>
-                <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${o.rate}" style="width:64px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateOptionField(this,'${o.id}','rate')"></div>
-                <div class="taskicon danger" onclick="deletePriceRateOption('${o.id}','${it.id}')">🗑</div>
-              </div>
-            `).join('') || `<div class="empty" style="padding:6px;">No options yet.</div>`}
-            <div class="ghostbtn" style="margin-top:4px;padding:6px;font-size:11px;" onclick="addPriceRateOption('${it.id}')">+ Add option</div>
-          </div>
-          ` : ''}
-        `).join('')}
-      `).join('') || `<div class="empty" style="padding:10px;">No rate card items yet — add your first one below.</div>`}
-      ${priceRateAddOpen ? `
-        <div class="formfield" style="margin-top:14px;"><input type="text" id="prCategory" placeholder="Category, e.g. Pitched Roof" value="${escapeHtml(priceRateAddLastCategory)}"></div>
-        <div class="formfield"><input type="text" id="prName" placeholder="Item name, e.g. Strip"></div>
-        <div class="formfield"><label class="field-label">Unit</label>
-          <select id="prUnit"><option value="lm">Linear metre</option><option value="m2">m²</option><option value="each">Each</option></select>
-        </div>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="prIsDropdown" style="width:auto;" onchange="document.getElementById('prRateRow').style.display=this.checked?'none':'block'">This is a dropdown (e.g. Tile Type) — priced by option, added after</label>
-        <div class="formfield" id="prRateRow"><label class="field-label">Rate (£)</label><input type="number" step="0.01" id="prRate" placeholder="0.00"></div>
-        <div class="row-gap">
-          <button class="darkbtn" style="flex:1;" onclick="addPriceRateItem()">Add Item</button>
-          <button class="ghostbtn" style="flex:1;" onclick="priceRateAddOpen=false;render()">Cancel</button>
-        </div>
-        <p class="stub" style="margin:12px 0 6px;">Prefer Excel for bulk changes — see Download/Upload Rate Card above.</p>
-      ` : `
-        <button class="darkbtn" style="margin-top:10px;" onclick="priceRateAddOpen=true;render()">+ Add Rate Item</button>
-      `}
     </div>
     ` : ''}
     ` : ''}
@@ -4916,6 +4852,112 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${iAmAdmin && canUsePriceBuilder() && PRICE_BUILDER_LIVE ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="plaintag" style="margin-left:4px;color:var(--slate-light);font-size:11px;font-weight:600;">Admin only for now</span></p>
+    ${teamSectionOpen.pricebuilder ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
+      <div class="row-gap" style="margin-bottom:12px;">
+        <button class="ghostbtn" style="flex:1;" onclick="exportPriceRateExcel()">⬇ Download Rate Card (Excel)</button>
+        <button class="darkbtn" style="flex:1;" onclick="document.getElementById('priceRateExcelInputTop').click()">⬆ Upload Rate Card (Excel)</button>
+        <input type="file" id="priceRateExcelInputTop" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importPriceRateExcel(this)">
+      </div>
+      <div class="formfield" style="margin:0 0 16px;">
+        <label class="field-label">Terms &amp; Conditions</label>
+        <p class="stub" style="margin:0 0 6px;">Shown as its own page 1 on every Price Builder PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</p>
+        <textarea id="pbTermsField" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;box-sizing:border-box;" placeholder="Paste your subcontractor terms &amp; conditions here...">${escapeHtml((ORG && ORG.price_builder_terms) || '')}</textarea>
+        <button class="ghostbtn" style="margin-top:6px;" onclick="savePriceBuilderTerms()">Save Terms</button>
+      </div>
+      ${priceRateCategories.map(cat=>`
+        <p class="sectiontitle" style="margin:14px 0 6px;font-size:12.5px;">${escapeHtml(cat.name)}</p>
+        ${cat.items.map(it=>`
+          <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+            <div class="info" style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
+              <input type="text" value="${escapeHtml(it.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','name')">
+              <div class="meta">${it.is_dropdown ? 'Dropdown — priced by option below' : escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)}</div>
+            </div>
+            ${!it.is_dropdown ? `
+            <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${it.rate!=null?it.rate:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','rate')"></div>
+            ` : ''}
+            <div class="taskicon danger" onclick="deletePriceRateItem('${it.id}','${jsAttr(it.name)}')">🗑</div>
+          </div>
+          ${it.is_dropdown ? `
+          <div style="margin:0 0 8px 14px;padding-left:10px;border-left:2px solid var(--line);">
+            ${(priceRateOptionsByItem[it.id]||[]).map(o=>`
+              <div class="sitecard" style="padding:6px 8px;">
+                <div class="info"><input type="text" value="${escapeHtml(o.label)}" style="border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);width:100%;box-sizing:border-box;" onblur="savePriceRateOptionField(this,'${o.id}','label')"></div>
+                <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${o.rate}" style="width:64px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateOptionField(this,'${o.id}','rate')"></div>
+                <div class="taskicon danger" onclick="deletePriceRateOption('${o.id}','${it.id}')">🗑</div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:6px;">No options yet.</div>`}
+            <div class="ghostbtn" style="margin-top:4px;padding:6px;font-size:11px;" onclick="addPriceRateOption('${it.id}')">+ Add option</div>
+          </div>
+          ` : ''}
+        `).join('')}
+      `).join('') || `<div class="empty" style="padding:10px;">No rate card items yet — add your first one below.</div>`}
+      ${priceRateAddOpen ? `
+        <div class="formfield" style="margin-top:14px;"><input type="text" id="prCategory" placeholder="Category, e.g. Pitched Roof" value="${escapeHtml(priceRateAddLastCategory)}"></div>
+        <div class="formfield"><input type="text" id="prName" placeholder="Item name, e.g. Strip"></div>
+        <div class="formfield"><label class="field-label">Unit</label>
+          <select id="prUnit"><option value="lm">Linear metre</option><option value="m2">m²</option><option value="each">Each</option></select>
+        </div>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="prIsDropdown" style="width:auto;" onchange="document.getElementById('prRateRow').style.display=this.checked?'none':'block'">This is a dropdown (e.g. Tile Type) — priced by option, added after</label>
+        <div class="formfield" id="prRateRow"><label class="field-label">Rate (£)</label><input type="number" step="0.01" id="prRate" placeholder="0.00"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addPriceRateItem()">Add Item</button>
+          <button class="ghostbtn" style="flex:1;" onclick="priceRateAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Prefer Excel for bulk changes — see Download/Upload Rate Card above.</p>
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="priceRateAddOpen=true;render()">+ Add Rate Item</button>
+      `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('suppliers')"><span class="arrow">${teamSectionOpen.suppliers?'▼':'▶'}</span> Suppliers (All Projects)</p>
+    ${teamSectionOpen.suppliers ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">One supplier list for the whole company — every site's Material Requests uses this same list.</p>
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
+            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
+          </div>
+          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
+          <div class="taskicon danger" onclick="deleteSupplier(null,'${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      ${supplierAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addSupplier(null)">Add Supplier</button>
+          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B). Anything that looks like an existing supplier (or a near-identical spelling) is skipped automatically.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInputAdmin').click()">Choose Excel/CSV file</div>
+        <input type="file" id="supplierExcelInputAdmin" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,null)">
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
+      `}
+    </div>
+    ` : ''}
+    ` : ''}
+    </div>
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('maincontractor')"><span class="arrow">${teamSectionOpen.maincontractor?'▼':'▶'}</span> Main Contractor</p>
+    ${teamSectionOpen.maincontractor ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Company-wide Main Contractor tools — shared across every site.</p>
+      <button class="ghostbtn" style="display:block;margin-bottom:8px;" onclick="go('#/companylibrary')">📚 Subcontractor Library</button>
+      <button class="ghostbtn" style="display:block;" onclick="teamSectionOpen.libraries=true;teamSectionOpen.reporttemplates=true;teamSectionOpen.maincontractor=false;render();document.getElementById('teamSectionReporttemplates')?.scrollIntoView();">📋 Templates (Report Templates, in Libraries below)</button>
+    </div>
+    ` : ''}
+    ` : ''}
+    ${iAmAdmin ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('healthsafety')"><span class="arrow">${teamSectionOpen.healthsafety?'▼':'▶'}</span> Health &amp; Safety</p>
     ${teamSectionOpen.healthsafety ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
@@ -5306,7 +5348,7 @@ async function renderTeam(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {title:'Admin Centre', back: teamBackFrom ? decodeURIComponent(teamBackFrom) : '#/sites', tabs:false, showRoleChip:true}); }
+  `, {title:'Admin Centre', back: teamBackFrom ? decodeURIComponent(teamBackFrom) : '#/sites', tabs:false, showRoleChip:true, titleGoesHome:true}); }
   // Jumped in from PUWER's "Open in Admin Centre" link — scroll straight to
   // that operative's row inside the now-expanded Operative Tools section.
   if(pendingAdminOperativeToolsScrollUserId){
@@ -5315,7 +5357,7 @@ async function renderTeam(){
     if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   }
 }
-let teamSectionOpen = {branding:false, integrations:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
+let teamSectionOpen = {branding:false, integrations:false, brandingintegrations:false, libraries:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
 /* ================= Schedule of Works — Library (Admin Centre). Org-wide
    reusable templates a PM/admin builds once here, then picks from any
    site's Schedule of Works "+ → From Library" to copy the whole
@@ -26493,6 +26535,25 @@ window.submitVehicleChecklist = async function(){
   render();
 };
 
+/* ================= DELIVERIES HUB (Admin Centre "Deliveries" tile) ================= */
+// Admin Centre used to show Delivery Schedule and Vehicle Checklists as two
+// separate top-level rows; they're now one "Deliveries" tile that lands here
+// first — same "hub tile leads to a small pick-one page" pattern as
+// renderDashboardChoice just below.
+async function renderAdminDeliveriesHub(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="grid-auto-rows:1fr;">
+      <div class="tile" onclick="deliveryScheduleBackHash='#/deliveries';go('#/delivery')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
+        <div class="lbl">Delivery Schedule</div>
+      </div>
+      <div class="tile" onclick="go('#/vehicle-checklists')">
+        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🚐</div>
+        <div class="lbl">Vehicle Checklists</div>
+      </div>
+    </div>
+  `, {title:'Deliveries', back:'#/team', tabs:false});
+}
 /* ================= DASHBOARD CHOICE (bottom bar "Dashboard" button) ================= */
 // The bottom bar's Dashboard button used to jump straight to the company
 // overview dashboard. Now it stops here first so a PM/admin can pick
@@ -27165,6 +27226,10 @@ async function renderRoute(){
   if(parts[0]==='dashboard-choice'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     return renderDashboardChoice();
+  }
+  if(parts[0]==='deliveries'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    return renderAdminDeliveriesHub();
   }
   if(parts[0]==='delivery'){
     if(!ME || !isFullManager(ME)){ go('#/sites'); return; }
