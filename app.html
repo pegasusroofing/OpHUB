@@ -3491,18 +3491,43 @@ window.addSite = async function(){
   toast('Site created');
   render();
 };
-// Every new site gets two preset top-level Drawings folders — "Drawings"
-// and "Specification" — so PMs don't have to set that structure up by hand
-// each time. "Specification" is hidden from operatives while it's empty
-// (see renderDrawings); PMs always see both, even empty.
+// Every new site gets its top-level structure preset — a "Drawings &
+// Specification" folder (itself holding the two preset "Drawings" and
+// "Specification" sub-folders) sitting alongside a sibling "Programme"
+// folder, so PMs don't have to set any of this up by hand. Mirrors the
+// one-off migration that reorganised existing sites the same way when the
+// Programme tile was introduced — see ensureMcProgrammeFolderId just below
+// for the equivalent, lazily-created "Programme" folder used by the Main
+// Contractor tab (a separate root folder, since a site's own programme and
+// its Main Contractor's programme can genuinely differ).
 async function preloadDrawingFoldersForSite(site){
   if(!site) return;
   try{
-    await dbInsert('drawing_folders', [
-      {site_id:site.id, parent_id:null, name:'Drawings', position:0, created_by:ME.id},
-      {site_id:site.id, parent_id:null, name:'Specification', position:1, created_by:ME.id},
+    const parents = await dbInsert('drawing_folders', [
+      {site_id:site.id, parent_id:null, name:'Drawings & Specification', position:0, created_by:ME.id},
+      {site_id:site.id, parent_id:null, name:'Programme', position:1, created_by:ME.id},
     ]);
+    const dsFolder = (parents||[]).find(f=>f.name==='Drawings & Specification');
+    if(dsFolder){
+      await dbInsert('drawing_folders', [
+        {site_id:site.id, parent_id:dsFolder.id, name:'Drawings', position:0, created_by:ME.id},
+        {site_id:site.id, parent_id:dsFolder.id, name:'Specification', position:1, created_by:ME.id},
+      ]);
+    }
   }catch(e){ console.error('Could not preload drawing folders for new site', e); }
+}
+// The Main Contractor tab's own "Programme" tile — a separate root
+// drawing_folders entry (distinct name, so it never collides with or gets
+// listed alongside the site's general Drawings/Programme area) for
+// whatever construction programme the acting Main Contractor is running,
+// which can genuinely be a different document to the site's own. Created
+// lazily on first visit rather than pre-seeded for every site, since only
+// sites actually switched on as a Main Contractor ever show this tile.
+async function ensureMcProgrammeFolderId(siteId){
+  const existing = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id');
+  if(existing && existing[0]) return existing[0].id;
+  const rows = await dbInsert('drawing_folders', {site_id:siteId, parent_id:null, name:'Main Contractor Programme', position:99, created_by:ME.id});
+  return rows && rows[0] ? rows[0].id : null;
 }
 // Pre-loads every company-wide Toolbox Talk template into this new site's
 // Bank TBT, so standard talks are already there without a PM re-uploading
@@ -7161,7 +7186,7 @@ async function renderSiteHome(siteId){
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
           <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
-          <div class="lbl">Drawings &amp; Specifications</div><div class="sub">View &amp; upload</div>
+          <div class="lbl">Drawings, Spec's &amp; Programme</div><div class="sub">View &amp; upload</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/materials')">
           <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
@@ -15692,6 +15717,12 @@ async function getMcTiles(siteId, site){
     mcInspectionsCount = subs.length;
   }
   const inspectionsSub = mcInspectionsCount ? `${mcInspectionsCount} logged` : (mcInspectionTemplates.length ? 'None logged yet' : 'Set up templates');
+  // Main Contractor's own Programme — a separate document to the site's
+  // general Programme (different main contractors can be running different
+  // programmes), so it's counted from its own dedicated root folder rather
+  // than the one under Drawings, Spec's & Programme.
+  const mcProgrammeFolder = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id');
+  const mcProgrammeCount = mcProgrammeFolder && mcProgrammeFolder[0] ? (await dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+mcProgrammeFolder[0].id+'&status=eq.current&select=id')).length : 0;
   const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
   const tiles = [
     {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},
@@ -15702,6 +15733,7 @@ async function getMcTiles(siteId, site){
     {key:'inspections', href:`#/site/${siteId}/mc/inspections`, icon:'🔍', lbl:'Inspections', sub:inspectionsSub},
     {key:'asbestos', href:`#/site/${siteId}/mc/asbestos`, icon:MC_CATEGORY_ICON.asbestos, lbl:MC_CATEGORY_LABEL.asbestos, sub:`${countByCat.asbestos||0} document${(countByCat.asbestos||0)===1?'':'s'}`},
     {key:'f10', href:`#/site/${siteId}/mc/f10`, icon:MC_CATEGORY_ICON.f10, lbl:MC_CATEGORY_LABEL.f10, sub:`${countByCat.f10||0} document${(countByCat.f10||0)===1?'':'s'}`},
+    {key:'programme', href:`#/site/${siteId}/mc/programme`, icon:'📅', lbl:'Programme', sub:`${mcProgrammeCount} document${mcProgrammeCount===1?'':'s'}`},
   ];
   const visibleTiles = canAdd ? tiles : tiles.filter(t=>!hiddenSet.has(t.key));
   return {canAdd, hiddenSet, visibleTiles};
@@ -25264,7 +25296,8 @@ window.showDrawingAddMenu = function(siteId, folderId){
     </div>`;
   ov.style.display = 'flex';
 };
-async function renderDrawings(siteId, folderId){
+async function renderDrawings(siteId, folderId, opts){
+  opts = opts || {};
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
@@ -25295,7 +25328,7 @@ async function renderDrawings(siteId, folderId){
   // visibility diverged from every other Drawings folder, which never hides
   // itself for anyone regardless of role or empty state — #280 aligns
   // Specification to the same rule so it behaves exactly like Drawings.
-  const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : `#/site/${siteId}/drawings`) : `#/site/${siteId}/home`;
+  const backHref = currentFolder ? (currentFolder.parent_id ? `#/site/${siteId}/drawings/${currentFolder.parent_id}` : (opts.rootBackHref || `#/site/${siteId}/drawings`)) : `#/site/${siteId}/home`;
   const parentArg = folderId ? `'${folderId}'` : 'null';
   // Was gated on subfolders.length alone, so any folder holding drawing
   // FILES but no sub-folders (the normal case) kept "New folder" forced
@@ -27367,6 +27400,10 @@ async function renderRoute(){
       // once a site's been switched on for it (see toggleMainContractor /
       // site.acting_as_main_contractor).
       if(!site || !site.acting_as_main_contractor){ go(`#/site/${siteId}/home`); return; }
+      if(sub==='programme'){
+        const folderId = parts[4] || await ensureMcProgrammeFolderId(siteId);
+        return renderDrawings(siteId, folderId, {rootBackHref:`#/site/${siteId}/mc`});
+      }
       if(sub==='site_inductions') return renderSiteInductions(siteId);
       if(sub==='subcontractors'){
         const companyId = parts[4];
