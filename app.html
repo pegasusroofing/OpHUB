@@ -11092,6 +11092,15 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(Object.keys(linkPatch).length) await dbUpdate('price_builder_sheets', sheetId, linkPatch);
 
   toast('Sheet issued');
+  // #notif-review-2026-09: previously nobody was told a sheet had been
+  // issued to them — push to each assigned operative, plus an email via
+  // notify-price-sheet-issued (best-effort, never blocks the issue itself).
+  if(pbWorking.assignedUserIds.length){
+    for(const uid2 of pbWorking.assignedUserIds){
+      postSystemMessageToUser(uid2, siteId, 'price_sheet_issued', `A price sheet ("${pbWorking.title}") has been issued to you on ${SITES.find(s=>s.id===siteId)?.name||'this site'}`, sheetId);
+    }
+    sbFetch('/functions/v1/notify-price-sheet-issued', {method:'POST', body: JSON.stringify({site_id:siteId, sheet_id:sheetId, sheet_title:pbWorking.title, user_ids:pbWorking.assignedUserIds})}).catch(()=>{});
+  }
   pbWorking = {sheetId:null, title:'', assignedUserIds:[], phase:'tick', populateSOW:true, items:{}, customRows:[]};
   go(`#/site/${siteId}/pricebuilder/view/${sheetId}`);
 };
@@ -13471,6 +13480,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+      notifyOperativeCheckin(siteId, type);
     }
     render();
     return;
@@ -13496,6 +13506,7 @@ window.doCheckActionSub = async function(siteId, subId, type){
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    notifyOperativeCheckin(siteId, type);
   }
   render();
 };
@@ -13514,6 +13525,7 @@ window.doCheckAction = async function(siteId, type){
     checkinBusy = false;
     if(rows){
       toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+      notifyOperativeCheckin(siteId, type);
     }
     render();
     return;
@@ -13538,6 +13550,7 @@ window.doCheckAction = async function(siteId, type){
   checkinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    notifyOperativeCheckin(siteId, type);
   }
   render();
 };
@@ -14926,6 +14939,10 @@ window.addSnag = async function(siteId){
     snagNewTitle = '';
     snagNewLocation = '';
     toast('Snag added');
+    // #notif-review-2026-09: previously a push only fired when a snag was
+    // CLOSED (to managers) — a new snag being raised went to nobody. Tells
+    // the operatives on this site so the team knows what's outstanding.
+    postSystemMessageTo(siteId, 'snag_raised', `New snag raised: "${title}"`);
     render();
   }
 };
@@ -17912,6 +17929,7 @@ window.addRams = async function(siteId){
   if(rows){
     if(supersedesId) await dbUpdate('rams_docs', supersedesId, {status:'superseded', superseded_by:rows[0].id});
     toast('RAMS uploaded');
+    notifyDocNeedsSigning(siteId, docType==='COSHH'?'COSHH':'RAMS', name);
     ramsUploadOpen = false; render();
   }
 };
@@ -18221,7 +18239,7 @@ window.addCoshh = async function(siteId){
   // every upload made it awkward to add several documents in a row. It only
   // needs collapsing once the operative(s) have actually signed, which
   // happens naturally the next time the page is opened fresh.
-  if(rows){ toast('COSHH uploaded'); render(); }
+  if(rows){ toast('COSHH uploaded'); notifyDocNeedsSigning(siteId, 'COSHH', name); render(); }
 };
 // Replaces a COSHH document's file in place (an edit, not a new document —
 // unlike RAMS "supersede" this doesn't keep the old file). Resets every
@@ -21962,7 +21980,7 @@ window.issueToolboxTalkCompanyWide = async function(tbtId, title){
         const others = await dbSelect('toolbox_talks', 'site_id=eq.'+site.id+'&status=eq.live&subcontractor_company_id=is.null&select=id');
         for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
         const created = await dbInsert('toolbox_talks', {site_id:site.id, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
-        if(created && created[0]) issued++;
+        if(created && created[0]){ issued++; notifyDocNeedsSigning(site.id, 'TBT', source.title); }
       }catch(e){ /* keep going for other sites */ }
     }
     tbtCompanyWideBusy = null;
@@ -22293,6 +22311,7 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
       if(created && created[0]){
         tbtFilter = 'live';
         toast('Issued for signing — original kept in Bank TBT for reuse');
+        notifyDocNeedsSigning(siteId, 'TBT', source.title);
         go(`#/site/${siteId}/hs/tbt/${created[0].id}`);
       }
       return;
@@ -22302,6 +22321,7 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
   if(row){
     tbtFilter = newStatus;
     toast(newStatus==='live' ? 'Issued for signing' : 'Marked as completed');
+    if(newStatus==='live') notifyDocNeedsSigning(siteId, 'TBT', row.title);
     render();
   }
 };
@@ -25945,6 +25965,23 @@ async function postSystemMessageTo(siteId, kind, body){
     await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'operatives', kind, body});
   }catch(e){ /* silent */ }
 }
+// #notif-review-2026-09: "Operative signs in / checks in to a site" was
+// previously a total gap — nobody was told at all. Only fires on the
+// operative's own check-IN (not check-out, and not a PM/admin self
+// check-in), and reaches the rest of the team assigned to that site —
+// matches the "Assigned Operatives" recipient in the notifications review.
+function notifyOperativeCheckin(siteId, type){
+  if(type!=='in' || !ME || ME.role!=='operative') return;
+  postSystemMessageTo(siteId, 'operative_checked_in', `${ME.name} checked in on site`);
+}
+// #notif-review-2026-09: "New RAMS/COSHH/Toolbox Talk published and needs
+// signing" was previously a total gap — operatives only found out by
+// opening the site themselves (or waiting for the later resign/TBT-overdue
+// reminders). Fired the moment a document goes live/current, so the
+// operatives assigned to the site know there's something new to sign.
+function notifyDocNeedsSigning(siteId, docLabel, docName){
+  postSystemMessageTo(siteId, 'doc_needs_signing', `New ${docLabel} published and needs signing: "${docName}"`);
+}
 // Targeted push to exactly one person — audience='single' + recipient_id,
 // which send-message-push resolves to just that one person's devices
 // instead of a whole role/site broadcast. relatedId (optional) rides along
@@ -26893,7 +26930,7 @@ async function renderDeliveryForm(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
+      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
     } else {
       deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null;
@@ -27050,6 +27087,12 @@ window.saveDeliveryTask = async function(){
     }
     await resequenceSlot(payload.scheduled_date, payload.time_slot);
     if(savedId) await syncDeliveryCalendarEvent(savedId, d._calendarEventId, payload);
+    // #notif-review-2026-09: previously a total gap — a driver was never
+    // told a job had been assigned to them at all. Only fires when the
+    // driver on this job is new or has just changed.
+    if(payload.driver_id && payload.driver_id!==d._origDriverId && savedId){
+      postSystemMessageToUser(payload.driver_id, payload.site_id, 'delivery_assigned', `You've been assigned a delivery/collection: ${payload.description}`, savedId);
+    }
     toast(d._id && d._id!=='new' ? 'Delivery updated' : 'Added to delivery schedule');
     deliveryFormDraft = null;
     go('#/delivery');
