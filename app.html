@@ -4624,47 +4624,11 @@ async function renderTeam(){
   if(isManager(ME) && teamSectionOpen.coshhlibrary){
     coshhLibraryHtmlBlock = await coshhLibraryBrowserHtml();
   }
-  // Same "only when the section is actually open" pattern — Operative Tools
-  // is a per-operative nested browser, no need to pull every operative's
-  // tool list on every Admin Centre visit if nobody's looking at it.
-  let operativeToolsHtmlBlock = '';
-  if(isManager(ME) && teamSectionOpen.operativetools){
-    const allTools = await dbSelect('operative_tools', 'org_id=eq.'+ME.org_id+'&order=created_at.asc');
-    const toolsByUser = {};
-    allTools.forEach(t=>{ (toolsByUser[t.user_id]=toolsByUser[t.user_id]||[]).push(t); });
-    const operativesList = people.filter(p=>p.role==='operative');
-    operativeToolsHtmlBlock = operativesList.map(p=>{
-      const tools = toolsByUser[p.id]||[];
-      return `
-        <p class="ddrow" id="admin-optool-${p.id}" style="margin-top:0;" onclick="toggleOperativeToolsUser('${p.id}')"><span class="arrow">${operativeToolsOpenByUser[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} (${tools.length})</p>
-        ${operativeToolsOpenByUser[p.id] ? `
-          <div class="card" style="margin-bottom:10px;">
-            ${tools.map(t=>`
-              <div class="sitecard" style="padding:8px 10px;">
-                ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
-                <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.serial_number?`<div class="addr">Serial: ${escapeHtml(t.serial_number)}</div>`:''}</div>
-                <span class="stub" style="text-decoration:underline;cursor:pointer;flex:0 0 auto;" onclick="document.getElementById('opToolEditPhoto-${t.id}').click()">${operativeToolsEditPhotoBusyId===t.id?'Uploading…':(t.photo_path?'Change photo':'Add photo')}</span>
-                <input type="file" id="opToolEditPhoto-${t.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsEditPhotoChosen(this,'${t.id}','${p.id}')">
-                <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
-              </div>
-            `).join('') || `<div class="empty" style="padding:10px;">No tools logged yet.</div>`}
-            ${operativeToolsAddOpenFor===p.id ? `
-              <div class="formfield" style="margin-top:10px;"><input type="text" id="opToolName-${p.id}" value="${escapeHtml(operativeToolsNameDraft)}" placeholder="Tool name, e.g. Impact Driver"></div>
-              <div class="formfield"><input type="text" id="opToolSerial-${p.id}" value="${escapeHtml(operativeToolsSerialDraft)}" placeholder="Serial / item number"></div>
-              <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('opToolPhotoInput-${p.id}').click()">${operativeToolsPhotoFile ? 'Photo chosen: '+escapeHtml(operativeToolsPhotoFile.name) : 'Choose Photo'}</div>
-              <input type="file" id="opToolPhotoInput-${p.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsPhotoChosen(this,'${p.id}')">
-              <div class="row-gap">
-                <button class="darkbtn" style="flex:1;" onclick="addOperativeToolFor('${p.id}')">Save Tool</button>
-                <button class="ghostbtn" style="flex:1;" onclick="operativeToolsAddOpenFor=null;operativeToolsPhotoFile=null;operativeToolsNameDraft='';operativeToolsSerialDraft='';render()">Cancel</button>
-              </div>
-            ` : `
-              <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${p.id}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
-            `}
-          </div>
-        ` : ''}
-      `;
-    }).join('') || `<div class="empty">No operatives yet.</div>`;
-  }
+  // Operative Tools moved out of Admin Centre entirely (#notif-review-
+  // 2026-09) — it now lives at the bottom of the Operatives list (#/operatives)
+  // as the same kind of org-wide browse section, with per-operative editing
+  // also available on each operative's own page. See renderOperativesList
+  // and renderOperativeDetail.
   // Certifications is now per-operative (see the "Operatives" area) — this
   // section is just the root OneDrive folder link, so nothing to query here.
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
@@ -5067,15 +5031,6 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    ${isManager(ME) ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('operativetools')"><span class="arrow">${teamSectionOpen.operativetools?'▼':'▶'}</span> Operative Tools</p>
-    ${teamSectionOpen.operativetools ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Each operative's own logged power tools — name, serial/item number, and photo. Used to auto-populate PUWER Tool Inspections.</p>
-      ${operativeToolsHtmlBlock}
-    </div>
-    ` : ''}
-    ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
     <div class="card">
@@ -5374,13 +5329,6 @@ async function renderTeam(){
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
   `, {title:'Admin Centre', back: teamBackFrom ? decodeURIComponent(teamBackFrom) : '#/sites', tabs:false, showRoleChip:true, titleGoesHome:true}); }
-  // Jumped in from PUWER's "Open in Admin Centre" link — scroll straight to
-  // that operative's row inside the now-expanded Operative Tools section.
-  if(pendingAdminOperativeToolsScrollUserId){
-    const targetUserId = pendingAdminOperativeToolsScrollUserId; pendingAdminOperativeToolsScrollUserId = null;
-    const el = document.getElementById('admin-optool-'+targetUserId);
-    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
-  }
 }
 let teamSectionOpen = {branding:false, integrations:false, brandingintegrations:false, libraries:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
 /* ================= Schedule of Works — Library (Admin Centre). Org-wide
@@ -5504,12 +5452,12 @@ function sortPriceRateCategories(cats){
 // the person's row is tapped, so the list isn't cluttered with buttons by default.
 let userActionsOpenFor = {};
 window.toggleUserActions = function(userId){ userActionsOpenFor[userId] = !userActionsOpenFor[userId]; render(); };
-let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside Admin Centre's Operative Tools row
+let operativeToolsOpenByUser = {}; // per-operative nested dropdown toggle inside the Operatives list's Operative Tools row
 window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[userId] = !operativeToolsOpenByUser[userId]; render(); };
-// Jumps straight from PUWER (Tool Inspection) into Admin Centre's Operative
-// Tools section, already expanded and scrolled to the operative in
-// question — PM/admin only, matching who can even see that Admin Centre
-// section in the first place.
+// Jumps straight from PUWER (Tool Inspection) into the Operatives list's
+// Operative Tools section, already expanded and scrolled to the operative
+// in question — PM/admin only, matching who can even see that section in
+// the first place. (Moved out of Admin Centre — see renderOperativesList.)
 // Jumps from a site's PPE page into Admin Centre's PPE Log/Register section,
 // already expanded, with ?from= carrying the exact page to return to (#260)
 // — same mechanism as Certifications (#207) and Admin Centre (#248).
@@ -5520,10 +5468,10 @@ window.openAdminPpeRegister = function(siteId){
 };
 window.openAdminOperativeTools = function(userId){
   if(!isManager(ME)) return;
-  teamSectionOpen.operativetools = true;
+  operativeToolsListOpen = true;
   operativeToolsOpenByUser[userId] = true;
   pendingAdminOperativeToolsScrollUserId = userId;
-  go('#/team');
+  go('#/operatives');
 };
 let pendingAdminOperativeToolsScrollUserId = null;
 // PM/Admin adding a tool on an operative's behalf, from Admin Centre —
@@ -6620,6 +6568,50 @@ async function renderOperativesList(){
   const q = operativeSearchQuery.trim().toLowerCase();
   const filtered = q ? operatives.filter(o=>o.name.toLowerCase().includes(q)) : operatives;
 
+  // #notif-review-2026-09 (Operative Tools move): was a dropdown buried in
+  // Admin Centre — now lives here, below the operative list, since this is
+  // where a PM already is when they're thinking about operatives generally.
+  // Editing an individual operative's own tools also works from their own
+  // page (renderOperativeDetail) — same underlying operative_tools rows and
+  // the same add/delete/photo handlers either way, just two doors in.
+  let operativeToolsHtmlBlock = '';
+  if(operativeToolsListOpen){
+    const allTools = await dbSelect('operative_tools', 'org_id=eq.'+ME.org_id+'&order=created_at.asc');
+    const toolsByUser = {};
+    allTools.forEach(t=>{ (toolsByUser[t.user_id]=toolsByUser[t.user_id]||[]).push(t); });
+    operativeToolsHtmlBlock = operatives.map(p=>{
+      const tools = toolsByUser[p.id]||[];
+      return `
+        <p class="ddrow" id="oplist-optool-${p.id}" style="margin-top:0;" onclick="toggleOperativeToolsUser('${p.id}')"><span class="arrow">${operativeToolsOpenByUser[p.id]?'▼':'▶'}</span> ${escapeHtml(p.name)} (${tools.length})</p>
+        ${operativeToolsOpenByUser[p.id] ? `
+          <div class="card" style="margin-bottom:10px;">
+            ${tools.map(t=>`
+              <div class="sitecard" style="padding:8px 10px;">
+                ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
+                <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.serial_number?`<div class="addr">Serial: ${escapeHtml(t.serial_number)}</div>`:''}</div>
+                <span class="stub" style="text-decoration:underline;cursor:pointer;flex:0 0 auto;" onclick="document.getElementById('opToolEditPhoto-${t.id}').click()">${operativeToolsEditPhotoBusyId===t.id?'Uploading…':(t.photo_path?'Change photo':'Add photo')}</span>
+                <input type="file" id="opToolEditPhoto-${t.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsEditPhotoChosen(this,'${t.id}','${p.id}')">
+                <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
+              </div>
+            `).join('') || `<div class="empty" style="padding:10px;">No tools logged yet.</div>`}
+            ${operativeToolsAddOpenFor===p.id ? `
+              <div class="formfield" style="margin-top:10px;"><input type="text" id="opToolName-${p.id}" value="${escapeHtml(operativeToolsNameDraft)}" placeholder="Tool name, e.g. Impact Driver"></div>
+              <div class="formfield"><input type="text" id="opToolSerial-${p.id}" value="${escapeHtml(operativeToolsSerialDraft)}" placeholder="Serial / item number"></div>
+              <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('opToolPhotoInput-${p.id}').click()">${operativeToolsPhotoFile ? 'Photo chosen: '+escapeHtml(operativeToolsPhotoFile.name) : 'Choose Photo'}</div>
+              <input type="file" id="opToolPhotoInput-${p.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsPhotoChosen(this,'${p.id}')">
+              <div class="row-gap">
+                <button class="darkbtn" style="flex:1;" onclick="addOperativeToolFor('${p.id}')">Save Tool</button>
+                <button class="ghostbtn" style="flex:1;" onclick="operativeToolsAddOpenFor=null;operativeToolsPhotoFile=null;operativeToolsNameDraft='';operativeToolsSerialDraft='';render()">Cancel</button>
+              </div>
+            ` : `
+              <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${p.id}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
+            `}
+          </div>
+        ` : ''}
+      `;
+    }).join('') || `<div class="empty">No operatives yet.</div>`;
+  }
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <input type="text" placeholder="Search operatives…" value="${escapeHtml(operativeSearchQuery)}" oninput="onOperativeSearchInput(this.value)" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px;">
     <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Training Matrix (Excel)</button>
@@ -6627,11 +6619,28 @@ async function renderOperativesList(){
     ${filtered.length ? filtered.map(o=>`
       <div class="sitecard" style="cursor:pointer;" onclick="go('#/operatives/${o.id}${opListFrom ? '?listFrom='+encodeURIComponent(opListFrom) : ''}')">
         <div class="swatch">${(o.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase()}</div>
-        <div class="info"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${(siteCountByOp[o.id]?siteCountByOp[o.id].size:0)} site${(siteCountByOp[o.id]&&siteCountByOp[o.id].size===1)?'':'s'} · ${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}</div></div>
+        <div class="info"><div class="name">${escapeHtml(o.name)}</div><div class="addr">${(siteCountByOp[o.id]?siteCountByOp[o.id].size:0)} site${(siteCountByOp[o.id]&&siteCountByOp[o.id].size===1)?'':'s'} · ${certCountByOp[o.id]||0} certificate${(certCountByOp[o.id]||0)===1?'':'s'}${o.phone?' · 📞 '+escapeHtml(o.phone):''}</div></div>
       </div>
     `).join('') : `<div class="empty">No operatives found.</div>`}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleOperativeToolsListSection()"><span class="arrow">${operativeToolsListOpen?'▼':'▶'}</span> Operative Tools</p>
+    ${operativeToolsListOpen ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Each operative's own logged power tools — name, serial/item number, and photo. Used to auto-populate PUWER Tool Inspections.</p>
+      ${operativeToolsHtmlBlock}
+    </div>
+    ` : ''}
   `, {title:'Operatives', back: opListFrom || '#/team', tabs:false}); }
+  // Jumped in from PUWER's "Open in Operatives" link — scroll straight to
+  // that operative's row inside the now-expanded Operative Tools section.
+  if(pendingAdminOperativeToolsScrollUserId){
+    const targetUserId = pendingAdminOperativeToolsScrollUserId; pendingAdminOperativeToolsScrollUserId = null;
+    const el = document.getElementById('oplist-optool-'+targetUserId);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
 }
+let operativeToolsListOpen = false;
+window.toggleOperativeToolsListSection = function(){ operativeToolsListOpen = !operativeToolsListOpen; render(); };
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
   const fromSiteId = routeQuery().get('from');
@@ -6639,9 +6648,10 @@ async function renderOperativeDetail(operativeId){
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
-  const [assignedRows, certs] = await Promise.all([
+  const [assignedRows, certs, myTools] = await Promise.all([
     dbSelect('site_assignments', 'user_id=eq.'+operativeId+'&select=site_id'),
     dbSelect('operative_certifications', 'operative_id=eq.'+operativeId+'&order=created_at.desc'),
+    dbSelect('operative_tools', 'user_id=eq.'+operativeId+'&order=created_at.asc'),
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
   const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && siteStatusKey(s)==='live').length;
@@ -6650,6 +6660,20 @@ async function renderOperativeDetail(operativeId){
   const syncBusy = !!operativeCertSyncBusy[operativeId];
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">Details</p>
+    <div class="card" style="margin-bottom:16px;">
+      <label class="field-label">Name</label>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <input type="text" id="opName_${operativeId}" value="${escapeHtml(operative.name||'')}" placeholder="Full name" style="flex:2;min-width:0;">
+        <button class="darkbtn" style="flex:1;min-width:0;width:auto;padding:10px 6px;" onclick="saveOperativeName('${operativeId}')">Save</button>
+      </div>
+      <label class="field-label">Contact number</label>
+      <div style="display:flex;gap:8px;">
+        <input type="tel" id="opPhone_${operativeId}" value="${escapeHtml(operative.phone||'')}" placeholder="e.g. 07123 456789" style="flex:2;min-width:0;">
+        <button class="darkbtn" style="flex:1;min-width:0;width:auto;padding:10px 6px;" onclick="saveOperativePhone('${operativeId}')">Save</button>
+      </div>
+    </div>
+
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
       <div class="card" style="flex:1;min-width:110px;text-align:center;">
         <div style="font-size:26px;font-weight:800;color:var(--ink);">${siteIds.size}</div>
@@ -6691,6 +6715,32 @@ async function renderOperativeDetail(operativeId){
     ${certAddToggleHtml(operativeId, 'opdet')}
     ${operativeCertListHtml(certs, true, {selectable:true})}
     <button class="ghostbtn" style="width:100%;margin-top:14px;" onclick="exportTrainingMatrixExcel()">📊 Export Full Training Matrix (Excel)</button>
+
+    <p class="sectiontitle">Tools</p>
+    <p class="stub" style="margin:0 0 10px;">${escapeHtml(operative.name)}'s own logged power tools — name, serial/item number, and photo. Used to auto-populate PUWER Tool Inspections.</p>
+    <div class="card">
+      ${myTools.map(t=>`
+        <div class="sitecard" style="padding:8px 10px;">
+          ${t.photo_path ? `<img src="${publicUrl('operative-tools', t.photo_path)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;flex:0 0 40px;border:1px solid var(--line);" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<div class="swatch" style="flex:0 0 40px;width:40px;height:40px;">🔧</div>`}
+          <div class="info"><div class="name">${escapeHtml(t.name)}</div>${t.serial_number?`<div class="addr">Serial: ${escapeHtml(t.serial_number)}</div>`:''}</div>
+          <span class="stub" style="text-decoration:underline;cursor:pointer;flex:0 0 auto;" onclick="document.getElementById('opToolEditPhoto-${t.id}').click()">${operativeToolsEditPhotoBusyId===t.id?'Uploading…':(t.photo_path?'Change photo':'Add photo')}</span>
+          <input type="file" id="opToolEditPhoto-${t.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsEditPhotoChosen(this,'${t.id}','${operativeId}')">
+          <div class="taskicon danger" onclick="deleteOperativeTool('${t.id}','${jsAttr(t.photo_path||'')}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No tools logged yet.</div>`}
+      ${operativeToolsAddOpenFor===operativeId ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="opToolName-${operativeId}" value="${escapeHtml(operativeToolsNameDraft)}" placeholder="Tool name, e.g. Impact Driver"></div>
+        <div class="formfield"><input type="text" id="opToolSerial-${operativeId}" value="${escapeHtml(operativeToolsSerialDraft)}" placeholder="Serial / item number"></div>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;" onclick="document.getElementById('opToolPhotoInput-${operativeId}').click()">${operativeToolsPhotoFile ? 'Photo chosen: '+escapeHtml(operativeToolsPhotoFile.name) : 'Choose Photo'}</div>
+        <input type="file" id="opToolPhotoInput-${operativeId}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="onOperativeToolsPhotoChosen(this,'${operativeId}')">
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addOperativeToolFor('${operativeId}')">Save Tool</button>
+          <button class="ghostbtn" style="flex:1;" onclick="operativeToolsAddOpenFor=null;operativeToolsPhotoFile=null;operativeToolsNameDraft='';operativeToolsSerialDraft='';render()">Cancel</button>
+        </div>
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${operativeId}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
+      `}
+    </div>
   `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : (listFrom ? `#/operatives?from=${encodeURIComponent(listFrom)}` : '#/operatives'), tabs:false}); }
 }
 // Site-scoped Certifications page. An operative sees just their own
@@ -20217,8 +20267,9 @@ async function havsPdfFonts(pdfDoc){
    Every operative's own log of the power tools they use — name, serial/item
    number, and a photo. Never its own H&S tile: the entry point is a small
    "My Tools" link inside H&S (always about the current user's own tools),
-   plus an "Operative Tools" browse section in Admin Centre for PM/Admin
-   oversight of everyone's. PUWER Tool Inspections snapshot from here at
+   plus an "Operative Tools" browse section at the bottom of the Operatives
+   list (#/operatives) for PM/Admin oversight of everyone's — also editable
+   per-operative on their own page. PUWER Tool Inspections snapshot from here at
    fill time, so a tool renamed/removed later doesn't rewrite past reports. */
 let myToolsAddOpen = false;
 let myToolsPhotoFile = null; // File staged for the add-tool form until Save is tapped
@@ -20373,6 +20424,20 @@ window.sendCertEmailFor = async function(key, ids){
 // Account Settings) — the same profiles.phone column either side writes to,
 // so whichever one is set last is what shows everywhere it's read (delivery
 // site contacts, this dashboard, their own settings).
+// Admin/PM renaming an operative from their own Operatives page — the only
+// place a name can be corrected after signup (an operative can't rename
+// themselves; the name they signed up with just sticks otherwise). Same
+// profiles.name column everything else already reads (site rosters,
+// messages, PUWER, certificates, exports), so a rename shows up everywhere
+// immediately.
+window.saveOperativeName = async function(operativeId){
+  const input = document.getElementById('opName_'+operativeId);
+  const name = input ? input.value.trim() : '';
+  if(!name){ toast('Enter a name.'); return; }
+  const row = await dbUpdate('profiles', operativeId, {name});
+  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].name = name; toast('Name saved'); render(); }
+  else { toast('Could not save — check your connection and try again.'); }
+};
 window.saveOperativePhone = async function(operativeId){
   const input = document.getElementById('opPhone_'+operativeId);
   const phone = input ? input.value.trim() : '';
@@ -20576,7 +20641,7 @@ async function renderPuwer(siteId){
       <div class="sitecard" ${isClientView?'':'style="cursor:pointer;"'} ${isClientView?'':`onclick="go('#/site/${siteId}/hs/puwer/${op.id}')"`}>
         ${canManage ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${puwerExportSelectedIds.includes(op.id)?'checked':''} onclick="event.stopPropagation();togglePuwerExportSelected('${op.id}')">` : ''}
         <div class="swatch personswatch">${escapeHtml((op.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
-        <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}${canManage ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();openAdminOperativeTools('${op.id}')">🔧 ${toolCountByUser[op.id]||0} tool${(toolCountByUser[op.id]||0)===1?'':'s'} — open in Admin Centre</span>` : ''}</div></div>
+        <div class="info"><div class="name">${escapeHtml(op.name)}${op.id===ME.id?' (you)':''}</div><div class="addr">${inspectedIds.has(op.id) ? 'Inspection recorded' : 'Not yet inspected'}${canManage ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();openAdminOperativeTools('${op.id}')">🔧 ${toolCountByUser[op.id]||0} tool${(toolCountByUser[op.id]||0)===1?'':'s'} — open in Operatives</span>` : ''}</div></div>
         <div class="status ${inspectedIds.has(op.id)?'active':'upcoming'}">${inspectedIds.has(op.id)?'Done':'Pending'}</div>
         ${(canManage||isClientView) && inspectedIds.has(op.id) ? `<div class="ghostbtn" style="flex:0 0 auto;width:auto;padding:4px 8px;font-size:10px;" onclick="event.stopPropagation();exportPuwerIndividual('${siteId}','${op.id}')">Export</div>` : ''}
       </div>
@@ -20669,7 +20734,7 @@ async function renderPuwerFill(siteId, userId){
     <div class="card" style="margin-bottom:14px;">
       <p class="sectiontitle" style="margin-top:0;">${escapeHtml(op.name)}'s Registered Tools</p>
       ${draft.tools.length ? `<p class="stub" style="margin:0 0 8px;">${draft.tools.length} tool${draft.tools.length===1?'':'s'} pulled through from ${op.id===ME.id?'My Tools':'their My Tools'}: ${draft.tools.map(t=>escapeHtml(t.name)).join(', ')}</p>` : `<p class="stub" style="margin:0 0 8px;">No tools registered yet.</p>`}
-      ${isManager(ME) ? `<span style="font-size:12.5px;font-weight:700;color:var(--brand1);text-decoration:underline;cursor:pointer;" onclick="openAdminOperativeTools('${userId}')">Manage in Admin Centre — Operative Tools ↗</span>` : ''}
+      ${isManager(ME) ? `<span style="font-size:12.5px;font-weight:700;color:var(--brand1);text-decoration:underline;cursor:pointer;" onclick="openAdminOperativeTools('${userId}')">Manage in Operatives — Operative Tools ↗</span>` : ''}
     </div>
     ${!draft.tools.length ? `
       <div class="empty">${escapeHtml(op.name)} hasn't logged any tools yet.${op.id===ME.id ? ` <span style="color:var(--brand1);cursor:pointer;font-weight:700;" onclick="go('#/site/${siteId}/hs/mytools')">Add one in My Tools</span>` : ' Ask them to add their tools via My Tools first.'}</div>
