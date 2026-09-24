@@ -3908,7 +3908,13 @@ let hubFilterDue = 'all';   // 'all'|'overdue'|'week'|'nodate'
 async function computeHubItems(forcedPmId){
   const isAdmin = ME.role==='admin';
   const effectivePmId = forcedPmId!==undefined ? forcedPmId : hubFilterPmId;
-  const allLiveSites = SITES.filter(s=>siteStatusKey(s)==='live');
+  // Live AND upcoming sites — Hub used to be live-only, which silently hid
+  // everything (RAMS, COSHH, TBTs, snags, to-dos, messages) on a site that
+  // hasn't started yet, under every filter combination, with no way to see
+  // it was even being excluded. PMs plan and assign work on upcoming sites
+  // ahead of the start date, so Hub needs to surface that too. Closed sites
+  // stay excluded — there's nothing outstanding to action once a site's done.
+  const allLiveSites = SITES.filter(s=>{ const k = siteStatusKey(s); return k==='live' || k==='upcoming'; });
   let sites;
   if(effectivePmId === 'all'){
     sites = allLiveSites;
