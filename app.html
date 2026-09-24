@@ -6641,6 +6641,16 @@ async function renderOperativesList(){
 }
 let operativeToolsListOpen = false;
 window.toggleOperativeToolsListSection = function(){ operativeToolsListOpen = !operativeToolsListOpen; render(); };
+let operativeNameEditOpen = {};
+let operativePhoneEditOpen = {};
+window.toggleOperativeNameEdit = function(operativeId){
+  operativeNameEditOpen[operativeId] = !operativeNameEditOpen[operativeId];
+  render();
+};
+window.toggleOperativePhoneEdit = function(operativeId){
+  operativePhoneEditOpen[operativeId] = !operativePhoneEditOpen[operativeId];
+  render();
+};
 async function renderOperativeDetail(operativeId){
   const __gen = RENDER_GEN;
   const fromSiteId = routeQuery().get('from');
@@ -6663,15 +6673,25 @@ async function renderOperativeDetail(operativeId){
     <p class="sectiontitle" style="margin-top:0;">Details</p>
     <div class="card" style="margin-bottom:16px;">
       <label class="field-label">Name</label>
+      ${operativeNameEditOpen[operativeId] ? `
       <div style="display:flex;gap:8px;margin-bottom:12px;">
         <input type="text" id="opName_${operativeId}" value="${escapeHtml(operative.name||'')}" placeholder="Full name" style="flex:2;min-width:0;">
         <button class="darkbtn" style="flex:1;min-width:0;width:auto;padding:10px 6px;" onclick="saveOperativeName('${operativeId}')">Save</button>
-      </div>
+      </div>` : `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
+        <div style="font-weight:700;font-size:15px;">${escapeHtml(operative.name||'—')}</div>
+        <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleOperativeNameEdit('${operativeId}')">Edit</button>
+      </div>`}
       <label class="field-label">Contact number</label>
+      ${operativePhoneEditOpen[operativeId] ? `
       <div style="display:flex;gap:8px;">
         <input type="tel" id="opPhone_${operativeId}" value="${escapeHtml(operative.phone||'')}" placeholder="e.g. 07123 456789" style="flex:2;min-width:0;">
         <button class="darkbtn" style="flex:1;min-width:0;width:auto;padding:10px 6px;" onclick="saveOperativePhone('${operativeId}')">Save</button>
-      </div>
+      </div>` : `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="font-weight:700;font-size:15px;">${escapeHtml(operative.phone||'—')}</div>
+        <button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleOperativePhoneEdit('${operativeId}')">Edit</button>
+      </div>`}
     </div>
 
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:16px;">
@@ -20435,14 +20455,14 @@ window.saveOperativeName = async function(operativeId){
   const name = input ? input.value.trim() : '';
   if(!name){ toast('Enter a name.'); return; }
   const row = await dbUpdate('profiles', operativeId, {name});
-  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].name = name; toast('Name saved'); render(); }
+  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].name = name; operativeNameEditOpen[operativeId] = false; toast('Name saved'); render(); }
   else { toast('Could not save — check your connection and try again.'); }
 };
 window.saveOperativePhone = async function(operativeId){
   const input = document.getElementById('opPhone_'+operativeId);
   const phone = input ? input.value.trim() : '';
   const row = await dbUpdate('profiles', operativeId, {phone: phone||null});
-  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].phone = phone||null; toast('Contact number saved'); render(); }
+  if(row){ if(PROFILES[operativeId]) PROFILES[operativeId].phone = phone||null; operativePhoneEditOpen[operativeId] = false; toast('Contact number saved'); render(); }
   else { toast('Could not save — check your connection and try again.'); }
 };
 async function renderOperativeDashboard(siteId){
