@@ -7432,6 +7432,29 @@ const REPAIR_CATEGORY_DEFS = {
   closed:            {label:'Closed Jobs',              match:j=>!!j.closed},
   all:               {label:'All Jobs',                match:()=>true},
 };
+// Client-side sort for the repair jobs list page — the underlying query
+// always comes back newest-first (order=created_at.desc), these just
+// re-sort the already-fetched page in memory. Falls back to date_desc for
+// any unrecognised/old value (e.g. a stored key from a future addition).
+const REPAIR_JOB_SORTS = {
+  date_desc: (a,b) => new Date(b.created_at||0) - new Date(a.created_at||0),
+  date_asc:  (a,b) => new Date(a.created_at||0) - new Date(b.created_at||0),
+  name_asc:  (a,b) => (a.address||'').localeCompare(b.address||''),
+  name_desc: (a,b) => (b.address||'').localeCompare(a.address||''),
+  job_number_asc: (a,b) => (a.job_number||'').localeCompare(b.job_number||'', undefined, {numeric:true}),
+};
+const REPAIR_JOB_SORT_LABELS = {
+  date_desc: 'Date Added (Newest First)',
+  date_asc: 'Date Added (Oldest First)',
+  name_asc: 'Address (A–Z)',
+  name_desc: 'Address (Z–A)',
+  job_number_asc: 'Job Number',
+};
+let repairJobSortBy = 'date_desc';
+window.setRepairJobSort = function(value){
+  repairJobSortBy = REPAIR_JOB_SORTS[value] ? value : 'date_desc';
+  render();
+};
 let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
 let newRepairJobAddressDraft = '';
@@ -7774,9 +7797,11 @@ async function renderRepairJobsListPage(siteId, category){
   // — same reasoning as renderRepairJobsCategoryHub's trimmed select, this
   // page can list dozens of jobs so it's worth not pulling every job's full
   // notes/description text just to render a status card.
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved&order=created_at.desc');
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved,created_at&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   const filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
+  const sortFn = REPAIR_JOB_SORTS[repairJobSortBy] || REPAIR_JOB_SORTS.date_desc;
+  filtered.sort(sortFn);
   if(!canManage) repairJobSelectMode = false;
 
   function jobCardHtml(j){
@@ -7815,6 +7840,13 @@ async function renderRepairJobsListPage(siteId, category){
         <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
         ${REPAIR_ROUTE_CATEGORIES.includes(category) ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
       </div>
+    ` : ''}
+    <div class="formfield" style="margin:0 0 14px;">
+      <select id="repairJobSortSelect" style="width:100%;" onchange="setRepairJobSort(this.value)">
+        ${Object.keys(REPAIR_JOB_SORTS).map(k=>`<option value="${k}" ${repairJobSortBy===k?'selected':''}>${REPAIR_JOB_SORT_LABELS[k]}</option>`).join('')}
+      </select>
+    </div>
+    ${canManage ? `
       ${repairJobSelectMode ? `
         <div class="card" style="margin-bottom:14px;background:var(--paper);">
           <p class="stub" style="margin:0 0 10px;">${repairJobSelectedIds.size} selected</p>
