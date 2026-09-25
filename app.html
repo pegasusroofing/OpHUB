@@ -7354,14 +7354,20 @@ const REPAIR_JOB_STATUS_OPTIONS = ['New','Awaiting Survey','Awaiting Quote Appro
 // state machine — a job's own fields are what's true, these are just what
 // each bucket looks for, so a job can show up in more than one at once
 // (e.g. approved AND still waiting on scaffold).
+// A job needs a scaffold/tower step if its access requirement says so —
+// used both to gate the Scaffold tile/card and to decide whether the
+// Approved & Ready tile also needs the scaffold to be up first.
+function repairJobNeedsScaffold(j){ return j.access_requirement==='scaffold' || j.access_requirement==='tower'; }
 const REPAIR_CATEGORY_DEFS = {
-  survey:    {label:'Jobs to Survey',          match:j=>!j.closed && j.survey_required!=='Y'},
-  scaffold:  {label:'Scaffold to be Erected',  match:j=>!j.closed && (j.access_requirement==='scaffold'||j.access_requirement==='tower') && !j.scaffold_erection_date},
-  approved:  {label:'Approved & Ready',        match:j=>!j.closed && j.quote_approved===true && !j.works_completed},
-  completed: {label:'Completed Jobs',          match:j=>!!j.works_completed},
-  open:      {label:'Open Jobs',               match:j=>!j.closed},
-  closed:    {label:'Closed Jobs',              match:j=>!!j.closed},
-  all:       {label:'All Jobs',                match:()=>true},
+  survey:            {label:'Jobs to Survey',          match:j=>!j.closed && j.survey_required!=='Y'},
+  awaiting_approval: {label:'Awaiting Approval',       match:j=>!j.closed && j.survey_required==='Y' && j.quote_approved==null},
+  scaffold:          {label:'Scaffold to be Erected',  match:j=>!j.closed && j.quote_approved===true && repairJobNeedsScaffold(j) && !j.scaffold_erection_date},
+  approved:          {label:'Approved & Ready',        match:j=>!j.closed && j.quote_approved===true && !j.works_completed && !(repairJobNeedsScaffold(j) && !j.scaffold_erection_date)},
+  completed:         {label:'Completed Jobs',          match:j=>!!j.works_completed},
+  rejected:          {label:'Rejected',                match:j=>!j.closed && j.quote_approved===false},
+  open:              {label:'Open Jobs',               match:j=>!j.closed},
+  closed:            {label:'Closed Jobs',              match:j=>!!j.closed},
+  all:               {label:'All Jobs',                match:()=>true},
 };
 let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
@@ -7371,6 +7377,7 @@ let repairJobDetailCurrent = null; // the job row currently loaded on the detail
 let repairJobPhotoBusy = {}; // category -> bool, disables that upload button mid-upload
 let repairJobSelectMode = false;
 let repairJobSelectedIds = new Set();
+let repairJobInfoEditOpen = {}; // jobId -> bool, closed/display view by default (see renderRepairJobDetail)
 let repairRouteExportBusy = false;
 const REPAIR_ROUTE_CATEGORIES = ['survey','scaffold','approved']; // the 3 lists a route-ordered export makes sense for
 
@@ -7430,9 +7437,11 @@ async function renderRepairJobsCategoryHub(siteId){
   if(__gen !== RENDER_GEN) return;
   const tileDefs = [
     {key:'survey', icon:'🔍', bg:'#FFF3D9', color:'#8A6300'},
+    {key:'awaiting_approval', icon:'⏳', bg:'var(--warn-bg)', color:'var(--warn)'},
     {key:'scaffold', icon:'🪜', bg:'#E4EEFB', color:'var(--blue)'},
     {key:'approved', icon:'✅', bg:'var(--ok-bg)', color:'var(--ok)'},
     {key:'completed', icon:'🏁', bg:'#E7E9EE', color:'var(--ink)'},
+    {key:'rejected', icon:'✕', bg:'#FBE4E4', color:'var(--red)'},
   ];
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
@@ -7754,15 +7763,25 @@ async function renderRepairJobDetail(siteId, jobId){
     `;
   }
 
+  const surveyDone = job.survey_required === 'Y';
+  const needsScaffold = repairJobNeedsScaffold(job);
+  const infoEditing = canManage && !!repairJobInfoEditOpen[jobId];
+
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(job.address||'Job')}</p>
-      ${canManage ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${infoEditing?'14':'4'}px;">
+        <p class="sectiontitle" style="margin:0;">${escapeHtml(job.address||'Job')}</p>
+        ${canManage ? `<button class="darkbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairJobInfoEdit('${jobId}')">${infoEditing?'Cancel':'Edit'}</button>` : ''}
+      </div>
+      ${infoEditing ? `
         <div class="formfield"><input type="text" id="repairJobNumber" placeholder="Job number" value="${escapeHtml(job.job_number||'')}"></div>
         <div class="formfield"><input type="text" id="repairJobAddress" placeholder="Address" value="${escapeHtml(job.address||'')}"></div>
         <div class="formfield"><textarea id="repairJobDescription" placeholder="Description of call out" rows="2">${escapeHtml(job.description||'')}</textarea></div>
         <button class="ghostbtn" onclick="saveRepairJobBasics('${jobId}')">Save Job Details</button>
-      ` : `${job.description ? `<p class="stub" style="margin:0;">${escapeHtml(job.description)}</p>` : ''}`}
+      ` : `
+        ${job.job_number ? `<p class="stub" style="margin:0 0 4px;">Job #${escapeHtml(job.job_number)}</p>` : ''}
+        ${job.description ? `<p class="stub" style="margin:0;">${escapeHtml(job.description)}</p>` : ''}
+      `}
       <p class="field-label" style="margin:14px 0 4px;">Work Order</p>
       ${job.work_order_path ? `<p class="stub" style="margin:0 0 8px;text-decoration:underline;cursor:pointer;" onclick="window.open('${publicUrl('site-photos', job.work_order_path)}','_blank')">📄 ${escapeHtml(job.work_order_name||'View file')}</p>` : `<p class="stub" style="margin:0 0 8px;">Not uploaded yet.</p>`}
       ${canManage ? `
@@ -7774,79 +7793,107 @@ async function renderRepairJobDetail(siteId, jobId){
     <div class="card" style="margin-bottom:16px;">
       <p class="sectiontitle" style="margin-top:0;">Survey</p>
       <p class="field-label" style="margin-bottom:4px;">Survey completed?</p>
-      <div class="row-gap" style="margin-bottom:12px;">
-        ${['Y','N','NA'].map(v=>`<button class="${job.survey_required===v?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','${v}')">${v==='Y'?'Completed':v==='N'?'Not yet':'N/A'}</button>`).join('')}
+      <div class="row-gap" style="margin-bottom:4px;align-items:stretch;">
+        <button class="${job.survey_required==='N'||!job.survey_required?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','N')">To Survey</button>
+        <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
+        <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
       </div>
-      ${job.survey_date ? `<p class="stub" style="margin:-6px 0 12px;">Surveyed ${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
-      <p class="field-label" style="margin-bottom:4px;">Access requirement</p>
+      ${job.survey_date ? `<p class="stub" style="margin:0 0 12px;">Surveyed ${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : `<div style="margin-bottom:12px;"></div>`}
+
+      <p class="field-label" style="margin-bottom:4px;">Survey booking date</p>
+      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
+      <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
+      <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
+        <option value="">Unassigned</option>
+        ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+      </select>
+      <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
+
+      <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;">${escapeHtml(job.survey_notes||'')}</textarea>
+      <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
+      ${photoUploadRow('survey','Survey / before photos')}
+
+      <p class="field-label" style="margin:14px 0 4px;">Access requirement</p>
       <select id="repairAccessRequirement" style="width:100%;margin-bottom:10px;">
         ${['none','ladder','scaffold','tower'].map(v=>`<option value="${v}" ${job.access_requirement===v?'selected':''}>${REPAIR_ACCESS_LABEL[v]}</option>`).join('')}
       </select>
       <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
-      <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin-bottom:10px;">${escapeHtml(job.survey_notes||'')}</textarea>
-      <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
-      ${photoUploadRow('survey','Survey / before photos')}
+      <button class="ghostbtn" onclick="saveRepairJobAccess('${jobId}')">Save Access Details</button>
+      ${needsScaffold ? photoUploadRow('access','Scaffold/tower access photo') : ''}
     </div>
 
-    ${canManage ? `
-    <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Scaffold &amp; Approval</p>
-      <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
-      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;"></div>
-      <p class="field-label" style="margin-bottom:4px;">Assign booking to</p>
-      <select id="repairScaffBookingAssignee" style="width:100%;margin-bottom:10px;">
-        <option value="">Unassigned</option>
-        ${operatives.map(p=>`<option value="${p.id}" ${job.scaffold_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-      </select>
-      <p class="field-label" style="margin-bottom:4px;">Scaffold erection date</p>
-      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;"></div>
-      <p class="field-label" style="margin-bottom:4px;">Quote approved?</p>
-      <select id="repairQuoteApproved" style="width:100%;margin-bottom:10px;">
-        <option value="" ${job.quote_approved==null?'selected':''}>Awaiting decision</option>
-        <option value="y" ${job.quote_approved===true?'selected':''}>Approved</option>
-        <option value="n" ${job.quote_approved===false?'selected':''}>Rejected</option>
-      </select>
-      <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
-      <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
-      <p class="field-label" style="margin-bottom:4px;">Repair return date</p>
-      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;"></div>
-      <button class="ghostbtn" onclick="saveRepairJobScaffold('${jobId}')">Save</button>
-      ${photoUploadRow('scaffold','Scaffold photos')}
-    </div>
-    ` : ''}
+    ${surveyDone ? `
+      ${canManage && needsScaffold ? `
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Scaffold</p>
+        <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;"></div>
+        <p class="field-label" style="margin-bottom:4px;">Assign booking to</p>
+        <select id="repairScaffBookingAssignee" style="width:100%;margin-bottom:10px;">
+          <option value="">Unassigned</option>
+          ${operatives.map(p=>`<option value="${p.id}" ${job.scaffold_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+        <p class="field-label" style="margin-bottom:4px;">Scaffold erection date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;"></div>
+        <button class="ghostbtn" onclick="saveRepairJobScaffold('${jobId}')">Save</button>
+        ${photoUploadRow('scaffold','Scaffold photos')}
+      </div>
+      ` : ''}
 
-    <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Progress</p>
-      <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.progress_notes||'')}</textarea>
-      <button class="ghostbtn" onclick="saveRepairJobProgress('${jobId}')">Save Progress Notes</button>
-      ${photoUploadRow('progress','Progress photos')}
-    </div>
+      ${canManage ? `
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Approval</p>
+        <p class="field-label" style="margin-bottom:4px;">Quote approved?</p>
+        <select id="repairQuoteApproved" style="width:100%;margin-bottom:10px;">
+          <option value="" ${job.quote_approved==null?'selected':''}>Awaiting decision</option>
+          <option value="y" ${job.quote_approved===true?'selected':''}>Approved</option>
+          <option value="n" ${job.quote_approved===false?'selected':''}>Rejected</option>
+        </select>
+        <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
+        <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
+        <p class="field-label" style="margin-bottom:4px;">Repair return date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;"></div>
+        <button class="ghostbtn" onclick="saveRepairJobApproval('${jobId}')">Save</button>
+      </div>
+      ` : ''}
 
-    <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Completion</p>
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">Works completed</label>
-      ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
-      <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.works_notes||'')}</textarea>
-      <button class="ghostbtn" onclick="saveRepairJobCompletionNotes('${jobId}')">Save Completion Notes</button>
-      ${photoUploadRow('completion','Completion photos')}
-    </div>
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Progress</p>
+        <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.progress_notes||'')}</textarea>
+        <button class="ghostbtn" onclick="saveRepairJobProgress('${jobId}')">Save Progress Notes</button>
+        ${photoUploadRow('progress','Progress photos')}
+      </div>
 
-    ${canManage ? `
-    <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Admin</p>
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
-      <p class="field-label" style="margin-bottom:4px;">Job status</p>
-      <select id="repairJobStatus" style="width:100%;margin-bottom:14px;" onchange="saveRepairJobField('${jobId}',{job_status:this.value})">
-        ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
-      </select>
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
-      <p class="stub" style="margin:8px 0 14px;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
-      <button class="ghostbtn" style="width:100%;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
-      <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close instead if you just want it off the active lists.</p>
-    </div>
-    ` : ''}
-  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/home', siteId, activeTab:'home'});
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Completion</p>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">Works completed</label>
+        ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
+        <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.works_notes||'')}</textarea>
+        <button class="ghostbtn" onclick="saveRepairJobCompletionNotes('${jobId}')">Save Completion Notes</button>
+        ${photoUploadRow('completion','Completion photos')}
+      </div>
+
+      ${canManage ? `
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Admin</p>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
+        <p class="field-label" style="margin-bottom:4px;">Job status</p>
+        <select id="repairJobStatus" style="width:100%;margin-bottom:14px;" onchange="saveRepairJobField('${jobId}',{job_status:this.value})">
+          ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
+        <p class="stub" style="margin:8px 0 14px;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
+        <button class="ghostbtn" style="width:100%;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
+        <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close instead if you just want it off the active lists.</p>
+      </div>
+      ` : ''}
+    ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
+  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', siteId, activeTab:'home'});
 }
+window.toggleRepairJobInfoEdit = function(jobId){
+  repairJobInfoEditOpen[jobId] = !repairJobInfoEditOpen[jobId];
+  render();
+};
 // A repair job gets its own subfolder in the site's linked OneDrive folder
 // (named after its job number, or its address if it has none), with photos
 // and the work order dropping into category subfolders underneath it —
@@ -7860,7 +7907,7 @@ function repairJobOneDriveFolder(job){
   const label = (job && job.job_number && job.job_number.trim()) ? job.job_number.trim() : ((job && job.address) || 'Job');
   return onedrivePathSegment(label);
 }
-const REPAIR_PHOTO_CATEGORY_FOLDER = {survey:'Survey Photos', scaffold:'Scaffold Photos', progress:'Progress Photos', completion:'Completion Photos'};
+const REPAIR_PHOTO_CATEGORY_FOLDER = {survey:'Survey Photos', access:'Access Photos', scaffold:'Scaffold Photos', progress:'Progress Photos', completion:'Completion Photos'};
 window.addRepairJobPhoto = async function(input, jobId, category){
   const files = Array.from(input.files||[]);
   if(!files.length) return;
@@ -7940,12 +7987,13 @@ window.saveRepairJobField = async function(jobId, patch){
   const row = await dbUpdate('repair_jobs', jobId, patch);
   if(row){ toast('Saved'); render(); }
 };
-window.saveRepairJobBasics = function(jobId){
+window.saveRepairJobBasics = async function(jobId){
   const jobNumber = document.getElementById('repairJobNumber').value.trim();
   const address = document.getElementById('repairJobAddress').value.trim();
   const description = document.getElementById('repairJobDescription').value.trim();
   if(!address){ toast('Enter an address.'); return; }
-  saveRepairJobField(jobId, {job_number:jobNumber||null, address, description:description||null});
+  const row = await dbUpdate('repair_jobs', jobId, {job_number:jobNumber||null, address, description:description||null});
+  if(row){ repairJobInfoEditOpen[jobId] = false; toast('Saved'); render(); }
 };
 window.setRepairJobSurveyStatus = async function(jobId, value){
   const job = repairJobDetailCurrent;
@@ -7971,11 +8019,25 @@ function notifyPmOfRepairJobUpdate(jobId, siteId, section, notesText){
 }
 window.saveRepairJobSurvey = function(jobId){
   const job = repairJobDetailCurrent;
+  const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
+  saveRepairJobField(jobId, {survey_notes: survey_notes||null});
+  if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', survey_notes);
+};
+window.saveRepairJobAccess = function(jobId){
   const access_requirement = document.getElementById('repairAccessRequirement').value;
   const access_notes = document.getElementById('repairAccessNotes').value.trim();
-  const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
-  saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null, survey_notes: survey_notes||null});
-  if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', survey_notes);
+  saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null});
+};
+// Mirrors the scaffold-booking pattern below — books who's doing the survey
+// and when, with the date synced onto the site Calendar the same way.
+window.saveRepairJobSurveyBooking = async function(jobId){
+  const job = repairJobDetailCurrent;
+  const survey_booking_date = document.getElementById('repairSurveyBookingDate').value || null;
+  const survey_booking_assigned_to = document.getElementById('repairSurveyBookingAssignee').value || null;
+  const addressLabel = (job && job.address) || 'Repair Job';
+  const siteId = job && job.site_id;
+  const survey_booking_event_id = await syncRepairCalendarEvent(ME.org_id, siteId, job && job.survey_booking_event_id, survey_booking_date, 'Survey Booking: '+addressLabel, survey_booking_assigned_to ? [survey_booking_assigned_to] : []);
+  saveRepairJobField(jobId, {survey_booking_date, survey_booking_assigned_to, survey_booking_event_id});
 };
 // Mirrors syncDeliveryCalendarEvent's linked-record pattern — pushes any of
 // a repair job's key dates (survey date, scaffold booking date, scaffold
@@ -8008,18 +8070,21 @@ window.saveRepairJobScaffold = async function(jobId){
   const scaffold_booking_date = document.getElementById('repairScaffBookingDate').value || null;
   const scaffold_erection_date = document.getElementById('repairScaffErectionDate').value || null;
   const scaffold_booking_assigned_to = document.getElementById('repairScaffBookingAssignee').value || null;
-  const qaVal = document.getElementById('repairQuoteApproved').value;
-  const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
-  const costVal = document.getElementById('repairVariationCost').value;
-  const variation_cost = costVal===''?null:Number(costVal);
-  const repair_return_date = document.getElementById('repairReturnDate').value || null;
   const addressLabel = (job && job.address) || 'Repair Job';
   const siteId = job && job.site_id;
   const [bookingEventId, erectionEventId] = await Promise.all([
     syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_booking_event_id, scaffold_booking_date, 'Scaffold Booking: '+addressLabel, scaffold_booking_assigned_to ? [scaffold_booking_assigned_to] : []),
     syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_erection_event_id, scaffold_erection_date, 'Scaffold Erection: '+addressLabel, []),
   ]);
-  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, quote_approved, variation_cost, repair_return_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
+  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
+};
+window.saveRepairJobApproval = function(jobId){
+  const qaVal = document.getElementById('repairQuoteApproved').value;
+  const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
+  const costVal = document.getElementById('repairVariationCost').value;
+  const variation_cost = costVal===''?null:Number(costVal);
+  const repair_return_date = document.getElementById('repairReturnDate').value || null;
+  saveRepairJobField(jobId, {quote_approved, variation_cost, repair_return_date});
 };
 window.saveRepairJobProgress = function(jobId){
   const job = repairJobDetailCurrent;
