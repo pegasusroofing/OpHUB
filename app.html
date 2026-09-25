@@ -12203,7 +12203,7 @@ async function pbPersist(siteId, sheetId, status){
     rows.push({
       id: row.id || null, _customIdx: rowIdx,
       sheet_id: sheetId, rate_item_id: null, category: 'Additional Items', name: row.name, unit: row.unit||'item',
-      rate, quantity: qty, option_id: null, option_label: null,
+      rate, quantity: qty, option_id: null, option_label: null, is_manual_rate: false,
       line_total: lineTotal, sort_order: sortOrder++,
     });
   });
