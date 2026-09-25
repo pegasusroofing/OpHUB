@@ -7951,6 +7951,24 @@ async function renderRepairJobDetail(siteId, jobId){
         <button class="ghostbtn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="document.getElementById('repairWorkOrderInput').click()">${job.work_order_path?'Replace File':'+ Upload Work Order'}</button>
         <input type="file" id="repairWorkOrderInput" accept=".pdf,image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobWorkOrder(this,'${jobId}')">
       ` : ''}
+      ${(job.survey_booking_date && !repairSurveyBookingEditOpen[jobId]) ? `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 0;">
+          <div>
+            <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
+            <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : ''}</p>
+          </div>
+          <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairSurveyBookingEdit('${jobId}')">Edit</button>
+        </div>
+      ` : `
+        <p class="field-label" style="margin:14px 0 4px;">Survey booking date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
+        <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
+        <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
+          <option value="">Unassigned</option>
+          ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+        <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
+      `}
       ${job.survey_date ? `
         <p class="field-label" style="margin:14px 0 4px;">Survey Date</p>
         <p class="stub" style="margin:0;">${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? ' — '+escapeHtml(PROFILES[job.surveyed_by].name) : ''}</p>
@@ -7973,25 +7991,6 @@ async function renderRepairJobDetail(siteId, jobId){
         <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;${job.survey_required==='Y'?'background:var(--ok);border-color:var(--ok);':''}" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
         <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
       </div>
-
-      ${(job.survey_booking_date && !repairSurveyBookingEditOpen[jobId]) ? `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
-          <div>
-            <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
-            <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : ''}</p>
-          </div>
-          <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairSurveyBookingEdit('${jobId}')">Edit</button>
-        </div>
-      ` : `
-        <p class="field-label" style="margin-bottom:4px;">Survey booking date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
-        <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
-        <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
-          <option value="">Unassigned</option>
-          ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
-        <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
-      `}
 
       <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;">${escapeHtml(job.survey_notes||'')}</textarea>
       <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
