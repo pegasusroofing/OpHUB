@@ -7654,6 +7654,43 @@ window.toggleBulkAddRepairJobs = function(){
 // label wasn't found) or null if the file isn't a PDF, pdf.js isn't
 // available, or nothing could be read from it (e.g. a scanned/photographed
 // work order with no text layer).
+// #(pdf-multiline-field-grabber) 2026-09-25 — the old single-row regex
+// extraction only ever captured text up to the FIRST stop-label match, but
+// on the Axis work order template a multi-line field (Repair Description,
+// Property) wraps onto full-row-width continuation lines below its own
+// label row, and a stop label (e.g. "Notes:") can land on the SAME row as
+// a short adjacent field's own label mid-row. extractField() below walks
+// rows after the label row and keeps appending until it hits the next
+// known label anywhere in a row, so multi-line values are captured in full.
+const WORK_ORDER_STOP_LABELS = ['Work Order:','Workstream','Client:','Case:','Supplier:','Booking:','Issued On:','Repair Contact:','Tel:','Repair Description:','Version:','Notes:','Resident Phone:','Property:','Resident:','Property Flag:','Company Registration Number:','Property Attributes','Work Items'];
+function workOrderEarliestStop(text){
+  let best = null;
+  for(const label of WORK_ORDER_STOP_LABELS){
+    const idx = text.indexOf(label);
+    if(idx>-1 && (!best || idx<best.idx)) best = {idx, label};
+  }
+  return best;
+}
+function extractWorkOrderField(rows, startLabel){
+  const startIdx = rows.findIndex(r=>r.includes(startLabel));
+  if(startIdx===-1) return null;
+  const firstRow = rows[startIdx];
+  const labelPos = firstRow.indexOf(startLabel);
+  const afterLabel = firstRow.slice(labelPos+startLabel.length);
+  const parts = [];
+  const firstStop = workOrderEarliestStop(afterLabel);
+  parts.push((firstStop ? afterLabel.slice(0, firstStop.idx) : afterLabel).trim());
+  for(let r=startIdx+1; r<rows.length && r<startIdx+6; r++){
+    const stop = workOrderEarliestStop(rows[r]);
+    if(stop){
+      const before = rows[r].slice(0, stop.idx).trim();
+      if(before) parts.push(before);
+      break;
+    }
+    parts.push(rows[r].trim());
+  }
+  return parts.filter(Boolean).join(' ').replace(/\s+/g,' ').trim() || null;
+}
 async function parseWorkOrderPdf(file){
   if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name||'')) return null; // a photo/scan — nothing to read
   if(typeof pdfjsLib==='undefined') return null;
@@ -7677,20 +7714,21 @@ async function parseWorkOrderPdf(file){
     const fullText = lines.join(' ').replace(/\s+/g,' ');
     // "Work Order:" (the table cell) not "Work Order Number:" (the
     // header/footer repeat of the same value) — the colon position tells
-    // them apart, so this only ever matches the one we want.
+    // them apart, so this only ever matches the one we want. This one's a
+    // single-line field so the old regex is still correct and simplest.
     const jobNumMatch = fullText.match(/Work Order:\s*(\S+)/);
-    const descMatch = fullText.match(/Repair Description:\s*(.*?)\s*Version\s*:/);
-    const addrMatch = fullText.match(/Property:\s*(.*?)\s*Resident\s*:/);
     const result = {};
     if(jobNumMatch) result.jobNumber = jobNumMatch[1].trim();
-    if(addrMatch){
+    const addrField = extractWorkOrderField(lines, 'Property:');
+    if(addrField){
       // The template prints this in ALL CAPS — leaving any token with a
       // digit alone (house numbers, postcode) and title-casing the rest
       // reads far closer to how an address is normally written, without
       // needing real postcode-formatting logic.
-      result.address = addrMatch[1].trim().split(/\s+/).map(w=>/\d/.test(w) ? w : (w.charAt(0).toUpperCase()+w.slice(1).toLowerCase())).join(' ');
+      result.address = addrField.split(/\s+/).map(w=>/\d/.test(w) ? w : (w.charAt(0).toUpperCase()+w.slice(1).toLowerCase())).join(' ');
     }
-    if(descMatch) result.description = descMatch[1].trim();
+    const descField = extractWorkOrderField(lines, 'Repair Description:');
+    if(descField) result.description = descField;
     return result;
   }catch(e){ return null; }
 }
