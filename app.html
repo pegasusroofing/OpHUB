@@ -395,6 +395,16 @@
   .taskeditrow{display:flex;gap:6px;margin-bottom:4px;}
   .taskeditrow input{flex:1;padding:7px 9px;font-size:13px;}
   .taskeditrow button{flex:0 0 auto;padding:7px 10px;font-size:11px;border-radius:6px;border:none;font-weight:800;}
+  /* #(hscroll-arrows-inline) 2026-09-25 — a plain overflow-x:auto row (e.g.
+     the repair category chips) renders the browser's own scrollbar, complete
+     with its own tiny left/right arrow buttons sitting in a thin strip below
+     the row — disconnected from the chip text above and easy to miss/mistake
+     for decoration. Hiding that native scrollbar and pairing the row with our
+     own .taskicon ‹ › buttons (same row, vertically centered on the chip
+     text) makes the scroll affordance obvious and keeps it visually tied to
+     what it scrolls. */
+  .hscroll-noscrollbar{scrollbar-width:none;-ms-overflow-style:none;}
+  .hscroll-noscrollbar::-webkit-scrollbar{display:none;height:0;}
 
   .snag{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
   .snag .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;}
@@ -7870,9 +7880,13 @@ async function renderRepairJobsListPage(siteId, category){
 
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
-      <div style="display:flex;overflow-x:auto;gap:8px;margin-bottom:14px;padding-bottom:2px;">
-        ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
-        <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
+        <span class="taskicon" style="flex:0 0 auto;" onclick="scrollRepairCategoryChips(-1)">‹</span>
+        <div id="repairCategoryChipRow" class="hscroll-noscrollbar" style="display:flex;overflow-x:auto;gap:8px;flex:1;min-width:0;padding-bottom:2px;">
+          ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
+          <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
+        </div>
+        <span class="taskicon" style="flex:0 0 auto;" onclick="scrollRepairCategoryChips(1)">›</span>
       </div>
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
@@ -7901,6 +7915,10 @@ async function renderRepairJobsListPage(siteId, category){
     ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No jobs in this list.</div>`}
   `, {title:REPAIR_CATEGORY_DEFS[category].label, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', siteId, activeTab:'home'});
 }
+window.scrollRepairCategoryChips = function(dir){
+  const el = document.getElementById('repairCategoryChipRow');
+  if(el) el.scrollBy({left: dir*140, behavior:'smooth'});
+};
 window.toggleRepairJobSelectMode = function(){
   repairJobSelectMode = !repairJobSelectMode;
   repairJobSelectedIds = new Set();
