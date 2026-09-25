@@ -7452,6 +7452,14 @@ const REPAIR_JOB_SORTS = {
   name_asc:  (a,b) => (a.address||'').localeCompare(b.address||''),
   name_desc: (a,b) => (b.address||'').localeCompare(a.address||''),
   job_number_asc: (a,b) => (a.job_number||'').localeCompare(b.job_number||'', undefined, {numeric:true}),
+  // Only offered on the Approved & Ready list (see repairJobSortOptionsFor
+  // below) — orders by when the job was actually marked Approved
+  // (quote_approved_at), not when it was first created, so the oldest
+  // approvals surface first regardless of how long the job sat waiting on
+  // a survey/quote beforehand. A job approved before this field existed has
+  // no quote_approved_at yet, so it sorts to the end rather than crashing
+  // the comparison.
+  approved_asc: (a,b) => (a.quote_approved_at ? new Date(a.quote_approved_at).getTime() : Infinity) - (b.quote_approved_at ? new Date(b.quote_approved_at).getTime() : Infinity),
 };
 const REPAIR_JOB_SORT_LABELS = {
   date_desc: 'Date Added (Newest First)',
@@ -7459,7 +7467,15 @@ const REPAIR_JOB_SORT_LABELS = {
   name_asc: 'Address (A–Z)',
   name_desc: 'Address (Z–A)',
   job_number_asc: 'Job Number',
+  approved_asc: 'Approved (Oldest First)',
 };
+// Which sort keys make sense on a given category's list — approved_asc only
+// means anything where quote_approved_at is actually being set (Approved &
+// Ready), so it's left out of the dropdown everywhere else instead of
+// showing a sort option that would silently do nothing useful.
+function repairJobSortOptionsFor(category){
+  return Object.keys(REPAIR_JOB_SORTS).filter(k => k!=='approved_asc' || category==='approved');
+}
 let repairJobSortBy = 'date_desc';
 window.setRepairJobSort = function(value){
   repairJobSortBy = REPAIR_JOB_SORTS[value] ? value : 'date_desc';
@@ -7490,6 +7506,7 @@ let repairJobSelectedIds = new Set();
 let repairJobInfoEditOpen = {}; // jobId -> bool, closed/display view by default (see renderRepairJobDetail)
 let repairSurveyBookingEditOpen = {}; // jobId -> bool, closes to a summary once a booking date is set
 let repairRouteExportBusy = false;
+let repairApprovedExportBusy = false;
 const REPAIR_ROUTE_CATEGORIES = ['survey','scaffold','approved']; // the 3 lists a route-ordered export makes sense for
 
 async function renderRepairJobsHub(siteId){
@@ -7856,7 +7873,7 @@ async function renderRepairJobsListPage(siteId, category){
   // — same reasoning as renderRepairJobsCategoryHub's trimmed select, this
   // page can list dozens of jobs so it's worth not pulling every job's full
   // notes/description text just to render a status card.
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved,created_at&order=created_at.desc');
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved,quote_approved_at,created_at&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   let filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
   const filterQuery = (repairJobFilterText||'').trim().toLowerCase();
@@ -7880,6 +7897,7 @@ async function renderRepairJobsListPage(siteId, category){
               <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
               ${j.description ? `<div class="meta" style="margin-top:2px;">${escapeHtml(j.description)}</div>` : ''}
               ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
+              ${j.quote_approved===true && j.quote_approved_at ? `<div class="stub" style="margin:2px 0 0;">Approved ${new Date(j.quote_approved_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
             </div>
             <span class="plaintag" style="flex:none;color:${badgeColor};">${escapeHtml(statusLabel)}</span>
           </div>
@@ -7907,13 +7925,18 @@ async function renderRepairJobsListPage(siteId, category){
         <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
         ${REPAIR_ROUTE_CATEGORIES.includes(category) ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
       </div>
+      ${category==='approved' ? `
+      <div class="row-gap" style="margin-bottom:14px;">
+        <button class="ghostbtn" style="flex:1;" ${repairApprovedExportBusy?'disabled':''} onclick="exportRepairJobsByApprovedDate('${siteId}')">${repairApprovedExportBusy?'Exporting…':'📋 Export by Oldest Approved'}</button>
+      </div>
+      ` : ''}
     ` : ''}
     <div class="formfield" style="margin:0 0 10px;">
       <input type="text" id="repairJobFilterInput" placeholder="Filter by address, description or job number…" value="${escapeHtml(repairJobFilterText)}" oninput="setRepairJobFilter(this.value)">
     </div>
     <div class="formfield" style="margin:0 0 14px;">
       <select id="repairJobSortSelect" style="width:100%;" onchange="setRepairJobSort(this.value)">
-        ${Object.keys(REPAIR_JOB_SORTS).map(k=>`<option value="${k}" ${repairJobSortBy===k?'selected':''}>${REPAIR_JOB_SORT_LABELS[k]}</option>`).join('')}
+        ${repairJobSortOptionsFor(category).map(k=>`<option value="${k}" ${repairJobSortBy===k?'selected':''}>${REPAIR_JOB_SORT_LABELS[k]}</option>`).join('')}
       </select>
     </div>
     ${canManage ? `
@@ -8021,6 +8044,40 @@ window.exportRepairJobsRouteOrder = async function(siteId, category){
     repairRouteExportBusy = false; render();
   }
 };
+// A plain chronological export of the Approved & Ready list, oldest
+// approval first — separate from Export Route Order above, which orders by
+// nearest-neighbour distance from the yard instead. Andy wants both: the
+// route for planning the day's driving, this one for working the backlog
+// in the order jobs were actually approved so nothing sits waiting
+// indefinitely just because it's geographically inconvenient.
+window.exportRepairJobsByApprovedDate = async function(siteId){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  repairApprovedExportBusy = true; render();
+  try{
+    const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number,address,description,survey_notes,access_notes,access_requirement,variation_cost,scaffold_booking_date,scaffold_erection_date,repair_return_date,quote_approved_at,closed,quote_approved,works_completed');
+    const filtered = jobs.filter(REPAIR_CATEGORY_DEFS.approved.match);
+    if(!filtered.length){ toast('No jobs in Approved & Ready yet.'); return; }
+    filtered.sort(REPAIR_JOB_SORTS.approved_asc);
+    const dOnly = v => v ? String(v).slice(0,10) : '';
+    const header = ['Approved On','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
+    const rows = filtered.map(j=>[
+      dOnly(j.quote_approved_at), j.job_number||'', j.address||'', j.description||'',
+      j.survey_notes||j.access_notes||'', REPAIR_ACCESS_LABEL[j.access_requirement]||'', j.variation_cost!=null?Number(j.variation_cost):'',
+      dOnly(j.scaffold_booking_date), dOnly(j.scaffold_erection_date), dOnly(j.repair_return_date),
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [{wch:14},{wch:12},{wch:28},{wch:26},{wch:30},{wch:16},{wch:14},{wch:16},{wch:16},{wch:14}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Oldest Approved');
+    await deliverExcelFile(wb, exportFilename(site?site.name:'', 'Approved & Ready — Oldest First', 'xlsx'));
+    toast('Exported — oldest approved first');
+  } catch(e){
+    toast('Could not export — check your connection and try again.');
+  } finally {
+    repairApprovedExportBusy = false; render();
+  }
+};
 
 async function renderRepairJobDetail(siteId, jobId){
   const __gen = RENDER_GEN;
@@ -8084,24 +8141,38 @@ async function renderRepairJobDetail(siteId, jobId){
         <button class="ghostbtn" style="width:auto;padding:6px 12px;font-size:12px;" onclick="document.getElementById('repairWorkOrderInput').click()">${job.work_order_path?'Replace File':'+ Upload Work Order'}</button>
         <input type="file" id="repairWorkOrderInput" accept=".pdf,image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobWorkOrder(this,'${jobId}')">
       ` : ''}
-      ${(job.survey_booking_date && !repairSurveyBookingEditOpen[jobId]) ? `
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 0;">
-          <div>
-            <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
-            <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : ''}</p>
+      ${/* #(operative-survey-assignee-visibility) 2026-09-25 — this card used
+        to show "Assign survey to" (and the read-only "Survey booking —
+        assigned to X" line) to every viewer, including operatives who had
+        nothing to do with this job's survey. An operative now only sees the
+        booking info when THEY are the one it's assigned to (read-only —
+        assigning/reassigning stays a manager action), and sees nothing here
+        at all otherwise. Managers still get the full editable card. */ ''}
+      ${canManage ? `
+        ${(job.survey_booking_date && !repairSurveyBookingEditOpen[jobId]) ? `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 0;">
+            <div>
+              <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
+              <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : ''}</p>
+            </div>
+            <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairSurveyBookingEdit('${jobId}')">Edit</button>
           </div>
-          <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairSurveyBookingEdit('${jobId}')">Edit</button>
+        ` : `
+          <p class="field-label" style="margin:14px 0 4px;">Survey booking date</p>
+          <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
+          <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
+          <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
+            <option value="">Unassigned</option>
+            ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+          </select>
+          <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
+        `}
+      ` : (job.survey_booking_date && job.survey_booking_assigned_to===ME.id ? `
+        <div style="margin:14px 0 0;">
+          <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
+          <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — you're assigned to this one</p>
         </div>
-      ` : `
-        <p class="field-label" style="margin:14px 0 4px;">Survey booking date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
-        <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
-        <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
-          <option value="">Unassigned</option>
-          ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-        </select>
-        <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
-      `}
+      ` : '')}
       ${job.survey_date ? `
         <p class="field-label" style="margin:14px 0 4px;">Survey Date</p>
         <p class="stub" style="margin:0;">${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? ' — '+escapeHtml(PROFILES[job.surveyed_by].name) : ''}</p>
@@ -8166,6 +8237,7 @@ async function renderRepairJobDetail(siteId, jobId){
           <option value="y" ${job.quote_approved===true?'selected':''}>Approved</option>
           <option value="n" ${job.quote_approved===false?'selected':''}>Rejected</option>
         </select>
+        ${job.quote_approved===true && job.quote_approved_at ? `<p class="stub" style="margin:-6px 0 10px;">Approved on ${new Date(job.quote_approved_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
         <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
         <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
         <p class="field-label" style="margin-bottom:4px;">Repair return date</p>
@@ -8583,12 +8655,21 @@ window.saveRepairJobScaffold = async function(jobId){
   saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
 };
 window.saveRepairJobApproval = function(jobId){
+  const job = repairJobDetailCurrent;
   const qaVal = document.getElementById('repairQuoteApproved').value;
   const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
   const costVal = document.getElementById('repairVariationCost').value;
   const variation_cost = costVal===''?null:Number(costVal);
   const repair_return_date = document.getElementById('repairReturnDate').value || null;
-  saveRepairJobField(jobId, {quote_approved, variation_cost, repair_return_date});
+  const patch = {quote_approved, variation_cost, repair_return_date};
+  // #(repair-job-approved-on-date) 2026-09-25 — stamped the first time a
+  // job flips to Approved, so the Approved & Ready list can be sorted/
+  // exported oldest-approved-first. Only set on that first flip (not every
+  // re-save of this card, e.g. editing the variation cost afterwards keeps
+  // the original approval date) and cleared if it's un-approved/rejected.
+  if(quote_approved===true && job && !job.quote_approved_at) patch.quote_approved_at = new Date().toISOString();
+  if(quote_approved!==true) patch.quote_approved_at = null;
+  saveRepairJobField(jobId, patch);
 };
 window.saveRepairJobProgress = function(jobId){
   const job = repairJobDetailCurrent;
