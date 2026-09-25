@@ -7710,16 +7710,39 @@ async function renderRepairJobDetail(siteId, jobId){
     ` : ''}
   `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/home', tabs:false});
 }
+// A repair job gets its own subfolder in the site's linked OneDrive folder
+// (named after its job number, or its address if it has none), with photos
+// and the work order dropping into category subfolders underneath it —
+// Graph's path-addressed upload creates every intermediate folder on the
+// fly, so nothing has to be pre-created on the OneDrive side. Invalid path
+// characters are swapped for '-' since job numbers/addresses are free text.
+function onedrivePathSegment(s){
+  return String(s||'').replace(/[\\/:*?"<>|]/g,'-').replace(/\s+/g,' ').trim() || 'Job';
+}
+function repairJobOneDriveFolder(job){
+  const label = (job && job.job_number && job.job_number.trim()) ? job.job_number.trim() : ((job && job.address) || 'Job');
+  return onedrivePathSegment(label);
+}
+const REPAIR_PHOTO_CATEGORY_FOLDER = {survey:'Survey Photos', scaffold:'Scaffold Photos', progress:'Progress Photos', completion:'Completion Photos'};
 window.addRepairJobPhoto = async function(input, jobId, category){
   const files = Array.from(input.files||[]);
   if(!files.length) return;
   repairJobPhotoBusy[category] = true; render();
+  const job = repairJobDetailCurrent;
+  const site = job ? SITES.find(s=>s.id===job.site_id) : null;
+  const jobFolder = job ? repairJobOneDriveFolder(job) : null;
   for(const file of files){
     try{
       const dataUrl = await compressImage(file);
       const path = ME.org_id+'/repairjobs/'+jobId+'/'+category+'/'+crypto.randomUUID()+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(stored) await dbInsert('repair_job_photos', {repair_job_id:jobId, category, storage_path:stored, uploaded_by:ME.id});
+      // Best-effort, live push to OneDrive — never blocks the in-app save
+      // above, which is what actually matters if this fails or the site
+      // isn't linked to a folder at all.
+      if(stored && site && site.onedrive_folder_id && jobFolder){
+        syncPhotoToOneDrive(dataUrl, jobFolder+'/'+(REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg', job.site_id);
+      }
     }catch(e){ toast('One photo failed to upload — try again.'); }
   }
   repairJobPhotoBusy[category] = false;
@@ -7743,7 +7766,26 @@ window.addRepairJobWorkOrder = async function(input, jobId){
   const stored = await uploadToStorage('site-photos', path, file, file.type);
   if(!stored){ toast('Upload failed — try again.'); return; }
   const row = await dbUpdate('repair_jobs', jobId, {work_order_path:stored, work_order_name:file.name});
-  if(row){ toast('Work order uploaded'); render(); }
+  if(row){
+    toast('Work order uploaded');
+    const job = repairJobDetailCurrent;
+    const site = job ? SITES.find(s=>s.id===job.site_id) : null;
+    if(site && site.onedrive_folder_id && job){
+      try{
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary=''; const chunk=0x8000;
+        for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+        const cleanName = file.name.replace(/[\\/:*?"<>|]/g,'-');
+        sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+          filename: repairJobOneDriveFolder(job)+'/Work Order/'+cleanName,
+          content_base64: btoa(binary),
+          site_id: job.site_id,
+        })}).catch(()=>{});
+      }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+    }
+    render();
+  }
 };
 window.saveRepairJobField = async function(jobId, patch){
   const row = await dbUpdate('repair_jobs', jobId, patch);
@@ -7766,11 +7808,25 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
   patch.survey_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.survey_event_id, surveyDateOnly, 'Survey: '+addressLabel, []);
   saveRepairJobField(jobId, patch);
 };
+// Best-effort — emails the site's responsible PM whenever an operative
+// saves notes for a repair job section (Survey/Progress/Completion), so
+// they know to come and action the next step (e.g. get costs sorted after
+// a survey) without checking the app. Photos for that section are already
+// live in OneDrive by the time this fires (see addRepairJobPhoto) — the
+// edge function just counts them and points the PM at the app. Silently
+// no-ops if the site has no PM assigned yet; never blocks the notes save.
+function notifyPmOfRepairJobUpdate(jobId, siteId, section, notesText){
+  try{
+    sbFetch('/functions/v1/send-repair-job-notes-email', {method:'POST', body: JSON.stringify({site_id:siteId, job_id:jobId, section, notes: notesText||''})}).catch(()=>{});
+  }catch(e){ /* silent — best effort only */ }
+}
 window.saveRepairJobSurvey = function(jobId){
+  const job = repairJobDetailCurrent;
   const access_requirement = document.getElementById('repairAccessRequirement').value;
   const access_notes = document.getElementById('repairAccessNotes').value.trim();
   const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
   saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null, survey_notes: survey_notes||null});
+  if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', survey_notes);
 };
 // Mirrors syncDeliveryCalendarEvent's linked-record pattern — pushes any of
 // a repair job's key dates (survey date, scaffold booking date, scaffold
@@ -7817,8 +7873,10 @@ window.saveRepairJobScaffold = async function(jobId){
   saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, quote_approved, variation_cost, repair_return_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
 };
 window.saveRepairJobProgress = function(jobId){
+  const job = repairJobDetailCurrent;
   const progress_notes = document.getElementById('repairProgressNotes').value.trim();
   saveRepairJobField(jobId, {progress_notes: progress_notes||null});
+  if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'progress', progress_notes);
 };
 window.setRepairJobWorksCompleted = async function(jobId, checked){
   const job = repairJobDetailCurrent;
@@ -7831,8 +7889,10 @@ window.setRepairJobWorksCompleted = async function(jobId, checked){
   saveRepairJobField(jobId, patch);
 };
 window.saveRepairJobCompletionNotes = function(jobId){
+  const job = repairJobDetailCurrent;
   const works_notes = document.getElementById('repairWorksNotes').value.trim();
   saveRepairJobField(jobId, {works_notes: works_notes||null});
+  if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'completion', works_notes);
 };
 window.setRepairJobClosed = async function(jobId, checked){
   if(checked){
