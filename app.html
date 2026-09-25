@@ -7422,25 +7422,54 @@ async function renderSiteHome(siteId){
    the site's linked OneDrive folder once a night; this app is the only
    place any of this data is actually edited. */
 const REPAIR_ACCESS_LABEL = {none:'None', ladder:'Ladder', scaffold:'Scaffold', tower:'Tower'};
-const REPAIR_JOB_STATUS_OPTIONS = ['New','Awaiting Survey','Awaiting Quote Approval','Approved','Awaiting Scaffold','In Progress','Awaiting Invoice','Completed','REJECTED'];
-// The 4 navigational buckets on the Live Jobs sub-tile page. Not a strict
-// state machine — a job's own fields are what's true, these are just what
-// each bucket looks for, so a job can show up in more than one at once
-// (e.g. approved AND still waiting on scaffold).
-// A job needs a scaffold/tower step if its access requirement says so —
-// used both to gate the Scaffold tile/card and to decide whether the
-// Approved & Ready tile also needs the scaffold to be up first.
-function repairJobNeedsScaffold(j){ return j.access_requirement==='scaffold' || j.access_requirement==='tower'; }
+// #(repair-job-status-workflow-v2) 2026-09-25 — job_status used to be a
+// purely cosmetic PM-editable label with no effect on which tile a job
+// showed up in (every tile was worked out fresh each time from a handful of
+// separate booleans — survey_required, quote_approved, scaffold_erection_date,
+// works_completed, closed). That made it impossible for a PM to just move a
+// job somewhere directly ("this one doesn't need all of the above steps"),
+// and gave no single place that said what stage a job was actually at.
+// job_status is now the real state machine driving tile placement — every
+// action below (survey completed, cost issued, approved/rejected, scaffold
+// erected, progress started, works completed, closed) advances it
+// automatically, AND a PM can override it directly at any time (the status
+// control at the top of the job page) since it's just one plain column.
+// The granular fields still exist and still drive the detail page's own
+// section gating (e.g. Progress requires quote_approved===true) — job_status
+// is what decides which list/tile a job is found in.
+const REPAIR_JOB_STATUS_OPTIONS = ['To Survey','Surveyed - Awaiting Cost','Surveyed - Variation Issued','Approved - Awaiting Scaffold','Approved - To Do','In Progress','Rejected','Awaiting Sign-off','Closed'];
+// A job needs the Scaffold step only when its access requirement is
+// literally Scaffold — Tower and Ladder go straight to Approved - To Do
+// once approved (Andy: "if a tower or ladder is chosen it goes into
+// approved to do"). Tower used to be treated the same as Scaffold here;
+// that's the one behaviour change in this pass that isn't purely additive.
+function repairJobNeedsScaffold(j){ return j.access_requirement==='scaffold'; }
 const REPAIR_CATEGORY_DEFS = {
-  survey:            {label:'Jobs to Survey',          match:j=>!j.closed && j.survey_required!=='Y'},
-  awaiting_approval: {label:'Awaiting Approval',       match:j=>!j.closed && j.survey_required==='Y' && j.quote_approved==null},
-  scaffold:          {label:'Scaffold to be Erected',  match:j=>!j.closed && j.quote_approved===true && repairJobNeedsScaffold(j) && !j.scaffold_erection_date},
-  approved:          {label:'Approved & Ready',        match:j=>!j.closed && j.quote_approved===true && !j.works_completed && !(repairJobNeedsScaffold(j) && !j.scaffold_erection_date)},
-  completed:         {label:'Completed Jobs',          match:j=>!!j.works_completed},
-  rejected:          {label:'Rejected',                match:j=>!j.closed && j.quote_approved===false},
-  open:              {label:'Open Jobs',               match:j=>!j.closed},
-  closed:            {label:'Closed Jobs',              match:j=>!!j.closed},
-  all:               {label:'All Jobs',                match:()=>true},
+  survey:            {label:'Jobs to Survey',              match:j=>!j.closed && (!j.job_status || j.job_status==='To Survey')},
+  awaiting_cost:     {label:'Surveyed — Awaiting Cost',    match:j=>!j.closed && j.job_status==='Surveyed - Awaiting Cost'},
+  variation_issued:  {label:'Variation Issued',            match:j=>!j.closed && j.job_status==='Surveyed - Variation Issued'},
+  scaffold:          {label:'Approved — Awaiting Scaffold',match:j=>!j.closed && j.job_status==='Approved - Awaiting Scaffold'},
+  approved:          {label:'Approved — To Do',            match:j=>!j.closed && j.job_status==='Approved - To Do'},
+  in_progress:       {label:'In Progress',                 match:j=>!j.closed && j.job_status==='In Progress'},
+  awaiting_signoff:  {label:'Awaiting Sign-off',            match:j=>!j.closed && j.job_status==='Awaiting Sign-off'},
+  rejected:          {label:'Rejected',                    match:j=>!j.closed && j.job_status==='Rejected'},
+  completed:         {label:'Completed Jobs',               match:j=>!!j.works_completed},
+  open:              {label:'Open Jobs',                    match:j=>!j.closed},
+  closed:            {label:'Closed Jobs',                   match:j=>!!j.closed},
+  all:               {label:'All Jobs',                      match:()=>true},
+};
+// Colour for the status pill at the top of the job detail page — separate
+// from tile colours since this is one label shown alone, not a grid.
+const REPAIR_JOB_STATUS_COLOR = {
+  'To Survey': 'var(--slate)',
+  'Surveyed - Awaiting Cost': '#8A6300',
+  'Surveyed - Variation Issued': 'var(--warn)',
+  'Approved - Awaiting Scaffold': 'var(--blue)',
+  'Approved - To Do': 'var(--ok)',
+  'In Progress': 'var(--ok)',
+  'Rejected': 'var(--red)',
+  'Awaiting Sign-off': 'var(--warn)',
+  'Closed': 'var(--slate)',
 };
 // Client-side sort for the repair jobs list page — the underlying query
 // always comes back newest-first (order=created_at.desc), these just
@@ -7505,6 +7534,7 @@ let repairJobSelectMode = false;
 let repairJobSelectedIds = new Set();
 let repairJobInfoEditOpen = {}; // jobId -> bool, closed/display view by default (see renderRepairJobDetail)
 let repairSurveyBookingEditOpen = {}; // jobId -> bool, closes to a summary once a booking date is set
+let repairSurveyEditOpen = {}; // jobId -> bool, unlocks the (now-locked-by-default) survey card for editing after it's been marked complete
 let repairRouteExportBusy = false;
 let repairApprovedExportBusy = false;
 const REPAIR_ROUTE_CATEGORIES = ['survey','scaffold','approved']; // the 3 lists a route-ordered export makes sense for
@@ -7561,14 +7591,16 @@ async function renderRepairJobsCategoryHub(siteId){
   // at — this page just counts jobs into tiles, it doesn't display their
   // notes/description, so there's no reason to pull those (sometimes
   // sizeable) text fields over the wire just to throw them away.
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed,survey_required,access_requirement,scaffold_erection_date,quote_approved,works_completed&order=created_at.desc');
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed,survey_required,access_requirement,scaffold_erection_date,quote_approved,works_completed,job_status&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   const tileDefs = [
     {key:'survey', icon:'🔍', bg:'#FFF3D9', color:'#8A6300'},
-    {key:'awaiting_approval', icon:'⏳', bg:'var(--warn-bg)', color:'var(--warn)'},
+    {key:'awaiting_cost', icon:'💷', bg:'#FFF3D9', color:'#8A6300'},
+    {key:'variation_issued', icon:'⏳', bg:'var(--warn-bg)', color:'var(--warn)'},
     {key:'scaffold', icon:'🪜', bg:'#E4EEFB', color:'var(--blue)'},
     {key:'approved', icon:'✅', bg:'var(--ok-bg)', color:'var(--ok)'},
-    {key:'completed', icon:'🏁', bg:'#E7E9EE', color:'var(--ink)'},
+    {key:'in_progress', icon:'🔧', bg:'var(--ok-bg)', color:'var(--ok)'},
+    {key:'awaiting_signoff', icon:'🖊️', bg:'var(--warn-bg)', color:'var(--warn)'},
     {key:'rejected', icon:'✕', bg:'#FBE4E4', color:'var(--red)'},
   ];
   // PM/Admin can hide whole tiles from operatives (e.g. Awaiting Approval,
@@ -7815,7 +7847,7 @@ window.startBulkImportRepairJobs = async function(input, siteId){
       } else {
         const needsReview = !parsed.address;
         const address = parsed.address || ('⚠ Review — '+file.name.replace(/\.pdf$/i,''));
-        const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:parsed.jobNumber||null, description:parsed.description||null, survey_required:'N', created_by:ME.id});
+        const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:parsed.jobNumber||null, description:parsed.description||null, survey_required:'N', job_status:'To Survey', created_by:ME.id});
         const job = rows && rows[0];
         if(job){
           await uploadRepairJobWorkOrderFile(job, file);
@@ -7837,7 +7869,7 @@ window.addRepairJob = async function(siteId){
   const description = (document.getElementById('newRepairJobDescription').value||'').trim();
   const workOrderInput = document.getElementById('newRepairJobWorkOrder');
   const workOrderFile = workOrderInput && workOrderInput.files && workOrderInput.files[0];
-  const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, survey_required:'N', created_by:ME.id});
+  const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, survey_required:'N', job_status:'To Survey', created_by:ME.id});
   const job = rows && rows[0];
   if(!job){ return; }
   let workOrderFailed = false;
@@ -8116,11 +8148,54 @@ async function renderRepairJobDetail(siteId, jobId){
     `;
   }
 
-  const surveyDone = job.survey_required === 'Y';
+  function fmtDate(iso){ return iso ? new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : ''; }
+  function profileName(id){ return id && PROFILES[id] ? PROFILES[id].name : null; }
+
+  // #(repair-job-status-workflow-v2) 2026-09-25 — surveyDone now also covers
+  // 'NA' (no survey needed) so an NA'd job unlocks the rest of the page the
+  // same way a completed one does, instead of sitting permanently stuck
+  // behind "Complete the survey to unlock the rest of this job."
+  const surveyDone = job.survey_required === 'Y' || job.survey_required === 'NA';
   const needsScaffold = repairJobNeedsScaffold(job);
+  const approved = job.quote_approved === true;
+  const rejected = job.quote_approved === false;
   const infoEditing = canManage && !!repairJobInfoEditOpen[jobId];
+  const surveyEditing = !surveyDone || !!repairSurveyEditOpen[jobId];
+  // A non-manager can unlock the (otherwise locked-once-complete) survey
+  // card to fix a mistake only if they're the one who actually surveyed it.
+  const canEditSurvey = canManage || job.surveyed_by===ME.id;
+  // Self-authorise is only offered to operatives, only before a decision's
+  // been made, and — per Andy — never for a job that needs Scaffold, since
+  // booking scaffold is a PM cost/logistics call.
+  const canSelfAuthorise = !canManage && surveyDone && job.quote_approved==null && job.access_requirement!=='scaffold';
+  const statusHint = {
+    'To Survey': 'Waiting on a survey.',
+    'Surveyed - Awaiting Cost': canManage ? 'Enter a variation cost and issue it to the client, or approve/reject directly below.' : 'Awaiting a cost decision from the office.',
+    'Surveyed - Variation Issued': 'Cost sent to the client — awaiting their decision.',
+    'Approved - Awaiting Scaffold': 'Approved — waiting on scaffold to go up.',
+    'Approved - To Do': 'Approved and ready to be worked.',
+    'In Progress': 'Work under way.',
+    'Rejected': 'Quote rejected.',
+    'Awaiting Sign-off': 'Operative has marked this complete — awaiting PM sign-off.',
+    'Closed': 'Closed.',
+  }[job.job_status] || '';
 
   document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div>
+          <p class="field-label" style="margin:0 0 4px;">Status</p>
+          <span style="font-size:15px;font-weight:800;color:${REPAIR_JOB_STATUS_COLOR[job.job_status]||'var(--ink)'};">${escapeHtml(job.job_status||'To Survey')}</span>
+        </div>
+        ${canManage ? `
+          <select id="repairJobStatusOverride" style="width:auto;min-width:180px;flex:0 0 auto;" onchange="overrideRepairJobStatus('${jobId}', this.value)">
+            ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        ` : ''}
+      </div>
+      ${statusHint ? `<p class="stub" style="margin:8px 0 0;">${escapeHtml(statusHint)}</p>` : ''}
+    </div>
+
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:${infoEditing?'14':'4'}px;">
         <p class="sectiontitle" style="margin:0;font-size:14px;">${escapeHtml(job.address||'Job')}</p>
@@ -8188,30 +8263,58 @@ async function renderRepairJobDetail(siteId, jobId){
     </div>
 
     <div class="card" style="margin-bottom:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Survey</p>
-      <p class="field-label" style="margin-bottom:4px;">Survey completed?</p>
-      <div class="row-gap" style="margin-bottom:12px;align-items:stretch;">
-        <button class="${job.survey_required==='N'||!job.survey_required?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','N')">To Survey</button>
-        <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;${job.survey_required==='Y'?'background:var(--ok);border-color:var(--ok);':''}" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
-        <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <p class="sectiontitle" style="margin:0;">Survey</p>
+        ${surveyDone ? `<span class="plaintag" style="color:var(--ok);">✅ Completed${job.survey_date?' '+fmtDate(job.survey_date):''}</span>` : ''}
       </div>
+      ${!surveyEditing ? `
+        ${/* #(repair-survey-locked-view) 2026-09-25 — a completed survey used
+          to stay a wide-open editable form forever, notes textarea and all,
+          which read as unfinished even once it was actually done. Once
+          survey_required is Y/NA it now collapses to this small, read-only
+          summary — the real detail lives in the generated Survey Report PDF
+          (notes + every survey/access photo laid out properly), which this
+          pushes people toward opening rather than re-reading raw notes in
+          the app. A pencil unlocks editing again for whoever surveyed it,
+          or any manager, in case something genuinely needs correcting. */ ''}
+        <p class="stub" style="margin:8px 0 2px;">${job.surveyed_by && profileName(job.surveyed_by) ? 'Surveyed by '+escapeHtml(profileName(job.surveyed_by)) : ''}${job.access_requirement && job.access_requirement!=='none' ? (job.surveyed_by && profileName(job.surveyed_by)?' — ':'')+'Access: '+escapeHtml(REPAIR_ACCESS_LABEL[job.access_requirement]) : ''}</p>
+        <div class="row-gap" style="margin-top:10px;">
+          <button class="darkbtn" style="flex:1;" onclick="viewRepairJobSurveyReport('${jobId}')">📄 View Survey Report</button>
+          ${canEditSurvey ? `<button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="toggleRepairSurveyEdit('${jobId}')">✎ Edit</button>` : ''}
+        </div>
+      ` : `
+        <p class="field-label" style="margin:12px 0 4px;">Survey completed?</p>
+        <div class="row-gap" style="margin-bottom:12px;align-items:stretch;">
+          <button class="${job.survey_required==='N'||!job.survey_required?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','N')">To Survey</button>
+          <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;${job.survey_required==='Y'?'background:var(--ok);border-color:var(--ok);':''}" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
+          <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
+        </div>
 
-      <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;">${escapeHtml(job.survey_notes||'')}</textarea>
-      <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
-      ${photoUploadRow('survey','Survey / before photos')}
+        <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;">${escapeHtml(job.survey_notes||'')}</textarea>
+        <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
+        ${photoUploadRow('survey','Survey / before photos')}
 
-      <p class="field-label" style="margin:14px 0 4px;">Access requirement</p>
-      <select id="repairAccessRequirement" style="width:100%;margin-bottom:10px;">
-        ${['none','ladder','scaffold','tower'].map(v=>`<option value="${v}" ${job.access_requirement===v?'selected':''}>${REPAIR_ACCESS_LABEL[v]}</option>`).join('')}
-      </select>
-      <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
-      <button class="ghostbtn" onclick="saveRepairJobAccess('${jobId}')">Save Access Details</button>
-      ${needsScaffold ? photoUploadRow('access','Scaffold/tower access photo') : ''}
-      ${job.survey_required!=='Y' ? `<button class="darkbtn" style="width:100%;margin-top:16px;background:var(--ok);border-color:var(--ok);" onclick="setRepairJobSurveyStatus('${jobId}','Y')">✅ Mark Survey as Completed</button>` : `<p class="stub" style="text-align:center;margin:16px 0 0;">✅ Survey marked completed — the rest of the job is unlocked below.</p>`}
+        <p class="field-label" style="margin:14px 0 4px;">Access requirement</p>
+        <select id="repairAccessRequirement" style="width:100%;margin-bottom:10px;">
+          ${['none','ladder','scaffold','tower'].map(v=>`<option value="${v}" ${job.access_requirement===v?'selected':''}>${REPAIR_ACCESS_LABEL[v]}</option>`).join('')}
+        </select>
+        <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
+        <button class="ghostbtn" onclick="saveRepairJobAccess('${jobId}')">Save Access Details</button>
+        ${needsScaffold ? photoUploadRow('access','Scaffold/tower access photo') : ''}
+        ${job.survey_required!=='Y' ? `<button class="darkbtn" style="width:100%;margin-top:16px;background:var(--ok);border-color:var(--ok);" onclick="setRepairJobSurveyStatus('${jobId}','Y')">✅ Mark Survey as Completed</button>` : `<button class="ghostbtn" style="width:100%;margin-top:16px;" onclick="toggleRepairSurveyEdit('${jobId}')">Done Editing</button>`}
+      `}
     </div>
 
     ${surveyDone ? `
-      ${canManage && needsScaffold ? `
+      ${canSelfAuthorise ? `
+      <div class="card" style="margin-bottom:16px;">
+        <p class="sectiontitle" style="margin-top:0;">Ready to do this job?</p>
+        <p class="stub" style="margin:0 0 10px;">If you can do this one now without waiting on a quote decision, self-authorise it here and get started straight away.</p>
+        <button class="darkbtn" style="width:100%;background:var(--ok);border-color:var(--ok);" onclick="selfAuthoriseRepairJob('${jobId}')">✅ I Can Do This Now — Self-Authorise</button>
+      </div>
+      ` : ''}
+
+      ${canManage && needsScaffold && approved ? `
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Scaffold</p>
         <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
@@ -8231,21 +8334,27 @@ async function renderRepairJobDetail(siteId, jobId){
       ${canManage ? `
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Approval</p>
-        <p class="field-label" style="margin-bottom:4px;">Quote approved?</p>
-        <select id="repairQuoteApproved" style="width:100%;margin-bottom:10px;">
-          <option value="" ${job.quote_approved==null?'selected':''}>Awaiting decision</option>
-          <option value="y" ${job.quote_approved===true?'selected':''}>Approved</option>
-          <option value="n" ${job.quote_approved===false?'selected':''}>Rejected</option>
-        </select>
-        ${job.quote_approved===true && job.quote_approved_at ? `<p class="stub" style="margin:-6px 0 10px;">Approved on ${new Date(job.quote_approved_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
-        <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
-        <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
-        <p class="field-label" style="margin-bottom:4px;">Repair return date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;"></div>
-        <button class="ghostbtn" onclick="saveRepairJobApproval('${jobId}')">Save</button>
+        ${approved ? `
+          <p class="stub" style="margin:0 0 10px;">✅ Approved${job.quote_approved_at?' on '+fmtDate(job.quote_approved_at):''}${job.self_authorized ? ' — self-authorised by '+(profileName(job.approved_by)?escapeHtml(profileName(job.approved_by)):'the operative') : (profileName(job.approved_by) ? ' — approved by '+escapeHtml(profileName(job.approved_by)) : '')}</p>
+          <button class="ghostbtn" style="color:var(--red);border-color:var(--red);" onclick="rejectRepairJob('${jobId}')">Reject instead</button>
+        ` : rejected ? `
+          <p class="stub" style="margin:0 0 10px;color:var(--red);">❌ Rejected</p>
+          <button class="ghostbtn" style="color:var(--ok);border-color:var(--ok);" onclick="approveRepairJob('${jobId}')">Approve instead</button>
+        ` : `
+          <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
+          <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
+          ${job.variation_issued_at ? `<p class="stub" style="margin:-6px 0 10px;">Cost issued to the client ${fmtDate(job.variation_issued_at)} — awaiting their decision.</p>` : `<button class="ghostbtn" style="margin-bottom:10px;" onclick="issueRepairJobVariationCost('${jobId}')">Issue Cost to Client</button>`}
+          <div class="row-gap" style="align-items:stretch;">
+            <button class="darkbtn" style="flex:1;background:var(--ok);border-color:var(--ok);" onclick="approveRepairJob('${jobId}')">✅ Approve</button>
+            <button class="darkbtn" style="flex:1;background:var(--red);border-color:var(--red);" onclick="rejectRepairJob('${jobId}')">❌ Reject</button>
+          </div>
+        `}
+        <p class="field-label" style="margin:14px 0 4px;">Repair return date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;" onchange="saveRepairJobField('${jobId}',{repair_return_date:this.value||null})"></div>
       </div>
       ` : ''}
 
+      ${approved ? `
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Progress</p>
         <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.progress_notes||'')}</textarea>
@@ -8255,23 +8364,20 @@ async function renderRepairJobDetail(siteId, jobId){
 
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Completion</p>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">Works completed</label>
-        ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">${job.closed ? 'Works completed' : 'Mark complete & close the job'}</label>
+        ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${fmtDate(job.works_completed_date)}${job.works_completed && !job.closed ? ' — awaiting PM sign-off' : ''}</p>` : ''}
         <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.works_notes||'')}</textarea>
         <button class="ghostbtn" onclick="saveRepairJobCompletionNotes('${jobId}')">Save Completion Notes</button>
         ${photoUploadRow('completion','Completion photos')}
       </div>
+      ` : ''}
 
       ${canManage ? `
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Admin</p>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
-        <p class="field-label" style="margin-bottom:4px;">Job status</p>
-        <select id="repairJobStatus" style="width:100%;margin-bottom:14px;" onchange="saveRepairJobField('${jobId}',{job_status:this.value})">
-          ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
-        </select>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
-        <p class="stub" style="margin:8px 0 0;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} ${job.works_completed?'':'disabled'} onchange="setRepairJobClosed('${jobId}', this.checked)">Confirm sign-off & close this job</label>
+        <p class="stub" style="margin:8px 0 0;">${job.works_completed ? "Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened." : 'Available once the operative has marked the works completed.'}</p>
       </div>
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
@@ -8414,6 +8520,16 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
   const surveyDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
   const addressLabel = (job && job.address) || 'Repair Job';
   patch.survey_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.survey_event_id, surveyDateOnly, 'Survey: '+addressLabel, []);
+  // Auto-advance job_status: marking the survey done (Y or N/A) moves it
+  // out of "To Survey" and into the costing stage, but only if no
+  // approval decision has been made yet — otherwise leave a later-stage
+  // status alone (e.g. re-editing survey notes on an already-approved job
+  // shouldn't knock it back). Reverting to "not surveyed" sends it back.
+  if((value==='Y' || value==='NA') && job && job.quote_approved==null && (!job.job_status || job.job_status==='To Survey')){
+    patch.job_status = job.variation_cost!=null ? 'Surveyed - Variation Issued' : 'Surveyed - Awaiting Cost';
+  } else if(!value && job && (!job.job_status || job.job_status==='Surveyed - Awaiting Cost' || job.job_status==='Surveyed - Variation Issued')){
+    patch.job_status = 'To Survey';
+  }
   await saveRepairJobField(jobId, patch);
   if(value==='Y') exportRepairJobSurveyPdf(jobId);
 };
@@ -8652,29 +8768,74 @@ window.saveRepairJobScaffold = async function(jobId){
     syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_booking_event_id, scaffold_booking_date, 'Scaffold Booking: '+addressLabel, scaffold_booking_assigned_to ? [scaffold_booking_assigned_to] : []),
     syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_erection_event_id, scaffold_erection_date, 'Scaffold Erection: '+addressLabel, []),
   ]);
-  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
-};
-window.saveRepairJobApproval = function(jobId){
-  const job = repairJobDetailCurrent;
-  const qaVal = document.getElementById('repairQuoteApproved').value;
-  const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
-  const costVal = document.getElementById('repairVariationCost').value;
-  const variation_cost = costVal===''?null:Number(costVal);
-  const repair_return_date = document.getElementById('repairReturnDate').value || null;
-  const patch = {quote_approved, variation_cost, repair_return_date};
-  // #(repair-job-approved-on-date) 2026-09-25 — stamped the first time a
-  // job flips to Approved, so the Approved & Ready list can be sorted/
-  // exported oldest-approved-first. Only set on that first flip (not every
-  // re-save of this card, e.g. editing the variation cost afterwards keeps
-  // the original approval date) and cleared if it's un-approved/rejected.
-  if(quote_approved===true && job && !job.quote_approved_at) patch.quote_approved_at = new Date().toISOString();
-  if(quote_approved!==true) patch.quote_approved_at = null;
+  const patch = {scaffold_booking_date, scaffold_erection_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId};
+  // Auto-advance: once scaffold is up, an "Approved - Awaiting Scaffold"
+  // job is ready for the operative to actually do the work. Clearing the
+  // erection date (e.g. a mistaken entry) reverts it, but only while it
+  // hasn't moved further on (don't knock back a job that's already In
+  // Progress or beyond just because someone edited an old date).
+  if(scaffold_erection_date && job && job.job_status==='Approved - Awaiting Scaffold'){
+    patch.job_status = 'Approved - To Do';
+  } else if(!scaffold_erection_date && job && job.job_status==='Approved - To Do' && repairJobNeedsScaffold(job)){
+    patch.job_status = 'Approved - Awaiting Scaffold';
+  }
   saveRepairJobField(jobId, patch);
+};
+window.overrideRepairJobStatus = function(jobId, value){
+  saveRepairJobField(jobId, {job_status: value});
+};
+window.viewRepairJobSurveyReport = async function(jobId){
+  toast('Opening survey report…');
+  const built = await buildRepairJobSurveyPdf(jobId);
+  if(!built){ toast('Could not build the survey report — try again.'); return; }
+  await deliverPdf(built.bytes, built.filename);
+};
+window.toggleRepairSurveyEdit = function(jobId){
+  repairSurveyEditOpen[jobId] = !repairSurveyEditOpen[jobId];
+  render();
+};
+window.issueRepairJobVariationCost = function(jobId){
+  const costVal = document.getElementById('repairVariationCost').value;
+  if(costVal===''){ toast('Enter the variation cost first.'); return; }
+  const variation_cost = Number(costVal);
+  saveRepairJobField(jobId, {variation_cost, variation_issued_at:new Date().toISOString(), job_status:'Surveyed - Variation Issued'});
+};
+window.approveRepairJob = async function(jobId){
+  const job = repairJobDetailCurrent;
+  const needsScaffold = job && repairJobNeedsScaffold(job);
+  const patch = {
+    quote_approved: true,
+    approved_by: ME.id,
+    self_authorized: false,
+    job_status: needsScaffold ? 'Approved - Awaiting Scaffold' : 'Approved - To Do',
+  };
+  if(job && !job.quote_approved_at) patch.quote_approved_at = new Date().toISOString();
+  saveRepairJobField(jobId, patch);
+};
+window.rejectRepairJob = async function(jobId){
+  const yes = await customConfirm('Reject this job? The operative/PM will need to review it again.');
+  if(!yes) return;
+  saveRepairJobField(jobId, {quote_approved:false, quote_approved_at:null, approved_by:null, self_authorized:false, job_status:'Rejected'});
+};
+window.selfAuthoriseRepairJob = async function(jobId){
+  const yes = await customConfirm("Self-authorise this job? You're confirming you can do the work now without PM approval.");
+  if(!yes) return;
+  saveRepairJobField(jobId, {
+    quote_approved: true,
+    quote_approved_at: new Date().toISOString(),
+    approved_by: ME.id,
+    self_authorized: true,
+    job_status: 'Approved - To Do',
+  });
 };
 window.saveRepairJobProgress = function(jobId){
   const job = repairJobDetailCurrent;
   const progress_notes = document.getElementById('repairProgressNotes').value.trim();
-  saveRepairJobField(jobId, {progress_notes: progress_notes||null});
+  const patch = {progress_notes: progress_notes||null};
+  if(progress_notes && job && (job.job_status==='Approved - To Do' || job.job_status==='Approved - Awaiting Scaffold')){
+    patch.job_status = 'In Progress';
+  }
+  saveRepairJobField(jobId, patch);
   if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'progress', progress_notes);
 };
 window.setRepairJobWorksCompleted = async function(jobId, checked){
@@ -8685,6 +8846,10 @@ window.setRepairJobWorksCompleted = async function(jobId, checked){
   const completionDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
   const addressLabel = (job && job.address) || 'Repair Job';
   patch.works_completed_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.works_completed_event_id, completionDateOnly, 'Job Completed: '+addressLabel, []);
+  // Marking works complete hands the job to the PM for sign-off — it does
+  // NOT close it. Un-ticking sends it back to In Progress (unless it's
+  // already been fully closed, which has its own separate reopen flow).
+  if(job && !job.closed) patch.job_status = checked ? 'Awaiting Sign-off' : 'In Progress';
   saveRepairJobField(jobId, patch);
 };
 window.saveRepairJobCompletionNotes = function(jobId){
@@ -8695,10 +8860,12 @@ window.saveRepairJobCompletionNotes = function(jobId){
 };
 window.setRepairJobClosed = async function(jobId, checked){
   if(checked){
-    const yes = await customConfirm("Close this job? It will drop off the operative's list.");
+    const yes = await customConfirm("Confirm sign-off and close this job? It will drop off the operative's list.");
     if(!yes){ render(); return; }
   }
-  saveRepairJobField(jobId, checked ? {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Completed'} : {closed:false, closed_by:null, closed_at:null});
+  saveRepairJobField(jobId, checked
+    ? {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Closed'}
+    : {closed:false, closed_by:null, closed_at:null, job_status:'Awaiting Sign-off'});
 };
 // PM/Admin only (matches the DB's "pm delete" RLS policy on repair_jobs).
 // Unlike closing a job, this is permanent — the row and its photo records
