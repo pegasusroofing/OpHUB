@@ -7371,6 +7371,8 @@ let repairJobDetailCurrent = null; // the job row currently loaded on the detail
 let repairJobPhotoBusy = {}; // category -> bool, disables that upload button mid-upload
 let repairJobSelectMode = false;
 let repairJobSelectedIds = new Set();
+let repairRouteExportBusy = false;
+const REPAIR_ROUTE_CATEGORIES = ['survey','scaffold','approved']; // the 3 lists a route-ordered export makes sense for
 
 async function renderRepairJobsHub(siteId){
   const __gen = RENDER_GEN;
@@ -7515,6 +7517,7 @@ async function renderRepairJobsListPage(siteId, category){
       </div>
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
+        ${REPAIR_ROUTE_CATEGORIES.includes(category) ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
       </div>
       ${repairJobSelectMode ? `
         <div class="card" style="margin-bottom:14px;background:var(--paper);">
@@ -7580,6 +7583,41 @@ window.exportRepairTrackerExcel = async function(siteId){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Repairs Tracker');
   await deliverExcelFile(wb, exportFilename(site?site.name:'', 'Repair Tracker', 'xlsx'));
+};
+// Exports the given category's jobs as an Excel ordered into a "milk run"
+// route — nearest-job-next, starting from the fixed yard/depot postcode
+// (CM3 8DQ) — via the repair-jobs-route-export edge function, which
+// geocodes each address (cached after the first time, so repeat exports on
+// the same jobs are fast) and works the route out server-side. Straight-line
+// distance, not road distance — same trade-off as the free-geocoding choice.
+window.exportRepairJobsRouteOrder = async function(siteId, category){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  repairRouteExportBusy = true; render();
+  try{
+    const res = await sbFetch('/functions/v1/repair-jobs-route-export', {method:'POST', body: JSON.stringify({site_id:siteId, category})});
+    const d = await res.json().catch(()=>({}));
+    if(!res.ok || d.error){ toast(d.error || 'Could not work out a route — try again.'); return; }
+    if(!d.stops || !d.stops.length){ toast('No jobs with addresses in this list yet.'); return; }
+    const dOnly = v => v ? String(v).slice(0,10) : '';
+    const header = ['Order','Distance from Previous (mi)','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
+    const rows = d.stops.map(s=>[
+      s.order, s.order===1?'—':s.distance_from_previous_mi, s.job_number||'', s.address||'', s.description||'',
+      s.survey_notes||s.access_notes||'', REPAIR_ACCESS_LABEL[s.access_requirement]||'', s.variation_cost!=null?Number(s.variation_cost):'',
+      dOnly(s.scaffold_booking_date), dOnly(s.scaffold_erection_date), dOnly(s.repair_return_date),
+    ]);
+    (d.unlocated||[]).forEach(j=>{ rows.push(['—','Could not locate on map', j.job_number||'', j.address||'', '', '', '', '', '', '', '']); });
+    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+    ws['!cols'] = [{wch:8},{wch:14},{wch:12},{wch:28},{wch:26},{wch:30},{wch:16},{wch:14},{wch:16},{wch:16},{wch:14}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Route Order');
+    await deliverExcelFile(wb, exportFilename(site?site.name:'', REPAIR_CATEGORY_DEFS[category].label+' Route', 'xlsx'));
+    toast('Route exported — starting from the yard (CM3 8DQ)'+((d.unlocated&&d.unlocated.length)?`, ${d.unlocated.length} job(s) couldn't be located`:''));
+  } catch(e){
+    toast('Could not work out a route — check your connection and try again.');
+  } finally {
+    repairRouteExportBusy = false; render();
+  }
 };
 
 async function renderRepairJobDetail(siteId, jobId){
