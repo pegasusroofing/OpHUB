@@ -9581,7 +9581,7 @@ async function renderAssignTeam(siteId){
 
     <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
 
-    ${ME.role==='admin' ? `
+    ${isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
     ${siteTeamSectionOpen.price ? `
     <div class="card">
