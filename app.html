@@ -7917,8 +7917,8 @@ async function renderRepairJobsListPage(siteId, category){
   if(!canManage) repairJobSelectMode = false;
 
   function jobCardHtml(j){
-    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'New');
-    const badgeColor = j.closed ? 'var(--ok)' : (j.job_status==='REJECTED' ? 'var(--warn)' : 'var(--brand1)');
+    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'To Survey');
+    const badgeColor = j.closed ? 'var(--ok)' : (REPAIR_JOB_STATUS_COLOR[j.job_status] || 'var(--brand1)');
     const checked = repairJobSelectedIds.has(j.id);
     return `
       <div class="card" style="margin-bottom:10px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;" onclick="${repairJobSelectMode ? `toggleRepairJobSelected('${j.id}')` : `go('#/site/${siteId}/repairjob/${j.id}')`}">
@@ -7976,9 +7976,9 @@ async function renderRepairJobsListPage(siteId, category){
         <div class="card" style="margin-bottom:14px;background:var(--paper);">
           <p class="stub" style="margin:0 0 10px;">${repairJobSelectedIds.size} selected</p>
           <div class="row-gap" style="flex-wrap:wrap;">
-            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{quote_approved:true})">Approve Quote</button>
-            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{scaffold_erection_date: todayISODate()})">Mark Scaffold Erected</button>
-            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{works_completed:true, works_completed_date: new Date().toISOString()})">Mark Completed</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkApproveRepairJobs('${siteId}')">Approve Quote</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkMarkScaffoldErected('${siteId}')">Mark Scaffold Erected</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkMarkCompletedRepairJobs('${siteId}')">Mark Completed</button>
             <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{invoiced:true})">Mark Invoiced</button>
             <button class="darkbtn" style="flex:1;min-width:140px;" onclick="bulkCloseRepairJobs('${siteId}')">Close Selected</button>
           </div>
@@ -8009,12 +8009,66 @@ window.bulkPatchRepairJobs = async function(siteId, patch){
   toast(ids.length+' job'+(ids.length>1?'s':'')+' updated');
   render();
 };
+// job_status is now the canonical state machine driving which tile a job
+// sits in, so bulk actions need to advance it the same way their
+// single-job equivalents (approveRepairJob/saveRepairJobScaffold/
+// setRepairJobWorksCompleted) do — not just flip the underlying boolean —
+// or a bulk-approved job would stay stuck showing in its old tile.
+window.bulkApproveRepairJobs = async function(siteId){
+  const ids = [...repairJobSelectedIds];
+  if(!ids.length){ toast('Nothing selected.'); return; }
+  for(const id of ids){
+    const rows = await dbSelect('repair_jobs', 'id=eq.'+id+'&select=access_requirement,quote_approved_at');
+    const j = rows[0]; if(!j) continue;
+    const patch = {
+      quote_approved: true,
+      approved_by: ME.id,
+      self_authorized: false,
+      job_status: repairJobNeedsScaffold(j) ? 'Approved - Awaiting Scaffold' : 'Approved - To Do',
+    };
+    if(!j.quote_approved_at) patch.quote_approved_at = new Date().toISOString();
+    await dbUpdate('repair_jobs', id, patch);
+  }
+  repairJobSelectMode = false; repairJobSelectedIds = new Set();
+  toast(ids.length+' job'+(ids.length>1?'s':'')+' approved');
+  render();
+};
+window.bulkMarkScaffoldErected = async function(siteId){
+  const ids = [...repairJobSelectedIds];
+  if(!ids.length){ toast('Nothing selected.'); return; }
+  const today = todayISODate();
+  for(const id of ids){
+    const rows = await dbSelect('repair_jobs', 'id=eq.'+id+'&select=job_status');
+    const j = rows[0]; if(!j) continue;
+    const patch = {scaffold_erection_date: today};
+    if(j.job_status==='Approved - Awaiting Scaffold') patch.job_status = 'Approved - To Do';
+    await dbUpdate('repair_jobs', id, patch);
+  }
+  repairJobSelectMode = false; repairJobSelectedIds = new Set();
+  toast(ids.length+' job'+(ids.length>1?'s':'')+' updated');
+  render();
+};
+window.bulkMarkCompletedRepairJobs = async function(siteId){
+  const ids = [...repairJobSelectedIds];
+  if(!ids.length){ toast('Nothing selected.'); return; }
+  const nowIso = new Date().toISOString();
+  for(const id of ids){
+    const rows = await dbSelect('repair_jobs', 'id=eq.'+id+'&select=closed');
+    const j = rows[0]; if(!j) continue;
+    const patch = {works_completed: true, works_completed_date: nowIso};
+    if(!j.closed) patch.job_status = 'Awaiting Sign-off';
+    await dbUpdate('repair_jobs', id, patch);
+  }
+  repairJobSelectMode = false; repairJobSelectedIds = new Set();
+  toast(ids.length+' job'+(ids.length>1?'s':'')+' updated');
+  render();
+};
 window.bulkCloseRepairJobs = async function(siteId){
   const ids = [...repairJobSelectedIds];
   if(!ids.length){ toast('Nothing selected.'); return; }
   const yes = await customConfirm('Close '+ids.length+' job'+(ids.length>1?'s':'')+'? They’ll drop off the operative’s list.');
   if(!yes) return;
-  for(const id of ids){ await dbUpdate('repair_jobs', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Completed'}); }
+  for(const id of ids){ await dbUpdate('repair_jobs', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Closed'}); }
   repairJobSelectMode = false; repairJobSelectedIds = new Set();
   toast(ids.length+' job'+(ids.length>1?'s':'')+' closed');
   render();
