@@ -5957,6 +5957,20 @@ window.startOneDriveFolderPicker = function(siteId, target){
 // (not a shared/root one), done only from their own record in the
 // Operatives area. Same picker UI/logic, just keyed to odPickerOperativeId
 // instead of a siteId.
+// Per-job variant — each repair job can link its own OneDrive folder (all
+// photos/work-order/notes for that job push straight there instead of an
+// auto-created subfolder under the site's own linked folder). Prompted
+// straight after a new job is created (see addRepairJob) and re-openable
+// any time from the job's info card.
+let odPickerJobId = null;
+window.startRepairJobFolderPicker = function(siteId, jobId){
+  odPickerTarget = 'repairjob';
+  odPickerJobId = jobId;
+  odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
+  odPickerFolders = [];
+  odPickerError = null;
+  go(`#/site/${siteId}/repairjob/${jobId}/onedrive-folder`);
+};
 let odPickerOperativeId = null;
 window.startOperativeFolderPicker = function(operativeId){
   odPickerTarget = 'operative';
@@ -6013,6 +6027,14 @@ async function renderOneDriveFolderPicker(siteId){
   const __gen = RENDER_GEN;
   const site = siteId ? SITES.find(s=>s.id===siteId) : null;
   const pickerOperative = odPickerTarget==='operative' ? PROFILES[odPickerOperativeId] : null;
+  let pickerJob = null;
+  if(odPickerTarget==='repairjob' && odPickerJobId){
+    pickerJob = (repairJobDetailCurrent && repairJobDetailCurrent.id===odPickerJobId) ? repairJobDetailCurrent : null;
+    if(!pickerJob){
+      const rows = await dbSelect('repair_jobs', 'id=eq.'+odPickerJobId+'&select=id,address,job_number');
+      pickerJob = rows && rows[0];
+    }
+  }
   if(!odPickerStack) odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   await loadOdPickerFolders();
   const current = odPickerStack[odPickerStack.length-1];
@@ -6040,7 +6062,7 @@ async function renderOneDriveFolderPicker(siteId){
           ${odPickerTarget==='quicklink' ? `
             <button class="darkbtn" style="flex:1;" ${isCurrentPinned?'disabled':''} onclick="pinAsQuickLink('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?`✓ "${escapeHtml(current.name)}" is already a Quick Link`:`Add "${escapeHtml(current.name)}" as a Quick Link`}</button>
           ` : `
-            <button class="darkbtn" style="flex:1;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>
+            <button class="darkbtn" style="flex:1;" onclick="selectOneDriveFolder(${siteId?`'${siteId}'`:'null'},'${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">Use "${escapeHtml(current.name)}" as ${odPickerTarget==='repairjob'?`this job's folder`:siteId?"this site's folder":pickerOperative?`"${escapeHtml(pickerOperative.name)}"'s folder`:'the folder'}</button>
             <div class="taskicon" style="flex:0 0 auto;font-size:18px;" title="${isCurrentPinned?'Remove Quick Link':'Add as a Quick Link'}" onclick="toggleOdFolderPin('${current.id}','${jsAttr(current.name)}','${current.driveId||''}')">${isCurrentPinned?'⭐':'☆'}</div>
           `}
         </div>
@@ -6063,7 +6085,7 @@ async function renderOneDriveFolderPicker(siteId){
         </div>
       `).join('') || `<div class="empty">${emptyMsg}</div>`}
     `}
-  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='siteinductions' ? 'Choose Site Inductions Folder' : odPickerTarget==='quicklink' ? 'Add a Quick Link Folder' : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : 'Choose OneDrive Folder', subtitle: site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='siteinductions' ? `#/site/${siteId}/mc/site_inductions` : odPickerTarget==='quicklink' ? '#/team' : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
+  `, {title: odPickerTarget==='materials' ? "Choose Material PO's Folder" : odPickerTarget==='siteinductions' ? 'Choose Site Inductions Folder' : odPickerTarget==='quicklink' ? 'Add a Quick Link Folder' : odPickerTarget==='operative' ? 'Choose OneDrive Folder' : odPickerTarget==='repairjob' ? "Choose This Job's Folder" : 'Choose OneDrive Folder', subtitle: odPickerTarget==='repairjob' ? (pickerJob ? (pickerJob.address||'Repair Job') : '') : site ? site.name : pickerOperative ? pickerOperative.name : (ORG&&ORG.name)||'', siteNameSubtitle:true, back: odPickerTarget==='materials' ? `#/site/${siteId}/materialorders` : odPickerTarget==='siteinductions' ? `#/site/${siteId}/mc/site_inductions` : odPickerTarget==='quicklink' ? '#/team' : odPickerTarget==='operative' ? `#/operatives/${odPickerOperativeId}` : odPickerTarget==='repairjob' ? `#/site/${siteId}/repairjob/${odPickerJobId}` : `#/site/${siteId}/team`, siteId: siteId||undefined, tabs:false}); }
 }
 window.toggleOdFolderPin = async function(id, name, driveId){
   const pinned = (ORG && ORG.onedrive_pinned_folders) || [];
@@ -6101,6 +6123,20 @@ window.odPickerUp = function(){
   render();
 };
 window.selectOneDriveFolder = async function(siteId, folderId, folderName, driveId){
+  if(odPickerTarget==='repairjob'){
+    const jobId = odPickerJobId;
+    const row = await dbUpdate('repair_jobs', jobId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null});
+    if(row){
+      if(repairJobDetailCurrent && repairJobDetailCurrent.id===jobId) repairJobDetailCurrent = row;
+      odPickerStack = null;
+      odPickerJobId = null;
+      toast('Folder linked — photos, the work order and notes for this job will push there from now on');
+      go(`#/site/${siteId}/repairjob/${jobId}`);
+    } else {
+      toast('Could not link that folder — please try again.');
+    }
+    return;
+  }
   if(odPickerTarget==='operative'){
     const row = await dbUpdate('profiles', odPickerOperativeId, {onedrive_folder_id: folderId, onedrive_folder_name: folderName, onedrive_drive_id: driveId || null, onedrive_last_synced_at: null});
     if(row){
@@ -7571,8 +7607,12 @@ window.addRepairJob = async function(siteId){
     if(!updated) workOrderFailed = true;
   }
   addRepairJobFormOpen = false; newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
-  toast(workOrderFailed ? 'Job added — but the work order failed to upload. Add it from the job later.' : 'Job added');
-  render();
+  toast(workOrderFailed ? 'Job added — but the work order failed to upload. Add it from the job later.' : 'Job added — now choose a OneDrive folder for it');
+  // Straight into the folder picker for the brand-new job — photos, the
+  // work order and notes all push there once it's linked. Backing out of
+  // the picker without picking one is fine; it can be linked later from
+  // the job's own page.
+  startRepairJobFolderPicker(siteId, job.id);
 };
 
 async function renderRepairJobsListPage(siteId, category){
@@ -7794,6 +7834,10 @@ async function renderRepairJobDetail(siteId, jobId){
         <p class="stub" style="margin:0;">${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? ' — '+escapeHtml(PROFILES[job.surveyed_by].name) : ''}</p>
       ` : ''}
       ${canManage ? `
+        <p class="field-label" style="margin:14px 0 4px;">OneDrive Folder</p>
+        <p class="stub" style="margin:0 0 8px;${job.onedrive_folder_id?'color:var(--ok);':''}text-decoration:underline;cursor:pointer;" onclick="startRepairJobFolderPicker('${siteId}','${jobId}')">${job.onedrive_folder_id?'📁 "'+escapeHtml(job.onedrive_folder_name||'')+'"':'Not linked yet — tap to choose a folder'} ›</p>
+      ` : ''}
+      ${canManage ? `
         <button class="ghostbtn" style="width:100%;margin-top:16px;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
         <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close (in Admin, once surveyed) instead if you just want it off the active lists.</p>
       ` : ''}
@@ -7935,7 +7979,8 @@ window.addRepairJobPhoto = async function(input, jobId, category){
   repairJobPhotoBusy[category] = true; render();
   const job = repairJobDetailCurrent;
   const site = job ? SITES.find(s=>s.id===job.site_id) : null;
-  const jobFolder = job ? repairJobOneDriveFolder(job) : null;
+  const jobLinked = job && job.onedrive_folder_id;
+  const jobFolder = (job && !jobLinked) ? repairJobOneDriveFolder(job) : null;
   for(const file of files){
     try{
       const dataUrl = await compressImage(file);
@@ -7943,10 +7988,14 @@ window.addRepairJobPhoto = async function(input, jobId, category){
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
       if(stored) await dbInsert('repair_job_photos', {repair_job_id:jobId, category, storage_path:stored, uploaded_by:ME.id});
       // Best-effort, live push to OneDrive — never blocks the in-app save
-      // above, which is what actually matters if this fails or the site
-      // isn't linked to a folder at all.
-      if(stored && site && site.onedrive_folder_id && jobFolder){
-        syncPhotoToOneDrive(dataUrl, jobFolder+'/'+(REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg', job.site_id);
+      // above, which is what actually matters if this fails or nothing's
+      // linked at all. Prefer the job's own linked folder if it has one;
+      // otherwise fall back to the old auto-created subfolder under the
+      // site's linked folder.
+      if(stored && job){
+        const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg';
+        if(jobLinked) syncPhotoToOneDriveFolder(dataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
+        else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(dataUrl, jobFolder+'/'+filename, job.site_id);
       }
     }catch(e){ toast('One photo failed to upload — try again.'); }
   }
@@ -7977,14 +8026,20 @@ async function uploadRepairJobWorkOrderFile(job, file){
   const row = await dbUpdate('repair_jobs', job.id, {work_order_path:stored, work_order_name:file.name});
   if(row){
     const site = SITES.find(s=>s.id===job.site_id);
-    if(site && site.onedrive_folder_id){
+    const jobLinked = job.onedrive_folder_id;
+    if(jobLinked || (site && site.onedrive_folder_id)){
       try{
         const buf = await file.arrayBuffer();
         const bytes = new Uint8Array(buf);
         let binary=''; const chunk=0x8000;
         for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
         const cleanName = file.name.replace(/[\\/:*?"<>|]/g,'-');
-        sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked ? {
+          filename: 'Work Order/'+cleanName,
+          content_base64: btoa(binary),
+          folder_id: job.onedrive_folder_id,
+          drive_id: job.onedrive_drive_id||undefined,
+        } : {
           filename: repairJobOneDriveFolder(job)+'/Work Order/'+cleanName,
           content_base64: btoa(binary),
           site_id: job.site_id,
@@ -15575,6 +15630,15 @@ async function syncPhotoToOneDrive(dataUrl, filename, siteId){
   try{
     const base64 = dataUrl.split(',')[1];
     await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, site_id: siteId})});
+  }catch(e){ /* silent — OneDrive sync is opportunistic */ }
+}
+// Same as above but targets an explicit folder_id/drive_id directly (e.g. a
+// repair job's own linked folder) instead of resolving one from a site row
+// — the onedrive-upload function always prefers folder_id when it's given.
+async function syncPhotoToOneDriveFolder(dataUrl, filename, folderId, driveId){
+  try{
+    const base64 = dataUrl.split(',')[1];
+    await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, content_base64: base64, folder_id: folderId, drive_id: driveId||undefined})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 }
 window.downloadScheduleTemplate = async function(){
@@ -28298,7 +28362,10 @@ async function renderRoute(){
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
-    if(page==='repairjob') return renderRepairJobDetail(siteId, parts[3]);
+    if(page==='repairjob'){
+      if(parts[4]==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
+      return renderRepairJobDetail(siteId, parts[3]);
+    }
     if(page==='repairjobs') return parts[3] ? renderRepairJobsListPage(siteId, parts[3]) : renderRepairJobsCategoryHub(siteId);
     if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
