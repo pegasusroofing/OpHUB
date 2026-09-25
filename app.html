@@ -3184,7 +3184,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -3291,6 +3291,7 @@ let newSitePostcodeDraft = '';
 let newSiteJobNumberDraft = '';
 let newSiteStartDateDraft = '';
 let newSiteMultiSiteDraft = false;
+let newSiteRepairContractDraft = false;
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
 // upcoming:null means "no explicit user choice yet" — renderSites resolves
@@ -3415,7 +3416,8 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} ${newSiteRepairContractDraft?'disabled':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>
+        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;"><input type="checkbox" id="newSiteRepairContract" style="width:auto;" ${newSiteRepairContractDraft?'checked':''} ${newSiteMultiSiteDraft?'disabled':''} onchange="newSiteRepairContractDraft=this.checked">Maintenance / Repair Contract (a running list of individual repair jobs/addresses, each tracked through survey → approval → completion)</label>
         <p class="field-label" style="margin-bottom:6px;">Status</p>
         <div class="row-gap" style="margin-bottom:14px;">
           <button type="button" class="${newSiteStatus==='active'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="newSiteStatus='active';render()">Active</button>
@@ -3469,7 +3471,7 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
@@ -3487,10 +3489,10 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false;
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false;
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -7096,6 +7098,10 @@ async function renderSiteHome(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
+  // Maintenance / Repair Contract projects skip the normal Schedule of
+  // Works / Check-in / tabbar layout entirely — their "Home" is the repair
+  // jobs list itself. See renderRepairJobsHub.
+  if(site.repair_contract) return renderRepairJobsHub(siteId);
   // Client login: a minimal, view-only home — Schedule of Works, Health &
   // Safety (RAMS/COSHH/TBT/PUWER/Operative Dashboard), and Snagging. No
   // stat row (on-site counts, price, materials etc. aren't theirs to see),
@@ -7331,6 +7337,339 @@ async function renderSiteHome(siteId){
     requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
   }
 }
+
+/* ================= Maintenance / Repair Contract =================
+   A repair_contract site's "Home" is a list of individual repair jobs
+   (repair_jobs) instead of the usual Schedule of Works/Check-in layout —
+   see the branch in renderSiteHome above. Operatives get a sleek, minimal
+   view (survey, progress, completion); PM/Admin get everything (scaffold
+   dates, cost, invoicing, job status, closing, Excel export). Nothing here
+   syncs live with OneDrive — repair-tracker-nightly-push (a Supabase cron
+   edge function) pushes a fresh read-only tracker-style .xlsx snapshot to
+   the site's linked OneDrive folder once a night; this app is the only
+   place any of this data is actually edited. */
+const REPAIR_ACCESS_LABEL = {none:'None', ladder:'Ladder', scaffold:'Scaffold', tower:'Tower'};
+const REPAIR_JOB_STATUS_OPTIONS = ['New','Awaiting Survey','Awaiting Quote Approval','Approved','Awaiting Scaffold','In Progress','Awaiting Invoice','Completed','REJECTED'];
+let addRepairJobFormOpen = false;
+let newRepairJobNumberDraft = '';
+let newRepairJobAddressDraft = '';
+let newRepairJobDescriptionDraft = '';
+let repairJobsFilter = 'open';
+let repairJobDetailCurrent = null; // the job row currently loaded on the detail page, refreshed every render
+let repairJobPhotoBusy = {}; // category -> bool, disables that upload button mid-upload
+
+async function renderRepairJobsHub(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const canManage = isManager(ME);
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  if(__gen !== RENDER_GEN) return;
+  const openCount = jobs.filter(j=>!j.closed).length;
+  const closedCount = jobs.filter(j=>j.closed).length;
+  const filtered = jobs.filter(j => repairJobsFilter==='all' ? true : repairJobsFilter==='closed' ? j.closed : !j.closed);
+
+  function jobCardHtml(j){
+    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'New');
+    const badgeColor = j.closed ? 'var(--ok)' : (j.job_status==='REJECTED' ? 'var(--warn)' : 'var(--brand1)');
+    return `
+      <div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="go('#/site/${siteId}/repairjob/${j.id}')">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="min-width:0;">
+            <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
+            ${j.description ? `<div class="meta" style="margin-top:2px;">${escapeHtml(j.description)}</div>` : ''}
+            ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
+          </div>
+          <span class="plaintag" style="flex:none;color:${badgeColor};">${escapeHtml(statusLabel)}</span>
+        </div>
+        <div class="row-gap" style="margin-top:8px;flex-wrap:wrap;">
+          <span class="stub" style="margin:0;">${j.survey_required==='Y'?'✅':'⏳'} Survey</span>
+          <span class="stub" style="margin:0;">${j.works_completed?'✅':'⏳'} Completed</span>
+          ${canManage ? `<span class="stub" style="margin:0;">${j.invoiced?'✅':'⏳'} Invoiced</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canManage ? `
+      <div class="row-gap" style="margin-bottom:14px;">
+        <button class="darkbtn" style="flex:1;" onclick="toggleAddRepairJobForm()">+ Add Job</button>
+        <button class="ghostbtn" style="flex:1;" onclick="exportRepairTrackerExcel('${siteId}')">⬇ Export Excel</button>
+      </div>
+      ${addRepairJobFormOpen ? `
+        <div class="card" style="margin-bottom:16px;background:var(--paper);">
+          <p class="sectiontitle" style="margin-top:0;">Add Repair Job</p>
+          <div class="formfield"><input type="text" id="newRepairJobNumber" placeholder="Job number (optional)" value="${escapeHtml(newRepairJobNumberDraft)}" oninput="newRepairJobNumberDraft=this.value"></div>
+          <div class="formfield"><input type="text" id="newRepairJobAddress" placeholder="Address" value="${escapeHtml(newRepairJobAddressDraft)}" oninput="applyTitleCase(this);newRepairJobAddressDraft=this.value"></div>
+          <div class="formfield"><textarea id="newRepairJobDescription" placeholder="Description of call out" rows="2" oninput="newRepairJobDescriptionDraft=this.value">${escapeHtml(newRepairJobDescriptionDraft)}</textarea></div>
+          <div style="display:flex;gap:8px;">
+            <button class="darkbtn" style="flex:1;" onclick="addRepairJob('${siteId}')">Add Job</button>
+            <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleAddRepairJobForm()">Cancel</button>
+          </div>
+        </div>
+      ` : ''}
+      <div class="row-gap" style="margin-bottom:14px;">
+        <button class="${repairJobsFilter==='open'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='open';render()">Open (${openCount})</button>
+        <button class="${repairJobsFilter==='closed'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='closed';render()">Closed (${closedCount})</button>
+        <button class="${repairJobsFilter==='all'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='all';render()">All</button>
+      </div>
+      ${isFullManager(ME) ? `<p class="stub" style="text-align:right;margin:-6px 0 14px;text-decoration:underline;cursor:pointer;" onclick="siteTeamSectionOpen.repaircontract=true;siteTeamSectionOpen.sync=true;go('#/site/${siteId}/team')">OneDrive folder ${site.onedrive_folder_id?'— "'+escapeHtml(site.onedrive_folder_name||'')+'"':'— not linked yet'} ›</p>` : ''}
+    ` : ''}
+    ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No repair jobs${canManage?' yet — tap + Add Job above.':' yet.'}</div>`}
+  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', tabs:false}); }
+}
+window.toggleAddRepairJobForm = function(){
+  addRepairJobFormOpen = !addRepairJobFormOpen;
+  newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
+  render();
+};
+window.addRepairJob = async function(siteId){
+  const address = (document.getElementById('newRepairJobAddress').value||'').trim();
+  if(!address){ toast('Enter an address.'); return; }
+  const jobNumber = (document.getElementById('newRepairJobNumber').value||'').trim();
+  const description = (document.getElementById('newRepairJobDescription').value||'').trim();
+  const row = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, created_by:ME.id});
+  if(!row){ return; }
+  addRepairJobFormOpen = false; newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
+  toast('Job added');
+  render();
+};
+window.exportRepairTrackerExcel = async function(siteId){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  const header = ['Job Number','Address','Description of Call out','Survey Required (Y/N/NA)','Survey Date','Survey Notes / Quoted works','Variation Works (£)','Scaffolding Required (Y/N/Tower)','Scaff Requirements','Quote Approved (Y/N)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date','Repair Completed? (Y/N)','Closed on Portal','Invoiced? (Y/N)','Job Status','Overdue?'];
+  const todayStr = todayISODate();
+  const dOnly = v => v ? String(v).slice(0,10) : '';
+  const yn = v => v ? 'Y' : 'N';
+  const rows = jobs.map(j=>{
+    const overdue = !j.closed && j.repair_return_date && j.repair_return_date < todayStr ? 'Y' : '';
+    const scaffReq = (j.access_requirement==='scaffold'||j.access_requirement==='tower') ? (j.access_requirement==='tower'?'Tower':'Y') : 'N';
+    return [j.job_number||'', j.address||'', j.description||'', j.survey_required||'', dOnly(j.survey_date), j.survey_notes||'',
+      j.variation_cost!=null?Number(j.variation_cost):'', scaffReq, j.access_notes||'', j.quote_approved==null?'':yn(j.quote_approved),
+      dOnly(j.scaffold_booking_date), dOnly(j.scaffold_erection_date), dOnly(j.repair_return_date), yn(j.works_completed), yn(j.closed), yn(j.invoiced),
+      j.job_status||'', overdue];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{wch:12},{wch:28},{wch:30},{wch:14},{wch:12},{wch:32},{wch:14},{wch:16},{wch:26},{wch:14},{wch:16},{wch:16},{wch:14},{wch:14},{wch:12},{wch:12},{wch:18},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Repairs Tracker');
+  await deliverExcelFile(wb, exportFilename(site?site.name:'', 'Repair Tracker', 'xlsx'));
+};
+
+async function renderRepairJobDetail(siteId, jobId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const [jobRows, photos] = await Promise.all([
+    dbSelect('repair_jobs', 'id=eq.'+jobId),
+    dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&order=created_at.asc'),
+  ]);
+  const job = jobRows[0];
+  if(!job){ go('#/site/'+siteId+'/home'); return; }
+  if(__gen !== RENDER_GEN) return;
+  repairJobDetailCurrent = job;
+  const canManage = isManager(ME);
+
+  function photoGalleryHtml(category){
+    const cat = photos.filter(p=>p.category===category);
+    if(!cat.length) return `<div class="empty" style="margin:8px 0;">No photos yet.</div>`;
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin:8px 0;">
+      ${cat.map(p=>`
+        <div style="position:relative;">
+          <img src="${publicUrl('site-photos', p.storage_path)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', p.storage_path)}')">
+          <span onclick="deleteRepairJobPhoto('${p.id}','${jsAttr(p.storage_path)}','${jobId}')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:12px;cursor:pointer;">✕</span>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+  function photoUploadRow(category, label){
+    const busy = !!repairJobPhotoBusy[category];
+    return `
+      <p class="field-label" style="margin:14px 0 4px;">${label}</p>
+      ${photoGalleryHtml(category)}
+      <button class="ghostbtn" ${busy?'disabled':''} onclick="document.getElementById('repairPhoto_${category}').click()">${busy?'Uploading…':'+ Add Photo'}</button>
+      <input type="file" id="repairPhoto_${category}" accept="image/*" capture="environment" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobPhoto(this,'${jobId}','${category}')">
+    `;
+  }
+
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(job.address||'Job')}</p>
+      ${canManage ? `
+        <div class="formfield"><input type="text" id="repairJobNumber" placeholder="Job number" value="${escapeHtml(job.job_number||'')}"></div>
+        <div class="formfield"><input type="text" id="repairJobAddress" placeholder="Address" value="${escapeHtml(job.address||'')}"></div>
+        <div class="formfield"><textarea id="repairJobDescription" placeholder="Description of call out" rows="2">${escapeHtml(job.description||'')}</textarea></div>
+        <button class="ghostbtn" onclick="saveRepairJobBasics('${jobId}')">Save Job Details</button>
+      ` : `${job.description ? `<p class="stub" style="margin:0;">${escapeHtml(job.description)}</p>` : ''}`}
+      <p class="field-label" style="margin:14px 0 4px;">Work Order</p>
+      ${job.work_order_path ? `<p class="stub" style="margin:0 0 8px;text-decoration:underline;cursor:pointer;" onclick="window.open('${publicUrl('site-photos', job.work_order_path)}','_blank')">📄 ${escapeHtml(job.work_order_name||'View file')}</p>` : `<p class="stub" style="margin:0 0 8px;">Not uploaded yet.</p>`}
+      ${canManage ? `
+        <button class="ghostbtn" onclick="document.getElementById('repairWorkOrderInput').click()">${job.work_order_path?'Replace File':'+ Upload Work Order'}</button>
+        <input type="file" id="repairWorkOrderInput" accept=".pdf,image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobWorkOrder(this,'${jobId}')">
+      ` : ''}
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">Survey</p>
+      <p class="field-label" style="margin-bottom:4px;">Survey completed?</p>
+      <div class="row-gap" style="margin-bottom:12px;">
+        ${['Y','N','NA'].map(v=>`<button class="${job.survey_required===v?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','${v}')">${v==='Y'?'Completed':v==='N'?'Not yet':'N/A'}</button>`).join('')}
+      </div>
+      ${job.survey_date ? `<p class="stub" style="margin:-6px 0 12px;">Surveyed ${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
+      <p class="field-label" style="margin-bottom:4px;">Access requirement</p>
+      <select id="repairAccessRequirement" style="width:100%;margin-bottom:10px;">
+        ${['none','ladder','scaffold','tower'].map(v=>`<option value="${v}" ${job.access_requirement===v?'selected':''}>${REPAIR_ACCESS_LABEL[v]}</option>`).join('')}
+      </select>
+      <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
+      <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin-bottom:10px;">${escapeHtml(job.survey_notes||'')}</textarea>
+      <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
+      ${photoUploadRow('survey','Survey / before photos')}
+    </div>
+
+    ${canManage ? `
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">Scaffold &amp; Approval</p>
+      <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
+      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;"></div>
+      <p class="field-label" style="margin-bottom:4px;">Scaffold erection date</p>
+      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;"></div>
+      <p class="field-label" style="margin-bottom:4px;">Quote approved?</p>
+      <select id="repairQuoteApproved" style="width:100%;margin-bottom:10px;">
+        <option value="" ${job.quote_approved==null?'selected':''}>Awaiting decision</option>
+        <option value="y" ${job.quote_approved===true?'selected':''}>Approved</option>
+        <option value="n" ${job.quote_approved===false?'selected':''}>Rejected</option>
+      </select>
+      <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
+      <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
+      <p class="field-label" style="margin-bottom:4px;">Repair return date</p>
+      <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;"></div>
+      <button class="ghostbtn" onclick="saveRepairJobScaffold('${jobId}')">Save</button>
+      ${photoUploadRow('scaffold','Scaffold photos')}
+    </div>
+    ` : ''}
+
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">Progress</p>
+      <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.progress_notes||'')}</textarea>
+      <button class="ghostbtn" onclick="saveRepairJobProgress('${jobId}')">Save Progress Notes</button>
+      ${photoUploadRow('progress','Progress photos')}
+    </div>
+
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">Completion</p>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">Works completed</label>
+      ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>` : ''}
+      <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.works_notes||'')}</textarea>
+      <button class="ghostbtn" onclick="saveRepairJobCompletionNotes('${jobId}')">Save Completion Notes</button>
+      ${photoUploadRow('completion','Completion photos')}
+    </div>
+
+    ${canManage ? `
+    <div class="card" style="margin-bottom:16px;">
+      <p class="sectiontitle" style="margin-top:0;">Admin</p>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
+      <p class="field-label" style="margin-bottom:4px;">Job status</p>
+      <select id="repairJobStatus" style="width:100%;margin-bottom:14px;" onchange="saveRepairJobField('${jobId}',{job_status:this.value})">
+        ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
+      <p class="stub" style="margin:8px 0 0;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
+    </div>
+    ` : ''}
+  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/home', tabs:false});
+}
+window.addRepairJobPhoto = async function(input, jobId, category){
+  const files = Array.from(input.files||[]);
+  if(!files.length) return;
+  repairJobPhotoBusy[category] = true; render();
+  for(const file of files){
+    try{
+      const dataUrl = await compressImage(file);
+      const path = ME.org_id+'/repairjobs/'+jobId+'/'+category+'/'+crypto.randomUUID()+'.jpg';
+      const stored = await uploadDataUrl('site-photos', path, dataUrl);
+      if(stored) await dbInsert('repair_job_photos', {repair_job_id:jobId, category, storage_path:stored, uploaded_by:ME.id});
+    }catch(e){ toast('One photo failed to upload — try again.'); }
+  }
+  repairJobPhotoBusy[category] = false;
+  toast('Photo(s) added');
+  render();
+};
+window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
+  const yes = await customConfirm('Delete this photo?');
+  if(!yes) return;
+  const done = await dbDelete('repair_job_photos', photoId);
+  if(done){
+    sbFetch('/storage/v1/object/site-photos/'+storagePath, {method:'DELETE'}).catch(()=>{});
+    toast('Photo deleted');
+    render();
+  }
+};
+window.addRepairJobWorkOrder = async function(input, jobId){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const path = ME.org_id+'/repairjobs/'+jobId+'/workorder/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9.-]/g,'_');
+  const stored = await uploadToStorage('site-photos', path, file, file.type);
+  if(!stored){ toast('Upload failed — try again.'); return; }
+  const row = await dbUpdate('repair_jobs', jobId, {work_order_path:stored, work_order_name:file.name});
+  if(row){ toast('Work order uploaded'); render(); }
+};
+window.saveRepairJobField = async function(jobId, patch){
+  const row = await dbUpdate('repair_jobs', jobId, patch);
+  if(row){ toast('Saved'); render(); }
+};
+window.saveRepairJobBasics = function(jobId){
+  const jobNumber = document.getElementById('repairJobNumber').value.trim();
+  const address = document.getElementById('repairJobAddress').value.trim();
+  const description = document.getElementById('repairJobDescription').value.trim();
+  if(!address){ toast('Enter an address.'); return; }
+  saveRepairJobField(jobId, {job_number:jobNumber||null, address, description:description||null});
+};
+window.setRepairJobSurveyStatus = function(jobId, value){
+  const job = repairJobDetailCurrent;
+  const patch = {survey_required: value};
+  if(value==='Y' && job && !job.survey_date) patch.survey_date = new Date().toISOString();
+  saveRepairJobField(jobId, patch);
+};
+window.saveRepairJobSurvey = function(jobId){
+  const access_requirement = document.getElementById('repairAccessRequirement').value;
+  const access_notes = document.getElementById('repairAccessNotes').value.trim();
+  const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
+  saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null, survey_notes: survey_notes||null});
+};
+window.saveRepairJobScaffold = function(jobId){
+  const scaffold_booking_date = document.getElementById('repairScaffBookingDate').value || null;
+  const scaffold_erection_date = document.getElementById('repairScaffErectionDate').value || null;
+  const qaVal = document.getElementById('repairQuoteApproved').value;
+  const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
+  const costVal = document.getElementById('repairVariationCost').value;
+  const variation_cost = costVal===''?null:Number(costVal);
+  const repair_return_date = document.getElementById('repairReturnDate').value || null;
+  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, quote_approved, variation_cost, repair_return_date});
+};
+window.saveRepairJobProgress = function(jobId){
+  const progress_notes = document.getElementById('repairProgressNotes').value.trim();
+  saveRepairJobField(jobId, {progress_notes: progress_notes||null});
+};
+window.setRepairJobWorksCompleted = function(jobId, checked){
+  const job = repairJobDetailCurrent;
+  const patch = {works_completed: checked};
+  if(checked && job && !job.works_completed_date) patch.works_completed_date = new Date().toISOString();
+  saveRepairJobField(jobId, patch);
+};
+window.saveRepairJobCompletionNotes = function(jobId){
+  const works_notes = document.getElementById('repairWorksNotes').value.trim();
+  saveRepairJobField(jobId, {works_notes: works_notes||null});
+};
+window.setRepairJobClosed = async function(jobId, checked){
+  if(checked){
+    const yes = await customConfirm("Close this job? It will drop off the operative's list.");
+    if(!yes){ render(); return; }
+  }
+  saveRepairJobField(jobId, checked ? {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Completed'} : {closed:false, closed_by:null, closed_at:null});
+};
+
 async function loadPMList(){
   await loadAllProfiles();
   // Company admins act as project managers too (they have full PM-level
@@ -8136,6 +8475,15 @@ window.toggleMultiSite = async function(siteId, checked){
     render();
   }
 };
+window.toggleRepairContract = async function(siteId, checked){
+  const row = await dbUpdate('sites', siteId, {repair_contract: checked});
+  if(row){
+    const idx = SITES.findIndex(s=>s.id===siteId);
+    if(idx>-1) SITES[idx] = row;
+    toast(checked ? 'Repair Contract enabled — this project now opens straight into its repair jobs list' : 'Repair Contract disabled');
+    if(checked) go('#/site/'+siteId+'/home'); else render();
+  }
+};
 window.toggleSubAddrForm = function(editId){
   if(editId){
     const addr = (assignTeamSubAddresses||[]).find(a=>a.id===editId);
@@ -8260,8 +8608,8 @@ async function renderAssignTeam(siteId){
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('multisite')"><span class="arrow">${siteTeamSectionOpen.multisite?'▼':'▶'}</span> Multi-Site</p>
     ${siteTeamSectionOpen.multisite ? `
     <div class="card">
-      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.multi_site?'checked':''} ${isFullManager(ME)?'':'disabled'} onchange="toggleMultiSite('${siteId}', this.checked)">This is a multi-site project (several separate addresses under one job)</label>
-      <p class="stub" style="margin:8px 0 0;">When on, Check In becomes per-address with its own GPS geofence, and the Schedule of Works "+" button lets a task be linked to a specific address (or left unlinked and linked later).</p>
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.multi_site?'checked':''} ${isFullManager(ME) && !site.repair_contract ? '' : 'disabled'} onchange="toggleMultiSite('${siteId}', this.checked)">This is a multi-site project (several separate addresses under one job)</label>
+      <p class="stub" style="margin:8px 0 0;">${site.repair_contract ? 'Turn off Maintenance / Repair Contract first — a project is one or the other, not both.' : 'When on, Check In becomes per-address with its own GPS geofence, and the Schedule of Works "+" button lets a task be linked to a specific address (or left unlinked and linked later).'}</p>
     </div>
     ${site.multi_site ? `
       <p class="sectiontitle" style="margin-top:14px;">Addresses</p>
@@ -8299,6 +8647,14 @@ async function renderAssignTeam(siteId){
         </div>
       ` : `<button class="ghostbtn" onclick="toggleSubAddrForm()">+ Add Address</button>`}
     ` : ''}
+    ` : ''}
+
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('repaircontract')"><span class="arrow">${siteTeamSectionOpen.repaircontract?'▼':'▶'}</span> Maintenance / Repair Contract</p>
+    ${siteTeamSectionOpen.repaircontract ? `
+    <div class="card">
+      <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${site.repair_contract?'checked':''} ${isFullManager(ME) && !site.multi_site ? '' : 'disabled'} onchange="toggleRepairContract('${siteId}', this.checked)">This is a Maintenance / Repair Contract (a running list of individual repair jobs, each tracked survey → approval → completion)</label>
+      <p class="stub" style="margin:8px 0 0;">${site.multi_site ? 'Turn off Multi-site first — a project is one or the other, not both.' : "When on, this project's Home page becomes its repair jobs list instead of the usual Schedule of Works/Check-in layout."}</p>
+    </div>
     ` : ''}
     ${odCompanyConnected && isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('sync')"><span class="arrow">${siteTeamSectionOpen.sync?'▼':'▶'}</span> Sync Folder</p>
@@ -27346,7 +27702,7 @@ async function renderRoute(){
     return renderDriverHome();
   }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
@@ -27451,6 +27807,7 @@ async function renderRoute(){
     if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
+    if(page==='repairjob') return renderRepairJobDetail(siteId, parts[3]);
     if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging'){
