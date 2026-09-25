@@ -7412,7 +7412,11 @@ async function renderRepairJobsCategoryHub(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
   const canManage = isManager(ME);
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  // Only the columns REPAIR_CATEGORY_DEFS' match() functions actually look
+  // at — this page just counts jobs into tiles, it doesn't display their
+  // notes/description, so there's no reason to pull those (sometimes
+  // sizeable) text fields over the wire just to throw them away.
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed,survey_required,access_requirement,scaffold_erection_date,quote_approved,works_completed&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   const tileDefs = [
     {key:'survey', icon:'🔍', bg:'#FFF3D9', color:'#8A6300'},
@@ -7478,7 +7482,11 @@ async function renderRepairJobsListPage(siteId, category){
   if(!site){ go('#/sites'); return; }
   if(!REPAIR_CATEGORY_DEFS[category]) category = 'open';
   const canManage = isManager(ME);
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  // jobCardHtml only ever reads these columns (plus the ones match() needs)
+  // — same reasoning as renderRepairJobsCategoryHub's trimmed select, this
+  // page can list dozens of jobs so it's worth not pulling every job's full
+  // notes/description text just to render a status card.
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   const filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
   if(!canManage) repairJobSelectMode = false;
@@ -7602,7 +7610,7 @@ window.exportRepairJobsRouteOrder = async function(siteId, category){
     const dOnly = v => v ? String(v).slice(0,10) : '';
     const header = ['Order','Distance from Previous (mi)','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
     const rows = d.stops.map(s=>[
-      s.order, s.order===1?'—':s.distance_from_previous_mi, s.job_number||'', s.address||'', s.description||'',
+      s.order, s.distance_from_previous_mi, s.job_number||'', s.address||'', s.description||'',
       s.survey_notes||s.access_notes||'', REPAIR_ACCESS_LABEL[s.access_requirement]||'', s.variation_cost!=null?Number(s.variation_cost):'',
       dOnly(s.scaffold_booking_date), dOnly(s.scaffold_erection_date), dOnly(s.repair_return_date),
     ]);
