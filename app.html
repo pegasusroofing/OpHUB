@@ -7480,6 +7480,12 @@ async function renderRepairJobsCategoryHub(siteId){
     {key:'completed', icon:'🏁', bg:'#E7E9EE', color:'var(--ink)'},
     {key:'rejected', icon:'✕', bg:'#FBE4E4', color:'var(--red)'},
   ];
+  // PM/Admin can hide whole tiles from operatives (e.g. Awaiting Approval,
+  // Rejected — things an operative doesn't need to see at all), org-wide,
+  // via the "Manage operative tile visibility" panel below. Managers always
+  // see every tile regardless, just dimmed/marked so they know what's hidden.
+  const hiddenTiles = (ORG && ORG.repair_hidden_tiles) || [];
+  const visibleTileDefs = canManage ? tileDefs : tileDefs.filter(t=>!hiddenTiles.includes(t.key));
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
       <div class="row-gap" style="margin-bottom:14px;">
@@ -7503,21 +7509,45 @@ async function renderRepairJobsCategoryHub(siteId){
       ` : ''}
     ` : ''}
     <div class="tilegrid" style="margin-bottom:14px;">
-      ${tileDefs.map(t=>{
+      ${visibleTileDefs.map(t=>{
         const def = REPAIR_CATEGORY_DEFS[t.key];
         const count = jobs.filter(def.match).length;
-        return `<div class="tile" onclick="go('#/site/${siteId}/repairjobs/${t.key}')">
+        const hiddenFromOps = canManage && hiddenTiles.includes(t.key);
+        return `<div class="tile" style="${hiddenFromOps?'opacity:0.55;':''}" onclick="go('#/site/${siteId}/repairjobs/${t.key}')">
           <div class="icon" style="background:${t.bg};color:${t.color};">${t.icon}</div>
-          <div class="lbl">${def.label}</div><div class="sub">${count}</div>
+          <div class="lbl">${def.label}${hiddenFromOps?' 🚫':''}</div><div class="sub">${count}</div>
         </div>`;
       }).join('')}
     </div>
     ${canManage ? `
       <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="go('#/site/${siteId}/repairjobs/all')">View All Jobs (${jobs.length})</button>
+      <p class="stub" style="text-align:right;margin:-4px 0 4px;text-decoration:underline;cursor:pointer;" onclick="toggleRepairTileVisibilityPanel()">${repairTileVisibilityOpen?'Hide':'Manage'} operative tile visibility ›</p>
+      ${repairTileVisibilityOpen ? `
+        <div class="card" style="margin-bottom:16px;">
+          <p class="sectiontitle" style="margin-top:0;">Operative Visibility</p>
+          <p class="stub" style="margin:0 0 10px;">Untick a tile to hide it from operatives entirely — they'll still see the tiles left ticked. PM/Admin always see every tile.</p>
+          ${tileDefs.map(t=>{
+            const def = REPAIR_CATEGORY_DEFS[t.key];
+            const visible = !hiddenTiles.includes(t.key);
+            return `<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 8px;font-style:normal;"><input type="checkbox" style="width:auto;" ${visible?'checked':''} onchange="toggleRepairTileOperativeVisibility('${siteId}','${t.key}', this.checked)">${def.label}</label>`;
+          }).join('')}
+        </div>
+      ` : ''}
       ${isFullManager(ME) ? `<p class="stub" style="text-align:right;margin:-4px 0 4px;text-decoration:underline;cursor:pointer;" onclick="siteTeamSectionOpen.repaircontract=true;siteTeamSectionOpen.sync=true;go('#/site/${siteId}/team')">OneDrive folder ${site.onedrive_folder_id?'— "'+escapeHtml(site.onedrive_folder_name||'')+'"':'— not linked yet'} ›</p>` : ''}
     ` : ''}
   `, {title:'Live Jobs', subtitle:site.name, back:'#/site/'+siteId+'/home', siteId, activeTab:'home'});
 }
+let repairTileVisibilityOpen = false;
+window.toggleRepairTileVisibilityPanel = function(){ repairTileVisibilityOpen = !repairTileVisibilityOpen; render(); };
+// Org-wide (not per-site) — which Live Jobs category tiles operatives never
+// see at all. PM/Admin always see every tile regardless of this list.
+window.toggleRepairTileOperativeVisibility = async function(siteId, key, visible){
+  const current = (ORG && ORG.repair_hidden_tiles) || [];
+  const next = visible ? current.filter(k=>k!==key) : (current.includes(key) ? current : [...current, key]);
+  const row = await dbUpdate('organizations', ME.org_id, {repair_hidden_tiles: next});
+  if(row){ ORG.repair_hidden_tiles = row.repair_hidden_tiles; toast('Saved'); render(); }
+  else toast('Could not save — try again.');
+};
 window.toggleAddRepairJobForm = function(){
   addRepairJobFormOpen = !addRepairJobFormOpen;
   newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
@@ -7621,6 +7651,14 @@ async function renderRepairJobsListPage(siteId, category){
   if(!site){ go('#/sites'); return; }
   if(!REPAIR_CATEGORY_DEFS[category]) category = 'open';
   const canManage = isManager(ME);
+  // An operative reaching a tile hidden from them (bookmark/typed URL —
+  // there's no chip or tile pointing here for them) gets bounced back to
+  // the hub rather than seeing the list anyway.
+  if(!canManage && ((ORG && ORG.repair_hidden_tiles) || []).includes(category)){
+    toast("You don't have access to that list.");
+    go('#/site/'+siteId+'/repairjobs');
+    return;
+  }
   // jobCardHtml only ever reads these columns (plus the ones match() needs)
   // — same reasoning as renderRepairJobsCategoryHub's trimmed select, this
   // page can list dozens of jobs so it's worth not pulling every job's full
