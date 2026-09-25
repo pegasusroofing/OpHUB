@@ -7409,6 +7409,10 @@ let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
 let newRepairJobAddressDraft = '';
 let newRepairJobDescriptionDraft = '';
+let bulkAddRepairJobsOpen = false;
+// Set while a bulk import is running/finished: {siteId, total, done, created, needsReview, duplicates, failedNames:[]}.
+// Drives the progress/summary card in renderRepairJobsCategoryHub; null when no import is in flight.
+let bulkImportProgress = null;
 let repairJobDetailCurrent = null; // the job row currently loaded on the detail page, refreshed every render
 let repairJobPhotoBusy = {}; // category -> bool, disables that upload button mid-upload
 let repairJobSelectMode = false;
@@ -7492,6 +7496,7 @@ async function renderRepairJobsCategoryHub(siteId){
         <button class="darkbtn" style="flex:1;" onclick="toggleAddRepairJobForm()">+ Add Job</button>
         <button class="ghostbtn" style="flex:1;" onclick="exportRepairTrackerExcel('${siteId}')">⬇ Export Excel</button>
       </div>
+      <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="toggleBulkAddRepairJobs()">📥 Bulk Add from Work Orders</button>
       ${addRepairJobFormOpen ? `
         <div class="card" style="margin-bottom:16px;background:var(--paper);">
           <p class="sectiontitle" style="margin-top:0;">Add Repair Job</p>
@@ -7505,6 +7510,27 @@ async function renderRepairJobsCategoryHub(siteId){
             <button class="darkbtn" style="flex:1;" onclick="addRepairJob('${siteId}')">Add Job</button>
             <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleAddRepairJobForm()">Cancel</button>
           </div>
+        </div>
+      ` : ''}
+      ${bulkAddRepairJobsOpen ? `
+        <div class="card" style="margin-bottom:16px;background:var(--paper);">
+          <p class="sectiontitle" style="margin-top:0;">Bulk Add from Work Orders</p>
+          ${bulkImportProgress && bulkImportProgress.siteId===siteId ? `
+            <p class="stub" style="margin:0 0 10px;">${bulkImportProgress.done<bulkImportProgress.total
+              ? `Importing ${bulkImportProgress.done} of ${bulkImportProgress.total}… please keep this tab open.`
+              : `Done — ${bulkImportProgress.created} job${bulkImportProgress.created===1?'':'s'} created${bulkImportProgress.needsReview?` (${bulkImportProgress.needsReview} need review — the address couldn't be read, check the attached PDF)`:''}${bulkImportProgress.duplicates?`, ${bulkImportProgress.duplicates} skipped (already had a job with that Job Number)`:''}.`}</p>
+            <div style="background:var(--line);height:6px;border-radius:3px;overflow:hidden;margin-bottom:12px;">
+              <div style="background:var(--blue);height:100%;width:${Math.round(100*bulkImportProgress.done/bulkImportProgress.total)}%;"></div>
+            </div>
+            ${bulkImportProgress.done>=bulkImportProgress.total ? `<button class="darkbtn" style="width:100%;" onclick="bulkImportProgress=null;bulkAddRepairJobsOpen=false;render();">Done</button>` : ''}
+          ` : `
+            <p class="stub" style="margin:0 0 10px;">Select every work order PDF for this batch — a separate job is created for each one, auto-filled from the PDF the same way the single Add Job form does. Any PDF it can't read a property address from still creates a job (flagged for review) with the file attached, so nothing gets lost.</p>
+            <div class="formfield"><input type="file" id="bulkRepairJobWorkOrders" accept=".pdf" multiple></div>
+            <div style="display:flex;gap:8px;">
+              <button class="darkbtn" style="flex:1;" onclick="startBulkImportRepairJobs(document.getElementById('bulkRepairJobWorkOrders'),'${siteId}')">Start Import</button>
+              <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleBulkAddRepairJobs()">Cancel</button>
+            </div>
+          `}
         </div>
       ` : ''}
     ` : ''}
@@ -7553,6 +7579,11 @@ window.toggleAddRepairJobForm = function(){
   newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
   render();
 };
+window.toggleBulkAddRepairJobs = function(){
+  bulkAddRepairJobsOpen = !bulkAddRepairJobsOpen;
+  bulkImportProgress = null;
+  render();
+};
 // Free, offline, no third-party service — reads the work order PDF's own
 // text layer with pdf.js (already loaded app-wide, see importSchedulePdf
 // above for the same line-grouping approach) and matches it against the
@@ -7566,11 +7597,16 @@ window.toggleAddRepairJobForm = function(){
 // (a full re-render would recreate the <input type="file"> from scratch,
 // which always comes back empty — browsers won't let JS restore a file
 // selection into one).
-window.prefillRepairJobFromWorkOrder = async function(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name||'')) return; // a photo/scan — nothing to read
-  if(typeof pdfjsLib==='undefined') return;
+// Shared by the single-job prefill below AND the bulk importer — reads a
+// work order PDF's own text layer with pdf.js and matches it against the
+// fixed "Axis" work order template's field labels. Returns
+// {jobNumber, address, description} (any of which may be undefined if that
+// label wasn't found) or null if the file isn't a PDF, pdf.js isn't
+// available, or nothing could be read from it (e.g. a scanned/photographed
+// work order with no text layer).
+async function parseWorkOrderPdf(file){
+  if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name||'')) return null; // a photo/scan — nothing to read
+  if(typeof pdfjsLib==='undefined') return null;
   try{
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({data: buf}).promise;
@@ -7595,31 +7631,79 @@ window.prefillRepairJobFromWorkOrder = async function(input){
     const jobNumMatch = fullText.match(/Work Order:\s*(\S+)/);
     const descMatch = fullText.match(/Repair Description:\s*(.*?)\s*Version\s*:/);
     const addrMatch = fullText.match(/Property:\s*(.*?)\s*Resident\s*:/);
-    let filled = 0;
-    if(jobNumMatch){
-      const v = jobNumMatch[1].trim();
-      newRepairJobNumberDraft = v;
-      const el = document.getElementById('newRepairJobNumber'); if(el) el.value = v;
-      filled++;
-    }
+    const result = {};
+    if(jobNumMatch) result.jobNumber = jobNumMatch[1].trim();
     if(addrMatch){
       // The template prints this in ALL CAPS — leaving any token with a
       // digit alone (house numbers, postcode) and title-casing the rest
       // reads far closer to how an address is normally written, without
       // needing real postcode-formatting logic.
-      const v = addrMatch[1].trim().split(/\s+/).map(w=>/\d/.test(w) ? w : (w.charAt(0).toUpperCase()+w.slice(1).toLowerCase())).join(' ');
-      newRepairJobAddressDraft = v;
-      const el = document.getElementById('newRepairJobAddress'); if(el) el.value = v;
-      filled++;
+      result.address = addrMatch[1].trim().split(/\s+/).map(w=>/\d/.test(w) ? w : (w.charAt(0).toUpperCase()+w.slice(1).toLowerCase())).join(' ');
     }
-    if(descMatch){
-      const v = descMatch[1].trim();
-      newRepairJobDescriptionDraft = v;
-      const el = document.getElementById('newRepairJobDescription'); if(el) el.value = v;
-      filled++;
-    }
-    if(filled) toast(`Filled ${filled} field${filled>1?'s':''} from the work order — check before saving`);
-  }catch(e){ /* silent — worst case the fields just don't prefill, nothing lost */ }
+    if(descMatch) result.description = descMatch[1].trim();
+    return result;
+  }catch(e){ return null; }
+}
+window.prefillRepairJobFromWorkOrder = async function(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const parsed = await parseWorkOrderPdf(file);
+  if(!parsed) return;
+  let filled = 0;
+  if(parsed.jobNumber){
+    newRepairJobNumberDraft = parsed.jobNumber;
+    const el = document.getElementById('newRepairJobNumber'); if(el) el.value = parsed.jobNumber;
+    filled++;
+  }
+  if(parsed.address){
+    newRepairJobAddressDraft = parsed.address;
+    const el = document.getElementById('newRepairJobAddress'); if(el) el.value = parsed.address;
+    filled++;
+  }
+  if(parsed.description){
+    newRepairJobDescriptionDraft = parsed.description;
+    const el = document.getElementById('newRepairJobDescription'); if(el) el.value = parsed.description;
+    filled++;
+  }
+  if(filled) toast(`Filled ${filled} field${filled>1?'s':''} from the work order — check before saving`);
+};
+// Bulk importer — one job per selected PDF, reusing parseWorkOrderPdf above.
+// A PDF whose address can't be read still creates a job (address set to a
+// "⚠ Review" placeholder built from the filename, so nothing silently
+// vanishes) with the PDF attached as its work order, so the PM can open it
+// and fix the address by hand. A PDF whose Job Number matches a job this
+// site already has is skipped entirely, so re-selecting an already-imported
+// batch by mistake doesn't create duplicates.
+window.startBulkImportRepairJobs = async function(input, siteId){
+  const files = Array.from((input && input.files) || []);
+  if(!files.length){ toast('Choose one or more PDF work orders first.'); return; }
+  const existingRows = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number');
+  const existingJobNumbers = new Set((existingRows||[]).filter(r=>r.job_number).map(r=>r.job_number.trim().toLowerCase()));
+  bulkImportProgress = {siteId, total: files.length, done: 0, created: 0, needsReview: 0, duplicates: 0};
+  render();
+  for(const file of files){
+    try{
+      const parsed = (await parseWorkOrderPdf(file)) || {};
+      const jobNumberKey = parsed.jobNumber ? parsed.jobNumber.trim().toLowerCase() : '';
+      if(jobNumberKey && existingJobNumbers.has(jobNumberKey)){
+        bulkImportProgress.duplicates++;
+      } else {
+        const needsReview = !parsed.address;
+        const address = parsed.address || ('⚠ Review — '+file.name.replace(/\.pdf$/i,''));
+        const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:parsed.jobNumber||null, description:parsed.description||null, survey_required:'N', created_by:ME.id});
+        const job = rows && rows[0];
+        if(job){
+          await uploadRepairJobWorkOrderFile(job, file);
+          bulkImportProgress.created++;
+          if(needsReview) bulkImportProgress.needsReview++;
+          if(jobNumberKey) existingJobNumbers.add(jobNumberKey);
+        }
+      }
+    }catch(e){ /* one bad file shouldn't stop the rest of the batch */ }
+    bulkImportProgress.done++;
+    render();
+  }
+  toast('Bulk import finished');
 };
 window.addRepairJob = async function(siteId){
   const address = (document.getElementById('newRepairJobAddress').value||'').trim();
