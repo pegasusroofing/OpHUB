@@ -7793,6 +7793,10 @@ async function renderRepairJobDetail(siteId, jobId){
         <p class="field-label" style="margin:14px 0 4px;">Survey Date</p>
         <p class="stub" style="margin:0;">${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? ' — '+escapeHtml(PROFILES[job.surveyed_by].name) : ''}</p>
       ` : ''}
+      ${canManage ? `
+        <button class="ghostbtn" style="width:100%;margin-top:16px;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
+        <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close (in Admin, once surveyed) instead if you just want it off the active lists.</p>
+      ` : ''}
     </div>
 
     <div class="card" style="margin-bottom:16px;">
@@ -7897,9 +7901,7 @@ async function renderRepairJobDetail(siteId, jobId){
           ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
         </select>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
-        <p class="stub" style="margin:8px 0 14px;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
-        <button class="ghostbtn" style="width:100%;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
-        <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close instead if you just want it off the active lists.</p>
+        <p class="stub" style="margin:8px 0 0;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
       </div>
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
