@@ -7991,17 +7991,26 @@ window.addRepairJobPhoto = async function(input, jobId, category){
       // above, which is what actually matters if this fails or nothing's
       // linked at all. Prefer the job's own linked folder if it has one;
       // otherwise fall back to the old auto-created subfolder under the
-      // site's linked folder.
+      // site's linked folder. OneDrive gets a separately-compressed, higher
+      // resolution/quality copy than the in-app one — the app copy stays
+      // small so galleries load fast on-site, but the OneDrive copy is
+      // meant to be the one anyone actually opens/prints/zooms into later.
       if(stored && job){
         const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg';
-        if(jobLinked) syncPhotoToOneDriveFolder(dataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
-        else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(dataUrl, jobFolder+'/'+filename, job.site_id);
+        let hiResDataUrl = dataUrl;
+        try{ hiResDataUrl = await compressImage(file, {maxW:3000, quality:0.95}); }catch(e){ /* fall back to the app copy if this fails */ }
+        if(jobLinked) syncPhotoToOneDriveFolder(hiResDataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
+        else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(hiResDataUrl, jobFolder+'/'+filename, job.site_id);
       }
     }catch(e){ toast('One photo failed to upload — try again.'); }
   }
   repairJobPhotoBusy[category] = false;
   toast('Photo(s) added');
   render();
+  // Keep the survey report PDF (if this job's already been surveyed) in
+  // sync with whatever photos are actually on the job — see
+  // exportRepairJobSurveyPdf below.
+  if((category==='survey'||category==='access') && job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
 };
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
   const yes = await customConfirm('Delete this photo?');
@@ -8079,7 +8088,8 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
   const surveyDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
   const addressLabel = (job && job.address) || 'Repair Job';
   patch.survey_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.survey_event_id, surveyDateOnly, 'Survey: '+addressLabel, []);
-  saveRepairJobField(jobId, patch);
+  await saveRepairJobField(jobId, patch);
+  if(value==='Y') exportRepairJobSurveyPdf(jobId);
 };
 // Best-effort — emails the site's responsible PM whenever an operative
 // saves notes for a repair job section (Survey/Progress/Completion), so
@@ -8093,6 +8103,159 @@ function notifyPmOfRepairJobUpdate(jobId, siteId, section, notesText){
     sbFetch('/functions/v1/send-repair-job-notes-email', {method:'POST', body: JSON.stringify({site_id:siteId, job_id:jobId, section, notes: notesText||''})}).catch(()=>{});
   }catch(e){ /* silent — best effort only */ }
 }
+// Branded "Survey Report" PDF for a single repair job — same header
+// band/footer look as the other branded exports (Snagging, Inspection
+// Reports): logo + org colour band, job details, the survey notes, access
+// requirement/notes, and every survey/access photo laid out via the same
+// Media summary grid those other exports use. Built fresh every time it's
+// requested rather than cached, so it's always up to date with whatever's
+// on the job right now.
+async function buildRepairJobSurveyPdf(jobId){
+  if(typeof PDFLib==='undefined') return null;
+  const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
+  const job = rows[0]; if(!job) return null;
+  const site = SITES.find(s=>s.id===job.site_id);
+  await loadAllProfiles();
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const HEADBAR = PDFLib.rgb(0.933,0.941,0.961);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 44;
+    const CONTENT_W = PAGE_W - 2*MARGIN;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      const addressLabel = job.address || 'Repair Job';
+      const titleText = addressLabel.length>44 ? addressLabel.slice(0,41)+'…' : addressLabel;
+      page.drawText('SURVEY REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageLabel){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB', {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      if(pageLabel){
+        const w = reg.widthOfTextAtSize(pageLabel,8);
+        page.drawText(pageLabel, {x:PAGE_W-MARGIN-w, y:20, size:8, font:reg, color:SLATE});
+      }
+    }
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    function ensureSpace(h){ if(y - h < 50) newPage(); }
+    function wrapText(text, font, size, maxWidth){
+      const words = String(text).split(/\s+/);
+      const lines = []; let line = '';
+      words.forEach(w=>{
+        const test = line ? line+' '+w : w;
+        if(font.widthOfTextAtSize(test, size) > maxWidth && line){ lines.push(line); line = w; }
+        else line = test;
+      });
+      if(line) lines.push(line);
+      return lines;
+    }
+    function drawHeadingBar(label){
+      const h = 26;
+      ensureSpace(h+4);
+      page.drawRectangle({x:MARGIN, y:y-h, width:CONTENT_W, height:h, color:HEADBAR});
+      page.drawText(label, {x:MARGIN+10, y:y-h+8, size:11.5, font:bold, color:INK});
+      y -= h+8;
+    }
+    function drawField(label, value){
+      ensureSpace(30);
+      page.drawText(label.toUpperCase(), {x:MARGIN, y:y-11, size:8.5, font:bold, color:SLATE});
+      y -= 16;
+      wrapText(value||'—', reg, 10.5, CONTENT_W).forEach(l=>{ ensureSpace(14); page.drawText(l, {x:MARGIN, y:y-10, size:10.5, font:reg, color:INK}); y -= 14; });
+      y -= 8;
+    }
+
+    newPage();
+    drawHeadingBar('Job Details');
+    drawField('Job Number', job.job_number || '—');
+    drawField('Address', job.address || '—');
+    if(job.description) drawField('Description of Call Out', job.description);
+
+    drawHeadingBar('Survey');
+    const surveyorName = job.surveyed_by && PROFILES[job.surveyed_by] ? PROFILES[job.surveyed_by].name : null;
+    drawField('Survey Date', job.survey_date ? (new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) + (surveyorName?' — surveyed by '+surveyorName:'')) : 'Not yet surveyed');
+    drawField('Access Requirement', REPAIR_ACCESS_LABEL[job.access_requirement] || 'None');
+    if(job.access_notes) drawField('Access Notes', job.access_notes);
+    drawField('Survey Notes', job.survey_notes || '(no notes recorded)');
+
+    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=in.(survey,access)&order=created_at.asc');
+    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})));
+
+    const total = pdfDoc.getPageCount();
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+total); });
+
+    const filename = exportFilename(job.address||'', 'Survey Report', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await pdfDoc.save();
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
+    const base64 = btoa(binary);
+    return {bytes: outBytes, base64, filename, job};
+  }catch(e){
+    console.error(e);
+    return null;
+  }
+}
+// Auto-export, best-effort and silent (never surfaces an error to the
+// person who just saved notes/a photo) — rebuilds the Survey Report PDF
+// and pushes it into the job's own linked OneDrive folder, or the site's
+// (auto-created job subfolder) if the job itself isn't linked yet. Called
+// whenever survey-relevant data changes AFTER the survey has been marked
+// complete (see setRepairJobSurveyStatus/saveRepairJobSurvey/
+// saveRepairJobAccess/addRepairJobPhoto), so the exported PDF always
+// reflects the latest notes and photos rather than a stale snapshot.
+async function exportRepairJobSurveyPdf(jobId){
+  try{
+    const built = await buildRepairJobSurveyPdf(jobId);
+    if(!built) return;
+    const job = built.job;
+    const site = SITES.find(s=>s.id===job.site_id);
+    if(job.onedrive_folder_id){
+      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        filename: built.filename,
+        content_base64: built.base64,
+        folder_id: job.onedrive_folder_id,
+        drive_id: job.onedrive_drive_id||undefined,
+      })});
+    } else if(site && site.onedrive_folder_id){
+      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        filename: repairJobOneDriveFolder(job)+'/'+built.filename,
+        content_base64: built.base64,
+        site_id: job.site_id,
+      })});
+    }
+  }catch(e){ /* silent — best effort only */ }
+}
 // Surveyor is never picked from a dropdown — it's just whoever actually
 // filled the survey notes in, captured automatically the first time notes
 // are saved for this job (re-saving edits doesn't change who did the survey).
@@ -8103,11 +8266,16 @@ window.saveRepairJobSurvey = function(jobId){
   if(!job || !job.surveyed_by) patch.surveyed_by = ME.id;
   saveRepairJobField(jobId, patch);
   if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', survey_notes);
+  // If the survey's already marked complete, an edit to the notes here
+  // should be reflected in the exported PDF too, not just the app.
+  if(job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
 };
 window.saveRepairJobAccess = function(jobId){
   const access_requirement = document.getElementById('repairAccessRequirement').value;
   const access_notes = document.getElementById('repairAccessNotes').value.trim();
   saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null});
+  const job = repairJobDetailCurrent;
+  if(job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
 };
 // Mirrors the scaffold-booking pattern below — books who's doing the survey
 // and when, with the date synced onto the site Calendar the same way.
