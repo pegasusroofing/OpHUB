@@ -1496,12 +1496,39 @@ async function uploadDataUrl(bucket, path, dataUrl){
   return uploadToStorage(bucket, path, blob, blob.type);
 }
 function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path) : null; }
-// Web Share API — hands a file to the OS share sheet (Mail, WhatsApp,
-// Messages, AirDrop, "Save to Files", etc.). Supported on iOS 15+ (our
-// minimum target) inside both Safari and a Capacitor WKWebView. Returns
-// true if the share sheet was actually shown.
+function blobToBase64(blob){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+// #(share-no-file-android) 2026-09-25 — sharing a Priced Sheet PDF out to
+// WhatsApp/email from the in-app viewer looked like it worked (the OS share
+// sheet opened, WhatsApp/Gmail were listed) but the app that was picked
+// received no attachment at all. Root cause: the Web Share API's `files`
+// option is well known to be unreliable inside an embedded Android
+// WebView — `navigator.canShare({files})` can report true and
+// `navigator.share()` can resolve without throwing, while the receiving
+// app still gets nothing. This app's Android project already has a
+// FileProvider configured (AndroidManifest.xml) specifically for real
+// native file sharing, so on native platforms this now writes the file to
+// the app's cache directory via the Capacitor Filesystem plugin and shares
+// that as a real content:// URI via the Capacitor Share plugin — the
+// reliable path — falling back to the old Web Share/download behaviour on
+// a plain web browser, or if those native plugins aren't present, so
+// nothing regresses there. Returns true if a share sheet was actually shown.
 async function shareFile(blob, filename, mimeType){
   try{
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const plugins = window.Capacitor && window.Capacitor.Plugins;
+    if(isNative && plugins && plugins.Filesystem && plugins.Share){
+      const base64 = await blobToBase64(blob);
+      const written = await plugins.Filesystem.writeFile({path: filename, data: base64, directory: 'CACHE'});
+      await plugins.Share.share({title: filename, url: written.uri});
+      return true;
+    }
     const file = new File([blob], filename, {type: mimeType});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title: filename});
@@ -12919,8 +12946,18 @@ window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
       site_id: siteId, recipient_email: trimmed, cc_email: emailTo.cc,
       sheet_title: built.sheet.title, file_url: publicUrl('mc-documents', stored),
     })});
-    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — please try again.'); }
-  }catch(e){ toast('Could not send the email — please try again.'); }
+    if(res && res.ok){ toast('Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
+  }catch(e){
+    // #(email-price-sheet-silent-fail) 2026-09-25 — this failed for Andy
+    // with no trace at all in Supabase's own request logs (the upload just
+    // before it succeeded every time), meaning the fetch below never
+    // actually left the browser — something threw before/while the request
+    // was being made. Surfacing the real error here (instead of the old
+    // generic "try again") so the next failure is diagnosable from the
+    // toast itself rather than invisible.
+    console.error('[emailPriceBuilderSheetPdf]', e);
+    toast('Could not send the email — '+((e && e.message) || e || 'unknown error'));
+  }
 };
 
 /* ================= LABOUR INVOICES ================= */
