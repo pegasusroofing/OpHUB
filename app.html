@@ -7834,6 +7834,7 @@ async function renderRepairJobDetail(siteId, jobId){
       <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
       <button class="ghostbtn" onclick="saveRepairJobAccess('${jobId}')">Save Access Details</button>
       ${needsScaffold ? photoUploadRow('access','Scaffold/tower access photo') : ''}
+      ${job.survey_required!=='Y' ? `<button class="darkbtn" style="width:100%;margin-top:16px;background:var(--ok);border-color:var(--ok);" onclick="setRepairJobSurveyStatus('${jobId}','Y')">✅ Mark Survey as Completed</button>` : `<p class="stub" style="text-align:center;margin:16px 0 0;">✅ Survey marked completed — the rest of the job is unlocked below.</p>`}
     </div>
 
     ${surveyDone ? `
