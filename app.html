@@ -7350,66 +7350,75 @@ async function renderSiteHome(siteId){
    place any of this data is actually edited. */
 const REPAIR_ACCESS_LABEL = {none:'None', ladder:'Ladder', scaffold:'Scaffold', tower:'Tower'};
 const REPAIR_JOB_STATUS_OPTIONS = ['New','Awaiting Survey','Awaiting Quote Approval','Approved','Awaiting Scaffold','In Progress','Awaiting Invoice','Completed','REJECTED'];
+// The 4 navigational buckets on the Live Jobs sub-tile page. Not a strict
+// state machine — a job's own fields are what's true, these are just what
+// each bucket looks for, so a job can show up in more than one at once
+// (e.g. approved AND still waiting on scaffold).
+const REPAIR_CATEGORY_DEFS = {
+  survey:    {label:'Jobs to Survey',          match:j=>!j.closed && j.survey_required!=='Y'},
+  scaffold:  {label:'Scaffold to be Erected',  match:j=>!j.closed && (j.access_requirement==='scaffold'||j.access_requirement==='tower') && !j.scaffold_erection_date},
+  approved:  {label:'Approved & Ready',        match:j=>!j.closed && j.quote_approved===true && !j.works_completed},
+  completed: {label:'Completed Jobs',          match:j=>!!j.works_completed},
+  open:      {label:'Open Jobs',               match:j=>!j.closed},
+  closed:    {label:'Closed Jobs',              match:j=>!!j.closed},
+  all:       {label:'All Jobs',                match:()=>true},
+};
 let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
 let newRepairJobAddressDraft = '';
 let newRepairJobDescriptionDraft = '';
-let repairJobsFilter = 'open';
 let repairJobDetailCurrent = null; // the job row currently loaded on the detail page, refreshed every render
 let repairJobPhotoBusy = {}; // category -> bool, disables that upload button mid-upload
+let repairJobSelectMode = false;
+let repairJobSelectedIds = new Set();
 
 async function renderRepairJobsHub(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed');
+  if(__gen !== RENDER_GEN) return;
+  const openCount = jobs.filter(j=>!j.closed).length;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="margin-bottom:0;">
+      <div class="tile" onclick="go('#/site/${siteId}/repairjobs')">
+        <div class="icon" style="background:var(--brand1);color:var(--brand1-text);">🛠</div>
+        <div class="lbl">Live Jobs</div><div class="sub">${openCount} open</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/hs')">
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+        <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')">
+        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+        <div class="lbl">${materialsTileLabel()}</div><div class="sub">Orders</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/calendar')">
+        <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+        <div class="lbl">Calendar</div><div class="sub">Key dates</div>
+      </div>
+      <div class="tile tile-wide" onclick="go('#/site/${siteId}/todos')">
+        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+        <div><div class="lbl">To Do List</div><div class="sub">Tasks</div></div>
+      </div>
+    </div>
+  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', tabs:false});
+}
+
+async function renderRepairJobsCategoryHub(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
   const canManage = isManager(ME);
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
-  const openCount = jobs.filter(j=>!j.closed).length;
-  const closedCount = jobs.filter(j=>j.closed).length;
-  const filtered = jobs.filter(j => repairJobsFilter==='all' ? true : repairJobsFilter==='closed' ? j.closed : !j.closed);
-
-  function jobCardHtml(j){
-    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'New');
-    const badgeColor = j.closed ? 'var(--ok)' : (j.job_status==='REJECTED' ? 'var(--warn)' : 'var(--brand1)');
-    return `
-      <div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="go('#/site/${siteId}/repairjob/${j.id}')">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-          <div style="min-width:0;">
-            <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
-            ${j.description ? `<div class="meta" style="margin-top:2px;">${escapeHtml(j.description)}</div>` : ''}
-            ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
-          </div>
-          <span class="plaintag" style="flex:none;color:${badgeColor};">${escapeHtml(statusLabel)}</span>
-        </div>
-        <div class="row-gap" style="margin-top:8px;flex-wrap:wrap;">
-          <span class="stub" style="margin:0;">${j.survey_required==='Y'?'✅':'⏳'} Survey</span>
-          <span class="stub" style="margin:0;">${j.works_completed?'✅':'⏳'} Completed</span>
-          ${canManage ? `<span class="stub" style="margin:0;">${j.invoiced?'✅':'⏳'} Invoiced</span>` : ''}
-        </div>
-      </div>
-    `;
-  }
-
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <div class="tilegrid" style="margin-bottom:18px;">
-      <div class="tile" onclick="go('#/site/${siteId}/hs')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
-        <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/calendar')">
-        <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
-        <div class="lbl">Calendar</div><div class="sub">Key dates</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/todos')">
-        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
-        <div class="lbl">To Do List</div><div class="sub">Tasks</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/materials')">
-        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-        <div class="lbl">${materialsTileLabel()}</div><div class="sub">Orders</div>
-      </div>
-    </div>
+  const tileDefs = [
+    {key:'survey', icon:'🔍', bg:'#FFF3D9', color:'#8A6300'},
+    {key:'scaffold', icon:'🪜', bg:'#E4EEFB', color:'var(--blue)'},
+    {key:'approved', icon:'✅', bg:'var(--ok-bg)', color:'var(--ok)'},
+    {key:'completed', icon:'🏁', bg:'#E7E9EE', color:'var(--ink)'},
+  ];
+  document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="darkbtn" style="flex:1;" onclick="toggleAddRepairJobForm()">+ Add Job</button>
@@ -7427,15 +7436,22 @@ async function renderRepairJobsHub(siteId){
           </div>
         </div>
       ` : ''}
-      <div class="row-gap" style="margin-bottom:14px;">
-        <button class="${repairJobsFilter==='open'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='open';render()">Open (${openCount})</button>
-        <button class="${repairJobsFilter==='closed'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='closed';render()">Closed (${closedCount})</button>
-        <button class="${repairJobsFilter==='all'?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="repairJobsFilter='all';render()">All</button>
-      </div>
-      ${isFullManager(ME) ? `<p class="stub" style="text-align:right;margin:-6px 0 14px;text-decoration:underline;cursor:pointer;" onclick="siteTeamSectionOpen.repaircontract=true;siteTeamSectionOpen.sync=true;go('#/site/${siteId}/team')">OneDrive folder ${site.onedrive_folder_id?'— "'+escapeHtml(site.onedrive_folder_name||'')+'"':'— not linked yet'} ›</p>` : ''}
     ` : ''}
-    ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No repair jobs${canManage?' yet — tap + Add Job above.':' yet.'}</div>`}
-  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', tabs:false}); }
+    <div class="tilegrid" style="margin-bottom:14px;">
+      ${tileDefs.map(t=>{
+        const def = REPAIR_CATEGORY_DEFS[t.key];
+        const count = jobs.filter(def.match).length;
+        return `<div class="tile" onclick="go('#/site/${siteId}/repairjobs/${t.key}')">
+          <div class="icon" style="background:${t.bg};color:${t.color};">${t.icon}</div>
+          <div class="lbl">${def.label}</div><div class="sub">${count}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    ${canManage ? `
+      <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="go('#/site/${siteId}/repairjobs/all')">View All Jobs (${jobs.length})</button>
+      ${isFullManager(ME) ? `<p class="stub" style="text-align:right;margin:-4px 0 4px;text-decoration:underline;cursor:pointer;" onclick="siteTeamSectionOpen.repaircontract=true;siteTeamSectionOpen.sync=true;go('#/site/${siteId}/team')">OneDrive folder ${site.onedrive_folder_id?'— "'+escapeHtml(site.onedrive_folder_name||'')+'"':'— not linked yet'} ›</p>` : ''}
+    ` : ''}
+  `, {title:'Live Jobs', subtitle:site.name, back:'#/site/'+siteId+'/home', tabs:false});
 }
 window.toggleAddRepairJobForm = function(){
   addRepairJobFormOpen = !addRepairJobFormOpen;
@@ -7447,10 +7463,100 @@ window.addRepairJob = async function(siteId){
   if(!address){ toast('Enter an address.'); return; }
   const jobNumber = (document.getElementById('newRepairJobNumber').value||'').trim();
   const description = (document.getElementById('newRepairJobDescription').value||'').trim();
-  const row = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, created_by:ME.id});
+  const row = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, survey_required:'N', created_by:ME.id});
   if(!row){ return; }
   addRepairJobFormOpen = false; newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
   toast('Job added');
+  render();
+};
+
+async function renderRepairJobsListPage(siteId, category){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  if(!REPAIR_CATEGORY_DEFS[category]) category = 'open';
+  const canManage = isManager(ME);
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
+  if(__gen !== RENDER_GEN) return;
+  const filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
+  if(!canManage) repairJobSelectMode = false;
+
+  function jobCardHtml(j){
+    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'New');
+    const badgeColor = j.closed ? 'var(--ok)' : (j.job_status==='REJECTED' ? 'var(--warn)' : 'var(--brand1)');
+    const checked = repairJobSelectedIds.has(j.id);
+    return `
+      <div class="card" style="margin-bottom:10px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;" onclick="${repairJobSelectMode ? `toggleRepairJobSelected('${j.id}')` : `go('#/site/${siteId}/repairjob/${j.id}')`}">
+        ${repairJobSelectMode ? `<input type="checkbox" style="width:auto;margin-top:3px;" ${checked?'checked':''} onclick="event.stopPropagation();toggleRepairJobSelected('${j.id}')">` : ''}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+            <div style="min-width:0;">
+              <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
+              ${j.description ? `<div class="meta" style="margin-top:2px;">${escapeHtml(j.description)}</div>` : ''}
+              ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
+            </div>
+            <span class="plaintag" style="flex:none;color:${badgeColor};">${escapeHtml(statusLabel)}</span>
+          </div>
+          <div class="row-gap" style="margin-top:8px;flex-wrap:wrap;">
+            <span class="stub" style="margin:0;">${j.survey_required==='Y'?'✅':'⏳'} Survey</span>
+            <span class="stub" style="margin:0;">${j.works_completed?'✅':'⏳'} Completed</span>
+            ${canManage ? `<span class="stub" style="margin:0;">${j.invoiced?'✅':'⏳'} Invoiced</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('app').innerHTML = shell(`
+    ${canManage ? `
+      <div style="display:flex;overflow-x:auto;gap:8px;margin-bottom:14px;padding-bottom:2px;">
+        ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
+        <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
+      </div>
+      <div class="row-gap" style="margin-bottom:14px;">
+        <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
+      </div>
+      ${repairJobSelectMode ? `
+        <div class="card" style="margin-bottom:14px;background:var(--paper);">
+          <p class="stub" style="margin:0 0 10px;">${repairJobSelectedIds.size} selected</p>
+          <div class="row-gap" style="flex-wrap:wrap;">
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{quote_approved:true})">Approve Quote</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{scaffold_erection_date: todayISODate()})">Mark Scaffold Erected</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{works_completed:true, works_completed_date: new Date().toISOString()})">Mark Completed</button>
+            <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="bulkPatchRepairJobs('${siteId}',{invoiced:true})">Mark Invoiced</button>
+            <button class="darkbtn" style="flex:1;min-width:140px;" onclick="bulkCloseRepairJobs('${siteId}')">Close Selected</button>
+          </div>
+        </div>
+      ` : ''}
+    ` : ''}
+    ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No jobs in this list.</div>`}
+  `, {title:REPAIR_CATEGORY_DEFS[category].label, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', tabs:false});
+}
+window.toggleRepairJobSelectMode = function(){
+  repairJobSelectMode = !repairJobSelectMode;
+  repairJobSelectedIds = new Set();
+  render();
+};
+window.toggleRepairJobSelected = function(jobId){
+  if(repairJobSelectedIds.has(jobId)) repairJobSelectedIds.delete(jobId); else repairJobSelectedIds.add(jobId);
+  render();
+};
+window.bulkPatchRepairJobs = async function(siteId, patch){
+  const ids = [...repairJobSelectedIds];
+  if(!ids.length){ toast('Nothing selected.'); return; }
+  for(const id of ids){ await dbUpdate('repair_jobs', id, patch); }
+  repairJobSelectMode = false; repairJobSelectedIds = new Set();
+  toast(ids.length+' job'+(ids.length>1?'s':'')+' updated');
+  render();
+};
+window.bulkCloseRepairJobs = async function(siteId){
+  const ids = [...repairJobSelectedIds];
+  if(!ids.length){ toast('Nothing selected.'); return; }
+  const yes = await customConfirm('Close '+ids.length+' job'+(ids.length>1?'s':'')+'? They’ll drop off the operative’s list.');
+  if(!yes) return;
+  for(const id of ids){ await dbUpdate('repair_jobs', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Completed'}); }
+  repairJobSelectMode = false; repairJobSelectedIds = new Set();
+  toast(ids.length+' job'+(ids.length>1?'s':'')+' closed');
   render();
 };
 window.exportRepairTrackerExcel = async function(siteId){
@@ -27826,6 +27932,7 @@ async function renderRoute(){
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='repairjob') return renderRepairJobDetail(siteId, parts[3]);
+    if(page==='repairjobs') return parts[3] ? renderRepairJobsListPage(siteId, parts[3]) : renderRepairJobsCategoryHub(siteId);
     if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
     if(page==='snagging'){
