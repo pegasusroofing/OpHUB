@@ -7378,6 +7378,16 @@ async function renderRepairJobsHub(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
+  // Same first-open "assign operatives" prompt as a normal site's Home page
+  // (see renderSiteHome) — repair-contract sites short-circuit straight
+  // here before that code runs, so without this a newly-flipped-on repair
+  // site never gets the prompt at all and stays unstaffed until someone
+  // remembers to go and do it manually from Settings & Admin.
+  if(isManager(ME) && siteStatusKey(site)==='live'){
+    dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id&limit=1').then(rows=>{
+      if(!rows.length) openAssignOperativesModal(siteId);
+    });
+  }
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed');
   if(__gen !== RENDER_GEN) return;
   const openCount = jobs.filter(j=>!j.closed).length;
@@ -7404,7 +7414,7 @@ async function renderRepairJobsHub(siteId){
         <div><div class="lbl">To Do List</div><div class="sub">Tasks</div></div>
       </div>
     </div>
-  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', tabs:false});
+  `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
 }
 
 async function renderRepairJobsCategoryHub(siteId){
@@ -7436,6 +7446,8 @@ async function renderRepairJobsCategoryHub(siteId){
           <div class="formfield"><input type="text" id="newRepairJobNumber" placeholder="Job number (optional)" value="${escapeHtml(newRepairJobNumberDraft)}" oninput="newRepairJobNumberDraft=this.value"></div>
           <div class="formfield"><input type="text" id="newRepairJobAddress" placeholder="Address" value="${escapeHtml(newRepairJobAddressDraft)}" oninput="applyTitleCase(this);newRepairJobAddressDraft=this.value"></div>
           <div class="formfield"><textarea id="newRepairJobDescription" placeholder="Description of call out" rows="2" oninput="newRepairJobDescriptionDraft=this.value">${escapeHtml(newRepairJobDescriptionDraft)}</textarea></div>
+          <p class="field-label" style="margin-bottom:4px;">Work Order (optional)</p>
+          <div class="formfield"><input type="file" id="newRepairJobWorkOrder" accept=".pdf,image/*"></div>
           <div style="display:flex;gap:8px;">
             <button class="darkbtn" style="flex:1;" onclick="addRepairJob('${siteId}')">Add Job</button>
             <button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="toggleAddRepairJobForm()">Cancel</button>
@@ -7457,7 +7469,7 @@ async function renderRepairJobsCategoryHub(siteId){
       <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="go('#/site/${siteId}/repairjobs/all')">View All Jobs (${jobs.length})</button>
       ${isFullManager(ME) ? `<p class="stub" style="text-align:right;margin:-4px 0 4px;text-decoration:underline;cursor:pointer;" onclick="siteTeamSectionOpen.repaircontract=true;siteTeamSectionOpen.sync=true;go('#/site/${siteId}/team')">OneDrive folder ${site.onedrive_folder_id?'— "'+escapeHtml(site.onedrive_folder_name||'')+'"':'— not linked yet'} ›</p>` : ''}
     ` : ''}
-  `, {title:'Live Jobs', subtitle:site.name, back:'#/site/'+siteId+'/home', tabs:false});
+  `, {title:'Live Jobs', subtitle:site.name, back:'#/site/'+siteId+'/home', siteId, activeTab:'home'});
 }
 window.toggleAddRepairJobForm = function(){
   addRepairJobFormOpen = !addRepairJobFormOpen;
@@ -7469,10 +7481,18 @@ window.addRepairJob = async function(siteId){
   if(!address){ toast('Enter an address.'); return; }
   const jobNumber = (document.getElementById('newRepairJobNumber').value||'').trim();
   const description = (document.getElementById('newRepairJobDescription').value||'').trim();
-  const row = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, survey_required:'N', created_by:ME.id});
-  if(!row){ return; }
+  const workOrderInput = document.getElementById('newRepairJobWorkOrder');
+  const workOrderFile = workOrderInput && workOrderInput.files && workOrderInput.files[0];
+  const rows = await dbInsert('repair_jobs', {site_id:siteId, org_id:ME.org_id, address, job_number:jobNumber||null, description:description||null, survey_required:'N', created_by:ME.id});
+  const job = rows && rows[0];
+  if(!job){ return; }
+  let workOrderFailed = false;
+  if(workOrderFile){
+    const updated = await uploadRepairJobWorkOrderFile(job, workOrderFile);
+    if(!updated) workOrderFailed = true;
+  }
   addRepairJobFormOpen = false; newRepairJobNumberDraft=''; newRepairJobAddressDraft=''; newRepairJobDescriptionDraft='';
-  toast('Job added');
+  toast(workOrderFailed ? 'Job added — but the work order failed to upload. Add it from the job later.' : 'Job added');
   render();
 };
 
@@ -7541,7 +7561,7 @@ async function renderRepairJobsListPage(siteId, category){
       ` : ''}
     ` : ''}
     ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No jobs in this list.</div>`}
-  `, {title:REPAIR_CATEGORY_DEFS[category].label, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', tabs:false});
+  `, {title:REPAIR_CATEGORY_DEFS[category].label, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', siteId, activeTab:'home'});
 }
 window.toggleRepairJobSelectMode = function(){
   repairJobSelectMode = !repairJobSelectMode;
@@ -7751,10 +7771,12 @@ async function renderRepairJobDetail(siteId, jobId){
         ${REPAIR_JOB_STATUS_OPTIONS.map(s=>`<option value="${s}" ${job.job_status===s?'selected':''}>${s}</option>`).join('')}
       </select>
       <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} onchange="setRepairJobClosed('${jobId}', this.checked)">Close this job</label>
-      <p class="stub" style="margin:8px 0 0;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
+      <p class="stub" style="margin:8px 0 14px;">Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened.</p>
+      <button class="ghostbtn" style="width:100%;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
+      <p class="stub" style="margin:8px 0 0;">Permanently deletes this job and its photos. This cannot be undone — use Close instead if you just want it off the active lists.</p>
     </div>
     ` : ''}
-  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/home', tabs:false});
+  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/home', siteId, activeTab:'home'});
 }
 // A repair job gets its own subfolder in the site's linked OneDrive folder
 // (named after its job number, or its address if it has none), with photos
@@ -7805,18 +7827,20 @@ window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
     render();
   }
 };
-window.addRepairJobWorkOrder = async function(input, jobId){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  const path = ME.org_id+'/repairjobs/'+jobId+'/workorder/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9.-]/g,'_');
+// Shared by addRepairJob (attaching a work order at creation time) and
+// addRepairJobWorkOrder (adding/replacing one later from the job detail
+// page) — uploads to storage, saves the path on the job row, and
+// best-effort pushes a copy into that job's OneDrive subfolder if the site
+// is linked. Returns the updated row, or null if the storage upload itself
+// failed (the OneDrive push is opportunistic and never fails this).
+async function uploadRepairJobWorkOrderFile(job, file){
+  const path = ME.org_id+'/repairjobs/'+job.id+'/workorder/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-zA-Z0-9.-]/g,'_');
   const stored = await uploadToStorage('site-photos', path, file, file.type);
-  if(!stored){ toast('Upload failed — try again.'); return; }
-  const row = await dbUpdate('repair_jobs', jobId, {work_order_path:stored, work_order_name:file.name});
+  if(!stored) return null;
+  const row = await dbUpdate('repair_jobs', job.id, {work_order_path:stored, work_order_name:file.name});
   if(row){
-    toast('Work order uploaded');
-    const job = repairJobDetailCurrent;
-    const site = job ? SITES.find(s=>s.id===job.site_id) : null;
-    if(site && site.onedrive_folder_id && job){
+    const site = SITES.find(s=>s.id===job.site_id);
+    if(site && site.onedrive_folder_id){
       try{
         const buf = await file.arrayBuffer();
         const bytes = new Uint8Array(buf);
@@ -7830,8 +7854,18 @@ window.addRepairJobWorkOrder = async function(input, jobId){
         })}).catch(()=>{});
       }catch(e){ /* silent — OneDrive sync is opportunistic */ }
     }
-    render();
   }
+  return row;
+}
+window.addRepairJobWorkOrder = async function(input, jobId){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const job = repairJobDetailCurrent;
+  if(!job){ return; }
+  const row = await uploadRepairJobWorkOrderFile(job, file);
+  if(!row){ toast('Upload failed — try again.'); return; }
+  toast('Work order uploaded');
+  render();
 };
 window.saveRepairJobField = async function(jobId, patch){
   const row = await dbUpdate('repair_jobs', jobId, patch);
@@ -7946,6 +7980,24 @@ window.setRepairJobClosed = async function(jobId, checked){
     if(!yes){ render(); return; }
   }
   saveRepairJobField(jobId, checked ? {closed:true, closed_by:ME.id, closed_at:new Date().toISOString(), job_status:'Completed'} : {closed:false, closed_by:null, closed_at:null});
+};
+// PM/Admin only (matches the DB's "pm delete" RLS policy on repair_jobs).
+// Unlike closing a job, this is permanent — the row and its photo records
+// (repair_job_photos cascades off repair_jobs) are gone. Best-effort
+// cleans up the underlying storage objects (photos + work order) too, but
+// that's opportunistic — a stray orphaned file in storage is harmless and
+// never blocks the actual delete, which is what the user is waiting on.
+window.deleteRepairJob = async function(jobId, siteId){
+  const yes = await customConfirm('Permanently delete this job and all its photos? This cannot be undone.');
+  if(!yes) return;
+  const job = repairJobDetailCurrent;
+  const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&select=storage_path');
+  const done = await dbDelete('repair_jobs', jobId);
+  if(!done){ toast('Could not delete — try again.'); return; }
+  (photos||[]).forEach(p=>{ if(p.storage_path) sbFetch('/storage/v1/object/site-photos/'+p.storage_path, {method:'DELETE'}).catch(()=>{}); });
+  if(job && job.work_order_path) sbFetch('/storage/v1/object/site-photos/'+job.work_order_path, {method:'DELETE'}).catch(()=>{});
+  toast('Job deleted');
+  go('#/site/'+siteId+'/repairjobs');
 };
 
 async function loadPMList(){
