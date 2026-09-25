@@ -7465,6 +7465,16 @@ window.setRepairJobSort = function(value){
   repairJobSortBy = REPAIR_JOB_SORTS[value] ? value : 'date_desc';
   render();
 };
+// Free-text filter on the repair jobs list — matches address, description
+// or job number (case-insensitive substring). Cleared whenever the visible
+// category changes so an old search doesn't silently hide jobs in a list
+// the user didn't mean to filter.
+let repairJobFilterText = '';
+let repairJobFilterCategory = null; // siteId+'/'+category of the list the filter text above belongs to
+window.setRepairJobFilter = function(value){
+  repairJobFilterText = value;
+  render();
+};
 let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
 let newRepairJobAddressDraft = '';
@@ -7832,6 +7842,7 @@ async function renderRepairJobsListPage(siteId, category){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
   if(!REPAIR_CATEGORY_DEFS[category]) category = 'open';
+  if(repairJobFilterCategory !== siteId+'/'+category){ repairJobFilterCategory = siteId+'/'+category; repairJobFilterText = ''; }
   const canManage = isManager(ME);
   // An operative reaching a tile hidden from them (bookmark/typed URL —
   // there's no chip or tile pointing here for them) gets bounced back to
@@ -7847,7 +7858,11 @@ async function renderRepairJobsListPage(siteId, category){
   // notes/description text just to render a status card.
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved,created_at&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
-  const filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
+  let filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
+  const filterQuery = (repairJobFilterText||'').trim().toLowerCase();
+  if(filterQuery){
+    filtered = filtered.filter(j=>(j.address||'').toLowerCase().includes(filterQuery) || (j.description||'').toLowerCase().includes(filterQuery) || (j.job_number||'').toLowerCase().includes(filterQuery));
+  }
   const sortFn = REPAIR_JOB_SORTS[repairJobSortBy] || REPAIR_JOB_SORTS.date_desc;
   filtered.sort(sortFn);
   if(!canManage) repairJobSelectMode = false;
@@ -7893,6 +7908,9 @@ async function renderRepairJobsListPage(siteId, category){
         ${REPAIR_ROUTE_CATEGORIES.includes(category) ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
       </div>
     ` : ''}
+    <div class="formfield" style="margin:0 0 10px;">
+      <input type="text" id="repairJobFilterInput" placeholder="Filter by address, description or job number…" value="${escapeHtml(repairJobFilterText)}" oninput="setRepairJobFilter(this.value)">
+    </div>
     <div class="formfield" style="margin:0 0 14px;">
       <select id="repairJobSortSelect" style="width:100%;" onchange="setRepairJobSort(this.value)">
         ${Object.keys(REPAIR_JOB_SORTS).map(k=>`<option value="${k}" ${repairJobSortBy===k?'selected':''}>${REPAIR_JOB_SORT_LABELS[k]}</option>`).join('')}
