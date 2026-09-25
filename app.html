@@ -7756,10 +7756,14 @@ window.saveRepairJobBasics = function(jobId){
   if(!address){ toast('Enter an address.'); return; }
   saveRepairJobField(jobId, {job_number:jobNumber||null, address, description:description||null});
 };
-window.setRepairJobSurveyStatus = function(jobId, value){
+window.setRepairJobSurveyStatus = async function(jobId, value){
   const job = repairJobDetailCurrent;
   const patch = {survey_required: value};
   if(value==='Y' && job && !job.survey_date) patch.survey_date = new Date().toISOString();
+  const effectiveDate = (patch.survey_date || (job && job.survey_date) || null);
+  const surveyDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
+  const addressLabel = (job && job.address) || 'Repair Job';
+  patch.survey_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.survey_event_id, surveyDateOnly, 'Survey: '+addressLabel, []);
   saveRepairJobField(jobId, patch);
 };
 window.saveRepairJobSurvey = function(jobId){
@@ -7768,15 +7772,17 @@ window.saveRepairJobSurvey = function(jobId){
   const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
   saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null, survey_notes: survey_notes||null});
 };
-// Mirrors syncDeliveryCalendarEvent's linked-record pattern — pushes a
-// repair job's scaffold booking/erection date onto the site's own Calendar
-// (site_calendar_events), keeping the link on the job row
-// (scaffold_booking_event_id / scaffold_erection_event_id) so re-saving
-// updates the same entry instead of duplicating it, and clearing the date
-// removes it. The booking event carries the assigned operative on
-// reminder_recipient_ids so they get notified like any other reminder; the
-// erection date is a manager-only planning entry with no recipients. Never
-// blocks the job save itself — a calendar hiccup just leaves the old link.
+// Mirrors syncDeliveryCalendarEvent's linked-record pattern — pushes any of
+// a repair job's key dates (survey date, scaffold booking date, scaffold
+// erection date, works-completed date) onto the site's own Calendar
+// (site_calendar_events), keeping the link on the job row (survey_event_id /
+// scaffold_booking_event_id / scaffold_erection_event_id /
+// works_completed_event_id) so re-saving updates the same entry instead of
+// duplicating it, and clearing/un-ticking the date removes it. Only the
+// booking event carries the assigned operative on reminder_recipient_ids so
+// they get notified like any other reminder; the rest are manager-only
+// planning entries with no recipients. Never blocks the job save itself — a
+// calendar hiccup just leaves the old link in place.
 async function syncRepairCalendarEvent(orgId, siteId, existingEventId, date, title, reminderRecipientIds){
   try{
     if(!date){
@@ -7814,10 +7820,14 @@ window.saveRepairJobProgress = function(jobId){
   const progress_notes = document.getElementById('repairProgressNotes').value.trim();
   saveRepairJobField(jobId, {progress_notes: progress_notes||null});
 };
-window.setRepairJobWorksCompleted = function(jobId, checked){
+window.setRepairJobWorksCompleted = async function(jobId, checked){
   const job = repairJobDetailCurrent;
   const patch = {works_completed: checked};
   if(checked && job && !job.works_completed_date) patch.works_completed_date = new Date().toISOString();
+  const effectiveDate = checked ? (patch.works_completed_date || (job && job.works_completed_date) || null) : null;
+  const completionDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
+  const addressLabel = (job && job.address) || 'Repair Job';
+  patch.works_completed_event_id = await syncRepairCalendarEvent(ME.org_id, job && job.site_id, job && job.works_completed_event_id, completionDateOnly, 'Job Completed: '+addressLabel, []);
   saveRepairJobField(jobId, patch);
 };
 window.saveRepairJobCompletionNotes = function(jobId){
