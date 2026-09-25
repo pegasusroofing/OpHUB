@@ -7392,6 +7392,24 @@ async function renderRepairJobsHub(siteId){
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <div class="tilegrid" style="margin-bottom:18px;">
+      <div class="tile" onclick="go('#/site/${siteId}/hs')">
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+        <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/calendar')">
+        <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+        <div class="lbl">Calendar</div><div class="sub">Key dates</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/todos')">
+        <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+        <div class="lbl">To Do List</div><div class="sub">Tasks</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/materials')">
+        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+        <div class="lbl">${materialsTileLabel()}</div><div class="sub">Orders</div>
+      </div>
+    </div>
     ${canManage ? `
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="darkbtn" style="flex:1;" onclick="toggleAddRepairJobForm()">+ Add Job</button>
@@ -27978,7 +27996,12 @@ async function renderRoute(){
       return renderClientInfo(siteId);
     }
     if(page==='todos'){
-      if(!isManager(ME)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
+      // To Do List is manager-only on a normal site, but a Maintenance /
+      // Repair Contract site's Home has its own small tile row (Health &
+      // Safety, Calendar, To Do List, Materials) that's meant for the
+      // operative too — so let them through here specifically.
+      const __site = SITES.find(s=>s.id===siteId);
+      if(!isManager(ME) && !(__site && __site.repair_contract)){ toast('Project managers and admins only.'); go(`#/site/${siteId}/home`); return; }
       return renderTodoList(siteId);
     }
     if(page==='onedrive-folder') return renderOneDriveFolderPicker(siteId);
