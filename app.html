@@ -7586,9 +7586,10 @@ async function renderRepairJobDetail(siteId, jobId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
-  const [jobRows, photos] = await Promise.all([
+  const [jobRows, photos, operatives] = await Promise.all([
     dbSelect('repair_jobs', 'id=eq.'+jobId),
     dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&order=created_at.asc'),
+    siteAssignedOperatives(siteId),
   ]);
   const job = jobRows[0];
   if(!job){ go('#/site/'+siteId+'/home'); return; }
@@ -7657,6 +7658,11 @@ async function renderRepairJobDetail(siteId, jobId){
       <p class="sectiontitle" style="margin-top:0;">Scaffold &amp; Approval</p>
       <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
       <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;"></div>
+      <p class="field-label" style="margin-bottom:4px;">Assign booking to</p>
+      <select id="repairScaffBookingAssignee" style="width:100%;margin-bottom:10px;">
+        <option value="">Unassigned</option>
+        ${operatives.map(p=>`<option value="${p.id}" ${job.scaffold_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+      </select>
       <p class="field-label" style="margin-bottom:4px;">Scaffold erection date</p>
       <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;"></div>
       <p class="field-label" style="margin-bottom:4px;">Quote approved?</p>
@@ -7762,15 +7768,47 @@ window.saveRepairJobSurvey = function(jobId){
   const survey_notes = document.getElementById('repairSurveyNotes').value.trim();
   saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null, survey_notes: survey_notes||null});
 };
-window.saveRepairJobScaffold = function(jobId){
+// Mirrors syncDeliveryCalendarEvent's linked-record pattern — pushes a
+// repair job's scaffold booking/erection date onto the site's own Calendar
+// (site_calendar_events), keeping the link on the job row
+// (scaffold_booking_event_id / scaffold_erection_event_id) so re-saving
+// updates the same entry instead of duplicating it, and clearing the date
+// removes it. The booking event carries the assigned operative on
+// reminder_recipient_ids so they get notified like any other reminder; the
+// erection date is a manager-only planning entry with no recipients. Never
+// blocks the job save itself — a calendar hiccup just leaves the old link.
+async function syncRepairCalendarEvent(orgId, siteId, existingEventId, date, title, reminderRecipientIds){
+  try{
+    if(!date){
+      if(existingEventId) await dbDelete('site_calendar_events', existingEventId).catch(()=>{});
+      return null;
+    }
+    if(existingEventId){
+      await dbUpdate('site_calendar_events', existingEventId, {title, event_date:date, site_id:siteId, reminder_recipient_ids:reminderRecipientIds||[], reminder_sent:false});
+      return existingEventId;
+    } else {
+      const rows = await dbInsert('site_calendar_events', {org_id:orgId, site_id:siteId, title, event_date:date, is_private:false, reminder_recipient_ids:reminderRecipientIds||[], created_by:ME.id});
+      return rows && rows[0] && rows[0].id;
+    }
+  }catch(e){ return existingEventId||null; }
+}
+window.saveRepairJobScaffold = async function(jobId){
+  const job = repairJobDetailCurrent;
   const scaffold_booking_date = document.getElementById('repairScaffBookingDate').value || null;
   const scaffold_erection_date = document.getElementById('repairScaffErectionDate').value || null;
+  const scaffold_booking_assigned_to = document.getElementById('repairScaffBookingAssignee').value || null;
   const qaVal = document.getElementById('repairQuoteApproved').value;
   const quote_approved = qaVal==='y' ? true : qaVal==='n' ? false : null;
   const costVal = document.getElementById('repairVariationCost').value;
   const variation_cost = costVal===''?null:Number(costVal);
   const repair_return_date = document.getElementById('repairReturnDate').value || null;
-  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, quote_approved, variation_cost, repair_return_date});
+  const addressLabel = (job && job.address) || 'Repair Job';
+  const siteId = job && job.site_id;
+  const [bookingEventId, erectionEventId] = await Promise.all([
+    syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_booking_event_id, scaffold_booking_date, 'Scaffold Booking: '+addressLabel, scaffold_booking_assigned_to ? [scaffold_booking_assigned_to] : []),
+    syncRepairCalendarEvent(ME.org_id, siteId, job && job.scaffold_erection_event_id, scaffold_erection_date, 'Scaffold Erection: '+addressLabel, []),
+  ]);
+  saveRepairJobField(jobId, {scaffold_booking_date, scaffold_erection_date, quote_approved, variation_cost, repair_return_date, scaffold_booking_assigned_to, scaffold_booking_event_id:bookingEventId, scaffold_erection_event_id:erectionEventId});
 };
 window.saveRepairJobProgress = function(jobId){
   const progress_notes = document.getElementById('repairProgressNotes').value.trim();
