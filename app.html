@@ -16076,7 +16076,7 @@ async function renderSchedule(siteId){
           <div style="padding:0 14px 14px;">
             ${canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : ''}
             ${secTasks.length ? secTasks.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc)).join('') : `<div class="empty">No tasks in this section${scheduleFilter!=='all'?' for this filter':''}.</div>`}
-            ${canAdd && scheduleFilter==='all' ? `
+            ${canAdd && scheduleFilter!=='done' ? `
               <div class="row-gap" style="margin-top:10px;">
                 <input type="text" id="newTaskName-${sec.id}" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
                 <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}','${sec.id}')">Add</button>
