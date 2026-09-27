@@ -2600,6 +2600,13 @@ function fitTileLabelsOneLine(){
 
 /* ================= shell ================= */
 let CURRENT_BACK_HASH = null; // kept in sync with each screen's header back-arrow target, so edge-swipe-to-go-back goes up one folder level (same as tapping '‹') instead of replaying raw browser history.
+// The header's smaller subtitle line (site address, etc) copies its text
+// instead of navigating home — only the bold title above it does that now.
+window.copyHeaderSubtitle = async function(text){
+  if(!text) return;
+  try{ await navigator.clipboard.writeText(text); toast('Copied'); }
+  catch(e){ toast('Could not copy — try again.'); }
+};
 function shell(innerHtml, opts){
   opts = opts||{};
   CURRENT_BACK_HASH = opts.back || null;
@@ -2632,10 +2639,10 @@ function shell(innerHtml, opts){
         ` : `
         <div class="row" style="align-items:center;">
           ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="go('#/sites')">`}
-          <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;cursor:pointer;" onclick="go('#/sites')">
-            ${!opts.back ? `<div class="brandline">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
-            <h2>${escapeHtml(opts.title||'')}</h2>
-            ${opts.subtitle ? `<div class="meta">${escapeHtml(opts.subtitle)}</div>` : ''}
+          <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
+            ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="go('#/sites')">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
+            <h2 style="cursor:pointer;" onclick="go('#/sites')">${escapeHtml(opts.title||'')}</h2>
+            ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
@@ -3221,7 +3228,7 @@ window.deleteCompany = async function(orgId, name){
 let refreshingAppData = false;
 window.refreshAppData = async function(){
   if(refreshingAppData) return;
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; // close the collapsed add-site form back up on refresh
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
   if(ME){
@@ -3287,7 +3294,7 @@ function siteCardHtml(s, canAdd, pmOptions){
     <div class="sitecard" style="${menuOpenHere?'position:relative;z-index:70;':''}" onclick="go('#/site/${s.id}/home')">
       <div class="swatch" style="font-size:${swatchFontSize}px;">${escapeHtml(swatchText)}</div>
       <div class="info">
-        <div class="name">${escapeHtml(s.name)}</div>
+        <div class="name">${escapeHtml(s.name)}${s.client_name ? ` <span style="font-weight:500;color:var(--slate);">— ${escapeHtml(s.client_name)}</span>` : ''}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
       </div>
       ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;${canAdd?'text-decoration:underline;cursor:pointer;':''}" title="${canAdd?'Tap to change start date':''}" ${canAdd?`onclick="event.stopPropagation();changeSiteStartDate('${s.id}','${s.start_date}')"`:''}>Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : (statusKey==='upcoming' && canAdd ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeSiteStartDate('${s.id}','')">Set start date</span>` : '')}
@@ -3329,6 +3336,9 @@ let newSiteJobNumberDraft = '';
 let newSiteStartDateDraft = '';
 let newSiteMultiSiteDraft = false;
 let newSiteRepairContractDraft = false;
+let newSiteClientNameDraft = '';
+let newSiteClientPhoneDraft = '';
+let newSiteClientEmailDraft = '';
 let siteStatusMenuOpenId = null;
 let sitePmPickerOpenId = null;
 // upcoming:null means "no explicit user choice yet" — renderSites resolves
@@ -3453,6 +3463,10 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
+        <p class="field-label" style="margin-bottom:6px;">Client (optional)</p>
+        <div class="formfield"><input type="text" id="newSiteClientName" placeholder="Client name" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value"></div>
+        <div class="formfield"><input type="tel" id="newSiteClientPhone" placeholder="Client contact number" value="${escapeHtml(newSiteClientPhoneDraft)}" oninput="newSiteClientPhoneDraft=this.value"></div>
+        <div class="formfield"><input type="email" id="newSiteClientEmail" placeholder="Client contact email" value="${escapeHtml(newSiteClientEmailDraft)}" oninput="newSiteClientEmailDraft=this.value"></div>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} ${newSiteRepairContractDraft?'disabled':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 14px;"><input type="checkbox" id="newSiteRepairContract" style="width:auto;" ${newSiteRepairContractDraft?'checked':''} ${newSiteMultiSiteDraft?'disabled':''} onchange="newSiteRepairContractDraft=this.checked">Maintenance / Repair Contract (a running list of individual repair jobs/addresses, each tracked through survey → approval → completion)</label>
         <p class="field-label" style="margin-bottom:6px;">Status</p>
@@ -3508,16 +3522,20 @@ window.togglePmFilterId = function(id){
   siteFilterPmIds = siteFilterPmIds.includes(id) ? siteFilterPmIds.filter(x=>x!==id) : [...siteFilterPmIds, id];
   render();
 };
-window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; render(); };
+window.toggleAddSiteForm = function(){ addSiteFormOpen = !addSiteFormOpen; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; render(); };
 window.addSite = async function(){
   const name = document.getElementById('newSiteName').value.trim();
   const addr = document.getElementById('newSiteAddr').value.trim();
   const postcode = document.getElementById('newSitePostcode').value.trim();
   const jobNumber = document.getElementById('newSiteJobNumber').value.trim();
+  const clientName = document.getElementById('newSiteClientName').value.trim();
+  const clientPhone = document.getElementById('newSiteClientPhone').value.trim();
+  const clientEmail = document.getElementById('newSiteClientEmail').value.trim();
   const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
   if(!jobNumber){ toast('Enter a job number.'); return; }
   if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
+  if(clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)){ toast('Enter a valid client email address.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
   // Prefer: return=representation) — Postgres has a known quirk where a
   // table's own SELECT policy, if it re-queries that same table (as sites'
@@ -3526,10 +3544,10 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, created_by:ME.id, org_id:ME.org_id})});
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
-  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false;
+  newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false; newSiteClientNameDraft = ''; newSiteClientPhoneDraft = ''; newSiteClientEmailDraft = '';
   SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
   const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
   await preloadTbtBankForSite(newSite);
@@ -29104,7 +29122,7 @@ async function renderRoute(){
     return renderDriverHome();
   }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
-  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; // navigating anywhere off the site list closes the collapsed add-site form back up
+  addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){
     // Web-app return leg of the OneDrive OAuth flow: the callback page
