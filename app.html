@@ -3294,8 +3294,9 @@ function siteCardHtml(s, canAdd, pmOptions){
     <div class="sitecard" style="${menuOpenHere?'position:relative;z-index:70;':''}" onclick="go('#/site/${s.id}/home')">
       <div class="swatch" style="font-size:${swatchFontSize}px;">${escapeHtml(swatchText)}</div>
       <div class="info">
-        <div class="name">${escapeHtml(s.name)}${s.client_name ? ` <span style="font-weight:500;color:var(--slate);">— ${escapeHtml(s.client_name)}</span>` : ''}</div>
+        <div class="name">${escapeHtml(s.name)}</div>
         <div class="addr">${escapeHtml(fullSiteAddress(s)||'—')}</div>
+        ${s.client_name ? `<div class="addr" style="font-weight:500;color:var(--slate);">${escapeHtml(s.client_name)}</div>` : ''}
       </div>
       ${statusKey==='upcoming' && s.start_date ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;${canAdd?'text-decoration:underline;cursor:pointer;':''}" title="${canAdd?'Tap to change start date':''}" ${canAdd?`onclick="event.stopPropagation();changeSiteStartDate('${s.id}','${s.start_date}')"`:''}>Starts ${new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : (statusKey==='upcoming' && canAdd ? `<span class="stub" style="margin-left:4px;margin-right:2px;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:92px;flex:0 1 auto;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();changeSiteStartDate('${s.id}','')">Set start date</span>` : '')}
       ${canAdd ? `
