@@ -16048,7 +16048,16 @@ async function renderSchedule(siteId){
         </div>` : ''}
       </div>
     `;})() : ''}
-    ${sections.map(sec=>{
+    ${sections.filter(sec=>{
+      // A section with zero tasks in it at all (e.g. just created, or never
+      // had anything added) has nothing "complete" about it — showing it
+      // under the Complete tab reads as if it's finished when really
+      // there's just nothing there yet. Only suppress it on that tab;
+      // it still needs to show on To Do/In Progress and All so a brand
+      // new empty section has somewhere to add its first task.
+      if(scheduleFilter==='done' && !(bySectionAll[sec.id] && bySectionAll[sec.id].length)) return false;
+      return true;
+    }).map(sec=>{
       const secTasks = bySection[sec.id] || [];
       const open = scheduleSectionsOpen[sec.id] !== false;
       // Same fix as the ungrouped card above — this section's own "..."
@@ -17477,25 +17486,53 @@ window.confirmScheduleEmail = async function(siteId){
   let binary=''; const chunk=0x8000;
   for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
   const base64 = btoa(binary);
+  // The Schedule of Works PDF's media summary appendix embeds every progress
+  // photo on the job at full resolution, so a site with a lot of photos can
+  // produce a genuinely large attachment. Supabase Edge Functions get only
+  // 2s of actual CPU time per request, and just decoding/parsing a many-MB
+  // base64 body can burn past that before the function ever gets to send
+  // the email — with nothing ever reaching our own logs, since the runtime
+  // kills the request before our code finishes. That shows up client-side
+  // as a non-JSON error response, not a network failure — flagging it here
+  // up front rather than letting it fail mysteriously on a perfectly good
+  // connection.
+  const approxMb = base64.length / 1024 / 1024;
+  if(approxMb > 8){
+    toast('This report is too large to email ('+approxMb.toFixed(1)+'MB, mostly photos) — try Export instead, or remove some older photos first.');
+    if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
+    return;
+  }
   try{
     const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', body: JSON.stringify({
       site_id: siteId, filename: built.filename, content_base64: base64, recipients,
       client_cc_email: ccClientEmailIfTicked(SITES.find(s=>s.id===siteId), 'scheduleEmailCcClient'),
     })});
-    const d = await res.json();
-    if(res.ok && !d.error){
+    let d = null, parseFailed = false;
+    try{ d = await res.json(); }catch(parseErr){ parseFailed = true; }
+    if(res.ok && d && !d.error){
       const card = document.querySelector('#scheduleEmailModalOverlay .geo-modal-card');
       if(card){
         card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Schedule of Works report was emailed to ${recipients.length} recipient${recipients.length>1?'s':''}.</p><button class="darkbtn" style="width:100%;" onclick="closeScheduleEmailPrompt()">Done</button>`;
       } else { closeScheduleEmailPrompt(); toast('Email sent'); }
+    } else if(parseFailed){
+      // We DID get a response from a server here — this is not a
+      // connectivity problem. The function returning something other than
+      // its own JSON almost always means it was killed mid-request (large
+      // attachment hitting the CPU-time limit above) or a gateway step in
+      // front of it errored out.
+      console.error('send-schedule-email: non-JSON response, status', res.status);
+      toast('Email failed — unexpected response from the server (status '+res.status+'). This usually means the report is too large (lots of photos), not a connection issue — try Export instead.');
+      if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     } else {
-      console.error('send-schedule-email failed:', d.error || res.status);
-      toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
+      console.error('send-schedule-email failed:', (d&&d.error) || res.status);
+      toast('Email failed — '+((d&&d.error) ? String(d.error).slice(0,140) : 'try again.'));
       if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     }
   }catch(e){
+    // A genuine network-level failure — fetch itself never got a response
+    // at all (offline, DNS failure, connection dropped mid-request).
     console.error(e);
-    toast('Email failed — could not reach the server.');
+    toast('Email failed — could not reach the server. Check your connection and try again.');
     if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
   }
 };
