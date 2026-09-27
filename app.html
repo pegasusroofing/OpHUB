@@ -21215,7 +21215,15 @@ let havsWeekOffset = 0;
 // Days default to expanded — a manager can collapse one as they finish it,
 // but that's a per-day choice they make, not something we start closed.
 let havsDayOpen = {};
-window.toggleHavsDay = function(di){ havsDayOpen[di] = !havsDayOpen[di]; render(); };
+window.toggleHavsDay = async function(di, siteId){
+  const wasOpen = havsDayOpen[di];
+  havsDayOpen[di] = !wasOpen;
+  render(); // collapse/expand right away — stays responsive to the tap
+  if(wasOpen && siteId){
+    const saved = await flushHavsDayDrafts(siteId, di);
+    if(saved){ toast('Entries saved'); render(); }
+  }
+};
 // Entry drafts are keyed per day+tool (each relevant tool is a preset box
 // on every day). Every operative assigned to the site is listed under the
 // tool automatically — a manager just tabs through and types minutes for
@@ -21247,7 +21255,14 @@ window.toggleHavsWeeklySummary = function(weekKey){ havsWeeklySummaryOpenByWeek[
 let havsMarkCompleteBusy = false;
 let havsExportAllBusy = false;
 let havsEmailAllBusy = false;
-window.shiftHavsWeek = function(dir){ havsWeekOffset += dir; render(); };
+window.shiftHavsWeek = async function(dir, siteId){
+  // The day-index keys (0-4) in havsDraft2 get reused for whichever week is
+  // showing, so a still-typed-but-uncommitted box left open here would
+  // otherwise silently bleed into the new week once the offset changes.
+  if(siteId) await flushAllHavsDrafts(siteId);
+  havsWeekOffset += dir;
+  render();
+};
 function havsWeekDates(offset){
   const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
   return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
@@ -21322,30 +21337,56 @@ async function notifyIfHavsThresholdCrossed(siteId, userId, entryDate, justToolI
     }
   }catch(e){ /* best-effort — never blocks entry logging */ }
 }
-// Commits one operative's entry the moment a valid whole-number minutes
-// value is tabbed/blurred out of — no "Add" button. If this entry pushed
-// the operative over the EAV/ELV threshold for the day, a message is
-// auto-posted to the PM/admin.
-window.commitHavsDraftEntry = async function(siteId, dayIdx, toolId, userId){
+// Saving a box's minutes used to happen the moment it was tabbed/blurred
+// out of — a real network round-trip followed by a full re-render. That
+// re-render was rebuilding every input on the page right in the middle of
+// a Tab keypress, which is exactly what made tabbing between boxes feel
+// broken (focus landing nowhere, a half-typed value in the next box getting
+// wiped by the render that had been triggered by the PREVIOUS box). Typing
+// now only ever updates the in-memory draft (see setHavsDraftMinutes's
+// oninput wiring) — nothing is written to the database, and nothing
+// re-renders, until the day is actually closed (see toggleHavsDay) or the
+// week is switched/saved, at which point every pending box for that day (or
+// every day) gets committed here in one go.
+async function commitOneHavsDraftEntry(siteId, dayIdx, toolId, userId){
   const d = havsDraft2For(dayIdx, toolId);
   const check = havsWholeMinutes(d.minutesByUser[userId]);
-  if(check.empty) return;
-  if(!check.ok) return;
+  if(check.empty || !check.ok) return false; // silently skip blank/invalid — a bulk flush shouldn't toast for every empty box
   const date = havsWeekDates(havsWeekOffset)[dayIdx];
   const entry_date = localISODate(date);
   const rows = await dbInsert('havs_entries', {org_id:ME.org_id, site_id:siteId, user_id:userId, entry_date, tool_id:toolId, minutes:check.minutes, created_by:ME.id});
   if(rows){
     delete d.minutesByUser[userId];
-    toast('Entry added');
-    // Auto-expand the Weekly Summary the moment a value lands in this week
-    // — not just the first time this week is ever viewed — so the totals
-    // are visible right away instead of needing a manual tap to reopen it.
-    const weekStart = localISODate(havsWeekDates(havsWeekOffset)[0]);
-    havsWeeklySummaryOpenByWeek[weekStart] = true;
     notifyIfHavsThresholdCrossed(siteId, userId, entry_date, toolId, check.minutes);
-    render();
+    return true;
   }
-};
+  return false;
+}
+// Every box still holding a typed-but-uncommitted value for this one day,
+// across every tool — this is the actual "save" moment (triggered by
+// closing the day, switching week, or saving & closing the whole week).
+async function flushHavsDayDrafts(siteId, dayIdx){
+  const prefix = dayIdx+'|';
+  let any = false;
+  for(const key of Object.keys(havsDraft2)){
+    if(!key.startsWith(prefix)) continue;
+    const toolId = key.slice(prefix.length);
+    const draft = havsDraft2[key];
+    for(const userId of Object.keys(draft.minutesByUser)){
+      if(await commitOneHavsDraftEntry(siteId, dayIdx, toolId, userId)) any = true;
+    }
+  }
+  return any;
+}
+// All five days' pending drafts — used when switching week (the day-index
+// keys 0-4 get reused for whichever week is on screen, so anything left
+// sitting in a box would otherwise silently bleed into the new week once
+// the offset changes) and before Save & Close locks the week for good.
+async function flushAllHavsDrafts(siteId){
+  let any = false;
+  for(let di=0; di<5; di++){ if(await flushHavsDayDrafts(siteId, di)) any = true; }
+  return any;
+}
 window.toggleHavsExportSelected = function(userId){
   const i = havsExportSelectedIds.indexOf(userId);
   if(i>-1) havsExportSelectedIds.splice(i,1); else havsExportSelectedIds.push(userId);
@@ -21468,8 +21509,16 @@ async function renderHavs(siteId){
     opStats[e.user_id].week += pts;
   });
 
-  function minuteInput(entryKey, onblurJs, currentVal){
-    return `<input type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="Mins" value="${escapeHtml(currentVal||'')}" style="width:52px;flex:0 0 52px;padding:4px 5px;font-size:11.5px;min-width:0;box-sizing:border-box;" data-havs-entry-input="${entryKey}" oninput="${onblurJs.oninput}" onblur="${onblurJs.onblur}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
+  // No onblur handler any more — it used to fire a network save + full
+  // page re-render the instant a box lost focus, which is what made
+  // tabbing between boxes feel broken (the re-render triggered by the box
+  // you just left would land mid-keystroke in whichever box Tab had just
+  // moved focus to, wiping out what was being typed there or knocking focus
+  // off it entirely). oninput alone keeps the in-memory draft current —
+  // nothing is saved to the database, and nothing re-renders, until the day
+  // is closed (see toggleHavsDay/flushHavsDayDrafts).
+  function minuteInput(entryKey, oninputJs, currentVal){
+    return `<input type="number" min="1" max="480" step="1" inputmode="numeric" placeholder="Mins" value="${escapeHtml(currentVal||'')}" style="width:52px;flex:0 0 52px;padding:4px 5px;font-size:11.5px;min-width:0;box-sizing:border-box;" data-havs-entry-input="${entryKey}" oninput="${oninputJs}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">`;
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -21478,9 +21527,9 @@ async function renderHavs(siteId){
       <button class="${havsActiveTab==='completed'?'darkbtn':'ghostbtn'}" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('completed')">Completed HAVS</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span class="taskicon" style="width:36px;height:36px;font-size:20px;font-weight:700;" onclick="shiftHavsWeek(-1)">‹</span>
+      <span class="taskicon" style="width:36px;height:36px;font-size:20px;font-weight:700;" onclick="shiftHavsWeek(-1,'${siteId}')">‹</span>
       <span style="font-weight:800;font-size:13.5px;">${escapeHtml(weekLabel)}</span>
-      <span class="taskicon" style="width:36px;height:36px;font-size:20px;font-weight:700;${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1)">›</span>
+      <span class="taskicon" style="width:36px;height:36px;font-size:20px;font-weight:700;${havsWeekOffset>=0?'opacity:.35;pointer-events:none;':''}" onclick="shiftHavsWeek(1,'${siteId}')">›</span>
     </div>
     <p class="stub" style="text-align:center;margin:0 0 10px;">Daily EAV (action value) = 100 points · Daily ELV (limit value) = 400 points</p>
     ${operatives.length ? `
@@ -21531,7 +21580,7 @@ async function renderHavs(siteId){
               ${st.byDay.map((pts,i)=>`<span title="${HAVS_DAY_LABELS[i]}: ${pts.toFixed(0)} pts" style="width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;background:${pts>=400?'#FBE1DE':pts>=100?'#FFF3E0':'#E9F7EF'};color:${pts>=400?'var(--brand1)':pts>=100?'#B85C00':'#1E9E52'};">${HAVS_DAY_LABELS[i][0]}</span>`).join('')}
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;gap:6px;">
-              <span class="rolechip" style="margin:0;font-size:9.5px;" title="Sum of this week's daily points — informational; the EAV/ELV limits themselves are daily, not weekly.">${st.week.toFixed(0)} pts/wk</span>
+              <span style="background:var(--paper);color:var(--slate);font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;" title="Sum of this week's daily points — informational; the EAV/ELV limits themselves are daily, not weekly.">${st.week.toFixed(0)} pts/wk</span>
               <button class="ghostbtn" style="width:auto;padding:4px 8px;font-size:10px;" onclick="exportHavsIndividual('${siteId}','${op.id}')">Export</button>
             </div>
           </div>`;
@@ -21553,7 +21602,7 @@ async function renderHavs(siteId){
       const isOpen = !!havsDayOpen[di];
       const dayTotalPts = tools.reduce((sum,tool)=>sum + entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).reduce((s,e)=>s+havsPoints(tool.vibration_magnitude, e.minutes),0), 0);
       return `
-      <p class="ddrow" style="margin-top:${di===0?0:10}px;" onclick="toggleHavsDay(${di})">
+      <p class="ddrow" style="margin-top:${di===0?0:10}px;" onclick="toggleHavsDay(${di},'${siteId}')">
         <span class="arrow">${isOpen?'▼':'▶'}</span> ${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
         ${dayTotalPts>0 ? (()=>{
           // .status's pill styling (padding/pill-shape/uppercase/colour) only
@@ -21570,6 +21619,7 @@ async function renderHavs(siteId){
       </p>
       ${isOpen ? `
       <div class="card" style="margin-bottom:4px;">
+        ${!weekCompletion ? `<p class="stub" style="margin:0 0 8px;">Minutes save when you close ${HAVS_DAY_LABELS[di]} again (tap the day above).</p>` : ''}
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
           ${tools.map(tool=>{
             const sessions = entries.filter(e=>e.entry_date===dateStr && e.tool_id===tool.id).map(e=>{
@@ -21617,7 +21667,7 @@ async function renderHavs(siteId){
                       <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:3px 0;">
                         <span style="font-size:11px;font-weight:600;overflow-wrap:anywhere;">${escapeHtml(nameOf(uid))}</span>
                         <div style="display:flex;align-items:center;gap:4px;">
-                          ${minuteInput(di+'|'+tool.id+'|'+uid, {oninput:`setHavsDraftMinutes(${di},'${tool.id}','${uid}',this.value)`, onblur:`commitHavsDraftEntry('${siteId}',${di},'${tool.id}','${uid}')`}, draft.minutesByUser[uid])}
+                          ${minuteInput(di+'|'+tool.id+'|'+uid, `setHavsDraftMinutes(${di},'${tool.id}','${uid}',this.value)`, draft.minutesByUser[uid])}
                           ${draft.extraUserIds.includes(uid) ? `<span class="taskicon" style="width:16px;height:16px;font-size:8px;" onclick="removeHavsExtraOperative(${di},'${tool.id}','${uid}')">✕</span>` : ''}
                         </div>
                       </div>
@@ -21634,7 +21684,7 @@ async function renderHavs(siteId){
                 ` : `<button type="button" class="ghostbtn" style="width:100%;padding:5px 8px;font-size:10.5px;margin-top:8px;" onclick="toggleHavsAddPicker(${di},'${tool.id}')">+ Add operative</button>`) : ''}
               ` : (!canManage && operatives.length) ? `
                 <div style="margin-top:8px;">
-                  ${minuteInput(di+'|'+tool.id+'|'+ME.id, {oninput:`setHavsDraftMinutes(${di},'${tool.id}','${ME.id}',this.value)`, onblur:`commitHavsDraftEntry('${siteId}',${di},'${tool.id}','${ME.id}')`}, draft.minutesByUser[ME.id])}
+                  ${minuteInput(di+'|'+tool.id+'|'+ME.id, `setHavsDraftMinutes(${di},'${tool.id}','${ME.id}',this.value)`, draft.minutesByUser[ME.id])}
                 </div>
               ` : ''}
             </div>`;
@@ -22118,12 +22168,16 @@ window.exportHavsSelected = async function(siteId){
 };
 window.markHavsWeekComplete = async function(siteId, weekStart){
   havsMarkCompleteBusy = true; render();
+  // Flush anything still sitting typed-but-uncommitted in a box before
+  // locking the week — otherwise Save & Close could lock the register with
+  // a value the user had just entered silently left out.
+  await flushAllHavsDrafts(siteId);
   const row = await dbInsert('havs_weekly_completions', {org_id:ME.org_id, site_id:siteId, week_start:weekStart, completed_by:ME.id});
   if(row){
     // Just locks this week's inputs — stays on the same week (an explicit
     // "Move to next week" button handles moving on, so a PM can check the
     // locked week over before leaving it).
-    toast('Week marked complete — inputs locked');
+    toast('Week saved & closed — inputs locked');
   }
   havsMarkCompleteBusy = false; render();
 };
