@@ -2819,7 +2819,7 @@ function renderLogin(){
         <input type="password" id="authPassword" value="${escapeHtml(rememberedAuth().password)}" placeholder="••••••••" onkeyup="maybeAutoSignIn()">
       </div>
       <label class="stub" style="display:flex;align-items:center;gap:6px;margin:2px 0 12px;"><input type="checkbox" id="authRemember" style="width:auto;" ${rememberedAuth().remember?'checked':''}>Remember my email & password on this device</label>
-      <button class="primarybtn" ${authBusy?'disabled':''} onclick="doSignIn()">
+      <button class="primarybtn" style="background:var(--brand1);color:var(--brand1-text);border-color:var(--brand1);" ${authBusy?'disabled':''} onclick="doSignIn()">
         ${authBusy ? '<span class="spinner"></span>'+escapeHtml(authBusyLabel||'Please wait…') : 'Sign In'}
       </button>
       <p class="stub" style="margin-top:10px;">Real Supabase account — password is never seen or stored by our servers. Ticking "Remember" saves it on this device only, so only use it on a phone/computer that's yours alone.</p>
