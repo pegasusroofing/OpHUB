@@ -15957,7 +15957,6 @@ async function renderSchedule(siteId){
       <div class="drawheaderrow">
         <span>Schedule of Works</span>
         <div class="row-gap" style="width:auto;">
-          <button class="darkbtn" style="width:auto;padding:7px 12px;font-size:10.5px;" onclick="scheduleAddPanel=scheduleAddPanel==='task'?null:'task';render()">➕ Add Task</button>
           ${rowActionsMenuHtml('sow-more', `
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='section';render()">📁 Add Section</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='variation';render()">📐 Add Variation Work</div>
@@ -15977,25 +15976,6 @@ async function renderSchedule(siteId){
           <button class="darkbtn" style="width:auto;padding:8px 14px;" ${scheduleMultiSelectedIds.size?'':'disabled'} onclick="deleteScheduleMultiSelected('${siteId}')">🗑 Delete Selected</button>
           <button class="ghostbtn" style="width:auto;padding:8px 14px;" onclick="cancelScheduleMultiSelect()">Cancel</button>
         </div>
-      </div>
-    ` : ''}
-    ${canAdd && scheduleAddPanel==='task' ? `
-      <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Add Task</p>
-        <div class="row-gap">
-          <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
-          <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
-        </div>
-        ${isMultiSite ? (sectionFirstSubAddr['__ungrouped__'] ? `
-          <p class="stub" style="margin:10px 0 0;">📍 Tagged to ${escapeHtml((subAddrById[sectionFirstSubAddr['__ungrouped__']]||{}).name || '')} — same address as the last task added here.</p>
-        ` : `
-          <p class="field-label" style="margin:10px 0 6px;">Address</p>
-          <select id="newTaskSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
-            <option value="">Not on the list</option>
-            ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
-          </select>
-        `) : ''}
-        <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
       </div>
     ` : ''}
     ${canAdd && scheduleAddPanel==='section' ? `
@@ -16073,7 +16053,7 @@ async function renderSchedule(siteId){
         <button class="ghostbtn" style="margin-top:8px;" onclick="closeScheduleLibraryPanel()">Close</button>
       </div>
     ` : ''}
-    ${allUngrouped.length ? (()=>{
+    ${(allUngrouped.length || canAdd) ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
       // A dropdown/"who can see this" popup for any task in here is an
       // absolutely-positioned (or just tall) element nested inside this
@@ -16083,13 +16063,34 @@ async function renderSchedule(siteId){
       // fully. Switching to overflow:visible only while something inside
       // is actually open avoids that without changing the normal look.
       const somethingOpenHere = ungrouped.some(t=>rowActionsMenuOpenFor==='sowtask-'+t.id) ||
-        (scheduleAssignTarget && scheduleAssignTarget.kind==='task' && ungrouped.some(t=>t.id===scheduleAssignTarget.id));
+        (scheduleAssignTarget && scheduleAssignTarget.kind==='task' && ungrouped.some(t=>t.id===scheduleAssignTarget.id)) ||
+        scheduleAddPanel==='task';
       return `
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('__ungrouped__')">
-          <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
+        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;">
+          <span style="cursor:pointer;flex:1;min-width:0;" onclick="toggleScheduleSection('__ungrouped__')"><span class="arrow">${open?'▼':'▶'}</span> Schedule of Works</span>
+          ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';if(!open){scheduleSectionsOpen['__ungrouped__']=true;}render()">➕ Add Task</button>` : ''}
         </p>
         ${open ? `<div style="padding:0 14px 14px;">
+          ${canAdd && scheduleAddPanel==='task' ? `
+            <div class="card" style="background:var(--paper);">
+              <p class="sectiontitle" style="margin-top:0;">Add Task</p>
+              <div class="row-gap">
+                <input type="text" id="newTaskName" placeholder="e.g. Fit lead flashing" style="flex:2;padding:8px 10px;font-size:12px;">
+                <button class="darkbtn" style="flex:1;padding:8px 10px;font-size:12px;" onclick="addTask('${siteId}')">Add</button>
+              </div>
+              ${isMultiSite ? (sectionFirstSubAddr['__ungrouped__'] ? `
+                <p class="stub" style="margin:10px 0 0;">📍 Tagged to ${escapeHtml((subAddrById[sectionFirstSubAddr['__ungrouped__']]||{}).name || '')} — same address as the last task added here.</p>
+              ` : `
+                <p class="field-label" style="margin:10px 0 6px;">Address</p>
+                <select id="newTaskSubAddr" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
+                  <option value="">Not on the list</option>
+                  ${subAddressesList.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('')}
+                </select>
+              `) : ''}
+              <button class="ghostbtn" style="margin-top:8px;" onclick="scheduleAddPanel=null;render()">Close</button>
+            </div>
+          ` : ''}
           ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
           ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
         </div>` : ''}
