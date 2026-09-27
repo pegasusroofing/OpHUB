@@ -7471,6 +7471,21 @@ const REPAIR_JOB_STATUS_COLOR = {
   'Awaiting Sign-off': 'var(--warn)',
   'Closed': 'var(--slate)',
 };
+// Which category tile a job_status belongs to — used so "back" from a job
+// detail page returns to the specific tile it came from (survey/scaffold/
+// approved/etc) instead of always bouncing to the hub, since the tile a job
+// sits in is a pure function of its job_status anyway.
+const JOB_STATUS_TO_CATEGORY = {
+  'To Survey': 'survey',
+  'Surveyed - Awaiting Cost': 'awaiting_cost',
+  'Surveyed - Variation Issued': 'variation_issued',
+  'Approved - Awaiting Scaffold': 'scaffold',
+  'Approved - To Do': 'approved',
+  'In Progress': 'in_progress',
+  'Awaiting Sign-off': 'awaiting_signoff',
+  'Rejected': 'rejected',
+  'Closed': 'closed',
+};
 // Client-side sort for the repair jobs list page — the underlying query
 // always comes back newest-first (order=created_at.desc), these just
 // re-sort the already-fetched page in memory. Falls back to date_desc for
@@ -7907,6 +7922,16 @@ async function renderRepairJobsListPage(siteId, category){
   // notes/description text just to render a status card.
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,address,description,job_number,survey_required,works_completed,invoiced,closed,job_status,access_requirement,scaffold_erection_date,quote_approved,quote_approved_at,created_at&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
+  // Last saved route for this site+category, if there's ever been one —
+  // shown as a small strip above the export buttons so there's always a
+  // copy on hand to view/work from, even if a fresh route-planning run
+  // fails or hasn't been done yet today.
+  let lastRoute = null;
+  if(canManage && REPAIR_ROUTE_CATEGORIES.includes(category)){
+    await loadAllProfiles();
+    lastRoute = (await dbSelect('repair_route_exports', 'site_id=eq.'+siteId+'&category=eq.'+category))[0] || null;
+  }
+  if(__gen !== RENDER_GEN) return;
   let filtered = jobs.filter(REPAIR_CATEGORY_DEFS[category].match);
   const filterQuery = (repairJobFilterText||'').trim().toLowerCase();
   if(filterQuery){
@@ -7945,18 +7970,23 @@ async function renderRepairJobsListPage(siteId, category){
 
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;">
-        <span class="taskicon" style="flex:0 0 auto;" onclick="scrollRepairCategoryChips(-1)">‹</span>
-        <div id="repairCategoryChipRow" class="hscroll-noscrollbar" style="display:flex;overflow-x:auto;gap:8px;flex:1;min-width:0;padding-bottom:2px;">
-          ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
-          <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
-        </div>
-        <span class="taskicon" style="flex:0 0 auto;" onclick="scrollRepairCategoryChips(1)">›</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">
+        ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
+        <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
       </div>
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
-        ${REPAIR_ROUTE_CATEGORIES.includes(category) ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
+        ${REPAIR_ROUTE_CATEGORIES.includes(category) && !lastRoute ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
       </div>
+      ${REPAIR_ROUTE_CATEGORIES.includes(category) && lastRoute ? `
+      <div class="card" style="margin-bottom:14px;background:var(--paper);">
+        <p class="stub" style="margin:0 0 10px;">Last route: ${new Date(lastRoute.generated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${lastRoute.generated_by && PROFILES[lastRoute.generated_by] ? ' by '+escapeHtml(PROFILES[lastRoute.generated_by].name) : ''}</p>
+        <div class="row-gap">
+          <button class="ghostbtn" style="flex:1;" onclick="viewSavedRepairRouteOrder('${siteId}','${category}')">👁️ View Last Route</button>
+          <button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🔄 Update Route'}</button>
+        </div>
+      </div>
+      ` : ''}
       ${category==='approved' ? `
       <div class="row-gap" style="margin-bottom:14px;">
         <button class="ghostbtn" style="flex:1;" ${repairApprovedExportBusy?'disabled':''} onclick="exportRepairJobsByApprovedDate('${siteId}')">${repairApprovedExportBusy?'Exporting…':'📋 Export by Oldest Approved'}</button>
@@ -7988,10 +8018,6 @@ async function renderRepairJobsListPage(siteId, category){
     ${filtered.length ? filtered.map(jobCardHtml).join('') : `<div class="empty">No jobs in this list.</div>`}
   `, {title:REPAIR_CATEGORY_DEFS[category].label, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', siteId, activeTab:'home'});
 }
-window.scrollRepairCategoryChips = function(dir){
-  const el = document.getElementById('repairCategoryChipRow');
-  if(el) el.scrollBy({left: dir*140, behavior:'smooth'});
-};
 window.toggleRepairJobSelectMode = function(){
   repairJobSelectMode = !repairJobSelectMode;
   repairJobSelectedIds = new Set();
@@ -8101,6 +8127,34 @@ window.exportRepairTrackerExcel = async function(siteId){
 // geocodes each address (cached after the first time, so repeat exports on
 // the same jobs are fast) and works the route out server-side. Straight-line
 // distance, not road distance — same trade-off as the free-geocoding choice.
+// Shared by the live export and "View Last Route" below, so both produce
+// the exact same spreadsheet layout from a {stops, unlocated} payload —
+// the live one fresh off the edge function, the saved one straight out of
+// repair_route_exports with no network/geocoding round trip at all.
+async function buildRepairRouteExcelAndDeliver(site, category, stops, unlocated){
+  const dOnly = v => v ? String(v).slice(0,10) : '';
+  const header = ['Order','Distance from Previous (mi)','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
+  const rows = (stops||[]).map(s=>[
+    s.order, s.distance_from_previous_mi, s.job_number||'', s.address||'', s.description||'',
+    s.survey_notes||s.access_notes||'', REPAIR_ACCESS_LABEL[s.access_requirement]||'', s.variation_cost!=null?Number(s.variation_cost):'',
+    dOnly(s.scaffold_booking_date), dOnly(s.scaffold_erection_date), dOnly(s.repair_return_date),
+  ]);
+  (unlocated||[]).forEach(j=>{ rows.push(['—','Could not locate on map', j.job_number||'', j.address||'', '', '', '', '', '', '', '']); });
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  ws['!cols'] = [{wch:8},{wch:14},{wch:12},{wch:28},{wch:26},{wch:30},{wch:16},{wch:14},{wch:16},{wch:16},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Route Order');
+  await deliverExcelFile(wb, exportFilename(site?site.name:'', REPAIR_CATEGORY_DEFS[category].label+' Route', 'xlsx'));
+}
+// Exports the given category's jobs as an Excel ordered into a "milk run"
+// route — nearest-job-next, starting from the fixed yard/depot postcode
+// (CM3 8DQ) — via the repair-jobs-route-export edge function, which
+// geocodes each address (cached after the first time, so repeat exports on
+// the same jobs are fast) and works the route out server-side. Straight-line
+// distance, not road distance — same trade-off as the free-geocoding choice.
+// The edge function also saves this result as the site+category's "last
+// run" (repair_route_exports), which is what View Last Route below reads —
+// so every successful Update here immediately becomes the new "last run".
 window.exportRepairJobsRouteOrder = async function(siteId, category){
   if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
@@ -8110,25 +8164,28 @@ window.exportRepairJobsRouteOrder = async function(siteId, category){
     const d = await res.json().catch(()=>({}));
     if(!res.ok || d.error){ toast(d.error || 'Could not work out a route — try again.'); return; }
     if(!d.stops || !d.stops.length){ toast('No jobs with addresses in this list yet.'); return; }
-    const dOnly = v => v ? String(v).slice(0,10) : '';
-    const header = ['Order','Distance from Previous (mi)','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
-    const rows = d.stops.map(s=>[
-      s.order, s.distance_from_previous_mi, s.job_number||'', s.address||'', s.description||'',
-      s.survey_notes||s.access_notes||'', REPAIR_ACCESS_LABEL[s.access_requirement]||'', s.variation_cost!=null?Number(s.variation_cost):'',
-      dOnly(s.scaffold_booking_date), dOnly(s.scaffold_erection_date), dOnly(s.repair_return_date),
-    ]);
-    (d.unlocated||[]).forEach(j=>{ rows.push(['—','Could not locate on map', j.job_number||'', j.address||'', '', '', '', '', '', '', '']); });
-    const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
-    ws['!cols'] = [{wch:8},{wch:14},{wch:12},{wch:28},{wch:26},{wch:30},{wch:16},{wch:14},{wch:16},{wch:16},{wch:14}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Route Order');
-    await deliverExcelFile(wb, exportFilename(site?site.name:'', REPAIR_CATEGORY_DEFS[category].label+' Route', 'xlsx'));
+    await buildRepairRouteExcelAndDeliver(site, category, d.stops, d.unlocated);
     toast('Route exported — starting from the yard (CM3 8DQ)'+((d.unlocated&&d.unlocated.length)?`, ${d.unlocated.length} job(s) couldn't be located`:''));
   } catch(e){
     toast('Could not work out a route — check your connection and try again.');
   } finally {
     repairRouteExportBusy = false; render();
   }
+};
+// Re-downloads the last saved route for this site+category straight from
+// repair_route_exports — no geocoding, no edge function call, so it's
+// instant and can never fail the way a fresh route-planning call can. This
+// is the "always have a copy to view and work to" copy Andy asked for;
+// hitting "Update Route" (exportRepairJobsRouteOrder above) is what
+// replaces it with a freshly-worked-out one.
+window.viewSavedRepairRouteOrder = async function(siteId, category){
+  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const rows = await dbSelect('repair_route_exports', 'site_id=eq.'+siteId+'&category=eq.'+category);
+  const saved = rows[0];
+  if(!saved){ toast('No saved route yet — run Export Route Order first.'); return; }
+  await buildRepairRouteExcelAndDeliver(site, category, saved.stops, saved.unlocated);
+  toast('Opened the last saved route from '+new Date(saved.generated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}));
 };
 // A plain chronological export of the Approved & Ready list, oldest
 // approval first — separate from Export Route Order above, which orders by
@@ -8435,7 +8492,7 @@ async function renderRepairJobDetail(siteId, jobId){
       </div>
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
-  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/repairjobs', siteId, activeTab:'home'});
+  `, {title:job.address||'Repair Job', subtitle:site.name, back:'#/site/'+siteId+'/repairjobs/'+(job.closed ? 'closed' : (JOB_STATUS_TO_CATEGORY[job.job_status] || 'survey')), siteId, activeTab:'home'});
 }
 window.toggleRepairJobInfoEdit = function(jobId){
   repairJobInfoEditOpen[jobId] = !repairJobInfoEditOpen[jobId];
@@ -27033,6 +27090,11 @@ let drawingUploadOpen = false;
 let drawingNewFolderOpen = false;
 let drawingsLastFolderId; // undefined initially so the very first render always "changes"
 let drawingSupersededOpen = false;
+// #(programme-key-date) 2026-09-27 — {fileId, fileName, siteId, folderId}
+// while the "add a key date to the Calendar?" card is showing after a
+// single-file upload into a Programme (or Main Contractor Programme)
+// folder; null otherwise. See uploadDrawingFile/saveProgrammeKeyDate.
+let drawingProgrammeKeyDatePrompt = null;
 // "+" now asks Add Folder vs Add Drawings instead of jumping straight to
 // "new folder" — same geo-modal look used for confirm dialogs / PM pickers
 // elsewhere in the app.
@@ -27068,6 +27130,7 @@ async function renderDrawings(siteId, folderId, opts){
     drawingNewFolderOpen = false;
     drawingUploadOpen = false;
     drawingSupersededOpen = false;
+    drawingProgrammeKeyDatePrompt = null;
     drawingsLastFolderId = folderId||null;
   }
   let currentFolder = null;
@@ -27156,6 +27219,19 @@ async function renderDrawings(siteId, folderId, opts){
     `).join('')}</div>` : ''}
     ` : ''}
 
+    ${canManage && drawingProgrammeKeyDatePrompt && drawingProgrammeKeyDatePrompt.folderId===(folderId||null) ? `
+      <div class="card" style="margin-bottom:14px;background:var(--paper);">
+        <p class="sectiontitle" style="margin-top:0;">Add a key date for "${escapeHtml(drawingProgrammeKeyDatePrompt.fileName)}"?</p>
+        <p class="stub" style="margin:0 0 10px;">Puts a date straight onto the site Calendar so the team can see it without opening the document.</p>
+        <div class="formfield"><label class="field-label">Date</label><input type="date" id="programmeKeyDateInput"></div>
+        <div class="formfield"><label class="field-label">Label</label><input type="text" id="programmeKeyDateLabel" value="${escapeHtml('Programme: '+drawingProgrammeKeyDatePrompt.fileName)}"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="saveProgrammeKeyDate()">Add to Calendar</button>
+          <button class="ghostbtn" style="flex:1;" onclick="skipProgrammeKeyDate()">Skip</button>
+        </div>
+      </div>
+    ` : ''}
+
     ${canManage ? `<div style="height:66px;"></div>` : ''}
 
     ${canManage ? `
@@ -27224,7 +27300,7 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
   const supersedesEl = document.getElementById('drawingSupersedes');
   const supersedesId = (supersedesEl && files.length===1) ? supersedesEl.value : '';
   if(supersedesEl && supersedesEl.value && files.length>1) toast('Supersedes only applies when uploading a single file — uploaded as new documents instead.');
-  let uploaded = 0, skipped = 0;
+  let uploaded = 0, skipped = 0, lastUploadedRow = null;
   for(let i=0; i<files.length; i++){
     const file = files[i];
     if(!allowed[file.type]){ skipped++; continue; }
@@ -27235,12 +27311,46 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
     const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id, supersedes: supersedesId||null});
     if(rows){
       uploaded++;
+      lastUploadedRow = rows[0];
       if(supersedesId) await dbUpdate('drawing_files', supersedesId, {status:'superseded', superseded_by:rows[0].id});
     }
     pushDrawingToOneDrive(siteId, file);
   }
   if(uploaded){ toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
   else if(skipped) toast('Please choose PDF, JPEG or PNG files.');
+  // #(programme-key-date) 2026-09-27 — uploading a new/updated construction
+  // programme normally comes with its own key milestone date, so offer to
+  // put that straight onto the site Calendar right away rather than
+  // relying on someone remembering to add it separately. Only offered for
+  // a single-file upload (a batch of programme pages doesn't map to one
+  // key date), and only into the two folders that are actually "the
+  // programme" — every other Drawings/Spec folder is unaffected.
+  if(uploaded===1 && files.length===1 && folderId && lastUploadedRow){
+    const folderRows = await dbSelect('drawing_folders', 'id=eq.'+folderId+'&select=name');
+    const folderName = folderRows[0] && folderRows[0].name;
+    if(folderName==='Programme' || folderName==='Main Contractor Programme'){
+      drawingProgrammeKeyDatePrompt = {fileId: lastUploadedRow.id, fileName: lastUploadedRow.name, siteId, folderId};
+    }
+  }
+  render();
+};
+window.saveProgrammeKeyDate = async function(){
+  const p = drawingProgrammeKeyDatePrompt;
+  if(!p) return;
+  const dateEl = document.getElementById('programmeKeyDateInput');
+  const labelEl = document.getElementById('programmeKeyDateLabel');
+  const date = dateEl ? dateEl.value : '';
+  if(!date){ toast('Choose a date.'); return; }
+  const titleText = (labelEl && labelEl.value.trim()) || ('Programme: '+p.fileName);
+  const rows = await dbInsert('site_calendar_events', {org_id:ME.org_id, site_id:p.siteId, title:titleText, event_date:date, is_private:false, reminder_recipient_ids:[], created_by:ME.id});
+  const eventId = rows && rows[0] && rows[0].id;
+  if(eventId) await dbUpdate('drawing_files', p.fileId, {calendar_event_id:eventId});
+  drawingProgrammeKeyDatePrompt = null;
+  toast('Key date added to the Calendar');
+  render();
+};
+window.skipProgrammeKeyDate = function(){
+  drawingProgrammeKeyDatePrompt = null;
   render();
 };
 // Two-way OneDrive sync for Drawings, push half: best-effort, silent-fail,
