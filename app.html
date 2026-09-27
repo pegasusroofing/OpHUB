@@ -15958,8 +15958,8 @@ async function renderSchedule(siteId){
         <span>Schedule of Works</span>
         <div class="row-gap" style="width:auto;">
           <button class="darkbtn" style="width:auto;padding:7px 12px;font-size:10.5px;" onclick="scheduleAddPanel=scheduleAddPanel==='task'?null:'task';render()">➕ Add Task</button>
-          <button class="darkbtn" style="width:auto;padding:7px 12px;font-size:10.5px;" onclick="scheduleAddPanel=scheduleAddPanel==='section'?null:'section';render()">📁 Add Section</button>
           ${rowActionsMenuHtml('sow-more', `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='section';render()">📁 Add Section</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='variation';render()">📐 Add Variation Work</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleLibraryPanel('${siteId}')">📚 From Library</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
