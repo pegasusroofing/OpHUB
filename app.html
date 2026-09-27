@@ -2329,7 +2329,6 @@ document.addEventListener('click', function(e){
   if(calHomeSiteFilterOpen && !e.target.closest('[data-calhomesitefilter-root]')){ calHomeSiteFilterOpen = false; changed = true; }
   if(opFolderMenuOpenFor && !e.target.closest('[data-opfoldermenu-root]')){ opFolderMenuOpenFor = null; changed = true; }
   if(rowActionsMenuOpenFor && !e.target.closest('[data-rowactions-root]')){ rowActionsMenuOpenFor = null; changed = true; }
-  if(priceElementOperativesPickerFor && !e.target.closest('[data-priceopspicker-root]')){ priceElementOperativesPickerFor = null; changed = true; }
   if(calViewModePickerOpen && !e.target.closest('[data-rowactions-root]')){ calViewModePickerOpen = false; changed = true; }
   if(changed) render();
 });
@@ -11508,17 +11507,6 @@ function pricingElementCardHtml(el, d, ctx){
             <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePricingElement('${el.id}','${jsAttr(el.name)}')">🗑 Delete</div>
           </div>
           ` : ''}
-          ${priceElementOperativesPickerFor===el.id ? `
-          <div class="statusmenu" style="right:0;left:auto;width:250px;max-height:280px;overflow-y:auto;" onclick="event.stopPropagation()">
-            <p class="stub" style="margin:0 0 8px;padding:0 2px;">Tap an operative assigned to this site to grant or remove access to this Pricing Element.</p>
-            ${assignedOperatives.map(p=>`
-              <div class="statusmenu-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="toggleElementAccess('${el.id}','${siteId}','${p.id}',${elementAccessIds.has(p.id)})">
-                <span>${escapeHtml(p.name)}</span>
-                <span>${elementAccessIds.has(p.id)?'✓':''}</span>
-              </div>
-            `).join('') || `<div class="statusmenu-item" style="cursor:default;color:var(--slate);">No operatives assigned to this site yet.</div>`}
-          </div>
-          ` : ''}
         </div>
         ` : ''}
       </div>
@@ -11786,6 +11774,21 @@ function pricingElementCardHtml(el, d, ctx){
       </div>
       `}
     </div>
+    ${priceElementOperativesPickerFor===el.id ? `
+    <div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){priceElementOperativesPickerFor=null;render();}">
+      <div class="geo-modal-card" style="max-height:78vh;overflow-y:auto;">
+        <p class="sectiontitle" style="margin-top:0;">Select Operatives — ${escapeHtml(el.name)}</p>
+        <p class="stub" style="margin:0 0 12px;">Tap an operative assigned to this site to grant or remove access to this Pricing Element.</p>
+        ${assignedOperatives.map(p=>`
+          <div class="sitecard" style="padding:9px 11px;gap:8px;cursor:pointer;" onclick="toggleElementAccess('${el.id}','${siteId}','${p.id}',${elementAccessIds.has(p.id)})">
+            <div class="info"><div class="name" style="font-size:13px;">${escapeHtml(p.name)}</div></div>
+            <span style="font-weight:700;color:var(--brand1);">${elementAccessIds.has(p.id)?'✓':''}</span>
+          </div>
+        `).join('') || `<div class="empty">No operatives assigned to this site yet.</div>`}
+        <button class="darkbtn" style="width:100%;margin-top:14px;" onclick="priceElementOperativesPickerFor=null;render();">Done</button>
+      </div>
+    </div>
+    ` : ''}
     `;
 }
 
@@ -15470,15 +15473,23 @@ let scheduleSectionsCache = [];
    not just hidden client-side, so an unassigned operative genuinely cannot
    fetch the row at all. Admins always see everything regardless. ================= */
 let scheduleAssignTarget = null; // {kind:'section'|'task', id} of whichever row's assign form is open, or null
-let scheduleAssignDraft = {all:true, pmOn:false, pmIds:new Set(), opOn:true, opIds:new Set()};
-window.openScheduleAssign = function(kind, id, record, defaultOperativeIds){
+let scheduleAssignDraft = {all:true, pmOn:true, pmIds:new Set(), opOn:true, opIds:new Set()};
+window.openScheduleAssign = function(kind, id, record, defaultOperativeIds, defaultPmIds){
   scheduleAssignTarget = {kind, id};
   const mode = record ? record.visibility_mode : 'all';
   const presetOpIds = record && record.assigned_operative_ids && record.assigned_operative_ids.length ? record.assigned_operative_ids : (defaultOperativeIds||[]);
+  // Project Managers default to fully ticked (everyone visible) whenever
+  // there's no genuinely saved PM subset yet — narrowing a section/task down
+  // to specific Operatives must never silently drop PM access along with it.
+  // A PM has to explicitly untick themselves/others to remove visibility,
+  // rather than defaulting to nobody and locking PMs out unless they opt
+  // back in blind (this was causing sections to become invisible/"frozen"
+  // for the PM who'd just restricted them).
+  const savedPmIds = record && record.assigned_pm_ids && record.assigned_pm_ids.length ? record.assigned_pm_ids : null;
   scheduleAssignDraft = {
     all: mode !== 'assigned',
-    pmOn: !!(record && record.assigned_pm_ids && record.assigned_pm_ids.length),
-    pmIds: new Set(record ? (record.assigned_pm_ids||[]) : []),
+    pmOn: true,
+    pmIds: new Set(savedPmIds || defaultPmIds || []),
     opOn: record ? !!(record.assigned_operative_ids && record.assigned_operative_ids.length) : true,
     opIds: new Set(presetOpIds),
   };
@@ -15486,11 +15497,12 @@ window.openScheduleAssign = function(kind, id, record, defaultOperativeIds){
 };
 window.openScheduleAssignExisting = async function(kind, id, siteId){
   const table = kind==='section' ? 'schedule_sections' : 'schedule_tasks';
-  const [rows, assignments] = await Promise.all([
+  const [rows, assignments, pmList] = await Promise.all([
     dbSelect(table, 'id=eq.'+id+'&select=visibility_mode,assigned_pm_ids,assigned_operative_ids'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+    loadPMList(),
   ]);
-  openScheduleAssign(kind, id, rows[0]||null, assignments.map(a=>a.user_id));
+  openScheduleAssign(kind, id, rows[0]||null, assignments.map(a=>a.user_id), pmList.map(p=>p.id));
 };
 window.closeScheduleAssign = function(){ scheduleAssignTarget = null; render(); };
 window.toggleScheduleAssignAll = function(){ scheduleAssignDraft.all = !scheduleAssignDraft.all; render(); };
@@ -16125,8 +16137,11 @@ window.addSection = async function(siteId){
     scheduleSectionsOpen[newSection.id] = true;
     // Straight into "Who can see this" for the section just created, inline
     // in its own new row — defaults to All until narrowed down.
-    const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
-    openScheduleAssign('section', newSection.id, null, assignments.map(a=>a.user_id));
+    const [assignments, pmList] = await Promise.all([
+      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+      loadPMList(),
+    ]);
+    openScheduleAssign('section', newSection.id, null, assignments.map(a=>a.user_id), pmList.map(p=>p.id));
   }
 };
 // Shared by "Add to Schedule of Works" on an approved variation, and the
