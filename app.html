@@ -4661,11 +4661,11 @@ async function renderTeam(){
   // H&S Policy is now uploaded ONLY from here — every site-scoped H&S page
   // still shows/signs the current policy, but their own upload forms have
   // been removed and point back to this section instead.
-  let hsPolicyAdmin = {doc:null, superseded:[], signedIds:new Set(), allPeople:[]};
+  let hsPolicyAdmin = {doc:null, superseded:[], signedIds:new Set(), allPeople:[], nameById:{}, supersedesName:null};
   if(isManager(ME) && teamSectionOpen.hspolicy){
-    const {doc, superseded, sigs} = await fetchHsPolicyData();
+    const {doc, superseded, sigs, nameById, supersedesName} = await fetchHsPolicyData();
     const validSigs = doc ? sigs.filter(s=>hsPolicySigStillValid(doc, s)) : [];
-    hsPolicyAdmin = {doc, superseded, signedIds: new Set(validSigs.map(s=>s.user_id)), allPeople: people};
+    hsPolicyAdmin = {doc, superseded, signedIds: new Set(validSigs.map(s=>s.user_id)), allPeople: people, nameById, supersedesName};
   }
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
@@ -5021,7 +5021,7 @@ async function renderTeam(){
     <div class="card">
       ${hsPolicyAdmin.doc ? `
         <div style="font-weight:800;font-size:14px;">${escapeHtml(hsPolicyAdmin.doc.name)}</div>
-        <div class="meta">Uploaded ${new Date(hsPolicyAdmin.doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(hsPolicyAdmin.doc.uploaded_by))}${hsPolicyAdmin.doc.expiry_date?' · Expires '+new Date(hsPolicyAdmin.doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+        <div class="meta">Uploaded ${new Date(hsPolicyAdmin.doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(hsPolicyAdmin.doc.uploaded_by))}${hsPolicyAdmin.doc.expiry_date?' · Expires '+new Date(hsPolicyAdmin.doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}${hsPolicyAdmin.supersedesName?' · Supersedes "'+escapeHtml(hsPolicyAdmin.supersedesName)+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', hsPolicyAdmin.doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(hsPolicyAdmin.doc.name)?hsPolicyAdmin.doc.name:hsPolicyAdmin.doc.name+'.pdf')}')">View document ↗</div>
       ` : `<p class="stub" style="margin:0 0 10px;">No H&amp;S Policy document uploaded yet — everyone signs once and it's valid for a year (or until you upload a new version, or its expiry date is reached).</p>`}
     </div>
@@ -5051,7 +5051,7 @@ async function renderTeam(){
     ${hsPolicySupersededOpen ? `<div class="card">${hsPolicyAdmin.superseded.map(d=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--line);">
         <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
-        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${d.superseded_by?' by "'+escapeHtml(hsPolicyAdmin.nameById[d.superseded_by]||'a newer version')+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
       </div>
     `).join('')}</div>` : ''}
@@ -19511,15 +19511,23 @@ window.deleteCompanyLibraryDoc = async function(id, storagePath){
 
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
-function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView){
-  const roster = assignedIds||[];
+function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById){
+  nameById = nameById || {};
+  // PMs/admins aren't required to sign RAMS at all (they instead get a
+  // one-tap "issued" record — see signRams/the siglinebox below), so the
+  // mandatory roster/"still need to sign" tracking only ever counts
+  // operatives — same rule the "!" outstanding-signature badge elsewhere
+  // already uses (anyOperativeMissingSignature).
+  const roster = (assignedIds||[]).filter(id=>PROFILES[id] && PROFILES[id].role==='operative');
+  const iAmManager = isManager(ME);
   return docs.map(r=>{
     const sigs = sigsByDoc[r.id]||[];
     const mine = sigs.find(s=>s.user_id===ME.id);
     const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
     let outstandingHtml;
+    const sigLine = s => `${s.issued ? '📝 Issued by' : '✓'} ${escapeHtml(nameOf(s.user_id))}${(!s.issued && s.signature_image_path) ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}`;
     if(!roster.length){
-      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">✓ ${escapeHtml(nameOf(s.user_id))}${s.signature_image_path ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</div>`).join('')}</div>` : '';
+      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">${sigLine(s)}</div>`).join('')}</div>` : '';
     } else if(!notSigned.length){
       outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ RAMS signed by all operatives</div></div>`;
     } else {
@@ -19528,13 +19536,18 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
         <div style="display:flex;flex-wrap:wrap;">${notSigned.map(id=>`<div style="flex:0 0 33.333%;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:3px 4px 3px 0;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>
       </div>`;
     }
+    // Everyone who's issued/signed this doc, beyond just the roster's
+    // outstanding operatives — shown underneath so a PM's "issued" record is
+    // visible even though they're not part of the mandatory roster above.
+    const issuedBy = sigs.filter(s=>s.issued);
+    const issuedHtml = issuedBy.length ? `<div class="signerlist">${issuedBy.map(s=>`<div style="display:flex;align-items:center;gap:8px;">${sigLine(s)}</div>`).join('')}</div>` : '';
     return `
     <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
         <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)}</div>
         ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
       </div>
-      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes an earlier version':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
+      <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes "'+escapeHtml(nameById[r.supersedes]||'an earlier version')+'"':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
         ${isClientView ? `
           <div class="siglinebox" style="flex:1;margin-top:0;cursor:default;">
@@ -19542,12 +19555,13 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
           </div>
         ` : `
           <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
-            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : 'Tap to sign'}
+            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${mine.issued?'📝 ':''}${escapeHtml(ME.name)}</span>`) + `<span>${mine.issued?'Issued':'Signed'} ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
           </div>
         `}
         ${sigs.length && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${outstandingHtml}
+      ${issuedHtml}
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
@@ -19597,6 +19611,17 @@ async function anyOperativeMissingSignature(table, docKeyField, docRows, site, o
   sigs.forEach(s=>{ (signedByDoc[s[docKeyField]]=signedByDoc[s[docKeyField]]||new Set()).add(s.user_id); });
   return docRows.some(d=>operativeIds.some(uid=>!(signedByDoc[d.id]||new Set()).has(uid)));
 }
+// Shared by every "supersedes/superseded_by" document list (RAMS, H&S
+// Policy, Drawings) — builds a plain id->name lookup out of however many
+// doc arrays are passed (current + superseded together cover every id
+// either field could ever point at) so the UI can say exactly which
+// document was replaced, instead of the generic "an earlier version"/
+// "superseded" wording that left it to guesswork.
+function docNameLookup(...lists){
+  const m = {};
+  lists.forEach(arr=>(arr||[]).forEach(d=>{ if(d && d.id) m[d.id] = d.name; }));
+  return m;
+}
 async function fetchRamsData(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [docs, superseded, assigned] = await Promise.all([
@@ -19616,7 +19641,7 @@ async function fetchRamsData(siteId){
     sigs = filterCurrentCycleSigs(sigs, docs, 'rams_id', site);
     sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
   }
-  return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id)};
+  return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id), nameById: docNameLookup(docs, superseded)};
 }
 let ramsUploadOpen = false;
 let ramsSupersededOpen = false;
@@ -19669,7 +19694,7 @@ async function renderRams(siteId){
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
   await loadAllProfiles();
-  const {docs, superseded, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+  const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
   // company in a dropdown) — same idea as the Subcontractor Inspections
@@ -19708,11 +19733,13 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${hsPolicyHtml}
-    <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
+    <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
     ${docs.length && !isClientView ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
-        ${unsignedRamsCount ? `Sign All RAMS Documents (${unsignedRamsCount} unsigned)` : 'All RAMS documents signed'}
+        ${isManager(ME)
+          ? (unsignedRamsCount ? `Mark All RAMS as Issued (${unsignedRamsCount})` : 'All RAMS documents marked as issued')
+          : (unsignedRamsCount ? `Sign All RAMS Documents (${unsignedRamsCount} unsigned)` : 'All RAMS documents signed')}
       </button>
     ` : ''}
     ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;padding:8px 6px;font-size:11.5px;" onclick="sendRamsSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
@@ -19731,7 +19758,7 @@ async function renderRams(siteId){
     ${ramsSupersededOpen ? `<div class="card">${superseded.map(r=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--line);">
         <div style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</div>
-        <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${r.superseded_by?' by "'+escapeHtml(nameById[r.superseded_by]||'a newer version')+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
       </div>
     `).join('')}</div>` : ''}
@@ -19779,9 +19806,9 @@ async function renderRams(siteId){
     if(ramsPollBusy || document.hidden || navigator.onLine === false) return;
     ramsPollBusy = true;
     try{
-      const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
+      const {docs, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
       const freshEl = document.getElementById('ramsDocsList');
-      if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView);
+      if(freshEl) freshEl.innerHTML = ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById);
     } finally { ramsPollBusy = false; }
   }, 7000);
 }
@@ -19805,6 +19832,14 @@ window.addRams = async function(siteId){
   }
 };
 window.signRams = async function(siteId, ramsId){
+  // PMs/admins don't do the operative's "read, understood, adopted
+  // signature" flow at all — a plain one-tap "issued" record instead,
+  // shown and exported distinctly (see ramsDocsHtml/buildSignedRamsPdfBytes).
+  if(isManager(ME)){
+    const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, issued:true});
+    if(rows){ toast('Marked as issued'); render(); }
+    return;
+  }
   if(!ME.signature_path){
     toast('Adopt your signature first — one tap and it\'s used everywhere.');
     go('#/signature');
@@ -19813,18 +19848,24 @@ window.signRams = async function(siteId, ramsId){
   const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, signature_image_path:ME.signature_path});
   if(rows){ toast('Signed — archived automatically'); render(); }
 };
-// One tap signs every current RAMS document at this site the user hasn't
-// already signed — mirrors signAllCoshh. Each document stays its own
-// separate record, so exportSignedRams still produces one PDF per document.
+// One tap signs (or, for a PM/admin, marks issued on) every current RAMS
+// document at this site the user hasn't already covered — mirrors
+// signAllCoshh. Each document stays its own separate record, so
+// exportSignedRams still produces one PDF per document.
 window.signAllRams = async function(siteId){
+  const {docs, sigsByDoc} = await fetchRamsData(siteId);
+  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
+  if(!toSign.length){ toast(isManager(ME)?'Already marked as issued on everything.':'Already signed everything.'); render(); return; }
+  if(isManager(ME)){
+    const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, issued:true})));
+    if(rows){ toast(`Marked as issued on ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
+    return;
+  }
   if(!ME.signature_path){
     toast('Adopt your signature first — one tap and it\'s used everywhere.');
     go('#/signature');
     return;
   }
-  const {docs, sigsByDoc} = await fetchRamsData(siteId);
-  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
-  if(!toSign.length){ toast('Already signed everything.'); render(); return; }
   const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
@@ -19845,9 +19886,12 @@ async function buildSignedRamsPdfBytes(ramsId){
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
     const disclaimer = `I have read and understood the contents of this RAMS document (${doc.name}). At all times employees must work in a safe manner both to prevent personal injury or injury/harm to others. Anything I did not understand has been explained to me to my satisfaction.`;
     const signers = sigs.map(s=>({
-      name: nameOf(s.user_id),
+      // A PM/admin's "issued" record never carries an adopted signature —
+      // labelled in the Name column instead so it reads clearly as
+      // "issued", not as a missing/blank signature on an operative row.
+      name: nameOf(s.user_id) + (s.issued ? ' (Issued — not required to sign)' : ''),
       when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-      imagePath: s.signature_image_path,
+      imagePath: s.issued ? null : s.signature_image_path,
     }));
     await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
 
@@ -19907,7 +19951,9 @@ window.deleteRams = async function(ramsId, storagePath){
 window.sendRamsSignReminder = async function(siteId){
   const {docs, sigsByDoc, assignedIds} = await fetchRamsData(siteId);
   if(!docs.length){ toast('No RAMS documents to sign.'); return; }
-  const roster = assignedIds||[];
+  // PMs/admins aren't part of the mandatory sign-off any more (they get a
+  // one-tap "issued" record instead), so they shouldn't be chased to sign.
+  const roster = (assignedIds||[]).filter(id=>PROFILES[id] && PROFILES[id].role==='operative');
   const outstanding = roster.filter(uid => docs.some(d => !(sigsByDoc[d.id]||[]).some(s=>s.user_id===uid)));
   if(!outstanding.length){ toast('Everyone on this site has signed all RAMS documents.'); return; }
   if(!await customConfirm(`Send a sign-reminder notification to ${outstanding.length} operative${outstanding.length===1?'':'s'} who still have RAMS to sign?`)) return;
@@ -20498,14 +20544,20 @@ async function fetchHsPolicyData(){
   const doc = docs[0] || null;
   let sigs = [];
   if(doc) sigs = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+doc.id+'&order=signed_at.asc');
-  return {doc, superseded, sigs};
+  // hs_policy_docs has no "supersedes" column of its own (it's always a
+  // single current slot, replaced wholesale) — only the old row's
+  // superseded_by gets set when a new version is uploaded. So "what did the
+  // current one replace" is found by looking the other way: whichever
+  // superseded doc points its superseded_by at this current doc's id.
+  const supersedesDoc = doc ? superseded.find(d=>d.superseded_by===doc.id) : null;
+  return {doc, superseded, sigs, nameById: docNameLookup(docs, superseded), supersedesName: supersedesDoc ? supersedesDoc.name : null};
 }
 async function renderHsPolicy(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   await loadAllProfiles();
-  const {doc, superseded, sigs} = await fetchHsPolicyData();
+  const {doc, superseded, sigs, nameById, supersedesName} = await fetchHsPolicyData();
   // Signatures from before the current resign cycle count as expired — same
   // "stale on rollover" treatment RAMS/COSHH use, so an annual expiry (or a
   // brand new upload) genuinely requires everyone to sign again.
@@ -20517,7 +20569,7 @@ async function renderHsPolicy(siteId){
     ${doc ? `
       <div class="card">
         <div style="display:flex;justify-content:space-between;gap:8px;"><span style="font-weight:800;font-size:14px;">${escapeHtml(doc.name)}</span></div>
-        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}</div>
+        <div class="meta">Uploaded ${new Date(doc.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} by ${escapeHtml(nameOf(doc.uploaded_by))}${doc.expiry_date?' · Expires '+new Date(doc.expiry_date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'}):''}${supersedesName?' · Supersedes "'+escapeHtml(supersedesName)+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', doc.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(doc.name)?doc.name:doc.name+'.pdf')}')">View document ↗</div>
         <div style="margin-top:12px;">
           ${iSigned ? `<p class="stub" style="color:var(--ok);margin:0;">✓ You signed this on ${new Date(validSigs.find(s=>s.user_id===ME.id).signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — valid for one year, and travels with you to every site.</p>` : `<button class="darkbtn" onclick="signHsPolicy('${doc.id}')">I have read and understood this policy — Sign</button>`}
@@ -20542,7 +20594,7 @@ async function renderHsPolicy(siteId){
     ${hsPolicySupersededOpen ? `<div class="card">${superseded.map(d=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--line);">
         <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
-        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="meta">Uploaded ${new Date(d.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${d.superseded_by?' by "'+escapeHtml(nameById[d.superseded_by]||'a newer version')+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', d.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(d.name)?d.name:d.name+'.pdf')}')">View document ↗</div>
       </div>
     `).join('')}</div>` : ''}
@@ -27235,6 +27287,7 @@ async function renderDrawings(siteId, folderId, opts){
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.current&order=name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.superseded&order=uploaded_at.desc'),
   ]);
+  const drawingNameById = docNameLookup(files, supersededFiles);
   // "Specification" used to hide itself from operatives while genuinely
   // empty (PMs always saw it). That was the one place Specification's
   // visibility diverged from every other Drawings folder, which never hides
@@ -27290,7 +27343,7 @@ async function renderDrawings(siteId, folderId, opts){
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
-            ${f.supersedes ? `<div class="meta">Supersedes an earlier version</div>` : ''}
+            ${f.supersedes ? `<div class="meta">Supersedes "${escapeHtml(drawingNameById[f.supersedes]||'an earlier version')}"</div>` : ''}
           </div>
           <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
           ${canManage ? `<div class="taskicon" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
@@ -27304,7 +27357,7 @@ async function renderDrawings(siteId, folderId, opts){
     ${drawingSupersededOpen ? `<div class="card">${supersededFiles.map(f=>`
       <div style="padding:8px 0;border-bottom:1px solid var(--line);">
         <div style="font-weight:700;font-size:12.5px;">${escapeHtml(f.name)}</div>
-        <div class="meta">Uploaded ${new Date(f.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded</div>
+        <div class="meta">Uploaded ${new Date(f.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${f.superseded_by?' by "'+escapeHtml(drawingNameById[f.superseded_by]||'a newer version')+'"':''}</div>
         <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View document ↗</div>
       </div>
     `).join('')}</div>` : ''}
