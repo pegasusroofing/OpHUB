@@ -19756,10 +19756,13 @@ async function renderRams(siteId){
     ${superseded.length ? `
     <p class="ddrow" onclick="ramsSupersededOpen=!ramsSupersededOpen;render()"><span class="arrow">${ramsSupersededOpen?'▼':'▶'}</span> Superseded Documents (${superseded.length})</p>
     ${ramsSupersededOpen ? `<div class="card">${superseded.map(r=>`
-      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
-        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</div>
-        <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${r.superseded_by?' by "'+escapeHtml(nameById[r.superseded_by]||'a newer version')+'"':''}</div>
-        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:12.5px;">${escapeHtml(r.name)}</div>
+          <div class="meta">Uploaded ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${r.superseded_by?' by "'+escapeHtml(nameById[r.superseded_by]||'a newer version')+'"':''}</div>
+          <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</div>
+        </div>
+        ${canAdd ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div>` : ''}
       </div>
     `).join('')}</div>` : ''}
     ` : ''}
@@ -27355,10 +27358,13 @@ async function renderDrawings(siteId, folderId, opts){
     ${supersededFiles.length ? `
     <p class="ddrow" onclick="drawingSupersededOpen=!drawingSupersededOpen;render()"><span class="arrow">${drawingSupersededOpen?'▼':'▶'}</span> Superseded Documents (${supersededFiles.length})</p>
     ${drawingSupersededOpen ? `<div class="card">${supersededFiles.map(f=>`
-      <div style="padding:8px 0;border-bottom:1px solid var(--line);">
-        <div style="font-weight:700;font-size:12.5px;">${escapeHtml(f.name)}</div>
-        <div class="meta">Uploaded ${new Date(f.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${f.superseded_by?' by "'+escapeHtml(drawingNameById[f.superseded_by]||'a newer version')+'"':''}</div>
-        <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View document ↗</div>
+      <div style="padding:8px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;font-size:12.5px;">${escapeHtml(f.name)}</div>
+          <div class="meta">Uploaded ${new Date(f.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})} · superseded${f.superseded_by?' by "'+escapeHtml(drawingNameById[f.superseded_by]||'a newer version')+'"':''}</div>
+          <div class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View document ↗</div>
+        </div>
+        ${canManage ? `<div class="taskicon danger" style="flex:0 0 auto;" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
       </div>
     `).join('')}</div>` : ''}
     ` : ''}
