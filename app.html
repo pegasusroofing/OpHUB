@@ -7626,11 +7626,13 @@ async function renderRepairJobsCategoryHub(siteId){
   const visibleTileDefs = canManage ? tileDefs : tileDefs.filter(t=>!hiddenTiles.includes(t.key));
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
-      <div class="row-gap" style="margin-bottom:14px;">
+      <div class="row-gap" style="margin-bottom:14px;align-items:stretch;">
         <button class="darkbtn" style="flex:1;" onclick="toggleAddRepairJobForm()">+ Add Job</button>
-        <button class="ghostbtn" style="flex:1;" onclick="exportRepairTrackerExcel('${siteId}')">⬇ Export Excel</button>
+        ${rowActionsMenuHtml('repairhub-menu', `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportRepairTrackerExcel('${siteId}')">⬇ Export Excel</div>
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleBulkAddRepairJobs()">📥 Bulk Add from Work Orders</div>
+        `)}
       </div>
-      <button class="ghostbtn" style="width:100%;margin-bottom:14px;" onclick="toggleBulkAddRepairJobs()">📥 Bulk Add from Work Orders</button>
       ${addRepairJobFormOpen ? `
         <div class="card" style="margin-bottom:16px;background:var(--paper);">
           <p class="sectiontitle" style="margin-top:0;">Add Repair Job</p>
@@ -7945,23 +7947,29 @@ async function renderRepairJobsListPage(siteId, category){
     const statusLabel = j.closed ? 'Closed' : (j.job_status || 'To Survey');
     const badgeColor = j.closed ? 'var(--ok)' : (REPAIR_JOB_STATUS_COLOR[j.job_status] || 'var(--brand1)');
     const checked = repairJobSelectedIds.has(j.id);
+    // #(repair-job-row-cleanup) 2026-09-27 — the row used to show the full
+    // description plus a permanent Survey/Completed/Invoiced strip (ticks
+    // AND pending hourglasses) regardless of progress, which read as busy
+    // even on a brand-new job with nothing done yet. Now only the steps
+    // that are actually DONE show at all, as a short tick list under the
+    // status badge — description dropped from the row entirely (still on
+    // the job detail page).
+    const doneLines = [];
+    if(j.survey_required==='Y' || j.survey_required==='NA') doneLines.push('Surveyed');
+    if(j.works_completed) doneLines.push('Completed');
+    if(canManage && j.invoiced) doneLines.push('Invoiced');
     return `
       <div class="card" style="margin-bottom:10px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;" onclick="${repairJobSelectMode ? `toggleRepairJobSelected('${j.id}')` : `go('#/site/${siteId}/repairjob/${j.id}')`}">
         ${repairJobSelectMode ? `<input type="checkbox" style="width:auto;margin-top:3px;" ${checked?'checked':''} onclick="event.stopPropagation();toggleRepairJobSelected('${j.id}')">` : ''}
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-            <div style="min-width:0;">
-              <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
-              ${j.description ? `<div class="meta" style="margin-top:2px;">${escapeHtml(j.description)}</div>` : ''}
-              ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
-              ${j.quote_approved===true && j.quote_approved_at ? `<div class="stub" style="margin:2px 0 0;">Approved ${new Date(j.quote_approved_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
-            </div>
-            <span class="plaintag" style="flex:none;color:${badgeColor};">${escapeHtml(statusLabel)}</span>
+        <div style="flex:1;min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+          <div style="min-width:0;">
+            <div style="font-weight:700;font-size:14px;">${escapeHtml(j.address||'—')}</div>
+            ${canManage && j.job_number ? `<div class="stub" style="margin:2px 0 0;">${escapeHtml(j.job_number)}</div>` : ''}
+            ${j.quote_approved===true && j.quote_approved_at ? `<div class="stub" style="margin:2px 0 0;">Approved ${new Date(j.quote_approved_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}
           </div>
-          <div class="row-gap" style="margin-top:8px;flex-wrap:wrap;">
-            <span class="stub" style="margin:0;">${j.survey_required==='Y'?'✅':'⏳'} Survey</span>
-            <span class="stub" style="margin:0;">${j.works_completed?'✅':'⏳'} Completed</span>
-            ${canManage ? `<span class="stub" style="margin:0;">${j.invoiced?'✅':'⏳'} Invoiced</span>` : ''}
+          <div style="flex:none;text-align:right;">
+            <span class="plaintag" style="color:${badgeColor};">${escapeHtml(statusLabel)}</span>
+            ${doneLines.length ? doneLines.map(l=>`<div class="stub" style="margin:4px 0 0;color:var(--ok);white-space:nowrap;">${l} ✓</div>`).join('') : ''}
           </div>
         </div>
       </div>
@@ -7974,24 +7982,19 @@ async function renderRepairJobsListPage(siteId, category){
         ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
         <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
       </div>
-      <div class="row-gap" style="margin-bottom:14px;">
-        <button class="ghostbtn" style="flex:1;" onclick="toggleRepairJobSelectMode()">${repairJobSelectMode?'Cancel Select':'Select / Bulk Edit'}</button>
-        ${REPAIR_ROUTE_CATEGORIES.includes(category) && !lastRoute ? `<button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🗺️ Export Route Order'}</button>` : ''}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;">
+        <p class="stub" style="margin:0;">${lastRoute ? 'Last route: '+new Date(lastRoute.generated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}${repairRouteExportBusy ? 'Working out route…' : ''}</p>
+        ${rowActionsMenuHtml('repairlist-menu', `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleRepairJobSelectMode()">${repairJobSelectMode?'✕ Cancel Select':'☑ Select / Bulk Edit'}</div>
+          ${REPAIR_ROUTE_CATEGORIES.includes(category) ? (lastRoute ? `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;viewSavedRepairRouteOrder('${siteId}','${category}')">👁️ View Last Route</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportRepairJobsRouteOrder('${siteId}','${category}')">🔄 Update Route</div>
+          ` : `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportRepairJobsRouteOrder('${siteId}','${category}')">🗺️ Export Route Order</div>
+          `) : ''}
+          ${category==='approved' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportRepairJobsByApprovedDate('${siteId}')">📋 Export by Oldest Approved</div>` : ''}
+        `)}
       </div>
-      ${REPAIR_ROUTE_CATEGORIES.includes(category) && lastRoute ? `
-      <div class="card" style="margin-bottom:14px;background:var(--paper);">
-        <p class="stub" style="margin:0 0 10px;">Last route: ${new Date(lastRoute.generated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}${lastRoute.generated_by && PROFILES[lastRoute.generated_by] ? ' by '+escapeHtml(PROFILES[lastRoute.generated_by].name) : ''}</p>
-        <div class="row-gap">
-          <button class="ghostbtn" style="flex:1;" onclick="viewSavedRepairRouteOrder('${siteId}','${category}')">👁️ View Last Route</button>
-          <button class="ghostbtn" style="flex:1;" ${repairRouteExportBusy?'disabled':''} onclick="exportRepairJobsRouteOrder('${siteId}','${category}')">${repairRouteExportBusy?'Working out route…':'🔄 Update Route'}</button>
-        </div>
-      </div>
-      ` : ''}
-      ${category==='approved' ? `
-      <div class="row-gap" style="margin-bottom:14px;">
-        <button class="ghostbtn" style="flex:1;" ${repairApprovedExportBusy?'disabled':''} onclick="exportRepairJobsByApprovedDate('${siteId}')">${repairApprovedExportBusy?'Exporting…':'📋 Export by Oldest Approved'}</button>
-      </div>
-      ` : ''}
     ` : ''}
     <div class="formfield" style="margin:0 0 10px;">
       <input type="text" id="repairJobFilterInput" placeholder="Filter by address, description or job number…" value="${escapeHtml(repairJobFilterText)}" oninput="setRepairJobFilter(this.value)">
