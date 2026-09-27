@@ -16028,8 +16028,17 @@ async function renderSchedule(siteId){
     ` : ''}
     ${allUngrouped.length ? (()=>{
       const open = scheduleSectionsOpen['__ungrouped__'] !== false;
+      // A dropdown/"who can see this" popup for any task in here is an
+      // absolutely-positioned (or just tall) element nested inside this
+      // card — the overflow:hidden below (there only to clip this card's
+      // own rounded corners) was also clipping that popup down to whatever
+      // short height the card happened to be, instead of letting it open
+      // fully. Switching to overflow:visible only while something inside
+      // is actually open avoids that without changing the normal look.
+      const somethingOpenHere = ungrouped.some(t=>rowActionsMenuOpenFor==='sowtask-'+t.id) ||
+        (scheduleAssignTarget && scheduleAssignTarget.kind==='task' && ungrouped.some(t=>t.id===scheduleAssignTarget.id));
       return `
-      <div class="card" style="padding:0;overflow:hidden;">
+      <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleScheduleSection('__ungrouped__')">
           <span class="arrow">${open?'▼':'▶'}</span> Schedule of Works
         </p>
@@ -16042,8 +16051,16 @@ async function renderSchedule(siteId){
     ${sections.map(sec=>{
       const secTasks = bySection[sec.id] || [];
       const open = scheduleSectionsOpen[sec.id] !== false;
+      // Same fix as the ungrouped card above — this section's own "..."
+      // menu, any of its tasks' "..." menus, and the "who can see this"
+      // assign form were all getting clipped to the card's own (often
+      // short, e.g. a freshly-added empty section) height. Only relax the
+      // clip while one of them is actually open here.
+      const somethingOpenHere = rowActionsMenuOpenFor==='sowsec-'+sec.id ||
+        secTasks.some(t=>rowActionsMenuOpenFor==='sowtask-'+t.id) ||
+        (scheduleAssignTarget && ((scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id) || (scheduleAssignTarget.kind==='task' && secTasks.some(t=>t.id===scheduleAssignTarget.id))));
       return `
-      <div class="card" style="padding:0;overflow:hidden;">
+      <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
           <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${sec.visibility_mode==='assigned'?'🔒 ':''}${escapeHtml(sec.name)}</div>
           ${canAdd ? `<div style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
