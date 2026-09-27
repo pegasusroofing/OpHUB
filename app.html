@@ -22,6 +22,7 @@
     --brand1:#4E8FD1;
     --brand2:#101114;
     --brand1-text:#fff;
+    --brand2-onlight:#101114;
     --red:#C8102E;
     --ink:#1E2124;
     --paper:#EFF2F5;
@@ -235,7 +236,7 @@
   .authtabs{display:flex;gap:8px;margin-bottom:14px;}
   .authtab{flex:1;text-align:center;padding:10px;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-weight:800;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
-  .authtab.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+  .authtab.active{background:#fff;border-color:var(--brand1);border-width:2px;color:var(--brand2-onlight);}
 
   .sitecard{display:flex;align-items:center;gap:10.8px;background:var(--card);border:1px solid var(--line);
     border-radius:12.6px;padding:10.8px;margin-bottom:9px;position:relative;box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease,transform .15s ease;}
@@ -420,7 +421,7 @@
   .filterrow{display:flex;gap:8px;margin-bottom:12px;align-items:stretch;width:100%;}
   .filterchip{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:8px;min-height:34px;line-height:1.2;border-radius:8px;border:1.5px solid var(--line);
     background:#fff;font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);}
-  .filterchip.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+  .filterchip.active{background:#fff;border-color:var(--brand1);border-width:2px;color:var(--brand2-onlight);}
   .closurerow{display:flex;gap:10px;margin-top:10px;align-items:center;}
   .closurerow img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
 
@@ -457,7 +458,7 @@
   .merchantchip{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:4px 9px;
     font-weight:700;font-size:10.5px;}
   .merchantchip.pickable{cursor:pointer;}
-  .merchantchip.pickable.active{background:var(--brand1);border-color:var(--brand1);color:#fff;}
+  .merchantchip.pickable.active{background:#fff;border-color:var(--brand1);border-width:2px;color:var(--brand2-onlight);}
   .merchantchip.sent{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);}
 
   .varcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;}
@@ -499,6 +500,23 @@
   .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
     border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:-2px;}
   @keyframes spin{to{transform:rotate(360deg);}}
+  /* Andy noted the tile grid/app-bar title (Sora) look nicer than the rest
+     of the app's chrome, which was inheriting the body copy font (IBM Plex
+     Sans) or, in a few spots, an inconsistent inline Calibri. This brings
+     every bold/prominent bit of UI chrome — buttons, tabs/chips, menu
+     items, field labels, badges, item names — onto Sora to match, while
+     deliberately leaving paragraph text and typed-in form fields alone:
+     Sora only has 600/700/800 loaded here, so forcing it onto regular-
+     weight body copy would just read heavier, not "nicer". Placed last so
+     it wins the few earlier same-specificity declarations it's replacing
+     (e.g. .rolechip's Calibri); it does not reach inline style="" font
+     overrides, which are edited individually where they existed.  */
+  .primarybtn,.darkbtn,.ghostbtn,.exportbtn,.statusbtn,
+  .filterchip,.authtab,.merchantchip,.tb,
+  .statusmenu-item,label.field-label,.taskname,.badge,.rolechip,
+  .sitecard .info .name{
+    font-family:'Sora',-apple-system,sans-serif;
+  }
 </style>
 </head>
 <body>
@@ -1899,16 +1917,31 @@ function readableTextColor(hex){
   const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
   return luminance > 0.72 ? '#101114' : '#fff';
 }
+// Like readableTextColor, but for coloured text sitting ON a light/white
+// card or chip background (a brand1-outlined tab/chip with brand2 text)
+// rather than a solid brand1 fill behind it — a pale brand2 would be
+// unreadable there, so this falls back to near-black instead of forcing
+// white the way readableTextColor does for a dark background.
+function onLightTextColor(hex, fallback){
+  if(!hex) return fallback;
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if(!m) return fallback;
+  const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
+  const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+  return luminance > 0.65 ? fallback : hex;
+}
 function applyTheme(org){
   const root = document.documentElement.style;
   const brand1 = (org && org.color_primary) || DEFAULT_BRAND1;
+  const brand2 = (org && org.color_secondary) || DEFAULT_BRAND2;
   root.setProperty('--brand1', brand1);
-  root.setProperty('--brand2', (org && org.color_secondary) || DEFAULT_BRAND2);
+  root.setProperty('--brand2', brand2);
   // --brand1-text is only used for solid-brand1-background buttons/badges
   // now (the header banner opacity/text-colour controls this used to also
   // feed were removed once the app bar went flat/white) — always the
   // auto black-or-white pick based on how light the primary colour is.
   root.setProperty('--brand1-text', readableTextColor(brand1));
+  root.setProperty('--brand2-onlight', onLightTextColor(brand2, '#101114'));
 }
 // Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
 // GPS check-in & geofencing — everything else (growth/enterprise) does.
@@ -2637,10 +2670,10 @@ function shell(innerHtml, opts){
               <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:72px;height:72px;flex:none;cursor:pointer;" onclick="go('#/sites')">
             </div>
             <div style="flex:1;text-align:center;cursor:pointer;" onclick="go('#/sites')">
-              ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
+              ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:'Sora',-apple-system,sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
               <div style="width:28px;height:2.5px;background:var(--line);margin:3px auto;"></div>` : ''}
               <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
-              ${opts.title ? `<h2 class="lg" style="font-family:Calibri,'Open Sans',sans-serif;font-weight:800;">${escapeHtml(opts.title)}</h2>` : ''}
+              ${opts.title ? `<h2 class="lg" style="font-family:'Sora',-apple-system,sans-serif;font-weight:800;">${escapeHtml(opts.title)}</h2>` : ''}
             </div>
             <div style="flex:0 0 72px;display:flex;align-items:center;justify-content:center;">
               ${ME && opts.showRefresh ? `
@@ -2997,7 +3030,7 @@ function renderCompanySetup(){
       </div>
       <div class="formfield">
         <label class="field-label">Brand colour 2 (required)</label>
-        <input type="color" id="setupColor2" value="${setupColor2}" oninput="setupColor2=this.value;document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
+        <input type="color" id="setupColor2" value="${setupColor2}" oninput="setupColor2=this.value;document.documentElement.style.setProperty('--brand2',this.value);document.documentElement.style.setProperty('--brand2-onlight',onLightTextColor(this.value,'#101114'));" style="width:100%;height:44px;padding:4px;">
       </div>
       <button class="primarybtn" ${setupBusy || setupLogoProcessing || !setupLogoDataUrl ?'disabled':''} onclick="saveCompanySetup()">
         ${setupBusy ? '<span class="spinner"></span>Saving…' : 'Save & Continue'}
@@ -3007,6 +3040,7 @@ function renderCompanySetup(){
   document.documentElement.style.setProperty('--brand1', setupColor1);
   document.documentElement.style.setProperty('--brand2', setupColor2);
   document.documentElement.style.setProperty('--brand1-text', readableTextColor(setupColor1));
+  document.documentElement.style.setProperty('--brand2-onlight', onLightTextColor(setupColor2, '#101114'));
 }
 let setupLogoProcessing = false;
 window.onSetupLogoChosen = async function(e){
@@ -4770,7 +4804,7 @@ async function renderTeam(){
         </div>
         <div style="flex:1;">
           <label class="stub" style="display:block;margin-bottom:4px;">Secondary colour</label>
-          <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);" style="width:100%;height:44px;padding:4px;">
+          <input type="color" id="themeColor2" value="${escapeHtml((ORG && ORG.color_secondary) || DEFAULT_BRAND2)}" oninput="document.documentElement.style.setProperty('--brand2',this.value);document.documentElement.style.setProperty('--brand2-onlight',onLightTextColor(this.value,'#101114'));" style="width:100%;height:44px;padding:4px;">
         </div>
       </div>
       <p class="stub" style="margin:0 0 10px;">Your primary colour accents the header bar, your company name, and buttons/badges throughout the app.</p>
@@ -11669,13 +11703,13 @@ function pricingElementCardHtml(el, d, ctx){
                 ${r.photo_path ? `<img src="${publicUrl('site-photos', r.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-top:6px;display:block;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos', r.photo_path)}', true)">` : ''}
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="approveAdditionalWorks('${siteId}','${r.id}')">Approve</button>` : ''}
-                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startRejectAdditionalWorks('${r.id}')">Decline</button>` : ''}
-                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','pending')">Revise and Approve</button>` : ''}
-                ${(canManage && r.status==='rejected') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','rejected')">Revisit</button>` : ''}
-                ${(canManage && r.status==='approved') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','approved')">Edit</button>` : ''}
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--ok);border-color:var(--ok);font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="approveAdditionalWorks('${siteId}','${r.id}')">Approve</button>` : ''}
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="startRejectAdditionalWorks('${r.id}')">Decline</button>` : ''}
+                ${(canManage && r.status==='pending') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','pending')">Revise and Approve</button>` : ''}
+                ${(canManage && r.status==='rejected') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','rejected')">Revisit</button>` : ''}
+                ${(canManage && r.status==='approved') ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="startReviseAdditionalWorks('${r.id}','approved')">Edit</button>` : ''}
                 ${(!r.photo_path && (canManage || r.requested_by===ME.id)) ? `<div class="roundplusbtn" style="width:26px;height:26px;font-size:15px;flex:0 0 auto;" title="Add photo" onclick="document.getElementById('awPhotoInput_${r.id}').click()">+</div><input type="file" id="awPhotoInput_${r.id}" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadAwPhoto(this,'${siteId}','${r.id}')">` : ''}
-                ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:Calibri,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
+                ${(canManage || (r.requested_by===ME.id && r.status==='pending')) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--red);border-color:var(--red);font-family:'Sora',-apple-system,sans-serif;font-weight:700;font-size:10.9px;" onclick="deleteAdditionalWorksRequest('${siteId}','${r.id}')">Remove</button>` : ''}
               </div>
               `}
             </div>
@@ -15456,27 +15490,11 @@ let scheduleMultiSelectedIds = new Set();
 // with a sub-address actually chosen, later adds in that same row auto-tag
 // to that same address instead of asking again — see addTask().
 let sectionFirstSubAddr = {};
-window.showScheduleAddMenu = function(siteId){
-  let ov = document.getElementById('confirmModalOverlay');
-  if(!ov){
-    ov = document.createElement('div');
-    ov.id = 'confirmModalOverlay';
-    ov.className = 'geo-modal-overlay';
-    document.body.appendChild(ov);
-  }
-  ov.onclick = (e)=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `
-    <div class="geo-modal-card">
-      <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">What would you like to add?</p>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='task';render()">➕ Add Task</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='section';render()">📁 Add Section</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='variation';render()">📐 Add Variation Work</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';openScheduleLibraryPanel('${siteId}')">📚 From Library</button>
-      <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="document.getElementById('confirmModalOverlay').style.display='none';scheduleAddPanel='upload';render()">📤 Upload Schedule</button>
-      <button class="geo-modal-cancel" onclick="document.getElementById('confirmModalOverlay').style.display='none';">Cancel</button>
-    </div>`;
-  ov.style.display = 'flex';
-};
+// Was a "+" button opening a 5-option popup modal (Add Task/Section/
+// Variation/Library/Upload) — Andy found that an extra tap for no reason,
+// so Add Task and Add Section are now always-visible buttons in the header
+// (see renderSchedule) and the other three live under a small "More" menu
+// (rowActionsMenuHtml) next to them instead of a full-screen modal.
 let scheduleSectionsCache = [];
 /* ================= Schedule of Works — assignable visibility. A section (or
    an ungrouped task; grouped tasks always inherit their section's setting)
@@ -15938,7 +15956,15 @@ async function renderSchedule(siteId){
     ${canAdd ? `
       <div class="drawheaderrow">
         <span>Schedule of Works</span>
-        <div class="roundplusbtn" onclick="showScheduleAddMenu('${siteId}')">+</div>
+        <div class="row-gap" style="width:auto;">
+          <button class="darkbtn" style="width:auto;padding:7px 12px;font-size:10.5px;" onclick="scheduleAddPanel=scheduleAddPanel==='task'?null:'task';render()">➕ Add Task</button>
+          <button class="darkbtn" style="width:auto;padding:7px 12px;font-size:10.5px;" onclick="scheduleAddPanel=scheduleAddPanel==='section'?null:'section';render()">📁 Add Section</button>
+          ${rowActionsMenuHtml('sow-more', `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='variation';render()">📐 Add Variation Work</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleLibraryPanel('${siteId}')">📚 From Library</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
+          `)}
+        </div>
       </div>
     ` : ''}
     <div class="filterrow">
