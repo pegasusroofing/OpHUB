@@ -193,14 +193,16 @@
     transition:opacity .15s ease,transform .15s ease;
   }
   .primarybtn:active,.darkbtn:active,.ghostbtn:active{transform:scale(.98);opacity:.92;}
-  .primarybtn{background:var(--brand1);color:#fff;}
+  /* Was a solid brand1 fill with white text; changed to a thick brand1
+     outline with brand1 text per Andy's request, so primary actions read as
+     "on-brand" without a big block of colour dominating every screen. */
+  .primarybtn,.darkbtn{background:#fff;color:var(--brand1);border:2.5px solid var(--brand1);padding:6.5px 6px;box-sizing:border-box;}
   .exportbtn{padding:7px;font-size:12px;border-radius:9px !important;border-width:1px !important;}
   .ramsexportbtn{padding:11.5px;font-size:14px;}
   .sowexportbtn{padding:11px;font-size:13px;}
   .reportsexportbtn{padding:11.5px;font-size:14px;}
-  .darkbtn{background:var(--brand1);color:#fff;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
-  .primarybtn:disabled,.darkbtn:disabled{background:#d8d5cb;color:#9a978c;}
+  .primarybtn:disabled,.darkbtn:disabled{background:#f2f1ed;color:#9a978c;border-color:#d8d5cb;}
   input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],textarea,select{
     width:100%;max-width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
     font-size:14px;background:#fff;color:var(--ink);font-family:inherit;box-sizing:border-box;
@@ -1075,6 +1077,17 @@ function drawingDownloadFilename(f){
 }
 window.viewDrawing = async function(url, isImage, filename){
   if(isImage){ viewImage(url); return; }
+  // Excel programme files can't be rendered by the in-app PDF viewer — hand
+  // them straight to the browser/OS instead of trying (and failing) to open
+  // them as a PDF.
+  if(filename && /\.(xlsx|xls)$/i.test(filename)){
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+      await window.Capacitor.Plugins.Browser.open({url});
+    } else {
+      window.open(url, '_blank');
+    }
+    return;
+  }
   await viewPdfInApp(url, filename);
 };
 function compressImage(file, opts){
@@ -15495,8 +15508,16 @@ window.openScheduleAssign = function(kind, id, record, defaultOperativeIds, defa
   };
   render();
 };
+// Which table a given "assign visibility" kind lives in — shared by Schedule
+// of Works (section/task) and, since Andy asked for the same per-folder
+// visibility control on Drawings, drawingfolder -> drawing_folders too.
+function scheduleAssignTable(kind){
+  if(kind==='section') return 'schedule_sections';
+  if(kind==='drawingfolder') return 'drawing_folders';
+  return 'schedule_tasks';
+}
 window.openScheduleAssignExisting = async function(kind, id, siteId){
-  const table = kind==='section' ? 'schedule_sections' : 'schedule_tasks';
+  const table = scheduleAssignTable(kind);
   const [rows, assignments, pmList] = await Promise.all([
     dbSelect(table, 'id=eq.'+id+'&select=visibility_mode,assigned_pm_ids,assigned_operative_ids'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -15518,7 +15539,7 @@ window.toggleScheduleAssignPerson = function(which, id){
 };
 window.saveScheduleAssign = async function(siteId){
   const t = scheduleAssignTarget; if(!t) return;
-  const table = t.kind==='section' ? 'schedule_sections' : 'schedule_tasks';
+  const table = scheduleAssignTable(t.kind);
   const d = scheduleAssignDraft;
   const patch = d.all
     ? {visibility_mode:'all', assigned_pm_ids:[], assigned_operative_ids:[]}
@@ -27354,11 +27375,19 @@ async function renderDrawings(siteId, folderId, opts){
     currentFolder = rows[0] || null;
     if(!currentFolder){ go(`#/site/${siteId}/drawings`); return; }
   }
-  let [subfolders, files, supersededFiles] = await Promise.all([
+  // The construction programme is normally an Excel file, not a PDF — only
+  // the two "programme" folders accept it, everywhere else in Drawings stays
+  // PDF/JPEG/PNG only so a spreadsheet doesn't end up filed as a "drawing".
+  const isProgrammeFolder = !!currentFolder && (currentFolder.name==='Programme' || currentFolder.name==='Main Contractor Programme');
+  let [subfolders, files, supersededFiles, siteAssignments, pmOptions] = await Promise.all([
     dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.current&order=name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.superseded&order=uploaded_at.desc'),
+    canManage ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    canManage ? loadPMList() : Promise.resolve([]),
   ]);
+  if(canManage) await loadAllProfiles();
+  const drawingOperativeOptions = canManage ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   const drawingNameById = docNameLookup(files, supersededFiles);
   // "Specification" used to hide itself from operatives while genuinely
   // empty (PMs always saw it). That was the one place Specification's
@@ -27397,22 +27426,24 @@ async function renderDrawings(siteId, folderId, opts){
       ${subfolders.map((f,idx)=>`
         <div class="sitecard" style="cursor:pointer;" onclick="go('#/site/${siteId}/drawings/${f.id}')">
           <div class="swatch">${f.name==='Specification'?'📄':'📁'}</div>
-          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
+          <div class="info"><div class="name" style="font-weight:700;white-space:normal;word-break:break-word;">${f.visibility_mode==='assigned'?'🔒 ':''}${escapeHtml(f.name)}</div><div class="addr">Folder</div></div>
           ${canManage ? `
             <div class="taskicons" onclick="event.stopPropagation();">
               ${rowActionsMenuHtml('drawfolder-'+f.id, `
                 <div class="statusmenu-item" style="${idx===0?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveDrawingFolder('${siteId}',${parentArg},'${f.id}',-1)">▲ Move Up</div>
                 <div class="statusmenu-item" style="${idx===subfolders.length-1?'opacity:.4;pointer-events:none;':''}" onclick="rowActionsMenuOpenFor=null;moveDrawingFolder('${siteId}',${parentArg},'${f.id}',1)">▼ Move Down</div>
                 <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameDrawingFolder('${f.id}','${jsAttr(f.name)}')">✏️ Rename</div>
+                <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('drawingfolder','${f.id}','${siteId}')">🔒 Assign visibility</div>
                 <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteDrawingFolder('${f.id}')">🗑 Delete</div>
               `)}
             </div>
           ` : ''}
         </div>
+        ${canManage && scheduleAssignTarget && scheduleAssignTarget.kind==='drawingfolder' && scheduleAssignTarget.id===f.id ? scheduleAssignFormHtml(siteId, pmOptions, drawingOperativeOptions) : ''}
       `).join('')}
       ${files.map(f=>`
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
-          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : '📐'}</div>
+          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : /\.(xlsx|xls)$/i.test(f.name) ? '📊' : '📐'}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
             ${f.supersedes ? `<div class="meta">Supersedes "${escapeHtml(drawingNameById[f.supersedes]||'an earlier version')}"</div>` : ''}
@@ -27440,14 +27471,33 @@ async function renderDrawings(siteId, folderId, opts){
 
     ${canManage && drawingProgrammeKeyDatePrompt && drawingProgrammeKeyDatePrompt.folderId===(folderId||null) ? `
       <div class="card" style="margin-bottom:14px;background:var(--paper);">
-        <p class="sectiontitle" style="margin-top:0;">Add a key date for "${escapeHtml(drawingProgrammeKeyDatePrompt.fileName)}"?</p>
-        <p class="stub" style="margin:0 0 10px;">Puts a date straight onto the site Calendar so the team can see it without opening the document.</p>
-        <div class="formfield"><label class="field-label">Date</label><input type="date" id="programmeKeyDateInput"></div>
-        <div class="formfield"><label class="field-label">Label</label><input type="text" id="programmeKeyDateLabel" value="${escapeHtml('Programme: '+drawingProgrammeKeyDatePrompt.fileName)}"></div>
-        <div class="row-gap">
-          <button class="darkbtn" style="flex:1;" onclick="saveProgrammeKeyDate()">Add to Calendar</button>
-          <button class="ghostbtn" style="flex:1;" onclick="skipProgrammeKeyDate()">Skip</button>
-        </div>
+        <p class="sectiontitle" style="margin-top:0;">Add key dates from "${escapeHtml(drawingProgrammeKeyDatePrompt.fileName)}"?</p>
+        <p class="stub" style="margin:0 0 10px;">Puts dates straight onto the site Calendar so the team can see them without opening the document.</p>
+        ${drawingProgrammeKeyDatePrompt.candidates && drawingProgrammeKeyDatePrompt.candidates.length ? `
+          <p class="stub" style="margin:0 0 8px;">We spotted ${drawingProgrammeKeyDatePrompt.candidates.length} date${drawingProgrammeKeyDatePrompt.candidates.length===1?'':'s'} in the spreadsheet — tick the ones that are genuine milestones (dates in a Gantt chart's every row aren't all worth a Calendar entry, so nothing's pre-ticked). You can also edit the label before adding.</p>
+          <div style="max-height:260px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;margin:0 0 10px;">
+            ${drawingProgrammeKeyDatePrompt.candidates.map((c,i)=>`
+              <label style="display:flex;align-items:flex-start;gap:8px;margin:0 0 8px;">
+                <input type="checkbox" style="width:auto;margin-top:3px;" ${drawingProgrammeKeyDatePrompt.selected.has(i)?'checked':''} onchange="toggleProgrammeKeyDateCandidate(${i})">
+                <div style="flex:1;min-width:0;">
+                  <div class="stub" style="margin:0 0 2px;">${new Date(c.date+'T00:00:00').toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'})}</div>
+                  <input type="text" id="programmeKeyDateLabel_${i}" value="${escapeHtml(c.label||('Programme: '+drawingProgrammeKeyDatePrompt.fileName))}" style="font-size:12.5px;padding:6px 8px;">
+                </div>
+              </label>
+            `).join('')}
+          </div>
+          <div class="row-gap">
+            <button class="darkbtn" style="flex:1;" onclick="saveProgrammeKeyDates()">Add Ticked to Calendar</button>
+            <button class="ghostbtn" style="flex:1;" onclick="skipProgrammeKeyDate()">Skip</button>
+          </div>
+        ` : `
+          <div class="formfield"><label class="field-label">Date</label><input type="date" id="programmeKeyDateInput"></div>
+          <div class="formfield"><label class="field-label">Label</label><input type="text" id="programmeKeyDateLabel" value="${escapeHtml('Programme: '+drawingProgrammeKeyDatePrompt.fileName)}"></div>
+          <div class="row-gap">
+            <button class="darkbtn" style="flex:1;" onclick="saveProgrammeKeyDate()">Add to Calendar</button>
+            <button class="ghostbtn" style="flex:1;" onclick="skipProgrammeKeyDate()">Skip</button>
+          </div>
+        `}
       </div>
     ` : ''}
 
@@ -27458,13 +27508,13 @@ async function renderDrawings(siteId, folderId, opts){
         <div class="card" style="margin-top:10px;">
           <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
           <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
-          <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.</p>
+          <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.${isProgrammeFolder ? ' Excel files (.xlsx/.xls) are accepted here — key dates in the sheet will be offered for the Calendar once it\'s uploaded.' : ''}</p>
           ${files.length ? `<div class="formfield" style="margin-top:0;"><label class="field-label">Supersedes (optional)</label>
             <select id="drawingSupersedes"><option value="">— New document, doesn't replace anything —</option>${files.map(f=>`<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('')}</select>
             <p class="stub" style="margin:4px 0 0;">Only applies if you choose a single file below — keeps the old version on file, marked Superseded.</p>
           </div>` : ''}
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
-          <input type="file" id="drawingUploadInput" accept="application/pdf,image/jpeg,image/png" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
+          <input type="file" id="drawingUploadInput" accept="${isProgrammeFolder ? 'application/pdf,image/jpeg,image/png,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel' : 'application/pdf,image/jpeg,image/png'}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
           <button class="ghostbtn" style="margin-top:8px;" onclick="drawingUploadOpen=false;render()">Cancel</button>
         </div>
       ` : ''}
@@ -27487,18 +27537,26 @@ window.renameDrawingFolder = async function(folderId, currentName){
   if(row){ toast('Folder renamed'); render(); }
 };
 window.moveDrawingFolder = async function(siteId, parentFolderId, folderId, dir){
-  const siblings = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
-  // Normalize: give every sibling a real integer position first (existing
-  // folders may still have position:null from before this feature existed).
-  await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('drawing_folders', f.id, {position:idx}) : null));
-  const idx = siblings.findIndex(f=>f.id===folderId);
-  const swapIdx = idx + dir;
-  if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
-  await Promise.all([
-    dbUpdate('drawing_folders', siblings[idx].id, {position:swapIdx}),
-    dbUpdate('drawing_folders', siblings[swapIdx].id, {position:idx}),
-  ]);
-  render();
+  if(window.__movingDrawingFolder) return; // ignore a rapid second tap while the first is still saving
+  window.__movingDrawingFolder = true;
+  try{
+    const siblings = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+    const idx = siblings.findIndex(f=>f.id===folderId);
+    const swapIdx = idx + dir;
+    if(idx<0 || swapIdx<0 || swapIdx>=siblings.length) return;
+    // Re-number every sibling 0..n-1 in their current order, but with the two
+    // moved folders' target indices already swapped — one pass, so there's no
+    // window where a second click (or a slow connection) can read a
+    // half-normalized order back and compute the wrong swap from it.
+    const results = await Promise.all(siblings.map((f,i)=>{
+      const newPos = i===idx ? swapIdx : (i===swapIdx ? idx : i);
+      return dbUpdate('drawing_folders', f.id, {position:newPos});
+    }));
+    if(results.some(r=>!r)){ toast('Move failed — could not save the new order, try again.'); return; }
+    render();
+  } finally {
+    window.__movingDrawingFolder = false;
+  }
 };
 window.deleteDrawingFolder = async function(folderId){
   if(!await customConfirm('Delete this folder and everything inside it? This can\'t be undone.')) return;
@@ -27507,9 +27565,57 @@ window.deleteDrawingFolder = async function(folderId){
   const ok = await dbDelete('drawing_folders', folderId);
   if(ok){ toast('Folder deleted'); if(folderRow) logSiteActivity(folderRow.site_id, 'drawing_folder_deleted', `Deleted drawings folder "${folderRow.name||''}"`); render(); }
 };
+// Best-effort scan of an uploaded Excel programme for date cells, so their
+// milestones can be offered for the Calendar without the PM re-typing them.
+// Layout varies a lot job-to-job, so this only ever SUGGESTS candidates —
+// nothing is pre-ticked, and the PM reviews/edits before anything is saved.
+async function parseExcelKeyDates(file){
+  if(typeof XLSX==='undefined') return [];
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array', cellDates:true});
+    const out = [];
+    const seen = new Set();
+    for(const sheetName of wb.SheetNames){
+      const ws = wb.Sheets[sheetName];
+      if(!ws || !ws['!ref']) continue;
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for(let r=range.s.r; r<=range.e.r && out.length<30; r++){
+        let dateCell = null, dateCol = -1;
+        for(let c=range.s.c; c<=range.e.c; c++){
+          const cell = ws[XLSX.utils.encode_cell({r,c})];
+          if(cell && cell.t==='d' && cell.v instanceof Date && !isNaN(cell.v)){ dateCell = cell; dateCol = c; break; }
+        }
+        if(!dateCell) continue;
+        const y = dateCell.v.getFullYear();
+        if(y<2015 || y>2100) continue; // filters out stray numeric-as-date misreads
+        let label = '';
+        for(let c=dateCol-1; c>=range.s.c && !label; c--){
+          const cell = ws[XLSX.utils.encode_cell({r,c})];
+          if(cell && cell.v!=null && String(cell.v).trim()) label = String(cell.v).trim();
+        }
+        if(!label){
+          for(let c=dateCol+1; c<=range.e.c && !label; c++){
+            const cell = ws[XLSX.utils.encode_cell({r,c})];
+            if(cell && cell.v!=null && String(cell.v).trim()) label = String(cell.v).trim();
+          }
+        }
+        const m = String(dateCell.v.getMonth()+1).padStart(2,'0'), d = String(dateCell.v.getDate()).padStart(2,'0');
+        const iso = `${y}-${m}-${d}`;
+        const key = iso+'|'+label;
+        if(seen.has(key)) continue;
+        seen.add(key);
+        out.push({date: iso, label});
+      }
+    }
+    return out;
+  }catch(e){ console.error('Programme Excel date scan failed', e); return []; }
+}
 window.uploadDrawingFile = async function(input, siteId, folderId){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
+  const excelMimes = {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':true, 'application/vnd.ms-excel':true};
+  const isExcelName = name => /\.(xlsx|xls)$/i.test(name);
   const allowed = {'application/pdf':true, 'image/jpeg':true, 'image/png':true};
   const label = document.getElementById('drawingUploadLabel');
   // Supersedes only ever applies to a single-file upload — picking several
@@ -27522,10 +27628,12 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
   let uploaded = 0, skipped = 0, lastUploadedRow = null;
   for(let i=0; i<files.length; i++){
     const file = files[i];
-    if(!allowed[file.type]){ skipped++; continue; }
+    const isExcel = !!excelMimes[file.type] || isExcelName(file.name);
+    if(!allowed[file.type] && !isExcel){ skipped++; continue; }
     if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
     const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-    const stored = await uploadToStorage('drawings', path, file, file.type);
+    const contentType = isExcel ? (file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') : file.type;
+    const stored = await uploadToStorage('drawings', path, file, contentType);
     if(!stored) continue;
     const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id, supersedes: supersedesId||null});
     if(rows){
@@ -27536,19 +27644,24 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
     pushDrawingToOneDrive(siteId, file);
   }
   if(uploaded){ toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
-  else if(skipped) toast('Please choose PDF, JPEG or PNG files.');
+  else if(skipped) toast('Please choose a PDF, JPEG, PNG or (in the Programme folder) an Excel file.');
   // #(programme-key-date) 2026-09-27 — uploading a new/updated construction
-  // programme normally comes with its own key milestone date, so offer to
-  // put that straight onto the site Calendar right away rather than
-  // relying on someone remembering to add it separately. Only offered for
-  // a single-file upload (a batch of programme pages doesn't map to one
-  // key date), and only into the two folders that are actually "the
-  // programme" — every other Drawings/Spec folder is unaffected.
+  // programme normally comes with its own key milestone dates, so offer to
+  // put them straight onto the site Calendar right away rather than relying
+  // on someone remembering to add them separately. Only offered for a
+  // single-file upload (a batch of programme pages doesn't map to one set of
+  // dates), and only into the two folders that are actually "the
+  // programme" — every other Drawings/Spec folder is unaffected. When the
+  // upload is an Excel file, scan it for candidate date cells first (see
+  // parseExcelKeyDates); otherwise fall back to the plain manual-date form.
   if(uploaded===1 && files.length===1 && folderId && lastUploadedRow){
     const folderRows = await dbSelect('drawing_folders', 'id=eq.'+folderId+'&select=name');
     const folderName = folderRows[0] && folderRows[0].name;
     if(folderName==='Programme' || folderName==='Main Contractor Programme'){
-      drawingProgrammeKeyDatePrompt = {fileId: lastUploadedRow.id, fileName: lastUploadedRow.name, siteId, folderId};
+      const uploadedFile = files[0];
+      const isExcel = !!excelMimes[uploadedFile.type] || isExcelName(uploadedFile.name);
+      const candidates = isExcel ? await parseExcelKeyDates(uploadedFile) : [];
+      drawingProgrammeKeyDatePrompt = {fileId: lastUploadedRow.id, fileName: lastUploadedRow.name, siteId, folderId, candidates, selected: new Set()};
     }
   }
   render();
@@ -27566,6 +27679,29 @@ window.saveProgrammeKeyDate = async function(){
   if(eventId) await dbUpdate('drawing_files', p.fileId, {calendar_event_id:eventId});
   drawingProgrammeKeyDatePrompt = null;
   toast('Key date added to the Calendar');
+  render();
+};
+window.toggleProgrammeKeyDateCandidate = function(idx){
+  const p = drawingProgrammeKeyDatePrompt; if(!p) return;
+  if(p.selected.has(idx)) p.selected.delete(idx); else p.selected.add(idx);
+  render();
+};
+window.saveProgrammeKeyDates = async function(){
+  const p = drawingProgrammeKeyDatePrompt; if(!p) return;
+  const idxs = [...p.selected].filter(i=>p.candidates[i]);
+  if(!idxs.length){ toast('Tick at least one date, or use Skip.'); return; }
+  let firstEventId = null, added = 0;
+  for(const i of idxs){
+    const c = p.candidates[i];
+    const labelEl = document.getElementById('programmeKeyDateLabel_'+i);
+    const titleText = (labelEl && labelEl.value.trim()) || c.label || ('Programme: '+p.fileName);
+    const rows = await dbInsert('site_calendar_events', {org_id:ME.org_id, site_id:p.siteId, title:titleText, event_date:c.date, is_private:false, reminder_recipient_ids:[], created_by:ME.id});
+    const eventId = rows && rows[0] && rows[0].id;
+    if(eventId){ added++; if(!firstEventId) firstEventId = eventId; }
+  }
+  if(firstEventId) await dbUpdate('drawing_files', p.fileId, {calendar_event_id:firstEventId});
+  drawingProgrammeKeyDatePrompt = null;
+  if(added) toast(added===1 ? 'Key date added to the Calendar' : `${added} key dates added to the Calendar`);
   render();
 };
 window.skipProgrammeKeyDate = function(){
