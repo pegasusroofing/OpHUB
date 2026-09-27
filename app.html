@@ -21443,10 +21443,13 @@ async function renderHavs(siteId){
   // Days default to expanded — never override a day the user has already
   // opened or closed themselves.
   days.forEach((d,di)=>{ if(havsDayOpen[di]===undefined) havsDayOpen[di] = true; });
-  // Auto-expand the Weekly Summary dropdown the first time this week is
-  // seen, but only when it actually has something in it — after that it's
+  // The Weekly Summary is only shown once the week's been saved & closed
+  // (see the button at the bottom of this page) — it used to appear and
+  // fill in the moment a single entry existed, mid-week, which read as a
+  // "final" rollup while the week was still very much in progress. Auto-
+  // expand it the first time a just-closed week is seen; after that it's
   // the user's own toggle to keep or collapse.
-  if(havsWeeklySummaryOpenByWeek[dateFrom]===undefined) havsWeeklySummaryOpenByWeek[dateFrom] = entries.length>0;
+  if(havsWeeklySummaryOpenByWeek[dateFrom]===undefined) havsWeeklySummaryOpenByWeek[dateFrom] = !!weekCompletion;
   const weeklySummaryOpen = havsWeeklySummaryOpenByWeek[dateFrom];
 
   // Per-operative day/week point totals for the summary strip — HAVS limits
@@ -21509,7 +21512,8 @@ async function renderHavs(siteId){
     ` : ''}
     ${!tools.length ? `<div class="errbox" style="margin-bottom:14px;">${canManage ? 'No tools selected for this site yet — tick some above.' : 'No HAVS tools have been set up for this site yet — ask your PM or admin.'}</div>` : ''}
 
-    ${operatives.length ? `
+    ${operatives.length && !weekCompletion ? `<p class="stub" style="margin:0 0 10px;">Weekly Summary appears once this week is saved &amp; closed, below.</p>` : ''}
+    ${operatives.length && weekCompletion ? `
     <p class="ddrow" style="margin-top:10px;${weeklySummaryOpen?'':'margin-bottom:14px;'}" onclick="toggleHavsWeeklySummary('${dateFrom}')"><span class="arrow">${weeklySummaryOpen?'▼':'▶'}</span> Weekly Summary${entries.length?` (${entries.length} entr${entries.length===1?'y':'ies'})`:''}</p>
     ${weeklySummaryOpen ? `
     <div class="card" style="margin-bottom:14px;">
@@ -21551,7 +21555,18 @@ async function renderHavs(siteId){
       return `
       <p class="ddrow" style="margin-top:${di===0?0:10}px;" onclick="toggleHavsDay(${di})">
         <span class="arrow">${isOpen?'▼':'▶'}</span> ${HAVS_DAY_LABELS[di]} <span class="stub" style="font-weight:400;">${d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
-        ${dayTotalPts>0 ? `<span style="float:right;">${dayTotalPts>=400?`<span class="status closed" style="background:#FBE1DE;color:var(--brand1);">ELV EXCEEDED</span>`:dayTotalPts>=100?`<span class="status upcoming">ACTION NEEDED</span>`:`<span class="status live">OK</span>`}</span>` : ''}
+        ${dayTotalPts>0 ? (()=>{
+          // .status's pill styling (padding/pill-shape/uppercase/colour) only
+          // ever applies inside a .sitecard ancestor (see CSS) — this badge
+          // sits in a plain .ddrow, so the class alone rendered as bare
+          // black text with no background at all. Self-contained inline
+          // styles here instead of relying on that scoped class.
+          const pillBase = 'font-size:10.8px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:3.24px 8.64px;border-radius:999px;float:right;';
+          const [bg,color,label] = dayTotalPts>=400 ? ['#FBE1DE','var(--brand1)','ELV EXCEEDED']
+            : dayTotalPts>=100 ? ['var(--warn-bg)','var(--warn)','ACTION NEEDED']
+            : ['var(--ok-bg)','var(--ok)','OK'];
+          return `<span style="${pillBase}background:${bg};color:${color};">${label}</span>`;
+        })() : ''}
       </p>
       ${isOpen ? `
       <div class="card" style="margin-bottom:4px;">
@@ -21631,13 +21646,13 @@ async function renderHavs(siteId){
     ${canManage && operatives.length ? `
     <div class="card" style="margin-top:14px;">
       ${weekCompletion ? `
-        <p class="stub" style="margin:0 0 6px;">✓ Marked complete ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
+        <p class="stub" style="margin:0 0 6px;">🔒 Saved &amp; closed ${new Date(weekCompletion.completed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${weekCompletion.completed_by && PROFILES[weekCompletion.completed_by] ? ' by '+escapeHtml(PROFILES[weekCompletion.completed_by].name) : ''}</p>
         <div class="row-gap">
           <button class="ghostbtn" style="flex:1;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="reopenHavsWeek('${weekCompletion.id}')">Reopen This Week</button>
           <button class="darkbtn" style="flex:1;padding:8px 6px;font-size:11.5px;" onclick="moveToNextHavsWeek()">Move to Next Week →</button>
         </div>
       ` : `
-        <button class="darkbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Mark This Week Complete</button>
+        <button class="darkbtn" style="width:100%;padding:8px 6px;font-size:11.5px;" ${havsMarkCompleteBusy?'disabled':''} onclick="markHavsWeekComplete('${siteId}','${dateFrom}')">Save &amp; Close for the Week</button>
       `}
     </div>
     ` : ''}
@@ -21657,7 +21672,7 @@ async function renderHavsCompletedTab(siteId, site, canManage, __gen){
       <button class="ghostbtn" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('weekly')">This Week</button>
       <button class="darkbtn" style="flex:1;width:auto;padding:8px 6px;font-size:12px;" onclick="setHavsTab('completed')">Completed HAVS</button>
     </div>
-    ${!rows.length ? `<div class="empty">No weeks marked complete yet — use "Mark This Week Complete" on the This Week tab once a week's HAVS register is finished.</div>` : rows.map(r=>{
+    ${!rows.length ? `<div class="empty">No weeks saved &amp; closed yet — use "Save &amp; Close for the Week" on the This Week tab once a week's HAVS register is finished.</div>` : rows.map(r=>{
       const days = havsWeekDatesFromStart(r.week_start);
       const weekLabel = havsWeekLabelFor(days);
       const completedBy = r.completed_by && PROFILES[r.completed_by] ? PROFILES[r.completed_by].name : null;
