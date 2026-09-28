@@ -1593,23 +1593,23 @@ function blobToBase64(blob){
   });
 }
 // #(share-no-file-2026-09) — sharing a Priced Sheet PDF out to WhatsApp/
-// email from the in-app viewer looks completely normal (the OS share sheet
-// opens, WhatsApp/Gmail are listed, no error anywhere) but the app that's
-// picked receives no real attachment — confirmed on Andy's own iPhone, in
-// both plain Safari and the native app, not just Android WebView as
-// originally suspected: `navigator.canShare({files})` reports true and
-// `navigator.share({files:[file]})` resolves with no error, yet WhatsApp
-// gets a 0-byte file and Mail gets only the filename with no attachment.
-// The browser silently fails to carry a JS-constructed File/Blob's actual
-// bytes through to the OS share bridge, and there's no way to detect this
-// from here — it reports success. So on native platforms this writes the
-// file to a real path on disk via the Capacitor Filesystem plugin and
-// shares that as a real content:///file:// URI via the Capacitor Share
-// plugin instead (this app's Android project already has a FileProvider
-// configured for exactly this). On every other platform (plain Safari/
-// Chrome) this now does nothing but report failure — the caller
-// (sharePdfViewerDoc) is what actually shares there, using a pre-uploaded
-// real link instead, since a JS File/Blob object can't be trusted.
+// email from the in-app viewer once looked completely normal (the OS share
+// sheet opened, WhatsApp/Gmail were listed, no error anywhere) but the app
+// that was picked received no real attachment. At the time that looked like
+// the Web Share API's `files` option itself being unreliable — but the test
+// that showed it had also just been changed to upload the file to storage
+// *before* calling share(), and on iOS Safari any await between a tap and
+// the actual share call breaks the browser's requirement that the call
+// happen synchronously within that tap's own gesture; it fails silently
+// rather than throwing. That upload delay, not the files API itself, was
+// the likely real cause — so files-mode sharing is back as the primary
+// path here, called with nothing awaited beforehand (see
+// #(share-call-must-be-immediate) in sharePdfViewerDoc). On native
+// platforms this instead writes the file to a real path on disk via the
+// Capacitor Filesystem plugin and shares that as a real content://file://
+// URI via the Capacitor Share plugin — belt-and-braces, since that path
+// doesn't depend on the Web Share API at all once those plugins are
+// actually linked into the build.
 async function shareFile(blob, filename, mimeType){
   try{
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -1618,6 +1618,11 @@ async function shareFile(blob, filename, mimeType){
       const base64 = await blobToBase64(blob);
       const written = await plugins.Filesystem.writeFile({path: filename, data: base64, directory: 'CACHE'});
       await plugins.Share.share({title: filename, url: written.uri});
+      return true;
+    }
+    const file = new File([blob], filename, {type: mimeType});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title: filename});
       return true;
     }
   }catch(e){ /* user cancelled the share sheet, or it's unsupported — ignore */ }
