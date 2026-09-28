@@ -1063,25 +1063,37 @@ let pdfViewerState = null;
 window.sharePdfViewerDoc = async function(){
   if(!pdfViewerState) return;
   let bytes = pdfViewerState.bytes;
-  if(!bytes && pdfViewerState.url){
-    try{ bytes = await (await fetch(pdfViewerState.url)).arrayBuffer(); }catch(e){ toast('Could not load the file to share.'); return; }
+  // A document already opened from storage (e.g. a Drawing) already has a
+  // real, fetchable https:// URL — reuse it rather than re-uploading. A
+  // freshly-generated export (Price Builder, Schedule, Snags, etc.) only has
+  // raw bytes in memory, with no URL yet.
+  let realUrl = pdfViewerState.url || null;
+  if(!bytes && !realUrl){ toast('Nothing to share yet.'); return; }
+  if(!bytes && realUrl){
+    try{ bytes = await (await fetch(realUrl)).arrayBuffer(); }catch(e){ toast('Could not load the file to share.'); return; }
   }
-  if(!bytes){ toast('Nothing to share yet.'); return; }
   const blob = new Blob([bytes], {type:'application/pdf'});
-  const shared = await shareFile(blob, pdfViewerState.filename, 'application/pdf');
+  // #(share-needs-real-url): every share path below (the OS's native share
+  // sheet, and the "open it, then share from there" fallback) ultimately
+  // hands the picked app — WhatsApp, Mail — a URL to fetch the file from.
+  // A blob: URL only exists in this page's own memory, so a share sheet
+  // silently produces a 0-byte attachment for it. Upload it to get a real
+  // link before sharing at all (unless one already exists, per above), the
+  // same proven pattern already used for the Excel/calendar exports.
+  if(!realUrl){
+    toast('Preparing…');
+    const safeName = (pdfViewerState.filename||'document.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = 'exports/'+uid()+'-'+safeName;
+    const stored = await uploadToStorage('mc-documents', path, blob, 'application/pdf');
+    if(!stored){ toast('Could not prepare the file to share — try again.'); return; }
+    realUrl = publicUrl('mc-documents', stored);
+  }
+  const shared = await shareFile(blob, pdfViewerState.filename, 'application/pdf', realUrl);
   if(!shared){
-    // #(ios-safari-share-fallback): the old fallback here was a plain
-    // <a download> click — that's a no-op on iOS Safari for a blob: URL
-    // (Safari doesn't support the download attribute the way desktop
-    // browsers do), so on any iPhone where the Web Share API call above
-    // didn't go through, tapping Share looked like it did nothing at all.
-    // Opening the blob in a new tab instead is what actually works on iOS
-    // Safari: it hands off to Safari's own built-in PDF viewer, which has
-    // its own working Share button (Mail, Save to Files, AirDrop, etc.) —
-    // and it's a harmless normal download on every other browser too.
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(()=>URL.revokeObjectURL(url), 60000);
+    // Last resort: open the real (not blob:) URL in a new tab — a genuine
+    // download/share from there works properly since it's a real network
+    // resource, not page-memory-only data.
+    window.open(realUrl, '_blank');
   }
 };
 window.closePdfViewer = function(){
@@ -1576,7 +1588,20 @@ function blobToBase64(blob){
 // reliable path — falling back to the old Web Share/download behaviour on
 // a plain web browser, or if those native plugins aren't present, so
 // nothing regresses there. Returns true if a share sheet was actually shown.
-async function shareFile(blob, filename, mimeType){
+// #(share-needs-real-url): a blob: URL only exists inside this page's own
+// memory — it isn't a real, network-fetchable resource, so any app that the
+// OS share sheet hands it off to (WhatsApp, Mail) has nothing it can
+// actually download, and the "attachment" that arrives is 0 bytes. This bit
+// Andy on both the native app (the Filesystem/Share plugin branch below,
+// which writes a REAL file and should be immune to this — confirmed still
+// not linked into the actual running build despite installing/syncing them,
+// so it keeps falling through to the branches below it) and on plain Safari
+// (the Web Share API's files option not being available in this WKWebView/
+// Safari context, then the "open a blob: URL, share from there" fallback
+// hitting this exact limitation). `fallbackUrl`, when the caller has one, is
+// a real https:// link to the file already sitting in storage — used first
+// ahead of the blob: URL so recipients get the actual document either way.
+async function shareFile(blob, filename, mimeType, fallbackUrl){
   try{
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     const plugins = window.Capacitor && window.Capacitor.Plugins;
@@ -1589,6 +1614,10 @@ async function shareFile(blob, filename, mimeType){
     const file = new File([blob], filename, {type: mimeType});
     if(navigator.canShare && navigator.canShare({files:[file]})){
       await navigator.share({files:[file], title: filename});
+      return true;
+    }
+    if(fallbackUrl && navigator.share){
+      await navigator.share({url: fallbackUrl, title: filename});
       return true;
     }
   }catch(e){ /* user cancelled the share sheet, or it's unsupported — ignore */ }
