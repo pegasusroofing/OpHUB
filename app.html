@@ -13450,16 +13450,22 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
   y -= 10;
   const boxW = 210, boxX = PAGE_W-MARGIN-boxW;
   const summaryRows = [['Total', total], ['Taken', taken], ['Balance', balance]];
+  // Row offsets, not a flat i*18 — Balance is the final, bolded result after
+  // the divider line and sat right on top of it looked cramped against
+  // Taken above; giving it extra breathing room (28 instead of 36) below the
+  // divider (which moves with it, staying roughly centred in the new gap)
+  // fixes that without touching the even Total/Taken spacing above it.
+  const summaryRowY = [0, 18, 44];
   summaryRows.forEach(([label, val], i)=>{
-    const rowY = y - i*18;
+    const rowY = y - summaryRowY[i];
     page.drawText(label, {x:boxX, y:rowY, size:10, font: i===2?bold:reg, color: i===2 && val<0 ? PDFLib.rgb(0.757,0.231,0.231) : INK});
     const valText = '£ '+Number(val).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
     const font = i===2?bold:reg;
     const w = font.widthOfTextAtSize(valText, 10);
     page.drawText(valText, {x:boxX+boxW-w, y:rowY, size:10, font, color: i===2 && val<0 ? PDFLib.rgb(0.757,0.231,0.231) : INK});
   });
-  page.drawLine({start:{x:boxX,y:y-27}, end:{x:boxX+boxW,y:y-27}, thickness:0.75, color:LINE});
-  y -= 3*18 + 10;
+  page.drawLine({start:{x:boxX,y:y-32}, end:{x:boxX+boxW,y:y-32}, thickness:0.75, color:LINE});
+  y -= summaryRowY[2] + 10;
 
   // Live week-by-week booked-in breakdown, same figures that drive the
   // Taken total above — shows the maths behind it rather than just the
