@@ -994,7 +994,27 @@ window.viewPdfInApp = async function(source, filename){
   pdfViewerZoom = {scale:1, x:0, y:0};
   // Stashed so the Share button can hand the OS share sheet the exact same
   // bytes/name without re-fetching, and so closing the viewer can free them.
-  pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf'};
+  const thisViewerState = pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf', preparedUrl: null};
+  // #(pre-upload-for-share): any await between the Share tap and the actual
+  // share call (uploading the file, say) breaks iOS Safari's requirement
+  // that a share/popup be triggered directly within the tap's own gesture —
+  // silently, either as a blocked blank tab or as the Web Share API
+  // reporting success while handing the recipient no real data. Uploading
+  // here, right when the document opens (well before anyone taps Share),
+  // means a real link is normally already sitting ready by the time they do
+  // tap it, so that tap can call share synchronously with nothing to await
+  // first. Runs in the background — doesn't block or delay the preview.
+  if(thisViewerState.bytes && !thisViewerState.url){
+    (async ()=>{
+      try{
+        const blob = new Blob([thisViewerState.bytes], {type:'application/pdf'});
+        const safeName = (thisViewerState.filename||'document.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+        const path = 'exports/'+uid()+'-'+safeName;
+        const stored = await uploadToStorage('mc-documents', path, blob, 'application/pdf');
+        if(stored && pdfViewerState===thisViewerState) thisViewerState.preparedUrl = publicUrl('mc-documents', stored);
+      }catch(e){ /* Share falls back to uploading on tap instead if this didn't finish in time */ }
+    })();
+  }
   try{
     if(typeof pdfjsLib === 'undefined') throw new Error('pdf renderer unavailable');
     const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: source});
@@ -1062,39 +1082,38 @@ window.viewPdfInApp = async function(source, filename){
 let pdfViewerState = null;
 window.sharePdfViewerDoc = async function(){
   if(!pdfViewerState) return;
-  let bytes = pdfViewerState.bytes;
-  // A document already opened from storage (e.g. a Drawing) already has a
-  // real, fetchable https:// URL — reuse it rather than re-uploading. A
-  // freshly-generated export (Price Builder, Schedule, Snags, etc.) only has
-  // raw bytes in memory, with no URL yet.
-  let realUrl = pdfViewerState.url || null;
+  const bytes = pdfViewerState.bytes;
+  // A document already opened from storage (e.g. a Drawing) has a real URL
+  // immediately; a freshly-generated export gets one from the background
+  // upload kicked off when the viewer opened (see #(pre-upload-for-share)
+  // in viewPdfInApp) — normally ready well before anyone gets to tapping
+  // Share, since generating/rendering the PDF itself takes longer.
+  const realUrl = pdfViewerState.url || pdfViewerState.preparedUrl || null;
   if(!bytes && !realUrl){ toast('Nothing to share yet.'); return; }
-  if(!bytes && realUrl){
-    try{ bytes = await (await fetch(realUrl)).arrayBuffer(); }catch(e){ toast('Could not load the file to share.'); return; }
+  // #(share-call-must-be-immediate): deliberately no `await` before this —
+  // on iOS Safari, any async work (even a network upload) between the tap
+  // and the actual share call breaks its requirement that the share be
+  // triggered directly within that tap's own gesture, and it fails
+  // silently rather than with a catchable error: either a blank blocked
+  // popup, or the Web Share API reporting success while the picked app
+  // receives no real data. Calling straight into whatever's already ready
+  // (native plugin, or the in-memory blob for Web Share) is what makes the
+  // native share sheet pop up over this page rather than navigating away.
+  if(bytes){
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    if(await shareFile(blob, pdfViewerState.filename, 'application/pdf')) return;
   }
-  const blob = new Blob([bytes], {type:'application/pdf'});
-  // #(share-needs-real-url): every share path below (the OS's native share
-  // sheet, and the "open it, then share from there" fallback) ultimately
-  // hands the picked app — WhatsApp, Mail — a URL to fetch the file from.
-  // A blob: URL only exists in this page's own memory, so a share sheet
-  // silently produces a 0-byte attachment for it. Upload it to get a real
-  // link before sharing at all (unless one already exists, per above), the
-  // same proven pattern already used for the Excel/calendar exports.
-  if(!realUrl){
-    toast('Preparing…');
-    const safeName = (pdfViewerState.filename||'document.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
-    const path = 'exports/'+uid()+'-'+safeName;
-    const stored = await uploadToStorage('mc-documents', path, blob, 'application/pdf');
-    if(!stored){ toast('Could not prepare the file to share — try again.'); return; }
-    realUrl = publicUrl('mc-documents', stored);
+  // Native plugin and Web Share files both unavailable/unsupported here.
+  // Sharing the real link (not a page-memory blob: URL) still pops the
+  // native share sheet over this page rather than navigating anywhere —
+  // it just carries a link instead of an attached file.
+  if(realUrl && navigator.share){
+    try{ await navigator.share({url: realUrl, title: pdfViewerState.filename}); return; }catch(e){ /* cancelled, or unsupported */ }
   }
-  const shared = await shareFile(blob, pdfViewerState.filename, 'application/pdf', realUrl);
-  if(!shared){
-    // Last resort: open the real (not blob:) URL in a new tab — a genuine
-    // download/share from there works properly since it's a real network
-    // resource, not page-memory-only data.
-    window.open(realUrl, '_blank');
-  }
+  // Truly nothing else available (old browser, no Web Share API at all) —
+  // only now fall back to opening the real link directly.
+  if(realUrl){ window.open(realUrl, '_blank'); return; }
+  toast('Still preparing this file — try Share again in a moment.');
 };
 window.closePdfViewer = function(){
   const ov = document.getElementById('pdfViewerOverlay');
@@ -1573,49 +1592,25 @@ function blobToBase64(blob){
     reader.readAsDataURL(blob);
   });
 }
-// #(share-no-file-android) 2026-09-25 — sharing a Priced Sheet PDF out to
-// WhatsApp/email from the in-app viewer looked like it worked (the OS share
-// sheet opened, WhatsApp/Gmail were listed) but the app that was picked
-// received no attachment at all. Root cause: the Web Share API's `files`
-// option is well known to be unreliable inside an embedded Android
-// WebView — `navigator.canShare({files})` can report true and
-// `navigator.share()` can resolve without throwing, while the receiving
-// app still gets nothing. This app's Android project already has a
-// FileProvider configured (AndroidManifest.xml) specifically for real
-// native file sharing, so on native platforms this now writes the file to
-// the app's cache directory via the Capacitor Filesystem plugin and shares
-// that as a real content:// URI via the Capacitor Share plugin — the
-// reliable path — falling back to the old Web Share/download behaviour on
-// a plain web browser, or if those native plugins aren't present, so
-// nothing regresses there. Returns true if a share sheet was actually shown.
-// #(share-needs-real-url): a blob: URL only exists inside this page's own
-// memory — it isn't a real, network-fetchable resource, so any app that the
-// OS share sheet hands it off to (WhatsApp, Mail) has nothing it can
-// actually download, and the "attachment" that arrives is 0 bytes. This bit
-// Andy on both the native app (the Filesystem/Share plugin branch below,
-// which writes a REAL file and should be immune to this — confirmed still
-// not linked into the actual running build despite installing/syncing them,
-// so it keeps falling through to the branches below it) and on plain Safari
-// (the Web Share API's files option not being available in this WKWebView/
-// Safari context, then the "open a blob: URL, share from there" fallback
-// hitting this exact limitation). `fallbackUrl`, when the caller has one, is
-// a real https:// link to the file already sitting in storage — used first
-// ahead of the blob: URL so recipients get the actual document either way.
-// #(web-share-files-lies): confirmed on Andy's iPhone in plain Safari, not
-// just Android WebView — navigator.canShare({files}) returns true and
-// navigator.share({files:[file]}) resolves with no error, share sheet looks
-// completely normal, but WhatsApp gets a 0-byte file and Mail gets only the
-// filename with no attachment at all. The browser is silently failing to
-// carry a JS-constructed File/Blob's actual bytes through the OS share
-// bridge. There is no reliable way to detect this from here — it reports
-// success — so the files branch of the Web Share API is no longer trusted
-// for a real attachment on any non-native platform. `fallbackUrl` (a real
-// https:// link to the file, already uploaded by the caller) is opened
-// directly instead: Safari fetches the genuine bytes itself from the
-// network and shows its own native PDF viewer, whose own Share button
-// works from real fetched data rather than a page-memory object, so it
-// doesn't hit this bug.
-async function shareFile(blob, filename, mimeType, fallbackUrl){
+// #(share-no-file-2026-09) — sharing a Priced Sheet PDF out to WhatsApp/
+// email from the in-app viewer looks completely normal (the OS share sheet
+// opens, WhatsApp/Gmail are listed, no error anywhere) but the app that's
+// picked receives no real attachment — confirmed on Andy's own iPhone, in
+// both plain Safari and the native app, not just Android WebView as
+// originally suspected: `navigator.canShare({files})` reports true and
+// `navigator.share({files:[file]})` resolves with no error, yet WhatsApp
+// gets a 0-byte file and Mail gets only the filename with no attachment.
+// The browser silently fails to carry a JS-constructed File/Blob's actual
+// bytes through to the OS share bridge, and there's no way to detect this
+// from here — it reports success. So on native platforms this writes the
+// file to a real path on disk via the Capacitor Filesystem plugin and
+// shares that as a real content:///file:// URI via the Capacitor Share
+// plugin instead (this app's Android project already has a FileProvider
+// configured for exactly this). On every other platform (plain Safari/
+// Chrome) this now does nothing but report failure — the caller
+// (sharePdfViewerDoc) is what actually shares there, using a pre-uploaded
+// real link instead, since a JS File/Blob object can't be trusted.
+async function shareFile(blob, filename, mimeType){
   try{
     const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
     const plugins = window.Capacitor && window.Capacitor.Plugins;
