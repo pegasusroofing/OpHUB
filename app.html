@@ -1099,9 +1099,21 @@ window.sharePdfViewerDoc = async function(){
   // receives no real data. Calling straight into whatever's already ready
   // (native plugin, or the in-memory blob for Web Share) is what makes the
   // native share sheet pop up over this page rather than navigating away.
+  // #(share-status-not-boolean): only fall back to sharing a bare link when
+  // there's genuinely no files-capable share path on this browser at all
+  // ('unsupported'). Andy previously saw a confusing second share sheet pop
+  // up carrying the raw storage URL right after the first one (for the
+  // actual PDF) closed — that happened because a real files-share *attempt*
+  // that failed was being treated the same as "no files support", so this
+  // fell through into a second, worse share. A real attempt getting
+  // 'cancelled' (the user backed out themselves) or 'failed' now stops here
+  // instead of chaining into another dialog.
   if(bytes){
     const blob = new Blob([bytes], {type:'application/pdf'});
-    if(await shareFile(blob, pdfViewerState.filename, 'application/pdf')) return;
+    const status = await shareFile(blob, pdfViewerState.filename, 'application/pdf');
+    if(status==='shared' || status==='cancelled') return;
+    if(status==='failed'){ toast('Could not share this file — try again, or use Email instead.'); return; }
+    // status==='unsupported' falls through to the link-based share below.
   }
   // Native plugin and Web Share files both unavailable/unsupported here.
   // Sharing the real link (not a page-memory blob: URL) still pops the
@@ -1610,23 +1622,42 @@ function blobToBase64(blob){
 // URI via the Capacitor Share plugin — belt-and-braces, since that path
 // doesn't depend on the Web Share API at all once those plugins are
 // actually linked into the build.
+// Returns a status string rather than a boolean so the caller can tell a
+// real failure apart from "nothing to try" and from the user just backing
+// out of the share sheet — see #(share-status-not-boolean) in
+// sharePdfViewerDoc for why that distinction matters:
+//   'shared'      — handed off successfully (native plugin, or Web Share files)
+//   'cancelled'   — the user dismissed the share sheet themselves; not an error
+//   'failed'      — files sharing was available and attempted but errored
+//   'unsupported' — no files-capable share path exists on this browser/app at all
 async function shareFile(blob, filename, mimeType){
-  try{
-    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-    const plugins = window.Capacitor && window.Capacitor.Plugins;
-    if(isNative && plugins && plugins.Filesystem && plugins.Share){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  const plugins = window.Capacitor && window.Capacitor.Plugins;
+  if(isNative && plugins && plugins.Filesystem && plugins.Share){
+    try{
       const base64 = await blobToBase64(blob);
       const written = await plugins.Filesystem.writeFile({path: filename, data: base64, directory: 'CACHE'});
       await plugins.Share.share({title: filename, url: written.uri});
-      return true;
+      return 'shared';
+    }catch(e){
+      return (e && e.message==='canceled') ? 'cancelled' : 'failed';
     }
-    const file = new File([blob], filename, {type: mimeType});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], title: filename});
-      return true;
+  }
+  const file = new File([blob], filename, {type: mimeType});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      // #(files-share-no-title): passing `title` alongside `files` is what
+      // repeatedly, independently gets reported as the cause of iOS Safari
+      // handing some share targets (WhatsApp among them) just the title
+      // text and an empty/placeholder file instead of the real attachment —
+      // keeping this call to files-only is a known, if unofficial, mitigation.
+      await navigator.share({files:[file]});
+      return 'shared';
+    }catch(e){
+      return (e && e.name==='AbortError') ? 'cancelled' : 'failed';
     }
-  }catch(e){ /* user cancelled the share sheet, or it's unsupported — ignore */ }
-  return false;
+  }
+  return 'unsupported';
 }
 // Shared PDF delivery for every generated export (reports, RAMS, toolbox talks,
 // snagging, schedule of works). Used to hand this off to whatever PDF viewer
