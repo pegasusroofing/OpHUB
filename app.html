@@ -8122,15 +8122,15 @@ async function renderRepairJobsListPage(siteId, category){
 
   document.getElementById('app').innerHTML = shell(`
     ${canManage ? `
-      <!-- #(repair-category-tabs-scroll) 2026-09-28 — this row used to
-      flex-wrap, which with all 12 categories meant it wrapped across 3-4
-      lines and pushed the actual job list off the top of the screen on a
-      phone. Now a single row that scrolls sideways instead — same buttons,
-      same active/ghost styling, just contained to one line. -->
-      <div class="hscroll-noscrollbar" style="display:flex;flex-wrap:nowrap;gap:6px;margin-bottom:14px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;padding-bottom:2px;">
-        ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<button class="${category===k?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/${k}')">${REPAIR_CATEGORY_DEFS[k].label}</button>`).join('')}
-        <button class="${category==='closed'?'darkbtn':'ghostbtn'}" style="flex:0 0 auto;white-space:nowrap;padding:8px 12px;font-size:12.5px;" onclick="go('#/site/${siteId}/repairjobs/closed')">Closed</button>
-      </div>
+      <!-- #(repair-category-tabs-dropdown) 2026-09-28 — this was a row of
+      12 category buttons; flex-wrap pushed the job list off the top of the
+      screen on a phone, and a sideways-scrolling version of the same row
+      (tried first) wasn't wanted either. Now a single dropdown that
+      navigates on change — one control, no wrapping, no scrolling. -->
+      <select style="width:100%;margin-bottom:14px;" onchange="go('#/site/${siteId}/repairjobs/'+this.value)">
+        ${Object.keys(REPAIR_CATEGORY_DEFS).filter(k=>k!=='closed').map(k=>`<option value="${k}" ${category===k?'selected':''}>${REPAIR_CATEGORY_DEFS[k].label}</option>`).join('')}
+        <option value="closed" ${category==='closed'?'selected':''}>${REPAIR_CATEGORY_DEFS.closed.label}</option>
+      </select>
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;">
         <p class="stub" style="margin:0;">${lastRoute ? 'Last route: '+new Date(lastRoute.generated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}${repairRouteExportBusy ? 'Working out route…' : ''}</p>
         ${rowActionsMenuHtml('repairlist-menu', `
