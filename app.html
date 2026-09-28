@@ -1045,7 +1045,18 @@ window.viewPdfInApp = async function(source, filename){
       await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
     }
   }catch(e){
-    body.innerHTML = `<div class="empty" style="color:#fff;opacity:.85;">Couldn't preview this document here.<br><a href="${typeof source==='string'?source:'#'}" target="_blank" style="color:#8fc4ff;">Open it directly instead</a></div>`;
+    // #(pdf-viewer-dead-fallback-link): when `source` is raw bytes (every
+    // freshly-generated export — Price Builder, Schedule, Snags, etc. — hands
+    // this straight from PDFLib rather than a storage URL) and pdf.js fails
+    // to render it, this used to build the fallback link from `source`
+    // itself, and `typeof source==='string'` is false for bytes, so it fell
+    // back to a literal href="#" — a dead link that does nothing when
+    // tapped, with no indication anything was wrong. Build a real blob: URL
+    // from the bytes instead so the fallback link actually opens the file.
+    let fallbackHref = '#';
+    if(typeof source === 'string') fallbackHref = source;
+    else{ try{ fallbackHref = URL.createObjectURL(new Blob([source], {type:'application/pdf'})); }catch(e2){} }
+    body.innerHTML = `<div class="empty" style="color:#fff;opacity:.85;">Couldn't preview this document here.<br><a href="${fallbackHref}" target="_blank" style="color:#8fc4ff;">Open it directly instead</a></div>`;
   }
 };
 let pdfViewerState = null;
@@ -1059,13 +1070,18 @@ window.sharePdfViewerDoc = async function(){
   const blob = new Blob([bytes], {type:'application/pdf'});
   const shared = await shareFile(blob, pdfViewerState.filename, 'application/pdf');
   if(!shared){
-    // Web Share API unavailable (older Android WebView, or desktop browser) —
-    // fall back to a plain download so the file is still reachable.
+    // #(ios-safari-share-fallback): the old fallback here was a plain
+    // <a download> click — that's a no-op on iOS Safari for a blob: URL
+    // (Safari doesn't support the download attribute the way desktop
+    // browsers do), so on any iPhone where the Web Share API call above
+    // didn't go through, tapping Share looked like it did nothing at all.
+    // Opening the blob in a new tab instead is what actually works on iOS
+    // Safari: it hands off to Safari's own built-in PDF viewer, which has
+    // its own working Share button (Mail, Save to Files, AirDrop, etc.) —
+    // and it's a harmless normal download on every other browser too.
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = pdfViewerState.filename;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    window.open(url, '_blank');
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
   }
 };
 window.closePdfViewer = function(){
