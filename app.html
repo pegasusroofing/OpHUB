@@ -13274,6 +13274,14 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     {key:'rate', label:'Rate £', x:0.70, w:0.14, align:'right'},
     {key:'line_total', label:'Total £', x:0.84, w:0.16, align:'right'},
   ];
+  // #(price-pdf-column-gutter): columns sit edge-to-edge with zero gap, so a
+  // right-aligned value (Qty) butts straight up against the very next
+  // left-aligned column's text (Unit) with nothing between them — "120m",
+  // "14No." — reading as one misaligned run instead of two columns. A small
+  // fixed inset on the inner edge of every right/left-aligned cell (not
+  // center, which is already visually centred in its own column) keeps that
+  // gap without changing the column boundaries the headers line up to.
+  const CELL_PAD = 5;
   function drawCell(page, text, col, y, opts){
     const cw = col.w*CONTENT_W;
     const font = (opts&&opts.font) || reg;
@@ -13281,8 +13289,13 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     const color = (opts&&opts.color) || INK;
     const w = font.widthOfTextAtSize(text, size);
     let x = MARGIN + col.x*CONTENT_W;
-    if(col.align==='right') x += cw - w;
+    if(col.align==='right') x += cw - w - CELL_PAD;
     else if(col.align==='center') x += (cw-w)/2;
+    // The Item column sits at the page's own left margin (col.x===0), not
+    // against another column's edge, and its body text is drawn separately
+    // (outside drawCell, to support wrapping) with no pad — so padding only
+    // the header here would knock "Item" out of line with the rows under it.
+    else if(col.x>0) x += CELL_PAD;
     page.drawText(text, {x, y, size, font, color});
   }
   const jobBits = [];
