@@ -5618,12 +5618,16 @@ window.deleteSowLibTask = async function(templateId, taskId){
 };
 /* ================= PRICE BUILDER — shared helpers (WIP feature) ================= */
 const PRICE_UNIT_LABEL = {lm:'lm', m2:'m2', each:'ea', item:'item'};
-// Bonnets & Valleys / Valleys are only relevant on a plain-tile roof — they
-// stay hidden on the tick page until one of the 2 "Plain Tiles" dropdown
-// options (one per Strip/Felt & Batten build-up) has actually been ticked
-// on this sheet, rather than cluttering every sheet regardless of roof type.
+// Bonnets & Valleys is only relevant on a plain-tile roof — it stays hidden
+// on the tick page until one of the 2 "Plain Tiles" dropdown options (one
+// per Strip/Felt & Batten build-up) has actually been ticked on this sheet,
+// rather than cluttering every sheet regardless of roof type. Valleys itself
+// (with its GRP/Lead dropdown options) is NOT plain-tile-specific — valleys
+// exist on interlocking-tile roofs too — so unlike Bonnets & Valleys it
+// always shows; it used to be hidden by the same rule, which is what Andy
+// was reporting as "I can't see the valleys".
 const PB_PLAIN_TILE_KEYS = ['dc9f0840-07e5-4e75-80f2-57779696cfb4::368563ce-5118-4789-8cd4-b112a7a62d48', '572111b5-8768-44ce-af25-f2b917fd18fc::bc79a3a6-6ba9-49e8-ad9b-cc0c3b28645b'];
-const PB_HIDE_UNLESS_PLAIN_TILE_IDS = new Set(['ee8d64ba-87c8-4ead-af3f-e68e3b62f777', '29bbdd65-43e0-449f-8fcb-fcfb2491fb02']); // Bonnets & Valleys, Valleys
+const PB_HIDE_UNLESS_PLAIN_TILE_IDS = new Set(['ee8d64ba-87c8-4ead-af3f-e68e3b62f777']); // Bonnets & Valleys only
 function pbPlainTileTicked(){ return PB_PLAIN_TILE_KEYS.some(k=>!!pbWorking.items[k]); }
 // Categories render in this fixed order rather than alphabetically — any
 // category not in this list (e.g. one someone adds later) is appended after,
