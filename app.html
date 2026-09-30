@@ -8518,7 +8518,6 @@ async function renderRepairJobDetail(siteId, jobId){
         <div class="formfield"><input type="text" id="repairJobAddress" placeholder="Address" value="${escapeHtml(job.address||'')}"></div>
         <div class="formfield"><textarea id="repairJobDescription" placeholder="Description of call out" rows="2">${escapeHtml(job.description||'')}</textarea></div>
         <button class="ghostbtn" onclick="saveRepairJobBasics('${jobId}')">Save Job Details</button>
-        ${canManage ? `<button class="ghostbtn" style="color:var(--warn);border-color:var(--warn);margin-top:8px;" onclick="deleteRepairJob('${jobId}','${siteId}','${jsAttr(job.address||'this job')}')">Delete Job</button>` : ''}
       ` : `
         ${job.job_number ? `<p class="stub" style="margin:0 0 4px;font-size:13px;">Job #${escapeHtml(job.job_number)}</p>` : ''}
         ${job.description ? `<p class="stub" style="margin:0;font-size:13px;">${escapeHtml(job.description)}</p>` : ''}
@@ -8756,6 +8755,8 @@ window.addRepairJobPhoto = async function(input, jobId, category){
   // sync with whatever photos are actually on the job — see
   // exportRepairJobSurveyPdf below.
   if((category==='survey'||category==='access') && job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
+  // Same idea for the Completed Works Report, once works are marked complete.
+  if(category==='completion' && job && job.works_completed) exportRepairJobCompletionPdf(jobId);
 };
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
   const yes = await customConfirm('Delete this photo?');
@@ -8824,19 +8825,6 @@ window.saveRepairJobBasics = async function(jobId){
   if(!address){ toast('Enter an address.'); return; }
   const row = await dbUpdate('repair_jobs', jobId, {job_number:jobNumber||null, address, description:description||null});
   if(row){ repairJobInfoEditOpen[jobId] = false; toast('Saved'); render(); }
-};
-window.deleteRepairJob = async function(jobId, siteId, addressLabel){
-  // #(pm-repair-job-hard-delete) 2026-09-30 — PMs asked to be able to fully
-  // remove a repair job (a mistyped duplicate, a job raised in error, etc),
-  // not just close/status-shuffle it. The DB already has a "pm delete" RLS
-  // policy on repair_jobs (pm/admin/site_manager + site access) with photos
-  // cascading on delete, so this is purely surfacing it in the UI — the
-  // storage files behind any photos aren't purged, same as site deletion.
-  if(!await customConfirm(`Permanently delete "${addressLabel}"? This removes the job along with its survey, photos and history. This can't be undone.`)) return;
-  const ok = await dbDelete('repair_jobs', jobId);
-  if(!ok){ return; }
-  toast('Job deleted');
-  go('#/site/'+siteId+'/home');
 };
 window.setRepairJobSurveyStatus = async function(jobId, value){
   const job = repairJobDetailCurrent;
@@ -9041,6 +9029,151 @@ async function exportRepairJobSurveyPdf(jobId){
     }
   }catch(e){ /* silent — best effort only */ }
 }
+// #(repair-job-completion-report) 2026-09-30 — mirrors buildRepairJobSurveyPdf
+// / exportRepairJobSurveyPdf exactly, but for the "works completed" side of a
+// job instead of the survey: job details, completion date/notes, and every
+// completion photo. Andy asked for this so signing off a job leaves the same
+// kind of paper trail in OneDrive that surveying one already does.
+async function buildRepairJobCompletionPdf(jobId){
+  if(typeof PDFLib==='undefined') return null;
+  const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
+  const job = rows[0]; if(!job) return null;
+  const site = SITES.find(s=>s.id===job.site_id);
+  await loadAllProfiles();
+  try{
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+    const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const WHITE = PDFLib.rgb(1,1,1);
+    const INK = PDFLib.rgb(0.06,0.06,0.07);
+    const SLATE = PDFLib.rgb(0.36,0.37,0.41);
+    const FAINT = PDFLib.rgb(0.85,0.84,0.80);
+    const HEADBAR = PDFLib.rgb(0.933,0.941,0.961);
+    const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
+    const PAGE_W = 595.28, PAGE_H = 841.89;
+    const MARGIN = 44;
+    const CONTENT_W = PAGE_W - 2*MARGIN;
+    const companyName = (ORG && ORG.name) || 'OpHUB';
+
+    let logoImg = null;
+    const logoUrl = ORG && ORG.logo_path ? publicUrl('org-logos', ORG.logo_path) : null;
+    if(logoUrl){
+      const bytes = await pdfFetchImageBytes(logoUrl);
+      if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
+    }
+
+    let page, y;
+    function drawHeaderBand(){
+      page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
+      if(logoImg){
+        const dim = logoImg.scale(1);
+        const s = 40/Math.max(dim.width, dim.height);
+        const w = dim.width*s, h = dim.height*s;
+        page.drawRectangle({x:MARGIN, y:PAGE_H-76, width:40, height:40, color:WHITE});
+        page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
+      }
+      const textX = logoImg ? MARGIN+52 : MARGIN;
+      const addressLabel = job.address || 'Repair Job';
+      const titleText = addressLabel.length>44 ? addressLabel.slice(0,41)+'…' : addressLabel;
+      page.drawText('COMPLETED WORKS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    }
+    function drawFooter(pageLabel){
+      page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
+      page.drawText('Generated via OpHUB', {x:MARGIN, y:20, size:8, font:reg, color:SLATE});
+      if(pageLabel){
+        const w = reg.widthOfTextAtSize(pageLabel,8);
+        page.drawText(pageLabel, {x:PAGE_W-MARGIN-w, y:20, size:8, font:reg, color:SLATE});
+      }
+    }
+    function newPage(){
+      page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+      drawHeaderBand();
+      y = PAGE_H - 118;
+    }
+    function ensureSpace(h){ if(y - h < 50) newPage(); }
+    function wrapText(text, font, size, maxWidth){
+      const words = String(text).split(/\s+/);
+      const lines = []; let line = '';
+      words.forEach(w=>{
+        const test = line ? line+' '+w : w;
+        if(font.widthOfTextAtSize(test, size) > maxWidth && line){ lines.push(line); line = w; }
+        else line = test;
+      });
+      if(line) lines.push(line);
+      return lines;
+    }
+    function drawHeadingBar(label){
+      const h = 26;
+      ensureSpace(h+4);
+      page.drawRectangle({x:MARGIN, y:y-h, width:CONTENT_W, height:h, color:HEADBAR});
+      page.drawText(label, {x:MARGIN+10, y:y-h+8, size:11.5, font:bold, color:INK});
+      y -= h+8;
+    }
+    function drawField(label, value){
+      ensureSpace(30);
+      page.drawText(label.toUpperCase(), {x:MARGIN, y:y-11, size:8.5, font:bold, color:SLATE});
+      y -= 16;
+      wrapText(value||'—', reg, 10.5, CONTENT_W).forEach(l=>{ ensureSpace(14); page.drawText(l, {x:MARGIN, y:y-10, size:10.5, font:reg, color:INK}); y -= 14; });
+      y -= 8;
+    }
+
+    newPage();
+    drawHeadingBar('Job Details');
+    drawField('Job Number', job.job_number || '—');
+    drawField('Address', job.address || '—');
+    if(job.description) drawField('Description of Call Out', job.description);
+
+    drawHeadingBar('Completion');
+    drawField('Works Completed', job.works_completed_date ? new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'Not yet marked complete');
+    drawField('Completion Notes', job.works_notes || '(no notes recorded)');
+
+    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.completion&order=created_at.asc');
+    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})));
+
+    const total = pdfDoc.getPageCount();
+    pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+total); });
+
+    const filename = exportFilename(job.address||'', 'Completed Works Report', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+    const outBytes = await pdfDoc.save();
+    let binary=''; const chunk=0x8000;
+    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
+    const base64 = btoa(binary);
+    return {bytes: outBytes, base64, filename, job};
+  }catch(e){
+    console.error(e);
+    return null;
+  }
+}
+// Same auto-export-and-push pattern as exportRepairJobSurveyPdf, for the
+// Completed Works Report instead — best-effort and silent, called whenever
+// completion-relevant data changes AFTER works have been marked complete
+// (see setRepairJobWorksCompleted/saveRepairJobCompletionNotes/
+// addRepairJobPhoto).
+async function exportRepairJobCompletionPdf(jobId){
+  try{
+    const built = await buildRepairJobCompletionPdf(jobId);
+    if(!built) return;
+    const job = built.job;
+    const site = SITES.find(s=>s.id===job.site_id);
+    if(job.onedrive_folder_id){
+      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        filename: built.filename,
+        content_base64: built.base64,
+        folder_id: job.onedrive_folder_id,
+        drive_id: job.onedrive_drive_id||undefined,
+      })});
+    } else if(site && site.onedrive_folder_id){
+      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+        filename: repairJobOneDriveFolder(job)+'/'+built.filename,
+        content_base64: built.base64,
+        site_id: job.site_id,
+      })});
+    }
+  }catch(e){ /* silent — best effort only */ }
+}
 // Surveyor is never picked from a dropdown — it's just whoever actually
 // filled the survey notes in, captured automatically the first time notes
 // are saved for this job (re-saving edits doesn't change who did the survey).
@@ -9184,6 +9317,23 @@ window.saveRepairJobProgress = function(jobId){
 window.setRepairJobWorksCompleted = async function(jobId, checked){
   const job = repairJobDetailCurrent;
   const patch = {works_completed: checked};
+  // #(works-complete-requires-notes-and-photo) 2026-09-30 — mirrors the same
+  // compulsory-evidence rule already in place for marking a survey complete
+  // (see setRepairJobSurveyStatus): completion notes and at least one
+  // completion photo must be on the job before an operative can tick "works
+  // completed". Reads the notes textarea live so a typed-but-not-yet-saved
+  // note still counts, and saves it in the same patch below so ticking the
+  // box is enough once both requirements are actually met. Ticking the box
+  // reverts to unchecked on failure since it's a checkbox onchange, not a
+  // button — render() redraws it from the (unchanged) job row.
+  if(checked){
+    const notesInput = document.getElementById('repairWorksNotes');
+    const notesText = (notesInput ? notesInput.value : (job && job.works_notes) || '').trim();
+    if(!notesText){ toast('Add completion notes before marking the works complete.'); render(); return; }
+    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.completion&select=id&limit=1');
+    if(!photoRows.length){ toast('Add at least one completion photo before marking the works complete.'); render(); return; }
+    patch.works_notes = notesText;
+  }
   if(checked && job && !job.works_completed_date) patch.works_completed_date = new Date().toISOString();
   const effectiveDate = checked ? (patch.works_completed_date || (job && job.works_completed_date) || null) : null;
   const completionDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
@@ -9194,12 +9344,19 @@ window.setRepairJobWorksCompleted = async function(jobId, checked){
   // already been fully closed, which has its own separate reopen flow).
   if(job && !job.closed) patch.job_status = checked ? 'Awaiting Sign-off' : 'In Progress';
   saveRepairJobField(jobId, patch);
+  // Push the Completed Works Report to OneDrive the moment the job is
+  // actually marked complete — same best-effort/silent pattern as the
+  // Survey Report export.
+  if(checked) exportRepairJobCompletionPdf(jobId);
 };
 window.saveRepairJobCompletionNotes = function(jobId){
   const job = repairJobDetailCurrent;
   const works_notes = document.getElementById('repairWorksNotes').value.trim();
   saveRepairJobField(jobId, {works_notes: works_notes||null});
   if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'completion', works_notes);
+  // If works are already marked complete, an edit to the notes here should
+  // be reflected in the exported Completed Works Report too, not just the app.
+  if(job && job.works_completed) exportRepairJobCompletionPdf(jobId);
 };
 window.setRepairJobClosed = async function(jobId, checked){
   if(checked){
