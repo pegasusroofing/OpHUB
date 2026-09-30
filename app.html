@@ -8518,6 +8518,7 @@ async function renderRepairJobDetail(siteId, jobId){
         <div class="formfield"><input type="text" id="repairJobAddress" placeholder="Address" value="${escapeHtml(job.address||'')}"></div>
         <div class="formfield"><textarea id="repairJobDescription" placeholder="Description of call out" rows="2">${escapeHtml(job.description||'')}</textarea></div>
         <button class="ghostbtn" onclick="saveRepairJobBasics('${jobId}')">Save Job Details</button>
+        ${canManage ? `<button class="ghostbtn" style="color:var(--warn);border-color:var(--warn);margin-top:8px;" onclick="deleteRepairJob('${jobId}','${siteId}','${jsAttr(job.address||'this job')}')">Delete Job</button>` : ''}
       ` : `
         ${job.job_number ? `<p class="stub" style="margin:0 0 4px;font-size:13px;">Job #${escapeHtml(job.job_number)}</p>` : ''}
         ${job.description ? `<p class="stub" style="margin:0;font-size:13px;">${escapeHtml(job.description)}</p>` : ''}
@@ -8823,6 +8824,19 @@ window.saveRepairJobBasics = async function(jobId){
   if(!address){ toast('Enter an address.'); return; }
   const row = await dbUpdate('repair_jobs', jobId, {job_number:jobNumber||null, address, description:description||null});
   if(row){ repairJobInfoEditOpen[jobId] = false; toast('Saved'); render(); }
+};
+window.deleteRepairJob = async function(jobId, siteId, addressLabel){
+  // #(pm-repair-job-hard-delete) 2026-09-30 — PMs asked to be able to fully
+  // remove a repair job (a mistyped duplicate, a job raised in error, etc),
+  // not just close/status-shuffle it. The DB already has a "pm delete" RLS
+  // policy on repair_jobs (pm/admin/site_manager + site access) with photos
+  // cascading on delete, so this is purely surfacing it in the UI — the
+  // storage files behind any photos aren't purged, same as site deletion.
+  if(!await customConfirm(`Permanently delete "${addressLabel}"? This removes the job along with its survey, photos and history. This can't be undone.`)) return;
+  const ok = await dbDelete('repair_jobs', jobId);
+  if(!ok){ return; }
+  toast('Job deleted');
+  go('#/site/'+siteId+'/home');
 };
 window.setRepairJobSurveyStatus = async function(jobId, value){
   const job = repairJobDetailCurrent;
