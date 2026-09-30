@@ -1080,6 +1080,32 @@ window.viewPdfInApp = async function(source, filename){
   }
 };
 let pdfViewerState = null;
+// #(share-2026-09-30) — every JS-driven attempt at sharing a real file from
+// mobile Safari has now failed the same way on Andy's actual iPhone, twice,
+// across genuinely different code (with and without `title` alongside
+// `files`): navigator.canShare({files}) says yes, navigator.share resolves
+// with no error at all, and WhatsApp/Mail still receive a 0-byte file. This
+// isn't a bug in this app's code — it's a long-standing WebKit issue with
+// the Web Share API's file-sharing option specifically (tracked upstream as
+// webkit.org bug 216913, open since iOS 14) — so no amount of further
+// tweaking on our side was ever going to fix it; the API itself doesn't
+// reliably deliver the bytes on this device/iOS version.
+//
+// What IS reliable — because it doesn't go through that browser API at all
+// — is Safari's own built-in PDF viewer and the native Share icon in ITS
+// toolbar: that's iOS handling a real document it fetched itself, exactly
+// like sharing any PDF from Files or Mail, and isn't subject to the bug
+// above. So on the web (not the native app), Share now hands off to that:
+// it navigates this tab to the real, already-uploaded PDF url — Safari
+// opens its own PDF viewer over the page, and its own Share icon reliably
+// attaches the real file. Tapping Back in Safari returns here. It's one
+// extra tap versus the one-shot share sheet we were trying to get working,
+// but it actually works, which nothing else tried so far has.
+//
+// On the native app (Capacitor), none of the above applies — shareFile's
+// native branch writes a real file to local disk and hands it to iOS's own
+// native share sheet directly via the Filesystem/Share plugins, which was
+// never subject to this bug either. That stays the primary path there.
 window.sharePdfViewerDoc = async function(){
   if(!pdfViewerState) return;
   const bytes = pdfViewerState.bytes;
@@ -1090,41 +1116,20 @@ window.sharePdfViewerDoc = async function(){
   // Share, since generating/rendering the PDF itself takes longer.
   const realUrl = pdfViewerState.url || pdfViewerState.preparedUrl || null;
   if(!bytes && !realUrl){ toast('Nothing to share yet.'); return; }
-  // #(share-call-must-be-immediate): deliberately no `await` before this —
-  // on iOS Safari, any async work (even a network upload) between the tap
-  // and the actual share call breaks its requirement that the share be
-  // triggered directly within that tap's own gesture, and it fails
-  // silently rather than with a catchable error: either a blank blocked
-  // popup, or the Web Share API reporting success while the picked app
-  // receives no real data. Calling straight into whatever's already ready
-  // (native plugin, or the in-memory blob for Web Share) is what makes the
-  // native share sheet pop up over this page rather than navigating away.
-  // #(share-status-not-boolean): only fall back to sharing a bare link when
-  // there's genuinely no files-capable share path on this browser at all
-  // ('unsupported'). Andy previously saw a confusing second share sheet pop
-  // up carrying the raw storage URL right after the first one (for the
-  // actual PDF) closed — that happened because a real files-share *attempt*
-  // that failed was being treated the same as "no files support", so this
-  // fell through into a second, worse share. A real attempt getting
-  // 'cancelled' (the user backed out themselves) or 'failed' now stops here
-  // instead of chaining into another dialog.
-  if(bytes){
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if(isNative && bytes){
+    // #(share-call-must-be-immediate): deliberately no `await` before this —
+    // any async work between the tap and the actual share call can break
+    // the platform's requirement that it happen within that tap's own
+    // gesture. Calling straight into the in-memory blob is what makes the
+    // native share sheet pop up immediately rather than failing silently.
     const blob = new Blob([bytes], {type:'application/pdf'});
     const status = await shareFile(blob, pdfViewerState.filename, 'application/pdf');
     if(status==='shared' || status==='cancelled') return;
-    if(status==='failed'){ toast('Could not share this file — try again, or use Email instead.'); return; }
-    // status==='unsupported' falls through to the link-based share below.
+    toast('Could not share this file'+(lastShareErrorDetail ? ' — '+lastShareErrorDetail : ' — try again, or use Email instead.'));
+    return;
   }
-  // Native plugin and Web Share files both unavailable/unsupported here.
-  // Sharing the real link (not a page-memory blob: URL) still pops the
-  // native share sheet over this page rather than navigating anywhere —
-  // it just carries a link instead of an attached file.
-  if(realUrl && navigator.share){
-    try{ await navigator.share({url: realUrl, title: pdfViewerState.filename}); return; }catch(e){ /* cancelled, or unsupported */ }
-  }
-  // Truly nothing else available (old browser, no Web Share API at all) —
-  // only now fall back to opening the real link directly.
-  if(realUrl){ window.open(realUrl, '_blank'); return; }
+  if(realUrl){ window.location.href = realUrl; return; }
   toast('Still preparing this file — try Share again in a moment.');
 };
 window.closePdfViewer = function(){
@@ -1630,6 +1635,11 @@ function blobToBase64(blob){
 //   'cancelled'   — the user dismissed the share sheet themselves; not an error
 //   'failed'      — files sharing was available and attempted but errored
 //   'unsupported' — no files-capable share path exists on this browser/app at all
+// Set whenever shareFile returns 'failed', so the caller can show the real
+// native error instead of a generic "didn't work" toast — useful now that
+// the web path below no longer tries (and silently eats failures from) the
+// browser's own Web Share files API at all; see sharePdfViewerDoc.
+let lastShareErrorDetail = null;
 async function shareFile(blob, filename, mimeType){
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const plugins = window.Capacitor && window.Capacitor.Plugins;
@@ -1640,23 +1650,16 @@ async function shareFile(blob, filename, mimeType){
       await plugins.Share.share({title: filename, url: written.uri});
       return 'shared';
     }catch(e){
+      console.error('[shareFile:native]', e);
+      lastShareErrorDetail = (e && e.message) || String(e) || null;
       return (e && e.message==='canceled') ? 'cancelled' : 'failed';
     }
   }
-  const file = new File([blob], filename, {type: mimeType});
-  if(navigator.canShare && navigator.canShare({files:[file]})){
-    try{
-      // #(files-share-no-title): passing `title` alongside `files` is what
-      // repeatedly, independently gets reported as the cause of iOS Safari
-      // handing some share targets (WhatsApp among them) just the title
-      // text and an empty/placeholder file instead of the real attachment —
-      // keeping this call to files-only is a known, if unofficial, mitigation.
-      await navigator.share({files:[file]});
-      return 'shared';
-    }catch(e){
-      return (e && e.name==='AbortError') ? 'cancelled' : 'failed';
-    }
-  }
+  // Not the native app — no Capacitor Filesystem/Share plugins here, so
+  // there's no reliable native path in this function for a plain browser.
+  // (Web Share's `files` option used to be tried here too, but real device
+  // testing showed it "succeeds" — resolves with no error — while handing
+  // WhatsApp/Mail a 0-byte file; see sharePdfViewerDoc for what replaced it.)
   return 'unsupported';
 }
 // Shared PDF delivery for every generated export (reports, RAMS, toolbox talks,
