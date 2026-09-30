@@ -966,7 +966,7 @@ function setupPdfViewerGestures(wrap){
     applyPdfViewerTransform();
   }, {passive:false});
 }
-window.viewPdfInApp = async function(source, filename){
+window.viewPdfInApp = async function(source, filename, opts){
   let ov = document.getElementById('pdfViewerOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -975,6 +975,7 @@ window.viewPdfInApp = async function(source, filename){
     ov.innerHTML = `
       <div class="pdf-viewer-bar">
         <span class="pdf-viewer-title" id="pdfViewerTitle"></span>
+        <span class="pdf-viewer-btn" id="pdfViewerEmailBtn" title="Email" onclick="emailPdfViewerDoc()" style="display:none;">✉️</span>
         <span class="pdf-viewer-btn" id="pdfViewerShareBtn" title="Share / Save" onclick="sharePdfViewerDoc()">⤴</span>
         <span class="pdf-viewer-btn" title="Close" onclick="closePdfViewer()">✕</span>
       </div>
@@ -988,13 +989,24 @@ window.viewPdfInApp = async function(source, filename){
     document.body.appendChild(ov);
   }
   document.getElementById('pdfViewerTitle').textContent = filename || 'Document';
+  // #(pdf-viewer-email-btn) 2026-09-30 — Andy kept trying to send a real
+  // attachment via Share → Mail from the share sheet, which goes through
+  // the same broken Web Share files API as WhatsApp (see sharePdfViewerDoc)
+  // — the actually-reliable ✉️ Email option (a real server-side attachment,
+  // no share sheet involved) lived only in a separate "..." menu on the
+  // sheet's own page, nowhere near the PDF viewer someone naturally lands
+  // on right after exporting. Surfacing it right here, next to Share, when
+  // the caller provides one, so it's not something you have to already
+  // know exists elsewhere.
+  const emailBtn = document.getElementById('pdfViewerEmailBtn');
+  if(emailBtn) emailBtn.style.display = (opts && opts.emailAction) ? '' : 'none';
   const body = document.getElementById('pdfViewerBody');
   body.innerHTML = '<p class="stub" style="color:#fff;opacity:.7;margin-top:40px;">Loading document…</p>';
   ov.style.display = 'flex';
   pdfViewerZoom = {scale:1, x:0, y:0};
   // Stashed so the Share button can hand the OS share sheet the exact same
   // bytes/name without re-fetching, and so closing the viewer can free them.
-  const thisViewerState = pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf', preparedUrl: null};
+  const thisViewerState = pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf', preparedUrl: null, emailAction: (opts && opts.emailAction) || null};
   // #(pre-upload-for-share): any await between the Share tap and the actual
   // share call (uploading the file, say) breaks iOS Safari's requirement
   // that a share/popup be triggered directly within the tap's own gesture —
@@ -1682,9 +1694,12 @@ async function shareFile(blob, filename, mimeType){
 // already have straight to our own in-app viewer — no upload, no network
 // round trip, no platform guessing, and the name is always right because
 // it's our own header bar showing it, on every platform, every time.
-async function deliverPdf(bytes, filename){
-  await viewPdfInApp(bytes, filename);
+async function deliverPdf(bytes, filename, opts){
+  await viewPdfInApp(bytes, filename, opts);
 }
+window.emailPdfViewerDoc = function(){
+  if(pdfViewerState && pdfViewerState.emailAction) pdfViewerState.emailAction();
+};
 // Same problem as deliverPdf above (a plain download link does nothing inside
 // the native app) but for Excel exports. There's no in-app spreadsheet
 // viewer, so on native this uploads the file and hands it to the system —
@@ -13576,7 +13591,7 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
 window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   const built = await buildPriceBuilderSheetPdfBytes(siteId, sheetId);
   if(!built) return;
-  await deliverPdf(built.bytes, built.filename);
+  await deliverPdf(built.bytes, built.filename, {emailAction: ()=>emailPriceBuilderSheetPdf(siteId, sheetId)});
 };
 // Emails a Priced Sheet PDF to an address typed in — same pattern as
 // emailSiteInductionPdf: upload the freshly-built PDF to storage, then hand
