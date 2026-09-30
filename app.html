@@ -8438,7 +8438,16 @@ async function renderRepairJobDetail(siteId, jobId){
       <p class="field-label" style="margin:14px 0 4px;">${label}</p>
       ${photoGalleryHtml(category)}
       <button class="ghostbtn" ${busy?'disabled':''} onclick="document.getElementById('repairPhoto_${category}').click()">${busy?'Uploading…':'+ Add Photo'}</button>
-      <input type="file" id="repairPhoto_${category}" accept="image/*" capture="environment" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobPhoto(this,'${jobId}','${category}')">
+      <!-- #(repair-photo-capture-attr) 2026-09-30 — capture=environment forces
+      straight into the camera on Android (Chrome/WebView skip the normal file
+      picker entirely when it's present), so there was no way to pick existing
+      photos from the gallery, and the camera only ever takes one shot at a
+      time regardless of multiple — both reported as "can only take photos,
+      not upload them" and "can't add more than one at once". Dropping
+      capture restores the full picker (Camera + Photo Library, with
+      multi-select) on both iOS and Android; accept=image/* alone still
+      keeps it filtered to images. -->
+      <input type="file" id="repairPhoto_${category}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addRepairJobPhoto(this,'${jobId}','${category}')">
     `;
   }
 
@@ -8809,6 +8818,23 @@ window.saveRepairJobBasics = async function(jobId){
 window.setRepairJobSurveyStatus = async function(jobId, value){
   const job = repairJobDetailCurrent;
   const patch = {survey_required: value};
+  // #(survey-complete-requires-notes-and-photo) 2026-09-30 — marking a
+  // survey "Completed" used to be a single tap regardless of whether
+  // anything had actually been recorded, so a job could get waved through
+  // with no notes and no photos backing it up. Andy asked for both to be
+  // compulsory before it can move to Completed — N/A is unaffected (that
+  // means no survey was needed at all, so nothing to require). Reads the
+  // notes textarea live rather than job.survey_notes so a typed-but-not-yet-
+  // saved note still counts, and saves it in the same patch below so a tap
+  // on "Completed" alone is enough once both requirements are actually met.
+  if(value==='Y'){
+    const notesInput = document.getElementById('repairSurveyNotes');
+    const notesText = (notesInput ? notesInput.value : (job && job.survey_notes) || '').trim();
+    if(!notesText){ toast('Add survey notes before marking the survey complete.'); return; }
+    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.survey&select=id&limit=1');
+    if(!photoRows.length){ toast('Add at least one survey photo before marking the survey complete.'); return; }
+    patch.survey_notes = notesText;
+  }
   if(value==='Y' && job && !job.survey_date) patch.survey_date = new Date().toISOString();
   const effectiveDate = (patch.survey_date || (job && job.survey_date) || null);
   const surveyDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
