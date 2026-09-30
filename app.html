@@ -2371,7 +2371,19 @@ let RENDER_GEN = 0;
 // from before sign-in, that final call did nothing, leaving the operative
 // stuck on that earlier incomplete-data paint until they navigated away and
 // back). Detect the no-op case and force a render() directly instead.
-function go(hash){
+async function go(hash){
+  // #(repair-job-unsaved-notes-prompt) 2026-09-30 — see the state/helpers
+  // near repairJobUnsavedNotes above. Only triggers when actually leaving a
+  // repair job's detail page with something genuinely unsaved; every other
+  // navigation in the app falls straight through unchanged.
+  if(repairJobUnsavedNotes && hash !== location.hash && /^#\/site\/[^/]+\/repairjob\/[^/]+$/.test(location.hash)){
+    const dirty = repairJobUnsavedNotes;
+    if(dirty.survey || dirty.progress || dirty.completion || dirty.pricedSchedule){
+      const yes = await customConfirm('Save your notes on this job before leaving?', {confirmLabel:'Save & Leave', cancelLabel:'Discard & Leave'});
+      if(yes) flushRepairJobUnsavedNotes();
+    }
+    repairJobUnsavedNotes = null;
+  }
   SELF_NAV = true; setTimeout(function(){ SELF_NAV = false; }, 300);
   if(location.hash === hash){ render(); return; }
   location.hash = hash;
@@ -2393,6 +2405,13 @@ window.addEventListener('hashchange', function(){
   if(fromHash !== toHash) scrollPositionByHash[fromHash] = window.scrollY;
   lastScrollHash = toHash;
   SELF_NAV = false;
+  // Safety net for the unsaved-notes guard in go() above: that guard only
+  // catches navigation that goes through go() itself (back arrow, tab bar,
+  // in-app links — the overwhelming majority). If the hash ever changes some
+  // other way (e.g. a hardware/gesture back navigation) while still dirty,
+  // there's no page left to save from — just drop the stale flag rather than
+  // let it linger and misfire a save prompt on some future, unrelated page.
+  if(repairJobUnsavedNotes && fromHash!==toHash && !/^#\/site\/[^/]+\/repairjob\/[^/]+$/.test(toHash)) repairJobUnsavedNotes = null;
   // A genuine navigation INTO a Price sub-tile's own page (not just a
   // same-page re-render triggered by saving a figure, which calls render()
   // directly without touching the hash) resets that tile's per-week
@@ -7733,6 +7752,32 @@ let repairJobSelectMode = false;
 let repairJobSelectedIds = new Set();
 let repairJobInfoEditOpen = {}; // jobId -> bool, closed/display view by default (see renderRepairJobDetail)
 let repairSurveyBookingEditOpen = {}; // jobId -> bool, closes to a summary once a booking date is set
+// #(repair-job-unsaved-notes-prompt) 2026-09-30 — replaces the explicit "Save
+// X Notes" buttons on the repair job detail page with a single unsaved-
+// changes guard: typing into a notes textarea marks that section dirty (see
+// markRepairJobNotesDirty), and leaving the page via go() (back arrow, tab
+// bar, any in-app link) offers to save first — see the check inside go().
+// {jobId, survey, progress, completion, pricedSchedule} while viewing a
+// repair job's detail page; null everywhere else.
+let repairJobUnsavedNotes = null;
+window.markRepairJobNotesDirty = function(kind){
+  if(!repairJobUnsavedNotes) return;
+  repairJobUnsavedNotes[kind] = true;
+};
+// Fire-and-forget, same as the old Save buttons — this is a same-page SPA
+// (no real document unload on a hash change), so an in-flight save request
+// keeps running in the background after go() switches the hash. Reuses the
+// existing save functions rather than re-implementing them so their side
+// effects (PM notification emails, PDF re-export) still happen exactly as
+// they did when there was a button to click.
+function flushRepairJobUnsavedNotes(){
+  const dirty = repairJobUnsavedNotes;
+  if(!dirty) return;
+  if(dirty.survey && document.getElementById('repairSurveyNotes')) window.saveRepairJobSurvey(dirty.jobId);
+  if(dirty.progress && document.getElementById('repairProgressNotes')) window.saveRepairJobProgress(dirty.jobId);
+  if(dirty.completion && document.getElementById('repairWorksNotes')) window.saveRepairJobCompletionNotes(dirty.jobId);
+  if(dirty.pricedSchedule && document.getElementById('repairPricedSchedule')) window.saveRepairJobPricedSchedule(dirty.jobId);
+}
 let repairSurveyEditOpen = {}; // jobId -> bool, unlocks the (now-locked-by-default) survey card for editing after it's been marked complete
 let repairRouteExportBusy = false;
 let repairApprovedExportBusy = false;
@@ -8427,6 +8472,7 @@ async function renderRepairJobDetail(siteId, jobId){
   if(!job){ go('#/site/'+siteId+'/home'); return; }
   if(__gen !== RENDER_GEN) return;
   repairJobDetailCurrent = job;
+  if(!repairJobUnsavedNotes || repairJobUnsavedNotes.jobId !== jobId) repairJobUnsavedNotes = {jobId, survey:false, progress:false, completion:false, pricedSchedule:false};
   const canManage = isManager(ME);
 
   function photoGalleryHtml(category){
@@ -8535,26 +8581,35 @@ async function renderRepairJobDetail(siteId, jobId){
         booking info when THEY are the one it's assigned to (read-only —
         assigning/reassigning stays a manager action), and sees nothing here
         at all otherwise. Managers still get the full editable card. */ ''}
-      ${canManage ? `
-        ${(job.survey_booking_date && !repairSurveyBookingEditOpen[jobId]) ? `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:14px 0 0;">
-            <div>
-              <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
-              <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : ''}</p>
-            </div>
-            <button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:8px 14px;" onclick="toggleRepairSurveyBookingEdit('${jobId}')">Edit</button>
+      ${canManage ? (surveyDone ? `
+        <!-- #(repair-survey-booking-compact-dropdown) 2026-09-30 — once the
+        survey itself is done, the booking date/assignee it took to get there
+        is no longer the important thing on this page — collapses into a
+        native <details> dropdown instead of a standing block, same idea as
+        the locked Survey card summary below it. -->
+        <details style="margin:14px 0 0;">
+          <summary class="field-label" style="cursor:pointer;margin:0;">Survey booking${job.survey_booking_date ? ' — '+new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+(job.survey_booking_assigned_to && PROFILES[job.survey_booking_assigned_to] ? ' — '+escapeHtml(PROFILES[job.survey_booking_assigned_to].name) : '') : ' (not booked)'}</summary>
+          <div style="margin-top:10px;">
+            <p class="field-label" style="margin-bottom:4px;">Survey booking date</p>
+            <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
+            <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
+            <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
+              <option value="">Unassigned</option>
+              ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+            </select>
+            <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
           </div>
-        ` : `
-          <p class="field-label" style="margin:14px 0 4px;">Survey booking date</p>
-          <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;"></div>
-          <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
-          <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
-            <option value="">Unassigned</option>
-            ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
-          </select>
-          <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
-        `}
-      ` : (job.survey_booking_date && job.survey_booking_assigned_to===ME.id ? `
+        </details>
+      ` : `
+        <p class="field-label" style="margin:14px 0 4px;">Survey booking date</p>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairSurveyBookingDate" value="${job.survey_booking_date||''}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
+        <p class="field-label" style="margin-bottom:4px;">Assign survey to</p>
+        <select id="repairSurveyBookingAssignee" style="width:100%;margin-bottom:10px;">
+          <option value="">Unassigned</option>
+          ${operatives.map(p=>`<option value="${p.id}" ${job.survey_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
+        </select>
+        <button class="ghostbtn" onclick="saveRepairJobSurveyBooking('${jobId}')">Save Booking</button>
+      `) : (job.survey_booking_date && job.survey_booking_assigned_to===ME.id ? `
         <div style="margin:14px 0 0;">
           <p class="field-label" style="margin-bottom:2px;">Survey booking</p>
           <p class="stub" style="margin:0;">${new Date(job.survey_booking_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} — you're assigned to this one</p>
@@ -8590,6 +8645,12 @@ async function renderRepairJobDetail(siteId, jobId){
           the app. A pencil unlocks editing again for whoever surveyed it,
           or any manager, in case something genuinely needs correcting. */ ''}
         <p class="stub" style="margin:8px 0 2px;">${job.surveyed_by && profileName(job.surveyed_by) ? 'Surveyed by '+escapeHtml(profileName(job.surveyed_by)) : ''}${job.access_requirement && job.access_requirement!=='none' ? (job.surveyed_by && profileName(job.surveyed_by)?' — ':'')+'Access: '+escapeHtml(REPAIR_ACCESS_LABEL[job.access_requirement]) : ''}</p>
+        ${/* #(repair-survey-locked-view-shows-notes) 2026-09-30 — the locked
+          summary used to hide the actual survey notes behind the PDF, so
+          anyone glancing at the job couldn't tell what work was quoted
+          without opening a separate file. Shown inline here now, read-only —
+          the PDF is still the one to open for photos/access notes/print. */ ''}
+        ${job.survey_notes ? `<p style="margin:8px 0 0;font-size:13.5px;line-height:1.45;white-space:pre-wrap;">${escapeHtml(job.survey_notes)}</p>` : ''}
         <div class="row-gap" style="margin-top:10px;">
           <button class="darkbtn" style="flex:1;" onclick="viewRepairJobSurveyReport('${jobId}')">📄 View Survey Report</button>
           ${canEditSurvey ? `<button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="toggleRepairSurveyEdit('${jobId}')">✎ Edit</button>` : ''}
@@ -8597,13 +8658,12 @@ async function renderRepairJobDetail(siteId, jobId){
       ` : `
         <p class="field-label" style="margin:12px 0 4px;">Survey completed?</p>
         <div class="row-gap" style="margin-bottom:12px;align-items:stretch;">
-          <button class="${job.survey_required==='N'||!job.survey_required?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setRepairJobSurveyStatus('${jobId}','N')">To Survey</button>
-          <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;${job.survey_required==='Y'?'background:var(--ok);border-color:var(--ok);':''}" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
-          <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
+          <button class="${job.survey_required==='N'||!job.survey_required?'darkbtn':'ghostbtn'}" style="flex:1;color:var(--ink);" onclick="setRepairJobSurveyStatus('${jobId}','N')">To Survey</button>
+          <button class="${job.survey_required==='Y'?'darkbtn':'ghostbtn'}" style="flex:1;color:var(--ink);${job.survey_required==='Y'?'background:var(--ok);border-color:var(--ok);':''}" onclick="setRepairJobSurveyStatus('${jobId}','Y')">Completed</button>
+          <button class="${job.survey_required==='NA'?'darkbtn':'ghostbtn'}" style="flex:0 0 56px;padding:10px 4px;font-size:12px;color:var(--ink);" onclick="setRepairJobSurveyStatus('${jobId}','NA')">N/A</button>
         </div>
 
-        <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;">${escapeHtml(job.survey_notes||'')}</textarea>
-        <button class="ghostbtn" onclick="saveRepairJobSurvey('${jobId}')">Save Survey Notes</button>
+        <textarea id="repairSurveyNotes" placeholder="Survey notes / quoted works" rows="3" style="margin:14px 0 10px;" oninput="markRepairJobNotesDirty('survey')">${escapeHtml(job.survey_notes||'')}</textarea>
         ${photoUploadRow('survey','Survey / before photos')}
 
         <p class="field-label" style="margin:14px 0 4px;">Access requirement</p>
@@ -8613,7 +8673,7 @@ async function renderRepairJobDetail(siteId, jobId){
         <textarea id="repairAccessNotes" placeholder="Access-specific notes (e.g. where a tower needs to go up)" rows="2" style="margin-bottom:10px;">${escapeHtml(job.access_notes||'')}</textarea>
         <button class="ghostbtn" onclick="saveRepairJobAccess('${jobId}')">Save Access Details</button>
         ${needsScaffold ? photoUploadRow('access','Scaffold/tower access photo') : ''}
-        ${job.survey_required!=='Y' ? `<button class="darkbtn" style="width:100%;margin-top:16px;background:var(--ok);border-color:var(--ok);" onclick="setRepairJobSurveyStatus('${jobId}','Y')">✅ Mark Survey as Completed</button>` : `<button class="ghostbtn" style="width:100%;margin-top:16px;" onclick="toggleRepairSurveyEdit('${jobId}')">Done Editing</button>`}
+        ${job.survey_required!=='Y' ? `<button class="darkbtn" style="width:100%;margin-top:16px;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="setRepairJobSurveyStatus('${jobId}','Y')">✅ Mark Survey as Completed</button>` : `<button class="ghostbtn" style="width:100%;margin-top:16px;" onclick="flushRepairJobUnsavedNotes();toggleRepairSurveyEdit('${jobId}')">Done Editing</button>`}
       `}
     </div>
 
@@ -8622,7 +8682,7 @@ async function renderRepairJobDetail(siteId, jobId){
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Ready to do this job?</p>
         <p class="stub" style="margin:0 0 10px;">If you can do this one now without waiting on a quote decision, self-authorise it here and get started straight away.</p>
-        <button class="darkbtn" style="width:100%;background:var(--ok);border-color:var(--ok);" onclick="selfAuthoriseRepairJob('${jobId}')">✅ I Can Do This Now — Self-Authorise</button>
+        <button class="darkbtn" style="width:100%;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="selfAuthoriseRepairJob('${jobId}')">✅ I Can Do This Now — Self-Authorise</button>
       </div>
       ` : ''}
 
@@ -8630,14 +8690,14 @@ async function renderRepairJobDetail(siteId, jobId){
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Scaffold</p>
         <p class="field-label" style="margin-bottom:4px;">Scaffold booking date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;"></div>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffBookingDate" value="${job.scaffold_booking_date||''}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
         <p class="field-label" style="margin-bottom:4px;">Assign booking to</p>
         <select id="repairScaffBookingAssignee" style="width:100%;margin-bottom:10px;">
           <option value="">Unassigned</option>
           ${operatives.map(p=>`<option value="${p.id}" ${job.scaffold_booking_assigned_to===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}
         </select>
         <p class="field-label" style="margin-bottom:4px;">Scaffold erection date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;"></div>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairScaffErectionDate" value="${job.scaffold_erection_date||''}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;"></div>
         <button class="ghostbtn" onclick="saveRepairJobScaffold('${jobId}')">Save</button>
         ${photoUploadRow('scaffold','Scaffold photos')}
       </div>
@@ -8656,31 +8716,41 @@ async function renderRepairJobDetail(siteId, jobId){
           <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
           <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
           ${job.variation_issued_at ? `<p class="stub" style="margin:-6px 0 10px;">Cost issued to the client ${fmtDate(job.variation_issued_at)} — awaiting their decision.</p>` : `<button class="ghostbtn" style="margin-bottom:10px;" onclick="issueRepairJobVariationCost('${jobId}')">Issue Cost to Client</button>`}
+          <p class="field-label" style="margin-bottom:4px;">Priced schedule of works</p>
+          <textarea id="repairPricedSchedule" placeholder="Priced schedule of works" rows="3" style="margin-bottom:10px;" oninput="markRepairJobNotesDirty('pricedSchedule')">${escapeHtml(job.priced_schedule_of_works||'')}</textarea>
           <div class="row-gap" style="align-items:stretch;">
-            <button class="darkbtn" style="flex:1;background:var(--ok);border-color:var(--ok);" onclick="approveRepairJob('${jobId}')">✅ Approve</button>
-            <button class="darkbtn" style="flex:1;background:var(--red);border-color:var(--red);" onclick="rejectRepairJob('${jobId}')">❌ Reject</button>
+            <button class="darkbtn" style="flex:1;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="approveRepairJob('${jobId}')">✅ Approve</button>
+            <button class="darkbtn" style="flex:1;color:var(--ink);background:var(--red);border-color:var(--red);" onclick="rejectRepairJob('${jobId}')">❌ Reject</button>
           </div>
         `}
         <p class="field-label" style="margin:14px 0 4px;">Repair return date</p>
-        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;" onchange="saveRepairJobField('${jobId}',{repair_return_date:this.value||null})"></div>
+        <div class="formfield" onclick="openDatePickerRow(this)"><input type="date" id="repairReturnDate" value="${job.repair_return_date||''}" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;" onchange="saveRepairJobField('${jobId}',{repair_return_date:this.value||null})"></div>
       </div>
       ` : ''}
 
       ${approved ? `
       <div class="card" style="margin-bottom:16px;">
-        <p class="sectiontitle" style="margin-top:0;">Progress</p>
-        <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.progress_notes||'')}</textarea>
-        <button class="ghostbtn" onclick="saveRepairJobProgress('${jobId}')">Save Progress Notes</button>
+        <!-- #(repair-progress-completion-merge) 2026-09-30 — Progress and
+        Completion used to be two separate cards; merged into one so the
+        whole "doing it → done" arc for a job reads as a single flow instead
+        of two disconnected sections. -->
+        <p class="sectiontitle" style="margin-top:0;">Progress / Completion</p>
+        <p class="field-label" style="margin-bottom:4px;">Progress notes</p>
+        <textarea id="repairProgressNotes" placeholder="Progress notes" rows="3" style="margin-bottom:10px;" oninput="markRepairJobNotesDirty('progress')">${escapeHtml(job.progress_notes||'')}</textarea>
         ${photoUploadRow('progress','Progress photos')}
-      </div>
 
-      <div class="card" style="margin-bottom:16px;">
-        <p class="sectiontitle" style="margin-top:0;">Completion</p>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" style="width:auto;" ${job.works_completed?'checked':''} onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">${job.closed ? 'Works completed' : 'Mark complete & close the job'}</label>
-        ${job.works_completed_date ? `<p class="stub" style="margin:-6px 0 10px;">Marked complete ${fmtDate(job.works_completed_date)}${job.works_completed && !job.closed ? ' — awaiting PM sign-off' : ''}</p>` : ''}
-        <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;">${escapeHtml(job.works_notes||'')}</textarea>
-        <button class="ghostbtn" onclick="saveRepairJobCompletionNotes('${jobId}')">Save Completion Notes</button>
-        ${photoUploadRow('completion','Completion photos')}
+        <p class="field-label" style="margin:18px 0 4px;">Completion notes</p>
+        ${job.works_completed_date ? `<p class="stub" style="margin:0 0 10px;">Marked complete ${fmtDate(job.works_completed_date)}${job.works_completed && !job.closed ? ' — awaiting PM sign-off' : ''}</p>` : ''}
+        <textarea id="repairWorksNotes" placeholder="Completion notes" rows="3" style="margin-bottom:10px;" oninput="markRepairJobNotesDirty('completion')">${escapeHtml(job.works_notes||'')}</textarea>
+        ${/* #(works-complete-mandatory-photo) — completion photos are
+          mandatory before this can be ticked complete (see
+          setRepairJobWorksCompleted); labelled here so it's clear why. */ ''}
+        ${photoUploadRow('completion','Completion photos (required to mark complete)')}
+        ${!job.works_completed ? `
+          <button class="darkbtn" style="width:100%;margin-top:16px;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="setRepairJobWorksCompleted('${jobId}', true)">✅ Mark Works as Completed</button>
+        ` : `
+          <label class="stub" style="display:flex;align-items:center;gap:8px;margin-top:16px;"><input type="checkbox" style="width:auto;" checked onchange="setRepairJobWorksCompleted('${jobId}', this.checked)">${job.closed ? 'Works completed' : 'Undo — not actually complete yet'}</label>
+        `}
       </div>
       ` : ''}
 
@@ -8688,8 +8758,19 @@ async function renderRepairJobDetail(siteId, jobId){
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Admin</p>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0;"><input type="checkbox" style="width:auto;" ${job.closed?'checked':''} ${job.works_completed?'':'disabled'} onchange="setRepairJobClosed('${jobId}', this.checked)">Confirm sign-off & close this job</label>
-        <p class="stub" style="margin:8px 0 0;">${job.works_completed ? "Closing removes it from the operative's list. It stays here for PM/Admin and can be reopened." : 'Available once the operative has marked the works completed.'}</p>
+        ${/* #(pm-signoff-button) 2026-09-30 — the only way to actually sign a
+          job off used to be a small checkbox buried under "Admin", easy to
+          miss entirely. Once works are completed this is now a proper full-
+          width button, same treatment as Mark Works as Completed above it. */ ''}
+        ${job.closed ? `
+          <p class="stub" style="margin:0 0 10px;">✅ Signed off &amp; closed${job.closed_at?' '+fmtDate(job.closed_at):''}${job.closed_by && profileName(job.closed_by) ? ' by '+escapeHtml(profileName(job.closed_by)) : ''}</p>
+          <button class="ghostbtn" style="width:100%;" onclick="setRepairJobClosed('${jobId}', false)">Reopen Job</button>
+        ` : job.works_completed ? `
+          <button class="darkbtn" style="width:100%;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="setRepairJobClosed('${jobId}', true)">✅ Sign Off &amp; Close Job</button>
+          <p class="stub" style="margin:8px 0 0;">The operative has marked the works completed — this closes it off and removes it from their list.</p>
+        ` : `
+          <p class="stub" style="margin:0;">Sign-off becomes available once the operative marks the works completed.</p>
+        `}
       </div>
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
@@ -9357,6 +9438,10 @@ window.saveRepairJobCompletionNotes = function(jobId){
   // If works are already marked complete, an edit to the notes here should
   // be reflected in the exported Completed Works Report too, not just the app.
   if(job && job.works_completed) exportRepairJobCompletionPdf(jobId);
+};
+window.saveRepairJobPricedSchedule = function(jobId){
+  const v = document.getElementById('repairPricedSchedule').value.trim();
+  saveRepairJobField(jobId, {priced_schedule_of_works: v||null});
 };
 window.setRepairJobClosed = async function(jobId, checked){
   if(checked){
