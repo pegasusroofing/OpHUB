@@ -1125,25 +1125,25 @@ window.sharePdfViewerDoc = async function(){
     toast('Could not share this file'+(lastShareErrorDetail ? ' — '+lastShareErrorDetail : ' — try again, or use Email instead.'));
     return;
   }
-  if(bytes){
-    try{
-      const blob = new Blob([bytes], {type:'application/pdf'});
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = pdfViewerState.filename || 'document.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // Give Safari time to actually read the blob into the saved file
-      // before the reference is freed — revoking too early can truncate a
-      // download that's still in flight.
-      setTimeout(()=>{ try{ URL.revokeObjectURL(blobUrl); }catch(e){} }, 60000);
-      toast('Saved to Files (Downloads) — open the Files app and share it from there for a real attachment.');
-      return;
-    }catch(e){ /* fall through to the link-based path below */ }
+  // #(share-2026-09-30-b): the `<a download>` attempt above this comment
+  // (blob: URL, .click()) turned out to be a dead end too — iOS Safari
+  // doesn't reliably honour `download` on an anchor, so it just opened a
+  // new tab instead of actually downloading, and since a blob: URL only
+  // exists in the tab that created it, that new tab had nothing to show:
+  // blank. Genuinely triggering a save-to-disk from JS isn't reliable here
+  // either. What Safari DOES do reliably for a real https:// PDF url is
+  // show its own Quick Look PDF viewer — and THAT share sheet has a
+  // "Save to Files" option which writes Safari's own already-downloaded
+  // copy to disk (unlike picking WhatsApp directly from that same sheet,
+  // which is the live-reference hand-off that gave 0kb before). So this
+  // navigates to the real url and tells the person to use Save to Files
+  // specifically, then share the saved copy from the Files app afterwards
+  // — the extra hop is what finally gets a genuinely local file involved.
+  if(realUrl){
+    toast('Opening the PDF — tap Share, then "Save to Files". Then open the Files app and share it from there for a real attachment.');
+    window.location.href = realUrl;
+    return;
   }
-  if(realUrl){ window.location.href = realUrl; return; }
   toast('Still preparing this file — try Share again in a moment.');
 };
 window.closePdfViewer = function(){
