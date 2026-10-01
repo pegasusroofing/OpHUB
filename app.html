@@ -1200,6 +1200,23 @@ function compressImage(file, opts){
   opts = opts || {};
   const maxW = opts.maxW || 1600;
   const quality = opts.quality != null ? opts.quality : 0.85;
+  // #(compress-image-heic-detection) 2026-10-01 — "Could not process that
+  // photo" on EVERY photo, reported by PMs filling in Reports on both iPhone
+  // and Android, points at a format neither browser's <img>/canvas can
+  // decode at all — HEIC/HEIF, which iPhones save to by default (Settings >
+  // Camera > Formats > "High Efficiency") and which only Apple's own apps
+  // reliably open. Picking that same photo straight from the Photos library
+  // (rather than "Take Photo", which some camera/share sheets re-encode to
+  // JPEG) hands the browser the original .heic file, and neither iOS Safari
+  // nor Android Chrome/WebView can rasterize it into an <img> — this is a
+  // real format-support gap, not something fixable by retrying the decode a
+  // different way. Caught up front here so the toast actually explains what
+  // happened instead of a generic failure every single time.
+  const nameLower = (file && file.name || '').toLowerCase();
+  const typeLower = (file && file.type || '').toLowerCase();
+  if(typeLower==='image/heic' || typeLower==='image/heif' || /\.(heic|heif)$/.test(nameLower)){
+    return Promise.reject(new Error('heic-unsupported'));
+  }
   return new Promise((resolve,reject)=>{
     // Load the source photo via an object URL rather than a base64 data:
     // URL. FileReader.readAsDataURL on a modern phone camera photo (often
@@ -14705,14 +14722,26 @@ window.onReportPhotoChosen = async function(input, key){
   // dropping entire report submissions' worth of photos before they ever
   // reached reportFillDraft.answers, let alone the database.
   const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : (reportFillDraft.answers[key] ? [reportFillDraft.answers[key]] : []);
-  let failed = 0;
+  let failed = 0, heicFailed = 0;
   for(const file of files){
     try{ cur.push(await compressImage(file)); }
-    catch(e){ failed++; console.error('compressImage failed for', file && file.name, file && file.type, e); }
+    catch(e){
+      failed++;
+      if(e && e.message==='heic-unsupported') heicFailed++;
+      console.error('compressImage failed for', file && file.name, file && file.type, e);
+    }
   }
   reportFillDraft.answers[key] = cur;
   render();
-  if(failed) toast(failed===files.length ? 'Could not process that photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
+  // #(compress-image-heic-detection) 2026-10-01 — see compressImage itself.
+  // Give the actual reason when every failure was a HEIC file rather than
+  // the old generic message, which looked identical whether the file was
+  // genuinely corrupt or just a format the browser can't open at all.
+  if(heicFailed && heicFailed===failed){
+    toast(failed===1 ? "That photo is in iPhone's HEIC format, which this browser can't open — pick it from your Photos library as JPEG, or in iPhone Settings > Camera > Formats choose \"Most Compatible\" so new photos save as JPEG." : (failed+" photos are in iPhone's HEIC format, which this browser can't open — the rest were added. In iPhone Settings > Camera > Formats choose \"Most Compatible\" so new photos save as JPEG."));
+  } else if(failed){
+    toast(failed===files.length ? 'Could not process that photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
+  }
 };
 window.removeReportPhoto = function(key, idx){
   const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : [];
