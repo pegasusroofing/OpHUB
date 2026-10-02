@@ -6634,7 +6634,7 @@ function operativeCertListHtml(certs, canManage, opts){
             </div>
             ${canManage?`
               <div style="flex:0 0 78px;width:78px;max-width:78px;overflow:hidden;">
-                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value)">
+                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value,this)" onblur="certExpiryPickerClosed()">
               </div>
             `:''}
             <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;position:relative;top:-2px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(certDisplayName(f))}')">👁</div>
@@ -6703,10 +6703,27 @@ window.changeOperativeCertCategory = async function(fileId, category){
 // at upload time — this lets a PM/admin retroactively set/change/clear the
 // expiry on an existing cert, and the value flows straight into the
 // Training Matrix export since that reads expiry_date off the same row.
-window.setOperativeCertExpiry = async function(fileId, value){
+// The phone's date picker fires "change" every time the day/month/year is
+// moved, not just when the tick/Done is pressed — and this used to re-render
+// the whole page on each one, which destroyed the input and slammed the
+// calendar shut mid-pick. Each change is still saved straight away, but
+// while the picker's input is still focused nothing is re-rendered; the
+// refresh (and the confirmation toast) waits until the picker is actually
+// closed (see certExpiryPickerClosed, wired to the input's blur).
+let certExpiryPendingToast = null;
+window.setOperativeCertExpiry = async function(fileId, value, el){
   const expiry = value ? value : null;
   const row = await dbUpdate('operative_certifications', fileId, {expiry_date: expiry});
-  if(row){ toast(expiry ? 'Expiry date set' : 'Expiry date cleared'); render(); }
+  if(!row) return;
+  const msg = expiry ? 'Expiry date set' : 'Expiry date cleared';
+  if(el && document.activeElement === el && document.body.contains(el)){ certExpiryPendingToast = msg; return; }
+  certExpiryPendingToast = null;
+  toast(msg); render();
+};
+window.certExpiryPickerClosed = function(){
+  if(!certExpiryPendingToast) return;
+  const msg = certExpiryPendingToast; certExpiryPendingToast = null;
+  toast(msg); render();
 };
 // Shared selection bar (#276) — appears above any certificate listing that
 // opts into selection, showing Export (bundles the ticked certs into one
@@ -16391,8 +16408,11 @@ async function saveSectionFlagPhoto(siteId, sectionId, photoPath){
 }
 // "Schedule of Works Document" — the office's own copy of the SOW (Excel,
 // Word, PDF, anything), kept on the SOW page alongside the task list. Lives
-// in the private schedule-docs bucket and is manager-only (table + bucket
-// RLS both gate on is_pm()), since an office SOW can carry pricing.
+// in the private schedule-docs bucket. Each document is visible to everyone
+// with access to the site by default; a manager can switch one to "Managers
+// only" from the dropdown beside it (e.g. a priced copy). Enforced by RLS on
+// both the table and the bucket, not just hidden in the UI. Only managers
+// can add, re-scope or remove documents.
 let scheduleDocUploading = false;
 window.uploadScheduleDocument = async function(input, siteId){
   const files = input.files ? Array.from(input.files) : [];
@@ -16418,8 +16438,8 @@ window.viewScheduleDocument = async function(docId){
   const doc = rows[0];
   if(!doc){ toast('Document not found.'); return; }
   try{
-    // Private bucket — a short-lived signed link is minted per open, allowed
-    // by the bucket's manager-only select policy.
+    // Private bucket — a short-lived signed link is minted per open, which
+    // the bucket's select policies only allow for a viewer who can see it.
     const encPath = doc.storage_path.split('/').map(encodeURIComponent).join('/');
     // Plain fetch with just the auth headers, same as uploadToStorage — the
     // Storage API doesn't need (or necessarily allow) sbFetch's extra
@@ -16441,6 +16461,11 @@ window.viewScheduleDocument = async function(docId){
       window.open(url, '_blank');
     }
   }catch(e){ toast('Could not open document.'); }
+};
+window.setScheduleDocumentVisibility = async function(docId, visibility){
+  const row = await dbUpdate('schedule_documents', docId, {visibility: visibility==='managers' ? 'managers' : 'all'});
+  if(row) toast(visibility==='managers' ? 'Now visible to managers only' : 'Now visible to everyone on this site');
+  render();
 };
 window.deleteScheduleDocument = async function(siteId, docId){
   const rows = await dbSelect('schedule_documents', 'id=eq.'+docId+'&select=name,storage_path');
@@ -16485,8 +16510,10 @@ async function renderSchedule(siteId){
     canAdd ? loadPMList() : Promise.resolve([]),
     site && site.acting_as_main_contractor ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name') : Promise.resolve([]),
     // Office copy of the SOW (see the "Schedule of Works Document" box
-    // below the tabs) — managers only, enforced by RLS as well.
-    canAdd ? dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc') : Promise.resolve([]),
+    // below the tabs). Open to everyone on the site unless a manager has
+    // switched a document to "Managers only" — RLS only hands back the rows
+    // this viewer is allowed to see, so no client-side filtering needed.
+    dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc'),
   ]);
   scheduleSectionsCache = sections;
   if(canAdd) await loadAllProfiles();
@@ -16572,13 +16599,19 @@ async function renderSchedule(siteId){
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
     ${canAdd ? `<input type="file" id="scheduleDocInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadScheduleDocument(this,'${siteId}')">` : ''}
-    ${canAdd && (scheduleDocs.length || scheduleDocUploading) ? `
+    ${(scheduleDocs.length || (canAdd && scheduleDocUploading)) ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Schedule of Works Document</p>
         ${scheduleDocs.map(d=>`
           <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
             <a href="#" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:var(--brand1);text-decoration:underline;" onclick="event.preventDefault();viewScheduleDocument('${d.id}')">📎 ${escapeHtml(d.name)}</a>
-            <span class="taskicon" title="Remove document" style="flex:0 0 auto;" onclick="deleteScheduleDocument('${siteId}','${d.id}')">🗑</span>
+            ${canAdd ? `
+              <select title="Who can see this document" style="flex:0 0 auto;width:auto;padding:5px 8px;font-size:11px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);" onchange="setScheduleDocumentVisibility('${d.id}', this.value)">
+                <option value="all" ${d.visibility!=='managers'?'selected':''}>👥 Everyone</option>
+                <option value="managers" ${d.visibility==='managers'?'selected':''}>🔒 Managers only</option>
+              </select>
+              <span class="taskicon" title="Remove document" style="flex:0 0 auto;" onclick="deleteScheduleDocument('${siteId}','${d.id}')">🗑</span>
+            ` : ''}
           </div>
         `).join('')}
         ${scheduleDocUploading ? `<p class="stub" style="margin:6px 0 0;"><span class="spinner"></span> Uploading…</p>` : ''}
@@ -16793,6 +16826,9 @@ async function renderSchedule(siteId){
     if(!document.getElementById('scheduleLiveMarker')){ clearInterval(schedulePollTimer); schedulePollTimer = null; return; }
     if(document.hidden || navigator.onLine === false) return;
     if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || scheduleAssignTarget || scheduleAddPanel || pendingCompleteTaskId || pdfImportSiteId) return;
+    // An open dropdown (e.g. a document's visibility picker) would be closed
+    // out from under the user by a re-render.
+    if(document.activeElement && document.activeElement.tagName==='SELECT') return;
     render();
   }, 8000);
 }
