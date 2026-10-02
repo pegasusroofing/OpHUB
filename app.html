@@ -9080,7 +9080,7 @@ async function buildRepairJobSurveyPdf(jobId){
     drawField('Survey Notes', job.survey_notes || '(no notes recorded)');
 
     const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=in.(survey,access)&order=created_at.asc');
-    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})));
+    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})), {maxDim:900, quality:0.72});
 
     const total = pdfDoc.getPageCount();
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+total); });
@@ -9228,7 +9228,7 @@ async function buildRepairJobCompletionPdf(jobId){
     drawField('Completion Notes', job.works_notes || '(no notes recorded)');
 
     const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.completion&order=created_at.asc');
-    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})));
+    await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})), {maxDim:900, quality:0.72});
 
     const total = pdfDoc.getPageCount();
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+total); });
@@ -17324,6 +17324,49 @@ async function pdfFetchImageBytes(url){
     return new Uint8Array(await res.arrayBuffer());
   }catch(e){ return null; }
 }
+// Like pdfFetchImageBytes, but downsizes/recompresses via canvas before
+// returning — site photos come straight off phone cameras (often several MB,
+// many thousands of pixels on a side) and PDFs that embed many of them at
+// full original resolution balloon to a size the email function's 2s CPU
+// budget (see send-schedule-email's size check below) can choke on. Used
+// anywhere a photo is drawn small (a thumbnail, an appendix tile) so the
+// bytes we embed are actually sized for how large the photo appears in the
+// PDF, not whatever the camera produced. Falls back to the untouched
+// original bytes if decoding/canvas fails for any reason (never blocks the
+// export over a single bad photo) or if the photo is already smaller than
+// maxDim (never upscales/re-encodes a photo that didn't need it).
+async function pdfFetchImageBytesScaled(url, maxDim, quality){
+  const bytes = await pdfFetchImageBytes(url);
+  if(!bytes) return null;
+  let objUrl = null;
+  try{
+    objUrl = URL.createObjectURL(new Blob([bytes]));
+    const img = await new Promise((resolve,reject)=>{
+      const im = new Image();
+      im.onload = ()=>resolve(im);
+      im.onerror = ()=>reject(new Error('img-decode-failed'));
+      im.src = objUrl;
+    });
+    const longest = Math.max(img.naturalWidth, img.naturalHeight);
+    if(!longest || longest <= maxDim) return bytes;
+    const scale = maxDim / longest;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth*scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight*scale));
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    const base64 = dataUrl.split(',')[1];
+    const bin = atob(base64);
+    const arr = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+  }catch(e){
+    return bytes;
+  }finally{
+    if(objUrl) URL.revokeObjectURL(objUrl);
+  }
+}
 // Shared "Media summary" appendix for exports that only ever embed ONE
 // representative photo per row/card (Snagging, Schedule of Works) even when
 // several exist — appends dedicated pages at the end showing every photo,
@@ -17332,8 +17375,21 @@ async function pdfFetchImageBytes(url){
 // appendix pages pick up the same footer as the rest of the document.
 // `photoRefs` is an array of {path, bucket} — bucket lets callers mix
 // buckets if they ever need to (site-photos etc).
-async function appendMediaSummaryPages(pdfDoc, photoRefs){
+// `opts` is optional and defaults to the exact prior behavior (full-size
+// tiles, original embedded bytes) so existing callers are untouched:
+//   sizeScale — shrinks the photo within its tile (tile/grid layout itself
+//     is unchanged), e.g. 0.9 for 10% smaller than the default fit.
+//   maxDim/quality — when maxDim is set, photos are downsized/recompressed
+//     (via pdfFetchImageBytesScaled) to that many pixels on the long side
+//     before embedding, which is what actually shrinks the output file —
+//     drawing a photo smaller on the page does NOT shrink the embedded
+//     bytes, pdf-lib still embeds whatever was fetched at full size.
+async function appendMediaSummaryPages(pdfDoc, photoRefs, opts){
   if(!photoRefs || !photoRefs.length) return;
+  opts = opts || {};
+  const sizeScale = opts.sizeScale || 1;
+  const maxDim = opts.maxDim || null;
+  const quality = opts.quality != null ? opts.quality : 0.8;
   const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
   const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
   const INK = PDFLib.rgb(0.06,0.06,0.07);
@@ -17366,11 +17422,12 @@ async function appendMediaSummaryPages(pdfDoc, photoRefs){
         const ref = rowItems[c];
         const cx = MARGIN + c*(cellW+gutter);
         try{
-          const bytes = await pdfFetchImageBytes(publicUrl(ref.bucket||'site-photos', ref.path));
+          const url = publicUrl(ref.bucket||'site-photos', ref.path);
+          const bytes = maxDim ? await pdfFetchImageBytesScaled(url, maxDim, quality) : await pdfFetchImageBytes(url);
           if(bytes){
             let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
             const dim = img.scale(1);
-            const sc = Math.min(cellW/dim.width, cellH/dim.height, 1);
+            const sc = Math.min(cellW/dim.width, cellH/dim.height, 1) * sizeScale;
             const w = dim.width*sc, h = dim.height*sc;
             page.drawImage(img, {x:cx+(cellW-w)/2, y:rowTop-cellH+(cellH-h)/2, width:w, height:h});
             page.drawText('Photo '+num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
@@ -17616,7 +17673,7 @@ async function buildSnaggingPdfBytes(siteId, scope){
         const imgY = cardTop-blockH+14;
         const boxSize = 76;
         try{
-          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', photoPath));
+          const bytes = await pdfFetchImageBytesScaled(publicUrl('site-photos', photoPath), Math.round(boxSize*3), 0.78);
           if(bytes){
             let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
             const dim = img.scale(1);
@@ -17638,7 +17695,7 @@ async function buildSnaggingPdfBytes(siteId, scope){
       if(!((s.photo_paths||[]).length) && s.photo_path) snagPhotoRefs.push({path:s.photo_path, bucket:'site-photos'});
       if(s.closed_photo_path) snagPhotoRefs.push({path:s.closed_photo_path, bucket:'site-photos'});
     });
-    await appendMediaSummaryPages(pdfDoc, snagPhotoRefs);
+    await appendMediaSummaryPages(pdfDoc, snagPhotoRefs, {maxDim:900, quality:0.72});
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
@@ -17692,8 +17749,18 @@ window.emailSnaggingPDF = async function(siteId, scope){
 async function buildSchedulePdfBytes(siteId){
   if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
-  const allTasks = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
-  if(!allTasks.length){ toast('No tasks to export yet.'); return null; }
+  const allTasksUnfiltered = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
+  if(!allTasksUnfiltered.length){ toast('No tasks to export yet.'); return null; }
+  // Export whatever the PM is currently looking at on the Schedule of Works
+  // page (scheduleFilter — the same "To Do / In Progress", "Complete", "All"
+  // tabs rendered there), rather than always exporting everything regardless
+  // of the filter they've selected.
+  const FILTER_LABEL = {active:'To Do / In Progress', done:'Complete', all:'All'};
+  const filterLabel = FILTER_LABEL[scheduleFilter] || 'All';
+  const allTasks = scheduleFilter==='all' ? allTasksUnfiltered
+    : scheduleFilter==='done' ? allTasksUnfiltered.filter(t=>t.status==='done')
+    : allTasksUnfiltered.filter(t=>t.status==='todo'||t.status==='progress');
+  if(!allTasks.length){ toast('No tasks match the current filter ("'+filterLabel+'") to export.'); return null; }
   let photosByTask = {};
   const ids = allTasks.map(t=>t.id).join(',');
   const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
@@ -17740,7 +17807,7 @@ async function buildSchedulePdfBytes(siteId){
         page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
-      page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT' + (scheduleFilter!=='all' ? '  ·  ' + filterLabel.toUpperCase() + ' ONLY' : ''), {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + ' · as of ' + new Date().toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
@@ -17827,7 +17894,6 @@ async function buildSchedulePdfBytes(siteId){
       {key:'progress', label:'In Progress'},
       {key:'done', label:'Completed Photos'},
     ];
-    const MAX_THUMBS_PER_STAGE = 6;
     function bucketPhotosByStage(photos, fallbackStatus){
       const buckets = {todo:[], progress:[], done:[]};
       photos.forEach(p=>{
@@ -17836,61 +17902,91 @@ async function buildSchedulePdfBytes(siteId){
       });
       return buckets;
     }
+    // Every photo for every stage is drawn directly on the task row now —
+    // no "+N more in appendix" cap. A task with a lot of photos just grows a
+    // taller card, splitting onto a fresh page as a "(continued)" card if a
+    // whole stage's photos don't fit in the room left on the current page
+    // (splitting is only ever at a stage boundary, never mid-row — a single
+    // stage with an extreme photo count can still overflow its card, which
+    // is an acceptable rare edge case rather than mid-row pagination math).
     async function drawTaskRow(t, pillColor, pillBg){
       const taskPhotos = photosByTask[t.id] || [];
       const stageBuckets = bucketPhotosByStage(taskPhotos, t.status);
       const cardWidth = PAGE_W-2*MARGIN;
       const cardPad = 14;
       const textLeft = MARGIN + cardPad;
-      const thumbSize = 44, thumbGap = 8;
+      const thumbSize = 51, thumbGap = 8; // 1.15x the previous 44pt "main" photo size
       const usableW = cardWidth - 2*cardPad;
       const perRow = Math.max(1, Math.floor((usableW+thumbGap)/(thumbSize+thumbGap)));
-      const stageLayout = STAGE_SECTIONS.filter(s=>stageBuckets[s.key].length>0).map(s=>{
+      let remaining = STAGE_SECTIONS.filter(s=>stageBuckets[s.key].length>0).map(s=>{
         const photos = stageBuckets[s.key];
-        const shown = Math.min(photos.length, MAX_THUMBS_PER_STAGE);
-        const rows = Math.max(1, Math.ceil(shown/perRow));
-        return {...s, photos, shown, rows};
+        const rows = Math.max(1, Math.ceil(photos.length/perRow));
+        return {...s, photos, rows};
       });
       const headerH = 30;
-      const stagesH = stageLayout.reduce((sum,s)=> sum + 14 + s.rows*(thumbSize+thumbGap), 0);
-      const blockH = headerH + (stageLayout.length ? stagesH + 12 : 12);
-      if(y - blockH < 60) newPage();
-      const cardTop = y;
-      page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:cardWidth, height:blockH, color:CARDBG});
-      const pillW = 76;
-      const pillX = MARGIN+cardWidth-16-pillW;
-      let ty = cardTop - 20;
-      const nameMaxWidth = pillX - 8 - textLeft;
-      const name = truncateToWidth(bold, t.name, 11, nameMaxWidth);
-      page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
-      page.drawRectangle({x:pillX, y:ty-3, width:pillW, height:15, color:pillBg});
-      const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
-      page.drawText(pillLabel, {x:pillX+8, y:ty+1, size:7.5, font:bold, color:pillColor});
-      ty -= 22;
-      for(const s of stageLayout){
-        page.drawText(s.label.toUpperCase() + ' (' + s.photos.length + ')', {x:textLeft, y:ty, size:8, font:bold, color:SLATE});
-        ty -= 12;
-        let cx = textLeft, cy = ty;
-        for(let i=0; i<s.shown; i++){
-          if(i>0 && i%perRow===0){ cx = textLeft; cy -= (thumbSize+thumbGap); }
-          try{
-            const bytes = await pdfFetchImageBytes(publicUrl('site-photos', s.photos[i].storage_path));
-            if(bytes){
-              let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
-              const dim = img.scale(1);
-              const sc = thumbSize/Math.max(dim.width, dim.height);
-              const w = dim.width*sc, h = dim.height*sc;
-              page.drawImage(img, {x:cx+(thumbSize-w)/2, y:cy-thumbSize+(thumbSize-h)/2, width:w, height:h});
-            }
-          }catch(e){ /* skip photo if it fails to embed */ }
-          cx += thumbSize+thumbGap;
+      const stageH = s => 14 + s.rows*(thumbSize+thumbGap);
+      // Body height available starting fresh at the top of a brand-new page
+      // (matches newPage()'s y plus the same "y - blockH < 60" bottom check
+      // used everywhere else in this export), minus the card's own 12pt of
+      // bottom padding — the budget each chunk's "used" total is sized against.
+      const MAX_FRESH_PAGE_BODY = (PAGE_H - 118) - 60 - 12;
+
+      let isFirstChunk = true;
+      while(isFirstChunk || remaining.length){
+        const chunkHeaderH = isFirstChunk ? headerH : 20;
+        let used = chunkHeaderH, take = 0;
+        for(; take<remaining.length; take++){
+          const h = stageH(remaining[take]);
+          if(used + h > MAX_FRESH_PAGE_BODY && take>0) break;
+          used += h;
         }
-        ty = cy - thumbSize - thumbGap;
-        if(s.photos.length > MAX_THUMBS_PER_STAGE){
-          page.drawText('+' + (s.photos.length-MAX_THUMBS_PER_STAGE) + ' more in appendix', {x:textLeft, y:ty+thumbGap-3, size:7, font:reg, color:SLATE, opacity:0.8});
+        if(take===0) take = 1; // always make progress, even if one stage alone exceeds a full page
+        const chunkStages = remaining.slice(0, take);
+        remaining = remaining.slice(take);
+        const blockH = used + 12;
+        if(y - blockH < 60) newPage();
+        const cardTop = y;
+        page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:cardWidth, height:blockH, color:CARDBG});
+        let ty = cardTop - 20;
+        if(isFirstChunk){
+          const pillW = 76;
+          const pillX = MARGIN+cardWidth-16-pillW;
+          const nameMaxWidth = pillX - 8 - textLeft;
+          const name = truncateToWidth(bold, t.name, 11, nameMaxWidth);
+          page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
+          page.drawRectangle({x:pillX, y:ty-3, width:pillW, height:15, color:pillBg});
+          const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
+          page.drawText(pillLabel, {x:pillX+8, y:ty+1, size:7.5, font:bold, color:pillColor});
+          ty -= 22;
+        } else {
+          const contName = truncateToWidth(bold, t.name, 10, cardWidth-2*cardPad-100);
+          page.drawText(contName + ' (continued)', {x:textLeft, y:ty, size:10, font:bold, color:SLATE});
+          ty -= 16;
         }
+        for(const s of chunkStages){
+          page.drawText(s.label.toUpperCase() + ' (' + s.photos.length + ')', {x:textLeft, y:ty, size:8, font:bold, color:SLATE});
+          ty -= 12;
+          let cx = textLeft, cy = ty;
+          for(let i=0; i<s.photos.length; i++){
+            if(i>0 && i%perRow===0){ cx = textLeft; cy -= (thumbSize+thumbGap); }
+            try{
+              const url = publicUrl('site-photos', s.photos[i].storage_path);
+              const bytes = await pdfFetchImageBytesScaled(url, Math.round(thumbSize*3), 0.78);
+              if(bytes){
+                let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+                const dim = img.scale(1);
+                const sc = thumbSize/Math.max(dim.width, dim.height);
+                const w = dim.width*sc, h = dim.height*sc;
+                page.drawImage(img, {x:cx+(thumbSize-w)/2, y:cy-thumbSize+(thumbSize-h)/2, width:w, height:h});
+              }
+            }catch(e){ /* skip photo if it fails to embed */ }
+            cx += thumbSize+thumbGap;
+          }
+          ty = cy - thumbSize - thumbGap;
+        }
+        y = cardTop - blockH - 10;
+        isFirstChunk = false;
       }
-      y = cardTop - blockH - 10;
     }
 
     if(todoTasks.length){
@@ -17912,11 +18008,17 @@ async function buildSchedulePdfBytes(siteId){
     // the single latest one shown on each task's row above.
     const schedulePhotoRefs = [];
     allTasks.forEach(t=>{ (photosByTask[t.id]||[]).forEach(p=>schedulePhotoRefs.push({path:p.storage_path, bucket:'site-photos'})); });
-    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs);
+    // sizeScale 0.9 = the "summary photos" drawn 0.9x smaller within their
+    // tile per the PM's request. maxDim/quality is the real fix for emails
+    // failing on large reports — every photo on the job gets embedded here,
+    // so recompressing down to the resolution this 2x2 grid can actually
+    // show (rather than each photo's full original camera resolution) is
+    // what brings the attachment size down.
+    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs, {sizeScale:0.9, maxDim:900, quality:0.72});
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
-    const filename = exportFilename(site.name, 'Schedule of Works', 'pdf');
+    const filename = exportFilename(site.name, 'Schedule of Works' + (scheduleFilter!=='all' ? ' - '+filterLabel : ''), 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
     return {outBytes, filename, site};
@@ -17988,19 +18090,20 @@ window.confirmScheduleEmail = async function(siteId){
   let binary=''; const chunk=0x8000;
   for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
   const base64 = btoa(binary);
-  // The Schedule of Works PDF's media summary appendix embeds every progress
-  // photo on the job at full resolution, so a site with a lot of photos can
-  // produce a genuinely large attachment. Supabase Edge Functions get only
-  // 2s of actual CPU time per request, and just decoding/parsing a many-MB
-  // base64 body can burn past that before the function ever gets to send
-  // the email — with nothing ever reaching our own logs, since the runtime
-  // kills the request before our code finishes. That shows up client-side
-  // as a non-JSON error response, not a network failure — flagging it here
-  // up front rather than letting it fail mysteriously on a perfectly good
-  // connection.
+  // Every photo embedded in this PDF (both the task-row thumbnails and the
+  // media summary appendix) is now downsized/recompressed before being
+  // embedded — see pdfFetchImageBytesScaled / appendMediaSummaryPages'
+  // maxDim option — so a report that would once have ballooned to tens of
+  // MB of untouched camera photos is, in practice, a fraction of that. The
+  // one size ceiling that's left isn't ours: Resend (the email provider
+  // we send through) hard-caps a whole email, attachments included, at
+  // 40MB once everything is base64-encoded — that's enforced on their
+  // side and can't be raised from here. 38MB leaves a couple of MB of
+  // headroom for the rest of the message (subject/body/recipients) so we
+  // only ever block a send that Resend would reject outright anyway.
   const approxMb = base64.length / 1024 / 1024;
-  if(approxMb > 8){
-    toast('This report is too large to email ('+approxMb.toFixed(1)+'MB, mostly photos) — try Export instead, or remove some older photos first.');
+  if(approxMb > 38){
+    toast('This report is too large to email ('+approxMb.toFixed(1)+'MB — the email provider caps a whole message at ~40MB) — try Export instead.');
     if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     return;
   }
@@ -23983,7 +24086,7 @@ async function buildIncidentPdf(reportId){
       if(x + size > PAGE_W-MARGIN){ x = MARGIN; y -= (size+8); }
       ensureSpace(size+8);
       try{
-        const bytes = await pdfFetchImageBytes(publicUrl('incident-photos', p));
+        const bytes = await pdfFetchImageBytesScaled(publicUrl('incident-photos', p), Math.round(size*3), 0.78);
         if(bytes){
           let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
           page.drawImage(img, {x, y:y-size, width:size, height:size});
@@ -27756,7 +27859,7 @@ window.exportVariationsPDF = async function(siteId, scope){
         const imgY = cardTop-blockH+14;
         const boxSize = 76;
         try{
-          const bytes = await pdfFetchImageBytes(publicUrl('site-photos', v.photo_path));
+          const bytes = await pdfFetchImageBytesScaled(publicUrl('site-photos', v.photo_path), Math.round(boxSize*3), 0.78);
           if(bytes){
             let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
             const dim = img.scale(1);
@@ -27771,7 +27874,7 @@ window.exportVariationsPDF = async function(siteId, scope){
     }
 
     const variationPhotoRefs = variations.filter(v=>v.photo_path).map(v=>({path:v.photo_path, bucket:'site-photos'}));
-    await appendMediaSummaryPages(pdfDoc, variationPhotoRefs);
+    await appendMediaSummaryPages(pdfDoc, variationPhotoRefs, {maxDim:900, quality:0.72});
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
