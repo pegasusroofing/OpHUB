@@ -8861,9 +8861,9 @@ window.addRepairJobPhoto = async function(input, jobId, category){
   // Keep the survey report PDF (if this job's already been surveyed) in
   // sync with whatever photos are actually on the job — see
   // exportRepairJobSurveyPdf below.
-  if((category==='survey'||category==='access') && job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
+  if((category==='survey'||category==='access') && job && job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
   // Same idea for the Completed Works Report, once works are marked complete.
-  if(category==='completion' && job && job.works_completed) exportRepairJobCompletionPdf(jobId);
+  if(category==='completion' && job && job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
 };
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
   const yes = await customConfirm('Delete this photo?');
@@ -8969,7 +8969,7 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
     patch.job_status = 'To Survey';
   }
   await saveRepairJobField(jobId, patch);
-  if(value==='Y') exportRepairJobSurveyPdf(jobId);
+  if(value==='Y') scheduleRepairJobReportExport(jobId,'survey');
 };
 // Best-effort — emails the site's responsible PM whenever an operative
 // saves notes for a repair job section (Survey/Progress/Completion), so
@@ -8982,6 +8982,32 @@ function notifyPmOfRepairJobUpdate(jobId, siteId, section, notesText){
   try{
     sbFetch('/functions/v1/send-repair-job-notes-email', {method:'POST', body: JSON.stringify({site_id:siteId, job_id:jobId, section, notes: notesText||''})}).catch(()=>{});
   }catch(e){ /* silent — best effort only */ }
+}
+// Rebuilding and re-uploading the whole Survey/Completion Report PDF after
+// every single photo (see addRepairJobPhoto, setRepairJobSurveyStatus,
+// setRepairJobWorksCompleted, saveRepairJobSurvey/Access) used to fire one
+// full rebuild-and-upload per photo — harmless for one or two photos, but
+// for a job with a dozen-plus survey photos added back-to-back it meant a
+// dozen-plus PDF rebuilds in a few seconds, each bigger than the last as
+// more photos accumulated. That's what was actually failing silently and
+// leaving the PDF out of the OneDrive folder (see exportRepairJobSurveyPdf/
+// exportRepairJobCompletionPdf below — once the embedded photos push the
+// PDF past OneDrive's single-request upload limit, the upload starts
+// failing, and the catch around it was entirely silent) while the raw
+// photos themselves kept landing fine, since those are synced individually
+// and never grow. Debouncing to "once, 2.5s after the last change" means
+// only the final, complete PDF is ever built and pushed — see the matching
+// chunked-upload fix in the onedrive-upload edge function for the size
+// side of this.
+const _repairJobReportExportTimers = {};
+function scheduleRepairJobReportExport(jobId, kind){
+  const key = kind+':'+jobId;
+  clearTimeout(_repairJobReportExportTimers[key]);
+  _repairJobReportExportTimers[key] = setTimeout(()=>{
+    delete _repairJobReportExportTimers[key];
+    if(kind==='survey') exportRepairJobSurveyPdf(jobId);
+    else exportRepairJobCompletionPdf(jobId);
+  }, 2500);
 }
 // Branded "Survey Report" PDF for a single repair job — same header
 // band/footer look as the other branded exports (Snagging, Inspection
@@ -9120,21 +9146,28 @@ async function exportRepairJobSurveyPdf(jobId){
     if(!built) return;
     const job = built.job;
     const site = SITES.find(s=>s.id===job.site_id);
+    let res;
     if(job.onedrive_folder_id){
-      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+      res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
         filename: built.filename,
         content_base64: built.base64,
         folder_id: job.onedrive_folder_id,
         drive_id: job.onedrive_drive_id||undefined,
       })});
     } else if(site && site.onedrive_folder_id){
-      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+      res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
         filename: repairJobOneDriveFolder(job)+'/'+built.filename,
         content_base64: built.base64,
         site_id: job.site_id,
       })});
     }
-  }catch(e){ /* silent — best effort only */ }
+    // Best-effort only — never surfaces an error to whoever just saved a
+    // note/photo — but a failed push used to vanish completely (fetch()
+    // doesn't throw on a non-2xx response, so the try/catch below never
+    // caught it either). Logging it means a failure is at least visible in
+    // the console instead of just absent from OneDrive with no trace.
+    if(res && !res.ok){ const body = await res.text().catch(()=>''); console.error('exportRepairJobSurveyPdf: onedrive-upload failed', res.status, body); }
+  }catch(e){ console.error('exportRepairJobSurveyPdf failed', e); }
 }
 // #(repair-job-completion-report) 2026-09-30 — mirrors buildRepairJobSurveyPdf
 // / exportRepairJobSurveyPdf exactly, but for the "works completed" side of a
@@ -9265,21 +9298,26 @@ async function exportRepairJobCompletionPdf(jobId){
     if(!built) return;
     const job = built.job;
     const site = SITES.find(s=>s.id===job.site_id);
+    let res;
     if(job.onedrive_folder_id){
-      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+      res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
         filename: built.filename,
         content_base64: built.base64,
         folder_id: job.onedrive_folder_id,
         drive_id: job.onedrive_drive_id||undefined,
       })});
     } else if(site && site.onedrive_folder_id){
-      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
+      res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({
         filename: repairJobOneDriveFolder(job)+'/'+built.filename,
         content_base64: built.base64,
         site_id: job.site_id,
       })});
     }
-  }catch(e){ /* silent — best effort only */ }
+    // See the matching comment in exportRepairJobSurveyPdf — fetch() doesn't
+    // throw on a non-2xx response, so a failed push used to vanish with no
+    // trace at all. Logging it at least makes a failure diagnosable.
+    if(res && !res.ok){ const body = await res.text().catch(()=>''); console.error('exportRepairJobCompletionPdf: onedrive-upload failed', res.status, body); }
+  }catch(e){ console.error('exportRepairJobCompletionPdf failed', e); }
 }
 // Surveyor is never picked from a dropdown — it's just whoever actually
 // filled the survey notes in, captured automatically the first time notes
@@ -9293,14 +9331,14 @@ window.saveRepairJobSurvey = function(jobId){
   if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', survey_notes);
   // If the survey's already marked complete, an edit to the notes here
   // should be reflected in the exported PDF too, not just the app.
-  if(job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
+  if(job && job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
 };
 window.saveRepairJobAccess = function(jobId){
   const access_requirement = document.getElementById('repairAccessRequirement').value;
   const access_notes = document.getElementById('repairAccessNotes').value.trim();
   saveRepairJobField(jobId, {access_requirement, access_notes: access_notes||null});
   const job = repairJobDetailCurrent;
-  if(job && job.survey_required==='Y') exportRepairJobSurveyPdf(jobId);
+  if(job && job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
 };
 // Mirrors the scaffold-booking pattern below — books who's doing the survey
 // and when, with the date synced onto the site Calendar the same way.
@@ -9454,7 +9492,7 @@ window.setRepairJobWorksCompleted = async function(jobId, checked){
   // Push the Completed Works Report to OneDrive the moment the job is
   // actually marked complete — same best-effort/silent pattern as the
   // Survey Report export.
-  if(checked) exportRepairJobCompletionPdf(jobId);
+  if(checked) scheduleRepairJobReportExport(jobId,'completion');
 };
 window.saveRepairJobCompletionNotes = function(jobId){
   const job = repairJobDetailCurrent;
@@ -9463,7 +9501,7 @@ window.saveRepairJobCompletionNotes = function(jobId){
   if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'completion', works_notes);
   // If works are already marked complete, an edit to the notes here should
   // be reflected in the exported Completed Works Report too, not just the app.
-  if(job && job.works_completed) exportRepairJobCompletionPdf(jobId);
+  if(job && job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
 };
 window.saveRepairJobPricedSchedule = function(jobId){
   const v = document.getElementById('repairPricedSchedule').value.trim();
