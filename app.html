@@ -2302,7 +2302,12 @@ function roleActionsFor(ME, p, allPeople){
     canRemove = iAmAdmin;
   } else if(p.role==='operative'){
     options = [{value:'operative', label:'Operative'}];
-    if(iAmFullManager) options.push({value:'pm', label:'Project Manager'}, {value:'site_manager', label:'Site Manager'});
+    // Delivery Driver used to only be choosable at invite time — there was
+    // no way to turn an existing operative into one afterwards, even though
+    // the reverse (driver -> operative, below) already worked. Same
+    // iAmFullManager gate as PM/Site Manager since it's no higher-trust
+    // than those.
+    if(iAmFullManager) options.push({value:'pm', label:'Project Manager'}, {value:'site_manager', label:'Site Manager'}, {value:'driver', label:'Delivery Driver'});
     if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
     canRemove = iAmFullManager;
   } else if(p.role==='driver'){
