@@ -7589,10 +7589,11 @@ async function renderSiteHome(siteId){
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
       ];
-      // Main Contractor is a single tile — position 2 overall (right after
-      // the wide Check In/Out tile), so it goes at the FRONT of this array
-      // rather than appended after the fixed core set.
-      if(site.acting_as_main_contractor) regularTiles.unshift(`<div class="tile" onclick="go('#/site/${siteId}/mc')">
+      // Schedule of Works always holds position 2 overall (top left, right
+      // after the wide Check In/Out tile) — Main Contractor used to be
+      // unshifted in front of it, bumping it to third whenever a site was
+      // switched on as main contractor. It slots in straight after instead.
+      if(site.acting_as_main_contractor) regularTiles.splice(1, 0, `<div class="tile" onclick="go('#/site/${siteId}/mc')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗</div>
           <div class="lbl">Main Contractor</div><div class="sub">${mcAreaCount} area${mcAreaCount===1?'':'s'}</div>
         </div>`);
@@ -16388,6 +16389,71 @@ async function saveSectionFlagPhoto(siteId, sectionId, photoPath){
   toast('Photo added');
   render();
 }
+// "Schedule of Works Document" — the office's own copy of the SOW (Excel,
+// Word, PDF, anything), kept on the SOW page alongside the task list. Lives
+// in the private schedule-docs bucket and is manager-only (table + bucket
+// RLS both gate on is_pm()), since an office SOW can carry pricing.
+let scheduleDocUploading = false;
+window.uploadScheduleDocument = async function(input, siteId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length) return;
+  scheduleDocUploading = true; render();
+  let added = 0;
+  try{
+    for(const file of files){
+      const path = siteId+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+      const stored = await uploadToStorage('schedule-docs', path, file, file.type||'application/octet-stream');
+      if(!stored) continue;
+      const rows = await dbInsert('schedule_documents', {site_id:siteId, org_id:ME.org_id, name:file.name, storage_path:stored, size:file.size||null, uploaded_by:ME.id});
+      if(rows) added++;
+    }
+  }finally{
+    scheduleDocUploading = false;
+  }
+  if(added) toast(added===1 ? 'Document added' : added+' documents added');
+  render();
+};
+window.viewScheduleDocument = async function(docId){
+  const rows = await dbSelect('schedule_documents', 'id=eq.'+docId+'&select=name,storage_path');
+  const doc = rows[0];
+  if(!doc){ toast('Document not found.'); return; }
+  try{
+    // Private bucket — a short-lived signed link is minted per open, allowed
+    // by the bucket's manager-only select policy.
+    const encPath = doc.storage_path.split('/').map(encodeURIComponent).join('/');
+    // Plain fetch with just the auth headers, same as uploadToStorage — the
+    // Storage API doesn't need (or necessarily allow) sbFetch's extra
+    // cache-busting headers.
+    await ensureFreshToken();
+    if(!SESSION || !SESSION.access_token){ toast('Your session has expired — please log out and back in, then try again.'); return; }
+    const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/sign/schedule-docs/'+encPath, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SESSION.access_token,'Content-Type':'application/json'}, body: JSON.stringify({expiresIn: 600})}, 20000);
+    const d = await res.json().catch(()=>({}));
+    const signed = d.signedURL || d.signedUrl;
+    if(!res.ok || !signed){ toast('Could not open document.'); return; }
+    const url = SUPABASE_URL+'/storage/v1'+(signed.charAt(0)==='/'?'':'/')+signed;
+    if(/\.(png|jpe?g|gif|webp)$/i.test(doc.name)){ viewImage(url); return; }
+    if(/\.pdf$/i.test(doc.name)){ await viewPdfInApp(url, doc.name); return; }
+    // Excel/Word/anything else can't be rendered in-app — hand it to the
+    // browser/OS, same as Excel programme files in viewDrawing.
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+      await window.Capacitor.Plugins.Browser.open({url});
+    } else {
+      window.open(url, '_blank');
+    }
+  }catch(e){ toast('Could not open document.'); }
+};
+window.deleteScheduleDocument = async function(siteId, docId){
+  const rows = await dbSelect('schedule_documents', 'id=eq.'+docId+'&select=name,storage_path');
+  const doc = rows[0];
+  if(!doc) { render(); return; }
+  if(!await customConfirm('Remove "'+doc.name+'" from this Schedule of Works?')) return;
+  const ok = await dbDelete('schedule_documents', docId);
+  if(!ok) return;
+  try{ await ensureFreshToken(); await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/schedule-docs/'+doc.storage_path.split('/').map(encodeURIComponent).join('/'), {method:'DELETE', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SESSION.access_token}}, 20000); }catch(e){ /* row is gone; orphaned file is harmless */ }
+  logSiteActivity(siteId, 'schedule_document_deleted', 'Removed Schedule of Works document "'+doc.name+'"');
+  toast('Document removed');
+  render();
+};
 async function renderSchedule(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -16410,7 +16476,7 @@ async function renderSchedule(siteId){
   // visibility (see schedule_visibility_ok) — an operative or PM simply
   // never gets back a row they're not allowed to see, so nothing further
   // needs filtering client-side; admins always get everything back.
-  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies] = await Promise.all([
+  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
@@ -16418,6 +16484,9 @@ async function renderSchedule(siteId){
     canAdd ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
     canAdd ? loadPMList() : Promise.resolve([]),
     site && site.acting_as_main_contractor ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name') : Promise.resolve([]),
+    // Office copy of the SOW (see the "Schedule of Works Document" box
+    // below the tabs) — managers only, enforced by RLS as well.
+    canAdd ? dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc') : Promise.resolve([]),
   ]);
   scheduleSectionsCache = sections;
   if(canAdd) await loadAllProfiles();
@@ -16460,6 +16529,30 @@ async function renderSchedule(siteId){
   const bySection = {};
   tasks.forEach(t=>{ if(t.section_id){ (bySection[t.section_id]=bySection[t.section_id]||[]).push(t); } });
 
+  // Each tab only shows the tables (sections) that actually belong on it —
+  // a section whose tasks are all complete drops off To Do / In Progress
+  // entirely rather than sitting there as an empty "No tasks for this
+  // filter" card, and a section with nothing complete yet stays off
+  // Complete. A section with no tasks at all still shows on To Do / In
+  // Progress (and All) for managers, since that's where its first task
+  // gets added. All shows everything.
+  const sectionVisibleOnTab = (matching, everAdded)=>{
+    if(scheduleFilter==='all') return true;
+    if(matching) return true;
+    return scheduleFilter==='active' && !everAdded && canAdd;
+  };
+  // The top "Schedule of Works" table is the exception for managers: it
+  // always stays on screen so its Add Task button is never out of reach,
+  // but sits collapsed whenever it has nothing to show on this tab (see
+  // `open` in its card below) instead of an empty "No tasks" body.
+  const showUngroupedCard = canAdd ? true
+    : scheduleFilter==='all' ? !!allUngrouped.length : !!ungrouped.length;
+  const visibleSections = sections.filter(sec=>{
+    if(sectionVisibleOnTab((bySection[sec.id]||[]).length, (bySectionAll[sec.id]||[]).length)) return true;
+    // Never yank a section out from under an open "who can see this" form.
+    return !!(scheduleAssignTarget && scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id);
+  });
+
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${canAdd ? `
       <div class="drawheaderrow">
@@ -16470,6 +16563,7 @@ async function renderSchedule(siteId){
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='variation';render()">📐 Add Variation Work</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleLibraryPanel('${siteId}')">📚 From Library</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('scheduleDocInput').click()">📎 Add Document</div>
           `)}
         </div>
       </div>
@@ -16477,6 +16571,19 @@ async function renderSchedule(siteId){
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
+    ${canAdd ? `<input type="file" id="scheduleDocInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadScheduleDocument(this,'${siteId}')">` : ''}
+    ${canAdd && (scheduleDocs.length || scheduleDocUploading) ? `
+      <div class="card">
+        <p class="sectiontitle" style="margin-top:0;">Schedule of Works Document</p>
+        ${scheduleDocs.map(d=>`
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
+            <a href="#" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600;color:var(--brand1);text-decoration:underline;" onclick="event.preventDefault();viewScheduleDocument('${d.id}')">📎 ${escapeHtml(d.name)}</a>
+            <span class="taskicon" title="Remove document" style="flex:0 0 auto;" onclick="deleteScheduleDocument('${siteId}','${d.id}')">🗑</span>
+          </div>
+        `).join('')}
+        ${scheduleDocUploading ? `<p class="stub" style="margin:6px 0 0;"><span class="spinner"></span> Uploading…</p>` : ''}
+      </div>
+    ` : ''}
     ${canAdd && scheduleMultiSelectMode ? `
       <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:2;">
         <span class="stub" style="margin:0;font-weight:700;">${scheduleMultiSelectedIds.size} selected</span>
@@ -16561,8 +16668,8 @@ async function renderSchedule(siteId){
         <button class="ghostbtn" style="margin-top:8px;" onclick="closeScheduleLibraryPanel()">Close</button>
       </div>
     ` : ''}
-    ${(allUngrouped.length || canAdd) ? (()=>{
-      const open = scheduleSectionsOpen['__ungrouped__'] !== false;
+    ${showUngroupedCard ? (()=>{
+      const open = ungrouped.length ? scheduleSectionsOpen['__ungrouped__'] !== false : scheduleAddPanel==='task';
       // A dropdown/"who can see this" popup for any task in here is an
       // absolutely-positioned (or just tall) element nested inside this
       // card — the overflow:hidden below (there only to clip this card's
@@ -16604,16 +16711,7 @@ async function renderSchedule(siteId){
         </div>` : ''}
       </div>
     `;})() : ''}
-    ${sections.filter(sec=>{
-      // A section with zero tasks in it at all (e.g. just created, or never
-      // had anything added) has nothing "complete" about it — showing it
-      // under the Complete tab reads as if it's finished when really
-      // there's just nothing there yet. Only suppress it on that tab;
-      // it still needs to show on To Do/In Progress and All so a brand
-      // new empty section has somewhere to add its first task.
-      if(scheduleFilter==='done' && !(bySectionAll[sec.id] && bySectionAll[sec.id].length)) return false;
-      return true;
-    }).map(sec=>{
+    ${visibleSections.map(sec=>{
       const secTasks = bySection[sec.id] || [];
       const open = scheduleSectionsOpen[sec.id] !== false;
       // Same fix as the ungrouped card above — this section's own "..."
@@ -16660,7 +16758,7 @@ async function renderSchedule(siteId){
         ` : ''}
       </div>
     `;}).join('')}
-    ${!ungrouped.length && !sections.length ? `<div class="empty">No tasks yet.</div>` : ''}
+    ${!showUngroupedCard && !visibleSections.length ? `<div class="empty">${!allTasks.length ? 'No tasks yet.' : scheduleFilter==='done' ? 'Nothing completed yet.' : 'Nothing left to do — everything is complete.'}</div>` : ''}
 
     ${pdfImportSiteId===siteId ? `
       <div class="card">
