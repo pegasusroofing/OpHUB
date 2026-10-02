@@ -17732,10 +17732,15 @@ window.emailSnaggingPDF = async function(siteId, scope){
   try{
     const built = await buildSnaggingPdfBytes(siteId, scope);
     if(!built){ snagEmailBusy = null; render(); return; }
-    let binary=''; const chunk=0x8000;
-    for(let i=0;i<built.bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.bytes.subarray(i,i+chunk));
     const scopeLabel = scope==='live' ? 'Live' : scope==='closed' ? 'Closed' : 'All';
-    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: btoa(binary), site_name: site?site.name:'', scope_label: scopeLabel, client_cc_email: ccClientEmail})});
+    // Upload to Storage first and send only a short path, not the PDF's
+    // bytes, in the request body — see the matching comment in
+    // confirmScheduleEmail for why (a large inline base64 body could hang
+    // rather than fail cleanly on the hosted Edge Runtime).
+    const storagePath = siteId+'/snagging-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', storagePath, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored){ snagEmailBusy = null; render(); return; }
+    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', body: JSON.stringify({filename: built.filename, storage_path: stored, storage_bucket: 'mc-documents', site_name: site?site.name:'', scope_label: scopeLabel, client_cc_email: ccClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast('Snagging report emailed to '+(d.to||ME.email)); }
@@ -17915,7 +17920,7 @@ async function buildSchedulePdfBytes(siteId){
       const cardWidth = PAGE_W-2*MARGIN;
       const cardPad = 14;
       const textLeft = MARGIN + cardPad;
-      const thumbSize = 51, thumbGap = 8; // 1.15x the previous 44pt "main" photo size
+      const thumbSize = 57, thumbGap = 8; // 1.3x the original 44pt "main"/line-item photo size
       const usableW = cardWidth - 2*cardPad;
       const perRow = Math.max(1, Math.floor((usableW+thumbGap)/(thumbSize+thumbGap)));
       let remaining = STAGE_SECTIONS.filter(s=>stageBuckets[s.key].length>0).map(s=>{
@@ -18014,7 +18019,7 @@ async function buildSchedulePdfBytes(siteId){
     // so recompressing down to the resolution this 2x2 grid can actually
     // show (rather than each photo's full original camera resolution) is
     // what brings the attachment size down.
-    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs, {sizeScale:0.9, maxDim:900, quality:0.72});
+    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs, {sizeScale:0.75, maxDim:900, quality:0.72});
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
@@ -18086,30 +18091,31 @@ window.confirmScheduleEmail = async function(siteId){
   if(btn){ btn.disabled = true; btn.textContent = 'Building PDF…'; }
   const built = await buildSchedulePdfBytes(siteId);
   if(!built){ if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; } return; }
-  if(btn) btn.textContent = 'Sending…';
-  let binary=''; const chunk=0x8000;
-  for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
-  const base64 = btoa(binary);
-  // Every photo embedded in this PDF (both the task-row thumbnails and the
-  // media summary appendix) is now downsized/recompressed before being
-  // embedded — see pdfFetchImageBytesScaled / appendMediaSummaryPages'
-  // maxDim option — so a report that would once have ballooned to tens of
-  // MB of untouched camera photos is, in practice, a fraction of that. The
-  // one size ceiling that's left isn't ours: Resend (the email provider
-  // we send through) hard-caps a whole email, attachments included, at
-  // 40MB once everything is base64-encoded — that's enforced on their
-  // side and can't be raised from here. 38MB leaves a couple of MB of
-  // headroom for the rest of the message (subject/body/recipients) so we
-  // only ever block a send that Resend would reject outright anyway.
-  const approxMb = base64.length / 1024 / 1024;
-  if(approxMb > 38){
-    toast('This report is too large to email ('+approxMb.toFixed(1)+'MB — the email provider caps a whole message at ~40MB) — try Export instead.');
+  // 2026-10-02 — this used to base64-encode the whole PDF and send it
+  // inline in this request's JSON body. That turned out to be the actual
+  // cause of "email failed": a multi-MB base64 string inside an Edge
+  // Function's request body doesn't cleanly 413 on this platform, it just
+  // hangs until the browser's own fetch gives up — which looks exactly
+  // like "could not reach the server" even on a perfectly good connection.
+  // Now the PDF is uploaded to Storage first (a plain binary POST, which
+  // Storage handles fine at any realistic size) and the email function
+  // only gets a short path to download server-side — a tiny request body
+  // regardless of how big the report is, so there's no longer a practical
+  // size ceiling on this side (only Resend's own ~40MB-per-email cap,
+  // which the function surfaces as a clear error if it's ever actually hit).
+  if(btn) btn.textContent = 'Uploading PDF…';
+  const storagePath = siteId+'/schedule-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', storagePath, new Blob([built.outBytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored){
+    // uploadToStorage already toasted the specific reason (timeout,
+    // expired session, etc.) — nothing more to add here.
     if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     return;
   }
+  if(btn) btn.textContent = 'Sending…';
   try{
     const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', body: JSON.stringify({
-      site_id: siteId, filename: built.filename, content_base64: base64, recipients,
+      site_id: siteId, filename: built.filename, storage_path: stored, storage_bucket: 'mc-documents', recipients,
       client_cc_email: ccClientEmailIfTicked(SITES.find(s=>s.id===siteId), 'scheduleEmailCcClient'),
     })});
     let d = null, parseFailed = false;
@@ -18120,13 +18126,8 @@ window.confirmScheduleEmail = async function(siteId){
         card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Schedule of Works report was emailed to ${recipients.length} recipient${recipients.length>1?'s':''}.</p><button class="darkbtn" style="width:100%;" onclick="closeScheduleEmailPrompt()">Done</button>`;
       } else { closeScheduleEmailPrompt(); toast('Email sent'); }
     } else if(parseFailed){
-      // We DID get a response from a server here — this is not a
-      // connectivity problem. The function returning something other than
-      // its own JSON almost always means it was killed mid-request (large
-      // attachment hitting the CPU-time limit above) or a gateway step in
-      // front of it errored out.
       console.error('send-schedule-email: non-JSON response, status', res.status);
-      toast('Email failed — unexpected response from the server (status '+res.status+'). This usually means the report is too large (lots of photos), not a connection issue — try Export instead.');
+      toast('Email failed — unexpected response from the server (status '+res.status+'). Please try again.');
       if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     } else {
       console.error('send-schedule-email failed:', (d&&d.error) || res.status);
