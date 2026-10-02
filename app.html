@@ -1403,6 +1403,15 @@ async function ensureFreshToken(){
 }
 async function sbFetch(path, opts){
   opts = opts || {};
+  // Optional per-call override of the default 20s timeout — e.g. an Edge
+  // Function that downloads a file from Storage and re-encodes it
+  // server-side (send-schedule-email, send-snags-email) genuinely needs
+  // more than 20s for a larger PDF, and the default was too short: the
+  // client gave up and aborted before the function finished, which looked
+  // exactly like "could not reach the server" on a perfectly working
+  // connection (the request just hadn't gotten a response back YET).
+  // Destructured out here so it never gets passed through to fetch() itself.
+  const timeoutMs = opts.timeoutMs;
   await ensureFreshToken();
   // #(no-stale-reads): every dbSelect() GET goes through here, and this app
   // is loaded inside an Android WebView, which — unlike a normal browser tab
@@ -1423,7 +1432,7 @@ async function sbFetch(path, opts){
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
   }, opts.headers||{});
-  return fetchWithRetry(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), 20000);
+  return fetchWithRetry(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), timeoutMs || 20000);
 }
 async function safeErr(res){ try{ const j = await res.json(); return j.message||j.error_description||j.error||res.status; }catch(e){ return res.status; } }
 // sbFetch's own retry (fetchWithRetry) only ever retries GETs — a POST is
@@ -17740,7 +17749,10 @@ window.emailSnaggingPDF = async function(siteId, scope){
     const storagePath = siteId+'/snagging-exports/'+uid()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', storagePath, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ snagEmailBusy = null; render(); return; }
-    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', body: JSON.stringify({filename: built.filename, storage_path: stored, storage_bucket: 'mc-documents', site_name: site?site.name:'', scope_label: scopeLabel, client_cc_email: ccClientEmail})});
+    // timeoutMs: 60000 — this function downloads the PDF from Storage and
+    // re-encodes it server-side before calling Resend, which can genuinely
+    // take longer than the default 20s for a bigger report; see sbFetch.
+    const res = await sbFetch('/functions/v1/send-snags-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({filename: built.filename, storage_path: stored, storage_bucket: 'mc-documents', site_name: site?site.name:'', scope_label: scopeLabel, client_cc_email: ccClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast('Snagging report emailed to '+(d.to||ME.email)); }
@@ -18114,7 +18126,10 @@ window.confirmScheduleEmail = async function(siteId){
   }
   if(btn) btn.textContent = 'Sending…';
   try{
-    const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', body: JSON.stringify({
+    // timeoutMs: 60000 — this function downloads the PDF from Storage and
+    // re-encodes it server-side before calling Resend, which can genuinely
+    // take longer than the default 20s for a bigger report; see sbFetch.
+    const res = await sbFetch('/functions/v1/send-schedule-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, filename: built.filename, storage_path: stored, storage_bucket: 'mc-documents', recipients,
       client_cc_email: ccClientEmailIfTicked(SITES.find(s=>s.id===siteId), 'scheduleEmailCcClient'),
     })});
