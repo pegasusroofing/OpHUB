@@ -370,6 +370,11 @@
   .statusbtn.active-todo{border-color:var(--slate-light);color:var(--ink);background:#fff;}
   .statusbtn.active-progress{border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
   .statusbtn.active-done{border-color:var(--ok);background:var(--ok-bg);color:var(--ok);}
+  .taskpct{margin-top:9px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);}
+  .taskpct.prompt{border-color:var(--warn);background:var(--warn-bg);}
+  .taskpct .pctrow{display:flex;align-items:center;gap:10px;}
+  .taskpct input[type=range]{flex:1;min-width:0;width:auto;height:28px;margin:0;padding:0;border:none;background:transparent;accent-color:var(--warn);}
+  .taskpct .pctval{flex:0 0 44px;text-align:right;font-size:13px;font-weight:800;color:var(--warn);}
   .taskname{font-size:13.5px;font-weight:700;flex:1;min-width:0;overflow-wrap:break-word;}
   .taskname.done{color:var(--ink);}
   .taskname .donetick{color:var(--ok);font-weight:800;margin-left:6px;}
@@ -15988,6 +15993,11 @@ let scheduleLastSiteId; // undefined initially so the first render always sets a
 // uploaded, so nobody can mark a job done with no evidence attached. They
 // can back out to In Progress at any point if they haven't got photos yet.
 let pendingCompleteTaskId = null;
+// Task whose "how far along is this now?" prompt is showing — set right
+// after a progress photo uploads (see taskPhoto), cleared once the slider
+// is moved or Skip is tapped. The slider itself is always there on an In
+// Progress task; this only controls the highlighted prompt around it.
+let percentPromptTaskId = null;
 let pdfImportSiteId = null;
 let pdfImportText = '';
 // Excel/CSV import now asks which column to use instead of always assuming
@@ -16307,9 +16317,40 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
           <div class="statusbtn ${t.status==='progress'&&pendingCompleteTaskId!==t.id?'active-progress':''}" onclick="setTaskStatus('${siteId}','${t.id}','progress')">In Progress</div>
           <div class="statusbtn ${(t.status==='done'||pendingCompleteTaskId===t.id)?'active-done':''}" onclick="beginTaskComplete('${t.id}')">Complete</div>
         </div>
+        ${t.status==='progress' && pendingCompleteTaskId!==t.id ? (()=>{
+          // Percentage complete for an In Progress task — a slider that
+          // snaps to steps of 10. Anyone who can update the task can move
+          // it, so a PM can simply override whatever an operative set.
+          const pct = t.percent_complete || 0;
+          const prompting = percentPromptTaskId===t.id;
+          return `
+          <div class="taskpct ${prompting?'prompt':''}">
+            ${prompting ? `<p class="stub" style="margin:0 0 6px;font-weight:700;color:var(--warn);">Photo added — how far along is this task now?</p>` : ''}
+            <div class="pctrow">
+              <input type="range" min="0" max="100" step="10" value="${pct}" aria-label="Percentage complete" oninput="this.nextElementSibling.textContent=this.value+'%'" onchange="setTaskPercent('${siteId}','${t.id}',this.value)">
+              <span class="pctval">${pct}%</span>
+            </div>
+            ${prompting ? `<button class="ghostbtn" style="margin-top:6px;padding:6px 10px;font-size:11.5px;" onclick="percentPromptTaskId=null;render()">Skip — leave at ${pct}%</button>` : ''}
+          </div>`;
+        })() : ''}
       </div>
   `;
 }
+function scheduleControlBusy(){
+  const el = document.activeElement;
+  return !!el && (el.tagName==='SELECT' || (el.tagName==='INPUT' && el.type==='range'));
+}
+window.setTaskPercent = async function(siteId, taskId, value){
+  const pct = Math.max(0, Math.min(100, Math.round(Number(value)/10)*10));
+  if(percentPromptTaskId===taskId) percentPromptTaskId = null;
+  // 100% means finished — and finishing always needs a completed photo, so
+  // hand over to the normal Complete flow rather than saving "100% but
+  // still In Progress". Backing out of that leaves the previous figure.
+  if(pct>=100){ toast('Upload a completed photo to finish this task'); beginTaskComplete(taskId); return; }
+  const row = await dbUpdate('schedule_tasks', taskId, {percent_complete: pct});
+  if(row) toast('Progress set to '+pct+'%');
+  render();
+};
 // Compact "site condition" row shown under any section (or the ungrouped
 // pseudo-section) that has ever had at least one task — deliberately smaller/
 // lighter than a task row, since ticking these is a site-condition report
@@ -16826,9 +16867,9 @@ async function renderSchedule(siteId){
     if(!document.getElementById('scheduleLiveMarker')){ clearInterval(schedulePollTimer); schedulePollTimer = null; return; }
     if(document.hidden || navigator.onLine === false) return;
     if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || scheduleAssignTarget || scheduleAddPanel || pendingCompleteTaskId || pdfImportSiteId) return;
-    // An open dropdown (e.g. a document's visibility picker) would be closed
-    // out from under the user by a re-render.
-    if(document.activeElement && document.activeElement.tagName==='SELECT') return;
+    // An open dropdown (e.g. a document's visibility picker) or a percentage
+    // slider mid-drag would be yanked out from under the user by a re-render.
+    if(percentPromptTaskId || scheduleControlBusy()) return;
     render();
   }, 8000);
 }
@@ -16960,7 +17001,12 @@ window.setTaskStatus = async function(siteId, taskId, next){
   if(pendingCompleteTaskId===taskId) pendingCompleteTaskId = null;
   // Moving a task back off "done" (e.g. re-opening it) clears the completed
   // date too, so it doesn't keep a stale timestamp from a previous completion.
-  const row = await dbUpdate('schedule_tasks', taskId, {status:next, completed_at:null});
+  // Back to To Commence wipes the percentage; re-opening a finished task to
+  // In Progress drops its 100% so it doesn't read as "In Progress — 100%".
+  const patch = {status:next, completed_at:null};
+  if(next==='todo') patch.percent_complete = null;
+  const row = await dbUpdate('schedule_tasks', taskId, patch);
+  if(row && next==='progress' && row.percent_complete===100) await dbUpdate('schedule_tasks', taskId, {percent_complete:null});
   if(row) render();
 };
 // Clicking "Complete" doesn't save anything yet — it just opens the
@@ -16985,7 +17031,7 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
     }catch(e){ /* skip this file, keep going with the rest */ }
   }
   if(!uploaded){ toast('Could not process photo(s) — try again.'); return; }
-  const row = await dbUpdate('schedule_tasks', taskId, {status:'done', completed_at: new Date().toISOString()});
+  const row = await dbUpdate('schedule_tasks', taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
   if(row){
     pendingCompleteTaskId = null;
     toast('Task marked complete');
@@ -17148,6 +17194,8 @@ window.taskPhoto = async function(input, siteId, taskId, currentStatus){
   }
   if(uploaded){
     if(moveToProgress) await dbUpdate('schedule_tasks', taskId, {status:'progress'});
+    // A progress photo prompts for an updated percentage (skippable).
+    if(stage==='progress') percentPromptTaskId = taskId;
     toast(uploaded===1 ? (moveToProgress?'Photo added — moved to In Progress':'Photo added') : (moveToProgress?`${uploaded} photos added — moved to In Progress`:`${uploaded} photos added`));
     render();
   }
@@ -18145,13 +18193,16 @@ async function buildSchedulePdfBytes(siteId){
         page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:cardWidth, height:blockH, color:CARDBG});
         let ty = cardTop - 20;
         if(isFirstChunk){
-          const pillW = 76;
+          // An In Progress task with a percentage set shows it in the pill
+          // ("IN PROGRESS 40%"), which needs a slightly wider pill.
+          const pctLabel = (t.status==='progress' && t.percent_complete!=null) ? ' '+t.percent_complete+'%' : '';
+          const pillW = pctLabel ? 100 : 76;
           const pillX = MARGIN+cardWidth-16-pillW;
           const nameMaxWidth = pillX - 8 - textLeft;
           const name = truncateToWidth(bold, t.name, 11, nameMaxWidth);
           page.drawText(name, {x:textLeft, y:ty, size:11, font:bold, color:INK});
           page.drawRectangle({x:pillX, y:ty-3, width:pillW, height:15, color:pillBg});
-          const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS' : 'COMPLETE';
+          const pillLabel = t.status==='todo' ? 'TO DO' : t.status==='progress' ? 'IN PROGRESS'+pctLabel : 'COMPLETE';
           page.drawText(pillLabel, {x:pillX+8, y:ty+1, size:7.5, font:bold, color:pillColor});
           ty -= 22;
         } else {
@@ -19936,6 +19987,7 @@ async function renderSubSchedule(siteId, companyId){
     if(!document.getElementById('subScheduleLiveMarker')){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; return; }
     if(document.hidden || navigator.onLine === false) return;
     if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || pendingCompleteTaskId) return;
+    if(percentPromptTaskId || scheduleControlBusy()) return;
     render();
   }, 8000);
 }
