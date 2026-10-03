@@ -30438,6 +30438,8 @@ async function renderDashboardChoice(){
 // slot actually has more than one delivery in it — see resequenceSlot.
 let pmDeliveryWeekOffset = 0;
 let pmDeliveryDayOpen = {}; // dateISO -> bool, seeded lazily per day below
+let pmDeliveryDefaultSlot = null; // same idea for the time slot, when added from a time row's +
+window.addDeliveryFrom = function(dateISO, slotKey){ pmDeliveryDefaultDate = dateISO; pmDeliveryDefaultSlot = slotKey||null; deliveryFormDraft = null; go('#/delivery/new'); };
 let pmDeliveryDefaultDate = null; // set right before go('#/delivery/new') so the form defaults to the day it was opened from
 // Delivery Schedule has two entry points (Admin Centre's quick link, and the
 // Delivery Dashboard tile off the Dashboard chooser) that land on the same
@@ -30673,7 +30675,7 @@ async function renderDeliverySchedulePM(){
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(weekLabel)}</div>
       <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset++;render()">›</span>
     </div>
-    <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
+    <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate=null;pmDeliveryDefaultSlot=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
     <div class="row-gap" style="margin-bottom:16px;">
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
@@ -30688,10 +30690,11 @@ async function renderDeliverySchedulePM(){
       return `
       <p class="ddrow" style="margin-top:${i===0?'0':'14px'};" onclick="pmDeliveryDayOpen['${iso}']=!pmDeliveryDayOpen['${iso}'];render()">
         <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}))}${iso===todayISO?' (Today)':''} <span class="stub">(${dayTasks.length})</span>
+        <span class="homebtn" title="Add a delivery on this day" style="margin-left:auto;flex:none;width:30px;height:30px;font-size:18px;font-weight:800;" onclick="event.stopPropagation();addDeliveryFrom('${iso}')">+</span>
       </p>
       ${open ? `
         ${DELIVERY_TIME_SLOTS.map(slot=>`
-          <p class="sectiontitle" style="margin-top:12px;">${slot.label}</p>
+          <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery at this time" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
           ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
         `).join('')}
       ` : ''}
@@ -30718,8 +30721,8 @@ async function renderDeliveryForm(taskId){
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
       deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
     } else {
-      deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
-      pmDeliveryDefaultDate = null;
+      deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
+      pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
