@@ -30925,9 +30925,14 @@ async function renderDeliveryForm(taskId){
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
-  if(deliveryFormDrivers.length===1 && !deliveryFormDraft.driver_id){
+  // Only for a brand new delivery: an existing one that has been left (or
+  // set) unassigned stays that way rather than being quietly re-assigned.
+  if(deliveryFormDrivers.length===1 && !deliveryFormDraft.driver_id && deliveryFormDraft._id==='new'){
     deliveryFormDraft.driver_id = deliveryFormDrivers[0].id;
   }
+  // 'none' = deliberately unassigned (an existing delivery with no driver
+  // opens that way too), as opposed to '' = nobody has chosen yet.
+  if(!deliveryFormDraft.driver_id && deliveryFormDraft._id!=='new') deliveryFormDraft.driver_id = 'none';
   const draft = deliveryFormDraft;
   const sites = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>a.name.localeCompare(b.name));
   if(__gen !== RENDER_GEN) return;
@@ -30976,15 +30981,15 @@ async function renderDeliveryForm(taskId){
         ${DELIVERY_TIME_SLOTS.map(s=>`<option value="${s.key}" ${draft.time_slot===s.key?'selected':''}>${s.label}</option>`).join('')}
       </select>
     </div>
-    ${deliveryFormDrivers.length>1 ? `
+    ${deliveryFormDrivers.length ? `
     <div class="formfield"><label class="field-label">Driver</label>
       <select onchange="deliveryFormDraft.driver_id=this.value">
-        <option value="">Choose a driver…</option>
+        ${deliveryFormDrivers.length>1 ? `<option value="" ${!draft.driver_id?'selected':''}>Choose a driver…</option>` : ''}
         ${deliveryFormDrivers.map(dr=>`<option value="${dr.id}" ${draft.driver_id===dr.id?'selected':''}>${escapeHtml(dr.name)}</option>`).join('')}
+        <option value="none" ${draft.driver_id==='none'?'selected':''}>Unassigned — no driver yet</option>
       </select>
+      <p class="stub" style="margin:4px 0 0;">An unassigned delivery shows on every driver's schedule until one is chosen.</p>
     </div>
-    ` : deliveryFormDrivers.length===1 ? `
-    <p class="stub" style="margin:0 0 12px;">Assigned to ${escapeHtml(deliveryFormDrivers[0].name)} — your only delivery driver.</p>
     ` : `
     <p class="stub" style="margin:0 0 12px;color:var(--warn);">No delivery drivers set up yet — this will sit unassigned until one is added.</p>
     `}
@@ -31063,7 +31068,7 @@ window.saveDeliveryTask = async function(){
   if(!d.scheduled_date){ toast('Choose a date.'); return; }
   if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
   if(d.collection_type==='supplier' && !d.supplier_id){ toast('Choose a supplier.'); return; }
-  if(deliveryFormDrivers.length>1 && !d.driver_id){ toast('Choose a driver.'); return; }
+  if(deliveryFormDrivers.length>1 && !d.driver_id){ toast('Choose a driver, or pick Unassigned.'); return; }
   // Only one first-drop high priority per day. Booking a second asks
   // whether to swap: Yes moves the flag onto this delivery (the other one
   // is un-flagged after this one saves, and whoever booked it is told); No
@@ -31096,7 +31101,7 @@ window.saveDeliveryTask = async function(){
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
     high_priority: !!d.high_priority,
-    driver_id: d.driver_id || null,
+    driver_id: (d.driver_id && d.driver_id!=='none') ? d.driver_id : null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
   };
   let ok, savedId;
@@ -31128,6 +31133,11 @@ window.saveDeliveryTask = async function(){
     // #notif-review-2026-09: previously a total gap — a driver was never
     // told a job had been assigned to them at all. Only fires when the
     // driver on this job is new or has just changed.
+    // The driver it was taken off is told too, so it doesn't just vanish
+    // from their list without explanation.
+    if(d._origDriverId && d._origDriverId!==(payload.driver_id||'') && d._origDriverId!==ME.id && savedId){
+      postSystemMessageToUser(d._origDriverId, payload.site_id, 'message', `A delivery is no longer assigned to you (${deliverySiteLabel(payload.site_id)}: ${payload.description})${payload.driver_id ? '' : ' — it is now unassigned'}.`, savedId);
+    }
     if(payload.driver_id && payload.driver_id!==d._origDriverId && savedId){
       postSystemMessageToUser(payload.driver_id, payload.site_id, 'delivery_assigned', `You've been assigned a delivery/collection: ${payload.description}`, savedId);
     }
