@@ -1254,17 +1254,25 @@ function drawingDownloadFilename(f){
   const ext = m ? m[0] : '';
   return (ext && !f.name.toLowerCase().endsWith(ext.toLowerCase())) ? (f.name+ext) : f.name;
 }
+// Opens a file the app can't show itself (Excel, Word…). iPhone Safari
+// blocks a new tab that's opened after the app has waited on the server, so
+// if the new tab is refused the file is opened in this tab instead of
+// nothing happening at all.
+async function openExternalFile(url){
+  if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
+    await window.Capacitor.Plugins.Browser.open({url}); return;
+  }
+  let w = null;
+  try{ w = window.open(url, '_blank'); }catch(e){}
+  if(!w) location.href = url;
+}
 window.viewDrawing = async function(url, isImage, filename){
   if(isImage){ viewImage(url); return; }
   // Excel programme files can't be rendered by the in-app PDF viewer — hand
   // them straight to the browser/OS instead of trying (and failing) to open
   // them as a PDF.
   if(filename && /\.(xlsx|xls)$/i.test(filename)){
-    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
-      await window.Capacitor.Plugins.Browser.open({url});
-    } else {
-      window.open(url, '_blank');
-    }
+    await openExternalFile(url);
     return;
   }
   await viewPdfInApp(url, filename);
@@ -1563,7 +1571,11 @@ async function sbFetchIdempotent(path, opts){
 // the matching server-side change reads it from there. Every other call in
 // the app is untouched; this is scoped to the one code path that was hanging.
 async function sbFetchOD(path, opts){
-  opts = opts || {};
+  opts = Object.assign({}, opts || {});
+  // Uploads to OneDrive carry a whole file in the request, so they get a
+  // minute rather than the usual 20 seconds (or whatever timeoutMs asks for).
+  const odTimeoutMs = opts.timeoutMs || (/onedrive-upload/.test(path) ? 60000 : 20000);
+  delete opts.timeoutMs;
   await ensureFreshToken();
   const headers = Object.assign({
     'apikey': SUPABASE_ANON_KEY,
@@ -1573,7 +1585,7 @@ async function sbFetchOD(path, opts){
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',
   }, opts.headers||{});
-  return fetchWithTimeout(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), 20000);
+  return fetchWithTimeout(SUPABASE_URL + path, Object.assign({cache:'no-store'}, opts, {headers}), odTimeoutMs);
 }
 async function sbFetchODIdempotent(path, opts){
   try{ return await sbFetchOD(path, opts); }
@@ -1721,9 +1733,19 @@ async function dbUpdate(table, id, patch){
 async function dbDelete(table, id){
   let res;
   try{
-    res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE'});
+    res = await sbFetch('/rest/v1/'+table+'?id=eq.'+id, {method:'DELETE', headers:{'Prefer':'return=representation'}});
   }catch(e){ toast('Delete failed — connection dropped. Check your signal and try again.'); return false; }
   if(!res.ok){ toast('Delete failed — '+(await safeErr(res))); return false; }
+  // The database answers "OK" even when its permission rules quietly
+  // removed nothing, so ask for the deleted rows back and check there
+  // really was one before telling anyone it's gone.
+  try{
+    const gone = await res.json();
+    if(Array.isArray(gone) && gone.length===0){
+      toast('Nothing was deleted — you may not have permission to remove this, or it has already gone.');
+      return false;
+    }
+  }catch(e){ /* no body returned — treat as deleted */ }
   return true;
 }
 async function uploadToStorage(bucket, path, blobOrFile, contentType){
@@ -1734,18 +1756,31 @@ async function uploadToStorage(bucket, path, blobOrFile, contentType){
   // exactly like a dropped connection ("signal error") even on a perfect
   // connection. Check for it explicitly and say what's actually wrong.
   if(!SESSION || !SESSION.access_token){ toast('Your session has expired — please log out and back in, then try again.'); return null; }
+  // The time allowed now grows with the size of the file: 60s minimum, plus
+  // a second for every 40KB (i.e. it only gives up if the connection is
+  // slower than ~40KB/s), up to 10 minutes. A flat 60s meant a 10-15MB
+  // drawing on a weak site signal could never finish. One automatic retry
+  // on a dropped connection, since a brief dead spot is the usual cause.
+  const sizeBytes = (blobOrFile && blobOrFile.size) || 0;
+  const timeoutMs = Math.min(600000, 60000 + Math.round(sizeBytes/40000)*1000);
+  const attempt = ()=>fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
+    method:'POST',
+    headers:{
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization':'Bearer '+SESSION.access_token,
+      'Content-Type': contentType || blobOrFile.type || 'application/octet-stream',
+      'x-upsert':'true'
+    },
+    body: blobOrFile
+  }, timeoutMs);
   let res;
   try{
-    res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/'+bucket+'/'+path, {
-      method:'POST',
-      headers:{
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization':'Bearer '+SESSION.access_token,
-        'Content-Type': contentType || blobOrFile.type || 'application/octet-stream',
-        'x-upsert':'true'
-      },
-      body: blobOrFile
-    }, 60000); // photos/PDFs can be a few MB — give uploads more room than a plain API call
+    try{ res = await attempt(); }
+    catch(first){
+      if(navigator.onLine === false) throw first;
+      await new Promise(r=>setTimeout(r, 1500));
+      res = await attempt();
+    }
   }catch(e){
     const detail = (e && (e.name === 'AbortError')) ? 'the upload timed out' : ((e && e.message) || 'connection dropped');
     toast('Upload failed — '+detail+'. Please try again.');
@@ -2048,7 +2083,9 @@ async function checkDeviceLock(){
   }catch(e){ return {ok:false, error:'request_failed'}; }
 }
 window.doSignOut = async function(){
-  try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
+  // Signing out stops this phone getting the outgoing person's notifications.
+  if(pushTokenValue && SESSION){ try{ await sbFetch('/rest/v1/push_tokens?token=eq.'+encodeURIComponent(pushTokenValue), {method:'DELETE', timeoutMs:6000}); }catch(e){} }
+  try{ await sbFetch('/auth/v1/logout', {method:'POST', timeoutMs:6000}); }catch(e){}
   SESSION = null; ME = null; ORG = null;
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
@@ -2076,9 +2113,29 @@ async function loadProfile(){
 // against the signed-in user so server-side reminders (e.g. the 3pm sign-out
 // nudge) know where to deliver. Silently no-ops on the plain website.
 let pushRegistered = false;
+let pushTokenValue = null; // this phone's push token, once the OS has handed it over
+// Points this phone's push token at whoever is signed in right now. Uses
+// the claim_push_token database function, which also takes the token off
+// anyone who was signed in on this phone before; falls back to a plain save
+// if that function isn't there.
+async function savePushTokenForMe(){
+  if(!ME || !SESSION || !pushTokenValue) return;
+  const platform = (window.Capacitor && window.Capacitor.getPlatform) ? window.Capacitor.getPlatform() : 'unknown';
+  try{
+    const res = await sbFetch('/rest/v1/rpc/claim_push_token', {method:'POST', body: JSON.stringify({p_token: pushTokenValue, p_platform: platform})});
+    if(res.ok) return;
+    await sbFetch('/rest/v1/push_tokens?on_conflict=token', {
+      method:'POST',
+      headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({user_id: ME.id, token: pushTokenValue, platform, updated_at: new Date().toISOString()})
+    });
+  }catch(e){ console.error('Could not save push token', e); }
+}
 async function registerPushNotifications(){
   try{
-    if(pushRegistered) return;
+    // Already set up on this phone during this run of the app — a different
+    // person may have signed in since, so make sure the token is theirs.
+    if(pushRegistered){ savePushTokenForMe(); return; }
     if(!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) return;
     const PN = window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
     if(!PN) return;
@@ -2087,14 +2144,9 @@ async function registerPushNotifications(){
     if(perm.receive !== 'granted') return;
     pushRegistered = true;
     PN.addListener('registration', async (token)=>{
-      if(!ME || !token || !token.value) return;
-      try{
-        await sbFetch('/rest/v1/push_tokens?on_conflict=token', {
-          method:'POST',
-          headers:{'Prefer':'resolution=merge-duplicates,return=minimal'},
-          body: JSON.stringify({user_id: ME.id, token: token.value, platform: window.Capacitor.getPlatform(), updated_at: new Date().toISOString()})
-        });
-      }catch(e){ console.error('Could not save push token', e); }
+      if(!token || !token.value) return;
+      pushTokenValue = token.value;
+      savePushTokenForMe();
     });
     PN.addListener('registrationError', (err)=>{ console.error('Push registration error', err); });
     // Tapping a push notification (message/material/variation/snag alert)
@@ -2109,7 +2161,7 @@ async function registerPushNotifications(){
         // delivery arrived) falls through to the normal site routing below.
         if(data.task_id){
           if(ME && ME.role==='driver'){ go('#/driver'); return; }
-          if(isFullManager(ME)){ go(`#/delivery/edit/${data.task_id}`); return; }
+          if(isManager(ME)){ go(`#/delivery/edit/${data.task_id}`); return; }
         }
         if(!data.site_id) return;
         const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh', material_pickup:'materialrequired' };
@@ -3396,6 +3448,7 @@ window.doJoin = async function(inviteId){
       const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
       SITES = sites;
       saveBootSnapshot(); warmUpLibs();
+      registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
       go('#/sites');
     } else {
@@ -3472,7 +3525,7 @@ window.saveCompanySetup = async function(){
   if(!setupLogoDataUrl){ setupError='A logo is required.'; renderCompanySetup(); return; }
   setupBusy = true; setupError = null; renderCompanySetup();
   try{
-    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', setupLogoDataUrl);
+    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo-'+Date.now()+'.jpg', setupLogoDataUrl);
     if(!path){ setupBusy=false; setupError='Logo upload failed — try again.'; renderCompanySetup(); return; }
     const row = await dbUpdate('organizations', ME.org_id, {logo_path: path, color_primary: setupColor1, color_secondary: setupColor2});
     setupBusy = false;
@@ -5011,7 +5064,7 @@ window.saveSignaturePad = async function(){
   if(!sigHasDrawn){ toast('Draw your signature first.'); return; }
   const canvas = document.getElementById('sigCanvas');
   const dataUrl = canvas.toDataURL('image/png');
-  const path = ME.id+'/signature.png';
+  const path = ME.id+'/signature-'+Date.now()+'.png';
   const stored = await uploadDataUrl('signatures', path, dataUrl);
   if(!stored) return;
   const row = await dbUpdate('profiles', ME.id, {signature_path: path});
@@ -5050,7 +5103,7 @@ window.saveTeamLogo = async function(){
   if(!teamLogoPreview) return;
   teamLogoBusy = true; teamLogoError = null; render();
   try{
-    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo.jpg', teamLogoPreview);
+    const path = await uploadDataUrl('org-logos', ME.org_id+'/logo-'+Date.now()+'.jpg', teamLogoPreview);
     if(!path){ teamLogoBusy=false; teamLogoError='Logo upload failed — try again.'; render(); return; }
     const row = await dbUpdate('organizations', ME.org_id, {logo_path: path});
     teamLogoBusy = false;
@@ -5474,7 +5527,8 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    ${iAmAdmin ? `
+    ${/* 2026-10-03: Health & Safety (H&S Policy, HAVS Tools, COSHH Library, PPE Log) and Invites & Users (incl. Check-In Logs) are shown to Project Managers as well as Admins — they already had the rights, the sections were just hidden. Toolbox Talk Templates and Device Locks stay admin-only. */ ''}
+    ${isFullManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('healthsafety')"><span class="arrow">${teamSectionOpen.healthsafety?'▼':'▶'}</span> Health &amp; Safety</p>
     ${teamSectionOpen.healthsafety ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
@@ -5559,6 +5613,7 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${iAmAdmin ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('tbt')"><span class="arrow">${teamSectionOpen.tbt?'▼':'▶'}</span> Toolbox Talk Templates (All Sites)</p>
     ${teamSectionOpen.tbt ? `
     <div class="card">
@@ -5576,6 +5631,8 @@ async function renderTeam(){
       <p class="stub" id="tbtTemplateFileName" style="margin:-4px 0 10px;"></p>
       <button class="ghostbtn" ${tbtTemplateBusy?'disabled':''} onclick="addTbtTemplate()">${tbtTemplateBusy?'Adding…':'Add to Bank'}</button>
     </div>
+    ` : ''}
+    ` : ''}
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('ppelog')"><span class="arrow">${teamSectionOpen.ppelog?'▼':'▶'}</span> PPE Log</p>
     ${teamSectionOpen.ppelog ? `
@@ -5632,7 +5689,6 @@ async function renderTeam(){
       <p class="stub" style="margin:14px 0 8px;">A different view — one row per operative showing what PPE they currently hold, not a chronological log.</p>
       <button class="ghostbtn" onclick="exportPpeRegister()">📋 Export PPE Register (all operatives)</button>
     </div>
-    ` : ''}
     ` : ''}
     ` : ''}
     </div>
@@ -5740,6 +5796,7 @@ async function renderTeam(){
       </div>
     `).join('') || `<div class="empty">No clients yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives and Site Managers. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Site Manager, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first). A Site Manager works day-to-day like a Project Manager but only on the sites they're assigned to, and can't create/delete sites or manage other people's accounts.</p>
+    ` : ''}
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
     ${teamSectionOpen.checkinlogs ? `
@@ -5822,6 +5879,7 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
+    ${iAmAdmin ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
     ${teamSectionOpen.devicelocks ? `
     <div class="card">
@@ -7079,7 +7137,7 @@ window.emailSelectedCerts = async function(ids, recipient){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
     const payload = Object.assign({filename, content_base64:btoa(binary)}, recipient||{});
-    const res = await sbFetch('/functions/v1/send-certificates-email', {method:'POST', body: JSON.stringify(payload)});
+    const res = await sbFetch('/functions/v1/send-certificates-email', {method:'POST', timeoutMs:60000, body: JSON.stringify(payload)});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast('Certificates emailed to '+(d.to||ME.email)); ids.forEach(id=>certSelectedIds.delete(id)); }
@@ -8037,9 +8095,32 @@ window.setRepairJobSort = function(value){
 // the user didn't mean to filter.
 let repairJobFilterText = '';
 let repairJobFilterCategory = null; // siteId+'/'+category of the list the filter text above belongs to
+// Re-draws the screen but puts the cursor straight back in the box the
+// user was typing in — a plain render() rebuilt the box and dropped the
+// keyboard after every single letter.
+let keepFocusTimer = null;
+function renderKeepingFocus(inputId, readBack){
+  if(keepFocusTimer) clearTimeout(keepFocusTimer);
+  keepFocusTimer = setTimeout(async ()=>{
+    keepFocusTimer = null;
+    const before = document.getElementById(inputId);
+    const hadFocus = before && document.activeElement === before;
+    await render();
+    const el = document.getElementById(inputId);
+    if(!el || !hadFocus) return;
+    // Anything typed while the screen was re-drawing is kept too.
+    if(before && before.value !== el.value){ el.value = before.value; if(readBack) readBack(before.value); }
+    el.focus();
+    try{ el.setSelectionRange(el.value.length, el.value.length); }catch(e){}
+  }, 250);
+}
 window.setRepairJobFilter = function(value){
   repairJobFilterText = value;
-  render();
+  renderKeepingFocus('repairJobFilterInput', v=>{ repairJobFilterText = v; renderKeepingFocus('repairJobFilterInput'); });
+};
+window.setPermitAssigneeFilter = function(value){
+  permitAssigneeFilterText = value;
+  renderKeepingFocus('permitAssigneeFilterInput', v=>{ permitAssigneeFilterText = v; renderKeepingFocus('permitAssigneeFilterInput'); });
 };
 let addRepairJobFormOpen = false;
 let newRepairJobNumberDraft = '';
@@ -9864,7 +9945,15 @@ async function unreadCountForSite(siteId){
 // Notifications (see computeNotificationRows) without it silently reading
 // as the viewing admin's own unread state instead.
 async function unreadCountForSiteForUser(siteId, userId, audience){
-  const msgs = await dbSelect('messages', `audience=eq.${audience}&or=(site_id.eq.${siteId},site_id.is.null)&sender_id=neq.${userId}&select=id`);
+  // Company-wide (no site) messages only count towards a SITE's badge for
+  // operatives, whose site Inbox actually lists them. For managers the site
+  // Messages page lists that site's messages only — so a no-site message
+  // such as a driver's "vehicle checklist failed item" notice used to sit
+  // on every site's badge for ever, with nowhere on that page to read it.
+  // (Managers still see those in HUB.) parent_id=is.null: replies aren't
+  // listed as their own rows either.
+  const siteFilter = audience==='managers' ? `site_id=eq.${siteId}` : `or=(site_id.eq.${siteId},site_id.is.null)`;
+  const msgs = await dbSelect('messages', `audience=eq.${audience}&${siteFilter}&sender_id=neq.${userId}&select=id`);
   if(!msgs.length) return 0;
   const ids = msgs.map(m=>m.id);
   const reads = await dbSelect('message_reads', `user_id=eq.${userId}&message_id=in.(${ids.join(',')})&select=message_id`);
@@ -11361,7 +11450,7 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
     if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
-    window.open(d.url, '_blank');
+    await openExternalFile(d.url);
     return;
   }
   priceFilePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
@@ -12765,23 +12854,37 @@ function priceBuilderLabourWagesHtml(elementId, siteId, sheetId, wk, assignedOpe
 // Pre-set assigned-operative quick row — creates the entry the first time a
 // wage is typed for that operative this week, updates it on subsequent
 // edits, and deletes it if the field is cleared back to blank.
+// The Qty / Override boxes for a week are deliberately not saved until
+// "Save" is pressed — but the wage boxes underneath save on blur and then
+// redraw the page, which used to wipe every quantity typed above them. This
+// redraws and then puts back whatever was in those unsaved boxes.
+async function renderKeepingPbWeekInputs(){
+  const keep = {};
+  document.querySelectorAll('input[id^="pbwQtyInput_"], input[id^="pbwManualInput_"]').forEach(el=>{ keep[el.id] = el.value; });
+  await render();
+  Object.keys(keep).forEach(id=>{ const el = document.getElementById(id); if(el && el.value !== keep[id]) el.value = keep[id]; });
+}
 window.pbWageQuickSet = async function(elementId, siteId, week, operativeId, existingEntryId, rawValue){
   const v = String(rawValue||'').trim();
   if(v===''){
     if(existingEntryId) await dbDelete('price_week_operative_entries', existingEntryId);
     priceWeekRowOpen[elementId+':'+week] = true;
-    render();
+    renderKeepingPbWeekInputs();
     return;
   }
   const amount = Number(v);
-  if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); renderKeepingPbWeekInputs(); return; }
+  let wageRes = null;
+  try{
   if(existingEntryId){
-    await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+existingEntryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
+    wageRes = await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+existingEntryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
   } else {
-    await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})});
+    wageRes = await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body: JSON.stringify({site_id:siteId, element_id:elementId, week_number:week, operative_id:operativeId, amount, kind:'extra_operative', entered_by:ME.id, updated_at:new Date().toISOString()})});
   }
+  }catch(e){ wageRes = null; }
+  if(!wageRes || !wageRes.ok) toast('Wage not saved — check your signal and try again.');
   priceWeekRowOpen[elementId+':'+week] = true;
-  render();
+  renderKeepingPbWeekInputs();
 };
 window.pbWageAddRow = async function(elementId, siteId, week, key){
   const sel = document.getElementById('pbwWhoSelect_'+key);
@@ -12799,21 +12902,21 @@ window.pbWageAddRow = async function(elementId, siteId, week, key){
   }
   priceAddOpen[key] = false;
   priceWeekRowOpen[elementId+':'+week] = true;
-  render();
+  renderKeepingPbWeekInputs();
 };
 window.pbWageSetLineValue = async function(entryId, elementId, week, rawValue){
   const v = String(rawValue||'').trim();
-  if(v===''){ await dbDelete('price_week_operative_entries', entryId); if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true; render(); return; }
+  if(v===''){ await dbDelete('price_week_operative_entries', entryId); if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true; renderKeepingPbWeekInputs(); return; }
   const amount = Number(v);
-  if(isNaN(amount) || amount<0){ toast('Enter a number'); render(); return; }
+  if(isNaN(amount) || amount<0){ toast('Enter a number'); renderKeepingPbWeekInputs(); return; }
   await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+entryId, {method:'PATCH', headers:{'Prefer':'return=representation'}, body: JSON.stringify({amount, updated_at:new Date().toISOString()})});
   if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true;
-  render();
+  renderKeepingPbWeekInputs();
 };
 window.pbWageDeleteEntry = async function(entryId, elementId, week){
   await dbDelete('price_week_operative_entries', entryId);
   if(elementId!=null) priceWeekRowOpen[elementId+':'+week] = true;
-  render();
+  renderKeepingPbWeekInputs();
 };
 // Distributes this week's total entered labour wages across the sheet's own
 // priced items, top-down in the same order they're listed on the sheet —
@@ -13663,7 +13766,8 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
 
   if(!await customConfirm('Issue this sheet? It becomes read-only and visible to everyone assigned to this site — you can\'t un-issue it.')) return;
 
-  const {total, rows, failed} = await pbPersist(siteId, sheetId, 'issued');
+  const issuePersist = await pbPersist(siteId, sheetId, 'issued');
+  const {total, rows, failed} = issuePersist;
   if(failed){ toast('Sheet NOT issued — some items failed to save. Check your signal and try again.'); render(); return; }
 
   // Create (or update) the single Pricing Element this sheet feeds — the
@@ -13695,6 +13799,20 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
       let taskPos = await nextTaskPosition(siteId);
       const taskRows = rows.map(r=>({site_id:siteId, section_id:newSection.id, sheet_item_id:r.id, name:r.name, status:'todo', position: taskPos++}));
       if(taskRows.length) await dbInsert('schedule_tasks', taskRows);
+    }
+  } else if(scheduleSectionId){
+    // Re-issuing a sheet that already has its Schedule of Works section
+    // (un-issued, items added, issued again): keep that section in step —
+    // renames/removals via pbSyncScheduleTasks, then a task for every item
+    // that still has none (items added while it was back in draft never
+    // got one before).
+    await pbSyncScheduleTasks(siteId, sheet, issuePersist);
+    const linked = await dbSelect('schedule_tasks', 'section_id=eq.'+scheduleSectionId+'&sheet_item_id=not.is.null&select=sheet_item_id');
+    const haveTask = new Set(linked.map(t=>t.sheet_item_id));
+    const missing = rows.filter(r=>r && r.id && !haveTask.has(r.id));
+    if(missing.length){
+      let taskPos = await nextTaskPosition(siteId);
+      await dbInsert('schedule_tasks', missing.map(r=>({site_id:siteId, section_id:scheduleSectionId, sheet_item_id:r.id, name:r.name, status:'todo', position: taskPos++})));
     }
   }
 
@@ -13782,6 +13900,10 @@ window.savePriceBuilderEdits = async function(siteId, sheetId){
   if(!sheet){ toast('Sheet not found.'); return; }
 
   const persistResult = await pbPersist(siteId, sheetId, 'issued');
+  // Same guard the draft and issue paths already had: if any line failed to
+  // save, stop here — don't update the total, don't say "Sheet updated", and
+  // keep the edits on screen so nothing typed is lost.
+  if(persistResult.failed){ toast('Sheet NOT updated — some items failed to save. Check your signal and try again.'); render(); return; }
 
   if(sheet.pricing_element_id){
     await dbUpdate('pricing_elements', sheet.pricing_element_id, {price_total: persistResult.total});
@@ -14334,7 +14456,7 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ toast(d.error || 'Could not open file.'); return; }
     if(/\.pdf$/i.test(filename)){ await viewPdfInApp(d.url, filename); return; }
-    window.open(d.url, '_blank');
+    await openExternalFile(d.url);
     return;
   }
   labourInvoicePreview = {path:storagePath, filename, loading:true, error:null, sheetHtml:null};
@@ -15490,10 +15612,15 @@ async function buildReportPdf(submissionId, opts){
       if(!urls.length) return;
       const cols = 2, rows = 2, gutter = 14, capH = 16;
       const cellW = (CONTENT_W - gutter) / cols;
-      const cellH = (PAGE_H - 2*MARGIN - gutter - capH*rows) / rows;
       for(let i=0; i<urls.length; i+=cols*rows){
         if(i>0) newPage();
         const startY = y;
+        // Tile height is worked out from the room actually left on THIS
+        // page (below the header band and any heading, above the footer).
+        // It used to assume the whole page was free, so the bottom row ran
+        // over the footer and the captions for photos 3 and 4 fell off the
+        // bottom of the page.
+        const cellH = Math.max(80, (startY - 60 - gutter - capH*rows) / rows);
         const group = urls.slice(i, i+cols*rows);
         for(let r=0; r<rows; r++){
           const rowItems = group.slice(r*cols, r*cols+cols);
@@ -16797,11 +16924,7 @@ window.viewScheduleDocument = async function(docId){
     if(/\.pdf$/i.test(doc.name)){ await viewPdfInApp(url, doc.name); return; }
     // Excel/Word/anything else can't be rendered in-app — hand it to the
     // browser/OS, same as Excel programme files in viewDrawing.
-    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
-      await window.Capacitor.Plugins.Browser.open({url});
-    } else {
-      window.open(url, '_blank');
-    }
+    await openExternalFile(url);
   }catch(e){ toast('Could not open document.'); }
 };
 window.setScheduleDocumentVisibility = async function(docId, visibility){
@@ -17164,16 +17287,10 @@ async function renderSchedule(siteId){
   // the RAMS poll) since this page's structure is too nested to patch
   // piecemeal — skipped whenever an inline editor/picker is open so a poll
   // never clobbers something mid-edit.
-  if(schedulePollTimer) clearInterval(schedulePollTimer);
-  schedulePollTimer = setInterval(()=>{
-    if(!document.getElementById('scheduleLiveMarker')){ clearInterval(schedulePollTimer); schedulePollTimer = null; return; }
-    if(document.hidden || navigator.onLine === false) return;
-    if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || scheduleAssignTarget || scheduleAddPanel || pendingCompleteTaskId || pdfImportSiteId) return;
-    // An open dropdown (e.g. a document's visibility picker) or a percentage
-    // slider mid-drag would be yanked out from under the user by a re-render.
-    if(scheduleControlBusy()) return;
-    render();
-  }, 8000);
+  // No background refresh here any more (it re-downloaded the whole page
+  // every 8 seconds): the page now loads fresh when you come into it and
+  // again each time you switch tab inside it.
+  if(schedulePollTimer){ clearInterval(schedulePollTimer); schedulePollTimer = null; }
 }
 window.toggleScheduleSection = function(sectionId){
   const currentlyOpen = scheduleSectionsOpen[sectionId] !== false;
@@ -18901,7 +19018,7 @@ async function renderPermits(siteId, companyId){
         ` : ''}
         <div class="formfield">
           <label class="field-label">Who needs to sign this permit? (required)</label>
-          <input type="text" placeholder="Filter by name…" value="${escapeHtml(permitAssigneeFilterText)}" oninput="permitAssigneeFilterText=this.value;render()" style="margin-bottom:8px;">
+          <input type="text" id="permitAssigneeFilterInput" placeholder="Filter by name…" value="${escapeHtml(permitAssigneeFilterText)}" oninput="setPermitAssigneeFilter(this.value)" style="margin-bottom:8px;">
           ${assigneeRoster.length ? (() => {
             const q = permitAssigneeFilterText.trim().toLowerCase();
             const filtered = q ? assigneeRoster.filter(p=>(p.name||'').toLowerCase().includes(q)) : assigneeRoster;
@@ -19798,7 +19915,7 @@ window.emailSiteInductionPdf = async function(completionId, operativeName){
   const trimmed = emailTo.to;
   toast('Sending…');
   try{
-    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: row.site_id,
       recipient_email: trimmed,
       cc_email: emailTo.cc,
@@ -19824,7 +19941,7 @@ window.emailSelectedInductions = async function(){
   const trimmed = emailTo.to;
   toast('Sending…');
   try{
-    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-site-induction-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: withPdf[0].site_id,
       recipient_email: trimmed,
       cc_email: emailTo.cc,
@@ -19876,7 +19993,7 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   const MARGIN = 42;
   const companyName = (ORG && ORG.name) || 'OpHUB';
   function wrapText(text, font, size, maxWidth){
-    const words = text.split(' ');
+    const words = String(text==null?'':text).split(/\s+/).filter(Boolean); // any whitespace, so a line break in a typed answer can't break the layout
     const lines = [];
     let cur = '';
     for(const w of words){
@@ -19893,7 +20010,7 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
     const bytes = await pdfFetchImageBytes(logoUrl);
     if(bytes){ try{ logoImg = await pdfDoc.embedJpg(bytes); }catch(e){ try{ logoImg = await pdfDoc.embedPng(bytes); }catch(e2){} } }
   }
-  const page = pdfDoc.addPage([PAGE_W, PAGE_H]);
+  let page = pdfDoc.addPage([PAGE_W, PAGE_H]);
   page.drawRectangle({x:0, y:PAGE_H-92, width:PAGE_W, height:92, color:BRAND});
   if(logoImg){
     const dim = logoImg.scale(1);
@@ -19919,6 +20036,10 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   for(let i=0;i<SITE_INDUCTION_ITEMS_LIVE().length;i++){
     const lines = wrapText(SITE_INDUCTION_ITEMS_LIVE()[i], reg, 10, textWidth);
     const blockH = 16 + lines.length*13;
+    // Carry on to a fresh page when the checklist is longer than one — with
+    // enough custom questions the items (and the signature) used to run
+    // straight off the bottom of page 1.
+    if(y - blockH < 60){ page = pdfDoc.addPage([PAGE_W, PAGE_H]); y = PAGE_H - MARGIN; }
     // A literal '✓' character isn't in WinAnsi (the encoding pdf-lib's
     // standard Helvetica font uses) and throws "WinAnsi cannot encode…" —
     // draw the tick as two short vector strokes instead so it never depends
@@ -19932,6 +20053,7 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
     y -= blockH;
   }
   y -= 10;
+  if(y < 130){ page = pdfDoc.addPage([PAGE_W, PAGE_H]); y = PAGE_H - MARGIN; } // room for the signature block
   page.drawText('Signature', {x:MARGIN, y, size:9, font:bold, color:SLATE});
   y -= 8;
   const signaturePathForPdf = signaturePathOverride || operative.signature_path;
@@ -20291,14 +20413,7 @@ async function renderSubSchedule(siteId, companyId){
 
   // Same full-page-refresh live poll as the main SOW page (see
   // renderSchedule) — skipped while any inline task editor/picker is open.
-  if(subSchedulePollTimer) clearInterval(subSchedulePollTimer);
-  subSchedulePollTimer = setInterval(()=>{
-    if(!document.getElementById('subScheduleLiveMarker')){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; return; }
-    if(document.hidden || navigator.onLine === false) return;
-    if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || pendingCompleteTaskId) return;
-    if(scheduleControlBusy()) return;
-    render();
-  }, 8000);
+  if(subSchedulePollTimer){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; }
 }
 async function renderSubBriefings(siteId, companyId){
   const __gen = RENDER_GEN;
@@ -20496,7 +20611,7 @@ window.addSubInspection = async function(input, siteId, companyId, folderId){
       // Best-effort — silently fails if email isn't configured, same
       // "opportunistic, never blocks the user" spirit as the OneDrive push.
       try{
-        await sbFetch('/functions/v1/send-subcontractor-inspection-email', {method:'POST', body: JSON.stringify({
+        await sbFetch('/functions/v1/send-subcontractor-inspection-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
           site_id: siteId, company_name: company ? company.name : null,
           file_name: file.name, file_url: publicUrl('mc-documents', stored),
         })});
@@ -21163,7 +21278,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isCli
       </div>
       <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
-        ${canAdd || isClientView ? `
+        ${(canAdd && isManager(ME)) || isClientView ? `
           <div class="siglinebox" style="flex:1;margin-top:0;cursor:default;">
             <span class="name">${signedCount} signed</span><span>${roster.length ? outstandingCount+' outstanding' : ''}</span>
           </div>
@@ -21420,24 +21535,29 @@ window.emailAllSignedCoshh = async function(siteId){
     const cc = await customConfirm('CC client contact'+((site.client_contact_name||site.client_name)?' ('+(site.client_contact_name||site.client_name)+')':'')+' on this email?', {confirmLabel:'Yes, CC them', cancelLabel:'No'});
     if(cc) ccClientEmail = site.client_email;
   }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   coshhEmailAllBusy = true; render();
   toast('Building PDFs…');
   try{
     const {docs, sigsByDoc} = await fetchCoshhData(siteId);
     const signedDocs = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0);
-    if(!signedDocs.length){ toast('No signed COSHH documents to email yet.'); coshhEmailAllBusy=false; render(); return; }
-    const attachments = [];
+    if(!signedDocs.length){ toast('No signed COSHH documents to email yet.'); return; }
+    const parts = [];
     for(const d of signedDocs){
       const built = await buildSignedCoshhPdf(d.id);
-      if(built) attachments.push({filename: built.filename, content_base64: built.base64});
+      if(built && built.bytes) parts.push(built.bytes);
     }
-    if(!attachments.length){ toast('Could not build any of the signed COSHH documents.'); coshhEmailAllBusy=false; render(); return; }
-    const res = await sbFetch('/functions/v1/send-coshh-email', {method:'POST', body: JSON.stringify({site_id:siteId, attachments, client_cc_email: ccClientEmail})});
-    const d = await res.json();
-    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
-    else toast(`${attachments.length} signed COSHH document${attachments.length===1?'':'s'} emailed to ${ME.email}`);
+    if(!parts.length){ toast('Could not build any of the signed COSHH documents.'); return; }
+    // 2026-10-03: sent as ONE combined PDF behind a link. Posting every
+    // signed document as its own attachment in a single request was failing
+    // ("could not reach the server") on sites with more than a few.
+    const filename = exportFilename(site?site.name:'', `Signed COSHH (${parts.length})`, 'pdf');
+    const outBytes = await mergePdfBytes(parts, filename.replace(/\.pdf$/i,''));
+    toast('Sending…');
+    const ok = await emailPdfAsLink({siteId, bytes: outBytes, filename, title: `Signed COSHH — ${parts.length} document${parts.length===1?'':'s'}`, to: ME.email, clientCc: ccClientEmail});
+    toast(ok ? `${parts.length} signed COSHH document${parts.length===1?'':'s'} emailed to ${ME.email}` : 'Email failed — please try again.');
   }catch(e){ console.error(e); toast('Email failed — could not reach the server.'); }
-  coshhEmailAllBusy = false; render();
+  finally{ coshhEmailAllBusy = false; render(); }
 };
 // Emails ONE signed COSHH document via a typed-in address — as opposed to
 // emailAllSignedCoshh above, which emails every signed doc at a site to
@@ -21896,7 +22016,7 @@ window.emailSelectedPpe = async function(){
       }
     }
     if(!attachments.length){ toast('Could not build any of the selected records.'); bulkPpeEmailBusy=false; render(); return; }
-    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
+    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({attachments})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast(`${attachments.length} record(s) emailed to ${ME.email}`); selectedPpeIds = new Set(); }
@@ -21968,7 +22088,7 @@ window.emailSelectedPpeRequests = async function(siteId){
     const {bytes, filename} = await buildPpeRequestsSummaryPdf(requests.length?requests[0].site_id:null, requests);
     let binary=''; const chunk=0x8000;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
-    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments:[{filename, content_base64:btoa(binary)}]})});
+    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({attachments:[{filename, content_base64:btoa(binary)}]})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else { toast('Requested PPE emailed to '+ME.email); selectedPpeRequestIds = new Set(); }
@@ -22565,7 +22685,18 @@ window.addHavsToolInline = async function(siteId){
   toast('Tool added to the HAVS register and this site');
   render();
 };
+// Minutes typed into the HAVS grid sit in havsDraft2 (keyed by day and tool
+// only) until the day is closed. Opening HAVS on a DIFFERENT site used to
+// show those leftover figures there and save them against the wrong site.
+// They are now saved to the site they were typed on before the grid is
+// cleared for the new one.
+let havsDraftSiteId = null;
 async function renderHavs(siteId){
+  if(havsDraftSiteId && havsDraftSiteId !== siteId && Object.keys(havsDraft2).length){
+    try{ await flushAllHavsDrafts(havsDraftSiteId); }catch(e){ console.error(e); }
+    havsDraft2 = {};
+  }
+  havsDraftSiteId = siteId;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
@@ -23237,7 +23368,7 @@ async function havsEmailOperativeSet(siteId, operatives, labelForFilename, daysO
   const weekLabel = weekLabelOverride || havsWeekLabelFor(days);
   const {bytes, filename} = await buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename);
   const content_base64 = havsBytesToBase64(bytes);
-  const res = await sbFetch('/functions/v1/send-havs-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: ccClientEmail})});
+  const res = await sbFetch('/functions/v1/send-havs-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: ccClientEmail})});
   const d = await res.json();
   if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return false; }
   toast('HAVS register emailed to '+ME.email);
@@ -23579,7 +23710,7 @@ async function renderOperativeDashboard(siteId){
           </div>
           `}
           ${isClientView ? '' : certListSelectionBarHtml(allCertsByOp[o.id]||[], 'siteop-'+o.id, o.id, pmList)}
-          ${operativeCertListHtml(allCertsByOp[o.id]||[], true, {compact:true, selectable:true})}
+          ${operativeCertListHtml(allCertsByOp[o.id]||[], !isClientView, {compact:true, selectable:!isClientView})}
           ${isClientView ? '' : `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/operatives/${o.id}?from=${siteId}')">Full Profile &amp; Upload →</button>`}
         ` : ''}
       `).join('') : `<div class="empty">No operatives assigned to this site yet.</div>`}
@@ -23774,7 +23905,8 @@ async function loadPuwerFillDraft(siteId, userId, weekStart){
     tools.push({dbId:null, toolId:ot.id, name:ot.name, serial_number:ot.serial_number, photo_path:ot.photo_path,
       q_suitability:defaultChecked, q_guarding:defaultChecked, q_controls:defaultChecked, q_maintenance:defaultChecked, q_markings:defaultChecked});
   });
-  puwerFillDraft = {siteId, userId, weekStart, inspectionId: insp?insp.id:null, comments: insp?(insp.comments||''):'', tools};
+  puwerFillDraft = {siteId, userId, weekStart, inspectionId: insp?insp.id:null, comments: insp?(insp.comments||''):'', tools,
+    inspectedBy: insp ? insp.inspected_by : null, inspectedAt: insp ? insp.created_at : null}; // who carried it out and when — printed on the PDF
 }
 window.togglePuwerAnswer = function(idx, qKey){
   if(!puwerFillDraft) return;
@@ -23798,7 +23930,7 @@ async function renderPuwerFill(siteId, userId){
   const canEdit = isManager(ME) || ME.id===userId;
   // Once saved once, the record is closed for comments/status editing (#255)
   // — everything else (tool list, export/email) stays exactly as before.
-  const locked = !!draft.inspectionId;
+  const locked = !!draft.inspectionId && !draft.saveIncomplete; // stays unlocked after a partly-failed save so it can be retried
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Week of ${puwerWeekLabel(puwerWeekOffset)}</p>
     <div class="card" style="margin-bottom:14px;">
@@ -23884,19 +24016,29 @@ window.savePuwerInspection = async function(){
     inspectionId = rows[0].id;
     puwerFillDraft.inspectionId = inspectionId;
   } else {
-    await dbUpdate('puwer_inspections', inspectionId, {comments:comments||null, inspected_by:ME.id, updated_at:new Date().toISOString()});
+    // inspected_by is left alone on a later edit — it records who carried
+    // the inspection out, not whoever last opened it to amend a comment.
+    const upd = await dbUpdate('puwer_inspections', inspectionId, {comments:comments||null, updated_at:new Date().toISOString()});
+    if(!upd){ puwerFillSaving=false; toast('Inspection NOT saved — check your signal and try again.'); render(); return; }
   }
+  if(!puwerFillDraft.inspectedBy){ puwerFillDraft.inspectedBy = ME.id; puwerFillDraft.inspectedAt = new Date().toISOString(); }
+  let puwerToolFailures = 0;
   for(let i=0;i<tools.length;i++){
     const t = tools[i];
     const payload = {q_suitability:t.q_suitability, q_guarding:t.q_guarding, q_controls:t.q_controls, q_maintenance:t.q_maintenance, q_markings:t.q_markings, sort_order:i};
     if(t.dbId){
-      await dbUpdate('puwer_inspection_tools', t.dbId, payload);
+      const row = await dbUpdate('puwer_inspection_tools', t.dbId, payload);
+      if(!row) puwerToolFailures++;
     } else {
       const rows = await dbInsert('puwer_inspection_tools', Object.assign({inspection_id:inspectionId, tool_id:t.toolId, name:t.name, serial_number:t.serial_number, photo_path:t.photo_path}, payload));
-      if(rows) t.dbId = rows[0].id;
+      if(rows && rows[0]) t.dbId = rows[0].id; else puwerToolFailures++;
     }
   }
-  toast('Inspection saved');
+  // Each tool is saved separately; this used to say "Inspection saved" even
+  // when some of them had failed. Pressing Save again retries only the ones
+  // that didn't go through (saved tools keep their ids).
+  puwerFillDraft.saveIncomplete = puwerToolFailures>0;
+  toast(puwerToolFailures ? `${puwerToolFailures} tool${puwerToolFailures>1?'s':''} did NOT save — check your signal and press Save Inspection again.` : 'Inspection saved');
   puwerFillSaving = false;
   render();
 };
@@ -23931,7 +24073,8 @@ async function buildPuwerPdf(siteId, userId){
   const fonts = await havsPdfFonts(pdfDoc);
   const logoImg = await havsFetchLogoImg(pdfDoc);
   const weekLabel = puwerWeekLabel(puwerWeekOffset);
-  await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, puwerFillDraft.tools, puwerFillDraft.comments, ME.name, logoImg);
+  await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, puwerFillDraft.tools, puwerFillDraft.comments,
+    puwerFillDraft.inspectedBy ? nameOf(puwerFillDraft.inspectedBy) : ME.name, logoImg, undefined, puwerFillDraft.inspectedAt || null);
   const bytes = await pdfDoc.save();
   const filename = exportFilename(site.name, 'PUWER - '+op.name+' - '+weekLabel, 'pdf');
   return {bytes, filename, site, op, weekLabel};
@@ -23964,7 +24107,7 @@ window.emailPuwerInspection = async function(siteId, userId){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
     const content_base64 = btoa(binary);
-    const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, operative_name:op.name, client_cc_email: puwerCcClientEmail})});
+    const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, operative_name:op.name, client_cc_email: puwerCcClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
     else toast('PUWER report emailed to '+ME.email);
@@ -23980,15 +24123,16 @@ window.emailPuwerInspection = async function(siteId, userId){
 // operative at a time).
 async function loadPuwerInspectionForExport(siteId, userId, weekStart){
   const insp = (await dbSelect('puwer_inspections', 'site_id=eq.'+siteId+'&user_id=eq.'+userId+'&week_start=eq.'+weekStart+'&select=*'))[0] || null;
-  if(!insp) return {tools:[], comments:'', hasInspection:false};
+  if(!insp) return {tools:[], comments:'', hasInspection:false, inspectedBy:null, inspectedAt:null};
   const tools = await dbSelect('puwer_inspection_tools', 'inspection_id=eq.'+insp.id+'&order=sort_order.asc');
-  return {tools, comments: insp.comments||'', hasInspection:true};
+  return {tools, comments: insp.comments||'', hasInspection:true, inspectedBy: insp.inspected_by, inspectedAt: insp.created_at};
 }
 // Shared by "Export All", "Export Selected" and per-row Export — builds one
 // PDF with one operative's inspection page-set per operative, mirroring
 // buildHavsPdf's multi-operative loop.
 async function buildPuwerCollectivePdf(siteId, operatives, labelForFilename){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
+  await loadAllProfiles(); // inspector names
   const site = SITES.find(s=>s.id===siteId);
   const weekStart = puwerWeekStartISO(puwerWeekOffset);
   const weekLabel = puwerWeekLabel(puwerWeekOffset);
@@ -23996,8 +24140,10 @@ async function buildPuwerCollectivePdf(siteId, operatives, labelForFilename){
   const fonts = await havsPdfFonts(pdfDoc);
   const logoImg = await havsFetchLogoImg(pdfDoc);
   for(const op of operatives){
-    const {tools, comments, hasInspection} = await loadPuwerInspectionForExport(siteId, op.id, weekStart);
-    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, tools, comments, ME.name, logoImg, hasInspection);
+    const {tools, comments, hasInspection, inspectedBy, inspectedAt} = await loadPuwerInspectionForExport(siteId, op.id, weekStart);
+    // Each operative's page carries whoever actually inspected THEIR tools
+    // and the date it was done — not the person pressing Export, today.
+    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, tools, comments, inspectedBy ? nameOf(inspectedBy) : '—', logoImg, hasInspection, inspectedAt);
   }
   const bytes = await pdfDoc.save();
   const filename = exportFilename(site.name, 'PUWER - '+labelForFilename+' - '+weekLabel, 'pdf');
@@ -24055,7 +24201,7 @@ window.emailPuwerCollective = async function(siteId){
       let binary=''; const chunk=0x8000;
       for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
       const content_base64 = btoa(binary);
-      const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: puwerCcClientEmail2})});
+      const res = await sbFetch('/functions/v1/send-puwer-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({site_id:siteId, filename, content_base64, week_label:weekLabel, client_cc_email: puwerCcClientEmail2})});
       const d = await res.json();
       if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
       else toast('PUWER register emailed to '+ME.email);
@@ -24084,7 +24230,7 @@ window.exportPuwerSelected = async function(siteId){
 // question x tool matrix, comments, then a Tool Photo Summary (photo +
 // serial "Item ID") per tool at the end, mirroring the layout of RTB's
 // existing PUWER export.
-async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, tools, comments, inspectedByName, logoImg, hasInspection){
+async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, tools, comments, inspectedByName, logoImg, hasInspection, inspectedAt){
   if(hasInspection === undefined) hasInspection = true;
   const {bold, reg, italic, INK, SLATE, LINE, HEADBG, RED, GREEN, BRAND, WHITE} = fonts;
   const PAGE_W = 595.28, PAGE_H = 841.89;
@@ -24203,7 +24349,7 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
 
   y -= 10;
   ensureRoom(20);
-  page.drawText('Inspected by ' + inspectedByName + ' · ' + new Date().toLocaleDateString('en-GB'), {x:MARGIN, y, size:8.5, font:italic, color:SLATE});
+  page.drawText('Inspected by ' + inspectedByName + ' · ' + (inspectedAt ? new Date(inspectedAt).toLocaleDateString('en-GB') : 'not yet saved'), {x:MARGIN, y, size:8.5, font:italic, color:SLATE});
   y -= 20;
 
   if(tools.length){
@@ -24689,7 +24835,7 @@ window.emailIncidentReport = async function(siteId, reportId){
     let binary=''; const chunk=0x8000; const bytes = built.bytes;
     for(let i=0;i<bytes.length;i+=chunk) binary += String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
     const content_base64 = btoa(binary);
-    const res = await sbFetch('/functions/v1/send-incident-email', {method:'POST', body: JSON.stringify({site_id:siteId, filename: built.filename, content_base64, client_cc_email: incidentCcClientEmail})});
+    const res = await sbFetch('/functions/v1/send-incident-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({site_id:siteId, filename: built.filename, content_base64, client_cc_email: incidentCcClientEmail})});
     const d = await res.json();
     if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); return; }
     toast('Incident report emailed to '+ME.email);
@@ -24802,6 +24948,55 @@ window.toggleBriefingSelect = function(id){
   if(selectedBriefingIds.has(id)) selectedBriefingIds.delete(id); else selectedBriefingIds.add(id);
   render();
 };
+// One briefing as a finished PDF: the report itself plus, when anyone has
+// signed it, the signature table on the end. The single "Export PDF" button
+// always did this; the bulk export and bulk email built the report only, so
+// their copies came out with the signatures missing.
+async function buildBriefingPdfWithSignatures(submissionId){
+  const built = await buildReportPdf(submissionId, {fromBriefing:true});
+  if(!built) return null;
+  const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
+  if(!sigs.length) return built;
+  await loadAllProfiles();
+  const pdfDoc = await PDFLib.PDFDocument.load(built.bytes);
+  const signers = sigs.map(sg=>({
+    name: nameOf(sg.user_id),
+    when: new Date(sg.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    imagePath: sg.signature_image_path,
+  }));
+  await drawSignatureTablePages(pdfDoc, {title: built.sub.template_name, disclaimer: `I confirm I have read and understood the contents of this briefing (${built.sub.template_name}).`, signers});
+  const bytes = await pdfDoc.save();
+  return Object.assign({}, built, {bytes});
+}
+// Joins several already-built PDFs (each a Uint8Array) into one document.
+async function mergePdfBytes(list, title){
+  const merged = await PDFLib.PDFDocument.create();
+  for(const bytes of list){
+    const src = await PDFLib.PDFDocument.load(bytes);
+    const pages = await merged.copyPages(src, src.getPageIndices());
+    pages.forEach(pg=>merged.addPage(pg));
+  }
+  if(title) merged.setTitle(title);
+  return merged.save();
+}
+// Emails a PDF as a LINK: the file is uploaded to storage first and the
+// email carries a button to it. The alternative — posting the PDF itself
+// inside the request — is what fails as "could not reach the server" once a
+// document (or several at once) gets large. Same route the single-report,
+// signed-RAMS and signed-COSHH emails already use. Returns true if sent.
+async function emailPdfAsLink(o){
+  const safe = String(o.filename||'document.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+  const path = (o.siteId || ME.org_id)+'/email-exports/'+uid()+'-'+safe;
+  const stored = await uploadToStorage('mc-documents', path, new Blob([o.bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored) return false;
+  try{
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
+      site_id: o.siteId, recipient_email: o.to, cc_email: o.cc || undefined, client_cc_email: o.clientCc || undefined,
+      doc_title: o.title, file_url: publicUrl('mc-documents', stored),
+    })});
+    return !!(res && res.ok);
+  }catch(e){ return false; }
+}
 window.exportSelectedBriefings = async function(siteId){
   if(!selectedBriefingIds.size) return;
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
@@ -24809,44 +25004,45 @@ window.exportSelectedBriefings = async function(siteId){
   toast('Building PDF…');
   try{
     const ids = Array.from(selectedBriefingIds);
-    const merged = await PDFLib.PDFDocument.create();
-    let any = false;
+    const parts = [];
     for(const id of ids){
-      const built = await buildReportPdf(id, {fromBriefing:true});
-      if(!built) continue;
-      const src = await PDFLib.PDFDocument.load(built.bytes);
-      const pages = await merged.copyPages(src, src.getPageIndices());
-      pages.forEach(p=>merged.addPage(p));
-      any = true;
+      const built = await buildBriefingPdfWithSignatures(id);
+      if(built) parts.push(built.bytes);
     }
-    if(!any){ toast('Could not build any of the selected briefings.'); bulkBriefingExportBusy=false; render(); return; }
+    if(!parts.length){ toast('Could not build any of the selected briefings.'); return; }
     const site = SITES.find(s=>s.id===siteId);
-    const filename = exportFilename(site?site.name:'', `Daily Briefings (${ids.length})`, 'pdf');
-    merged.setTitle(filename.replace(/\.pdf$/i,''));
-    const outBytes = await merged.save();
+    const filename = exportFilename(site?site.name:'', `Daily Briefings (${parts.length})`, 'pdf');
+    const outBytes = await mergePdfBytes(parts, filename.replace(/\.pdf$/i,''));
     await deliverPdf(outBytes, filename);
     selectedBriefingIds = new Set();
   }catch(e){ console.error(e); toast('Could not build the combined PDF.'); }
-  bulkBriefingExportBusy = false; render();
+  finally{ bulkBriefingExportBusy = false; render(); }
 };
 window.emailSelectedBriefings = async function(){
   if(!selectedBriefingIds.size) return;
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   bulkBriefingEmailBusy = true; render();
   toast('Building PDFs…');
   try{
     const ids = Array.from(selectedBriefingIds);
-    const attachments = [];
+    const parts = []; let siteId = null;
     for(const id of ids){
-      const built = await buildReportPdf(id, {fromBriefing:true});
-      if(built) attachments.push({submission_id:id, filename:built.filename, content_base64:built.base64});
+      const built = await buildBriefingPdfWithSignatures(id);
+      if(built){ parts.push(built.bytes); siteId = siteId || built.sub.site_id; }
     }
-    if(!attachments.length){ toast('Could not build any of the selected briefings.'); bulkBriefingEmailBusy=false; render(); return; }
-    const res = await sbFetch('/functions/v1/send-report-email', {method:'POST', body: JSON.stringify({attachments})});
-    const d = await res.json();
-    if(!res.ok || d.error){ toast('Email failed — '+(d.error||res.status)); }
-    else { toast(`${attachments.length} briefing(s) emailed to ${ME.email}`); selectedBriefingIds = new Set(); }
-  }catch(e){ toast('Email failed — could not reach the server.'); }
-  bulkBriefingEmailBusy = false; render();
+    if(!parts.length){ toast('Could not build any of the selected briefings.'); return; }
+    // One combined PDF, emailed as a link — these used to go as separate
+    // attachments posted in a single request, which failed once the
+    // briefings carried photos.
+    const site = SITES.find(st=>st.id===siteId);
+    const filename = exportFilename(site?site.name:'', `Daily Briefings (${parts.length})`, 'pdf');
+    const outBytes = await mergePdfBytes(parts, filename.replace(/\.pdf$/i,''));
+    toast('Sending…');
+    const ok = await emailPdfAsLink({siteId, bytes: outBytes, filename, title: `Daily Briefings (${parts.length})`, to: ME.email});
+    if(ok){ toast(`${parts.length} briefing(s) emailed to ${ME.email}`); selectedBriefingIds = new Set(); }
+    else toast('Email failed — please try again.');
+  }catch(e){ console.error(e); toast('Email failed — could not reach the server.'); }
+  finally{ bulkBriefingEmailBusy = false; render(); }
 };
 window.deleteBriefingSubmission = async function(siteId, submissionId){
   if(!await customConfirm('Delete this in-progress briefing? This can\'t be undone.')) return;
@@ -24895,22 +25091,9 @@ window.signBriefing = async function(siteId, submissionId){
 window.exportDailyBriefingPDF = async function(submissionId){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building PDF…');
-  const built = await buildReportPdf(submissionId, {fromBriefing:true});
-  if(!built) return;
   try{
-    const sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
-    if(sigs.length){
-      const pdfDoc = await PDFLib.PDFDocument.load(built.bytes);
-      const signers = sigs.map(s=>({
-        name: nameOf(s.user_id),
-        when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-        imagePath: s.signature_image_path,
-      }));
-      await drawSignatureTablePages(pdfDoc, {title: built.sub.template_name, disclaimer: `I confirm I have read and understood the contents of this briefing (${built.sub.template_name}).`, signers});
-      const outBytes = await pdfDoc.save();
-      await deliverPdf(outBytes, built.filename);
-      return;
-    }
+    const built = await buildBriefingPdfWithSignatures(submissionId);
+    if(!built) return;
     await deliverPdf(built.bytes, built.filename);
   }catch(e){
     console.error(e);
@@ -25316,7 +25499,7 @@ window.emailTbtManual = async function(siteId, tbtId){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
     const base64 = btoa(binary);
-    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, recipients, site_name: site?site.name:'', tbt_title: built.talk.title, filename: built.filename, pdf_base64: base64,
     })});
     tbtEmailBusy = null;
@@ -25386,7 +25569,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
   if(btn) btn.textContent = 'Sending…';
   const site = SITES.find(s=>s.id===siteId);
   try{
-    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, recipients:[email], site_name: site?site.name:'', tbt_titles: titles, attachments,
     })});
     const d = await res.json();
@@ -25423,7 +25606,7 @@ async function emailCompletedTbtToPM(siteId, tbtId){
     let binary=''; const chunk=0x8000;
     for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
     const base64 = btoa(binary);
-    await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', body: JSON.stringify({
+    await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, recipients, site_name: site?site.name:'', tbt_title: built.talk.title, filename: built.filename, pdf_base64: base64,
     })});
   }catch(e){ /* best-effort */ }
@@ -26270,7 +26453,7 @@ window.confirmMatReqEmailSelected = async function(siteId){
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const items = rows.map(r=>({item:r.item, qty:r.qty, supplier_name: r.supplier_id ? supplierName(r.supplier_id) : null}));
   try{
-    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, recipients, items, context_label: 'Material List',
     })});
     const d = await res.json();
@@ -26332,7 +26515,7 @@ window.confirmMatReqSupplierEmail = async function(siteId, supplierId, supplierN
   const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty');
   const items = rows.map(r=>({item:r.item, qty:r.qty}));
   try{
-    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
       site_id: siteId, recipients:[supplierEmail], items, context_label: 'Material List — '+supplierName,
     })});
     const d = await res.json();
@@ -27097,9 +27280,12 @@ window.importPriceRateExcel = async function(input){
     if(skipped) msg += ` (${skipped} row${skipped===1?'':'s'} skipped — missing rate or options.)`;
     msg += ' Continue?';
     if(!await customConfirm(msg)){ input.value=''; return; }
-    // Full replace — options cascade-delete with their item.
-    const existingIds = (await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&select=id')).map(r=>r.id);
-    for(const id of existingIds) await dbDelete('price_rate_items', id);
+    // Full replace, but the NEW card goes in first and the old one is only
+    // removed once the new rows are safely saved — so a dropped signal
+    // half way through can never leave the business with no rate card.
+    const existingRes = await dbSelectChecked('price_rate_items', 'org_id=eq.'+ME.org_id+'&select=id');
+    if(!existingRes.ok){ toast('Could not reach the server — rate card left unchanged. Check your signal and try again.'); input.value=''; return; }
+    const existingIds = existingRes.data.map(r=>r.id);
     const insertedItems = await dbInsert('price_rate_items', newItems.map(it=>({
       org_id: ME.org_id, category: it.category, name: it.name, unit: it.unit,
       rate: it.rate, is_dropdown: it.is_dropdown, sort_order: it.sort_order, created_by: ME.id,
@@ -27110,8 +27296,28 @@ window.importPriceRateExcel = async function(input){
         const newId = insertedItems[idx].id;
         it.options.forEach(o=>optionRows.push({rate_item_id:newId, label:o.label, rate:o.rate, sort_order:o.sort_order}));
       });
-      if(optionRows.length) await dbInsert('price_rate_options', optionRows);
+      if(optionRows.length){
+        const optIns = await dbInsert('price_rate_options', optionRows);
+        if(!optIns){
+          // Undo the half-imported new card and keep the old one.
+          await sbFetch('/rest/v1/price_rate_items?id=in.('+insertedItems.map(r=>r.id).join(',')+')', {method:'DELETE'}).catch(()=>{});
+          toast('Import failed part way — your existing rate card has been left unchanged.'); input.value=''; render(); return;
+        }
+      }
+    } else {
+      if(insertedItems && insertedItems.length) await sbFetch('/rest/v1/price_rate_items?id=in.('+insertedItems.map(r=>r.id).join(',')+')', {method:'DELETE'}).catch(()=>{});
+      toast('Import failed — your existing rate card has been left unchanged.'); input.value=''; render(); return;
     }
+    // New card is saved — now clear the old rows (options cascade-delete).
+    let oldLeft = 0;
+    for(let i=0; i<existingIds.length; i+=80){
+      const chunk = existingIds.slice(i, i+80);
+      try{
+        const dr = await sbFetch('/rest/v1/price_rate_items?id=in.('+chunk.join(',')+')', {method:'DELETE'});
+        if(!dr.ok) oldLeft += chunk.length;
+      }catch(e){ oldLeft += chunk.length; }
+    }
+    if(oldLeft){ toast(`New rates imported, but ${oldLeft} old item${oldLeft===1?'':'s'} could not be removed — delete the duplicates by hand or import again.`); priceRateAddOpen = false; input.value=''; render(); return; }
     toast(`Rate card replaced — ${newItems.length} item${newItems.length===1?'':'s'}, ${optionRows.length} option${optionRows.length===1?'':'s'}.`);
     priceRateAddOpen = false; input.value=''; render();
   }catch(e){ console.error(e); toast('Could not read that file — check it\'s a valid .xlsx exported from this tool.'); input.value=''; }
@@ -29458,7 +29664,7 @@ async function renderMessages(siteId){
     ${mgr ? `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Send a message</p>
-        <div class="formfield"><textarea id="msgBody" placeholder="Message to operatives...">${escapeHtml(msgDraft)}</textarea></div>
+        <div class="formfield"><textarea id="msgBody" placeholder="Message to operatives..." oninput="msgDraft=this.value">${escapeHtml(msgDraft)}</textarea></div>
         <div class="formfield">
           <label class="field-label">Send to</label>
           <select id="msgTarget">
@@ -29851,7 +30057,7 @@ let vehicleChecklistPhotoBusyKey = null;
 function vehicleChecklistWeekStart(){ return localISODate(new Date(startOfWeek(new Date()))); } // startOfWeek returns a timestamp, not a Date
 async function loadOrStartVehicleChecklist(){
   const weekStart = vehicleChecklistWeekStart();
-  const rows = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+weekStart+'&limit=1');
+  const rows = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+weekStart+'&order=created_at.asc&limit=1');
   if(rows[0]){
     const itemsMap = {};
     (rows[0].items||[]).forEach(it=>{ itemsMap[it.key] = it; });
@@ -29942,15 +30148,33 @@ window.uploadVehicleChecklistPhoto = async function(input, key){
   render();
   await saveVehicleChecklistDraft();
 };
-async function saveVehicleChecklistDraft(){
+// One inspection per driver per week (the database now enforces it too).
+// Saves are queued one behind another: each Pass/Fail tap saves in the
+// background, and two quick taps on a brand-new checklist used to both see
+// "no row yet" and each create one.
+let vehicleChecklistSaveQueue = Promise.resolve();
+function saveVehicleChecklistDraft(){
+  vehicleChecklistSaveQueue = vehicleChecklistSaveQueue.then(saveVehicleChecklistDraftNow).catch(e=>{ console.error(e); });
+  return vehicleChecklistSaveQueue;
+}
+async function saveVehicleChecklistDraftNow(){
   const d = vehicleChecklistDraft;
+  if(!d) return;
   const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
   const hasFails = itemsArr.some(it=>it.result==='fail');
   if(d.id){
     await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
   } else {
-    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
-    if(rows && rows[0]) d.id = rows[0].id;
+    // If this week's row already exists (started on another phone, say),
+    // carry on with that one rather than trying to create a second.
+    const existing = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+d.week_start+'&select=id&limit=1');
+    if(existing[0]){
+      d.id = existing[0].id;
+      await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+    } else {
+      const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
+      if(rows && rows[0]) d.id = rows[0].id;
+    }
   }
 }
 window.submitVehicleChecklist = async function(){
@@ -30712,7 +30936,7 @@ async function renderRoute(){
     return renderAdminDeliveriesHub();
   }
   if(parts[0]==='delivery'){
-    if(!ME || !isFullManager(ME)){ go('#/sites'); return; }
+    if(!ME || !isManager(ME)){ go('#/sites'); return; } // Site Managers included — they were shown the delivery tiles but bounced from the pages (RLS now allows them too)
     if(parts[1]==='new') return renderDeliveryForm(null);
     if(parts[1]==='edit' && parts[2]) return renderDeliveryForm(parts[2]);
     return renderDeliverySchedulePM();
@@ -30972,6 +31196,20 @@ async function renderRoute(){
   }
   renderSites();
 }
+
+// Double-tap protection: while one of these saves is still running, a
+// second tap on the same button is ignored instead of creating a duplicate.
+['addSnag','submitVariation','addMcDocument','uploadOperativeCert','uploadManualPersonCert','confirmScheduleImport','submitIncidentReport','sendBroadcast','addSubCoshh','addHavsTool','addPriceRateItem'].forEach(name=>{
+  const original = window[name];
+  if(typeof original !== 'function') return;
+  let running = false;
+  window[name] = async function(){
+    if(running) return;
+    running = true;
+    try{ return await original.apply(this, arguments); }
+    finally{ running = false; }
+  };
+});
 
 registerOneDriveDeepLinkHandler();
 init();
