@@ -30746,7 +30746,8 @@ function deliveryTaskCardHtml(t, opts){
     <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
         <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site')}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
-        <div class="addr">${escapeHtml(t.description||'')} · ${escapeHtml(deliveryCollectionLabel(t))}${t.status==='completed'?' · ✓ Completed':''}</div>
+        <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
+        <div class="addr" style="font-weight:700;color:var(--ink);">📦 Collect from: ${escapeHtml(deliveryCollectionLabel(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;" onclick="event.stopPropagation()">
