@@ -30893,10 +30893,11 @@ async function renderDeliveryForm(taskId){
     </div>
     ` : ''}
     <div class="formfield"><label class="field-label">Site</label>
-      <select onchange="onDeliveryFormSiteChange(this.value)">
-        <option value="">Choose a site…</option>
-        ${sites.map(s=>`<option value="${s.id}" ${draft.site_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
+      ${sites.length>1 ? `<input type="text" id="deliverySiteFilter" placeholder="Type to filter sites — name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)" style="margin-bottom:6px;">` : ''}
+      <select id="deliverySiteSelect" onchange="onDeliveryFormSiteChange(this.value)">
+        ${deliverySiteOptionsHtml(sites, draft.site_id, deliveryFormSiteFilter)}
       </select>
+      <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
     </div>
     <div class="formfield"><label class="field-label">Description</label>
       <textarea rows="3" oninput="deliveryFormDraft.description=this.value" placeholder="What's needed?">${escapeHtml(draft.description)}</textarea>
@@ -30956,7 +30957,33 @@ async function renderDeliveryForm(taskId){
     ${taskId ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--warn);" onclick="deleteDeliveryTask('${taskId}')">Delete Delivery</button>` : ''}
   `, {title: taskId?'Edit Delivery':'Add Delivery', back:'#/delivery'});
 }
+// Text filter over the Site list on the delivery form. The list is rebuilt
+// in place (no screen re-draw, so the keyboard stays up); the site already
+// chosen always stays in the list so filtering never silently un-picks it.
+let deliveryFormSiteFilter = '';
+let deliveryFormSiteList = [];
+function deliverySiteOptionsHtml(sites, selectedId, filterText){
+  deliveryFormSiteList = sites;
+  const q = (filterText||'').trim().toLowerCase();
+  const shown = q ? sites.filter(x=>x.id===selectedId || [x.name, x.address, x.postcode].some(v=>(v||'').toLowerCase().includes(q))) : sites;
+  return `<option value="">${q ? (shown.length ? 'Choose from '+shown.length+' matching site'+(shown.length===1?'':'s')+'…' : 'No sites match') : 'Choose a site…'}</option>`
+    + shown.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
+}
+window.filterDeliverySiteOptions = function(val){
+  deliveryFormSiteFilter = val;
+  const sel = document.getElementById('deliverySiteSelect');
+  if(!sel) return;
+  const current = deliveryFormDraft ? deliveryFormDraft.site_id : '';
+  sel.innerHTML = deliverySiteOptionsHtml(deliveryFormSiteList, current, val);
+  const note = document.getElementById('deliverySiteFilterNote');
+  if(note){
+    const n = sel.options.length-1;
+    note.style.display = val.trim() ? '' : 'none';
+    note.textContent = n ? n+(n===1?' site matches':' sites match')+' — pick from the list above.' : 'No sites match that.';
+  }
+};
 window.onDeliveryFormSiteChange = async function(siteId){
+  deliveryFormSiteFilter = '';
   deliveryFormDraft.site_id = siteId;
   deliveryFormDraft.site_contact_id = '';
   await loadDeliveryFormSiteOperatives(siteId);
