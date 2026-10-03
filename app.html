@@ -26048,6 +26048,8 @@ async function renderMaterialRequests(siteId){
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  // Everything on this tab that can be ticked — used by "Select all".
+  materialSelectableIds = isPM ? materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id) : [];
   // Who could collect an order — only needed while the send step is open.
   let orderDrivers = [], orderSiteOps = [];
   if(isPM && (sendingGroup || sendingMaterial)){
@@ -26081,7 +26083,10 @@ async function renderMaterialRequests(siteId){
             <button class="ghostbtn" style="flex:1;" onclick="reopenSelectedMaterials('${siteId}')">Reopen selected</button>
             <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSelectedMaterials('${siteId}')">Delete selected</button>
           </div>` : ''}
-          <button class="ghostbtn" style="margin-top:8px;" onclick="clearMaterialSelection();render()">Clear selection</button>
+          <div class="row-gap" style="margin-top:8px;">
+            ${selectedMaterialIds.size < materialSelectableIds.length ? `<button class="ghostbtn" style="flex:1;" onclick="selectAllMaterials()">Select all (${materialSelectableIds.length})</button>` : ''}
+            <button class="ghostbtn" style="flex:1;" onclick="clearMaterialSelection();render()">Clear selection</button>
+          </div>
         `}
       </div>
     ` : ''}
@@ -27680,6 +27685,11 @@ window.sendMaterialAgain = async function(matId){
   await render();
   try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
   toast('Choose a supplier at the top, then send. Tick more orders to send them together.');
+};
+let materialSelectableIds = [];
+window.selectAllMaterials = function(){
+  materialSelectableIds.forEach(id=>selectedMaterialIds.add(id));
+  render();
 };
 window.clearMaterialSelection = function(){
   selectedMaterialIds = new Set(); groupSupplierId = null; supplierPickerFor = null; sendingGroup = false;
