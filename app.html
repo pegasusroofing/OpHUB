@@ -25923,7 +25923,13 @@ window.toggleSupplierFavourite = async function(supplierId, isFav){
 // Favourited suppliers (max 3) pin to the top, in alphabetical order among
 // themselves; everyone else follows underneath, also alphabetical — the DB
 // query already sorts by name.asc, so this is just a stable partition.
+// "Email to me" — a stand-in choice at the top of the supplier list when
+// sending an order: the order email goes to whoever is signed in and
+// sending it, instead of to a supplier.
+const SUPPLIER_EMAIL_ME = 'me';
+function emailMeSupplier(){ return {id:SUPPLIER_EMAIL_ME, name:'Email to me', email:(ME && ME.email)||''}; }
 function supplierPickerHtml(pickerKey, suppliers, selectedId){
+  const offerEmailMe = pickerKey==='group' || !/^(edit-|reqnew)/.test(String(pickerKey));
   const q = (supplierPickerFilter||'').trim().toLowerCase();
   const filtered = q ? suppliers.filter(s=>s.name.toLowerCase().includes(q)) : suppliers;
   const favs = filtered.filter(s=>s.favourite);
@@ -25932,6 +25938,10 @@ function supplierPickerHtml(pickerKey, suppliers, selectedId){
   return `
     <div class="card" style="margin-top:8px;padding:10px;">
       ${suppliers.length>10 ? `<div class="formfield" style="margin-bottom:8px;"><input type="text" placeholder="Filter suppliers…" value="${escapeHtml(supplierPickerFilter||'')}" oninput="setSupplierPickerFilter(this.value)"></div>` : ''}
+      ${offerEmailMe ? `
+        <div class="sitecard" style="padding:8px 10px;cursor:pointer;${selectedId===SUPPLIER_EMAIL_ME?'border-color:var(--brand1);border-width:1.5px;':''}" onclick="pickSupplier('${pickerKey}','${SUPPLIER_EMAIL_ME}')">
+          <div class="info" style="min-width:0;"><div class="name">✉ Email to me</div><div class="addr">${escapeHtml((ME && ME.email)||'')}</div></div>
+        </div>` : ''}
       ${list.length ? list.map(s=>`
         <div class="sitecard" style="padding:8px 10px;cursor:pointer;${selectedId===s.id?'border-color:var(--brand1);border-width:1.5px;':''}" onclick="pickSupplier('${pickerKey}','${s.id}')">
           <div class="info" style="min-width:0;"><div class="name">${escapeHtml(s.name)}</div></div>
@@ -26005,7 +26015,7 @@ async function renderMaterialRequests(siteId){
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
-  const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -26020,13 +26030,13 @@ async function renderMaterialRequests(siteId){
         ${sendingGroup ? `
           <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
           <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_group" min="${localISODate(new Date())}"></div>
-          <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; Send ${selectedMaterialIds.size} Items to ${escapeHtml(supplierName(groupSupplierId)||'')}</button>
+          <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; ${groupSupplierId===SUPPLIER_EMAIL_ME ? 'Email '+selectedMaterialIds.size+' Items to me' : 'Send '+selectedMaterialIds.size+' Items to '+escapeHtml(supplierName(groupSupplierId)||'')}</button>
           <button class="ghostbtn" style="margin-top:8px;" onclick="sendingGroup=false;render()">Cancel</button>
         ` : `
           <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('group')">
             <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
-          ${supplierPickerFor==='group' ? (suppliers.length ? supplierPickerHtml('group', suppliers, groupSupplierId) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one below.</p>`) : ''}
+          ${supplierPickerFor==='group' ? supplierPickerHtml('group', suppliers, groupSupplierId) : ''}
           <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">Send Order (${selectedMaterialIds.size} items)</button>
           <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMaterialIds=new Set();groupSupplierId=null;supplierPickerFor=null;render()">Clear selection</button>
         `}
@@ -26059,14 +26069,14 @@ async function renderMaterialRequests(siteId){
               <div class="card" style="margin:10px 0 0;padding:10px;">
                 <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
                 <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${m.id}" min="${localISODate(new Date())}"></div>
-                <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; Send to ${escapeHtml(sendingMaterial.supplierName)}</button>
+                <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; ${sendingMaterial.supplierId===SUPPLIER_EMAIL_ME ? 'Email to me' : 'Send to '+escapeHtml(sendingMaterial.supplierName)}</button>
                 <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
               </div>
             ` : `<div class="merchantrow" style="display:block;">
               <div class="ddrow" style="margin:0;" onclick="toggleSupplierPicker('${m.id}')">
                 <span class="arrow">${supplierPickerFor===m.id?'▼':'▶'}</span> ${materialSupplierChoice[m.id] ? escapeHtml(supplierName(materialSupplierChoice[m.id])) : 'Supplier'}
               </div>
-              ${supplierPickerFor===m.id ? (suppliers.length ? supplierPickerHtml(m.id, suppliers, materialSupplierChoice[m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one below.</p>`) : ''}
+              ${supplierPickerFor===m.id ? supplierPickerHtml(m.id, suppliers, materialSupplierChoice[m.id]) : ''}
             </div>`
             ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
           ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
@@ -27482,10 +27492,11 @@ window.addMaterial = async function(siteId){
 window.beginSendMaterial = async function(matId){
   const supplierId = materialSupplierChoice[matId];
   if(!supplierId){ customAlert('Please choose a supplier before sending this order.'); return; }
-  const rows = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=name');
+  if(supplierId===SUPPLIER_EMAIL_ME && !ME.email){ toast('There is no email address on your profile.'); return; }
+  const rows = supplierId===SUPPLIER_EMAIL_ME ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=name');
   const supplier = rows && rows[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
-  sendingMaterial = {matId, supplierId, supplierName: supplier.name};
+  sendingMaterial = {matId, supplierId, supplierName: supplierId===SUPPLIER_EMAIL_ME ? 'me' : supplier.name};
   render();
 };
 window.confirmSendMaterial = async function(siteId, matId){
@@ -27494,28 +27505,29 @@ window.confirmSendMaterial = async function(siteId, matId){
   const dateInput = document.getElementById('reqDeliveryDate_'+matId);
   const requiredForDelivery = dateInput ? dateInput.value : '';
   if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
-  const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
+  const toMe = supplierId===SUPPLIER_EMAIL_ME;
+  const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
-  const row = await dbUpdate('materials', matId, {status:'closed', merchant:supplier.name, supplier_id:supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
-  toast('Order routed to '+supplier.name+' — emailing…');
+  toast(toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: supplier.email, supplier_name: supplier.name,
+      material_id: matId, supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+      toast(toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
@@ -27536,30 +27548,32 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const dateInput = document.getElementById('reqDeliveryDate_group');
   const requiredForDelivery = dateInput ? dateInput.value : '';
   if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
-  const suppliers = await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
+  const toMe = groupSupplierId===SUPPLIER_EMAIL_ME;
+  if(toMe && !ME.email){ toast('There is no email address on your profile.'); return; }
+  const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant:supplier.name, supplier_id:groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
   groupSupplierId = null;
-  toast('Order routed to '+supplier.name+' — emailing…');
+  toast(toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      supplier_email: supplier.email, supplier_name: supplier.name, site_id: siteId,
+      supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
       items: materials.map(m=>({item:m.item, qty:m.qty})),
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await Promise.all(matIds.map(id => dbUpdate('materials', id, {email_sent_at:new Date().toISOString()})));
-      toast('Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+      toast(toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
