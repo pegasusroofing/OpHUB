@@ -549,17 +549,96 @@
      background instead of blocking first paint/login. Every call site
      already checks `typeof XLSX/PDFLib/pdfjsLib==='undefined'` before use,
      so a slow network just delays those specific buttons, not app load. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
-<!-- SheetJS (xlsx, above) can't embed images in the .xlsx it writes — that's
-     a Pro-only feature there. ExcelJS can, so the Priced Sheet Excel export
-     (the only export that needs the company logo in the sheet itself) uses
-     it instead, purely for that one export; every other Excel export in the
-     app keeps using plain XLSX/SheetJS above, unchanged. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-<script defer>if(typeof pdfjsLib!=='undefined'){ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }</script>
+<!-- 2026-10-03: the four libraries above are no longer loaded with the page.
+     They are ~2.5MB of script between them; fetching and parsing them on
+     every launch competed with the app's own start-up requests and first
+     paint. loadLib() (below) now fetches each one the first time something
+     actually needs it, and warms them up in the background once the first
+     screen is on display. -->
 <script>
+/* ================= on-demand libraries ================= */
+const LIB_SRC = {
+  XLSX: 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  ExcelJS: 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',
+  PDFLib: 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
+  pdfjsLib: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+};
+const _libLoading = {};
+function _libReady(name){
+  if(name==='PDFLib') patchPdfLibText(window.PDFLib);
+  if(name==='pdfjsLib' && window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+}
+// Resolves true once the named library (XLSX / ExcelJS / PDFLib / pdfjsLib)
+// is available, loading it first if it isn't yet; false if it could not be
+// loaded (offline, CDN blocked). Safe to call repeatedly and concurrently.
+function loadLib(name){
+  if(window[name]){ _libReady(name); return Promise.resolve(true); }
+  if(!_libLoading[name]){
+    _libLoading[name] = new Promise(resolve=>{
+      const el = document.createElement('script');
+      el.src = LIB_SRC[name]; el.async = true;
+      el.onload = ()=>{ if(window[name]){ _libReady(name); resolve(true); } else { delete _libLoading[name]; resolve(false); } };
+      el.onerror = ()=>{ delete _libLoading[name]; el.remove(); resolve(false); };
+      document.head.appendChild(el);
+    });
+  }
+  return _libLoading[name];
+}
+// Called once the first screen has painted: fetches the libraries one at a
+// time in the background so the first export/upload doesn't have to wait
+// for a download, without getting in the way of start-up itself.
+let _libWarmupStarted = false;
+function warmUpLibs(){
+  if(_libWarmupStarted) return;
+  _libWarmupStarted = true;
+  const run = async ()=>{
+    if(navigator.onLine === false) { _libWarmupStarted = false; return; }
+    for(const name of ['PDFLib','XLSX','pdfjsLib','ExcelJS']){ try{ await loadLib(name); }catch(e){} }
+  };
+  setTimeout(()=>{ (window.requestIdleCallback || (fn=>setTimeout(fn, 1)))(run); }, 2500);
+}
+// Standard PDF fonts (Helvetica etc.) can only draw the WinAnsi character
+// set. pdf-lib throws on anything else — an emoji, a tick, a Polish "ł", or
+// even a line break when measuring text — and one such character anywhere
+// in a task name, note or site name used to fail the entire export. This
+// patches pdf-lib once so unsupported characters are swapped for a close
+// plain equivalent (or dropped) instead: the export always builds.
+function patchPdfLibText(P){
+  if(!P || P.__ophubTextPatched || !P.PDFFont) return;
+  P.__ophubTextPatched = true;
+  const proto = P.PDFFont.prototype;
+  const origEncode = proto.encodeText, origWidth = proto.widthOfTextAtSize;
+  const SWAP = {'✓':'', '✔':'', '✗':'x', '✘':'x', '⚠':'!', '→':'->', '←':'<-', '≥':'>=', '≤':'<=', ' ':' ', '‑':'-', '‐':'-', '−':'-', '️':'', '​':'', '‍':''};
+  function safeText(font, text){
+    let set = font.__ophubCharSet;
+    if(set === undefined){ try{ set = new Set(font.getCharacterSet()); }catch(e){ set = null; } font.__ophubCharSet = set; }
+    let out = '';
+    for(const ch of String(text == null ? '' : text)){
+      const cp = ch.codePointAt(0);
+      if(set ? set.has(cp) : (cp >= 32 && cp <= 126)){ out += ch; continue; }
+      if(ch === '\n' || ch === '\r' || ch === '\t'){ out += ' '; continue; }
+      if(SWAP[ch] !== undefined){ out += SWAP[ch]; continue; }
+      // Accented Latin letters outside WinAnsi (ł, ś, ž…): fall back to the
+      // unaccented base letter where there is one.
+      const base = ch.normalize ? ch.normalize('NFD').replace(/[̀-ͯ]/g,'') : '';
+      if(base && base !== ch && [...base].every(b=> set ? set.has(b.codePointAt(0)) : b.charCodeAt(0) <= 126)){ out += base; continue; }
+      if(ch === 'ł') out += 'l'; else if(ch === 'Ł') out += 'L';
+      // anything else (emoji, symbols) is dropped
+    }
+    return out.replace(/ {2,}/g,' ');
+  }
+  proto.encodeText = function(text){
+    try{ return origEncode.call(this, text); }
+    catch(e){ return origEncode.call(this, safeText(this, text)); }
+  };
+  proto.widthOfTextAtSize = function(text, size){
+    try{ return origWidth.call(this, text, size); }
+    catch(e){ return origWidth.call(this, safeText(this, text), size); }
+  };
+}
+
 /* ================= Supabase config ================= */
 const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
@@ -1053,19 +1132,11 @@ window.viewPdfInApp = async function(source, filename, opts){
       }catch(e){ /* Share just won't have bytes ready if this didn't finish in time */ }
     })();
   }
-  if(thisViewerState.bytes && !thisViewerState.url){
-    (async ()=>{
-      try{
-        const blob = new Blob([thisViewerState.bytes], {type:'application/pdf'});
-        const safeName = (thisViewerState.filename||'document.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
-        const path = 'exports/'+uid()+'-'+safeName;
-        const stored = await uploadToStorage('mc-documents', path, blob, 'application/pdf');
-        if(stored && pdfViewerState===thisViewerState) thisViewerState.preparedUrl = publicUrl('mc-documents', stored);
-      }catch(e){ /* Share falls back to uploading on tap instead if this didn't finish in time */ }
-    })();
-  }
+  // (A generated PDF used to be uploaded to storage here on every single
+  // export "so Share would have a link ready" — but nothing ever read that
+  // link; Share uploads on tap. It cost an upload per export for nothing.)
   try{
-    if(typeof pdfjsLib === 'undefined') throw new Error('pdf renderer unavailable');
+    if(!(await loadLib('pdfjsLib'))) throw new Error('pdf renderer unavailable');
     const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: source});
     const pdf = await loadingTask.promise;
     body.innerHTML = '';
@@ -1348,6 +1419,10 @@ async function sdelete(key, shared){ try{ return await window.storage.delete(key
 async function getJSON(key, shared, fallback){ const v=await sget(key,shared); if(!v) return fallback; try{return JSON.parse(v);}catch(e){return fallback;} }
 async function setJSON(key, obj, shared){ return sset(key, JSON.stringify(obj), shared); }
 const K_SESSION = 'rtb-session-v1';
+// Last known "who am I / my company / my sites" — lets the app paint the
+// home page straight from the device on launch (and with no signal at all)
+// instead of waiting on the network first. See init() / refreshBootData().
+const K_BOOT = 'ophub-boot-v1';
 
 /* ================= Supabase data layer ================= */
 let SESSION = null; // {access_token, refresh_token, expires_at, user:{id,email}}
@@ -1383,6 +1458,12 @@ async function fetchWithRetry(url, opts, ms){
     return fetchWithTimeout(url, opts, ms);
   }
 }
+// Several requests fired together after the token has expired (every
+// Promise.all of selects does this) used to each start their OWN refresh
+// with the same refresh token — and any one of those coming back non-OK
+// signed the user out. Now there is one refresh in flight at a time that
+// everybody waits on.
+let _tokenRefreshInFlight = null;
 async function ensureFreshToken(){
   if(!SESSION) return;
   if(Date.now() < SESSION.expires_at - 60000) return;
@@ -1390,21 +1471,32 @@ async function ensureFreshToken(){
   // stale-but-present token gets sent as-is, and dbSelect's own offline
   // fallback (cache, or navigator.onLine's fast-path) takes it from there.
   if(navigator.onLine === false) return;
+  if(!_tokenRefreshInFlight){
+    _tokenRefreshInFlight = _refreshTokenNow().finally(()=>{ _tokenRefreshInFlight = null; });
+  }
+  return _tokenRefreshInFlight;
+}
+async function _refreshTokenNow(){
+  const session = SESSION;
+  if(!session) return;
   try{
     const res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
       headers:{'apikey':SUPABASE_ANON_KEY,'Content-Type':'application/json'},
-      body: JSON.stringify({refresh_token: SESSION.refresh_token})
+      body: JSON.stringify({refresh_token: session.refresh_token})
     }, 10000);
+    if(SESSION !== session) return; // signed out (or in as someone else) while this was in the air
     if(res.ok){
       const d = await res.json();
-      SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:SESSION.user};
+      SESSION = {access_token:d.access_token, refresh_token:d.refresh_token, expires_at:Date.now()+(d.expires_in*1000), user:session.user};
       await setJSON(K_SESSION, SESSION, false);
-    } else {
+    } else if(res.status===400 || res.status===401 || res.status===403){
       // The server actually answered and said the refresh token itself is
       // no good (expired/revoked) — this really is a "log in again" case.
-      SESSION = null; ME = null; await sdelete(K_SESSION, false);
+      SESSION = null; ME = null; await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
     }
+    // Anything else (429 rate limit, a 5xx blip) says nothing about the
+    // token — keep the session and let the next request try again.
   }catch(e){
     // A genuine network-level failure (timeout, connection drop) trying to
     // reach the refresh endpoint — NOT proof the refresh token is bad. Leave
@@ -1586,6 +1678,20 @@ async function dbSelect(table, qs){
   const data = await res.json();
   cacheRows(table, qs, data); // fire-and-forget — see comment block above
   return data;
+}
+// Like dbSelect, but says whether the answer actually came from the server.
+// dbSelect returns [] both for "no rows" and for "the request failed", which
+// is fine for a list on screen but not for decisions like "this account no
+// longer exists" or "replace the site list with this".
+async function dbSelectChecked(table, qs){
+  if(navigator.onLine === false) return {ok:false, data:[]};
+  try{
+    const res = await sbFetch('/rest/v1/'+table+'?'+qs, {method:'GET'});
+    if(!res.ok){ console.error(await safeErr(res)); return {ok:false, data:[]}; }
+    const data = await res.json();
+    cacheRows(table, qs, data);
+    return {ok:true, data};
+  }catch(e){ return {ok:false, data:[]}; }
 }
 // The moment signal comes back, quietly re-render whatever's on screen so it
 // swaps from cached data to live data without anyone having to pull to
@@ -1945,15 +2051,24 @@ window.doSignOut = async function(){
   try{ await sbFetch('/auth/v1/logout', {method:'POST'}); }catch(e){}
   SESSION = null; ME = null; ORG = null;
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
+  homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
   applyTheme(null);
   await sdelete(K_SESSION, false);
+  await sdelete(K_BOOT, false);
   await clearOfflineCache();
   location.hash = '';
   render();
 };
 async function loadProfile(){
-  const rows = await dbSelect('profiles', 'id=eq.'+SESSION.user.id+'&select=*');
-  ME = rows[0] || null;
+  const qs = 'id=eq.'+SESSION.user.id+'&select=*';
+  const r = await dbSelectChecked('profiles', qs);
+  if(r.ok){ ME = r.data[0] || null; return; }
+  // The request failed (no signal, server blip) — that is not the same as
+  // "this account doesn't exist". Fall back to the last copy we have rather
+  // than dropping a signed-in user back to the login screen.
+  const cached = await getCachedRows('profiles', qs);
+  if(cached && cached.data && cached.data[0]) ME = cached.data[0];
+  else if(!(ME && SESSION && ME.id===SESSION.user.id)) ME = null;
 }
 
 /* ================= push notifications ================= */
@@ -1988,9 +2103,14 @@ async function registerPushNotifications(){
     PN.addListener('pushNotificationActionPerformed', (action)=>{
       try{
         const data = (action && action.notification && action.notification.data) || {};
-        // Any delivery notification carries the delivery's id — a driver
-        // lands on their own schedule, everyone else on that delivery.
-        if(data.task_id){ go(ME && ME.role==='driver' ? '#/driver' : `#/delivery/edit/${data.task_id}`); return; }
+        // A delivery notification carries the delivery's id (task_id, from
+        // messages.related_id). Drivers land on their own schedule, PMs and
+        // admins on that delivery; anyone else (e.g. the site contact told a
+        // delivery arrived) falls through to the normal site routing below.
+        if(data.task_id){
+          if(ME && ME.role==='driver'){ go('#/driver'); return; }
+          if(isFullManager(ME)){ go(`#/delivery/edit/${data.task_id}`); return; }
+        }
         if(!data.site_id) return;
         const routes = { material_request:'materials', variation:'variations', snag_closed:'snagging/list', todo_assigned:'todos', price_overbooked:'price', additional_works_requested:'price', message:'messages', rams_reminder:'hs/rams', coshh_reminder:'hs/coshh', material_pickup:'materialrequired' };
         const dest = routes[data.kind] || 'messages';
@@ -2059,8 +2179,12 @@ const PHOTO_PLACEHOLDER_INLINE = 'data:image/svg+xml;utf8,' + encodeURIComponent
 
 async function loadOrg(){
   if(!ME || !ME.org_id){ ORG = null; applyTheme(null); return; }
-  const rows = await dbSelect('organizations', 'id=eq.'+ME.org_id+'&select=*');
-  ORG = rows[0] || null;
+  const r = await dbSelectChecked('organizations', 'id=eq.'+ME.org_id+'&select=*');
+  if(r.ok) ORG = r.data[0] || null;
+  else if(!(ORG && ORG.id===ME.org_id)){
+    const cached = await getCachedRows('organizations', 'id=eq.'+ME.org_id+'&select=*');
+    ORG = (cached && cached.data && cached.data[0]) || null;
+  } // else: request failed but we already hold this company's details — keep them
   applyTheme(ORG);
 }
 function readableTextColor(hex){
@@ -2371,6 +2495,9 @@ async function loadAllProfiles(force){
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
   const rows = await dbSelect('profiles', 'select=id,name,email,role,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  // An organisation always has at least one profile (yours), so an empty
+  // answer means the request failed — keep the names we already have.
+  if(!rows.length && Object.keys(PROFILES).length) return;
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
   profilesLoadedAt = Date.now();
@@ -2753,8 +2880,86 @@ function routeQuery(){
 }
 
 /* ================= init ================= */
+async function saveBootSnapshot(){
+  if(!SESSION || !ME) return;
+  try{
+    await setJSON(K_BOOT, {
+      uid: SESSION.user.id, at: Date.now(),
+      me: ME, org: ORG, sites: SITES, profiles: PROFILES,
+      homeExtras: {uid: homeExtras.uid, onboarding: homeExtras.onboarding, count: homeExtras.count},
+      hsGateOk: hsPolicyGateChecked && !hsPolicyGatePending,
+    }, false);
+  }catch(e){ /* best-effort */ }
+}
+// Background half of the fast start: after the home page has been painted
+// from the saved snapshot, quietly fetch the real thing and only redraw if
+// something actually changed.
+let bootRefreshing = false;
+async function refreshBootData(){
+  if(bootRefreshing || !SESSION || navigator.onLine === false) return;
+  bootRefreshing = true;
+  try{
+    const uid = SESSION.user.id;
+    await ensureFreshToken();
+    if(!SESSION){ render(); return; } // refresh token was rejected — back to sign-in
+    const prof = await dbSelectChecked('profiles', 'id=eq.'+uid+'&select=*');
+    if(!SESSION || SESSION.user.id !== uid || !prof.ok) return;
+    if(!prof.data[0]){
+      // The account genuinely no longer exists (removed from the company).
+      SESSION = null; ME = null; ORG = null;
+      await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+      render();
+      return;
+    }
+    const before = JSON.stringify([ME, ORG, SITES]);
+    ME = prof.data[0];
+    const [, , sitesRes] = await Promise.all([
+      loadOrg(),
+      loadAllProfiles(true),
+      dbSelectChecked('sites', 'select=*&order=created_at.asc'),
+    ]);
+    if(!SESSION || SESSION.user.id !== uid) return;
+    if(sitesRes.ok) SITES = sitesRes.data;
+    await saveBootSnapshot();
+    if(JSON.stringify([ME, ORG, SITES]) !== before && !scheduleControlBusy()) render();
+  }catch(e){ console.error('refreshBootData failed', e); }
+  finally{ bootRefreshing = false; }
+}
+// Re-checks the compulsory H&S Policy sign-off after a snapshot start (which
+// trusts the last known answer so the first paint isn't held up by it).
+async function recheckHsPolicyGate(){
+  if(!ME || ME.role==='superadmin' || navigator.onLine === false) return;
+  hsPolicyGateChecked = false;
+  const pending = await checkHsPolicyGate();
+  saveBootSnapshot();
+  if(pending) render();
+}
+function registerServiceWorker(){
+  try{
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if(isNative || !('serviceWorker' in navigator) || (location.protocol !== 'https:' && location.hostname !== 'localhost')) return;
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  }catch(e){}
+}
 async function init(){
+  registerServiceWorker();
   SESSION = await getJSON(K_SESSION, false, null);
+  // FAST START: if this device has a saved snapshot for the signed-in user,
+  // paint from it immediately — no network needed for the first screen, so
+  // it also works with no signal — then refresh in the background.
+  const snap = SESSION ? await getJSON(K_BOOT, false, null) : null;
+  if(SESSION && snap && snap.uid === SESSION.user.id && snap.me && snap.me.id === SESSION.user.id){
+    ME = snap.me; ORG = snap.org || null; SITES = Array.isArray(snap.sites) ? snap.sites : [];
+    if(snap.profiles && Object.keys(snap.profiles).length){ PROFILES = snap.profiles; profilesLoadedAt = Date.now(); }
+    if(snap.homeExtras && snap.homeExtras.uid === ME.id) homeExtras = {uid: ME.id, onboarding: snap.homeExtras.onboarding || null, count: snap.homeExtras.count || 0, at: 0, loading: false};
+    if(snap.hsGateOk){ hsPolicyGateChecked = true; hsPolicyGatePending = false; }
+    applyTheme(ORG);
+    const firstPaint = render();
+    if(ME.role!=='superadmin') registerPushNotifications();
+    firstPaint.then(()=>{ warmUpLibs(); });
+    refreshBootData().then(()=>{ if(snap.hsGateOk) recheckHsPolicyGate(); });
+    return;
+  }
   if(SESSION){
     await ensureFreshToken();
     if(SESSION){
@@ -2778,7 +2983,9 @@ async function init(){
   } else {
     applyTheme(null);
   }
-  render();
+  await render();
+  if(SESSION && ME) saveBootSnapshot();
+  warmUpLibs();
 }
 
 // Site Home's status strip has Job No on the left and an on-site pill on the
@@ -2924,6 +3131,22 @@ function tabbar(siteId, active){
 // Now it just calls the exact same data function the Outstanding page uses,
 // for "me" specifically, so the badge count and the page contents can never
 // drift apart again.
+let homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
+function isSitesRoute(){ const p = parseRoute(); return !p.length || p[0]==='sites'; }
+function refreshHomeExtras(){
+  if(!ME || !SESSION || navigator.onLine === false) return;
+  if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
+  if(homeExtras.loading || (Date.now() - homeExtras.at) < 20000) return;
+  homeExtras.loading = true;
+  const uid = ME.id;
+  Promise.all([computeOnboardingChecklist(), computeMyOutstandingCount()]).then(([onboarding, count])=>{
+    if(!ME || ME.id !== uid) return;
+    const changed = JSON.stringify(onboarding||null) !== JSON.stringify(homeExtras.onboarding||null) || count !== homeExtras.count;
+    homeExtras = {uid, onboarding: onboarding||null, count: count||0, at: Date.now(), loading: false};
+    saveBootSnapshot();
+    if(changed && isSitesRoute() && !scheduleControlBusy()) render();
+  }).catch(e=>{ console.error('refreshHomeExtras failed', e); homeExtras.loading = false; });
+}
 async function computeMyOutstandingCount(){
   // Managers now see the Notifications feed (computeNotificationRows) on
   // this tile instead of the old generic Outstanding list — the badge must
@@ -3085,6 +3308,7 @@ window.doSignIn = async function(){
     const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
     SITES = sites;
     registerPushNotifications();
+    saveBootSnapshot(); warmUpLibs();
     go('#/sites');
   }catch(e){
     authError = 'Something went wrong signing you in — check your connection and try again.';
@@ -3171,6 +3395,7 @@ window.doJoin = async function(inviteId){
       joinBusyLabel = 'Getting your sites…'; render();
       const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
       SITES = sites;
+      saveBootSnapshot(); warmUpLibs();
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
       go('#/sites');
     } else {
@@ -3458,16 +3683,20 @@ window.refreshAppData = async function(){
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteStartDateDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // close the collapsed add-site form back up on refresh
   refreshingAppData = true; render();
   await loadProfile();
+  let refreshedOk = false;
   if(ME){
-    const [, , sitesRows] = await Promise.all([
+    const [, , sitesRes] = await Promise.all([
       loadOrg(),
       loadAllProfiles(true),
-      dbSelect('sites', 'select=*&order=created_at.asc'),
+      dbSelectChecked('sites', 'select=*&order=created_at.asc'),
     ]);
-    SITES = sitesRows;
+    // A failed fetch must not blank the project list — only replace it with
+    // a real answer from the server.
+    if(sitesRes.ok){ SITES = sitesRes.data; refreshedOk = true; saveBootSnapshot(); }
+    homeExtras.at = 0;
   }
   refreshingAppData = false;
-  toast('Up to date');
+  toast(refreshedOk ? 'Up to date' : 'Could not refresh — check your connection.');
   render();
 };
 function fullSiteAddress(s){
@@ -3641,8 +3870,15 @@ async function renderSites(){
   const upcomingSites = filtered.filter(s=>statusOf(s)==='upcoming');
   const closedSites = filtered.filter(s=>statusOf(s)==='closed');
   if(siteSectionOpen.upcoming===null) siteSectionOpen.upcoming = upcomingSites.length>0;
-  const onboarding = await computeOnboardingChecklist();
-  const myOutstandingCount = await computeMyOutstandingCount();
+  // The Getting Started card and the HUB/Outstanding badge take a dozen or
+  // so requests to work out. They used to be awaited BEFORE anything was
+  // drawn, on every visit to this page; now the page paints straight away
+  // with the last known values and refreshHomeExtras() (called once it's on
+  // screen) updates them in the background, redrawing only if they changed.
+  if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
+  if(navigator.onLine === false) OFFLINE_CACHE_USED = true; // this page is drawn from the saved snapshot — show the "Offline — showing saved data" banner
+  const onboarding = homeExtras.onboarding;
+  const myOutstandingCount = homeExtras.count;
   const siteSection = (key, label, list, isFirst) => canAdd ? `
       <div id="sitesection-${key}" class="ddrow" style="margin-top:${isFirst?'0':'18px'};scroll-margin-top:14px;" onclick="toggleSiteSection('${key}')">
         <span class="arrow">${siteSectionOpen[key]?'▼':'▶'}</span> ${label} (${list.length})
@@ -3728,6 +3964,7 @@ async function renderSites(){
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
   `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}); }
+  refreshHomeExtras();
   if(pendingSiteScrollSection){
     const key = pendingSiteScrollSection; pendingSiteScrollSection = null;
     const el = document.getElementById('sitesection-'+key);
@@ -5938,7 +6175,7 @@ window.togglePpeLogOperativeId = function(id){
 };
 window.clearPpeLogOperativeFilter = function(){ ppeLogOperativeIds = []; render(); };
 window.exportPpeLog = async function(){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   await loadAllProfiles();
   const range = ppeLogRange(ppeLogMode, ppeLogOffset);
   let rows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.asc&select=*');
@@ -5969,7 +6206,7 @@ window.exportPpeLog = async function(){
 // issuance of that item), unlike the PPE Log above which is a
 // chronological record of every issuance in a period.
 window.exportPpeRegister = async function(){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   await loadAllProfiles();
   const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
   if(!operatives.length){ toast('No operatives to report on.'); return; }
@@ -5991,7 +6228,7 @@ window.exportPpeRegister = async function(){
   await deliverExcelFile(wb, exportFilename('', 'PPE Register', 'xlsx'));
 };
 window.exportPpeLogPdf = async function(){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   await loadAllProfiles();
   const range = ppeLogRange(ppeLogMode, ppeLogOffset);
   let rows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.asc&select=*');
@@ -6083,7 +6320,8 @@ window.addTbtTemplate = async function(){
   tbtTemplateBusy = false;
   if(!stored){ render(); return; }
   const rows = await dbInsert('tbt_templates', {org_id:ME.org_id, title, storage_path:stored, created_by:ME.id});
-  if(rows){ toast('Added to the Toolbox Talk Bank'); render(); }
+  if(rows) toast('Added to the Toolbox Talk Bank');
+  render();
 };
 window.deleteTbtTemplate = async function(templateId, storagePath){
   if(!await customConfirm('Remove this template? Sites already created keep their copy — this only affects sites created from now on.')) return;
@@ -6786,6 +7024,7 @@ function certListSelectionBarHtml(certs, key, operativeId, pmList){
 // anything else (e.g. a Word doc synced from OneDrive) gets a placeholder
 // note since it can't be flattened into a PDF page client-side.
 async function buildCertBundlePdf(certIds){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const certs = await dbSelect('operative_certifications', 'id=in.('+certIds.join(',')+')&select=*');
   const merged = await PDFLib.PDFDocument.create();
   const fonts = await havsPdfFonts(merged);
@@ -6822,7 +7061,7 @@ async function buildCertBundlePdf(certIds){
 }
 window.exportSelectedCerts = async function(ids){
   if(!ids || !ids.length) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   certBulkExportBusy = true; render();
   try{
     const {bytes, filename} = await buildCertBundlePdf(ids);
@@ -6833,7 +7072,7 @@ window.exportSelectedCerts = async function(ids){
 };
 window.emailSelectedCerts = async function(ids, recipient){
   if(!ids || !ids.length) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   certBulkEmailBusy = true; render();
   try{
     const {bytes, filename} = await buildCertBundlePdf(ids);
@@ -7198,6 +7437,7 @@ async function trainingMatrixData(){
   return {operatives, byOp};
 }
 window.exportTrainingMatrixExcel = async function(){
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return null; }
   const {operatives, byOp} = await trainingMatrixData();
   if(!operatives.length){ toast('No operatives to report.'); return; }
   const filename = exportFilename('', 'Training Matrix', 'xlsx');
@@ -7213,7 +7453,7 @@ window.exportTrainingMatrixExcel = async function(){
   // org name as the sheet title) — same treatment as the Priced Sheet Excel
   // export. Falls back to the plain SheetJS file below if ExcelJS isn't
   // available, same "nice-to-have, never blocks the export" rule as there.
-  if(typeof ExcelJS!=='undefined'){
+  if((await loadLib('ExcelJS'))){
     try{
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Training Matrix');
@@ -7259,7 +7499,7 @@ window.exportTrainingMatrixExcel = async function(){
   await deliverExcelFile(wb, filename);
 };
 window.exportTrainingMatrixPdf = async function(){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   const {operatives, byOp} = await trainingMatrixData();
   if(!operatives.length){ toast('No operatives to report.'); return; }
   const pdfDoc = await PDFLib.PDFDocument.create();
@@ -7402,7 +7642,8 @@ window.createPermanentInvite = async function(){
   const farFuture = new Date(Date.now() + 1000*60*60*24*365*10).toISOString();
   const rows = await dbInsert('invites', {org_id: ME.org_id, role:'operative', created_by: ME.id, is_reusable:true, expires_at: farFuture});
   permanentInviteBusy = false;
-  if(rows){ toast('Permanent invite link created'); render(); }
+  if(rows) toast('Permanent invite link created');
+  render();
 };
 window.copyPermanentInviteLink = async function(inviteId){
   const link = OPHUB_WEB_URL + '#/join/' + inviteId;
@@ -7480,11 +7721,49 @@ async function renderSiteHome(siteId){
     });
   }
 
+  // 2026-10-03: the price-access check, the "has an operative not signed?"
+  // check and the Main Contractor tile count used to run one after another
+  // AFTER the main batch below (eight to ten round trips in a row for a
+  // manager). None of them depends on that batch, so they now start
+  // straight away and run alongside it.
+  const pricePromise = (async ()=>{
+    let can = false;
+    if(site.price_enabled){
+      if(ME.role==='admin' || site.responsible_pm_id===ME.id) can = true;
+      else {
+        const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
+        can = grant.length>0;
+      }
+    }
+    let pending = 0;
+    if(can && isManager(ME)){
+      const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
+      pending = pendingAw.length;
+    }
+    return {can, pending};
+  })();
+  const hsGapPromise = (async ()=>{
+    if(!isManager(ME)) return false;
+    const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
+      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
+      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+      loadAllProfiles(),
+    ]);
+    const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
+    if(!operativeIdsHere.length) return false;
+    const [ramsGapHere, coshhGapHere] = await Promise.all([
+      anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentHere, site, operativeIdsHere),
+      anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhDocsHere, site, operativeIdsHere),
+    ]);
+    return ramsGapHere || coshhGapHere;
+  })();
+  const mcTilesPromise = site.acting_as_main_contractor ? getMcTiles(siteId, site) : Promise.resolve(null);
   const todayISO = localISODate(new Date());
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
@@ -7525,48 +7804,9 @@ async function renderSiteHome(siteId){
     : todayCalEvents[0].title+' +'+(todayCalEvents.length-1)+' more';
   // Price tile visibility: project admin and this site's responsible PM
   // always see it once enabled; an operative needs an explicit grant.
-  let canSeePrice = false;
-  if(site.price_enabled){
-    if(ME.role==='admin' || site.responsible_pm_id===ME.id) canSeePrice = true;
-    else {
-      const grant = await dbSelect('site_price_access', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&select=user_id&limit=1');
-      canSeePrice = grant.length>0;
-    }
-  }
-  // #309: pending "Variation to Price" requests get a badge on the Price
-  // tile itself, not just the message sent to the PM at request time.
-  let pendingVariationCount = 0;
-  if(canSeePrice && isManager(ME)){
-    const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-    pendingVariationCount = pendingAw.length;
-  }
-  // #394: same roster-wide "!" the Health & Safety tile page shows a PM/admin
-  // — whether any operative assigned here still hasn't signed the current
-  // RAMS/COSHH — surfaced on this tile too since it's the first H&S entry
-  // point most managers actually land on.
-  let hsOperativeGap = false;
-  if(isManager(ME)){
-    await loadAllProfiles();
-    const [assignedRowsHere, ramsCurrentHere, coshhDocsHere] = await Promise.all([
-      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-      dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-      dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
-    ]);
-    const operativeIdsHere = assignedRowsHere.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
-    if(operativeIdsHere.length){
-      const [ramsGapHere, coshhGapHere] = await Promise.all([
-        anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentHere, site, operativeIdsHere),
-        anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhDocsHere, site, operativeIdsHere),
-      ]);
-      hsOperativeGap = ramsGapHere || coshhGapHere;
-    }
-  }
-  // Main Contractor tiles (CPP, Site Inductions, Subcontractors, Permits,
-  // Inspections, Asbestos, F10) live behind a single "Main Contractor" tile
-  // — that tile itself sits at position 2 on Home (right after Check
-  // In/Out) whenever a site's switched on for it; see renderMcHome for
-  // what's underneath it.
-  const mcAreaCount = site.acting_as_main_contractor ? (await getMcTiles(siteId, site)).visibleTiles.length : 0;
+  const [priceInfo, hsOperativeGap, mcTilesInfo] = await Promise.all([pricePromise, hsGapPromise, mcTilesPromise]);
+  const canSeePrice = priceInfo.can, pendingVariationCount = priceInfo.pending;
+  const mcAreaCount = mcTilesInfo ? mcTilesInfo.visibleTiles.length : 0;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="status-strip">
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
@@ -8071,7 +8311,7 @@ function extractWorkOrderField(rows, startLabel){
 }
 async function parseWorkOrderPdf(file){
   if(file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name||'')) return null; // a photo/scan — nothing to read
-  if(typeof pdfjsLib==='undefined') return null;
+  if(!(await loadLib('pdfjsLib'))) return null;
   try{
     const buf = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({data: buf}).promise;
@@ -8400,7 +8640,7 @@ window.bulkCloseRepairJobs = async function(siteId){
   render();
 };
 window.exportRepairTrackerExcel = async function(siteId){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&order=created_at.desc');
   const header = ['Job Number','Address','Description of Call out','Survey Required (Y/N/NA)','Survey Date','Survey Notes / Quoted works','Variation Works (£)','Scaffolding Required (Y/N/Tower)','Scaff Requirements','Quote Approved (Y/N)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date','Repair Completed? (Y/N)','Closed on Portal','Invoiced? (Y/N)','Job Status','Overdue?'];
@@ -8432,6 +8672,7 @@ window.exportRepairTrackerExcel = async function(siteId){
 // the live one fresh off the edge function, the saved one straight out of
 // repair_route_exports with no network/geocoding round trip at all.
 async function buildRepairRouteExcelAndDeliver(site, category, stops, unlocated){
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return null; }
   const dOnly = v => v ? String(v).slice(0,10) : '';
   const header = ['Order','Distance from Previous (mi)','Job Number','Address','Description','Notes','Access Requirement','Variation Works (£)','Scaffold Booking Date','Scaffold Erection Date','Repair Return Date'];
   const rows = (stops||[]).map(s=>[
@@ -8456,7 +8697,7 @@ async function buildRepairRouteExcelAndDeliver(site, category, stops, unlocated)
 // run" (repair_route_exports), which is what View Last Route below reads —
 // so every successful Update here immediately becomes the new "last run".
 window.exportRepairJobsRouteOrder = async function(siteId, category){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   repairRouteExportBusy = true; render();
   try{
@@ -8479,7 +8720,7 @@ window.exportRepairJobsRouteOrder = async function(siteId, category){
 // hitting "Update Route" (exportRepairJobsRouteOrder above) is what
 // replaces it with a freshly-worked-out one.
 window.viewSavedRepairRouteOrder = async function(siteId, category){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   const rows = await dbSelect('repair_route_exports', 'site_id=eq.'+siteId+'&category=eq.'+category);
   const saved = rows[0];
@@ -8494,7 +8735,7 @@ window.viewSavedRepairRouteOrder = async function(siteId, category){
 // in the order jobs were actually approved so nothing sits waiting
 // indefinitely just because it's geographically inconvenient.
 window.exportRepairJobsByApprovedDate = async function(siteId){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   repairApprovedExportBusy = true; render();
   try{
@@ -8536,6 +8777,16 @@ async function renderRepairJobDetail(siteId, jobId){
   if(__gen !== RENDER_GEN) return;
   repairJobDetailCurrent = job;
   if(!repairJobUnsavedNotes || repairJobUnsavedNotes.jobId !== jobId) repairJobUnsavedNotes = {jobId, survey:false, progress:false, completion:false, pricedSchedule:false};
+  // Anything typed into a notes box but not saved yet has to survive this
+  // redraw — adding a photo, saving access details, etc. all re-render the
+  // page, and that used to refill the boxes from the database and wipe what
+  // had just been typed (e.g. survey notes lost on tapping "+ Add Photo").
+  const REPAIR_NOTE_BOXES = {survey:'repairSurveyNotes', progress:'repairProgressNotes', completion:'repairWorksNotes', pricedSchedule:'repairPricedSchedule'};
+  const typedRepairNotes = {};
+  Object.keys(REPAIR_NOTE_BOXES).forEach(kind=>{
+    const el = document.getElementById(REPAIR_NOTE_BOXES[kind]);
+    if(el && repairJobUnsavedNotes[kind]) typedRepairNotes[kind] = el.value;
+  });
   const canManage = isManager(ME);
 
   function photoGalleryHtml(category){
@@ -8838,6 +9089,10 @@ async function renderRepairJobDetail(siteId, jobId){
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
   `, {title:job.address||'Repair Job', titleTwoLine:true, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs/'+(job.closed ? 'closed' : (JOB_STATUS_TO_CATEGORY[job.job_status] || 'survey')), siteId, activeTab:'home'});
+  Object.keys(typedRepairNotes).forEach(kind=>{
+    const el = document.getElementById(REPAIR_NOTE_BOXES[kind]);
+    if(el) el.value = typedRepairNotes[kind];
+  });
 }
 window.toggleRepairJobInfoEdit = function(jobId){
   repairJobInfoEditOpen[jobId] = !repairJobInfoEditOpen[jobId];
@@ -8989,7 +9244,15 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
     const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.survey&select=id&limit=1');
     if(!photoRows.length){ toast('Add at least one survey photo before marking the survey complete.'); return; }
     patch.survey_notes = notesText;
+    // Whoever completes the survey is the surveyor if nobody is recorded
+    // yet — without this the operative couldn't use "Edit" afterwards and
+    // the Survey Report PDF had no surveyor's name.
+    if(job && !job.surveyed_by) patch.surveyed_by = ME.id;
   }
+  // Notes typed but not saved separately are saved by this same tap — so the
+  // PM's "survey notes saved" email has to go from here too, since the notes
+  // box disappears once the survey is complete and the usual save never runs.
+  const surveyNotesWereUnsaved = value==='Y' && repairJobUnsavedNotes && repairJobUnsavedNotes.jobId===jobId && repairJobUnsavedNotes.survey;
   if(value==='Y' && job && !job.survey_date) patch.survey_date = new Date().toISOString();
   const effectiveDate = (patch.survey_date || (job && job.survey_date) || null);
   const surveyDateOnly = effectiveDate ? effectiveDate.slice(0,10) : null;
@@ -9002,10 +9265,14 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
   // shouldn't knock it back). Reverting to "not surveyed" sends it back.
   if((value==='Y' || value==='NA') && job && job.quote_approved==null && (!job.job_status || job.job_status==='To Survey')){
     patch.job_status = job.variation_cost!=null ? 'Surveyed - Variation Issued' : 'Surveyed - Awaiting Cost';
-  } else if(!value && job && (!job.job_status || job.job_status==='Surveyed - Awaiting Cost' || job.job_status==='Surveyed - Variation Issued')){
+  } else if((!value || value==='N') && job && (!job.job_status || job.job_status==='Surveyed - Awaiting Cost' || job.job_status==='Surveyed - Variation Issued')){
     patch.job_status = 'To Survey';
   }
   await saveRepairJobField(jobId, patch);
+  if(surveyNotesWereUnsaved){
+    repairJobUnsavedNotes.survey = false;
+    if(job && job.site_id) notifyPmOfRepairJobUpdate(jobId, job.site_id, 'survey', patch.survey_notes);
+  }
   if(value==='Y') scheduleRepairJobReportExport(jobId,'survey');
 };
 // Best-effort — emails the site's responsible PM whenever an operative
@@ -9054,7 +9321,7 @@ function scheduleRepairJobReportExport(jobId, kind){
 // requested rather than cached, so it's always up to date with whatever's
 // on the job right now.
 async function buildRepairJobSurveyPdf(jobId){
-  if(typeof PDFLib==='undefined') return null;
+  if(!(await loadLib('PDFLib'))) return null;
   const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
   const job = rows[0]; if(!job) return null;
   const site = SITES.find(s=>s.id===job.site_id);
@@ -9212,7 +9479,7 @@ async function exportRepairJobSurveyPdf(jobId){
 // completion photo. Andy asked for this so signing off a job leaves the same
 // kind of paper trail in OneDrive that surveying one already does.
 async function buildRepairJobCompletionPdf(jobId){
-  if(typeof PDFLib==='undefined') return null;
+  if(!(await loadLib('PDFLib'))) return null;
   const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
   const job = rows[0]; if(!job) return null;
   const site = SITES.find(s=>s.id===job.site_id);
@@ -9669,6 +9936,7 @@ function todoSelectionBarHtml(todosOnScreen, siteId){
 // Certifications bundle (#276) and PPE (#198), just drawing rows of text
 // instead of merging file pages since a to-do has no source document.
 async function buildTodoBundlePdf(ids, siteId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const todos = await dbSelect('todos', 'id=in.('+ids.join(',')+')&order=created_at.asc');
   const site = SITES.find(s=>s.id===siteId);
   const doc = await PDFLib.PDFDocument.create();
@@ -9693,7 +9961,7 @@ async function buildTodoBundlePdf(ids, siteId){
 }
 window.exportSelectedTodos = async function(ids){
   if(!ids || !ids.length) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   todoBulkExportBusy = true; render();
   try{
     const {bytes, filename} = await buildTodoBundlePdf(ids, todoListLastSiteId);
@@ -10027,7 +10295,11 @@ async function uploadTodoAttachment(todoId, file){
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
   if(!text){ toast('Enter what needs doing first.'); return; }
-  const row = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, date_required_by: newTodoDateDraft||null, created_by:ME.id});
+  // dbInsert returns an ARRAY of inserted rows — this used to treat it as
+  // the row itself, so row.id was undefined and the first comment, the
+  // attachments and the assignee notification all went out with no to-do id.
+  const todoRows = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, date_required_by: newTodoDateDraft||null, created_by:ME.id});
+  const row = todoRows && todoRows[0];
   if(row){
     const comment = (newTodoCommentDraft||'').trim();
     if(comment) await dbInsert('todo_comments', {todo_id:row.id, body:comment, created_by:ME.id});
@@ -11098,7 +11370,7 @@ window.viewPriceFile = async function(siteId, storagePath, filename){
     const res = await sbFetchOD('/functions/v1/price-file-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ priceFilePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
-    if(typeof XLSX==='undefined'){ priceFilePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
+    if(!(await loadLib('XLSX'))){ priceFilePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
     const buf = await (await fetch(d.url)).arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
     const firstSheet = wb.Sheets[wb.SheetNames[0]];
@@ -13605,7 +13877,7 @@ async function pbSheetLiveFigures(sheet){
 // what's already saved on the sheet, so Save Draft first if you want an
 // export to include your latest edits.
 window.exportPriceBuilderSheet = async function(sheetId){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
   if(!sheet){ toast('Sheet not found.'); return; }
@@ -13686,7 +13958,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   // logo top-right same as the PDF export does. If ExcelJS failed to load
   // for any reason, fall back to the plain SheetJS/XLSX file below — same
   // data, just without the logo — rather than blocking the export entirely.
-  if(typeof ExcelJS!=='undefined'){
+  if((await loadLib('ExcelJS'))){
     try{
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('Priced Sheet');
@@ -13718,12 +13990,9 @@ window.exportPriceBuilderSheet = async function(sheetId){
       }
 
       const buffer = await wb.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = exportFileName+'.xlsx';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+      // deliverExcelBuffer handles the native app too — a plain <a download>
+      // does nothing inside the Android/iOS WebView.
+      await deliverExcelBuffer(buffer, exportFileName+'.xlsx');
       return;
     }catch(e){ /* fall through to the plain SheetJS export below */ }
   }
@@ -13746,7 +14015,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   }
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
-  XLSX.writeFile(wb, exportFileName+'.xlsx');
+  await deliverExcelFile(wb, exportFileName+'.xlsx');
 };
 // The "Subcontractor SOW" style PDF — same layout as the reference sheet
 // (site name, itemised list with no column header row, Total / Taken /
@@ -13761,7 +14030,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
 // duplicating this whole function. Returns null (after its own toast) on
 // any failure instead of throwing, so both callers can just check for that.
 async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
   if(!sheet){ toast('Sheet not found.'); return null; }
@@ -14074,7 +14343,7 @@ window.viewLabourInvoice = async function(siteId, storagePath, filename){
     const res = await sbFetchOD('/functions/v1/labour-invoice-access', {method:'POST', body:JSON.stringify({site_id:siteId, storage_path:storagePath})});
     const d = await res.json();
     if(!res.ok || d.error || !d.url){ labourInvoicePreview = {path:storagePath, filename, loading:false, error: d.error || 'Could not load the file.', sheetHtml:null}; render(); return; }
-    if(typeof XLSX==='undefined'){ labourInvoicePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
+    if(!(await loadLib('XLSX'))){ labourInvoicePreview = {path:storagePath, filename, loading:false, error:'Excel library failed to load — check connection.', sheetHtml:null}; render(); return; }
     const buf = await (await fetch(d.url)).arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
     const firstSheet = wb.Sheets[wb.SheetNames[0]];
@@ -14527,7 +14796,7 @@ window.toggleReportSelect = function(id){
 };
 window.exportSelectedReports = async function(siteId){
   if(!selectedReportIds.size) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   bulkExportBusy = true; render();
   toast('Building PDF…');
   try{
@@ -14905,7 +15174,10 @@ window.submitReport = async function(siteId){
       });
     }
   }));
-  if(photoUploadTasks.length) await Promise.all(photoUploadTasks);
+  // Guarded: an unexpected throw in any one upload used to leave the button
+  // stuck on "Completing…" until the app was reloaded.
+  try{ if(photoUploadTasks.length) await Promise.all(photoUploadTasks); }
+  catch(e){ console.error(e); failedPhotoUploads = Math.max(1, failedPhotoUploads); }
   if(failedPhotoUploads>0){
     reportSubmitBusy = false;
     toast(`${failedPhotoUploads} photo${failedPhotoUploads>1?'s':''} failed to upload — check your connection and try submitting again.`);
@@ -15032,7 +15304,7 @@ function isTitleSection(s){
 }
 async function buildReportPdf(submissionId, opts){
   const suppressSignatureTimestamp = !!(opts && opts.fromBriefing);
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0]; if(!sub) return null;
   const site = SITES.find(s=>s.id===sub.site_id);
@@ -15938,7 +16210,7 @@ window.doCheckAction = async function(siteId, type){
   render();
 };
 window.exportCheckins = async function(siteId, scope){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   let qs = 'site_id=eq.'+siteId+'&order=ts.asc';
   if(scope==='week') qs += '&ts=gte.'+new Date(startOfWeek(Date.now())).toISOString();
@@ -16356,9 +16628,18 @@ function taskPctFill(pct){
   const col = 'rgb('+mix(255,22)+','+mix(255,163)+','+mix(255,74)+')'; // white -> #16A34A
   return 'linear-gradient(to right, '+col+' 0%, '+col+' '+p+'%, #fff '+p+'%, #fff 100%)';
 }
+// True while the user is in the middle of something a background refresh
+// would destroy: an open dropdown, a slider mid-drag, or a text box with the
+// cursor in it (the 8-second poll used to wipe a half-typed task name).
 function scheduleControlBusy(){
   const el = document.activeElement;
-  return !!el && (el.tagName==='SELECT' || (el.tagName==='INPUT' && el.type==='range'));
+  if(!el) return false;
+  if(el.tagName==='SELECT' || el.tagName==='TEXTAREA') return true;
+  if(el.tagName==='INPUT'){
+    const t = (el.type||'text').toLowerCase();
+    return t!=='checkbox' && t!=='radio' && t!=='button' && t!=='submit' && t!=='file';
+  }
+  return false;
 }
 window.setTaskPercent = async function(siteId, taskId, value){
   const pct = Math.max(0, Math.min(100, Math.round(Number(value)/10)*10));
@@ -16597,6 +16878,7 @@ async function renderSchedule(siteId){
   // that, so it doesn't fight a tab the user has deliberately picked.
   if(scheduleLastSiteId !== siteId){
     scheduleLastSiteId = siteId;
+    percentPromptTaskId = null;
     scheduleFilter = 'active';
     sectionFirstSubAddr = {};
     scheduleMultiSelectMode = false;
@@ -16763,7 +17045,7 @@ async function renderSchedule(siteId){
       </div>
     ` : ''}
     ${showUngroupedCard ? (()=>{
-      const open = ungrouped.length ? scheduleSectionsOpen['__ungrouped__'] !== false : scheduleAddPanel==='task';
+      const open = scheduleAddPanel==='task' || (ungrouped.length ? scheduleSectionsOpen['__ungrouped__'] !== false : false);
       // A dropdown/"who can see this" popup for any task in here is an
       // absolutely-positioned (or just tall) element nested inside this
       // card — the overflow:hidden below (there only to clip this card's
@@ -16778,7 +17060,7 @@ async function renderSchedule(siteId){
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;">
           <span style="cursor:pointer;flex:1;min-width:0;" onclick="toggleScheduleSection('__ungrouped__')"><span class="arrow">${open?'▼':'▶'}</span> Schedule of Works</span>
-          ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';if(!open){scheduleSectionsOpen['__ungrouped__']=true;}render()">➕ Add Task</button>` : ''}
+          ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';scheduleSectionsOpen['__ungrouped__']=true;render()">➕ Add Task</button>` : ''}
         </p>
         ${open ? `<div style="padding:0 14px 14px;">
           ${canAdd && scheduleAddPanel==='task' ? `
@@ -16889,7 +17171,7 @@ async function renderSchedule(siteId){
     if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || scheduleAssignTarget || scheduleAddPanel || pendingCompleteTaskId || pdfImportSiteId) return;
     // An open dropdown (e.g. a document's visibility picker) or a percentage
     // slider mid-drag would be yanked out from under the user by a re-render.
-    if(percentPromptTaskId || scheduleControlBusy()) return;
+    if(scheduleControlBusy()) return;
     render();
   }, 8000);
 }
@@ -17019,6 +17301,7 @@ window.setTaskStatus = async function(siteId, taskId, next){
   // handles the direct, no-evidence-needed To Commence/In Progress moves.
   if(next==='done') return;
   if(pendingCompleteTaskId===taskId) pendingCompleteTaskId = null;
+  if(percentPromptTaskId===taskId) percentPromptTaskId = null;
   // Moving a task back off "done" (e.g. re-opening it) clears the completed
   // date too, so it doesn't keep a stale timestamp from a previous completion.
   // Back to To Commence wipes the percentage; re-opening a finished task to
@@ -17033,6 +17316,7 @@ window.setTaskStatus = async function(siteId, taskId, next){
 // mandatory completed-photo upload prompt. Nothing is marked done until a
 // photo actually uploads successfully (see completeTaskWithPhotos below).
 window.beginTaskComplete = function(taskId){
+  if(percentPromptTaskId===taskId) percentPromptTaskId = null;
   pendingCompleteTaskId = taskId;
   render();
 };
@@ -17254,7 +17538,7 @@ async function syncPhotoToOneDriveFolder(dataUrl, filename, folderId, driveId){
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 }
 window.downloadScheduleTemplate = async function(){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const data = [
     {Task:'e.g. Strip and dispose of existing roof covering'},
     {Task:'e.g. Fit new lead flashing to chimney'},
@@ -17268,7 +17552,7 @@ window.downloadScheduleTemplate = async function(){
 };
 window.importScheduleExcel = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   try{
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
@@ -17319,7 +17603,7 @@ window.confirmScheduleImport = async function(siteId){
 };
 window.importSchedulePdf = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
-  if(typeof pdfjsLib==='undefined'){ toast('PDF reader failed to load — check connection.'); return; }
+  if(!(await loadLib('pdfjsLib'))){ toast('PDF reader failed to load — check connection.'); return; }
   const manual = !!(document.getElementById('pdfManualMode') && document.getElementById('pdfManualMode').checked);
   toast('Reading PDF…');
   try{
@@ -17575,7 +17859,9 @@ function pdfHexToRgb(hex){
 }
 async function pdfFetchImageBytes(url){
   try{
-    const res = await fetch(url);
+    // Timed: a single photo that never finishes downloading used to hang
+    // the whole PDF build (and leave "Building PDF…" stuck on the button).
+    const res = await fetchWithTimeout(url, {}, 20000);
     if(!res.ok) return null;
     return new Uint8Array(await res.arrayBuffer());
   }catch(e){ return null; }
@@ -17810,7 +18096,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
 // the "Export" (deliverPdf) and "Email" (#289 — attaches these same bytes
 // via send-snags-email) actions so the two never drift apart.
 async function buildSnaggingPdfBytes(siteId, scope){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   let qs = 'site_id=eq.'+siteId+'&order=created_at.asc';
   if(scope==='live') qs += '&status=eq.open';
@@ -18011,7 +18297,7 @@ window.emailSnaggingPDF = async function(siteId, scope){
 // bytes without delivering them anywhere, so both callers decide what to do
 // with the result (download vs. attach to an email).
 async function buildSchedulePdfBytes(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const allTasksUnfiltered = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
   if(!allTasksUnfiltered.length){ toast('No tasks to export yet.'); return null; }
@@ -18118,7 +18404,10 @@ async function buildSchedulePdfBytes(siteId){
     });
     // Overall progress bar.
     y = chipY - 22;
-    const pct = allTasks.length ? Math.round((doneTasks.length/allTasks.length)*100) : 0;
+    // Worked out across every task on the job, not the tab being exported —
+    // it used to read 0% on a To Do / In Progress export and 100% on a
+    // Complete one, whatever the real figure was.
+    const pct = allTasksUnfiltered.length ? Math.round((allTasksUnfiltered.filter(t=>t.status==='done').length/allTasksUnfiltered.length)*100) : 0;
     const barW = PAGE_W - 2*MARGIN;
     page.drawText('Overall progress: ' + pct + '%', {x:MARGIN, y, size:9, font:bold, color:INK});
     y -= 10;
@@ -19152,7 +19441,7 @@ window.deleteSiteLayout = async function(id, storagePath){
   if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
 };
 async function buildSignedSiteLayoutPdf(layoutId){
-  if(typeof PDFLib==='undefined') return null;
+  if(!(await loadLib('PDFLib'))) return null;
   const docs = await dbSelect('site_layout_docs', 'id=eq.'+layoutId+'&select=*');
   const doc = docs[0];
   if(!doc) return null;
@@ -19574,7 +19863,7 @@ window.removeSiteInductionQuestion = async function(i){
   if(row){ ORG = row; toast('Removed'); render(); }
 };
 async function buildSiteInductionPdfBytes(site, operative, emergencyName, emergencyNumber, signaturePathOverride, healthAnswersArg, healthDetailsArg){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const pdfDoc = await PDFLib.PDFDocument.create();
   const bold = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaBold);
   const reg = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
@@ -20007,7 +20296,7 @@ async function renderSubSchedule(siteId, companyId){
     if(!document.getElementById('subScheduleLiveMarker')){ clearInterval(subSchedulePollTimer); subSchedulePollTimer = null; return; }
     if(document.hidden || navigator.onLine === false) return;
     if(editingTaskId || addressPickerTaskId || subcontractorAssignPickerTaskId || pendingCompleteTaskId) return;
-    if(percentPromptTaskId || scheduleControlBusy()) return;
+    if(scheduleControlBusy()) return;
     render();
   }, 8000);
 }
@@ -20750,7 +21039,7 @@ window.signAllRams = async function(siteId){
 // subcontractor's own tile) can build from exactly the same bytes. Returns
 // null (after its own toast) on any failure/no-signatures-yet.
 async function buildSignedRamsPdfBytes(ramsId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return null; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const docs = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
   const doc = docs[0];
   if(!doc){ toast('Document not found.'); return null; }
@@ -21084,7 +21373,7 @@ window.signAllCoshh = async function(siteId){
 // nothing to build (no doc, no signatures, or PDFLib not ready). Doesn't
 // toast on the "nothing to build" cases so a bulk caller can just skip it.
 async function buildSignedCoshhPdf(coshhId){
-  if(typeof PDFLib==='undefined') return null;
+  if(!(await loadLib('PDFLib'))) return null;
   const docs = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=*');
   const doc = docs[0];
   if(!doc) return null;
@@ -21225,21 +21514,27 @@ async function renderHealthSafety(siteId){
     `, {title:'Health & Safety', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
     return;
   }
-  const [pendingRamsRows, pendingCoshhRows, liveTbt, briefingTemplates, incidentCount] = await Promise.all([
-    // status=eq.current — RAMS docs can be superseded (see renderRams, which
-    // already filters this way); without it a superseded document still
-    // padded out the "X documents" count shown on this tile even though it
-    // no longer appears, or needs signing, on the actual RAMS page.
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id'),
+  // 2026-10-03: this page used to make about ten round trips one after
+  // another before drawing anything — including fetching RAMS and COSHH
+  // twice each, and the site-layout and H&S policy data whose results were
+  // never shown. It is now two waves: everything independent together, then
+  // the signature checks that need the first wave's document ids.
+  // (The RAMS query also now excludes subcontractor RAMS, same as the RAMS
+  // page itself — they used to inflate the badge here with documents that
+  // can't be signed from the main RAMS page.)
+  const mgr = isManager(ME);
+  const [ramsCurrentRows, coshhCurrentRows, liveTbt, briefingTemplates, incidentCount, ppeRows, assignedRows] = await Promise.all([
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
     dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&status=eq.live&subcontractor_company_id=is.null&select=id,title'),
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_daily_briefing=eq.true&archived=eq.false&select=id'),
     dbSelect('incident_reports', 'site_id=eq.'+siteId+'&select=id'),
+    mgr ? dbSelect('ppe_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id')
+        : dbSelect('ppe_issuances', 'user_id=eq.'+ME.id+'&status=eq.pending_signature&select=id'),
+    mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    mgr ? loadAllProfiles() : Promise.resolve(),
   ]);
-  // How many of THIS user's RAMS/COSHH documents on this site are still
-  // outstanding — same "stale on rollover" cycle logic used everywhere else
-  // (filterCurrentCycleSigs), so this counts what actually still needs
-  // signing right now, not just the raw signature count.
+  const pendingRamsRows = ramsCurrentRows, pendingCoshhRows = coshhCurrentRows;
   async function pendingSignCount(table, docKeyField, docRows){
     if(!docRows.length) return 0;
     const ids = docRows.map(d=>d.id).join(',');
@@ -21247,64 +21542,18 @@ async function renderHealthSafety(siteId){
     const validSigs = filterCurrentCycleSigs(mySigs, docRows, docKeyField, site);
     return docRows.length - new Set(validSigs.map(s=>s[docKeyField])).size;
   }
-  const [ramsCurrentRows, coshhCurrentRows] = await Promise.all([
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&select=id,resign_cycle_start,uploaded_at'),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'),
+  const operativeIds = mgr ? assignedRows.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative') : [];
+  const [ramsUnsignedCount, coshhUnsignedCount, ramsOperativeGap, coshhOperativeGap, briefings] = await Promise.all([
+    mgr ? 0 : pendingSignCount('rams_signatures', 'rams_id', ramsCurrentRows),
+    mgr ? 0 : pendingSignCount('coshh_signatures', 'coshh_id', coshhCurrentRows),
+    operativeIds.length ? anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentRows, site, operativeIds) : false,
+    operativeIds.length ? anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhCurrentRows, site, operativeIds) : false,
+    briefingTemplates.length ? dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+briefingTemplates.map(t=>t.id).join(',')+')&select=id') : Promise.resolve([]),
   ]);
-  const [ramsUnsignedCount, coshhUnsignedCount] = await Promise.all([
-    pendingSignCount('rams_signatures', 'rams_id', ramsCurrentRows),
-    pendingSignCount('coshh_signatures', 'coshh_id', coshhCurrentRows),
-  ]);
-  // #394: a PM/admin's own pendingSignCount above only ever reflects THEIR
-  // personal signature (and PMs/admins can't sign COSHH at all — #237/#327 —
-  // so that count is meaningless to them for COSHH). What a manager actually
-  // needs at a glance is whether any of the OPERATIVES assigned to this site
-  // still haven't signed the current RAMS/COSHH — a simple "!" flag, not a
-  // count, mirroring the roster-completion logic computeOutstandingRows uses
-  // for the same purpose elsewhere.
-  let ramsOperativeGap = false, coshhOperativeGap = false, layoutOperativeGap = false;
-  const {docs: layoutDocs, sigsByDoc: layoutSigsByDoc} = await fetchSiteLayoutData(siteId);
-  const layoutUnsignedCount = layoutDocs.filter(r=>!(layoutSigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
-  if(isManager(ME) && (ramsCurrentRows.length || coshhCurrentRows.length || layoutDocs.length)){
-    await loadAllProfiles();
-    const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
-    const operativeIds = assignedRows.map(r=>r.user_id).filter(uid=>PROFILES[uid] && PROFILES[uid].role==='operative');
-    if(operativeIds.length){
-      [ramsOperativeGap, coshhOperativeGap, layoutOperativeGap] = await Promise.all([
-        anyOperativeMissingSignature('rams_signatures', 'rams_id', ramsCurrentRows, site, operativeIds),
-        anyOperativeMissingSignature('coshh_signatures', 'coshh_id', coshhCurrentRows, site, operativeIds),
-        anyOperativeMissingSignature('site_layout_signatures', 'layout_id', layoutDocs, site, operativeIds),
-      ]);
-    }
-  }
-  let hsPolicySigned = true;
-  {
-    const curPolicy = await dbSelect('hs_policy_docs', 'org_id=eq.'+ME.org_id+'&status=eq.current&order=uploaded_at.desc&limit=1');
-    if(curPolicy.length){
-      const mySig = await dbSelect('hs_policy_signatures', 'policy_id=eq.'+curPolicy[0].id+'&user_id=eq.'+ME.id+'&select=user_id,signed_at&limit=1');
-      hsPolicySigned = mySig.length>0 && hsPolicySigStillValid(curPolicy[0], mySig[0]);
-    }
-  }
-  let briefingSub = 'None yet';
-  if(briefingTemplates.length){
-    const ids = briefingTemplates.map(t=>t.id).join(',');
-    const briefings = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id,issued_at');
-    briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
-  }
-  // PPE tile summary — moved here from Site Home so all H&S-adjacent tiles
-  // live together: an operative sees how many of their own issuances are
-  // waiting on their signature; a PM/admin sees how many PPE requests from
-  // this site are still pending fulfilment.
-  let ppeTileSub = 'Issue & track PPE', ppeTileCount = 0;
-  if(isManager(ME)){
-    const pendingReqs = await dbSelect('ppe_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-    ppeTileCount = pendingReqs.length;
-    ppeTileSub = pendingReqs.length ? pendingReqs.length+' request'+(pendingReqs.length===1?'':'s') : 'Issue & track PPE';
-  } else {
-    const pendingSigs = await dbSelect('ppe_issuances', 'user_id=eq.'+ME.id+'&status=eq.pending_signature&select=id');
-    ppeTileCount = pendingSigs.length;
-    ppeTileSub = pendingSigs.length ? pendingSigs.length+' to sign' : 'My PPE';
-  }
+  const briefingSub = briefings.length ? `${briefings.length} briefing${briefings.length===1?'':'s'}` : 'None yet';
+  const ppeTileCount = ppeRows.length;
+  const ppeTileSub = mgr ? (ppeRows.length ? ppeRows.length+' request'+(ppeRows.length===1?'':'s') : 'Issue & track PPE')
+                         : (ppeRows.length ? ppeRows.length+' to sign' : 'My PPE');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
@@ -21606,7 +21855,7 @@ window.deletePpeIssuance = async function(issuanceId){
 };
 window.exportSelectedPpe = async function(siteId){
   if(!selectedPpeIds.size) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   bulkPpeExportBusy = true; render();
   toast('Building PDF…');
   try{
@@ -21665,6 +21914,7 @@ window.togglePpeRequestSelect = function(id){
   render();
 };
 async function buildPpeRequestsSummaryPdf(siteId, requests){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   await loadAllProfiles();
   const site = SITES.find(s=>s.id===siteId);
   const pdfDoc = await PDFLib.PDFDocument.create();
@@ -21698,7 +21948,7 @@ async function buildPpeRequestsSummaryPdf(siteId, requests){
 }
 window.exportSelectedPpeRequests = async function(siteId){
   if(!selectedPpeRequestIds.size) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   bulkPpeReqExportBusy = true; render();
   try{
     const ids = Array.from(selectedPpeRequestIds);
@@ -21935,7 +22185,8 @@ window.submitPpeIssuance = async function(siteId){
   const now = new Date().toISOString();
   const rows = await dbInsert('ppe_issuances', userIds.map(userId=>({org_id:ME.org_id, site_id:siteId, user_id:userId, items, issued_by:ME.id, status:'signed', signed_at:now})));
   ppeIssueBusy = false;
-  if(rows){ toast('PPE issued to '+userIds.length+' operative'+(userIds.length===1?'':'s')); ppeIssueOpen=false; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; ppeIssueOperativeIds=[]; render(); }
+  if(rows){ toast('PPE issued to '+userIds.length+' operative'+(userIds.length===1?'':'s')); ppeIssueOpen=false; ppeIssueSelectedItems=[]; ppeIssueCustomItem=''; ppeIssueOperativeIds=[]; }
+  render();
 };
 window.signPpeIssuance = async function(issuanceId){
   if(!ME.signature_path){
@@ -21967,7 +22218,7 @@ window.cancelPpeRequest = async function(requestId){
   if(row){ toast('Request cancelled'); render(); }
 };
 window.exportPpeSiteReport = async function(siteId){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   await loadAllProfiles();
   const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
@@ -21999,6 +22250,7 @@ window.exportPpeSiteReport = async function(siteId){
   await deliverExcelFile(wb, exportFilename(site.name, 'PPE Report', 'xlsx'));
 };
 async function buildPpeIssuancePdf(issuanceId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('ppe_issuances', 'id=eq.'+issuanceId+'&select=*');
   const i = rows[0]; if(!i) return null;
   await loadAllProfiles();
@@ -22045,7 +22297,7 @@ async function buildPpeIssuancePdf(issuanceId){
   return {bytes, filename};
 }
 window.exportPpeIssuancePdf = async function(issuanceId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building PDF…');
   try{
     const built = await buildPpeIssuancePdf(issuanceId);
@@ -22613,7 +22865,7 @@ async function renderHavsCompletedTab(siteId, site, canManage, __gen){
   `, {title:'HAVS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/havspuwer`, siteId, activeTab:'more'}); }
 }
 window.exportHavsCompletedWeek = async function(siteId, weekStart){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   havsCompletedBusyAction = weekStart+'|export'; render();
   try{
     const days = havsWeekDatesFromStart(weekStart);
@@ -22627,7 +22879,7 @@ window.exportHavsCompletedWeek = async function(siteId, weekStart){
   havsCompletedBusyAction = null; render();
 };
 window.emailHavsCompletedWeek = async function(siteId, weekStart){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   havsCompletedBusyAction = weekStart+'|email'; render();
   try{
     const days = havsWeekDatesFromStart(weekStart);
@@ -22922,6 +23174,7 @@ async function havsFetchLogoImg(pdfDoc){
 // the stored week's dates instead so a past week can be re-exported exactly
 // as it was.
 async function buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilename){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const dateFrom = localISODate(days[0]), dateTo = localISODate(days[4]);
   const [tools, entries] = await Promise.all([
@@ -22949,7 +23202,7 @@ function havsBytesToBase64(bytes){
   return btoa(binary);
 }
 window.exportHavsIndividual = async function(siteId, userId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   try{
     await loadAllProfiles();
     const op = PROFILES[userId];
@@ -23000,7 +23253,7 @@ async function havsResolveAllOperatives(siteId){
   return operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
 }
 window.exportHavsCollective = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   havsExportAllBusy = true; render();
   try{
     const operatives = await havsResolveAllOperatives(siteId);
@@ -23010,10 +23263,10 @@ window.exportHavsCollective = async function(siteId){
     console.error('HAVS collective export failed', err);
     toast('Export failed — '+(err && err.message ? err.message : 'unknown error'));
   }
-  havsExportAllBusy = false; render();
+  finally{ havsExportAllBusy = false; render(); }
 };
 window.emailHavsCollective = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   havsEmailAllBusy = true; render();
   try{
     const operatives = await havsResolveAllOperatives(siteId);
@@ -23023,10 +23276,10 @@ window.emailHavsCollective = async function(siteId){
     console.error('HAVS collective email failed', err);
     toast('Email failed — '+(err && err.message ? err.message : 'unknown error'));
   }
-  havsEmailAllBusy = false; render();
+  finally{ havsEmailAllBusy = false; render(); }
 };
 window.exportHavsSelected = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   if(!havsExportSelectedIds.length){ toast('Tick at least one operative in Weekly Summary to export.'); return; }
   try{
     await loadAllProfiles();
@@ -23670,6 +23923,7 @@ window.deletePuwerInspection = async function(siteId, userId){
 // Shared by Export PDF and Email PUWER Report — both build the exact same
 // PDF, just differ in what happens to the bytes afterwards.
 async function buildPuwerPdf(siteId, userId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   await loadAllProfiles();
   const op = PROFILES[userId];
   const site = SITES.find(s=>s.id===siteId);
@@ -23683,7 +23937,7 @@ async function buildPuwerPdf(siteId, userId){
   return {bytes, filename, site, op, weekLabel};
 }
 window.exportPuwerInspection = async function(siteId, userId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
   toast('Building PDF…');
   try{
@@ -23695,7 +23949,7 @@ window.exportPuwerInspection = async function(siteId, userId){
   }
 };
 window.emailPuwerInspection = async function(siteId, userId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   if(!puwerFillDraft || !puwerFillDraft.inspectionId){ toast('Save the inspection first.'); return; }
   const puwerCcSite = SITES.find(s=>s.id===siteId);
   let puwerCcClientEmail = null;
@@ -23734,6 +23988,7 @@ async function loadPuwerInspectionForExport(siteId, userId, weekStart){
 // PDF with one operative's inspection page-set per operative, mirroring
 // buildHavsPdf's multi-operative loop.
 async function buildPuwerCollectivePdf(siteId, operatives, labelForFilename){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const weekStart = puwerWeekStartISO(puwerWeekOffset);
   const weekLabel = puwerWeekLabel(puwerWeekOffset);
@@ -23755,7 +24010,7 @@ async function puwerResolveAllOperatives(siteId){
   return operativeIds.map(id=>PROFILES[id]).filter(Boolean).sort((a,b)=>a.name.localeCompare(b.name));
 }
 window.exportPuwerIndividual = async function(siteId, userId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   try{
     await loadAllProfiles();
     const op = PROFILES[userId];
@@ -23768,7 +24023,7 @@ window.exportPuwerIndividual = async function(siteId, userId){
   }
 };
 window.exportPuwerCollective = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   puwerExportAllBusy = true; render();
   try{
     const operatives = await puwerResolveAllOperatives(siteId);
@@ -23784,7 +24039,7 @@ window.exportPuwerCollective = async function(siteId){
   puwerExportAllBusy = false; render();
 };
 window.emailPuwerCollective = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   const puwerCcSite2 = SITES.find(s=>s.id===siteId);
   let puwerCcClientEmail2 = null;
   if(puwerCcSite2 && puwerCcSite2.client_email){
@@ -23812,7 +24067,7 @@ window.emailPuwerCollective = async function(siteId){
   puwerEmailAllBusy = false; render();
 };
 window.exportPuwerSelected = async function(siteId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   if(!puwerExportSelectedIds.length){ toast('Tick at least one operative to export.'); return; }
   try{
     await loadAllProfiles();
@@ -24294,6 +24549,7 @@ async function renderIncidentView(siteId, reportId){
   `, {title:'Incident Report', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/incidents`, siteId, tabs:false, tightBottom:true}); }
 }
 async function buildIncidentPdf(reportId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('incident_reports', 'id=eq.'+reportId+'&select=*');
   const r = rows[0]; if(!r) return null;
   await loadAllProfiles();
@@ -24410,7 +24666,7 @@ async function buildIncidentPdf(reportId){
   return {bytes, filename};
 }
 window.exportIncidentPdf = async function(reportId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building PDF…');
   try{
     const built = await buildIncidentPdf(reportId);
@@ -24419,7 +24675,7 @@ window.exportIncidentPdf = async function(reportId){
   }catch(e){ console.error('Incident PDF export failed', e); toast('Export failed — '+(e && e.message ? e.message : 'unknown error')); }
 };
 window.emailIncidentReport = async function(siteId, reportId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   const incidentSite = SITES.find(s=>s.id===siteId);
   let incidentCcClientEmail = null;
   if(incidentSite && incidentSite.client_email){
@@ -24548,7 +24804,7 @@ window.toggleBriefingSelect = function(id){
 };
 window.exportSelectedBriefings = async function(siteId){
   if(!selectedBriefingIds.size) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   bulkBriefingExportBusy = true; render();
   toast('Building PDF…');
   try{
@@ -24637,7 +24893,7 @@ window.signBriefing = async function(siteId, submissionId){
   if(rows){ toast('Signed'); render(); }
 };
 window.exportDailyBriefingPDF = async function(submissionId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building PDF…');
   const built = await buildReportPdf(submissionId, {fromBriefing:true});
   if(!built) return;
@@ -25105,7 +25361,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
   const input = document.getElementById('tbtEmailAddressInput');
   const email = input ? input.value.trim() : '';
   if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   const btn = document.getElementById('tbtEmailConfirmBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Building PDFs…'; }
   const ids = Array.from(selectedTbtIds);
@@ -25236,7 +25492,7 @@ window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
 // email below — builds the signed-copy PDF and hands back its bytes without
 // delivering it anywhere, so both callers can decide what to do with it.
 async function buildSignedToolboxTalkPdfBytes(tbtId){
-  if(typeof PDFLib==='undefined') return null;
+  if(!(await loadLib('PDFLib'))) return null;
   const rows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=*');
   const talk = rows[0];
   if(!talk) return null;
@@ -25277,7 +25533,7 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   return {outBytes, filename, talk};
 }
 window.exportSignedToolboxTalk = async function(tbtId){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   toast('Building signed PDF…');
   try{
     const built = await buildSignedToolboxTalkPdfBytes(tbtId);
@@ -26175,7 +26431,7 @@ window.saveSupplierField = async function(input, supplierId, field){
 };
 window.importSuppliersExcel = async function(input, siteId){
   const file = input.files && input.files[0]; if(!file) return;
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   try{
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
@@ -26629,7 +26885,7 @@ async function renderLolerInspections(siteId){
               <p class="stub" style="margin:0 0 8px;">Pick the plant item this inspection is for:</p>
               <button class="ghostbtn" style="margin-bottom:8px;" onclick="toggleLolerPlantPick()">Choose From Plant Register</button>
               <div class="formfield" style="margin-top:0;"><input type="text" id="lolerManualName" placeholder="Or type a one-off item name" value="${escapeHtml(lolerManualName)}" oninput="lolerManualName=this.value"></div>
-              ${lolerManualName.trim() ? `<button class="darkbtn" onclick="startLolerInspection('${siteId}','${templates[0].id}',null,document.getElementById('lolerManualName').value.trim())">Start Inspection</button>` : ''}
+<button class="darkbtn" onclick="(function(){var v=document.getElementById('lolerManualName').value.trim();if(!v){toast('Type an item name first, or choose from the Plant Register.');return;}startLolerInspection('${siteId}','${templates[0].id}',null,v);})()">Start Inspection With This Name</button>
             ` : `
               <p class="stub" style="margin:0 0 8px;">Select an item:</p>
               ${plantItems.map(p=>`
@@ -26743,7 +26999,7 @@ const PRICE_UNIT_TO_LABEL = {lm:'Linear metre', m2:'m²', each:'Each'};
 const PRICE_UNIT_FROM_TEXT = {lm:'lm','linear metre':'lm','linear metres':'lm','linear m':'lm','m':'lm',
   m2:'m2','sq m':'m2','sqm':'m2','m²':'m2','m2 (sq m)':'m2', each:'each',ea:'each','no':'each','nr':'each'};
 window.exportPriceRateExcel = async function(){
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   const items = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
   const dropdownIds = items.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
   const options = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
@@ -26794,11 +27050,11 @@ window.exportPriceRateExcel = async function(){
     XLSX.utils.book_append_sheet(wb, ws, safeName);
   });
 
-  XLSX.writeFile(wb, 'RTB_Price_Builder_Rate_Card.xlsx');
+  await deliverExcelFile(wb, 'RTB_Price_Builder_Rate_Card.xlsx');
 };
 window.importPriceRateExcel = async function(input){
   const file = input.files && input.files[0]; if(!file) return;
-  if(typeof XLSX==='undefined'){ toast('Excel library failed to load — check connection.'); input.value=''; return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); input.value=''; return; }
   try{
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
@@ -27684,7 +27940,7 @@ window.addCalEvent = async function(siteId){
   // to add any of that; see the "operative insert key date" RLS policy,
   // which requires exactly these defaults from a non-PM caller).
   const mgr = isManager(ME);
-  if(!mgr && calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
+  if(mgr && calDraft.remind && calDraft.timing==='custom' && !calDraft.customDate){ toast('Pick a custom reminder date.'); return; }
   const remind = mgr && calDraft.remind && calDraft.recipientIds.size>0;
   const site = SITES.find(s=>s.id===siteId);
   const repeat = mgr ? (calDraft.repeat || 'none') : 'none';
@@ -28015,7 +28271,7 @@ window.closeVariation = async function(siteId, varId){
   if(row){ toast('Variation closed'); logSiteActivity(siteId, 'variation_closed', `Closed variation "${row.description||''}"`); render(); }
 };
 window.exportVariationsPDF = async function(siteId, scope){
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   const site = SITES.find(s=>s.id===siteId);
   let qs = 'site_id=eq.'+siteId+'&order=created_at.asc';
   if(scope==='live') qs += '&status=eq.live';
@@ -28421,7 +28677,7 @@ window.deleteDrawingFolder = async function(folderId){
 // Layout varies a lot job-to-job, so this only ever SUGGESTS candidates —
 // nothing is pre-ticked, and the PM reviews/edits before anything is saved.
 async function parseExcelKeyDates(file){
-  if(typeof XLSX==='undefined') return [];
+  if(!(await loadLib('XLSX'))) return [];
   try{
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array', cellDates:true});
@@ -29414,10 +29670,17 @@ async function renderDriverSchedule(){
   const [tasks, suppliers] = await Promise.all([
     dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&order=sub_priority.asc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
+    loadAllProfiles(),
   ]);
-  await loadAllProfiles();
   const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
   const myTasks = tasks.filter(t=>!t.driver_id || t.driver_id===ME.id);
+  // A driver can only see a site once a delivery to it exists, and the site
+  // list is loaded at sign-in — so a delivery booked since then would show
+  // as "Unknown site" with no address. Top the list up when that happens.
+  if(myTasks.some(t=>t.site_id && !SITES.find(s=>s.id===t.site_id))){
+    const fresh = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
+    if(fresh.ok){ SITES = fresh.data; saveBootSnapshot(); }
+  }
   myTasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
   const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
   myTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
@@ -29585,7 +29848,7 @@ const VEHICLE_CHECKLIST_ITEMS = [
 let vehicleChecklistDraft = null; // {id, vehicle_reg, week_start, items:{key:{result,note,photo_path}}, status}
 let vehicleChecklistBusy = false;
 let vehicleChecklistPhotoBusyKey = null;
-function vehicleChecklistWeekStart(){ return localISODate(startOfWeek(new Date())); }
+function vehicleChecklistWeekStart(){ return localISODate(new Date(startOfWeek(new Date()))); } // startOfWeek returns a timestamp, not a Date
 async function loadOrStartVehicleChecklist(){
   const weekStart = vehicleChecklistWeekStart();
   const rows = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+weekStart+'&limit=1');
@@ -29867,6 +30130,7 @@ async function deliveryScheduleExportRows(daysISO){
   }));
 }
 window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return null; }
   if(deliveryExportBusy) return;
   deliveryExportBusy = 'xlsx'; render();
   try{
@@ -29875,7 +30139,7 @@ window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
     const filename = exportFilename('', 'Delivery Schedule', 'xlsx');
     const cols = ['Date','Time','Site','Description','Collection From','Driver','Priority','Status'];
     const rowVals = r=>[r.date,r.time,r.site,r.description,r.collection,r.driver,r.priority,r.status];
-    if(typeof ExcelJS!=='undefined'){
+    if((await loadLib('ExcelJS'))){
       try{
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet('Delivery Schedule');
@@ -29900,11 +30164,11 @@ window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
     XLSX.utils.book_append_sheet(wb, ws, 'Delivery Schedule');
     await deliverExcelFile(wb, filename);
   }catch(e){ console.error(e); toast('Could not build the export — please try again.'); }
-  deliveryExportBusy = null; render();
+  finally{ deliveryExportBusy = null; render(); } // finally: the early returns above used to leave the buttons stuck on "Building…"
 };
 window.exportDeliverySchedulePdf = async function(daysISO, weekLabel){
   if(deliveryExportBusy) return;
-  if(typeof PDFLib==='undefined'){ toast('PDF library failed to load — check connection.'); return; }
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   deliveryExportBusy = 'pdf'; render();
   try{
     const rows = await deliveryScheduleExportRows(daysISO);
@@ -29965,7 +30229,7 @@ window.exportDeliverySchedulePdf = async function(daysISO, weekLabel){
     const bytes = await pdfDoc.save();
     await deliverPdf(bytes, exportFilename('', 'Delivery Schedule', 'pdf'));
   }catch(e){ console.error(e); toast('Could not build the export — please try again.'); }
-  deliveryExportBusy = null; render();
+  finally{ deliveryExportBusy = null; render(); } // finally: the early returns above used to leave the buttons stuck on "Building…"
 };
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
@@ -30495,7 +30759,7 @@ async function renderRoute(){
     // Keep the bottom tab bar's Messages badge fresh on every site-scoped
     // navigation, not just when visiting Messages itself.
     if(page!=='messages'){ refreshUnreadBadge(siteId); }
-    if(page!=='drawings'){ drawingUploadOpen = false; drawingNewFolderOpen = false; }
+    if(page!=='drawings' && !(page==='mc' && parts[3]==='programme')){ drawingUploadOpen = false; drawingNewFolderOpen = false; } // the Main Contractor Programme folder is the Drawings page under another route
     if(page!=='todos'){ newTodoDraft = ''; newTodoAssigneeDraft = ''; newTodoDateDraft = ''; newTodoCommentDraft = ''; todoAddOpen = true; todoFilter = 'live'; todoAssigneeEditId = null; todoEditId = null; todoEmailRecipientIds = []; todoEmailFilterText = ''; }
     if(page==='home') return renderSiteHome(siteId);
     if(page==='repairjob'){
