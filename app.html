@@ -26059,13 +26059,14 @@ async function renderMaterialRequests(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
-      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';render()">Live/Pending</div>
-      <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';render()">Closed</div>
+      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
+      <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
     </div>
 
     ${isPM && selectedMaterialIds.size>0 ? `
       <div class="card" style="border-color:var(--brand1);border-width:1.5px;">
-        <p class="sectiontitle" style="margin-top:0;">${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order</p>
+        <p class="sectiontitle" style="margin-top:0;">${matFilter==='closed' ? `${selectedMaterialIds.size} closed order${selectedMaterialIds.size>1?'s':''} selected` : `${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order`}</p>
+        ${matFilter==='closed' && !sendingGroup ? `<p class="stub" style="margin:0 0 8px;">Send these again as one order, or reopen or delete them together.</p>` : ''}
         ${sendingGroup ? `
           ${orderFulfilmentHtml('group', orderDrivers, orderSiteOps)}
           <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; ${groupSupplierId===SUPPLIER_EMAIL_ME ? 'Email '+selectedMaterialIds.size+' Items to me' : 'Send '+selectedMaterialIds.size+' Items to '+escapeHtml(supplierName(groupSupplierId)||'')}</button>
@@ -26075,8 +26076,12 @@ async function renderMaterialRequests(siteId){
             <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
           ${supplierPickerFor==='group' ? supplierPickerHtml('group', suppliers, groupSupplierId) : ''}
-          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">Send Order (${selectedMaterialIds.size} items)</button>
-          <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMaterialIds=new Set();groupSupplierId=null;supplierPickerFor=null;render()">Clear selection</button>
+          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${matFilter==='closed' ? 'Send Again' : 'Send Order'} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
+          ${matFilter==='closed' ? `<div class="row-gap" style="margin-top:8px;">
+            <button class="ghostbtn" style="flex:1;" onclick="reopenSelectedMaterials('${siteId}')">Reopen selected</button>
+            <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSelectedMaterials('${siteId}')">Delete selected</button>
+          </div>` : ''}
+          <button class="ghostbtn" style="margin-top:8px;" onclick="clearMaterialSelection();render()">Clear selection</button>
         `}
       </div>
     ` : ''}
@@ -26085,7 +26090,7 @@ async function renderMaterialRequests(siteId){
       const cardBody = `
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
-              ${isPM && m.status==='pending' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
+              ${isPM && (m.status==='pending' || m.status==='sent') ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
               <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
@@ -26120,11 +26125,13 @@ async function renderMaterialRequests(siteId){
           ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `
           <div class="row-gap" style="margin-top:10px;">
             ${m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
+            ${m.status==='sent' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="sendMaterialAgain('${m.id}')">Send again</button>` : ''}
             <button class="ghostbtn" style="flex:1;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
           </div>
           ` : ''}
           ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
+            ${!selectedMaterialIds.has(m.id) ? `<button class="ghostbtn" style="width:auto;" onclick="sendMaterialAgain('${m.id}')">Send again</button>` : ''}
             ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" onclick="openReemailPrompt('${siteId}','${m.id}')">Re-email order</button>` : ''}
           </div>` : ''}
       `;
@@ -26137,6 +26144,7 @@ async function renderMaterialRequests(siteId){
       const emailedLabel = m.email_sent_at ? 'Emailed '+new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : null;
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
+          ${isPM && m.status==='closed' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
           <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)}
           <span style="margin-left:auto;font-weight:600;color:var(--slate);white-space:nowrap;">Qty ${escapeHtml(m.qty)}${emailedLabel ? ' · '+emailedLabel : ''}</span>
         </div>
@@ -27659,6 +27667,46 @@ window.confirmSendMaterial = async function(siteId, matId){
     console.error('send-material-order failed:', e);
     toast('Routed to '+supplier.name+', but the order email failed to send — check it manually.');
   }
+  render();
+};
+// "Send again" on an order that's already been sent (reopened or closed):
+// ticks it and jumps to the panel at the top, where the supplier (or Email
+// to me) and delivery/collection are chosen — tick more to send them together.
+window.sendMaterialAgain = async function(matId){
+  selectedMaterialIds.add(matId);
+  await render();
+  try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+  toast('Choose a supplier at the top, then send. Tick more orders to send them together.');
+};
+window.clearMaterialSelection = function(){
+  selectedMaterialIds = new Set(); groupSupplierId = null; supplierPickerFor = null; sendingGroup = false;
+};
+// Closed tab, several ticked: put them all back to live in one go.
+window.reopenSelectedMaterials = async function(siteId){
+  const ids = Array.from(selectedMaterialIds);
+  if(!ids.length) return;
+  if(!await customConfirm('Reopen '+ids.length+' closed order'+(ids.length>1?'s':'')+'? They go back to the Live/Pending tab.', {confirmLabel:'Yes — reopen'})) return;
+  const results = await Promise.all(ids.map(id=>dbUpdate('materials', id, {status:'sent'})));
+  const done = results.filter(Boolean).length;
+  clearMaterialSelection();
+  toast(done===ids.length ? done+' order'+(done>1?'s':'')+' reopened' : done+' of '+ids.length+' reopened — the rest could not be changed.');
+  render();
+};
+window.deleteSelectedMaterials = async function(siteId){
+  const ids = Array.from(selectedMaterialIds);
+  if(!ids.length) return;
+  if(!await customConfirm('Delete '+ids.length+' closed order'+(ids.length>1?'s':'')+'? This can\'t be undone.', {confirmLabel:'Yes — delete', danger:true})) return;
+  const rows = await dbSelect('materials', 'id=in.('+ids.join(',')+')&select=id,item');
+  let done = 0;
+  for(const id of ids){
+    if(await dbDelete('materials', id)){
+      done++;
+      const r = rows.find(x=>x.id===id);
+      logSiteActivity(siteId, 'material_request_deleted', `Deleted material request "${(r&&r.item)||''}"`);
+    }
+  }
+  clearMaterialSelection();
+  toast(done===ids.length ? done+' order'+(done>1?'s':'')+' deleted' : done+' of '+ids.length+' deleted.');
   render();
 };
 window.toggleMaterialSelect = function(matId){
