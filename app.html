@@ -26016,6 +26016,13 @@ async function renderMaterialRequests(siteId){
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
+  // Who could collect an order — only needed while the send step is open.
+  let orderDrivers = [], orderSiteOps = [];
+  if(isPM && (sendingGroup || sendingMaterial)){
+    const [, assignedRows] = await Promise.all([loadAllProfiles(), dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id')]);
+    orderDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
+    orderSiteOps = assignedRows.map(a=>PROFILES[a.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  }
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -26028,8 +26035,7 @@ async function renderMaterialRequests(siteId){
       <div class="card" style="border-color:var(--brand1);border-width:1.5px;">
         <p class="sectiontitle" style="margin-top:0;">${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order</p>
         ${sendingGroup ? `
-          <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
-          <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_group" min="${localISODate(new Date())}"></div>
+          ${orderFulfilmentHtml('group', orderDrivers, orderSiteOps)}
           <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; ${groupSupplierId===SUPPLIER_EMAIL_ME ? 'Email '+selectedMaterialIds.size+' Items to me' : 'Send '+selectedMaterialIds.size+' Items to '+escapeHtml(supplierName(groupSupplierId)||'')}</button>
           <button class="ghostbtn" style="margin-top:8px;" onclick="sendingGroup=false;render()">Cancel</button>
         ` : `
@@ -26067,8 +26073,7 @@ async function renderMaterialRequests(siteId){
               selectedMaterialIds.has(m.id) ? `<div class="merchantrow" style="color:var(--brand1);font-weight:800;">✓ Selected — use the grouped order panel above to send.</div>` :
               sendingMaterial && sendingMaterial.matId===m.id ? `
               <div class="card" style="margin:10px 0 0;padding:10px;">
-                <p class="stub" style="margin:0 0 8px;">Required for delivery — the merchant will see this date on the order.</p>
-                <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${m.id}" min="${localISODate(new Date())}"></div>
+                ${orderFulfilmentHtml(m.id, orderDrivers, orderSiteOps)}
                 <button class="darkbtn" onclick="confirmSendMaterial('${siteId}','${m.id}')">Confirm &amp; ${sendingMaterial.supplierId===SUPPLIER_EMAIL_ME ? 'Email to me' : 'Send to '+escapeHtml(sendingMaterial.supplierName)}</button>
                 <button class="ghostbtn" style="margin-top:8px;" onclick="sendingMaterial=null;render()">Cancel</button>
               </div>
@@ -27489,6 +27494,90 @@ window.addMaterial = async function(siteId){
     toast('Request added'); render();
   }
 };
+// The "delivery or collection" part of the send step, shared by a single
+// order and a grouped (collated) order. Collection asks who is collecting:
+// a driver (the order goes onto the Delivery Schedule as one job) or a site
+// operative (each item goes onto the Material List, assigned to them).
+function orderFulfilmentHtml(key, drivers, siteOps){
+  return `
+    <div class="formfield"><label class="field-label">Delivery or collection</label>
+      <select id="reqMode_${key}" onchange="onOrderModeChange('${key}')">
+        <option value="delivery">Delivery — supplier delivers to site</option>
+        <option value="collection">Collection — we pick it up</option>
+      </select>
+    </div>
+    <p class="stub" id="reqModeNote_${key}" style="margin:0 0 8px;">The supplier will see this date on the order.</p>
+    <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label" id="reqDateLabel_${key}">Choose Delivery Date</label><input type="date" id="reqDeliveryDate_${key}" min="${localISODate(new Date())}"></div>
+    <div id="reqCollect_${key}" style="display:none;">
+      <div class="formfield"><label class="field-label">Who is collecting</label>
+        <select id="reqCollector_${key}" onchange="onOrderModeChange('${key}')">
+          <option value="">Choose…</option>
+          ${drivers.length ? `<optgroup label="Driver — adds to the Delivery Schedule">${drivers.map(d=>`<option value="driver:${d.id}">🚐 ${escapeHtml(d.name)}</option>`).join('')}</optgroup>` : ''}
+          ${siteOps.length ? `<optgroup label="Operative — adds to the Material List">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
+        </select>
+      </div>
+      ${!drivers.length && !siteOps.length ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">No drivers or site operatives to choose from yet.</p>` : ''}
+      <div class="formfield" id="reqSlotWrap_${key}" style="display:none;"><label class="field-label">Collection time</label>
+        <select id="reqSlot_${key}">${DELIVERY_TIME_SLOTS.map(x=>`<option value="${x.key}">${x.label}</option>`).join('')}</select>
+      </div>
+    </div>`;
+}
+window.onOrderModeChange = function(key){
+  const g = id=>document.getElementById(id+'_'+key);
+  const collecting = g('reqMode') && g('reqMode').value==='collection';
+  if(g('reqCollect')) g('reqCollect').style.display = collecting ? '' : 'none';
+  if(g('reqDateLabel')) g('reqDateLabel').textContent = collecting ? 'Choose Collection Date' : 'Choose Delivery Date';
+  const who = g('reqCollector') ? g('reqCollector').value : '';
+  if(g('reqSlotWrap')) g('reqSlotWrap').style.display = (collecting && who.indexOf('driver:')===0) ? '' : 'none';
+};
+// Reads the send step. Returns null (after a toast) if something is missing.
+function readOrderFulfilment(key){
+  const g = id=>document.getElementById(id+'_'+key);
+  const date = g('reqDeliveryDate') ? g('reqDeliveryDate').value : '';
+  const mode = g('reqMode') && g('reqMode').value==='collection' ? 'collection' : 'delivery';
+  if(!date){ toast((mode==='collection'?'Collection':'Delivery')+' date is required before sending.'); return null; }
+  if(mode==='delivery') return {mode, date, collectorKind:null, collectorId:null, slot:null};
+  const who = g('reqCollector') ? g('reqCollector').value : '';
+  if(!who){ toast('Choose who is collecting.'); return null; }
+  const parts = who.split(':');
+  return {mode, date, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+}
+// After the order is saved: puts a collection onto the driver's Delivery
+// Schedule (one job for the whole order) or the operative's Material List.
+async function bookOrderCollection(siteId, f, supplier, toMe, materials){
+  if(!f || f.mode!=='collection') return '';
+  const who = PROFILES[f.collectorId];
+  const whoName = who ? who.name : 'them';
+  const dateLabel = new Date(f.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+  const itemsText = materials.map(m=>m.item+(m.qty?' x '+m.qty:'')).join('; ');
+  try{
+    if(f.collectorKind==='driver'){
+      const payload = {
+        org_id: ME.org_id, site_id: siteId,
+        description: 'Collect order: '+itemsText,
+        collection_type: toMe ? 'manual' : 'supplier',
+        supplier_id: toMe ? null : supplier.id,
+        collection_address_manual: toMe ? 'Supplier to be confirmed' : null,
+        scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
+        driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
+      };
+      const rows = await dbInsert('delivery_tasks', payload);
+      const saved = rows && rows[0];
+      if(!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
+      try{ await resequenceSlot(payload.scheduled_date, payload.time_slot); await syncDeliveryCalendarEvent(saved.id, null, payload); }catch(e){}
+      if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'delivery_assigned', `You've been assigned a collection for ${dateLabel}: ${itemsText}`, saved.id);
+      return ' — added to the Delivery Schedule for '+whoName+', '+dateLabel;
+    }
+    const nowIso = new Date().toISOString();
+    const rows = await dbInsert('material_required_items', materials.map(m=>({
+      site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+')', qty: m.qty||null,
+      supplier_id: toMe ? null : supplier.id, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
+    })));
+    if(!rows) return ' — but it could not be added to the Material List, add it by hand';
+    if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}`, null);
+    return ' — added to the Material List for '+whoName+' to collect '+dateLabel;
+  }catch(e){ console.error('bookOrderCollection failed', e); return ' — but the collection could not be booked, add it by hand'; }
+}
 window.beginSendMaterial = async function(matId){
   const supplierId = materialSupplierChoice[matId];
   if(!supplierId){ customAlert('Please choose a supplier before sending this order.'); return; }
@@ -27502,9 +27591,9 @@ window.beginSendMaterial = async function(matId){
 window.confirmSendMaterial = async function(siteId, matId){
   if(!sendingMaterial || sendingMaterial.matId !== matId) return;
   const supplierId = sendingMaterial.supplierId;
-  const dateInput = document.getElementById('reqDeliveryDate_'+matId);
-  const requiredForDelivery = dateInput ? dateInput.value : '';
-  if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
+  const fulfil = readOrderFulfilment(matId);
+  if(!fulfil) return;
+  const requiredForDelivery = fulfil.date;
   const toMe = supplierId===SUPPLIER_EMAIL_ME;
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
@@ -27512,22 +27601,24 @@ window.confirmSendMaterial = async function(siteId, matId){
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
-  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery});
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
-  toast(toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
+  const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, material ? [material] : []);
+  toast((toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…'));
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
+      fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast(toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
@@ -27545,9 +27636,9 @@ window.toggleMaterialSelect = function(matId){
 };
 window.confirmSendGroupedMaterial = async function(siteId){
   if(!groupSupplierId || !selectedMaterialIds.size) return;
-  const dateInput = document.getElementById('reqDeliveryDate_group');
-  const requiredForDelivery = dateInput ? dateInput.value : '';
-  if(!requiredForDelivery){ toast('Required for delivery date is required before sending.'); return; }
+  const fulfil = readOrderFulfilment('group');
+  if(!fulfil) return;
+  const requiredForDelivery = fulfil.date;
   const toMe = groupSupplierId===SUPPLIER_EMAIL_ME;
   if(toMe && !ME.email){ toast('There is no email address on your profile.'); return; }
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
@@ -27557,23 +27648,25 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
   groupSupplierId = null;
+  const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, materials);
   toast(toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
+      fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
       items: materials.map(m=>({item:m.item, qty:m.qty})),
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await Promise.all(matIds.map(id => dbUpdate('materials', id, {email_sent_at:new Date().toISOString()})));
-      toast(toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)');
+      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
