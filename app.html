@@ -5142,69 +5142,73 @@ async function renderTeam(){
   // made opening/closing Admin Centre dropdowns feel slow. None of these
   // values are read anywhere outside their own gated section below, so
   // skipping the fetch while collapsed changes nothing about what's shown.
+  // Every open section's data is now asked for at the same time instead
+  // of one request after another.
+  const __tp = [];
   let pendingInvites = [], permanentInvite = null;
-  if(teamSectionOpen.invites){
+  __tp.push((async()=>{ if(teamSectionOpen.invites){
     const [pendingInviteRows, permanentInviteRows] = await Promise.all([
       dbSelect('invites', 'used_at=is.null&is_reusable=eq.false&order=created_at.desc&select=*'),
       dbSelect('invites', 'org_id=eq.'+ME.org_id+'&is_reusable=eq.true&order=created_at.desc&limit=1&select=*'),
     ]);
     pendingInvites = pendingInviteRows;
     permanentInvite = permanentInviteRows[0] || null;
-  }
-  const odConn = (iAmAdmin && teamSectionOpen.integrations) ? (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] : null;
-  const tbtTemplates = (iAmAdmin && teamSectionOpen.tbt) ? await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc') : [];
-  const reportTemplates = (iAmAdmin && teamSectionOpen.reporttemplates) ? await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc') : [];
-  const deviceLocks = (iAmAdmin && teamSectionOpen.devicelocks) ? await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc') : [];
-  const suppliers = (isManager(ME) && teamSectionOpen.suppliers) ? await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : [];
-  const havsTools = (isManager(ME) && teamSectionOpen.havstools) ? await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc') : [];
+  } })());
+  let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
+  let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
+  let reportTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
+  let deviceLocks = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
+  let suppliers = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.suppliers) suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'); })());
+  let havsTools = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.havstools) havsTools = await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc'); })());
   // Price Builder rate card — admin only for now (rollout gate, see
   // canUsePriceBuilder), org-wide (mirrors Suppliers).
   let priceRateItems = [], priceRateOptions = [];
-  if(PRICE_BUILDER_LIVE && canUsePriceBuilder() && teamSectionOpen.pricebuilder){
+  __tp.push((async()=>{ if(PRICE_BUILDER_LIVE && canUsePriceBuilder() && teamSectionOpen.pricebuilder){
     priceRateItems = await dbSelect('price_rate_items', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=category.asc,sort_order.asc,name.asc');
     const dropdownIds = priceRateItems.filter(i=>i.is_dropdown).map(i=>i.id).join(',');
     priceRateOptions = dropdownIds ? await dbSelect('price_rate_options', 'rate_item_id=in.('+dropdownIds+')&order=sort_order.asc') : [];
-  }
+  } })());
   // Schedule of Works library — org-wide reusable templates (org_id=eq. so
   // this stays scoped to this company even though sow_library_templates has
   // no site_id) a PM/admin can pick from when building any site's Schedule
   // of Works. Only loaded while the section is actually open.
   let sowLibTemplates = [];
-  if(isManager(ME) && teamSectionOpen.sowlibrary){
+  __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.sowlibrary){
     sowLibTemplates = await dbSelect('sow_library_templates', 'org_id=eq.'+ME.org_id+'&order=name.asc');
     if(sowLibOpenTemplateId && !sowLibSectionsCache[sowLibOpenTemplateId]) await loadSowLibContents(sowLibOpenTemplateId);
-  }
+  } })());
   // H&S Policy is now uploaded ONLY from here — every site-scoped H&S page
   // still shows/signs the current policy, but their own upload forms have
   // been removed and point back to this section instead.
   let hsPolicyAdmin = {doc:null, superseded:[], signedIds:new Set(), allPeople:[], nameById:{}, supersedesName:null};
-  if(isManager(ME) && teamSectionOpen.hspolicy){
+  __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.hspolicy){
     const {doc, superseded, sigs, nameById, supersedesName} = await fetchHsPolicyData();
     const validSigs = doc ? sigs.filter(s=>hsPolicySigStillValid(doc, s)) : [];
     hsPolicyAdmin = {doc, superseded, signedIds: new Set(validSigs.map(s=>s.user_id)), allPeople: people, nameById, supersedesName};
-  }
+  } })());
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
   let checkinLogRows = [];
-  if(isManager(ME) && teamSectionOpen.checkinlogs){
+  __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.checkinlogs){
     const range = checkinLogEffectiveRange();
     checkinLogRows = await dbSelect('checkins', 'ts=gte.'+new Date(range.start).toISOString()+'&ts=lt.'+new Date(range.end).toISOString()+'&order=ts.asc&select=*');
-  }
+  } })());
   // Same "only when open" pattern — the PPE log spans every site, no need
   // to query it on every Admin Centre visit if nobody's looking at it.
   let ppeLogRows = [];
-  if(isManager(ME) && teamSectionOpen.ppelog){
+  __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.ppelog){
     const range = ppeLogRange(ppeLogMode, ppeLogOffset);
     ppeLogRows = await dbSelect('ppe_issuances', 'issued_at=gte.'+new Date(range.start).toISOString()+'&issued_at=lt.'+new Date(range.end).toISOString()+'&order=issued_at.desc&select=*');
-  }
+  } })());
   // Same "only when the section is actually open" pattern as Check-In Logs —
   // the library can be several levels deep, no need to query it on every
   // Admin Centre visit if nobody has expanded it.
   let coshhLibraryHtmlBlock = '';
-  if(isManager(ME) && teamSectionOpen.coshhlibrary){
+  __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.coshhlibrary){
     coshhLibraryHtmlBlock = await coshhLibraryBrowserHtml();
-  }
+  } })());
+  await Promise.all(__tp);
   // Operative Tools moved out of Admin Centre entirely (#notif-review-
   // 2026-09) — it now lives at the bottom of the Operatives list (#/operatives)
   // as the same kind of org-wide browse section, with per-operative editing
@@ -10805,15 +10809,21 @@ window.reopenSubAddress = async function(subId){
 async function renderAssignTeam(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  await loadAllProfiles();
-  const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
-  const clients = Object.values(PROFILES).filter(p=>p.role==='client').sort((a,b)=>a.name.localeCompare(b.name));
-  const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
-  const [assigned, odConnRows, subAddresses] = await Promise.all([
+  // Everything this page needs is asked for at once.
+  const __mc = !!(site && site.acting_as_main_contractor);
+  const __pSubCompanies = __mc ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc') : Promise.resolve([]);
+  const __pSubOps = __mc ? dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=*') : Promise.resolve([]);
+  const __pActivity = siteTeamSectionOpen.activity ? dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=100') : Promise.resolve([]);
+  const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
     dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc'),
   ]);
+  await loadAllProfiles();
+  const operatives = Object.values(PROFILES).filter(p=>p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+  const clients = Object.values(PROFILES).filter(p=>p.role==='client').sort((a,b)=>a.name.localeCompare(b.name));
+  const siteManagerPeople = Object.values(PROFILES).filter(p=>p.role==='site_manager').sort((a,b)=>a.name.localeCompare(b.name));
+  const [assigned, odConnRows, subAddresses] = await __pMain;
   const assignedIds = new Set(assigned.map(a=>a.user_id));
   const odCompanyConnected = odConnRows.length>0 && !!odConnRows[0].access_token;
   // Quick multi-tick "Assign Operatives to X" per subcontractor, right here
@@ -10821,10 +10831,10 @@ async function renderAssignTeam(siteId){
   // company > Operatives (one-at-a-time) just to build a crew list. Only
   // fetched when this site is acting as a Main Contractor, since that's the
   // only time subcontractor companies exist at all.
-  const subCompanies = site.acting_as_main_contractor ? await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc') : [];
+  const subCompanies = await __pSubCompanies;
   let subOpByCompany = {};
   if(subCompanies.length){
-    const allSubOps = await dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=*');
+    const allSubOps = await __pSubOps;
     allSubOps.forEach(r=>{ (subOpByCompany[r.subcontractor_company_id] = subOpByCompany[r.subcontractor_company_id]||new Map()).set(r.user_id, r); });
   }
   // Cached for toggleSubAddrForm() to pull an address's current values into
@@ -10832,9 +10842,7 @@ async function renderAssignTeam(siteId){
   assignTeamSubAddresses = subAddresses;
   // Only fetched once the Activity Log section is actually opened — it's a
   // deletion/closure audit trail, not something every visit to this page needs.
-  const activityLog = siteTeamSectionOpen.activity
-    ? await dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=100')
-    : [];
+  const activityLog = await __pActivity;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isFullManager(ME) ? `
@@ -15610,6 +15618,7 @@ async function buildReportPdf(submissionId, opts){
     // the report body, per the "4 photos to each page" spec for this section.
     async function drawMediaSummaryGrid(urls){
       if(!urls.length) return;
+      await pdfPrefetchImages(urls);
       const cols = 2, rows = 2, gutter = 14, capH = 16;
       const cellW = (CONTENT_W - gutter) / cols;
       for(let i=0; i<urls.length; i+=cols*rows){
@@ -17974,7 +17983,32 @@ function pdfHexToRgb(hex){
   const r = parseInt(h.slice(0,2),16)/255, g = parseInt(h.slice(2,4),16)/255, b = parseInt(h.slice(4,6),16)/255;
   return PDFLib.rgb(r,g,b);
 }
-async function pdfFetchImageBytes(url){
+// Photos downloaded for a PDF are remembered for a couple of minutes, so
+// the same photo used twice in one export (thumbnail + media summary) is
+// only downloaded once, and pdfPrefetchImages() can fetch several at a time
+// ahead of the page-by-page drawing instead of one after another.
+const pdfImageCache = new Map();
+function pdfFetchImageBytes(url){
+  if(!url || String(url).startsWith('data:')) return pdfFetchImageBytesRaw(url);
+  const hit = pdfImageCache.get(url);
+  if(hit && (Date.now()-hit.at) < 120000) return hit.p;
+  const p = pdfFetchImageBytesRaw(url);
+  pdfImageCache.set(url, {p, at:Date.now()});
+  // A failed download isn't remembered, so the next export tries again.
+  p.then(b=>{ if(!b){ const cur = pdfImageCache.get(url); if(cur && cur.p===p) pdfImageCache.delete(url); } });
+  if(pdfImageCache.size > 150){
+    const now = Date.now();
+    for(const [k,v] of pdfImageCache){ if(now-v.at >= 120000 || pdfImageCache.size > 150) pdfImageCache.delete(k); if(pdfImageCache.size <= 100) break; }
+  }
+  return p;
+}
+async function pdfPrefetchImages(urls){
+  const list = Array.from(new Set((urls||[]).filter(u=>u && !String(u).startsWith('data:')))).slice(0, 140);
+  let next = 0;
+  const worker = async ()=>{ while(next < list.length){ const u = list[next++]; try{ await pdfFetchImageBytes(u); }catch(e){} } };
+  await Promise.all([worker(), worker(), worker(), worker(), worker()]);
+}
+async function pdfFetchImageBytesRaw(url){
   try{
     // Timed: a single photo that never finishes downloading used to hang
     // the whole PDF build (and leave "Building PDF…" stuck on the button).
@@ -18045,6 +18079,7 @@ async function pdfFetchImageBytesScaled(url, maxDim, quality){
 //     bytes, pdf-lib still embeds whatever was fetched at full size.
 async function appendMediaSummaryPages(pdfDoc, photoRefs, opts){
   if(!photoRefs || !photoRefs.length) return;
+  await pdfPrefetchImages(photoRefs.map(ref=>publicUrl(ref.bucket||'site-photos', ref.path)));
   opts = opts || {};
   const sizeScale = opts.sizeScale || 0.8; // Media Summary photos run 0.8x smaller than their cell's max fit by default
   const maxDim = opts.maxDim || null;
@@ -18294,6 +18329,7 @@ async function buildSnaggingPdfBytes(siteId, scope){
     });
     y = chipY - 26;
 
+    await pdfPrefetchImages(snags.map(s=>{ const pp = s.status==='closed' && s.closed_photo_path ? s.closed_photo_path : ((s.photo_paths && s.photo_paths[0]) || s.photo_path); return pp ? publicUrl('site-photos', pp) : null; }));
     for(let i=0;i<snags.length;i++){
       const s = snags[i];
       const hasPhoto = !!((s.photo_paths && s.photo_paths.length) || s.photo_path || (s.status==='closed' && s.closed_photo_path));
@@ -18432,6 +18468,9 @@ async function buildSchedulePdfBytes(siteId){
   const ids = allTasks.map(t=>t.id).join(',');
   const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
   photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+  // Start the photo downloads now (several at a time) so they're ready by
+  // the time each task is drawn; drawing picks them up from the shared cache.
+  pdfPrefetchImages(photos.map(p=>p.storage_path ? publicUrl('site-photos', p.storage_path) : null));
   toast('Building PDF…');
   try{
     const pdfDoc = await PDFLib.PDFDocument.create();
@@ -20118,10 +20157,12 @@ async function renderSubcontractors(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
+  const __pMine = (!canAdd && !isClient(ME)) ? getMySubcontractorCompanyId(siteId) : Promise.resolve(null);
+  const __pLinks = canAdd ? dbSelect('subcontractor_companies', 'org_id=eq.'+site.org_id+'&select=master_company_id') : Promise.resolve([]);
   const companies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc');
   // Everyone can see the full list, but a subcontractor operative can only
   // open their own company's tile — the others are shown but not clickable.
-  const mySubCompanyId = (!canAdd && !isClient(ME)) ? await getMySubcontractorCompanyId(siteId) : null;
+  const mySubCompanyId = await __pMine;
   const canOpen = c => canAdd || isClient(ME) || c.id === mySubCompanyId;
   // A company's name can only be edited here if it isn't "from the library"
   // — i.e. its master profile (subcontractor_company_profiles) isn't shared
@@ -20130,7 +20171,7 @@ async function renderSubcontractors(siteId){
   // from the Company Library instead (Settings & Admin).
   let masterUsageCount = {};
   if(canAdd && companies.some(c=>c.master_company_id)){
-    const allLinks = await dbSelect('subcontractor_companies', 'org_id=eq.'+site.org_id+'&select=master_company_id');
+    const allLinks = await __pLinks;
     allLinks.forEach(l=>{ if(l.master_company_id) masterUsageCount[l.master_company_id] = (masterUsageCount[l.master_company_id]||0)+1; });
   }
   const isEditable = c => canAdd && (!c.master_company_id || (masterUsageCount[c.master_company_id]||0) <= 1);
@@ -20245,16 +20286,19 @@ async function fetchSubRamsData(siteId, companyId){
 async function renderSubRams(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const isSubAdmin = await __pSubAdmin;
   // "canAdd" here only controls the display mode (static signed-count
   // summary vs a personal sign box) and the delete icon — RTB's PM/admin and
   // the subcontractor's own admin both get that view; uploading itself is
   // restricted further below to the subcontractor admin only, since RTB no
   // longer puts files into a subcontractor's folder.
   const canAdd = isManager(ME) || isSubAdmin;
-  await loadAllProfiles();
+  await __pProfiles;
   const {docs, sigsByDoc, assignedIds} = await fetchSubRamsData(siteId, companyId);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
@@ -20299,11 +20343,14 @@ async function fetchSubCoshhData(siteId, companyId){
 async function renderSubCoshh(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const isSubAdmin = await __pSubAdmin;
   const canAdd = isManager(ME) || isSubAdmin;
-  await loadAllProfiles();
+  await __pProfiles;
   const {docs, sigsByDoc, assignedIds} = await fetchSubCoshhData(siteId, companyId);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, false)}
@@ -20336,11 +20383,14 @@ window.addSubCoshh = async function(siteId, companyId){
 async function renderSubTbt(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
+  const __pList = dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&order=created_at.desc');
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const isSubAdmin = await __pSubAdmin;
   const canAdd = isManager(ME) || isSubAdmin;
-  const talks = await dbSelect('toolbox_talks', 'subcontractor_company_id=eq.'+companyId+'&order=created_at.desc');
+  const talks = await __pList;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${talks.map(t=>`
       <div class="card" style="margin-bottom:10px;cursor:pointer;" onclick="go('#/site/${siteId}/mc/subcontractors/${companyId}/tbt/${t.id}')">
@@ -20418,12 +20468,16 @@ async function renderSubSchedule(siteId, companyId){
 async function renderSubBriefings(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
+  const __pList = dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&order=submitted_at.desc');
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  const isSubAdmin = await isSubcontractorAdmin(companyId);
+  const isSubAdmin = await __pSubAdmin;
   const canManageEntries = isManager(ME) || isSubAdmin; // delete/oversight — RTB can still remove a bad entry
-  await loadAllProfiles();
-  const briefings = await dbSelect('subcontractor_briefings', 'subcontractor_company_id=eq.'+companyId+'&order=submitted_at.desc');
+  await __pProfiles;
+  const briefings = await __pList;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${briefings.map(b=>`
       <div class="card" style="margin-bottom:8px;">
@@ -20467,10 +20521,12 @@ window.deleteSubBriefing = async function(id){
 async function renderSubOperatives(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   const canAdd = isManager(ME);
-  await loadAllProfiles();
+  await __pProfiles;
   const [allocated, siteAssignments, allSubOpRows] = await Promise.all([
     dbSelect('subcontractor_operatives', 'subcontractor_company_id=eq.'+companyId+'&select=*'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
@@ -20538,9 +20594,12 @@ let subInspectionUploading = false;
 async function renderSubInspections(siteId, companyId, folderId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
-  await loadAllProfiles();
+  await __pProfiles;
   const [folders, files, currentFolder] = await Promise.all([
     folderId ? Promise.resolve([]) : dbSelect('subcontractor_inspection_folders', 'subcontractor_company_id=eq.'+companyId+'&order=name.asc'),
     dbSelect('subcontractor_inspections', 'subcontractor_company_id=eq.'+companyId+(folderId ? '&folder_id=eq.'+folderId : '&folder_id=is.null')+'&order=uploaded_at.desc'),
@@ -20548,7 +20607,7 @@ async function renderSubInspections(siteId, companyId, folderId){
   ]);
   const folderRow = currentFolder[0];
   if(folderId && !folderRow){ go(`#/site/${siteId}/mc/subcontractors/${companyId}/inspections`); return; }
-  const canManageFolders = isManager(ME) || await isSubcontractorAdmin(companyId);
+  const canManageFolders = isManager(ME) || await __pSubAdmin;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Upload inspection files here — kept full resolution, never compressed — and the site's PM is emailed automatically each time.</p>
     ${!folderId ? `
@@ -20728,12 +20787,15 @@ async function renderCompanyLibraryDocs(siteId, masterCompanyId){
 async function renderSubCompanyLibrary(siteId, companyId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  // Started together rather than one after another.
+  const __pProfiles = loadAllProfiles();
+  const __pSubAdmin = isSubcontractorAdmin(companyId);
   const company = (await dbSelect('subcontractor_companies', 'id=eq.'+companyId+'&select=*'))[0];
   if(!company){ go(`#/site/${siteId}/mc/subcontractors`); return; }
   if(!company.master_company_id){ go(`#/site/${siteId}/mc/subcontractors/${companyId}`); return; }
   const canManage = isManager(ME);
-  const canUpload = canManage || await isSubcontractorAdmin(companyId);
-  await loadAllProfiles();
+  const canUpload = canManage || await __pSubAdmin;
+  await __pProfiles;
   const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&order=uploaded_at.desc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">${company.name}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
@@ -24751,6 +24813,7 @@ async function buildIncidentPdf(reportId){
     ensureSpace(24);
     page.drawText(label, {x:MARGIN, y, size:9.5, font:bold, color:SLATE}); y -= 8;
     let x = MARGIN; const size = 90;
+    await pdfPrefetchImages(paths.map(p=>publicUrl('incident-photos', p)));
     for(const p of paths){
       if(x + size > PAGE_W-MARGIN){ x = MARGIN; y -= (size+8); }
       ensureSpace(size+8);
@@ -25129,13 +25192,17 @@ async function renderToolboxTalks(siteId){
   // subcontractor_company_id=is.null — same fix as fetchRamsData: a
   // subcontractor's own Toolbox Talks (renderSubTbt, same table) must never
   // surface on RTB's own main Toolbox Talks list/sign roster.
+  const __pProfiles = loadAllProfiles();
+  const __pSubCos = isPM ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc') : Promise.resolve([]);
+  const __pAssigned = isPM ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]);
   const talks = await dbSelect('toolbox_talks', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&order=created_at.desc');
-  await loadAllProfiles();
+  const __pSigs = (isPM && talks.length) ? dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+talks.map(t=>t.id).join(',')+')&select=tbt_id,user_id') : Promise.resolve([]);
+  await __pProfiles;
   // Completed subcontractor Toolbox Talks — same read-only dropdown-per-
   // company pattern as Subcontractor RAMS/COSHH/Inspections above.
   let tbtSubCompanies = [], tbtByCompany = {};
   if(isPM){
-    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
+    const allSubCompanies = await __pSubCos;
     if(allSubCompanies.length){
       const companyIds = allSubCompanies.map(c=>c.id).join(',');
       const subTalks = await dbSelect('toolbox_talks', 'subcontractor_company_id=in.('+companyIds+')&order=created_at.desc');
@@ -25147,10 +25214,7 @@ async function renderToolboxTalks(siteId){
   let outstandingByTalk = {};
   if(isPM && talks.length){
     const ids = talks.map(t=>t.id).join(',');
-    const [sigs, assignedRows] = await Promise.all([
-      dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids+')&select=tbt_id,user_id'),
-      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-    ]);
+    const [sigs, assignedRows] = await Promise.all([__pSigs, __pAssigned]);
     const signedByTalk = {};
     // Only operatives count towards the standard signature roster — the PM
     // running the talk has their own "Carried out by" line on the detail
@@ -28556,6 +28620,7 @@ window.exportVariationsPDF = async function(siteId, scope){
     });
     y = chipY - 26;
 
+    await pdfPrefetchImages(variations.map(v=>v.photo_path ? publicUrl('site-photos', v.photo_path) : null));
     for(let i=0;i<variations.length;i++){
       const v = variations[i];
       const blockH = 130;
@@ -29534,7 +29599,8 @@ async function renderMessages(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
   const mgr = isManager(ME);
-  await loadAllProfiles();
+  const __pProfiles = loadAllProfiles();
+  const __pSiteAssign = mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]);
 
   let broadcasts = [], fromTeam = [];
   if(mgr){
@@ -29545,6 +29611,8 @@ async function renderMessages(siteId){
   } else {
     broadcasts = await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.eq.${siteId},site_id.is.null)&order=created_at.desc&limit=50`);
   }
+  const __pAllReads = (mgr && broadcasts.length) ? dbSelect('message_reads', 'message_id=in.('+broadcasts.map(m=>m.id).join(',')+')&select=message_id,user_id,read_at') : Promise.resolve([]);
+  await __pProfiles;
   const topLevel = [...broadcasts, ...fromTeam];
   let repliesByParent = {};
   // Captured BEFORE markMessagesRead runs, so a message that was unread when
@@ -29585,11 +29653,11 @@ async function renderMessages(siteId){
   // company-wide broadcast (site_id null) was sent to every operative.
   let receiptsByMsg = {};
   if(mgr && broadcasts.length){
-    const siteAssignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
+    const siteAssignments = await __pSiteAssign;
     const siteOperativeIds = new Set(siteAssignments.map(a=>a.user_id));
     const allOperativeIds = Object.values(PROFILES).filter(p=>p.role==='operative').map(p=>p.id);
     const bIds = broadcasts.map(m=>m.id).join(',');
-    const allReads = bIds ? await dbSelect('message_reads', 'message_id=in.('+bIds+')&select=message_id,user_id,read_at') : [];
+    const allReads = await __pAllReads;
     const readsByMsg = {};
     allReads.forEach(r=>{ (readsByMsg[r.message_id]=readsByMsg[r.message_id]||[]).push(r); });
     broadcasts.forEach(m=>{
@@ -29698,12 +29766,13 @@ async function renderMessages(siteId){
 // site each message belongs to. Tapping a row opens that site's own thread.
 async function renderMyMessages(){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
+  const __pProfiles = loadAllProfiles();
   const mySiteIds = SITES.map(s=>s.id);
   const sitesCsv = mySiteIds.join(',');
   const rows = mySiteIds.length
     ? await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.in.(${sitesCsv}),site_id.is.null)&order=created_at.desc&limit=100`)
     : await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&site_id=is.null&order=created_at.desc&limit=100`);
+  await __pProfiles;
   let unreadMsgIds = new Set();
   if(rows.length){
     const ids = rows.map(m=>m.id);
