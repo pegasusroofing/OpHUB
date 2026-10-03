@@ -30017,6 +30017,7 @@ async function renderDriverSchedule(){
           ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order in this slot: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
+            <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
           ` : `
             <label class="ghostbtn" style="display:block;text-align:center;margin-top:8px;cursor:pointer;">
               ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '☐ Mark Complete (photo required)'}
@@ -30085,6 +30086,81 @@ window.pushDeliveryToTomorrow = async function(taskId){
   }
   toast('Moved to '+nextLabel+', 2pm');
   render();
+};
+// Re-open a completed delivery. Asks whether it goes back on its original
+// date and time or on a new one, clears the completion (so a fresh photo is
+// needed to complete it again), moves the linked Key Dates entry, and tells
+// the driver and whoever booked it.
+function askDeliveryReopen(t){
+  return new Promise(resolve=>{
+    let ov = document.getElementById('deliveryReopenOverlay');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'deliveryReopenOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    const done = v=>{ ov.style.display = 'none'; ov.innerHTML = ''; resolve(v); };
+    const slotLabel = k=>((DELIVERY_TIME_SLOTS.find(x=>x.key===k)||{}).label || k || '');
+    const origLabel = new Date(t.scheduled_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'})+', '+slotLabel(t.time_slot);
+    const todayISO = localISODate(new Date());
+    const isPast = t.scheduled_date < todayISO;
+    ov.onclick = e=>{ if(e.target===ov) done(null); };
+    ov.innerHTML = `
+      <div class="geo-modal-card">
+        <p class="stub" style="margin:0 0 14px;font-weight:700;color:var(--ink);">Re-open this delivery</p>
+        <button class="darkbtn" id="drSame" style="width:100%;margin-bottom:6px;">Same date &amp; time<br><span style="font-weight:500;font-size:12px;">${escapeHtml(origLabel)}</span></button>
+        ${isPast ? `<p class="stub" style="margin:0 0 10px;color:var(--warn);">That date has already passed.</p>` : ''}
+        <p class="stub" style="margin:12px 0 6px;font-weight:600;color:var(--ink);">Or choose a new date</p>
+        <div class="formfield" style="margin-top:0;"><input type="date" id="drDate" value="${isPast ? todayISO : t.scheduled_date}"></div>
+        <div class="formfield"><select id="drSlot">${DELIVERY_TIME_SLOTS.map(x=>`<option value="${x.key}" ${x.key===t.time_slot?'selected':''}>${x.label}</option>`).join('')}</select></div>
+        <button class="darkbtn" id="drNew" style="width:100%;margin-bottom:8px;">Re-open on this date</button>
+        <button class="geo-modal-cancel" id="drCancel">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+    ov.querySelector('#drSame').onclick = ()=>done({date:t.scheduled_date, slot:t.time_slot, same:true});
+    ov.querySelector('#drCancel').onclick = ()=>done(null);
+    ov.querySelector('#drNew').onclick = ()=>{
+      const d = ov.querySelector('#drDate').value, sl = ov.querySelector('#drSlot').value;
+      if(!d){ toast('Choose a date first.'); return; }
+      done({date:d, slot:sl, same:(d===t.scheduled_date && sl===t.time_slot)});
+    };
+  });
+}
+let deliveryReopenBusy = false;
+window.reopenDeliveryTask = async function(taskId){
+  if(deliveryReopenBusy) return;
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId))[0];
+  if(!t){ toast('Delivery not found.'); return; }
+  if(t.status!=='completed'){ toast('This delivery is already open.'); render(); return; }
+  const choice = await askDeliveryReopen(t);
+  if(!choice) return;
+  deliveryReopenBusy = true;
+  try{
+    // Only one first-drop high priority per day: if the day it's going back
+    // onto already has one, this one comes back without the flag.
+    let keepHigh = !!t.high_priority;
+    if(keepHigh){
+      const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+choice.date+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
+      if(clash.length) keepHigh = false;
+    }
+    const patch = {status:'pending', completed_at:null, completed_by:null, completion_photo_path:null, high_priority:keepHigh};
+    if(!choice.same){ patch.scheduled_date = choice.date; patch.time_slot = choice.slot; patch.sub_priority = 999; }
+    const row = await dbUpdate('delivery_tasks', taskId, patch);
+    if(!row){ toast('Could not re-open it — try again.'); return; }
+    if(!choice.same){
+      try{
+        await resequenceSlot(t.scheduled_date, t.time_slot);
+        await resequenceSlot(choice.date, choice.slot);
+        if(t.calendar_event_id) await dbUpdate('site_calendar_events', t.calendar_event_id, {event_date: choice.date, reminder_sent:false});
+      }catch(e){ /* the re-open itself is saved — ordering/calendar tidy-up is best-effort */ }
+    }
+    const slotLabel = (DELIVERY_TIME_SLOTS.find(x=>x.key===choice.slot)||{}).label || choice.slot;
+    const whenLabel = new Date(choice.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'})+', '+slotLabel;
+    const body = `Delivery re-opened by ${ME.name} for ${whenLabel} — ${deliverySiteLabel(t.site_id)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : '');
+    const tell = new Set([t.driver_id, t.created_by].filter(id=>id && id!==ME.id));
+    tell.forEach(id=>{ try{ postSystemMessageToUser(id, t.site_id, 'message', body, taskId); }catch(e){} });
+    toast('Re-opened for '+whenLabel);
+    if(typeof deliveryFormDraft !== 'undefined') deliveryFormDraft = null;
+  }finally{
+    deliveryReopenBusy = false;
+    render();
+  }
 };
 let deliveryCompletionBusyId = null;
 window.completeDeliveryTask = async function(input, taskId){
@@ -30662,6 +30738,7 @@ async function renderDeliveryForm(taskId){
       <p style="margin:0 0 6px;font-weight:800;color:var(--ok);">✓ Completed${draft._completedAt?' '+new Date(draft._completedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
       ${draft._completedBy && PROFILES[draft._completedBy] ? `<p class="stub" style="margin:0 0 6px;">By ${escapeHtml(PROFILES[draft._completedBy].name)}</p>` : ''}
       ${draft._completionPhotoPath ? `<img src="${publicUrl('site-photos', draft._completionPhotoPath)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', draft._completionPhotoPath)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<p class="stub" style="margin:0;">No completion photo on file.</p>`}
+      ${draft._id ? `<button class="ghostbtn" style="width:100%;margin-top:10px;" onclick="reopenDeliveryTask('${draft._id}')">↩ Re-open delivery</button>` : ''}
     </div>
     ` : ''}
     <div class="formfield"><label class="field-label">Site</label>
