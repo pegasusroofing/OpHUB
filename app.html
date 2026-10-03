@@ -1524,6 +1524,9 @@ async function sbFetch(path, opts){
   // connection (the request just hadn't gotten a response back YET).
   // Destructured out here so it never gets passed through to fetch() itself.
   const timeoutMs = opts.timeoutMs;
+  // Anything that isn't a plain read may have changed data — forget what
+  // the screen re-draw memory was holding.
+  if(String(opts.method||'GET').toUpperCase() !== 'GET') uiReadCacheClear();
   await ensureFreshToken();
   // #(no-stale-reads): every dbSelect() GET goes through here, and this app
   // is loaded inside an Android WebView, which — unlike a normal browser tab
@@ -1574,6 +1577,7 @@ async function sbFetchOD(path, opts){
   opts = Object.assign({}, opts || {});
   // Uploads to OneDrive carry a whole file in the request, so they get a
   // minute rather than the usual 20 seconds (or whatever timeoutMs asks for).
+  uiReadCacheClear();
   const odTimeoutMs = opts.timeoutMs || (/onedrive-upload/.test(path) ? 60000 : 20000);
   delete opts.timeoutMs;
   await ensureFreshToken();
@@ -1671,7 +1675,38 @@ async function clearOfflineCache(){
     await sdelete(CACHE_INDEX_KEY, false);
   }catch(e){ /* best-effort */ }
 }
+// ---- Screen re-draw memory -------------------------------------------
+// Opening a dropdown, ticking a box or switching a small tab re-draws the
+// screen. That re-draw used to download everything on the screen again.
+// Now, while you stay on the same page, what was downloaded in the last
+// 30 seconds is reused — UNLESS anything has been saved, uploaded, deleted
+// or sent since (any change throws the memory away, so the next re-draw is
+// always fresh), and going to a different page always starts fresh too.
+const uiReadCache = {hash:null, at:0, map:new Map()};
+const dbSelectOk = new WeakSet(); // answers that really came back from the server
+let uiRenderDepth = 0;
+const UI_READ_CACHE_MS = 30000;
+function uiReadCacheClear(){ uiReadCache.map = new Map(); uiReadCache.at = 0; }
+window.uiReadCacheClear = uiReadCacheClear;
+function uiCloneRows(d){
+  try{ return typeof structuredClone === 'function' ? structuredClone(d) : JSON.parse(JSON.stringify(d)); }
+  catch(e){ return d; }
+}
 async function dbSelect(table, qs){
+  if(uiRenderDepth <= 0 || navigator.onLine === false) return dbSelectNet(table, qs);
+  const key = table+'?'+qs;
+  const map = uiReadCache.map;
+  let p = map.get(key);
+  if(!p){
+    p = dbSelectNet(table, qs);
+    map.set(key, p);
+    // Only a real answer from the server is remembered — a failed or
+    // offline download is asked for again next time.
+    p.then(d=>{ if(!d || typeof d!=='object' || !dbSelectOk.has(d)){ if(map.get(key)===p) map.delete(key); } }, ()=>{ if(map.get(key)===p) map.delete(key); });
+  }
+  return uiCloneRows(await p);
+}
+async function dbSelectNet(table, qs){
   if(navigator.onLine === false){
     const cached = await getCachedRows(table, qs);
     if(cached){ OFFLINE_CACHE_USED = true; return cached.data; }
@@ -1689,6 +1724,7 @@ async function dbSelect(table, qs){
   if(!res.ok){ console.error(await safeErr(res)); return []; }
   const data = await res.json();
   cacheRows(table, qs, data); // fire-and-forget — see comment block above
+  if(data && typeof data==='object') dbSelectOk.add(data);
   return data;
 }
 // Like dbSelect, but says whether the answer actually came from the server.
@@ -1710,6 +1746,7 @@ async function dbSelectChecked(table, qs){
 // refresh themselves — only fires if something was actually shown from
 // cache during the current screen's last render.
 window.addEventListener('online', function(){
+  uiReadCacheClear();
   if(OFFLINE_CACHE_USED) render();
 });
 async function dbInsert(table, rowOrRows){
@@ -1749,6 +1786,7 @@ async function dbDelete(table, id){
   return true;
 }
 async function uploadToStorage(bucket, path, blobOrFile, contentType){
+  uiReadCacheClear();
   await ensureFreshToken();
   // ensureFreshToken clears SESSION when a token refresh genuinely fails
   // (expired/invalid refresh token) — reading SESSION.access_token straight
@@ -17071,7 +17109,7 @@ async function renderSchedule(siteId){
       </div>
     ` : ''}
     <div class="filterrow">
-      ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';render()">${scheduleTabLabel[k]}</div>`).join('')}
+      ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
     ${canAdd ? `<input type="file" id="scheduleDocInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadScheduleDocument(this,'${siteId}')">` : ''}
     ${(scheduleDocs.length || (canAdd && scheduleDocUploading)) ? `
@@ -30904,9 +30942,17 @@ async function renderVehicleChecklistDetail(id){
 // call that was supposed to redraw it had thrown partway through and never
 // finished, and nothing on screen indicated anything had gone wrong.
 async function render(){
+  // New page, or the remembered data is more than 30 seconds old: start fresh.
+  if(uiReadCache.hash !== location.hash || (Date.now() - uiReadCache.at) > UI_READ_CACHE_MS){
+    uiReadCacheClear();
+    uiReadCache.hash = location.hash;
+    uiReadCache.at = Date.now();
+  }
+  uiRenderDepth++;
   try{
     await renderRoute();
   }catch(e){
+    uiReadCacheClear();
     console.error('render() failed', e);
     const el = document.getElementById('app');
     if(el){
@@ -30915,6 +30961,8 @@ async function render(){
         <button class="darkbtn" onclick="location.hash='';render()">Go to Home</button>
       </div>`;
     }
+  }finally{
+    uiRenderDepth = Math.max(0, uiRenderDepth-1);
   }
 }
 async function renderRoute(){
