@@ -26095,7 +26095,10 @@ async function renderMaterialRequests(siteId){
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
-              ${isPM ? `<div class="taskicon danger" onclick="deleteMaterial('${siteId}','${m.id}')">🗑</div>` : ''}
+              ${isPM ? rowActionsMenuHtml('matreq-'+m.id, `
+                <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openMaterialEdit('${siteId}','${m.id}')">✎ Edit</div>
+                <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteMaterial('${siteId}','${m.id}')">🗑 Delete</div>
+              `) : ''}
             </div>
           </div>
           ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? (
@@ -26121,7 +26124,7 @@ async function renderMaterialRequests(siteId){
               ${supplierPickerFor===m.id ? supplierPickerHtml(m.id, suppliers, materialSupplierChoice[m.id]) : ''}
             </div>`
             ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
-          ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button>` : ''}
+          ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<div class="row-gap" style="margin-top:10px;"><button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit request</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button></div>` : ''}
           ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `
           <div class="row-gap" style="margin-top:10px;">
             ${m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
@@ -27834,6 +27837,46 @@ window.confirmReemail = async function(siteId, matId, supplierName){
     toast('Re-email failed — could not reach the server.');
     if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
   }
+};
+// Edit a material request (item, quantity, required-by date). Built as its
+// own pop-up outside the normal screen re-draw so typing isn't interrupted.
+window.openMaterialEdit = async function(siteId, matId){
+  const m = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  if(!m){ toast('Could not find that request.'); render(); return; }
+  let ov = document.getElementById('materialEditOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'materialEditOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) closeMaterialEdit(); };
+  const alreadySent = m.status==='sent' || (m.status==='closed' && m.merchant);
+  ov.innerHTML = `
+    <div class="geo-modal-card">
+      <h3>Edit material request</h3>
+      ${alreadySent ? `<p class="stub" style="margin:0 0 10px;color:var(--warn);">This order has already been sent. Changing it here does not tell the supplier — use Send again if they need the new details.</p>` : ''}
+      <div class="formfield"><label class="field-label">Item</label><input type="text" id="matEditItem" value="${escapeHtml(m.item||'')}"></div>
+      <div class="formfield"><label class="field-label">Quantity</label><input type="text" id="matEditQty" value="${escapeHtml(m.qty||'')}"></div>
+      <div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">Required by (optional)</label><input type="date" id="matEditRequiredBy" value="${escapeHtml(m.required_by_date||'')}"></div>
+      <button class="darkbtn" id="matEditSaveBtn" style="width:100%;margin-bottom:8px;" onclick="saveMaterialEdit('${siteId}','${matId}')">Save changes</button>
+      <button class="geo-modal-cancel" onclick="closeMaterialEdit()">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+  render();
+};
+window.closeMaterialEdit = function(){
+  const ov = document.getElementById('materialEditOverlay');
+  if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
+};
+window.saveMaterialEdit = async function(siteId, matId){
+  const item = (document.getElementById('matEditItem').value||'').trim();
+  const qty = (document.getElementById('matEditQty').value||'').trim();
+  const requiredBy = document.getElementById('matEditRequiredBy').value || null;
+  if(!item){ toast('Enter the item.'); return; }
+  const btn = document.getElementById('matEditSaveBtn');
+  if(btn){ if(btn.disabled) return; btn.disabled = true; btn.textContent = 'Saving…'; }
+  const row = await dbUpdate('materials', matId, {item, qty: qty||'1', required_by_date: requiredBy});
+  if(!row){ if(btn){ btn.disabled = false; btn.textContent = 'Save changes'; } if(row===undefined) toast('Could not save — you may not have permission to change this request.'); return; }
+  closeMaterialEdit();
+  logSiteActivity(siteId, 'material_request_edited', `Edited material request "${item}"`);
+  toast('Request updated');
+  render();
 };
 window.deleteMaterial = async function(siteId, matId){
   if(!await customConfirm('Delete this material request? This can\'t be undone.')) return;
