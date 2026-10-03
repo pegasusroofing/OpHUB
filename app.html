@@ -29428,7 +29428,7 @@ async function renderDriverSchedule(){
               ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '☐ Mark Complete (photo required)'}
               <input type="file" accept="image/*" capture="environment" style="display:none;" ${deliveryCompletionBusyId===t.id?'disabled':''} onchange="completeDeliveryTask(this,'${t.id}')">
             </label>
-            <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Tomorrow (2pm)'}</button>
+            <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
           `}
         </div>
       `).join('') : `<div class="empty">Nothing in this slot.</div>`}
@@ -29452,8 +29452,8 @@ function deliverySiteLabel(siteId){
   return site ? site.name : 'a site';
 }
 // "Push to Tomorrow" — for when a drop doesn't get done. Moves the delivery
-// to the next day's 2pm slot (the day after its own date, or after today if
-// it was already overdue), moves the linked Key Dates entry with it, and
+// to the next working day's 2pm slot (the day after its own date, or after
+// today if it was already overdue; Saturday/Sunday roll on to Monday), moves the linked Key Dates entry with it, and
 // tells the PM who booked it. If that next day already has a first-drop
 // high priority, the pushed one loses its flag so the day never ends up
 // with two.
@@ -29465,6 +29465,8 @@ window.pushDeliveryToTomorrow = async function(taskId){
   const todayISO = localISODate(new Date());
   const baseISO = t.scheduled_date > todayISO ? t.scheduled_date : todayISO;
   const next = new Date(baseISO+'T00:00:00'); next.setDate(next.getDate()+1);
+  // Weekends are skipped — a Friday (or Saturday) push lands on Monday.
+  while(next.getDay()===6 || next.getDay()===0) next.setDate(next.getDate()+1);
   const nextISO = localISODate(next);
   const nextLabel = next.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'});
   if(!await customConfirm('Push this delivery to '+nextLabel+' at 2pm?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
