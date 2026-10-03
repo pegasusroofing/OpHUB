@@ -26096,7 +26096,7 @@ async function renderMaterialRequests(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && (m.status==='pending' || m.status==='sent') ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
+              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.order_note ? `<div class="qty" style="overflow-wrap:break-word;">📝 ${escapeHtml(m.order_note)}</div>` : ''}${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
@@ -27568,7 +27568,17 @@ function orderFulfilmentHtml(key, drivers, siteOps){
       <div class="formfield" id="reqSlotWrap_${key}" style="display:none;"><label class="field-label">Collection time</label>
         <select id="reqSlot_${key}">${DELIVERY_TIME_SLOTS.map(x=>`<option value="${x.key}">${x.label}</option>`).join('')}</select>
       </div>
-    </div>`;
+    </div>
+    <div class="formfield"><label class="field-label">Note (optional)</label>
+      <textarea id="reqNote_${key}" rows="2" maxlength="500" placeholder="e.g. which branch, what each item is for…"></textarea>
+    </div>
+    ${siteOps.filter(o=>o.email).length ? `
+    <div class="formfield"><label class="field-label">Also email a copy to (optional)</label>
+      <div style="border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;max-height:170px;overflow-y:auto;background:#fff;">
+        ${siteOps.filter(o=>o.email).map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px;cursor:pointer;"><input type="checkbox" class="reqCc_${key}" value="${o.id}" style="width:17px;height:17px;flex:0 0 17px;"> ${escapeHtml(o.name)}</label>`).join('')}
+      </div>
+      <p class="stub" style="margin:4px 0 0;">Operatives assigned to this site. Anyone ticked is copied in on the order email.</p>
+    </div>` : ''}`;
 }
 window.onOrderModeChange = function(key){
   const g = id=>document.getElementById(id+'_'+key);
@@ -27584,11 +27594,13 @@ function readOrderFulfilment(key){
   const date = g('reqDeliveryDate') ? g('reqDeliveryDate').value : '';
   const mode = g('reqMode') && g('reqMode').value==='collection' ? 'collection' : 'delivery';
   if(!date){ toast((mode==='collection'?'Collection':'Delivery')+' date is required before sending.'); return null; }
-  if(mode==='delivery') return {mode, date, collectorKind:null, collectorId:null, slot:null};
+  const note = g('reqNote') ? g('reqNote').value.trim() : '';
+  const ccIds = Array.from(document.querySelectorAll('.reqCc_'+key+':checked')).map(el=>el.value);
+  if(mode==='delivery') return {mode, date, note, ccIds, collectorKind:null, collectorId:null, slot:null};
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -27602,7 +27614,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
     if(f.collectorKind==='driver'){
       const payload = {
         org_id: ME.org_id, site_id: siteId,
-        description: 'Collect order: '+itemsText,
+        description: 'Collect order: '+itemsText+(f.note ? ' — Note: '+f.note : ''),
         collection_type: toMe ? 'manual' : 'supplier',
         supplier_id: toMe ? null : supplier.id,
         collection_address_manual: toMe ? 'Supplier to be confirmed' : null,
@@ -27613,16 +27625,16 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       const saved = rows && rows[0];
       if(!saved) return ' — but it could not be added to the Delivery Schedule, add it by hand';
       try{ await resequenceSlot(payload.scheduled_date, payload.time_slot); await syncDeliveryCalendarEvent(saved.id, null, payload); }catch(e){}
-      if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'delivery_assigned', `You've been assigned a collection for ${dateLabel}: ${itemsText}`, saved.id);
+      if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'delivery_assigned', `You've been assigned a collection for ${dateLabel}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, saved.id);
       return ' — added to the Delivery Schedule for '+whoName+', '+dateLabel;
     }
     const nowIso = new Date().toISOString();
     const rows = await dbInsert('material_required_items', materials.map(m=>({
-      site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+')', qty: m.qty||null,
+      site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
       supplier_id: toMe ? null : supplier.id, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
     if(!rows) return ' — but it could not be added to the Material List, add it by hand';
-    if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}`, null);
+    if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
     return ' — added to the Material List for '+whoName+' to collect '+dateLabel;
   }catch(e){ console.error('bookOrderCollection failed', e); return ' — but the collection could not be booked, add it by hand'; }
 }
@@ -27649,7 +27661,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
-  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null});
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
@@ -27661,12 +27673,13 @@ window.confirmSendMaterial = async function(siteId, matId){
       material_id: matId, supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
+      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+collectNote);
+      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
@@ -27741,7 +27754,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
@@ -27753,13 +27766,14 @@ window.confirmSendGroupedMaterial = async function(siteId){
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
+      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
       items: materials.map(m=>({item:m.item, qty:m.qty})),
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       await Promise.all(matIds.map(id => dbUpdate('materials', id, {email_sent_at:new Date().toISOString()})));
-      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+collectNote);
+      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
