@@ -214,7 +214,16 @@
      back-arrow off-screen. display:block plus an explicit overflow guard on
      the wrapping .formfield (below) closes that gap everywhere a date field
      is used — daily briefing / report "conducted on" dates included. */
-  input[type=date]{display:block;}
+  /* The width rules above were not enough on iPhone: the built-in date box
+     keeps its own minimum width and sticks out past the edge of the page.
+     Turning off the native styling is what makes it obey width:100% — the
+     calendar still opens on tap exactly as before. The value rule keeps the
+     box its normal height when no date has been picked and lines the date
+     up on the left like every other box. */
+  input[type=date],input[type=time],input[type=datetime-local],input[type=month]{
+    display:block;-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;box-sizing:border-box;
+  }
+  input::-webkit-date-and-time-value{text-align:left;min-height:1.2em;margin:0;}
   textarea{resize:vertical;min-height:70px;}
   label.field-label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;
     text-transform:uppercase;color:var(--slate);margin:0 0 6px;}
