@@ -9495,7 +9495,7 @@ async function buildRepairJobSurveyPdf(jobId){
       const titleText = addressLabel.length>44 ? addressLabel.slice(0,41)+'…' : addressLabel;
       page.drawText('SURVEY REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+      pdfDrawFit(page, companyName + (site ? ' · '+pdfSiteLabel(site) : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     function drawFooter(pageLabel){
       page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
@@ -9653,7 +9653,7 @@ async function buildRepairJobCompletionPdf(jobId){
       const titleText = addressLabel.length>44 ? addressLabel.slice(0,41)+'…' : addressLabel;
       page.drawText('COMPLETED WORKS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+      pdfDrawFit(page, companyName + (site ? ' · '+pdfSiteLabel(site) : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     function drawFooter(pageLabel){
       page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:FAINT});
@@ -10084,7 +10084,8 @@ async function buildTodoBundlePdf(ids, siteId){
   const PAGE_W=595.28, PAGE_H=841.89, MARGIN=44;
   let page = doc.addPage([PAGE_W,PAGE_H]);
   let y = PAGE_H - MARGIN;
-  page.drawText('To Do List'+(site?' — '+site.name:''), {x:MARGIN, y, size:16, font:bold, color:INK}); y -= 26;
+  page.drawText('To Do List', {x:MARGIN, y, size:16, font:bold, color:INK}); y -= 18;
+  if(site){ pdfDrawFit(page, pdfSiteLabel(site), {x:MARGIN, y, size:10.5, font:bold, color:INK}); y -= 22; } else { y -= 8; }
   todos.forEach(t=>{
     if(y < MARGIN+60){ page = doc.addPage([PAGE_W,PAGE_H]); y = PAGE_H-MARGIN; }
     page.drawText((t.done?'[Done] ':'[Live] ')+t.text, {x:MARGIN, y, size:11, font:bold, color:INK, maxWidth:PAGE_W-2*MARGIN}); y -= 15;
@@ -14085,7 +14086,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   const rows = [];
   rows.push([sheet.title || 'Priced Sheet']);
   if(site){
-    rows.push(['Site:', site.name || '']);
+    rows.push(['Site:', pdfSiteLabel(site)]);
     rows.push(['Job No:', site.job_number || '']);
     rows.push(['Address:', fullSiteAddress(site) || '']);
     rows.push(['PM:', site.responsible_pm_id ? nameOf(site.responsible_pm_id) : '']);
@@ -14281,7 +14282,7 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     // reads fine for a site whose name already looks like an address, but is
     // ambiguous wherever the two differ (multi-site jobs, a site named after
     // the client rather than the postal address, etc).
-    const addrLine = site ? [site.name, fullSiteAddress(site)].filter(Boolean).join(' — ') : null;
+    const addrLine = site ? pdfSiteLabel(site) : null;
     if(addrLine){
       page.drawText(addrLine, {x:textX, y:PAGE_H-73, size:9, font:italic, color:WHITE, opacity:0.85});
     }
@@ -15539,7 +15540,7 @@ async function buildReportPdf(submissionId, opts){
       page.drawText('INSPECTION REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       const titleText = sub.template_name.length>44 ? sub.template_name.slice(0,41)+'…' : sub.template_name;
       page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-      page.drawText(companyName + (site ? ' · '+site.name : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+      pdfDrawFit(page, companyName + (site ? ' · '+pdfSiteLabel(site) : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     const editHistory = Array.isArray(sub.answers && sub.answers._editHistory) ? sub.answers._editHistory : [];
     const lastEdit = editHistory.length ? editHistory[editHistory.length-1] : null;
@@ -18024,6 +18025,37 @@ window.closeSnagPhoto = async function(input, siteId, snagId){
     }
   }catch(e){ toast('Could not process photo.'); }
 };
+// Site as it should read on every exported document: name plus the full
+// address and postcode. If the name is already just the start of the
+// address, only the address is used rather than saying it twice.
+function pdfSiteLabel(site){
+  if(!site) return '';
+  const name = (site.name||'').trim();
+  const addr = fullSiteAddress(site);
+  if(!addr) return name;
+  if(!name) return addr;
+  const norm = v=>v.toLowerCase().replace(/[^a-z0-9]/g,'');
+  if(norm(addr).indexOf(norm(name))===0) return addr;
+  return name+', '+addr;
+}
+// Draws one line of text that must stay on the page: the size is stepped
+// down until it fits the space to the right-hand margin, and only if it
+// still doesn't fit at the smallest size is it shortened with "…".
+function pdfDrawFit(page, text, opts, minSize){
+  text = String(text==null?'':text);
+  const maxW = (opts.maxWidth || (page.getWidth() - opts.x - 30));
+  const o = Object.assign({}, opts); delete o.maxWidth;
+  let size = o.size || 12; const floor = Math.min(size, minSize || 8);
+  try{
+    while(size > floor && o.font.widthOfTextAtSize(text, size) > maxW) size -= 0.5;
+    if(o.font.widthOfTextAtSize(text, size) > maxW){
+      while(text.length > 4 && o.font.widthOfTextAtSize(text+'…', size) > maxW) text = text.slice(0, -1);
+      text = text.replace(/[\s,]+$/,'')+'…';
+    }
+  }catch(e){}
+  o.size = size;
+  page.drawText(text, o);
+}
 function pdfHexToRgb(hex){
   const h = (hex||'').replace('#','');
   if(h.length!==6) return PDFLib.rgb(0.306,0.561,0.820);
@@ -18346,7 +18378,7 @@ async function buildSnaggingPdfBytes(siteId, scope){
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('SNAGGING REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      pdfDrawFit(page, pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + ' · ' + scopeLabel + ' snags', {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     function drawFooter(pageNum){
@@ -18561,7 +18593,7 @@ async function buildSchedulePdfBytes(siteId){
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT' + (scheduleFilter!=='all' ? '  ·  ' + filterLabel.toUpperCase() + ' ONLY' : ''), {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      pdfDrawFit(page, pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + ' · as of ' + new Date().toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     function drawFooter(pageNum){
@@ -20107,7 +20139,7 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
   }
   const textX = logoImg ? MARGIN+52 : MARGIN;
   page.drawText('SITE INDUCTION', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-  page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+  pdfDrawFit(page, pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
   page.drawText(companyName, {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
   let y = PAGE_H - 118;
   page.drawText('Operative: '+operative.name, {x:MARGIN, y, size:11, font:bold, color:INK});
@@ -20167,7 +20199,7 @@ async function buildSiteInductionPdfBytes(site, operative, emergencyName, emerge
     let page2 = pdfDoc.addPage([PAGE_W, PAGE_H]);
     page2.drawRectangle({x:0, y:PAGE_H-70, width:PAGE_W, height:70, color:BRAND});
     page2.drawText('HEALTH QUESTIONNAIRE', {x:MARGIN, y:PAGE_H-32, size:9, font:bold, color:WHITE, opacity:0.85});
-    page2.drawText(site.name, {x:MARGIN, y:PAGE_H-52, size:14, font:bold, color:WHITE});
+    pdfDrawFit(page2, pdfSiteLabel(site), {x:MARGIN, y:PAGE_H-52, size:14, font:bold, color:WHITE});
     let y2 = PAGE_H - 100;
     page2.drawText('Operative: '+operative.name, {x:MARGIN, y:y2, size:11, font:bold, color:INK});
     y2 -= 24;
@@ -22160,7 +22192,7 @@ async function buildPpeRequestsSummaryPdf(siteId, requests){
     page.drawImage(logoImg, {x:HAVS_LOGO_RIGHT_X+(HAVS_LOGO_SIZE-w)/2, y:PAGE_H-72+(HAVS_LOGO_SIZE-h)/2, width:w, height:h});
   }
   page.drawText('REQUESTED PPE', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
-  page.drawText(site?site.name:'', {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
+  pdfDrawFit(page, pdfSiteLabel(site), {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE});
   let y = PAGE_H-110;
   requests.forEach(r=>{
     page.drawText(nameOf(r.user_id)+' — '+r.item_name, {x:MARGIN, y, size:11, font:bold, color:INK});
@@ -22502,7 +22534,7 @@ async function buildPpeIssuancePdf(issuanceId){
   const textX = logoImg ? MARGIN+52 : MARGIN;
   page.drawText('PPE ISSUANCE RECORD', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
   page.drawText(nameOf(i.user_id), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-  page.drawText((site?site.name:'') + ' · ' + new Date(i.issued_at).toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+  pdfDrawFit(page, pdfSiteLabel(site) + ' · ' + new Date(i.issued_at).toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
   let y = PAGE_H-130;
   page.drawText('Items issued', {x:MARGIN, y, size:9.5, font:bold, color:SLATE}); y -= 16;
   (i.items||[]).forEach(item=>{ page.drawText('• '+item, {x:MARGIN, y, size:11.5, font:reg, color:INK}); y -= 16; });
@@ -23181,7 +23213,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
     }
     page.drawText('HAVS EXPOSURE REPORT', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
     page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
-    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
+    pdfDrawFit(page, siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
@@ -23429,7 +23461,7 @@ async function buildHavsPdf(siteId, days, weekLabel, operatives, labelForFilenam
   // HSE Tool Exposure Reference last — the register-grid page tried in an
   // earlier revision has been dropped per feedback.
   for(const op of operatives){
-    await drawHavsOperativePages(pdfDoc, fonts, site.name, weekLabel, days, op, tools, toolById, entries, logoImg);
+    await drawHavsOperativePages(pdfDoc, fonts, pdfSiteLabel(site), weekLabel, days, op, tools, toolById, entries, logoImg);
   }
   await drawHavsCalculatorPage(pdfDoc, fonts, tools, logoImg);
   const bytes = await pdfDoc.save();
@@ -24182,7 +24214,7 @@ async function buildPuwerPdf(siteId, userId){
   const fonts = await havsPdfFonts(pdfDoc);
   const logoImg = await havsFetchLogoImg(pdfDoc);
   const weekLabel = puwerWeekLabel(puwerWeekOffset);
-  await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, puwerFillDraft.tools, puwerFillDraft.comments,
+  await drawPuwerInspectionPage(pdfDoc, fonts, pdfSiteLabel(site), weekLabel, op, puwerFillDraft.tools, puwerFillDraft.comments,
     puwerFillDraft.inspectedBy ? nameOf(puwerFillDraft.inspectedBy) : ME.name, logoImg, undefined, puwerFillDraft.inspectedAt || null);
   const bytes = await pdfDoc.save();
   const filename = exportFilename(site.name, 'PUWER - '+op.name+' - '+weekLabel, 'pdf');
@@ -24252,7 +24284,7 @@ async function buildPuwerCollectivePdf(siteId, operatives, labelForFilename){
     const {tools, comments, hasInspection, inspectedBy, inspectedAt} = await loadPuwerInspectionForExport(siteId, op.id, weekStart);
     // Each operative's page carries whoever actually inspected THEIR tools
     // and the date it was done — not the person pressing Export, today.
-    await drawPuwerInspectionPage(pdfDoc, fonts, site.name, weekLabel, op, tools, comments, inspectedBy ? nameOf(inspectedBy) : '—', logoImg, hasInspection, inspectedAt);
+    await drawPuwerInspectionPage(pdfDoc, fonts, pdfSiteLabel(site), weekLabel, op, tools, comments, inspectedBy ? nameOf(inspectedBy) : '—', logoImg, hasInspection, inspectedAt);
   }
   const bytes = await pdfDoc.save();
   const filename = exportFilename(site.name, 'PUWER - '+labelForFilename+' - '+weekLabel, 'pdf');
@@ -24357,7 +24389,7 @@ async function drawPuwerInspectionPage(pdfDoc, fonts, siteName, weekLabel, op, t
     }
     page.drawText('PUWER TOOL INSPECTION', {x:MARGIN, y:PAGE_H-34, size:9, font:bold, color:WHITE, opacity:0.85});
     page.drawText(op.name, {x:MARGIN, y:PAGE_H-54, size:16, font:bold, color:WHITE, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
-    page.drawText(siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
+    pdfDrawFit(page, siteName + ' · Week ' + weekLabel, {x:MARGIN, y:PAGE_H-70, size:9.5, font:reg, color:WHITE, opacity:0.9, maxWidth:PAGE_W-2*MARGIN-(logoImg?HAVS_LOGO_SIZE+8:0)});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:LINE});
@@ -24829,8 +24861,8 @@ async function buildIncidentPdf(reportId){
     }
     const textX = logoImg ? MARGIN+52 : MARGIN;
     page.drawText('ACCIDENT / INCIDENT / NEAR MISS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-    page.drawText(r.location || site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-    page.drawText(site.name + ' · ' + (r.incident_date ? new Date(r.incident_date+'T00:00:00').toLocaleDateString('en-GB') : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+    pdfDrawFit(page, r.location || pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+    pdfDrawFit(page, pdfSiteLabel(site) + ' · ' + (r.incident_date ? new Date(r.incident_date+'T00:00:00').toLocaleDateString('en-GB') : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
   }
   function drawFooter(){
     page.drawLine({start:{x:MARGIN,y:34}, end:{x:PAGE_W-MARGIN,y:34}, thickness:0.75, color:PDFLib.rgb(0.85,0.84,0.80)});
@@ -28745,7 +28777,7 @@ window.exportVariationsPDF = async function(siteId, scope){
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
       page.drawText('VARIATIONS REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
-      page.drawText(site.name, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
+      pdfDrawFit(page, pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + ' · ' + scopeLabel + ' variations', {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     function drawFooter(pageNum){
@@ -30646,7 +30678,7 @@ async function deliveryScheduleExportRows(daysISO){
   return tasks.map(t=>({
     date: new Date(t.scheduled_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}),
     time: slotLabel[t.time_slot] || t.time_slot || '',
-    site: (SITES.find(s=>s.id===t.site_id)||{}).name || 'Unknown site',
+    site: pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site',
     description: t.description || '',
     collection: deliveryCollectionLabel(t),
     driver: (t.driver_id && PROFILES[t.driver_id]) ? PROFILES[t.driver_id].name : 'Unassigned',
