@@ -30291,6 +30291,53 @@ function deliveryCollectionLabel(t){
   if(t.collection_type==='supplier') return t._supplierName || 'Supplier';
   return t.collection_address_manual || 'Collection address';
 }
+// "Collections" summary at the top of the driver's day: one row per place
+// things are being collected from (the yard, each supplier, each typed
+// address). Tapping a row lists everything to pick up there, job by job, so
+// the van can be loaded in one visit.
+let driverCollectOpen = {};
+window.toggleDriverCollect = function(key){ driverCollectOpen[key] = !driverCollectOpen[key]; render(); };
+function deliveryCollectionPlaceKey(t){
+  if(t.collection_type==='yard') return 'yard';
+  if(t.collection_type==='supplier') return 'supplier:'+(t.supplier_id||'none');
+  return 'manual:'+String(t.collection_address_manual||'').trim().toLowerCase();
+}
+function deliveryCollectionSummaryHtml(tasks){
+  if(!tasks.length) return '';
+  const slotOrder = {}; DELIVERY_TIME_SLOTS.forEach((sl,i)=>{ slotOrder[sl.key]=i; });
+  const slotLabel = {}; DELIVERY_TIME_SLOTS.forEach(sl=>{ slotLabel[sl.key]=sl.label; });
+  const places = [];
+  tasks.forEach(t=>{
+    const key = deliveryCollectionPlaceKey(t);
+    let pl = places.find(x=>x.key===key);
+    if(!pl){ pl = {key, label: deliveryCollectionLabel(t), tasks:[]}; places.push(pl); }
+    pl.tasks.push(t);
+  });
+  // Yard first, then the rest alphabetically.
+  places.sort((a,b)=> (a.key==='yard'?-1:b.key==='yard'?1:a.label.localeCompare(b.label)));
+  places.forEach(pl=>pl.tasks.sort((a,b)=>((slotOrder[a.time_slot]??99)-(slotOrder[b.time_slot]??99)) || ((a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority))));
+  return `
+    <p class="sectiontitle" style="margin-top:0;">Collections — what to pick up where</p>
+    ${places.map(pl=>{
+      const open = !!driverCollectOpen[pl.key];
+      const left = pl.tasks.filter(t=>t.status!=='completed').length;
+      return `
+      <p class="ddrow" style="margin-top:8px;" onclick="toggleDriverCollect('${jsAttr(pl.key)}')">
+        <span class="arrow">${open?'▼':'▶'}</span> 📦 Collect from ${escapeHtml(pl.label)}
+        <span class="stub" style="margin-left:auto;white-space:nowrap;">${pl.tasks.length} job${pl.tasks.length===1?'':'s'}${left<pl.tasks.length ? ' · '+left+' left' : ''}</span>
+      </p>
+      ${open ? `
+      <div class="card" style="margin-top:0;">
+        ${pl.tasks.map((t,i)=>`
+          <div style="padding:8px 0;${i?'border-top:1px solid var(--line);':''}${t.status==='completed'?'opacity:.55;':''}">
+            <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${deliverySiteHeadingHtml(t.site_id)}</p>
+            <p style="margin:0 0 3px;white-space:pre-wrap;overflow-wrap:break-word;">${escapeHtml(t.description||'')}</p>
+            <p class="stub" style="margin:0;">Drop at ${escapeHtml(slotLabel[t.time_slot]||t.time_slot||'')}${t.status==='completed'?' · ✓ Completed':''}</p>
+          </div>`).join('')}
+      </div>` : ''}`;
+    }).join('')}
+    <div style="height:6px;"></div>`;
+}
 async function renderDriverSchedule(){
   const __gen = RENDER_GEN;
   const d = new Date(); d.setDate(d.getDate()+driverScheduleDateOffset);
@@ -30320,6 +30367,7 @@ async function renderDriverSchedule(){
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
       <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset++;render()">›</span>
     </div>
+    ${deliveryCollectionSummaryHtml(myTasks)}
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
