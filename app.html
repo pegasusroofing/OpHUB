@@ -29637,10 +29637,15 @@ window.deleteCoshhLibraryFolder = async function(folderId){
   const ok = await dbDelete('coshh_library_folders', folderId);
   if(ok){ toast('Folder deleted'); render(); }
 };
+let coshhLibUploadBusy = false;
 window.uploadCoshhLibraryFile = async function(input, folderId){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
+  if(coshhLibUploadBusy) return;
+  coshhLibUploadBusy = true;
   const label = document.getElementById('coshhLibUploadLabel');
+  if(label){ label.style.pointerEvents = 'none'; label.style.opacity = '.6'; }
+  input.disabled = true;
   let uploaded = 0;
   for(let i=0; i<files.length; i++){
     const file = files[i];
@@ -29651,9 +29656,11 @@ window.uploadCoshhLibraryFile = async function(input, folderId){
     const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id});
     if(rows) uploaded++;
   }
-  if(uploaded){ toast(uploaded===1 ? 'Document uploaded' : `${uploaded} documents uploaded`); coshhLibUploadOpen = false; }
-  else toast('Upload failed — try again.');
-  render();
+  coshhLibUploadBusy = false;
+  if(uploaded) coshhLibUploadOpen = false;
+  await render();
+  if(uploaded) customAlert('✓ Upload complete — '+(uploaded===1 ? '1 document' : uploaded+' documents')+' added to the COSHH library.'+(uploaded<files.length ? ' '+(files.length-uploaded)+' could not be uploaded — try those again.' : ''));
+  else customAlert('Upload failed — nothing was added. Check your connection and try again.');
 };
 window.renameCoshhLibraryFile = async function(fileId, currentName){
   const next = await customPrompt('Rename document', currentName);
@@ -29747,27 +29754,53 @@ async function renderCoshhLibraryPick(siteId){
       </div>`;
     }).join('')}
     ${(!subfolders.length && !files.length) ? `<div class="empty">Nothing here.</div>` : ''}
-    ${coshhPickSelected.size ? `<button class="darkbtn" style="margin-top:14px;" onclick="importSelectedCoshhFromLibrary('${siteId}')">Add ${coshhPickSelected.size} Selected</button>` : ''}
+    ${coshhPickSelected.size ? `<button class="darkbtn" id="coshhImportBtn" style="margin-top:14px;" ${coshhImportBusy?'disabled':''} onclick="importSelectedCoshhFromLibrary('${siteId}')">${coshhImportBusy ? 'Adding… please wait' : 'Add '+coshhPickSelected.size+' Selected'}</button>
+    <p class="stub" id="coshhImportNote" style="margin:8px 0 0;text-align:center;${coshhImportBusy?'':'display:none;'}">Copying documents — this can take a minute. Please don't leave this page.</p>` : ''}
   `, {title:'Add from Library', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/coshh`, siteId, tabs:false}); }
 }
+// Only one import runs at a time: the button locks and counts through the
+// documents as they copy, and a confirmation pop-up says exactly what was
+// added before going back to the site's COSHH page.
+let coshhImportBusy = false;
 window.importSelectedCoshhFromLibrary = async function(siteId){
-  if(!coshhPickSelected.size) return;
-  const ids = Array.from(coshhPickSelected);
-  const files = await dbSelect('coshh_library_files', 'id=in.('+ids.join(',')+')&select=*');
-  let added = 0, failed = 0;
-  for(const f of files){
-    try{
-      const srcRes = await fetch(publicUrl('coshh-library', f.storage_path));
-      const blob = await srcRes.blob();
-      const path = siteId+'/coshh/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
-      const stored = await uploadToStorage('coshh-docs', path, blob, 'application/pdf');
-      if(!stored){ failed++; continue; }
-      const rows = await dbInsert('coshh_docs', {site_id:siteId, name:f.name, storage_path:stored, uploaded_by:ME.id});
-      if(rows) added++; else failed++;
-    }catch(e){ failed++; }
+  if(coshhImportBusy || !coshhPickSelected.size) return;
+  coshhImportBusy = true;
+  const setProgress = txt=>{
+    const btn = document.getElementById('coshhImportBtn');
+    if(btn){ btn.disabled = true; btn.textContent = txt; }
+    const note = document.getElementById('coshhImportNote');
+    if(note) note.style.display = '';
+  };
+  setProgress('Adding… please wait');
+  let added = 0, failed = 0; const addedNames = [];
+  try{
+    const ids = Array.from(coshhPickSelected);
+    const files = await dbSelect('coshh_library_files', 'id=in.('+ids.join(',')+')&select=*');
+    failed = ids.length - files.length; // anything ticked that could no longer be found
+    for(let i=0; i<files.length; i++){
+      const f = files[i];
+      setProgress(`Adding ${i+1} of ${files.length}… please wait`);
+      try{
+        const srcRes = await fetchWithTimeout(publicUrl('coshh-library', f.storage_path), {}, 60000);
+        if(!srcRes.ok) throw new Error('download failed');
+        const blob = await srcRes.blob();
+        const path = siteId+'/coshh/'+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
+        const stored = await uploadToStorage('coshh-docs', path, blob, 'application/pdf');
+        if(!stored){ failed++; continue; }
+        const rows = await dbInsert('coshh_docs', {site_id:siteId, name:f.name, storage_path:stored, uploaded_by:ME.id});
+        if(rows){ added++; addedNames.push(f.name); } else failed++;
+      }catch(e){ failed++; }
+    }
+  }finally{
+    coshhImportBusy = false;
   }
-  toast(added ? `${added} document${added===1?'':'s'} added from the library`+(failed?`, ${failed} failed`:'') : 'Could not add — try again.');
+  if(!added){
+    toast('Nothing was added — check your connection and try again.');
+    render();
+    return;
+  }
   coshhPickSelected = new Set();
+  customAlert('✓ Upload complete — '+added+' document'+(added===1?'':'s')+' added to this site\'s COSHH'+(added<=6 ? ': '+addedNames.join(', ') : '')+'.'+(failed ? ' '+failed+' could not be added — try those again.' : ''));
   go(`#/site/${siteId}/hs/coshh`);
 };
 
