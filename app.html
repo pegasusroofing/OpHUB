@@ -16762,7 +16762,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
           ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`
             <div class="taskphotowrap">
               <img src="${publicUrl('site-photos',p.storage_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">
-              ${t.status!=='done' ? `<div class="taskphotodel" onclick="event.stopPropagation();deleteSchedulePhoto('${siteId}','${t.id}','${p.id}','${p.storage_path}')">×</div>` : ''}
+              ${t.status!=='done' && (isManager(ME) || p.uploaded_by===ME.id) ? `<div class="taskphotodel" onclick="event.stopPropagation();deleteSchedulePhoto('${siteId}','${t.id}','${p.id}','${p.storage_path}')">×</div>` : ''}
             </div>
           `).join('')}</div>` : ''}
           ${pendingCompleteTaskId===t.id ? `
