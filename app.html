@@ -29864,10 +29864,20 @@ window.saveCoshhToLibraryHere = async function(siteId){
 // One-way announcements: PMs/Admins post down to operatives (per-site or
 // whole company); operative actions elsewhere (material requests, snag
 // closures, variations) post automatically up to whichever PM owns the site.
+// Notifications are a side effect of something the person just did (checking
+// in, assigning a job…). If one can't be sent, that must never show up as a
+// "Save failed" error over an action that actually worked — so these go in
+// quietly and a failure is only written to the console.
+async function quietMessageInsert(row){
+  try{
+    const res = await sbFetch('/rest/v1/messages', {method:'POST', headers:{'Prefer':'return=minimal'}, body: JSON.stringify(row)});
+    if(!res.ok) console.warn('notification not sent:', await safeErr(res));
+  }catch(e){ console.warn('notification not sent:', e && e.message); }
+}
 async function postSystemMessage(siteId, kind, body){
   // Best-effort — never blocks or errors out the action that triggered it.
   try{
-    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'managers', kind, body});
+    await quietMessageInsert({org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'managers', kind, body});
   }catch(e){ /* silent */ }
 }
 // Downward variant of the above — PM/admin action that needs to land in
@@ -29877,7 +29887,7 @@ async function postSystemMessage(siteId, kind, body){
 // postSystemMessageToUser below instead (audience='single').
 async function postSystemMessageTo(siteId, kind, body){
   try{
-    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'operatives', kind, body});
+    await quietMessageInsert({org_id: ME.org_id, site_id: siteId, sender_id: ME.id, audience:'operatives', kind, body});
   }catch(e){ /* silent */ }
 }
 // #notif-review-2026-09: "Operative signs in / checks in to a site" was
@@ -29907,7 +29917,7 @@ async function postSystemMessageToUser(userId, siteId, kind, body, relatedId){
     // relatedId goes in messages.related_id, NOT parent_id — parent_id is a
     // foreign key to another message, so putting a delivery id in it made
     // every one of these inserts fail and the notification never sent.
-    await dbInsert('messages', {org_id: ME.org_id, site_id: siteId||null, sender_id: ME.id, audience:'single', recipient_id:userId, kind, body, related_id: relatedId||null});
+    await quietMessageInsert({org_id: ME.org_id, site_id: siteId||null, sender_id: ME.id, audience:'single', recipient_id:userId, kind, body, related_id: relatedId||null});
   }catch(e){ /* silent */ }
 }
 async function markMessagesRead(ids){
