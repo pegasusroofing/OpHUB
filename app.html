@@ -26201,7 +26201,7 @@ async function renderMaterialRequests(siteId){
     </div>
     ` : ''}
     ` : ''}
-  `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
 
 /* ================= MATERIAL LIST (pick-up list) ================
@@ -26413,7 +26413,7 @@ async function renderMaterialRequiredList(siteId){
       </div>
     </div>
     ` : ''}
-  `, {title:'Material List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: isPM ? `#/site/${siteId}/materials` : `#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
+  `, {title:'Material List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
 window.toggleMatReqExpand = function(id){
   if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);
