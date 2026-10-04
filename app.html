@@ -30483,12 +30483,6 @@ const VEHICLE_CHECKLIST_ITEMS = [
   {key:'plates', cat:'Exterior', label:'Number plates are secure, clean and legible'},
   {key:'bodywork', cat:'Exterior', label:'Bodywork and doors undamaged, no sharp edges, doors shut and lock securely'},
   {key:'exhaust', cat:'Exterior', label:'No exhaust leaks, excessive smoke or noise'},
-  {key:'oil', cat:'Fluids & Fuel', label:'Engine oil level OK'},
-  {key:'coolant', cat:'Fluids & Fuel', label:'Coolant level OK'},
-  {key:'brake_fluid', cat:'Fluids & Fuel', label:'Brake fluid level OK, no leaks'},
-  {key:'washer_fluid', cat:'Fluids & Fuel', label:'Washer fluid topped up'},
-  {key:'fuel_cap', cat:'Fluids & Fuel', label:'Fuel cap secure, no fuel leaks'},
-  {key:'adblue', cat:'Fluids & Fuel', label:'AdBlue level OK (if applicable)'},
   {key:'battery', cat:'Battery', label:'Battery is secure, in good condition and not leaking'},
   {key:'tyre_tread', cat:'Tyres & Wheels', label:'Legal tread depth on all tyres'},
   {key:'tyre_pressure', cat:'Tyres & Wheels', label:'Tyre pressures correct'},
@@ -30501,6 +30495,39 @@ let vehicleChecklistDraft = null; // {id, vehicle_reg, week_start, items:{key:{r
 let vehicleChecklistBusy = false;
 let vehicleChecklistPhotoBusyKey = null;
 function vehicleChecklistWeekStart(){ return localISODate(new Date(startOfWeek(new Date()))); } // startOfWeek returns a timestamp, not a Date
+// Four photos of the vehicle that must be taken before a checklist can be
+// submitted. Stored alongside the answers under their own keys, so they
+// never count as a Pass/Fail item.
+const VEHICLE_CHECKLIST_PHOTOS = [
+  {key:'photo_front', label:'Front'},
+  {key:'photo_back', label:'Back'},
+  {key:'photo_left', label:'Left hand side'},
+  {key:'photo_right', label:'Right hand side'},
+];
+function vehiclePhotosHtml(itemsMap, editable){
+  return `
+    <p class="sectiontitle" style="margin-top:16px;">Vehicle photos${editable ? ' (all 4 required)' : ''}</p>
+    <div class="card" style="margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        ${VEHICLE_CHECKLIST_PHOTOS.map((ph,i)=>{
+          const path = (itemsMap[ph.key]||{}).photo_path;
+          const url = path ? publicUrl('site-photos', path) : null;
+          const busy = vehicleChecklistPhotoBusyKey===ph.key;
+          return `
+          <div style="min-width:0;">
+            <p style="margin:0 0 6px;font-weight:700;font-size:13px;">${i+1}. ${ph.label}</p>
+            ${url ? `<img src="${url}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;cursor:pointer;display:block;" onclick="viewImage('${url}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">`
+                  : `<div style="width:100%;aspect-ratio:4/3;border:1.5px dashed var(--line);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--slate);font-size:12px;">${editable ? 'No photo yet' : 'Not taken'}</div>`}
+            ${editable ? `
+            <label class="ghostbtn" style="display:block;text-align:center;margin-top:6px;cursor:pointer;">
+              ${busy ? 'Uploading…' : (url ? '📷 Retake' : '📷 Take photo')}
+              <input type="file" accept="image/*" capture="environment" style="display:none;" ${busy?'disabled':''} onchange="uploadVehicleChecklistPhoto(this,'${ph.key}')">
+            </label>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
 async function loadOrStartVehicleChecklist(){
   const weekStart = vehicleChecklistWeekStart();
   const rows = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+weekStart+'&order=created_at.asc&limit=1');
@@ -30532,6 +30559,7 @@ async function renderDriverVehicleChecklist(){
         <input type="text" value="${jsAttr(d.vehicle_reg)}" ${submitted?'disabled':''} placeholder="e.g. AB12 CDE" oninput="vehicleChecklistDraft.vehicle_reg=this.value" onblur="saveVehicleChecklistDraft()">
       </label>
     </div>
+    ${vehiclePhotosHtml(d.items, !submitted)}
     ${cats.map(cat=>`
       <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(cat)}</p>
       ${VEHICLE_CHECKLIST_ITEMS.filter(i=>i.cat===cat).map(item=>{
@@ -30607,7 +30635,7 @@ async function saveVehicleChecklistDraftNow(){
   const d = vehicleChecklistDraft;
   if(!d) return;
   const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
-  const hasFails = itemsArr.some(it=>it.result==='fail');
+  const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   if(d.id){
     await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
   } else {
@@ -30627,6 +30655,8 @@ window.submitVehicleChecklist = async function(){
   const d = vehicleChecklistDraft;
   const missing = VEHICLE_CHECKLIST_ITEMS.find(i=>!d.items[i.key] || !d.items[i.key].result);
   if(missing){ toast('Every item needs a Pass or Fail before you can submit.'); return; }
+  const missingPhoto = VEHICLE_CHECKLIST_PHOTOS.find(ph=>!d.items[ph.key] || !d.items[ph.key].photo_path);
+  if(missingPhoto){ toast('All 4 vehicle photos are needed before you can submit — missing: '+missingPhoto.label+'.'); return; }
   const badFail = VEHICLE_CHECKLIST_ITEMS.find(i=>{
     const it = d.items[i.key];
     return it.result==='fail' && (!it.photo_path || !it.note);
@@ -30634,7 +30664,7 @@ window.submitVehicleChecklist = async function(){
   if(badFail){ toast('Every failed item needs both a photo and a note before you can submit.'); return; }
   vehicleChecklistBusy = true; render();
   const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
-  const hasFails = itemsArr.some(it=>it.result==='fail');
+  const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   let row;
   if(d.id){
     row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
@@ -31295,6 +31325,7 @@ async function renderVehicleChecklistDetail(id){
       <p class="stub" style="margin:0;">${r.vehicle_reg?escapeHtml(r.vehicle_reg)+' · ':''}Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</p>
       <p class="stub" style="margin:4px 0 0;">Submitted ${r.submitted_at?new Date(r.submitted_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
     </div>
+    ${vehiclePhotosHtml(itemsMap, false)}
     ${cats.map(cat=>`
       <p class="sectiontitle" style="margin-top:16px;">${escapeHtml(cat)}</p>
       ${VEHICLE_CHECKLIST_ITEMS.filter(i=>i.cat===cat).map(item=>{
