@@ -698,7 +698,19 @@ function _canvasFingerprint(){
 function getDeviceId(){
   let cached = null;
   try{ cached = localStorage.getItem('ophub_device_id'); }catch(e){ /* private browsing etc — non-fatal */ }
-  if(cached && cached.indexOf('fp_')===0) return cached;
+  // Anything already saved on this phone is kept, so nobody's existing lock changes.
+  if(cached && /^(fp_|dv_)/.test(cached)) return cached;
+  // New installs get an id that is unique to this browser/app on this phone,
+  // so two people with the same model of phone can never be mistaken for the
+  // same device. Recognising "the same handset opened another way" (Safari
+  // vs the app, or a private window) is the job of getHardwareId() below.
+  let id = null;
+  try{ id = 'dv_'+(crypto.randomUUID ? crypto.randomUUID() : (_hashStr(String(Math.random())+Date.now())+_hashStr(String(Math.random())))); }catch(e){ id = null; }
+  if(id){
+    try{ localStorage.setItem('ophub_device_id', id); if(localStorage.getItem('ophub_device_id')===id) return id; }catch(e){ /* storage blocked — fall through */ }
+  }
+  // Storage isn't available (e.g. some private windows): fall back to the
+  // old signature-based id so the phone still gets the same id every time.
   const signal = [
     navigator.userAgent || '',
     navigator.platform || '',
@@ -708,9 +720,42 @@ function getDeviceId(){
     (new Date()).getTimezoneOffset(),
     _canvasFingerprint()
   ].join('||');
-  const id = 'fp_'+_hashStr(signal);
-  try{ localStorage.setItem('ophub_device_id', id); }catch(e){ /* private browsing etc — non-fatal */ }
-  return id;
+  return 'fp_'+_hashStr(signal);
+}
+// What this handset "looks like" — deliberately built only from things that
+// are the SAME in Safari and inside the phone app (screen, pixel density,
+// processor count, touch points, language, timezone), and nothing that
+// differs between them (the browser's own name/version). The server uses it
+// to spot the same phone being used a second way; because two phones of the
+// same model also look alike, a match is held for approval, never refused.
+function getHardwareId(){
+  try{
+    const w = Math.min(screen.width, screen.height), h = Math.max(screen.width, screen.height);
+    const signal = [
+      w+'x'+h+'x'+screen.colorDepth,
+      window.devicePixelRatio || '',
+      navigator.hardwareConcurrency || '',
+      navigator.maxTouchPoints || 0,
+      navigator.platform || '',
+      navigator.language || '',
+      (new Date()).getTimezoneOffset(),
+    ].join('||');
+    return 'hw_'+_hashStr(signal);
+  }catch(e){ return null; }
+}
+// Who the one-phone rule applies to: everyone except project managers,
+// company admins and the super admin.
+function deviceLockApplies(profile){
+  return !!profile && ['pm','admin','superadmin'].indexOf(profile.role) === -1;
+}
+function deviceLockMessage(lock){
+  return lock.error==='device_locked'
+    ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your Project Manager or admin to unlock it in Admin Centre if this is wrong.`
+    : lock.error==='pending_approval'
+    ? (lock.reason==='lookalike'
+        ? `This phone needs approving before you can sign in on it. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then sign in again.`
+        : `This is a new device for your account. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then try signing in again.`)
+    : 'Could not verify this device — check your connection and try again.';
 }
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // Shared "CC client contact" tick box, dropped into every "email this"
@@ -2124,7 +2169,7 @@ async function signIn(email, password){
 // PMs/admins are exempt — see the role check at the call site.
 async function checkDeviceLock(){
   try{
-    const res = await sbFetch('/rest/v1/rpc/check_and_lock_device', {method:'POST', body: JSON.stringify({p_device_id: getDeviceId()})});
+    const res = await sbFetch('/rest/v1/rpc/check_device_lock_v2', {method:'POST', body: JSON.stringify({p_device_id: getDeviceId(), p_hw_id: getHardwareId()})});
     if(!res.ok) return {ok:false, error:'request_failed'};
     return await res.json();
   }catch(e){ return {ok:false, error:'request_failed'}; }
@@ -3040,6 +3085,21 @@ function registerServiceWorker(){
     navigator.serviceWorker.register('/sw.js').catch(()=>{});
   }catch(e){}
 }
+// Every time the app is opened while already signed in, the phone is checked
+// again — not just at sign-in — so a lock that was removed, or an account
+// moved onto this phone some other way, is caught. A failed request (no
+// signal) never signs anybody out; only a definite "not allowed" does.
+async function recheckDeviceLockOnOpen(){
+  try{
+    if(!SESSION || !ME || !deviceLockApplies(ME) || navigator.onLine === false) return;
+    const lock = await checkDeviceLock();
+    if(!lock || (lock.error!=='device_locked' && lock.error!=='pending_approval')) return; // only a definite refusal signs anyone out
+    const msg = deviceLockMessage(lock);
+    await doSignOut();
+    authError = msg;
+    render();
+  }catch(e){ /* never blocks start-up */ }
+}
 async function init(){
   registerServiceWorker();
   SESSION = await getJSON(K_SESSION, false, null);
@@ -3057,6 +3117,7 @@ async function init(){
     if(ME.role!=='superadmin') registerPushNotifications();
     firstPaint.then(()=>{ warmUpLibs(); });
     refreshBootData().then(()=>{ if(snap.hsGateOk) recheckHsPolicyGate(); });
+    recheckDeviceLockOnOpen();
     return;
   }
   if(SESSION){
@@ -3085,6 +3146,7 @@ async function init(){
   await render();
   if(SESSION && ME) saveBootSnapshot();
   warmUpLibs();
+  recheckDeviceLockOnOpen();
 }
 
 // Site Home's status strip has Job No on the left and an on-site pill on the
@@ -3385,18 +3447,13 @@ window.doSignIn = async function(){
       return;
     }
     if(ME.role==='superadmin'){ go('#/'); return; }
-    if(ME.role==='operative'){
+    if(deviceLockApplies(ME)){
       authBusyLabel = 'Checking this device…'; render();
       const lock = await checkDeviceLock();
       if(!lock.ok){
-        // #333: a brand-new device on an account that already has an
-        // approved device is held for PM/admin approval rather than being
-        // silently let in — see check_and_lock_device.
-        authError = lock.error==='device_locked'
-          ? `This phone is already signed in to OpHUB as ${lock.locked_to_name || 'another team member'}. Each phone can only be used by one person — ask your admin to unlock it in Admin Centre if this is wrong.`
-          : lock.error==='pending_approval'
-          ? `This is a new device for your account. Ask your Project Manager or admin to approve it in Admin Centre › Device Locks, then try signing in again.`
-          : 'Could not verify this device — check your connection and try again.';
+        // A phone locked to someone else is refused; a new or look-alike
+        // phone is held for a PM/admin to approve — see check_device_lock_v2.
+        authError = deviceLockMessage(lock);
         await doSignOut();
         return;
       }
@@ -3496,6 +3553,17 @@ window.doJoin = async function(inviteId){
       SITES = sites;
       saveBootSnapshot(); warmUpLibs();
       registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
+      // Lock this phone to the new account now, rather than only at its next sign-in.
+      if(deviceLockApplies(ME)){
+        const lock = await checkDeviceLock();
+        if(lock && (lock.error==='device_locked' || lock.error==='pending_approval')){
+          try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){}
+          await doSignOut();
+          authError = 'Your account has been created. '+deviceLockMessage(lock);
+          joinInfo = undefined; location.hash = ''; render();
+          return;
+        }
+      }
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
       go('#/sites');
     } else {
@@ -5204,7 +5272,7 @@ async function renderTeam(){
   let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
   let reportTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
-  let deviceLocks = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
+  let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
   let suppliers = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.suppliers) suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'); })());
   let havsTools = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.havstools) havsTools = await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc'); })());
   // Price Builder rate card — admin only for now (rollout gate, see
@@ -5930,11 +5998,11 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    ${iAmAdmin ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one operative)</p>
+    ${isFullManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('devicelocks')"><span class="arrow">${teamSectionOpen.devicelocks?'▼':'▶'}</span> Device Locks (one phone = one person)</p>
     ${teamSectionOpen.devicelocks ? `
     <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Each operative's first phone locks to their account automatically. A further new device on an account that's already locked needs approving here first — Unlock removes a lock entirely (e.g. lost phone, locked by mistake).</p>
+      <p class="stub" style="margin:0 0 10px;">Everyone except Project Managers and admins is locked to one phone, and each phone to one person — whether they use the app or the web browser. A person's first phone locks to them automatically. A second phone, or a phone that looks the same as one already locked to somebody else, waits here for approval. Unlock removes a lock entirely (e.g. lost phone, locked by mistake).</p>
       ${deviceLocks.some(d=>d.status==='pending') ? `
       <p class="field-label" style="margin:0 0 6px;color:var(--warn);">Awaiting approval</p>
       ${deviceLocks.filter(d=>d.status==='pending').map(d=>`
