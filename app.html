@@ -30445,16 +30445,24 @@ async function renderDriverSchedule(){
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">📦 Collect from: ${escapeHtml(deliveryCollectionLabel(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
-          ${t.photo_path ? `<img src="${publicUrl('site-photos', t.photo_path)}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin:4px 0;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', t.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
+          ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
           ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order in this slot: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
           ` : `
-            <label class="ghostbtn" style="display:block;text-align:center;margin-top:8px;cursor:pointer;">
-              ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '☐ Mark Complete (photo required)'}
-              <input type="file" accept="image/*" capture="environment" style="display:none;" ${deliveryCompletionBusyId===t.id?'disabled':''} onchange="completeDeliveryTask(this,'${t.id}')">
-            </label>
+            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
+            <div class="row-gap" style="margin-top:8px;">
+              <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;${deliveryCompletionBusyId?'opacity:.6;pointer-events:none;':''}">
+                ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '📷 Take photo'}
+                <input type="file" accept="image/*" capture="environment" style="display:none;" ${deliveryCompletionBusyId?'disabled':''} onchange="addDeliveryCompletionPhotos(this,'${t.id}')">
+              </label>
+              <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;${deliveryCompletionBusyId?'opacity:.6;pointer-events:none;':''}">
+                🖼 Choose photos
+                <input type="file" accept="image/*" multiple style="display:none;" ${deliveryCompletionBusyId?'disabled':''} onchange="addDeliveryCompletionPhotos(this,'${t.id}')">
+              </label>
+            </div>
+            <button class="darkbtn" style="width:100%;margin-top:8px;" ${deliveryCompletionBusyId || !deliveryCompletionPhotos(t).length ? 'disabled' : ''} onclick="markDeliveryComplete('${t.id}')">${deliveryCompletionPhotos(t).length ? '✓ Mark Complete' : '✓ Mark Complete (add a photo first)'}</button>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
           `}
         </div>
@@ -30571,7 +30579,7 @@ window.reopenDeliveryTask = async function(taskId){
       const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+choice.date+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
       if(clash.length) keepHigh = false;
     }
-    const patch = {status:'pending', completed_at:null, completed_by:null, completion_photo_path:null, high_priority:keepHigh};
+    const patch = {status:'pending', completed_at:null, completed_by:null, completion_photo_path:null, completion_photo_paths:[], high_priority:keepHigh};
     if(!choice.same){ patch.scheduled_date = choice.date; patch.time_slot = choice.slot; patch.sub_priority = 999; }
     const row = await dbUpdate('delivery_tasks', taskId, patch);
     if(!row){ toast('Could not re-open it — try again.'); return; }
@@ -30593,6 +30601,74 @@ window.reopenDeliveryTask = async function(taskId){
     deliveryReopenBusy = false;
     render();
   }
+};
+// A delivery can carry several photos: the ones added when it's booked
+// (photo_paths) and the ones taken on completion (completion_photo_paths).
+// The older single-photo columns are still filled with the first photo so
+// phones on an older version of the app keep working.
+function deliveryPhotos(t){
+  const many = Array.isArray(t.photo_paths) ? t.photo_paths.filter(Boolean) : [];
+  return many.length ? many : (t.photo_path ? [t.photo_path] : []);
+}
+function deliveryCompletionPhotos(t){
+  const many = Array.isArray(t.completion_photo_paths) ? t.completion_photo_paths.filter(Boolean) : [];
+  return many.length ? many : (t.completion_photo_path ? [t.completion_photo_path] : []);
+}
+function deliveryPhotoThumbsHtml(paths, size, removeFn){
+  if(!paths.length) return '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">${paths.map((p,i)=>{
+    const url = publicUrl('site-photos', p);
+    return `<div style="position:relative;width:${size}px;height:${size}px;flex:0 0 ${size}px;">
+      <img src="${url}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;cursor:pointer;display:block;" onclick="viewImage('${url}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">
+      ${removeFn ? `<div class="taskphotodel" title="Remove photo" onclick="event.stopPropagation();${removeFn(i)}">×</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+// Driver adds one or more completion photos (they save as they upload, so a
+// dropped signal doesn't lose them), then taps Mark Complete.
+window.addDeliveryCompletionPhotos = async function(input, taskId){
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length || deliveryCompletionBusyId) return;
+  deliveryCompletionBusyId = taskId; render();
+  const added = []; let failed = 0;
+  for(const file of files){
+    try{
+      const dataUrl = await compressImage(file);
+      const path = await uploadDataUrl('site-photos', ME.org_id+'/delivery/'+taskId+'/'+crypto.randomUUID()+'.jpg', dataUrl);
+      if(path) added.push(path); else failed++;
+    }catch(e){ failed++; }
+  }
+  if(added.length){
+    const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=completion_photo_paths,completion_photo_path'))[0] || {};
+    const all = deliveryCompletionPhotos(t).concat(added);
+    const row = await dbUpdate('delivery_tasks', taskId, {completion_photo_paths: all, completion_photo_path: all[0]});
+    if(!row){ failed += added.length; }
+  }
+  deliveryCompletionBusyId = null;
+  if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — check your connection and try again.');
+  else toast(added.length===1 ? 'Photo added' : added.length+' photos added');
+  render();
+};
+window.removeDeliveryCompletionPhoto = async function(taskId, index){
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=status,completion_photo_paths,completion_photo_path'))[0];
+  if(!t || t.status==='completed') { render(); return; }
+  const all = deliveryCompletionPhotos(t); all.splice(index, 1);
+  await dbUpdate('delivery_tasks', taskId, {completion_photo_paths: all, completion_photo_path: all[0] || null});
+  render();
+};
+window.markDeliveryComplete = async function(taskId){
+  if(deliveryCompletionBusyId) return;
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=status,completion_photo_paths,completion_photo_path'))[0];
+  if(!t){ toast('Delivery not found.'); render(); return; }
+  if(t.status==='completed'){ render(); return; }
+  const photos = deliveryCompletionPhotos(t);
+  if(!photos.length){ toast('Add at least one photo before marking this complete.'); return; }
+  deliveryCompletionBusyId = taskId; render();
+  const row = await dbUpdate('delivery_tasks', taskId, {status:'completed', completed_at:new Date().toISOString(), completed_by:ME.id, completion_photo_paths:photos, completion_photo_path:photos[0]});
+  deliveryCompletionBusyId = null;
+  if(row){ toast('Delivery marked complete'); notifyDeliveryComplete(taskId).catch(()=>{}); }
+  else { toast('Could not save — try again.'); }
+  render();
 };
 let deliveryCompletionBusyId = null;
 window.completeDeliveryTask = async function(input, taskId){
@@ -30628,7 +30704,7 @@ async function notifyDeliveryComplete(taskId){
   if(!t || !t.site_contact_id) return;
   const site = SITES.find(s=>s.id===t.site_id);
   const when = t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
-  const body = `Delivery to ${site?site.name:'your site'} completed by ${ME.name}${when?' at '+when:''}.${t.completion_photo_path?' Photo attached.':''}`;
+  const body = `Delivery to ${site?site.name:'your site'} completed by ${ME.name}${when?' at '+when:''}.${deliveryCompletionPhotos(t).length>1 ? ' '+deliveryCompletionPhotos(t).length+' photos attached.' : (deliveryCompletionPhotos(t).length ? ' Photo attached.' : '')}`;
   await postSystemMessageToUser(t.site_contact_id, t.site_id, 'delivery_complete', body, taskId);
 }
 // Weekly vehicle inspection — a fixed pass/fail checklist (researched from
@@ -31182,9 +31258,9 @@ async function renderDeliveryForm(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path};
+      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
-      deliveryFormDraft = {_id:'new', site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
+      deliveryFormDraft = {_id:'new', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
@@ -31208,7 +31284,7 @@ async function renderDeliveryForm(taskId){
     <div class="card" style="border-color:var(--ok);margin-bottom:16px;">
       <p style="margin:0 0 6px;font-weight:800;color:var(--ok);">✓ Completed${draft._completedAt?' '+new Date(draft._completedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
       ${draft._completedBy && PROFILES[draft._completedBy] ? `<p class="stub" style="margin:0 0 6px;">By ${escapeHtml(PROFILES[draft._completedBy].name)}</p>` : ''}
-      ${draft._completionPhotoPath ? `<img src="${publicUrl('site-photos', draft._completionPhotoPath)}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', draft._completionPhotoPath)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : `<p class="stub" style="margin:0;">No completion photo on file.</p>`}
+      ${(draft._completionPhotos||[]).length ? deliveryPhotoThumbsHtml(draft._completionPhotos, 90) : `<p class="stub" style="margin:0;">No completion photo on file.</p>`}
       ${draft._id ? `<button class="ghostbtn" style="width:100%;margin-top:10px;" onclick="reopenDeliveryTask('${draft._id}')">↩ Re-open delivery</button>` : ''}
     </div>
     ` : ''}
@@ -31261,10 +31337,13 @@ async function renderDeliveryForm(taskId){
     <p class="stub" style="margin:0 0 12px;color:var(--warn);">No delivery drivers set up yet — this will sit unassigned until one is added.</p>
     `}
     <div class="formfield">
-      <label class="field-label">Photo (optional)</label>
-      ${draft.photo_path ? `<img src="${publicUrl('site-photos', draft.photo_path)}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;margin-bottom:8px;display:block;" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">` : ''}
-      <input type="file" accept="image/*" onchange="onDeliveryPhotoChosen(this)" ${deliveryFormPhotoBusy?'disabled':''}>
-      ${deliveryFormPhotoBusy ? `<p class="stub">Uploading…</p>` : ''}
+      <label class="field-label">Photos (optional)</label>
+      ${deliveryPhotoThumbsHtml(draft.photo_paths||[], 80, i=>`removeDeliveryFormPhoto(${i})`)}
+      <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;${deliveryFormPhotoBusy?'opacity:.6;pointer-events:none;':''}">
+        ${deliveryFormPhotoBusy ? 'Uploading…' : ((draft.photo_paths||[]).length ? '📷 Add more photos' : '📷 Add photos')}
+        <input type="file" accept="image/*" multiple style="display:none;" onchange="onDeliveryPhotoChosen(this)" ${deliveryFormPhotoBusy?'disabled':''}>
+      </label>
+      <p class="stub" style="margin:4px 0 0;">You can pick several at once.</p>
     </div>
     <div class="card" style="cursor:pointer;" onclick="deliveryFormDraft.high_priority=!deliveryFormDraft.high_priority;render()">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
@@ -31316,16 +31395,27 @@ window.onDeliveryCollectionChange = function(val){
   render();
 };
 window.onDeliveryPhotoChosen = async function(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
+  const files = input.files ? Array.from(input.files) : [];
+  if(!files.length || deliveryFormPhotoBusy) return;
   deliveryFormPhotoBusy = true; render();
-  let photoPath = null;
-  try{
-    const dataUrl = await compressImage(file);
-    photoPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/drafts/'+crypto.randomUUID()+'.jpg', dataUrl);
-  }catch(e){ photoPath = null; }
+  let failed = 0;
+  if(!Array.isArray(deliveryFormDraft.photo_paths)) deliveryFormDraft.photo_paths = [];
+  for(const file of files){
+    try{
+      const dataUrl = await compressImage(file);
+      const path = await uploadDataUrl('site-photos', ME.org_id+'/delivery/drafts/'+crypto.randomUUID()+'.jpg', dataUrl);
+      if(path) deliveryFormDraft.photo_paths.push(path); else failed++;
+    }catch(e){ failed++; }
+  }
+  deliveryFormDraft.photo_path = deliveryFormDraft.photo_paths[0] || null;
   deliveryFormPhotoBusy = false;
-  if(photoPath){ deliveryFormDraft.photo_path = photoPath; } else { toast('Photo upload failed — try again.'); }
+  if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — try again.');
+  render();
+};
+window.removeDeliveryFormPhoto = function(index){
+  if(!deliveryFormDraft || !Array.isArray(deliveryFormDraft.photo_paths)) return;
+  deliveryFormDraft.photo_paths.splice(index, 1);
+  deliveryFormDraft.photo_path = deliveryFormDraft.photo_paths[0] || null;
   render();
 };
 window.saveDeliveryTask = async function(){
@@ -31364,7 +31454,8 @@ window.saveDeliveryTask = async function(){
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
     collection_address_manual: d.collection_type==='manual' ? d.collection_address_manual.trim() : null,
     site_contact_id: d.site_contact_id || null,
-    photo_path: d.photo_path || null,
+    photo_path: (d.photo_paths && d.photo_paths[0]) || d.photo_path || null,
+    photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
     high_priority: !!d.high_priority,
