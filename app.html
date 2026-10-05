@@ -15160,7 +15160,7 @@ window.emailSelectedReports = async function(){
       const path = built.sub.site_id+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
-      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
         site_id: built.sub.site_id, recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       })});
       if(res && res.ok) sent++; else failed++;
@@ -15823,16 +15823,29 @@ async function buildReportPdf(submissionId, opts){
     // uploaded to Storage at submit time — see submitReport) and a plain
     // Storage URL (current reports) — fetching the bytes for the latter via
     // the same helper already used for logos/signatures above.
-    async function embedFromDataUrl(urlOrDataUrl){
-      let bytes;
-      if(String(urlOrDataUrl).startsWith('data:')){
-        const b64 = urlOrDataUrl.split(',')[1];
-        bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
-      } else {
-        bytes = await pdfFetchImageBytes(urlOrDataUrl);
-        if(!bytes) throw new Error('Could not fetch photo');
-      }
-      try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
+    // Each photo is put into the PDF ONCE (it appears twice — in the body and
+    // in the Media Summary — and used to be stored twice at full camera
+    // size: a 40-photo inspection came out at 49MB, too big to email as an
+    // attachment and very slow to build and upload). Photos are also sized
+    // down to 1200px for the PDF, which is still sharp at a quarter page.
+    const embeddedImages = new Map();
+    function embedFromDataUrl(urlOrDataUrl){
+      const key = String(urlOrDataUrl);
+      if(embeddedImages.has(key)) return embeddedImages.get(key);
+      const p = (async ()=>{
+        let bytes;
+        if(key.startsWith('data:')){
+          const b64 = key.split(',')[1];
+          bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
+        } else {
+          bytes = await pdfFetchImageBytesScaled(urlOrDataUrl, 1200, 0.72);
+          if(!bytes) throw new Error('Could not fetch photo');
+        }
+        try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
+      })();
+      embeddedImages.set(key, p);
+      p.catch(()=>{ embeddedImages.delete(key); });
+      return p;
     }
     async function drawPhotoGrid(urls){
       if(!urls.length) return;
@@ -16132,14 +16145,14 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
-    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
       site_id: built.sub.site_id, recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
-    if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — please try again.'); }
+    if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
   }catch(e){
     console.error(e);
-    toast('Could not send the email — please try again.');
+    toast('Could not send the email — '+((e && e.message) || e || 'unknown error'));
   }
   reportEmailBusy = null; render();
 };
