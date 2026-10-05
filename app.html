@@ -3384,7 +3384,8 @@ function homeBottomBar(canAdd, outstandingCount){
     // operatives. The route itself is gated the same way below.
     ...(!canAdd && !isClient(ME) ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
     ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
-    ...(canAdd ? [{ic:'📊', lbl:'Dashboard', onclick:"go('#/dashboard-choice')"}] : []),
+    // Company Dashboard now lives in Settings; this slot is the Delivery Schedule.
+    ...(canAdd ? [{ic:'🚚', lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')"}] : []),
     // Styled in the company's theme colour (brand1) rather than the plain
     // paper/border look the other tabs use, so it reads as the primary
     // action in the row.
@@ -5163,7 +5164,7 @@ async function renderDashboard(){
         <div class="info"><div class="name">${escapeHtml((s&&s.name)||'Unknown project')}</div><div class="addr">${escapeHtml(r.location||'')} · ${new Date(r.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.riddor_reportable?' · RIDDOR':''}</div></div>
       </div>`;
     }).join('') : `<div class="empty">No accidents, incidents or near misses reported recently.</div>`}
-  `, {title:'Company Dashboard', back:'#/sites', tabs:false}); }
+  `, {title:'Company Dashboard', back:'#/team', tabs:false}); }
 }
 
 /* ================= MY SIGNATURE (adopted once, reused on RAMS & Toolbox Talks) ================= */
@@ -5405,11 +5406,11 @@ async function renderTeam(){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
       </div>
-      ${iAmAdmin ? `
       <div class="tile" onclick="go('#/dashboard')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
-        <div class="lbl">Dashboard</div>
+        <div class="lbl">Company Dashboard</div>
       </div>
+      ${iAmAdmin ? `
       <div class="tile" onclick="go('#/operatives')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">👷</div>
         <div class="lbl">Operatives</div>
@@ -30663,7 +30664,11 @@ function deliveryCollectionSummaryHtml(tasks){
     }).join('')}
     <div style="height:6px;"></div>`;
 }
-async function renderDriverSchedule(){
+// preview=true is the PM's "Driver view": the same screen the driver gets,
+// for whichever driver is picked, but read-only (no photo / complete / push
+// buttons) and with a back arrow to the PM's Delivery Schedule.
+let driverPreviewId = null;
+async function renderDriverSchedule(preview){
   const __gen = RENDER_GEN;
   const d = new Date(); d.setDate(d.getDate()+driverScheduleDateOffset);
   const dateISO = localISODate(d);
@@ -30674,7 +30679,10 @@ async function renderDriverSchedule(){
     loadAllProfiles(),
   ]);
   const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
-  const myTasks = tasks.filter(t=>!t.driver_id || t.driver_id===ME.id);
+  const previewDrivers = preview ? Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name)) : [];
+  if(preview && (!driverPreviewId || !previewDrivers.some(p=>p.id===driverPreviewId))) driverPreviewId = previewDrivers.length ? previewDrivers[0].id : null;
+  const viewAsId = preview ? driverPreviewId : ME.id;
+  const myTasks = tasks.filter(t=>!t.driver_id || t.driver_id===viewAsId);
   // A driver can only see a site once a delivery to it exists, and the site
   // list is loaded at sign-in — so a delivery booked since then would show
   // as "Unknown site" with no address. Top the list up when that happens.
@@ -30687,6 +30695,14 @@ async function renderDriverSchedule(){
   myTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
+    ${preview ? `
+    <style>.driverpreview .card button,.driverpreview .card label.ghostbtn,.driverpreview .card .row-gap,.driverpreview .taskphotodel{display:none!important;}</style>
+    <div class="card" style="margin-bottom:12px;background:var(--blue-bg);">
+      <p style="margin:0 0 4px;font-weight:700;">👁 Driver view</p>
+      <p class="stub" style="margin:0;">${previewDrivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</p>
+      ${previewDrivers.length>1 ? `<select style="margin-top:8px;" onchange="driverPreviewId=this.value;render()">${previewDrivers.map(p=>`<option value="${p.id}" ${p.id===driverPreviewId?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select>` : (previewDrivers.length ? `<p class="stub" style="margin:6px 0 0;"><b>${escapeHtml(previewDrivers[0].name)}</b></p>` : '')}
+    </div>` : ''}
+    <div class="${preview?'driverpreview':''}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset--;render()">‹</span>
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
@@ -30725,7 +30741,8 @@ async function renderDriverSchedule(){
         </div>
       `).join('') : `<div class="empty">Nothing in this slot.</div>`}
     `).join('')}
-  `, {title:'Delivery Schedule', back:'#/driver'});
+    </div>
+  `, preview ? {title:'Driver View', back:'#/delivery', tabs:false} : {title:'Delivery Schedule', back:'#/driver'});
 }
 // Site name plus the full address and postcode for the driver's view — all
 // inside the same bold heading. If the site's name is already just the
@@ -31499,6 +31516,7 @@ async function renderDeliverySchedulePM(){
       <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset++;render()">›</span>
     </div>
     <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate=null;pmDeliveryDefaultSlot=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
+    <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=0;go('#/delivery/driver-view')">👁 Driver view</button>
     <div class="row-gap" style="margin-bottom:16px;">
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
@@ -32057,6 +32075,7 @@ async function renderRoute(){
     if(!ME || !isManager(ME)){ go('#/sites'); return; } // Site Managers included — they were shown the delivery tiles but bounced from the pages (RLS now allows them too)
     if(parts[1]==='new') return renderDeliveryForm(null);
     if(parts[1]==='edit' && parts[2]) return renderDeliveryForm(parts[2]);
+    if(parts[1]==='driver-view') return renderDriverSchedule(true);
     return renderDeliverySchedulePM();
   }
   if(parts[0]==='vehicle-checklists'){
