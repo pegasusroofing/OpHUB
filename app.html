@@ -5304,6 +5304,12 @@ async function renderTeam(){
   // Only queried while the section is actually open — the range can span a
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
+  // Driver check-ins (not tied to a site) for the Driver Check-In Log.
+  let driverCheckinRows = [];
+  __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.drivercheckins){
+    const since = new Date(); since.setDate(since.getDate() - driverCheckinLogDays); since.setHours(0,0,0,0);
+    driverCheckinRows = await dbSelect('driver_checkins', 'org_id=eq.'+ME.org_id+'&ts=gte.'+since.toISOString()+'&order=ts.desc&limit=1000');
+  } })());
   let checkinLogRows = [];
   __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.checkinlogs){
     const range = checkinLogEffectiveRange();
@@ -5915,6 +5921,10 @@ async function renderTeam(){
       </div>
     `).join('') || `<div class="empty">No clients yet.</div>`}
     <p class="stub" style="margin-top:14px;">Project Managers and Admins can remove Operatives and Site Managers. Only a Company Admin can remove a Project Manager or another Admin. A Company Admin can promote anyone straight to Admin, or move people between Operative, Site Manager, Project Manager and Admin here — you can't change your own role, and the last remaining Admin can't be demoted (add another Admin first). A Site Manager works day-to-day like a Project Manager but only on the sites they're assigned to, and can't create/delete sites or manage other people's accounts.</p>
+    ` : ''}
+    ${isFullManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('drivercheckins')"><span class="arrow">${teamSectionOpen.drivercheckins?'▼':'▶'}</span> Driver Check-In Log</p>
+    ${teamSectionOpen.drivercheckins ? driverCheckinLogHtml(driverCheckinRows) : ''}
     ` : ''}
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
@@ -27682,8 +27692,21 @@ function readOrderFulfilment(key){
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
+// Sending an order that has ALREADY been sent once (an amendment, a re-send)
+// used to put the collection on the Delivery Schedule / Material List a
+// second time, so the driver ended up with duplicates. Now a re-send asks
+// first; "No" still sends the email, it just doesn't book it again.
+async function confirmRebookCollection(f, materials){
+  if(!f || f.mode!=='collection') return true;
+  const sentBefore = (materials||[]).some(m=>m && (m.sent_at || m.email_sent_at));
+  if(!sentBefore) return true;
+  const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Material List';
+  const who = (PROFILES[f.collectorId]||{}).name || 'them';
+  return await customConfirm(`This order has been sent before. Add it to the ${where} for ${who} again? Choose No if it is already on there — the email will still be sent.`, {confirmLabel:'Yes — add it again', cancelLabel:'No — email only'});
+}
 async function bookOrderCollection(siteId, f, supplier, toMe, materials){
   if(!f || f.mode!=='collection') return '';
+  if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Material List')+' again';
   const who = PROFILES[f.collectorId];
   const whoName = who ? who.name : 'them';
   const dateLabel = new Date(f.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
@@ -27737,6 +27760,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  if(!(await confirmRebookCollection(fulfil, material ? [material] : []))) fulfil.skipBooking = true;
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
   const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null});
@@ -27831,6 +27855,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
+  if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();
   const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
@@ -30291,6 +30316,48 @@ const DELIVERY_TIME_SLOTS = [
   {key:'5pm', label:'5:00pm'},
 ];
 let driverCheckinBusy = false, driverCheckinError = null;
+// Admin Centre › Driver Check-In Log: every driver check-in and check-out
+// for the last 14 / 30 / 90 days, newest day first, with the time, how long
+// they were on duty, and a map link to where each one was recorded.
+let driverCheckinLogDays = 14;
+window.setDriverCheckinLogDays = function(n){ driverCheckinLogDays = n; render(); };
+function driverCheckinLogHtml(rows){
+  const dayKey = ts=>localISODate(new Date(ts));
+  const timeOf = ts=>new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const mapLink = r=>(typeof r.lat==='number' && typeof r.lon==='number')
+    ? ` · <a href="https://www.google.com/maps?q=${r.lat},${r.lon}" target="_blank" rel="noopener" class="viewlink" onclick="event.stopPropagation();">Map ↗</a>${r.accuracy_m ? ` <span class="stub">(±${r.accuracy_m}m)</span>` : ''}` : '';
+  const days = [];
+  rows.forEach(r=>{ const k = dayKey(r.ts); let d = days.find(x=>x.key===k); if(!d){ d = {key:k, rows:[]}; days.push(d); } d.rows.push(r); });
+  return `
+    <div class="card">
+      <div class="filterrow" style="margin-bottom:10px;">
+        ${[14,30,90].map(n=>`<div class="filterchip ${driverCheckinLogDays===n?'active':''}" onclick="setDriverCheckinLogDays(${n})">Last ${n} days</div>`).join('')}
+      </div>
+      ${days.length ? days.map(d=>{
+        const byDriver = {};
+        d.rows.forEach(r=>{ (byDriver[r.user_id]=byDriver[r.user_id]||[]).push(r); });
+        return `
+        <p class="field-label" style="margin:12px 0 6px;">${new Date(d.key+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short',year:'numeric'})}</p>
+        ${Object.keys(byDriver).map(uid=>{
+          const list = byDriver[uid].slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+          // Time on duty: each check-in paired with the next check-out that day.
+          let mins = 0, openIn = null;
+          list.forEach(r=>{ if(r.type==='in') openIn = r; else if(r.type==='out' && openIn){ mins += Math.max(0, Math.round((new Date(r.ts)-new Date(openIn.ts))/60000)); openIn = null; } });
+          const dur = mins ? Math.floor(mins/60)+'h '+String(mins%60).padStart(2,'0')+'m on duty' : '';
+          const stillIn = !!openIn && d.key===localISODate(new Date());
+          return `
+          <div class="sitecard" style="padding:8px 10px;display:block;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="name" style="flex:1;min-width:0;">🚐 ${escapeHtml((PROFILES[uid]||{}).name || 'Unknown driver')}</div>
+              <span class="stub" style="white-space:nowrap;">${stillIn ? '<span style="color:var(--ok);font-weight:700;">On duty now</span>' : (openIn ? '<span style="color:var(--warn);font-weight:700;">No check-out</span>' : dur)}</span>
+            </div>
+            ${list.map(r=>`<div class="addr" style="margin-top:3px;">${r.type==='in' ? '▶ Checked in' : '■ Checked out'} ${timeOf(r.ts)}${mapLink(r)}</div>`).join('')}
+            ${stillIn && dur ? `<div class="addr" style="margin-top:3px;">${dur} earlier today</div>` : ''}
+          </div>`;
+        }).join('')}`;
+      }).join('') : `<div class="empty" style="padding:10px;">No driver check-ins in the last ${driverCheckinLogDays} days.</div>`}
+    </div>`;
+}
 let driverScheduleDateOffset = 0; // 0 = today, +1 = tomorrow, -1 = yesterday
 async function renderDriverHome(){
   const __gen = RENDER_GEN;
@@ -30327,7 +30394,12 @@ window.doDriverCheckAction = async function(type){
   if(g.error){ driverCheckinBusy = false; driverCheckinError = g.error; render(); return; }
   const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
   driverCheckinBusy = false;
-  if(rows){ toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})); }
+  if(rows){
+    toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+    // Tell the office (push + email): PMs on check-in, the admin on
+    // check-out. Best-effort and silent — it never affects the check-in.
+    try{ sbFetch('/functions/v1/notify-driver-checkin', {method:'POST', timeoutMs:30000, body: JSON.stringify({type})}).catch(()=>{}); }catch(e){}
+  }
   else { driverCheckinError = 'Could not save — check your connection and try again.'; }
   render();
 };
