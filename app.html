@@ -1130,6 +1130,7 @@ window.viewPdfInApp = async function(source, filename, opts){
       <div class="pdf-viewer-bar">
         <span class="pdf-viewer-title" id="pdfViewerTitle"></span>
         <span class="pdf-viewer-btn" id="pdfViewerEmailBtn" title="Email" onclick="emailPdfViewerDoc()" style="display:none;">✉️</span>
+        <span class="pdf-viewer-btn" id="pdfViewerSyncBtn" title="Save a copy to OneDrive" onclick="syncPdfViewerDoc()" style="display:none;">☁️</span>
         <span class="pdf-viewer-btn" id="pdfViewerShareBtn" title="Share / Save" onclick="sharePdfViewerDoc()">⤴</span>
         <span class="pdf-viewer-btn" title="Close" onclick="closePdfViewer()">✕</span>
       </div>
@@ -1154,13 +1155,16 @@ window.viewPdfInApp = async function(source, filename, opts){
   // know exists elsewhere.
   const emailBtn = document.getElementById('pdfViewerEmailBtn');
   if(emailBtn) emailBtn.style.display = (opts && opts.emailAction) ? '' : 'none';
+  // ☁️ Save to OneDrive — on every PDF the app builds (exports), managers only.
+  const syncBtn = document.getElementById('pdfViewerSyncBtn');
+  if(syncBtn){ syncBtn.style.display = (opts && opts.canSync && ME && isManager(ME)) ? '' : 'none'; syncBtn.textContent = '☁️'; syncBtn.style.opacity = ''; }
   const body = document.getElementById('pdfViewerBody');
   body.innerHTML = '<p class="stub" style="color:#fff;opacity:.7;margin-top:40px;">Loading document…</p>';
   ov.style.display = 'flex';
   pdfViewerZoom = {scale:1, x:0, y:0};
   // Stashed so the Share button can hand the OS share sheet the exact same
   // bytes/name without re-fetching, and so closing the viewer can free them.
-  const thisViewerState = pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf', preparedUrl: null, emailAction: (opts && opts.emailAction) || null};
+  const thisViewerState = pdfViewerState = {bytes: (typeof source!=='string' ? source : null), url: (typeof source==='string' ? source : null), filename: filename||'document.pdf', preparedUrl: null, emailAction: (opts && opts.emailAction) || null, siteId: (opts && opts.siteId) || null};
   // #(pre-upload-for-share): any await between the Share tap and the actual
   // share call (uploading the file, say) breaks iOS Safari's requirement
   // that a share/popup be triggered directly within the tap's own gesture —
@@ -1191,7 +1195,7 @@ window.viewPdfInApp = async function(source, filename, opts){
   // link; Share uploads on tap. It cost an upload per export for nothing.)
   try{
     if(!(await loadLib('pdfjsLib'))) throw new Error('pdf renderer unavailable');
-    const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: source});
+    const loadingTask = typeof source === 'string' ? pdfjsLib.getDocument(source) : pdfjsLib.getDocument({data: (source && source.slice) ? source.slice() : source}); // a COPY: the PDF renderer takes over (empties) the bytes it is given, which left Share and Save to OneDrive holding a 0-byte file
     const pdf = await loadingTask.promise;
     body.innerHTML = '';
     const wrap = document.createElement('div');
@@ -2024,8 +2028,48 @@ async function shareFile(blob, filename, mimeType){
 // round trip, no platform guessing, and the name is always right because
 // it's our own header bar showing it, on every platform, every time.
 async function deliverPdf(bytes, filename, opts){
-  await viewPdfInApp(bytes, filename, opts);
+  await viewPdfInApp(bytes, filename, Object.assign({canSync:true}, opts||{}));
 }
+// ☁️ button in the PDF viewer: saves the PDF on screen into OneDrive. A PDF
+// exported from inside a project goes to that project's OneDrive folder; a
+// company-wide one (training matrix, delivery schedule…) goes into a
+// "Company Exports" folder in the company's main OpHUB folder.
+let pdfViewerSyncBusy = false;
+window.syncPdfViewerDoc = async function(){
+  const st = pdfViewerState;
+  if(!st || pdfViewerSyncBusy) return;
+  if(!st.bytes){ toast('Still preparing this file — try again in a moment.'); return; }
+  const m = /^#\/site\/([^\/?]+)/.exec(location.hash||'');
+  const siteId = st.siteId || (m ? m[1] : null);
+  const site = siteId ? SITES.find(x=>x.id===siteId) : null;
+  const btn = document.getElementById('pdfViewerSyncBtn');
+  pdfViewerSyncBusy = true;
+  if(btn){ btn.textContent = '⏳'; btn.style.opacity = '.6'; }
+  toast('Saving to OneDrive…');
+  try{
+    const base64 = await blobToBase64(new Blob([st.bytes], {type:'application/pdf'}));
+    const payload = {filename: st.filename, content_base64: base64};
+    if(site) payload.site_id = site.id; else payload.subfolder = 'Company Exports';
+    const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(payload)});
+    let out = null; try{ out = await res.json(); }catch(e){}
+    if(res.ok && out && out.ok){
+      toast('Saved to OneDrive — '+(site ? site.name : 'Company Exports')+' folder');
+      if(btn && pdfViewerState===st) btn.textContent = '✅';
+    } else if(out && out.error==='not_connected'){
+      toast('OneDrive isn\'t connected yet — connect it in Settings first.');
+      if(btn) btn.textContent = '☁️';
+    } else {
+      toast('Could not save to OneDrive — '+((out && out.error) || res.status));
+      if(btn) btn.textContent = '☁️';
+    }
+  }catch(e){
+    console.error('[syncPdfViewerDoc]', e);
+    toast('Could not save to OneDrive — '+((e && e.message) || 'check your connection and try again'));
+    if(btn) btn.textContent = '☁️';
+  }
+  pdfViewerSyncBusy = false;
+  if(btn) btn.style.opacity = '';
+};
 window.emailPdfViewerDoc = function(){
   if(pdfViewerState && pdfViewerState.emailAction) pdfViewerState.emailAction();
 };
