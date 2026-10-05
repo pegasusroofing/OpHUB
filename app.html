@@ -30389,10 +30389,13 @@ async function renderDriverHome(){
   `, {title:ME.name, subtitle:'Delivery Driver', tabs:false});
 }
 window.doDriverCheckAction = async function(type){
+  if(driverCheckinBusy) return;
   driverCheckinError = null; driverCheckinBusy = true; render();
-  const g = await getGeo();
-  if(g.error){ driverCheckinBusy = false; driverCheckinError = g.error; render(); return; }
-  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type, lat:g.lat, lon:g.lon, accuracy_m:Math.round(g.accuracy||0)});
+  // 2026-10-05: drivers no longer need location to check in or out — a
+  // blocked or refused location permission was stopping them checking in at
+  // all. Only the time is recorded. (To bring location back, restore the
+  // getGeo() call here and send lat/lon/accuracy_m with the row.)
+  const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type});
   driverCheckinBusy = false;
   if(rows){
     toast((type==='in'?'Checked in':'Checked out')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
@@ -30414,9 +30417,9 @@ async function renderDriverCheckin(){
       <p class="stub" style="margin:0 0 14px;">${last ? `${onDuty?'Checked in':'Checked out'} ${new Date(last.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}` : 'You are not currently checked in.'}</p>
       ${driverCheckinError ? `<p class="stub" style="color:var(--warn);margin:0 0 14px;">${escapeHtml(driverCheckinError)}</p>` : ''}
       <button class="darkbtn" style="width:100%;padding:16px;font-size:16px;" ${driverCheckinBusy?'disabled':''} onclick="doDriverCheckAction('${onDuty?'out':'in'}')">
-        ${driverCheckinBusy ? 'Getting your location…' : onDuty ? 'Check Out' : 'Check In'}
+        ${driverCheckinBusy ? 'Saving…' : onDuty ? 'Check Out' : 'Check In'}
       </button>
-      <p class="stub" style="margin-top:10px;">Your GPS location is recorded with each check in/out so the office can see where you checked in/out from — this isn't tied to a specific site or geofence.</p>
+      <p class="stub" style="margin-top:10px;">The time of each check in/out is recorded for the office. Your location is not needed.</p>
     </div>
     <p class="sectiontitle" style="margin-top:20px;">Recent</p>
     ${history.length ? history.map(c=>`
