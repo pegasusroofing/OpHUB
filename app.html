@@ -15189,24 +15189,118 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       </div>
     `).join('')}
     <div class="row-gap">
-      <button class="ghostbtn" style="flex:1;" ${reportSaveBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
-      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
+      <button class="ghostbtn" style="flex:1;" ${reportSaveBusy||reportSubmitBusy?'disabled':''} onclick="saveReportProgress('${siteId}')">${reportSaveBusy?'Saving…':'Save & Exit'}</button>
+      <button class="darkbtn" style="flex:1;" ${reportSubmitBusy||reportSaveBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
+    <p class="stub" id="reportProgressNote" style="text-align:center;margin:10px 0 0;font-weight:700;color:var(--ink);display:none;"></p>
   `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
 }
-window.saveReportProgress = async function(siteId){
-  reportSaveBusy = true; render();
-  let row = null;
+// ---- Report photos: upload in small batches, keep what's done ----------
+// A report with a lot of photos (a pre-start with 40, say) used to fail both
+// ways out: "Save & Exit" tried to send every photo inside one request, far
+// too big to get through in the time allowed; and "Complete" started all 40
+// uploads at the same moment, so a few always failed, and every retry began
+// again from photo 1. Now photos go up three at a time, each one is swapped
+// for its saved link the moment it lands (so a retry only sends what is
+// left), and the answers are saved to the server as soon as there is
+// anything worth keeping.
+function reportPendingPhotoRefs(){
+  const answers = (reportFillDraft && reportFillDraft.answers) || {};
+  const refs = [];
+  Object.keys(answers).forEach(k=>{
+    const v = answers[k];
+    if(Array.isArray(v)) v.forEach((val,idx)=>{ if(typeof val==='string' && val.startsWith('data:')) refs.push({k, idx, val}); });
+  });
+  return refs;
+}
+function setReportProgressNote(text){
+  const el = document.getElementById('reportProgressNote');
+  if(el){ el.textContent = text || ''; el.style.display = text ? '' : 'none'; }
+}
+async function uploadReportDraftPhotos(siteId, quiet){
+  const refs = reportPendingPhotoRefs();
+  const total = refs.length;
+  if(!total) return {total:0, failed:0};
+  let next = 0, done = 0, failed = 0;
+  const note = quiet ? ()=>{} : setReportProgressNote;
+  note(`Uploading photos… 0 of ${total}. Keep this page open.`);
+  const worker = async ()=>{
+    while(next < refs.length){
+      const r = refs[next++];
+      let path = null;
+      try{ path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
+      const arr = reportFillDraft && reportFillDraft.answers[r.k];
+      if(path && Array.isArray(arr)){
+        // Written back by value, in case a photo was removed while uploading.
+        const at = arr[r.idx]===r.val ? r.idx : arr.indexOf(r.val);
+        if(at > -1) arr[at] = publicUrl('site-photos', path);
+      } else if(!path) failed++;
+      done++;
+      note(`Uploading photos… ${done} of ${total}${failed ? ' ('+failed+' failed so far)' : ''}. Keep this page open.`);
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+  return {total, failed};
+}
+// Saves the answers as they stand. Any photo that still hasn't uploaded is
+// left out of what's sent (it stays on this screen to try again) so the
+// request is always small enough to get through.
+async function saveReportAnswersToServer(extra){
+  if(!reportFillDraft || !reportFillDraft.submissionId) return false;
+  const out = {};
+  Object.keys(reportFillDraft.answers).forEach(k=>{
+    const v = reportFillDraft.answers[k];
+    out[k] = Array.isArray(v) ? v.filter(val=>!(typeof val==='string' && val.startsWith('data:'))) : v;
+  });
   try{
-    row = await dbUpdate('report_submissions', reportFillDraft.submissionId, {answers: Object.assign({}, reportFillDraft.answers)});
+    const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(Object.assign({answers: out}, extra||{}))});
+    if(!res.ok){ console.error(await safeErr(res)); return false; }
+    const d = await res.json().catch(()=>[]);
+    return Array.isArray(d) ? d.length>0 : !!d;
+  }catch(e){ console.error(e); return false; }
+}
+// Quiet safety net while a report is being filled in: each time photos are
+// added they start uploading in the background and the answers are saved,
+// so closing the page or losing signal part-way through a long inspection
+// no longer loses the photos already taken. Never shows an error and never
+// re-draws the form (which would interrupt typing).
+let reportAutoSaveRunning = false, reportAutoSaveAgain = false;
+async function reportBackgroundSave(){
+  if(!reportFillDraft || reportFillDraft.editingCompleted || reportSubmitBusy || reportSaveBusy || navigator.onLine === false) return;
+  if(reportAutoSaveRunning){ reportAutoSaveAgain = true; return; }
+  reportAutoSaveRunning = true;
+  const draftId = reportFillDraft.submissionId;
+  try{
+    do{
+      reportAutoSaveAgain = false;
+      if(!reportFillDraft || reportFillDraft.submissionId !== draftId || reportSubmitBusy || reportSaveBusy) break;
+      await uploadReportDraftPhotos(reportFillDraft.siteId, true);
+      if(!reportFillDraft || reportFillDraft.submissionId !== draftId || reportSubmitBusy || reportSaveBusy) break;
+      await saveReportAnswersToServer();
+    }while(reportAutoSaveAgain);
+  }catch(e){ console.warn('report background save failed', e && e.message); }
+  reportAutoSaveRunning = false;
+}
+window.saveReportProgress = async function(siteId){
+  if(reportSaveBusy || reportSubmitBusy) return;
+  reportSaveBusy = true; await render();
+  let up = {total:0, failed:0}, saved = false;
+  try{
+    up = await uploadReportDraftPhotos(siteId);
+    setReportProgressNote('Saving…');
+    saved = await saveReportAnswersToServer();
   }catch(e){ console.error(e); }
   reportSaveBusy = false;
-  if(row){
+  if(saved && !up.failed){
     toast('Progress saved');
     const fromBriefing = reportFillDraft.fromBriefing;
     reportFillDraft = null;
     go(fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`);
-  } else { toast('Could not save — check your connection and try again.'); render(); }
+    return;
+  }
+  await render();
+  if(saved) customAlert(`Saved, but ${up.failed} photo${up.failed===1?'':'s'} could not be uploaded. Everything else is safe. Stay on this page and tap Save & Exit again when your signal is better — only the missing photo${up.failed===1?'':'s'} will be sent.`);
+  else toast('Could not save — check your connection and try again. Nothing has been lost from this screen.');
 };
 // One-time default for an "Operatives On Site" item: every operative
 // assigned to the site, ticked (included) by default. A manager can untick
@@ -15352,6 +15446,7 @@ window.onReportPhotoChosen = async function(input, key){
   }
   reportFillDraft.answers[key] = cur;
   render();
+  reportBackgroundSave(); // start uploading/saving straight away, in the background
   // #(compress-image-heic-detection) 2026-10-01 — see compressImage itself.
   // Give the actual reason when every failure was a HEIC file rather than
   // the old generic message, which looked identical whether the file was
@@ -15391,10 +15486,28 @@ window.submitReport = async function(siteId){
       }
     }
   }
-  reportSubmitBusy = true; render();
+  if(reportSubmitBusy || reportSaveBusy) return;
+  reportSubmitBusy = true; await render();
   const isPmEdit = !!reportFillDraft.editingCompleted;
+  // Photos first: three at a time, each kept as soon as it lands (see
+  // uploadReportDraftPhotos). If any fail, what did upload — and every
+  // answer — is saved to the server before stopping, so nothing has to be
+  // redone and a second tap only sends the photos that are still missing.
+  let up = {total:0, failed:0};
+  try{ up = await uploadReportDraftPhotos(siteId); }
+  catch(e){ console.error(e); up = {total:1, failed:1}; }
+  if(up.failed>0){
+    setReportProgressNote('Saving what has uploaded…');
+    const kept = await saveReportAnswersToServer();
+    reportSubmitBusy = false;
+    await render();
+    customAlert(`${up.failed} of ${up.total} photo${up.total===1?'':'s'} could not be uploaded, so the inspection isn't completed yet. ${kept ? 'The other '+(up.total-up.failed)+' and all your answers are saved.' : 'Nothing has been lost from this screen.'} Stay on this page and tap Complete again when your signal is better — only the missing photo${up.failed===1?'':'s'} will be sent.`);
+    return;
+  }
+  setReportProgressNote('Completing…');
+  const sections2 = sections;
   const answers = Object.assign({}, reportFillDraft.answers);
-  (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+  (sections2||[]).forEach(s=>(s.items||[]).forEach(it=>{
     // On a fresh submission, stamp the current user's adopted signature into
     // any signature field. On a PM re-editing an already-completed report,
     // do NOT do this — it would silently replace the original operative's
@@ -15403,53 +15516,6 @@ window.submitReport = async function(siteId){
     // the original submission).
     if(it.type==='signature' && ME.signature_path && (!isPmEdit || !answers[it.id])) answers[it.id] = ME.signature_path;
   }));
-  // Photos are captured as data: URLs for instant on-device preview (see
-  // compressImage), but were previously saved into the answers JSONB as
-  // that same raw base64 — unlike every other photo feature in the app
-  // (snags, RAMS, etc.), which uploads to Storage and keeps only the URL.
-  // That made completed reports balloon in size and, worse, is why photos
-  // weren't reliably making it into the exported/emailed PDF — so convert
-  // every photo answer to an uploaded Storage URL here, at submit time,
-  // same as everywhere else. Already-uploaded URLs (re-submitting an
-  // edited draft) are left alone.
-  toast('Uploading photos…');
-  const photoUploadTasks = [];
-  let failedPhotoUploads = 0;
-  (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
-    if(it.type==='photo' && Array.isArray(answers[it.id])){
-      answers[it.id] = answers[it.id].slice();
-      answers[it.id].forEach((val,idx)=>{
-        if(typeof val==='string' && val.startsWith('data:')){
-          photoUploadTasks.push((async()=>{
-            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', val);
-            if(path) answers[it.id][idx] = publicUrl('site-photos', path); else failedPhotoUploads++;
-          })());
-        }
-      });
-    }
-    const mediaKey = it.id+'__media';
-    if(Array.isArray(answers[mediaKey])){
-      answers[mediaKey] = answers[mediaKey].slice();
-      answers[mediaKey].forEach((val,idx)=>{
-        if(typeof val==='string' && val.startsWith('data:')){
-          photoUploadTasks.push((async()=>{
-            const path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', val);
-            if(path) answers[mediaKey][idx] = publicUrl('site-photos', path); else failedPhotoUploads++;
-          })());
-        }
-      });
-    }
-  }));
-  // Guarded: an unexpected throw in any one upload used to leave the button
-  // stuck on "Completing…" until the app was reloaded.
-  try{ if(photoUploadTasks.length) await Promise.all(photoUploadTasks); }
-  catch(e){ console.error(e); failedPhotoUploads = Math.max(1, failedPhotoUploads); }
-  if(failedPhotoUploads>0){
-    reportSubmitBusy = false;
-    toast(`${failedPhotoUploads} photo${failedPhotoUploads>1?'s':''} failed to upload — check your connection and try submitting again.`);
-    render();
-    return;
-  }
   let rows = null;
   // A PM editing an already-completed report keeps the original
   // submitted_by/submitted_at (that's the operative's record of when THEY
@@ -15461,7 +15527,9 @@ window.submitReport = async function(siteId){
     ? { answers: Object.assign({}, answers, { _editHistory: (Array.isArray(answers._editHistory) ? answers._editHistory : []).concat([{ by: ME.id, byName: ME.name, at: new Date().toISOString() }]) }), status:'completed' }
     : { answers, status:'completed', submitted_at:new Date().toISOString() };
   try{
-    rows = await dbUpdate('report_submissions', reportFillDraft.submissionId, updatePayload);
+    const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(updatePayload)});
+    if(res.ok){ const d = await res.json().catch(()=>[]); rows = Array.isArray(d) ? d[0] : d; }
+    else console.error(await safeErr(res));
   }catch(e){ console.error(e); }
   reportSubmitBusy = false;
   if(rows){
