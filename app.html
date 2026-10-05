@@ -31520,7 +31520,7 @@ async function renderDeliveryForm(taskId){
         // Project Managers and Site Managers from the whole company, then
         // the operatives assigned to the chosen site.
         const byName = (x,y)=>x.name.localeCompare(y.name);
-        const everyone = Object.values(PROFILES).filter(p=>p && p.org_id===ME.org_id);
+        const everyone = Object.values(PROFILES).filter(p=>p && (!p.org_id || p.org_id===ME.org_id)); // the loaded people list is already this company only
         const groups = [
           {label:'Project Managers', people: everyone.filter(p=>p.role==='pm').sort(byName)},
           {label:'Site Managers', people: everyone.filter(p=>p.role==='site_manager').sort(byName)},
