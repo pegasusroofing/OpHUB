@@ -1885,6 +1885,55 @@ async function uploadDataUrl(bucket, path, dataUrl){
   const blob = await (await fetch(dataUrl)).blob();
   return uploadToStorage(bucket, path, blob, blob.type);
 }
+// Upload progress pill: every photo/file that is being prepared or sent goes
+// through compressImage / uploadToStorage, so wrapping those two gives one
+// "Uploading 2 of 5…" indicator on every screen without touching each form.
+// Before this, a slow upload looked exactly like a frozen app.
+const uploadBusy = {active:0, started:0, done:0, hideTimer:null};
+function uploadBusyPaint(){
+  let el = document.getElementById('uploadBusyPill');
+  if(!uploadBusy.active){
+    if(el && !uploadBusy.hideTimer){
+      // short pause so "prepare photo" -> "send photo" doesn't flicker
+      uploadBusy.hideTimer = setTimeout(()=>{
+        uploadBusy.hideTimer = null;
+        if(uploadBusy.active) return uploadBusyPaint();
+        uploadBusy.started = 0; uploadBusy.done = 0;
+        const e2 = document.getElementById('uploadBusyPill'); if(e2) e2.remove();
+      }, 700);
+    }
+    return;
+  }
+  if(!el){
+    if(!document.getElementById('uploadBusyStyle')){
+      const st = document.createElement('style'); st.id = 'uploadBusyStyle';
+      st.textContent = '@keyframes uploadBusySpin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
+    }
+    el = document.createElement('div'); el.id = 'uploadBusyPill';
+    el.setAttribute('role','status');
+    el.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);z-index:100000;background:#111;color:#fff;padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.35);display:flex;align-items:center;gap:10px;max-width:92vw;pointer-events:none;';
+    el.innerHTML = '<span style="width:16px;height:16px;flex:0 0 16px;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:uploadBusySpin .8s linear infinite;"></span><span id="uploadBusyText"></span>';
+    document.body.appendChild(el);
+  }
+  const total = uploadBusy.started, n = Math.min(total, uploadBusy.done+1);
+  const txt = document.getElementById('uploadBusyText');
+  if(txt) txt.textContent = (total>1 ? 'Uploading '+n+' of '+total+'…' : 'Uploading…')+' please wait';
+}
+function uploadBusyTrack(promiseFn, counts){
+  uploadBusy.active++; if(counts) uploadBusy.started++;
+  try{ uploadBusyPaint(); }catch(e){}
+  const end = ()=>{ uploadBusy.active = Math.max(0, uploadBusy.active-1); if(counts) uploadBusy.done++; try{ uploadBusyPaint(); }catch(e){} };
+  let p;
+  try{ p = Promise.resolve(promiseFn()); }catch(e){ end(); throw e; }
+  return p.then(v=>{ end(); return v; }, e=>{ end(); throw e; });
+}
+{
+  const rawUpload = uploadToStorage, rawCompress = compressImage;
+  uploadToStorage = function(){ const a = arguments; return uploadBusyTrack(()=>rawUpload.apply(this, a), true); };
+  // Preparing a photo shows the pill too, but only the send counts as "1 of N".
+  compressImage = function(){ const a = arguments; return uploadBusyTrack(()=>rawCompress.apply(this, a), false); };
+}
 function publicUrl(bucket, path){ return path ? (SUPABASE_URL+'/storage/v1/object/public/'+bucket+'/'+path) : null; }
 function blobToBase64(blob){
   return new Promise((resolve, reject)=>{
