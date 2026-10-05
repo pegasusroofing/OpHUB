@@ -30497,6 +30497,28 @@ async function renderDriverCheckin(){
     `).join('') : `<div class="empty">No check-ins yet.</div>`}
   `, {title:'Check In / Out', back:'#/driver'});
 }
+// Two "nothing to pick up" choices sit alongside the yard / suppliers / a
+// typed address: "No collection" (go straight to the job) and "Clear site"
+// (the job is to clear the site). They are saved as the typed-address kind
+// with these exact words, so phones on an older version of the app still
+// show something sensible.
+const DELIVERY_NO_COLLECTION = 'No collection';
+const DELIVERY_CLEAR_SITE = 'Clear site';
+function deliveryCollectionKind(t){
+  if(t.collection_type==='manual'){
+    const a = String(t.collection_address_manual||'').trim().toLowerCase();
+    if(a===DELIVERY_NO_COLLECTION.toLowerCase()) return 'none';
+    if(a===DELIVERY_CLEAR_SITE.toLowerCase()) return 'clear';
+  }
+  return t.collection_type;
+}
+// The one-line "where from" text shown on a delivery card.
+function deliveryCollectionLine(t){
+  const k = deliveryCollectionKind(t);
+  if(k==='none') return '🚫 No collection';
+  if(k==='clear') return '🧹 Clear site';
+  return '📦 Collect from: '+deliveryCollectionLabel(t);
+}
 function deliveryCollectionLabel(t){
   if(t.collection_type==='yard') return 'YARD';
   if(t.collection_type==='supplier') return t._supplierName || 'Supplier';
@@ -30514,6 +30536,7 @@ function deliveryCollectionPlaceKey(t){
   return 'manual:'+String(t.collection_address_manual||'').trim().toLowerCase();
 }
 function deliveryCollectionSummaryHtml(tasks){
+  tasks = tasks.filter(t=>{ const k = deliveryCollectionKind(t); return k!=='none' && k!=='clear'; }); // nothing to pick up for these
   if(!tasks.length) return '';
   const slotOrder = {}; DELIVERY_TIME_SLOTS.forEach((sl,i)=>{ slotOrder[sl.key]=i; });
   const slotLabel = {}; DELIVERY_TIME_SLOTS.forEach(sl=>{ slotLabel[sl.key]=sl.label; });
@@ -30541,7 +30564,7 @@ function deliveryCollectionSummaryHtml(tasks){
       <div class="card" style="margin-top:0;">
         ${pl.tasks.map((t,i)=>`
           <div style="padding:8px 0;${i?'border-top:1px solid var(--line);':''}${t.status==='completed'?'opacity:.55;':''}">
-            <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${deliverySiteHeadingHtml(t.site_id)}</p>
+            <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${deliverySiteHeadingHtml(t)}</p>
             <p style="margin:0 0 3px;white-space:pre-wrap;overflow-wrap:break-word;">${escapeHtml(t.description||'')}</p>
             <p class="stub" style="margin:0;">Drop at ${escapeHtml(slotLabel[t.time_slot]||t.time_slot||'')}${t.status==='completed'?' · ✓ Completed':''}</p>
           </div>`).join('')}
@@ -30584,9 +30607,9 @@ async function renderDriverSchedule(){
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
         <div class="card" style="margin-bottom:8px;${t.status==='completed'?'opacity:.6;':''}">
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">! HIGH PRIORITY<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This delivery needs to happen first — treat it as urgent.</span></p>` : ''}
-          <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t.site_id)}</p>
+          <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
-          <p class="stub" style="margin:0 0 4px;">📦 Collect from: ${escapeHtml(deliveryCollectionLabel(t))}</p>
+          <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
           ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order in this slot: ${t.sub_priority}</p>` : ''}
@@ -30616,7 +30639,16 @@ async function renderDriverSchedule(){
 // Site name plus the full address and postcode for the driver's view — all
 // inside the same bold heading. If the site's name is already just the
 // start of its address, only the address is shown rather than repeating it.
-function deliverySiteHeadingHtml(siteId){
+function deliverySiteHeadingHtml(taskOrSiteId){
+  const t = (taskOrSiteId && typeof taskOrSiteId==='object') ? taskOrSiteId : null;
+  const siteId = t ? t.site_id : taskOrSiteId;
+  // A job that isn't on the app: the name and address typed on the delivery.
+  if(t && !siteId){
+    const mName = (t.manual_site_name||'').trim(), mAddr = (t.manual_site_address||'').trim();
+    if(!mName && !mAddr) return 'Unknown site';
+    if(!mAddr || mAddr.toLowerCase().indexOf(mName.toLowerCase())===0 && mName) return escapeHtml(mAddr || mName);
+    return (mName ? escapeHtml(mName)+'<br>' : '')+escapeHtml(mAddr);
+  }
   const site = SITES.find(s=>s.id===siteId);
   if(!site) return 'Unknown site';
   const name = (site.name||'').trim();
@@ -30625,9 +30657,17 @@ function deliverySiteHeadingHtml(siteId){
   if(!name || addr.toLowerCase().indexOf(name.toLowerCase())===0) return escapeHtml(addr);
   return escapeHtml(name)+'<br>'+escapeHtml(addr);
 }
-function deliverySiteLabel(siteId){
+function deliverySiteLabel(taskOrSiteId){
+  const t = (taskOrSiteId && typeof taskOrSiteId==='object') ? taskOrSiteId : null;
+  const siteId = t ? t.site_id : taskOrSiteId;
+  if(t && !siteId) return (t.manual_site_name||'').trim() || (t.manual_site_address||'').trim() || 'a site';
   const site = SITES.find(s=>s.id===siteId);
   return site ? site.name : 'a site';
+}
+// Full "name, address" on one line — for exports.
+function deliverySiteFullLabel(t){
+  if(t.site_id) return pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site';
+  return [(t.manual_site_name||'').trim(), (t.manual_site_address||'').trim()].filter(Boolean).join(', ') || 'Unknown site';
 }
 // "Push to Tomorrow" — for when a drop doesn't get done. Moves the delivery
 // to the next working day's 2pm slot (the day after its own date, or after
@@ -30664,7 +30704,7 @@ window.pushDeliveryToTomorrow = async function(taskId){
   }catch(e){ /* the move itself is saved — ordering/calendar tidy-up is best-effort */ }
   if(t.created_by && t.created_by!==ME.id){
     postSystemMessageToUser(t.created_by, t.site_id, 'message',
-      `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t.site_id)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : ''),
+      `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : ''),
       taskId);
   }
   toast('Moved to '+nextLabel+', 2pm');
@@ -30735,7 +30775,7 @@ window.reopenDeliveryTask = async function(taskId){
     }
     const slotLabel = (DELIVERY_TIME_SLOTS.find(x=>x.key===choice.slot)||{}).label || choice.slot;
     const whenLabel = new Date(choice.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'})+', '+slotLabel;
-    const body = `Delivery re-opened by ${ME.name} for ${whenLabel} — ${deliverySiteLabel(t.site_id)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : '');
+    const body = `Delivery re-opened by ${ME.name} for ${whenLabel} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : '');
     const tell = new Set([t.driver_id, t.created_by].filter(id=>id && id!==ME.id));
     tell.forEach(id=>{ try{ postSystemMessageToUser(id, t.site_id, 'message', body, taskId); }catch(e){} });
     toast('Re-opened for '+whenLabel);
@@ -30847,7 +30887,7 @@ async function notifyDeliveryComplete(taskId){
   if(!t || !t.site_contact_id) return;
   const site = SITES.find(s=>s.id===t.site_id);
   const when = t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
-  const body = `Delivery to ${site?site.name:'your site'} completed by ${ME.name}${when?' at '+when:''}.${deliveryCompletionPhotos(t).length>1 ? ' '+deliveryCompletionPhotos(t).length+' photos attached.' : (deliveryCompletionPhotos(t).length ? ' Photo attached.' : '')}`;
+  const body = `Delivery to ${site ? site.name : (t.site_id ? 'your site' : deliverySiteLabel(t))} completed by ${ME.name}${when?' at '+when:''}.${deliveryCompletionPhotos(t).length>1 ? ' '+deliveryCompletionPhotos(t).length+' photos attached.' : (deliveryCompletionPhotos(t).length ? ' Photo attached.' : '')}`;
   await postSystemMessageToUser(t.site_contact_id, t.site_id, 'delivery_complete', body, taskId);
 }
 // Weekly vehicle inspection — a fixed pass/fail checklist (researched from
@@ -31177,9 +31217,9 @@ function deliveryTaskCardHtml(t, opts){
   return `
     <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
-        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site')}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
-        <div class="addr" style="font-weight:700;color:var(--ink);">📦 Collect from: ${escapeHtml(deliveryCollectionLabel(t))}</div>
+        <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;" onclick="event.stopPropagation()">
@@ -31212,7 +31252,7 @@ async function deliveryScheduleExportRows(daysISO){
   return tasks.map(t=>({
     date: new Date(t.scheduled_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'}),
     time: slotLabel[t.time_slot] || t.time_slot || '',
-    site: pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site',
+    site: deliverySiteFullLabel(t),
     description: t.description || '',
     collection: deliveryCollectionLabel(t),
     driver: (t.driver_id && PROFILES[t.driver_id]) ? PROFILES[t.driver_id].name : 'Unassigned',
@@ -31401,9 +31441,9 @@ async function renderDeliveryForm(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id, description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
+      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
-      deliveryFormDraft = {_id:'new', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
+      deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
@@ -31434,10 +31474,20 @@ async function renderDeliveryForm(taskId){
     <div class="formfield"><label class="field-label">Site</label>
       ${sites.length>1 ? `<input type="text" id="deliverySiteFilter" placeholder="Type to filter sites — name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)" style="margin-bottom:6px;">` : ''}
       <select id="deliverySiteSelect" onchange="onDeliveryFormSiteChange(this.value)">
-        ${deliverySiteOptionsHtml(sites, draft.site_id, deliveryFormSiteFilter)}
+        ${deliverySiteOptionsHtml(sites, draft._manualSite ? '__manual' : draft.site_id, deliveryFormSiteFilter)}
       </select>
       <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
     </div>
+    ${draft._manualSite ? `
+    <div class="card" style="margin-bottom:12px;">
+      <p class="stub" style="margin:0 0 8px;">For a job that isn't set up on the app. Type the details the driver needs.</p>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Job / site name</label>
+        <input type="text" value="${escapeHtml(draft.manual_site_name||'')}" oninput="deliveryFormDraft.manual_site_name=this.value" placeholder="e.g. Smith — garage roof">
+      </div>
+      <div class="formfield"><label class="field-label">Full address and postcode</label>
+        <textarea rows="2" oninput="deliveryFormDraft.manual_site_address=this.value" placeholder="e.g. 14 High Street, Croydon, CR0 1AB">${escapeHtml(draft.manual_site_address||'')}</textarea>
+      </div>
+    </div>` : ''}
     <div class="formfield"><label class="field-label">Description</label>
       <textarea rows="3" oninput="deliveryFormDraft.description=this.value" placeholder="What's needed?">${escapeHtml(draft.description)}</textarea>
     </div>
@@ -31445,18 +31495,37 @@ async function renderDeliveryForm(taskId){
       <select onchange="onDeliveryCollectionChange(this.value)">
         <option value="yard" ${draft.collection_type==='yard'?'selected':''}>YARD</option>
         ${suppliers.map(s=>`<option value="supplier:${s.id}" ${draft.collection_type==='supplier'&&draft.supplier_id===s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}
-        <option value="manual" ${draft.collection_type==='manual'?'selected':''}>Other (type address)</option>
+        <option value="manual" ${deliveryCollectionKind(draft)==='manual'?'selected':''}>Other (type address)</option>
+        <option value="none" ${deliveryCollectionKind(draft)==='none'?'selected':''}>No collection</option>
+        <option value="clear" ${deliveryCollectionKind(draft)==='clear'?'selected':''}>Clear site</option>
       </select>
     </div>
-    ${draft.collection_type==='manual' ? `
+    ${deliveryCollectionKind(draft)==='manual' ? `
     <div class="formfield"><label class="field-label">Collection address</label>
       <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
     </div>` : ''}
     <div class="formfield"><label class="field-label">Site contact</label>
-      <select onchange="deliveryFormDraft.site_contact_id=this.value">
+      ${(()=>{
+        // Grouped by role (the group heading shows in bold in the list):
+        // Project Managers and Site Managers from the whole company, then
+        // the operatives assigned to the chosen site.
+        const byName = (x,y)=>x.name.localeCompare(y.name);
+        const everyone = Object.values(PROFILES).filter(p=>p && p.org_id===ME.org_id);
+        const groups = [
+          {label:'Project Managers', people: everyone.filter(p=>p.role==='pm').sort(byName)},
+          {label:'Site Managers', people: everyone.filter(p=>p.role==='site_manager').sort(byName)},
+          {label:'Operatives on this site', people: deliveryFormSiteOperatives},
+        ].filter(g=>g.people.length);
+        const opt = o=>`<option value="${o.id}" ${draft.site_contact_id===o.id?'selected':''}>${escapeHtml(o.name)}${o.phone?' — '+escapeHtml(o.phone):' (no phone saved)'}</option>`;
+        // Someone chosen earlier who no longer fits a group still shows, so saving doesn't quietly drop them.
+        const listed = new Set(groups.flatMap(g=>g.people.map(x=>x.id)));
+        const orphan = draft.site_contact_id && !listed.has(draft.site_contact_id) ? PROFILES[draft.site_contact_id] : null;
+        return `<select onchange="deliveryFormDraft.site_contact_id=this.value">
         <option value="">None</option>
-        ${deliveryFormSiteOperatives.map(o=>`<option value="${o.id}" ${draft.site_contact_id===o.id?'selected':''}>${escapeHtml(o.name)}${o.phone?' — '+escapeHtml(o.phone):' (no phone saved)'}</option>`).join('')}
-      </select>
+        ${orphan ? opt(orphan) : ''}
+        ${groups.map(g=>`<optgroup label="${escapeHtml(g.label)}">${g.people.map(opt).join('')}</optgroup>`).join('')}
+      </select>`;
+      })()}
       ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
     </div>
     <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
@@ -31509,31 +31578,42 @@ function deliverySiteOptionsHtml(sites, selectedId, filterText){
   const q = (filterText||'').trim().toLowerCase();
   const shown = q ? sites.filter(x=>x.id===selectedId || [x.name, x.address, x.postcode].some(v=>(v||'').toLowerCase().includes(q))) : sites;
   return `<option value="">${q ? (shown.length ? 'Choose from '+shown.length+' matching site'+(shown.length===1?'':'s')+'…' : 'No sites match') : 'Choose a site…'}</option>`
+    + `<option value="__manual" ${selectedId==='__manual'?'selected':''}>✏️ Other — a job not on the app (type it in)</option>`
     + shown.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
 }
 window.filterDeliverySiteOptions = function(val){
   deliveryFormSiteFilter = val;
   const sel = document.getElementById('deliverySiteSelect');
   if(!sel) return;
-  const current = deliveryFormDraft ? deliveryFormDraft.site_id : '';
+  const current = deliveryFormDraft ? (deliveryFormDraft._manualSite ? '__manual' : deliveryFormDraft.site_id) : '';
   sel.innerHTML = deliverySiteOptionsHtml(deliveryFormSiteList, current, val);
   const note = document.getElementById('deliverySiteFilterNote');
   if(note){
-    const n = sel.options.length-1;
+    const n = Math.max(0, sel.options.length-2); // minus the "Choose…" and "Other" rows
     note.style.display = val.trim() ? '' : 'none';
     note.textContent = n ? n+(n===1?' site matches':' sites match')+' — pick from the list above.' : 'No sites match that.';
   }
 };
 window.onDeliveryFormSiteChange = async function(siteId){
   deliveryFormSiteFilter = '';
-  deliveryFormDraft.site_id = siteId;
+  const manual = siteId==='__manual';
+  deliveryFormDraft._manualSite = manual;
+  deliveryFormDraft.site_id = manual ? '' : siteId;
   deliveryFormDraft.site_contact_id = '';
-  await loadDeliveryFormSiteOperatives(siteId);
+  await loadDeliveryFormSiteOperatives(manual ? '' : siteId);
   render();
 };
 window.onDeliveryCollectionChange = function(val){
   if(val==='yard'){ deliveryFormDraft.collection_type='yard'; deliveryFormDraft.supplier_id=''; }
-  else if(val==='manual'){ deliveryFormDraft.collection_type='manual'; deliveryFormDraft.supplier_id=''; }
+  else if(val==='manual'){
+    deliveryFormDraft.collection_type='manual'; deliveryFormDraft.supplier_id='';
+    // Coming back from No collection / Clear site: start with an empty address box.
+    if(deliveryCollectionKind(deliveryFormDraft)!=='manual') deliveryFormDraft.collection_address_manual = '';
+  }
+  else if(val==='none' || val==='clear'){
+    deliveryFormDraft.collection_type='manual'; deliveryFormDraft.supplier_id='';
+    deliveryFormDraft.collection_address_manual = val==='none' ? DELIVERY_NO_COLLECTION : DELIVERY_CLEAR_SITE;
+  }
   else { deliveryFormDraft.collection_type='supplier'; deliveryFormDraft.supplier_id=val.split(':')[1]; }
   render();
 };
@@ -31563,7 +31643,9 @@ window.removeDeliveryFormPhoto = function(index){
 };
 window.saveDeliveryTask = async function(){
   const d = deliveryFormDraft;
-  if(!d.site_id){ toast('Choose a site.'); return; }
+  if(d._manualSite){
+    if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the job name or address.'); return; }
+  } else if(!d.site_id){ toast('Choose a site.'); return; }
   if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
   if(!d.scheduled_date){ toast('Choose a date.'); return; }
   if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
@@ -31575,11 +31657,11 @@ window.saveDeliveryTask = async function(){
   // unticks it here and leaves the existing one alone.
   let highPriorityToClear = [];
   if(d.high_priority){
-    const existingHigh = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+d.scheduled_date+'&high_priority=is.true&status=eq.pending&select=id,site_id,description,created_by');
+    const existingHigh = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+d.scheduled_date+'&high_priority=is.true&status=eq.pending&select=id,site_id,manual_site_name,manual_site_address,description,created_by');
     highPriorityToClear = existingHigh.filter(o=>o.id!==d._id);
     if(highPriorityToClear.length){
       const o = highPriorityToClear[0];
-      const swap = await customConfirm('A first drop high priority is already assigned for this day ('+deliverySiteLabel(o.site_id)+(o.description?' — '+o.description:'')+'). Do you want to swap?', {confirmLabel:'Yes', cancelLabel:'No'});
+      const swap = await customConfirm('A first drop high priority is already assigned for this day ('+deliverySiteLabel(o)+(o.description?' — '+o.description:'')+'). Do you want to swap?', {confirmLabel:'Yes', cancelLabel:'No'});
       if(!swap){
         d.high_priority = false;
         toast('Left the existing high priority in place — this one is unticked.');
@@ -31591,7 +31673,9 @@ window.saveDeliveryTask = async function(){
   deliveryFormBusy = true; render();
   const payload = {
     org_id: ME.org_id,
-    site_id: d.site_id,
+    site_id: d._manualSite ? null : d.site_id,
+    manual_site_name: d._manualSite ? ((d.manual_site_name||'').trim() || null) : null,
+    manual_site_address: d._manualSite ? ((d.manual_site_address||'').trim() || null) : null,
     description: d.description.trim(),
     collection_type: d.collection_type,
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
@@ -31628,7 +31712,7 @@ window.saveDeliveryTask = async function(){
     for(const o of highPriorityToClear){
       const cleared = await dbUpdate('delivery_tasks', o.id, {high_priority:false});
       if(cleared && o.created_by && o.created_by!==ME.id){
-        postSystemMessageToUser(o.created_by, o.site_id, 'message', `High priority removed from your delivery (${deliverySiteLabel(o.site_id)}: ${o.description||''}) — ${ME.name} made a different delivery the first drop for that day.`, o.id);
+        postSystemMessageToUser(o.created_by, o.site_id, 'message', `High priority removed from your delivery (${deliverySiteLabel(o)}: ${o.description||''}) — ${ME.name} made a different delivery the first drop for that day.`, o.id);
       }
     }
     // #notif-review-2026-09: previously a total gap — a driver was never
@@ -31637,7 +31721,7 @@ window.saveDeliveryTask = async function(){
     // The driver it was taken off is told too, so it doesn't just vanish
     // from their list without explanation.
     if(d._origDriverId && d._origDriverId!==(payload.driver_id||'') && d._origDriverId!==ME.id && savedId){
-      postSystemMessageToUser(d._origDriverId, payload.site_id, 'message', `A delivery is no longer assigned to you (${deliverySiteLabel(payload.site_id)}: ${payload.description})${payload.driver_id ? '' : ' — it is now unassigned'}.`, savedId);
+      postSystemMessageToUser(d._origDriverId, payload.site_id, 'message', `A delivery is no longer assigned to you (${deliverySiteLabel(payload)}: ${payload.description})${payload.driver_id ? '' : ' — it is now unassigned'}.`, savedId);
     }
     if(payload.driver_id && payload.driver_id!==d._origDriverId && savedId){
       postSystemMessageToUser(payload.driver_id, payload.site_id, 'delivery_assigned', `You've been assigned a delivery/collection: ${payload.description}`, savedId);
@@ -31658,6 +31742,7 @@ window.saveDeliveryTask = async function(){
 // never triggers a notification on its own — the only delivery notification
 // stays the single one on completion (notifyDeliveryComplete).
 async function syncDeliveryCalendarEvent(taskId, existingEventId, payload){
+  if(!payload.site_id) return; // a job that isn't on the app has no site calendar to put it on
   const title = 'Delivery: '+payload.description;
   try{
     if(existingEventId){
