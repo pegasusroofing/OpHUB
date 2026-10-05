@@ -16949,6 +16949,8 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
                       ${isMultiSite ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addressPickerTaskId='${t.id}';render()">📍 Link Address</div>` : ''}
                       ${!t.section_id ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleAssignExisting('task','${t.id}','${siteId}')">🔒 Assign visibility</div>` : ''}
                       ${isMc ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openSubcontractorAssignPicker('${t.id}')">🏗 ${t.subcontractor_company_id?'Change':'Assign'} Subcontractor</div>` : ''}
+                      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;moveScheduleTask('${siteId}','${t.id}',-1)">▲ Move up</div>
+                      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;moveScheduleTask('${siteId}','${t.id}',1)">▼ Move down</div>
                       <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTask('${siteId}','${t.id}')">🗑 Delete</div>
                       <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;enterScheduleMultiSelect('${t.id}')">☑ Select Multiple</div>
                     `)}
@@ -17813,6 +17815,33 @@ window.saveTaskEdit = async function(siteId, taskId){
     toast('Task updated');
     render();
   }
+};
+// Move an item up or down within its own section (or within the loose,
+// un-sectioned list). It swaps with the next item above/below that is in
+// the same state (open with open, completed with completed) so the move is
+// always visible on the tab you're looking at, then renumbers that section.
+let scheduleMoveBusy = false;
+window.moveScheduleTask = async function(siteId, taskId, dir){
+  if(scheduleMoveBusy) return;
+  scheduleMoveBusy = true;
+  try{
+    const all = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc&select=id,section_id,sub_site_id,status,position');
+    const me = all.find(t=>t.id===taskId);
+    if(!me){ render(); return; }
+    const sibs = all.filter(t=>(t.section_id||null)===(me.section_id||null));
+    sibs.forEach((t,k)=>{ t._k = k; });
+    sibs.sort((x,y)=>((x.position==null?1e9:x.position)-(y.position==null?1e9:y.position)) || (x._k-y._k));
+    const isDone = t=>t.status==='done';
+    const i = sibs.indexOf(me);
+    let j = i + dir;
+    while(j>=0 && j<sibs.length && isDone(sibs[j])!==isDone(me)) j += dir;
+    if(j<0 || j>=sibs.length){ toast(dir<0 ? 'Already at the top.' : 'Already at the bottom.'); render(); return; }
+    sibs.splice(i,1); sibs.splice(j,0,me);
+    const changed = sibs.map((t,idx)=>({t,idx})).filter(x=>x.t.position!==x.idx);
+    const results = await Promise.all(changed.map(x=>dbUpdate('schedule_tasks', x.t.id, {position:x.idx})));
+    if(results.some(r=>!r)) toast('Could not save the new order — please try again.');
+  }finally{ scheduleMoveBusy = false; }
+  render();
 };
 window.deleteTask = async function(siteId, taskId){
   if(!await customConfirm('Delete this task? This also removes its progress photos. This can\'t be undone.')) return;
