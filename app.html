@@ -15876,6 +15876,33 @@ async function buildReportPdf(submissionId, opts){
         y -= boxH+capH+10;
       }
     }
+    // Get every photo ready up front, four at a time, instead of fetching
+    // and shrinking them one after another as each page is drawn — on a
+    // 40-photo inspection that one-at-a-time wait was most of the delay.
+    // Shows a running count so it's clear something is happening.
+    {
+      const found = new Set();
+      const scan = v=>{
+        if(typeof v==='string'){ if(v.startsWith('data:image') || /^https?:\/\/.+\/storage\/v1\/object\//.test(v)) found.add(v); }
+        else if(Array.isArray(v)) v.forEach(scan);
+        else if(v && typeof v==='object') Object.values(v).forEach(scan);
+      };
+      scan(sub.answers);
+      const list = Array.from(found);
+      if(list.length > 4){
+        let next = 0, done = 0;
+        const worker = async ()=>{
+          while(next < list.length){
+            const u = list[next++];
+            try{ await embedFromDataUrl(u); }catch(e){ /* drawn as "could not be loaded" later */ }
+            done++;
+            if(done % 4 === 0 && done < list.length){ try{ toast('Preparing photos… '+done+' of '+list.length); }catch(e){} }
+          }
+        };
+        await Promise.all([worker(), worker(), worker(), worker()]);
+        try{ toast('Building PDF…'); }catch(e){}
+      }
+    }
     function collectPhotos(urls){
       return urls.map(u=>{ const num = allPhotos.length+1; const entry = {url:u, num}; allPhotos.push(entry); return entry; });
     }
