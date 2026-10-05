@@ -30888,8 +30888,8 @@ async function notifyDeliveryComplete(taskId){
   const site = SITES.find(s=>s.id===t.site_id);
   const when = t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
   const body = `Delivery to ${site ? site.name : (t.site_id ? 'your site' : deliverySiteLabel(t))} completed by ${ME.name}${when?' at '+when:''}.${deliveryCompletionPhotos(t).length>1 ? ' '+deliveryCompletionPhotos(t).length+' photos attached.' : (deliveryCompletionPhotos(t).length ? ' Photo attached.' : '')}`;
-  // Who hears about it: the job's PM, the site contact and the operatives
-  // on the job. The database works the list out (a driver can't read site
+  // Who hears about it: the job's PM and the site contact only
+  // (not every operative on the job). The database works the list out (a driver can't read site
   // assignments); if that fails we still tell the site contact and the PM.
   let ids = [];
   try{
