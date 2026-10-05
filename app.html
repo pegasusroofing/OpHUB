@@ -30884,11 +30884,21 @@ window.completeDeliveryTask = async function(input, taskId){
 async function notifyDeliveryComplete(taskId){
   const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
   const t = rows[0];
-  if(!t || !t.site_contact_id) return;
+  if(!t) return;
   const site = SITES.find(s=>s.id===t.site_id);
   const when = t.completed_at ? new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
   const body = `Delivery to ${site ? site.name : (t.site_id ? 'your site' : deliverySiteLabel(t))} completed by ${ME.name}${when?' at '+when:''}.${deliveryCompletionPhotos(t).length>1 ? ' '+deliveryCompletionPhotos(t).length+' photos attached.' : (deliveryCompletionPhotos(t).length ? ' Photo attached.' : '')}`;
-  await postSystemMessageToUser(t.site_contact_id, t.site_id, 'delivery_complete', body, taskId);
+  // Who hears about it: the job's PM, the site contact and the operatives
+  // on the job. The database works the list out (a driver can't read site
+  // assignments); if that fails we still tell the site contact and the PM.
+  let ids = [];
+  try{
+    const res = await sbFetch('/rest/v1/rpc/delivery_notify_recipients', {method:'POST', body: JSON.stringify({p_task_id: taskId})});
+    if(res.ok){ const out = await res.json(); if(Array.isArray(out)) ids = out.map(r=> (r && typeof r==='object') ? (r.delivery_notify_recipients||r.id) : r); }
+  }catch(e){ /* fall back below */ }
+  if(!ids.length) ids = [t.site_contact_id, site && site.responsible_pm_id];
+  ids = [...new Set(ids.filter(id=>id && id!==ME.id))];
+  await Promise.all(ids.map(id=>postSystemMessageToUser(id, t.site_id, 'delivery_complete', body, taskId)));
 }
 // Weekly vehicle inspection — a fixed pass/fail checklist (researched from
 // the standard DVSA/GOV.UK van daily-walkaround-check items, grouped into
