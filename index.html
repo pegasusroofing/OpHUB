@@ -166,6 +166,33 @@
   .benefititem .check{width:34px;height:34px;border-radius:50%;background:var(--brand1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;margin-bottom:16px;}
   .benefititem h3{font-size:17.5px;color:#fff;letter-spacing:-.01em;}
   .benefititem p{color:rgba(255,255,255,.66);font-size:14.5px;margin-top:8px;}
+
+  /* book a demo */
+  .demogrid{display:grid;grid-template-columns:.9fr 1.1fr;gap:48px;align-items:start;}
+  .demotext h2{font-size:clamp(28px,4vw,42px);}
+  .demotext p.lead{color:var(--slate);font-size:17px;margin-top:16px;}
+  .demolist{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:14px;}
+  .demolist li{display:flex;gap:12px;align-items:flex-start;font-size:15.5px;font-weight:600;}
+  .demolist li:before{content:"✓";flex:0 0 24px;height:24px;border-radius:50%;background:var(--brand-soft);color:var(--brand-deep);font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;}
+  .demotext .alt{margin-top:26px;font-size:14.5px;color:var(--slate);}
+  .demotext .alt a{color:var(--brand-deep);font-weight:700;}
+  .democard{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:32px;box-shadow:var(--shadow);}
+  .formrow{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .formfield{margin:0 0 14px;}
+  .formfield label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:0 0 7px;}
+  .formfield label i{font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;color:var(--mute);}
+  .formfield input,.formfield select,.formfield textarea{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+  .formfield textarea{min-height:104px;resize:vertical;}
+  .formfield input:focus,.formfield select:focus,.formfield textarea:focus{outline:none;border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.18);}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  .formmsg{font-size:14px;border-radius:10px;padding:11px 14px;margin:0 0 14px;}
+  .formmsg.err{color:#8A5A0B;background:#FBF0D9;}
+  .demodone{text-align:center;padding:28px 8px;}
+  .demodone .tick{width:56px;height:56px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .demodone h3{font-size:22px;}
+  .demodone p{color:var(--slate);margin-top:10px;font-size:15.5px;}
+  .formnote{text-align:center;font-size:13px;color:var(--mute);margin-top:14px;}
+  @media (max-width:900px){ .demogrid{grid-template-columns:1fr;gap:32px;} .formrow{grid-template-columns:1fr;gap:0;} .democard{padding:24px 20px;} }
   /* cta */
   .finalcta{position:relative;overflow:hidden;text-align:center;background:linear-gradient(135deg,#2F6FB3 0%,#4E8FD1 55%,#7FB6EC 100%);color:#fff;border-radius:32px;padding:76px 32px;}
   .finalcta h2{font-size:clamp(28px,4vw,42px);}
@@ -194,6 +221,7 @@
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
       <a href="#about">About</a>
+      <a href="#demo">Book a Demo</a>
     </div>
     <div class="navcta">
       <a href="/app.html" class="btn btn-glass btn-sm">Sign In</a>
@@ -213,7 +241,7 @@
       </div>
       <div class="herobtns">
         <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="#features" class="btn btn-glass">See how it works</a>
+        <a href="#demo" class="btn btn-glass">Book a Demo</a>
       </div>
       <p class="heroreassure">Set up your company in minutes · One flat price, no per-user fees</p>
     </div>
@@ -374,6 +402,47 @@
   </div>
 </section>
 
+<section id="demo" style="padding-top:0;">
+  <div class="wrap demogrid">
+    <div class="demotext">
+      <span class="kicker">Book a demo</span>
+      <h2>See OpHUB with your own jobs in mind</h2>
+      <p class="lead">Tell us a little about your company and we'll get in touch to arrange a walkthrough.</p>
+      <ul class="demolist">
+        <li>A guided look at the app from the operative, driver and PM side</li>
+        <li>Your questions answered by the people who built it</li>
+        <li>No obligation — see if it fits before you sign up</li>
+      </ul>
+      <p class="alt">Prefer email? <a href="mailto:sales@operativehub.co.uk">sales@operativehub.co.uk</a></p>
+    </div>
+    <div class="democard">
+      <form id="demoForm" onsubmit="return sendDemo(event)" novalidate>
+        <div class="formrow">
+          <div class="formfield"><label for="dName">Your name</label><input id="dName" type="text" autocomplete="name" maxlength="100" required></div>
+          <div class="formfield"><label for="dCompany">Company</label><input id="dCompany" type="text" autocomplete="organization" maxlength="120"></div>
+        </div>
+        <div class="formrow">
+          <div class="formfield"><label for="dEmail">Email</label><input id="dEmail" type="email" autocomplete="email" maxlength="254" required></div>
+          <div class="formfield"><label for="dPhone">Phone <i>(optional)</i></label><input id="dPhone" type="tel" autocomplete="tel" maxlength="40"></div>
+        </div>
+        <div class="formfield"><label for="dTeam">Team size <i>(optional)</i></label>
+          <select id="dTeam"><option value="">Choose…</option><option>1–10</option><option>11–25</option><option>26–50</option><option>51–150</option><option>150+</option></select>
+        </div>
+        <div class="formfield"><label for="dMsg">Anything we should know? <i>(optional)</i></label><textarea id="dMsg" maxlength="2000" placeholder="Your trade, how many sites you run, what you'd like to see…"></textarea></div>
+        <div class="hp" aria-hidden="true"><label for="dWebsite">Website</label><input id="dWebsite" type="text" tabindex="-1" autocomplete="off"></div>
+        <div id="demoMsg"></div>
+        <button id="demoBtn" type="submit" class="btn btn-primary btn-block">Request a Demo</button>
+        <p class="formnote">We'll only use your details to reply to this enquiry.</p>
+      </form>
+      <div id="demoDone" class="demodone" style="display:none;">
+        <div class="tick">✓</div>
+        <h3>Thanks — request sent</h3>
+        <p>We've got your details and will be in touch shortly to arrange your demo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section style="padding-top:0;">
   <div class="wrap">
     <div class="finalcta">
@@ -381,7 +450,7 @@
       <p>Set up your company today — you'll be inviting your team within minutes.</p>
       <div class="herobtns">
         <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="/app.html" class="btn btn-glass">Sign In</a>
+        <a href="#demo" class="btn btn-glass">Book a Demo</a>
       </div>
     </div>
   </div>
@@ -394,6 +463,7 @@
       <div class="footlinks">
         <a href="#features">Features</a>
         <a href="#pricing">Pricing</a>
+        <a href="#demo">Book a Demo</a>
         <a href="/app.html">Sign In</a>
         <a href="/privacy.html">Privacy</a>
         <a href="mailto:sales@operativehub.co.uk">Contact</a>
@@ -403,5 +473,36 @@
   </div>
 </footer>
 
+<script>
+  const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+  let demoBusy = false;
+  async function sendDemo(ev){
+    ev.preventDefault();
+    if(demoBusy) return false;
+    const v = id => document.getElementById(id).value.trim();
+    const msg = document.getElementById('demoMsg');
+    const showErr = t => { msg.innerHTML = ''; const d = document.createElement('div'); d.className = 'formmsg err'; d.setAttribute('role','alert'); d.textContent = t; msg.appendChild(d); };
+    const name = v('dName'), email = v('dEmail');
+    if(!name || !email){ showErr('Please enter your name and email.'); return false; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showErr('Enter a valid email address.'); return false; }
+    const btn = document.getElementById('demoBtn');
+    demoBusy = true; btn.disabled = true; btn.textContent = 'Sending…'; msg.innerHTML = '';
+    try{
+      const res = await fetch(SUPABASE_URL + '/functions/v1/book-demo', {
+        method:'POST',
+        headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'},
+        body: JSON.stringify({name, email, company:v('dCompany'), phone:v('dPhone'), team_size:v('dTeam'), message:v('dMsg'), website:v('dWebsite')})
+      });
+      const d = await res.json().catch(()=>({}));
+      if(!res.ok || d.error){ showErr(d.error || 'Something went wrong — please try again.'); }
+      else { document.getElementById('demoForm').style.display = 'none'; document.getElementById('demoDone').style.display = 'block'; }
+    }catch(e){
+      showErr('Could not reach the server — check your connection and try again, or email sales@operativehub.co.uk.');
+    }
+    demoBusy = false; btn.disabled = false; btn.textContent = 'Request a Demo';
+    return false;
+  }
+</script>
 </body>
 </html>
