@@ -14528,8 +14528,8 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     });
     drawCell(page, String(it.quantity), cols[1], y, {size:10});
     drawCell(page, PRICE_UNIT_LABEL[it.unit]||it.unit||'', cols[2], y, {size:10});
-    drawCell(page, Number(it.rate).toFixed(2), cols[3], y, {size:10});
-    drawCell(page, Number(it.line_total).toFixed(2), cols[4], y, {font:bold, size:10});
+    drawCell(page, Number(it.rate).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), cols[3], y, {size:10});
+    drawCell(page, Number(it.line_total).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), cols[4], y, {font:bold, size:10});
     y -= rowH;
     page.drawLine({start:{x:MARGIN,y:y+(rowH-14)}, end:{x:PAGE_W-MARGIN,y:y+(rowH-14)}, thickness:0.5, color:LINE});
   });
@@ -14578,8 +14578,8 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
       running += Number(w.amount||0);
       ensureSpacePlain(18);
       drawCell(page, 'Week '+w.week_number, wkCols[0], y, {size:9.5});
-      drawCell(page, Number(w.amount||0).toFixed(2), wkCols[1], y, {size:9.5});
-      drawCell(page, running.toFixed(2), wkCols[2], y, {size:9.5, font:bold});
+      drawCell(page, Number(w.amount||0).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), wkCols[1], y, {size:9.5});
+      drawCell(page, running.toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), wkCols[2], y, {size:9.5, font:bold});
       y -= 16;
     });
   }
