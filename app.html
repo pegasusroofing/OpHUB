@@ -5450,6 +5450,10 @@ async function renderTeam(){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
       </div>
+      <div class="tile" onclick="go('#/sign-templates')">
+        <div class="icon" style="background:var(--ok-bg,#E7F3EC);color:var(--ok,#2E8B57);">✍</div>
+        <div class="lbl">Signing Templates</div><div class="sub">Pre-set sign boxes</div>
+      </div>
       <div class="tile" onclick="go('#/dashboard')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
         <div class="lbl">Company Dashboard</div>
@@ -21432,6 +21436,8 @@ async function renderRams(siteId){
   const isClientView = ME.role==='client';
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
+  // Signing templates (Settings → Signing Templates) offered on the upload form.
+  const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutTables(tp.layout).length) : [];
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
   // company in a dropdown) — same idea as the Subcontractor Inspections
@@ -21457,6 +21463,10 @@ async function renderRams(siteId){
           <select id="ramsSupersedes"><option value="">— New document, doesn't replace anything —</option>${docs.map(d=>`<option value="${d.id}">${escapeHtml(d.name)} (${escapeHtml(d.doc_type||'RAMS')})</option>`).join('')}</select>
           <p class="stub" style="margin:4px 0 0;">Picking one keeps the old version on file (marked Superseded) and requires everyone to sign the new one again.</p>
         </div>` : ''}
+        <div class="formfield"><label class="field-label">Signing template</label>
+          ${signTemplates.length ? `<select id="ramsSignTemplate"><option value="">— None (signatures listed on a page at the end) —</option>${signTemplates.map(tp=>`<option value="${tp.id}">${escapeHtml(tp.name)} · ${ramsLayoutSlots(tp.layout)} people</option>`).join('')}</select>
+          <p class="stub" style="margin:4px 0 0;">Pick the template for this form and the sign boxes are put in for you.</p>` : `<p class="stub" style="margin:0;">None set up yet. <span class="viewlink" style="cursor:pointer;" onclick="go('#/sign-templates')">Create one in Signing Templates</span> to have signatures drop straight into the document's own boxes.</p>`}
+        </div>
         <div class="row-gap" style="margin-bottom:6px;">
           <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
           <button class="darkbtn" style="flex:2;" onclick="addRams('${siteId}')">Upload</button>
@@ -21563,10 +21573,19 @@ window.addRams = async function(siteId){
   const path = siteId+'/rams/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
   if(!stored) return;
-  const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:docType, supersedes: supersedesId||null});
+  // A signing template chosen on the form: the new document takes on that template's boxes.
+  let signLayout = null, signTplName = '';
+  const tplEl = document.getElementById('ramsSignTemplate');
+  if(tplEl && tplEl.value){
+    const tps = await dbSelect('sign_layout_templates', 'id=eq.'+tplEl.value+'&select=name,layout');
+    if(tps[0] && ramsLayoutTables(tps[0].layout).length){ signLayout = {v:1, tables: ramsLayoutTables(tps[0].layout)}; signTplName = tps[0].name; }
+  }
+  const newRow = {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:docType, supersedes: supersedesId||null};
+  if(signLayout) newRow.sign_layout = signLayout;
+  const rows = await dbInsert('rams_docs', newRow);
   if(rows){
     if(supersedesId) await dbUpdate('rams_docs', supersedesId, {status:'superseded', superseded_by:rows[0].id});
-    toast('RAMS uploaded');
+    toast(signLayout ? 'RAMS uploaded — sign boxes set from "'+signTplName+'"' : 'RAMS uploaded');
     notifyDocNeedsSigning(siteId, docType==='COSHH'?'COSHH':'RAMS', name);
     ramsUploadOpen = false; render();
   }
@@ -21630,22 +21649,35 @@ const RAMS_BOX_TYPES = [
 ];
 function ramsLayoutTables(layout){ return (layout && Array.isArray(layout.tables)) ? layout.tables.filter(t=>t && t.page && (t.name||t.sig||t.date)) : []; }
 function ramsLayoutSlots(layout){ return ramsLayoutTables(layout).reduce((m,t)=>Math.max(m, t.rows||1), 0); }
-async function renderRamsBoxes(siteId, ramsId){
+// tplId set = editing a template in the Signing Templates library (its
+// sample document); otherwise editing one job's RAMS document.
+async function renderRamsBoxes(siteId, ramsId, tplId){
   const __gen = RENDER_GEN;
-  if(!isManager(ME)){ go(`#/site/${siteId}/hs/rams`); return; }
-  if(!ramsBoxEd || ramsBoxEd.ramsId !== ramsId){
-    const rows = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
-    const doc = rows[0];
-    if(!doc){ toast('Document not found.'); go(`#/site/${siteId}/hs/rams`); return; }
+  const backHash = tplId ? '#/sign-templates' : `#/site/${siteId}/hs/rams`;
+  if(!isManager(ME)){ go(tplId ? '#/sites' : backHash); return; }
+  const key = tplId ? 'tpl:'+tplId : 'doc:'+ramsId;
+  if(!ramsBoxEd || ramsBoxEd.key !== key){
+    let doc;
+    if(tplId){
+      const rows = await dbSelect('sign_layout_templates', 'id=eq.'+tplId+'&select=*');
+      const tp = rows[0];
+      if(!tp){ toast('Template not found.'); go(backHash); return; }
+      if(!tp.storage_path){ toast('This template has no sample document to show.'); go(backHash); return; }
+      doc = {name: tp.name, storage_path: tp.storage_path, sign_layout: tp.layout};
+    } else {
+      const rows = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
+      doc = rows[0];
+      if(!doc){ toast('Document not found.'); go(backHash); return; }
+    }
     const lay = doc.sign_layout && Array.isArray(doc.sign_layout.tables) ? JSON.parse(JSON.stringify(doc.sign_layout)) : {v:1, tables:[]};
-    ramsBoxEd = {ramsId, siteId, doc, pdf:null, numPages:0, page:(lay.tables[0] && lay.tables[0].page) || 1, layout:lay, cur:-1, mode:null, dirty:false, templates:[], busy:false};
+    ramsBoxEd = {key, tplId: tplId||null, backHash, ramsId, siteId, doc, pdf:null, numPages:0, page:(lay.tables[0] && lay.tables[0].page) || 1, layout:lay, cur:-1, mode:null, dirty:false, templates:[], busy:false};
   }
   const ed = ramsBoxEd;
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:10px;">
       <p style="margin:0 0 4px;font-weight:700;">${escapeHtml(ed.doc.name||'RAMS document')}</p>
-      <p class="stub" style="margin:0;">Mark where people sign in this document. You only do this once — after that every signature drops into the next free row automatically.</p>
+      <p class="stub" style="margin:0;">${ed.tplId ? 'This is the template\'s sample document. Mark where people sign. Any document you later upload with this template gets the same boxes in the same places.' : 'Mark where people sign in this document. You only do this once — after that every signature drops into the next free row automatically.'}</p>
     </div>
     <div id="rbCtl"></div>
     <div id="rbPageWrap" style="position:relative;margin:10px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;">
@@ -21653,7 +21685,7 @@ async function renderRamsBoxes(siteId, ramsId){
       <div id="rbOv" style="position:absolute;inset:0;"></div>
     </div>
     <div id="rbFoot"></div>
-  `, {title:'Signature Boxes', back:`#/site/${siteId}/hs/rams`, siteId, tabs:false});
+  `, ed.tplId ? {title:'Template Boxes', back:backHash, tabs:false} : {title:'Signature Boxes', back:backHash, siteId, tabs:false});
   ramsBoxRefresh();
   try{
     if(!ed.pdf){
@@ -21664,7 +21696,7 @@ async function renderRamsBoxes(siteId, ramsId){
       if(ed.page > ed.numPages) ed.page = 1;
     }
     if(ramsBoxEd !== ed) return;
-    const tpl = await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout');
+    const tpl = ed.tplId ? [] : await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout');
     ed.templates = tpl || [];
     await ramsBoxDrawPage();
     ramsBoxRefresh();
@@ -21747,13 +21779,14 @@ function ramsBoxRefresh(){
   ov.style.cursor = ed.mode ? 'crosshair' : 'default';
   ov.onpointerdown = ed.mode ? ramsBoxPointerDown : null;
   if(foot) foot.innerHTML = `
-    <button class="darkbtn" style="width:100%;margin:0 0 8px;" ${ed.busy?'disabled':''} onclick="ramsBoxSave()">${ed.busy?'Saving…':'Save signature boxes'}</button>
+    <button class="darkbtn" style="width:100%;margin:0 0 8px;" ${ed.busy?'disabled':''} onclick="ramsBoxSave()">${ed.busy?'Saving…':(ed.tplId?'Save template':'Save signature boxes')}</button>
+    ${ed.tplId ? `<p class="stub" style="margin:4px 0 0;">Each person who signs gets one row in every table you mark, so mark every page they need to sign.</p>` : `
     <div class="row-gap">
       <button class="ghostbtn" style="flex:1;margin:0;" ${ramsLayoutTables(ed.layout).length?'':'disabled'} onclick="ramsBoxSaveTemplate()">Save as template</button>
       <button class="ghostbtn" style="flex:1;margin:0;" ${ed.templates.length?'':'disabled'} onclick="ramsBoxUseTemplate()">Use a template</button>
     </div>
     ${ed.doc.sign_layout ? `<button class="ghostbtn" style="width:100%;margin:8px 0 0;" onclick="ramsBoxClear()">Remove all boxes from this document</button>` : ''}
-    <p class="stub" style="margin:10px 0 0;">Tip: save the layout as a template, then on your next job's RAMS (same form) choose “Use a template” — nothing to redraw.</p>`;
+    <p class="stub" style="margin:10px 0 0;">Tip: set your standard forms up once under Settings → Signing Templates, then just pick the template when you upload.</p>`}`;
 }
 function ramsBoxPointerDown(ev){
   const ed = ramsBoxEd, t = ramsBoxCurTable(); if(!ed || !t || !ed.mode) return;
@@ -21834,6 +21867,12 @@ window.ramsBoxSave = async function(){
   const probs = ramsBoxProblems(ed.layout);
   if(probs.length){ customAlert(probs.join('\n')); return; }
   ed.busy = true; ramsBoxRefresh();
+  if(ed.tplId){
+    const row = await dbUpdate('sign_layout_templates', ed.tplId, {layout:{v:1, tables: ed.layout.tables}, page_count: ed.numPages||null});
+    ed.busy = false;
+    if(!row){ toast('Could not save — please try again.'); ramsBoxRefresh(); return; }
+    toast('Template saved'); const back = ed.backHash; ramsBoxEd = null; go(back); return;
+  }
   const layout = ed.layout.tables.length ? {v:1, tables: ed.layout.tables} : null;
   const row = await dbUpdate('rams_docs', ed.ramsId, {sign_layout: layout});
   ed.busy = false;
@@ -21855,7 +21894,7 @@ window.ramsBoxSaveTemplate = async function(){
   if(probs.length){ customAlert(probs.join('\n')); return; }
   const name = await customPrompt('Name this template (e.g. "RTB RAMS form"):', '');
   if(!name || !String(name).trim()) return;
-  const rows = await dbInsert('sign_layout_templates', {name:String(name).trim().slice(0,80), page_count: ed.numPages||null, layout:{v:1, tables: ed.layout.tables}});
+  const rows = await dbInsert('sign_layout_templates', {name:String(name).trim().slice(0,80), page_count: ed.numPages||null, layout:{v:1, tables: ed.layout.tables}, storage_path: ed.doc.storage_path||null});
   if(rows){ toast('Template saved'); ed.templates = await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout'); ramsBoxRefresh(); }
 };
 window.ramsBoxUseTemplate = function(){
@@ -21891,6 +21930,80 @@ window.ramsBoxDeleteTemplate = async function(id){
   if(!await customConfirm('Delete this template? Documents already using it keep their boxes.', {confirmLabel:'Delete', danger:true})) return;
   const ok = await dbDelete('sign_layout_templates', id);
   if(ok){ ed.templates = ed.templates.filter(x=>x.id!==id); const o = document.getElementById('rbTplOv'); if(o) o.remove(); if(ed.templates.length) ramsBoxUseTemplate(); ramsBoxRefresh(); }
+};
+/* ================= SIGNING TEMPLATES LIBRARY ================= */
+// Settings → Signing Templates. Upload a SAMPLE of a form you use again and
+// again (e.g. a client's RAMS form), mark the sign boxes on it once, and
+// from then on choose that template when uploading the real document for a
+// job: the real document takes the sample's place and keeps the boxes.
+let signTplBusy = false;
+async function renderSignTemplates(){
+  const __gen = RENDER_GEN;
+  const list = await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout,storage_path,file_name,created_at');
+  if(__gen !== RENDER_GEN) return;
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:12px;">
+      <p style="margin:0 0 4px;font-weight:700;">How this works</p>
+      <p class="stub" style="margin:0;">1. Upload a sample of a form you use often. 2. Mark where people sign. 3. When you upload that form for a job, pick the template — the boxes are already in place and operatives sign with one tap.</p>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <p style="margin:0 0 8px;font-weight:700;">New template</p>
+      <div class="formfield" style="margin-top:0;"><input type="text" id="signTplName" placeholder="Template name, e.g. Hyde RAMS form" maxlength="80"></div>
+      <div class="row-gap" style="margin-bottom:6px;">
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="document.getElementById('signTplFile').click()">Choose sample PDF</div>
+        <button class="darkbtn" style="flex:1;" ${signTplBusy?'disabled':''} onclick="addSignTemplate()">${signTplBusy?'Uploading…':'Upload & set boxes'}</button>
+      </div>
+      <input type="file" accept="application/pdf" id="signTplFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('signTplFileName'); el.textContent = f ? ('✓ '+f.name+' selected') : '';">
+      <p class="stub" id="signTplFileName" style="margin:0;font-size:12.5px;"></p>
+    </div>
+    <p class="sectiontitle">Your templates</p>
+    ${list.length ? list.map(tp=>{
+      const n = ramsLayoutTables(tp.layout).length, people = ramsLayoutSlots(tp.layout);
+      return `<div class="card" style="margin-bottom:8px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <p style="margin:0;font-weight:700;">${escapeHtml(tp.name)}</p>
+            <p class="stub" style="margin:2px 0 0;">${n ? n+' sign-off table'+(n===1?'':'s')+' · room for '+people+' people' : '<span style="color:var(--warn);">No boxes set yet</span>'}${tp.page_count ? ' · '+tp.page_count+' pages' : ''}</p>
+          </div>
+          ${rowActionsMenuHtml('signtpl-'+tp.id, `
+            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;ramsBoxEd=null;go('#/sign-templates/${tp.id}')">✍ Set / edit boxes</div>` : ''}
+            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();viewDrawing('${publicUrl('rams-docs', tp.storage_path)}','${jsAttr(tp.file_name||tp.name+'.pdf')}')">👁 View sample</div>` : ''}
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSignTemplate('${tp.id}','${jsAttr(tp.name)}')">✎ Rename</div>
+            <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSignTemplate('${tp.id}')">🗑 Delete</div>
+          `)}
+        </div>
+      </div>`;
+    }).join('') : `<div class="empty">No templates yet.</div>`}
+  `, {title:'Signing Templates', back:'#/team', tabs:false});
+}
+window.addSignTemplate = async function(){
+  if(signTplBusy) return;
+  const name = document.getElementById('signTplName').value.trim();
+  const input = document.getElementById('signTplFile');
+  const file = input.files && input.files[0];
+  if(!name || !file){ toast('Add a name and choose a sample PDF.'); return; }
+  if(!/\.pdf$/i.test(file.name) && file.type!=='application/pdf'){ toast('The sample needs to be a PDF.'); return; }
+  signTplBusy = true; render();
+  try{
+    const path = 'sign-templates/'+ME.org_id+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
+    if(!stored){ signTplBusy = false; render(); return; }
+    const rows = await dbInsert('sign_layout_templates', {name: name.slice(0,80), layout:{v:1, tables:[]}, storage_path: stored, file_name: file.name});
+    signTplBusy = false;
+    if(rows && rows[0]){ toast('Sample uploaded — now mark the boxes'); ramsBoxEd = null; go('#/sign-templates/'+rows[0].id); }
+    else render();
+  }catch(e){ console.error(e); signTplBusy = false; toast('Could not upload — please try again.'); render(); }
+};
+window.renameSignTemplate = async function(id, oldName){
+  const name = await customPrompt('Template name:', oldName||'');
+  if(!name || !String(name).trim()){ render(); return; }
+  await dbUpdate('sign_layout_templates', id, {name:String(name).trim().slice(0,80)});
+  render();
+};
+window.deleteSignTemplate = async function(id){
+  if(!await customConfirm('Delete this template? Documents already uploaded with it keep their boxes.', {confirmLabel:'Delete', danger:true})){ render(); return; }
+  await dbDelete('sign_layout_templates', id);
+  render();
 };
 // Stamps every signer into the document's own boxes. Signers are in the
 // order they signed: signer 1 -> row 1 of every table, signer 2 -> row 2…
@@ -32489,6 +32602,11 @@ async function renderRoute(){
     if(parts[1]==='edit' && parts[2]) return renderDeliveryForm(parts[2]);
     if(parts[1]==='driver-view') return renderDriverSchedule(true);
     return renderDeliverySchedulePM();
+  }
+  if(parts[0]==='sign-templates'){
+    if(!ME || !isManager(ME)){ go('#/sites'); return; }
+    if(parts[1]) return renderRamsBoxes(null, null, parts[1]);
+    return renderSignTemplates();
   }
   if(parts[0]==='vehicle-checklists'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
