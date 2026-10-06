@@ -5600,13 +5600,13 @@ async function renderTeam(){
           <div class="swatch">📋</div>
           <div class="info"><div class="name">${escapeHtml(t.name)}</div><div class="addr">${(t.sections||[]).length} section${(t.sections||[]).length===1?'':'s'}</div></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}',null,'#/team')">Edit</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}',null,'#/templates')">Edit</button>
             <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="duplicateTemplate('${t.id}')">Duplicate</button>
             <div class="taskicon danger" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">🗑</div>
           </div>
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — create your first one below.</div>`}
-      <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team')">+ New Template</button>
+      <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/templates')">+ New Template</button>
     </div>
     ` : ''}
     ` : ''}
@@ -14776,7 +14776,7 @@ async function renderReportTemplates(){
       </div>
     `).join('') || `<div class="empty">No templates yet — create your first one below.</div>`}
     <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>
-  `, {title:'Report Templates', back:'#/sites', tabs:false}); }
+  `, {title:'Report Templates', back:'#/team', tabs:false}); }
 }
 window.createNewTemplate = async function(siteId, returnPath){
   templatesReturnSiteId = siteId || null;
