@@ -2529,6 +2529,7 @@ function itemVisible(it, answers){
   if(!it.showIf || !it.showIf.qId) return true;
   const raw = answers ? answers[it.showIf.qId] : undefined;
   if(it.showIf.mode==='notblank') return isAnswered(raw);
+  if(Array.isArray(raw)) return raw.some(v=>(it.showIf.values||[]).includes(v));
   const val = typeof raw === 'boolean' ? (raw ? 'Yes' : 'No') : raw;
   return (it.showIf.values||[]).includes(val);
 }
@@ -14901,11 +14902,16 @@ function renderTemplateItemEditor(si, ii, it){
   if(it.autofill) tags.push('Auto-filled');
   if(itemAllowsNote(it)) tags.push('Notes allowed');
   const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
+  // A follow-up question: only asked when an earlier answer matches.
+  const parent = it.showIf && it.showIf.qId ? editingTemplate.sections[si].items.find(c=>c.id===it.showIf.qId) : null;
+  const condText = parent ? (it.showIf.mode==='notblank' ? 'is answered' : ((it.showIf.values||[]).length ? 'is '+(it.showIf.values||[]).map(v=>PASSFAIL_LABEL[v]||v).join(' or ') : 'is… (pick the answer in More options)')) : '';
+  const fuVals = followUpValuesFor(it);
   return `
-    <div style="border:1.5px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);">
+    <div style="border:1.5px solid ${parent?'var(--brand1)':'var(--line)'};border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);${parent?'margin-left:16px;':''}">
+      ${parent ? `<p class="stub" style="margin:0 0 6px;font-weight:700;color:var(--ink);">↳ Only asked if “${escapeHtml(parent.label||'the question above')}” ${escapeHtml(condText)}</p>` : ''}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
         <span style="font-weight:800;font-size:12px;color:var(--slate);flex:0 0 auto;min-width:18px;">${ii+1}.</span>
-        <input type="text" value="${escapeHtml(it.label||'')}" oninput="${P}.label=this.value" placeholder="${it.type==='instruction'?'Text to show':it.type==='textarea'?'Heading for the notes box, e.g. Notes':'Type the question'}" style="flex:1;min-width:0;margin:0;">
+        <input type="text" id="tplq_${it.id}" value="${escapeHtml(it.label||'')}" oninput="${P}.label=this.value" placeholder="${it.type==='instruction'?'Text to show':it.type==='textarea'?'Heading for the notes box, e.g. Notes':'Type the question'}" style="flex:1;min-width:0;margin:0;">
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <select style="flex:1;min-width:0;margin:0;" onchange="${P}.type=this.value;render()">
@@ -14916,8 +14922,22 @@ function renderTemplateItemEditor(si, ii, it){
         <button class="ghostbtn" style="${smallBtn}color:var(--warn);" title="Remove" onclick="removeTemplateItem(${si},${ii})">✕</button>
       </div>
       ${(it.type==='choice' || it.type==='multichoice') ? `
-        <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="${P}.options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Answers to pick from, separated by commas">
-        ${it.type==='multichoice' ? `<p class="stub" style="margin:2px 0 0;">More than one can be ticked.</p>` : ''}
+        <div style="margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:10px;">
+          <label class="field-label" style="margin-bottom:4px;">Answers to pick from${it.type==='multichoice' ? ' (more than one can be ticked)' : ''}</label>
+          ${(it.options||[]).map((o,oi)=>`
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <input type="text" id="tplopt_${it.id}_${oi}" value="${escapeHtml(o)}" oninput="${P}.options[${oi}]=this.value" placeholder="Answer ${oi+1}" style="flex:1;min-width:0;margin:0;">
+              <button class="ghostbtn" style="${smallBtn}color:var(--warn);" title="Remove this answer" onclick="removeTemplateOption(${si},${ii},${oi})">✕</button>
+            </div>`).join('')}
+          <button class="ghostbtn" style="margin:0;padding:8px;" onclick="addTemplateOption(${si},${ii})">+ Add answer</button>
+        </div>
+      ` : ''}
+      ${fuVals.length ? `
+        <div style="margin-top:8px;">
+          <label class="field-label" style="margin-bottom:4px;">Ask a follow-up question if the answer is…</label>
+          ${fuVals.length<=4 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${fuVals.map((v,vi)=>`<button class="ghostbtn" style="width:auto;margin:0;padding:7px 10px;font-size:11.5px;" onclick="addFollowUpQuestion(${si},${ii},${vi})">+ ${escapeHtml(PASSFAIL_LABEL[v]||v)}</button>`).join('')}</div>`
+          : `<select style="margin:0;" onchange="if(this.value!=='')addFollowUpQuestion(${si},${ii},Number(this.value))"><option value="">Pick an answer…</option>${fuVals.map((v,vi)=>`<option value="${vi}">${escapeHtml(v)}</option>`).join('')}</select>`}
+        </div>
       ` : ''}
       ${it.type!=='instruction' ? `
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
@@ -14949,6 +14969,36 @@ function renderTemplateItemEditor(si, ii, it){
     </div>
   `;
 }
+// Answers a follow-up can hang off, in the form the show-if rule stores them.
+function followUpValuesFor(it){
+  if(it.type==='checkbox') return ['Yes','No'];
+  if(it.type==='passfail') return ['Pass','Fail','N/A'];
+  if(it.type==='choice' || it.type==='multichoice') return (it.options||[]).map(o=>String(o||'').trim()).filter(Boolean);
+  return [];
+}
+// "+ Yes" / "+ No" under a question: drops a new question straight after it
+// (after any follow-ups it already has) that is only asked for that answer.
+window.addFollowUpQuestion = function(si, ii, vi){
+  const items = editingTemplate.sections[si].items;
+  const parent = items[ii]; if(!parent) return;
+  const v = followUpValuesFor(parent)[vi]; if(v===undefined) return;
+  let at = ii+1;
+  while(at<items.length && items[at].showIf && items[at].showIf.qId===parent.id) at++;
+  const nu = {id:uid(), type:'text', label:'', required:false, options:[], scored:false, showIf:{qId:parent.id, mode:'equals', values:[v]}, allowMedia:true, mediaRequiredWhen:[]};
+  items.splice(at, 0, nu);
+  render().then(()=>{ const el = document.getElementById('tplq_'+nu.id); if(el){ el.focus(); el.scrollIntoView({block:'center'}); } });
+};
+window.addTemplateOption = function(si, ii){
+  const it = editingTemplate.sections[si].items[ii];
+  if(!Array.isArray(it.options)) it.options = [];
+  it.options.push('');
+  render().then(()=>{ const el = document.getElementById('tplopt_'+it.id+'_'+(it.options.length-1)); if(el) el.focus(); });
+};
+window.removeTemplateOption = function(si, ii, oi){
+  const it = editingTemplate.sections[si].items[ii];
+  (it.options||[]).splice(oi,1);
+  render();
+};
 window.moveTemplateItem = function(si, ii, dir){
   const items = editingTemplate.sections[si].items;
   const target = ii + dir;
@@ -15080,6 +15130,7 @@ window.removeTemplateItem = function(si, ii){
   render();
 };
 window.saveTemplate = async function(){
+  (editingTemplate.sections||[]).forEach(sec=>(sec.items||[]).forEach(it=>{ if(Array.isArray(it.options)) it.options = it.options.map(o=>String(o||'').trim()).filter(Boolean); }));
   if(!editingTemplate.name || !editingTemplate.name.trim()){ toast('Give the template a name.'); return; }
   templateBusy = true; render();
   const row = await dbUpdate('report_templates', editingTemplate.id, {
@@ -15570,6 +15621,27 @@ function renderItemNoteWidget(it, answers){
   if(!v && !reportNoteOpen.has(it.id)) return `<p style="margin:-8px 0 10px;"><span class="viewlink" style="cursor:pointer;font-size:12px;" onclick="openReportNote('${it.id}')">+ Add note</span></p>`;
   return `<div class="formfield" style="margin-top:-6px;"><label class="field-label" style="font-size:11px;color:var(--slate);">Note</label><textarea id="rnote_${it.id}" style="min-height:54px;" placeholder="Add a note…" oninput="reportFillDraft.answers['${key}']=this.value">${escapeHtml(v)}</textarea></div>`;
 }
+// A drop-down's answers = the template's list plus any typed in on this
+// report (kept beside the answers as <question id>__opts, so they only
+// affect this one report — the template itself is unchanged).
+function reportItemOptions(it, answers){
+  const extra = answers && Array.isArray(answers[it.id+'__opts']) ? answers[it.id+'__opts'] : [];
+  const out = (it.options||[]).slice();
+  extra.forEach(o=>{ if(!out.includes(o)) out.push(o); });
+  return out;
+}
+window.addReportAnswerOption = async function(id, multi){
+  const v = await customPrompt('Type the answer to add:', '');
+  const t = (v||'').trim();
+  if(!reportFillDraft){ return; }
+  if(!t){ render(); return; }
+  const a = reportFillDraft.answers;
+  if(!Array.isArray(a[id+'__opts'])) a[id+'__opts'] = [];
+  if(!a[id+'__opts'].includes(t)) a[id+'__opts'].push(t);
+  if(multi){ if(!Array.isArray(a[id])) a[id] = []; if(!a[id].includes(t)) a[id].push(t); }
+  else a[id] = t;
+  render();
+};
 function renderExtraMediaWidget(it, answers){
   if(!itemAllowsMedia(it)) return '';
   const key = it.id+'__media';
@@ -15592,10 +15664,16 @@ function renderReportFillItem(it){
   if(it.type==='date') return `<div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='checkbox') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${[{v:true,l:'Yes'},{v:false,l:'No'}].map(o=>`<button type="button" class="${val===o.v?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']=${o.v};render()">${o.l}</button>`).join('')}</div></div>${extraMedia}`;
   if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>${extraMedia}`;
-  if(it.type==='choice') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="reportFillDraft.answers['${it.id}']=this.value;render()"><option value="">Select…</option>${(it.options||[]).map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}</select></div>${extraMedia}`;
+  if(it.type==='choice'){
+    const opts = reportItemOptions(it, reportFillDraft.answers);
+    if(val && !opts.includes(val)) opts.push(val);
+    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="if(this.value==='__add__'){addReportAnswerOption('${it.id}',false)}else{reportFillDraft.answers['${it.id}']=this.value;render()}"><option value="">Select…</option>${opts.map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}<option value="__add__">+ Add another answer…</option></select></div>${extraMedia}`;
+  }
   if(it.type==='multichoice'){
     const arr = Array.isArray(val) ? val : [];
-    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap" style="flex-wrap:wrap;">${(it.options||[]).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;"><input type="checkbox" style="width:auto;" ${arr.includes(o)?'checked':''} onchange="toggleReportMultichoice('${it.id}','${jsAttr(o)}',this.checked)">${escapeHtml(o)}</label>`).join('')}</div></div>${extraMedia}`;
+    const opts = reportItemOptions(it, reportFillDraft.answers);
+    arr.forEach(v=>{ if(!opts.includes(v)) opts.push(v); });
+    return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap" style="flex-wrap:wrap;">${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:7px 10px;"><input type="checkbox" style="width:auto;" ${arr.includes(o)?'checked':''} onchange="toggleReportMultichoice('${it.id}','${jsAttr(o)}',this.checked)">${escapeHtml(o)}</label>`).join('')}<span class="viewlink" style="cursor:pointer;align-self:center;font-size:12px;" onclick="addReportAnswerOption('${it.id}',true)">+ Add answer</span></div></div>${extraMedia}`;
   }
   if(it.type==='photo'){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
