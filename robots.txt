@@ -4,5 +4,6 @@ Disallow: /app.html
 Disallow: /admin
 Disallow: /admin.html
 Disallow: /signup-success.html
+Disallow: /sign.html
 
 Sitemap: https://operativehub.co.uk/sitemap.xml

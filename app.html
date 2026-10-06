@@ -21298,9 +21298,10 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
             ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${mine.issued?'📝 ':''}${escapeHtml(ME.name)}</span>`) + `<span>${mine.issued?'Issued':'Signed'} ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
           </div>
         `}
-        ${sigs.length && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
+        ${(sigs.length || (ramsClientSigs[r.id] && ramsClientSigs[r.id].signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<div class="meta" style="margin-top:8px;"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutTables(r.sign_layout).length ? 'Signature boxes set ('+ramsLayoutSlots(r.sign_layout)+' rows) — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>` : ''}
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<div class="meta" style="margin-top:8px;"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>` : ''}
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? ramsClientLineHtml(siteId, r) : ''}
       ${outstandingHtml}
       ${issuedHtml}
     </div>`;
@@ -21381,9 +21382,52 @@ async function fetchRamsData(siteId){
     let sigs = await dbSelect('rams_signatures', 'rams_id=in.('+ids+')');
     sigs = filterCurrentCycleSigs(sigs, docs, 'rams_id', site);
     sigs.forEach(s=>{ (sigsByDoc[s.rams_id]=sigsByDoc[s.rams_id]||[]).push(s); });
+    // Client signing requests (emailed link) — managers only; the newest per
+    // document wins, with a signed one always beating an unsigned resend.
+    if(isManager(ME)){
+      const cs = await dbSelect('rams_client_signatures', 'rams_id=in.('+ids+')&order=requested_at.asc&select=id,rams_id,client_name,client_email,requested_at,expires_at,signed_at,signer_name');
+      const map = {};
+      cs.forEach(c=>{ const cur = map[c.rams_id]; if(!cur || c.signed_at || !cur.signed_at) map[c.rams_id] = c; });
+      ramsClientSigs = map;
+    }
   }
   return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id), nameById: docNameLookup(docs, superseded)};
 }
+let ramsClientSigs = {}; // rams_id -> latest client signing request (see fetchRamsData)
+let ramsClientSendBusy = false;
+function ramsClientLineHtml(siteId, r){
+  const c = ramsClientSigs[r.id];
+  const d = t=>new Date(t).toLocaleDateString(undefined,{day:'2-digit',month:'short'});
+  if(c && c.signed_at) return `<div class="meta" style="margin-top:6px;color:var(--good,#1F9D62);font-weight:600;">✓ Client signed — ${escapeHtml(c.signer_name||c.client_name||c.client_email)} · ${d(c.signed_at)}</div>`;
+  const send = `<span class="viewlink" style="cursor:pointer;" onclick="sendRamsToClient('${siteId}','${r.id}')">`;
+  if(c){
+    const expired = new Date(c.expires_at).getTime() < Date.now();
+    return `<div class="meta" style="margin-top:6px;">✉ ${expired ? 'Client link expired' : 'Waiting for client to sign'} — ${escapeHtml(c.client_email)} · sent ${d(c.requested_at)} · ${send}Send again</span></div>`;
+  }
+  return `<div class="meta" style="margin-top:6px;">${send}✉ Send to client to sign (no app needed)</span></div>`;
+}
+// Emails the client a private link to read and sign this document in their
+// browser. No account or app on their side. Their signature then fills the
+// Client box(es) in the document on export.
+window.sendRamsToClient = async function(siteId, ramsId){
+  if(ramsClientSendBusy) return;
+  const site = SITES.find(x=>x.id===siteId);
+  const prev = ramsClientSigs[ramsId];
+  const email = await customPrompt('Client\'s email address — they\'ll get a private link to read and sign this document:', (prev && prev.client_email) || (site && site.client_email) || '');
+  if(email==null) return;
+  const em = String(email).trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast('Enter a valid email address.'); return; }
+  const name = await customPrompt('Client\'s name (optional — shown in the email and on the signing page):', (prev && prev.client_name) || '');
+  if(name==null) return;
+  ramsClientSendBusy = true; toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/client-sign', {method:'POST', timeoutMs:30000, body: JSON.stringify({action:'request', rams_id: ramsId, client_email: em, client_name: String(name).trim()})});
+    if(res && res.ok){ toast('Sent to '+em); }
+    else toast('Could not send — '+(await safeErr(res)));
+  }catch(e){ console.error('[sendRamsToClient]', e); toast('Could not send — '+((e && e.message) || 'check your connection')); }
+  ramsClientSendBusy = false;
+  render();
+};
 let ramsUploadOpen = false;
 let ramsSupersededOpen = false;
 const RAMS_DOC_TYPES = ['Risk Assessment','Method Statement','RAMS'];
@@ -21437,7 +21481,7 @@ async function renderRams(siteId){
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
   // Signing templates (Settings → Signing Templates) offered on the upload form.
-  const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutTables(tp.layout).length) : [];
+  const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length) : [];
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
   // company in a dropdown) — same idea as the Subcontractor Inspections
@@ -21464,7 +21508,7 @@ async function renderRams(siteId){
           <p class="stub" style="margin:4px 0 0;">Picking one keeps the old version on file (marked Superseded) and requires everyone to sign the new one again.</p>
         </div>` : ''}
         <div class="formfield"><label class="field-label">Signing template</label>
-          ${signTemplates.length ? `<select id="ramsSignTemplate"><option value="">— None (signatures listed on a page at the end) —</option>${signTemplates.map(tp=>`<option value="${tp.id}">${escapeHtml(tp.name)} · ${ramsLayoutSlots(tp.layout)} people</option>`).join('')}</select>
+          ${signTemplates.length ? `<select id="ramsSignTemplate"><option value="">— None (signatures listed on a page at the end) —</option>${signTemplates.map(tp=>`<option value="${tp.id}">${escapeHtml(tp.name)} · ${escapeHtml(ramsLayoutSummary(tp.layout))}</option>`).join('')}</select>
           <p class="stub" style="margin:4px 0 0;">Pick the template for this form and the sign boxes are put in for you.</p>` : `<p class="stub" style="margin:0;">None set up yet. <span class="viewlink" style="cursor:pointer;" onclick="go('#/sign-templates')">Create one in Signing Templates</span> to have signatures drop straight into the document's own boxes.</p>`}
         </div>
         <div class="row-gap" style="margin-bottom:6px;">
@@ -21578,7 +21622,7 @@ window.addRams = async function(siteId){
   const tplEl = document.getElementById('ramsSignTemplate');
   if(tplEl && tplEl.value){
     const tps = await dbSelect('sign_layout_templates', 'id=eq.'+tplEl.value+'&select=name,layout');
-    if(tps[0] && ramsLayoutTables(tps[0].layout).length){ signLayout = {v:1, tables: ramsLayoutTables(tps[0].layout)}; signTplName = tps[0].name; }
+    if(tps[0] && ramsLayoutBoxes(tps[0].layout).length){ signLayout = {v:2, boxes: ramsLayoutBoxes(tps[0].layout)}; signTplName = tps[0].name; }
   }
   const newRow = {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:docType, supersedes: supersedesId||null};
   if(signLayout) newRow.sign_layout = signLayout;
@@ -21629,26 +21673,54 @@ window.signAllRams = async function(siteId){
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
 /* ================= RAMS SIGNATURE BOXES (DocuSign-style placement) ================= */
-// A RAMS PDF usually has its own sign-off tables (Name / Signature / Date,
-// one row per person, often on several pages). A manager marks those tables
-// ONCE per document — or applies a saved template — and from then on every
-// one-tap signature is stamped straight into the document's own boxes on
-// export: the first person to sign takes row 1 of every table, the second
-// takes row 2, and so on. Nobody ever chooses a box or a position.
+// A manager marks, once, every place in a document where somebody signs —
+// in the Signing Templates library (on a sample of the form) or on one
+// job's document. Every box says WHO it belongs to and WHAT goes in it:
+//   who  : 'op1', 'op2' … (operatives, in the order they sign), 'pm'
+//          (the project manager who issues it) or 'client'
+//   what : 'sig' (signature), 'name' (printed name) or 'date'
+// One person can have as many boxes as the form needs, anywhere, on any
+// page. Boxes for people who never sign (operative 8 on a 3-man job, no
+// client) are simply left empty.
 //
-// Stored on rams_docs.sign_layout as
-//   {v:1, tables:[{page, rows, step, name:[x,y,w,h], sig:[..], date:[..]}]}
-// where page is 1-based, the boxes are for ROW 1 as fractions of the page
-// (0..1, measured from the top-left) and step is the distance from one row
-// to the next as a fraction of the page height.
+// Stored as {v:2, boxes:[{p, w, t, r:[x,y,w,h]}]} — p is the 1-based page,
+// r is in fractions of the page (0..1) from the top-left. The first version
+// stored repeating tables ({v:1, tables:[…]}); ramsLayoutBoxes() reads both.
 let ramsBoxEd = null;
-const RAMS_BOX_TYPES = [
-  {key:'name', label:'Name', color:'#2F6FB3'},
-  {key:'sig', label:'Signature', color:'#1F9D62'},
-  {key:'date', label:'Date', color:'#B0740F'},
-];
-function ramsLayoutTables(layout){ return (layout && Array.isArray(layout.tables)) ? layout.tables.filter(t=>t && t.page && (t.name||t.sig||t.date)) : []; }
-function ramsLayoutSlots(layout){ return ramsLayoutTables(layout).reduce((m,t)=>Math.max(m, t.rows||1), 0); }
+const RAMS_BOX_WHAT = [{key:'sig', label:'Signature'}, {key:'name', label:'Name'}, {key:'date', label:'Date'}];
+const RAMS_BOX_MAX_OPS = 40;
+function ramsBoxWhoLabel(w, short){
+  if(w==='client') return 'Client';
+  if(w==='pm') return short ? 'PM' : 'Project Manager';
+  const n = parseInt(String(w).slice(2),10) || 1;
+  return (short ? 'Op ' : 'Operative ') + n;
+}
+function ramsBoxWhoColor(w){ return w==='client' ? '#B0740F' : (w==='pm' ? '#6B3F86' : '#1F9D62'); }
+function ramsLayoutBoxes(layout){
+  if(!layout) return [];
+  if(Array.isArray(layout.boxes)) return layout.boxes.filter(b=>b && b.p && b.w && b.t && Array.isArray(b.r) && b.r.length===4);
+  const out = [];
+  (Array.isArray(layout.tables) ? layout.tables : []).forEach(t=>{
+    if(!t || !t.page) return;
+    const rows = t.rows||1;
+    for(let i=0;i<rows;i++){
+      if(i>0 && !t.step) break;
+      ['name','sig','date'].forEach(k=>{ const b = t[k]; if(b) out.push({p:t.page, w:'op'+(i+1), t:k, r:[b[0], b[1]+i*t.step, b[2], b[3]]}); });
+    }
+  });
+  return out;
+}
+// How many operatives the layout has room for.
+function ramsLayoutSlots(layout){ return ramsLayoutBoxes(layout).reduce((m,b)=>/^op\d+$/.test(b.w) ? Math.max(m, parseInt(b.w.slice(2),10)) : m, 0); }
+function ramsLayoutHas(layout, who){ return ramsLayoutBoxes(layout).some(b=>b.w===who); }
+function ramsLayoutSummary(layout){
+  const n = ramsLayoutBoxes(layout).length; if(!n) return '';
+  const bits = [];
+  const ops = ramsLayoutSlots(layout); if(ops) bits.push(ops+' operative'+(ops===1?'':'s'));
+  if(ramsLayoutHas(layout,'pm')) bits.push('project manager');
+  if(ramsLayoutHas(layout,'client')) bits.push('client');
+  return n+' box'+(n===1?'':'es')+(bits.length ? ' · '+bits.join(', ') : '');
+}
 // tplId set = editing a template in the Signing Templates library (its
 // sample document); otherwise editing one job's RAMS document.
 async function renderRamsBoxes(siteId, ramsId, tplId){
@@ -21669,15 +21741,15 @@ async function renderRamsBoxes(siteId, ramsId, tplId){
       doc = rows[0];
       if(!doc){ toast('Document not found.'); go(backHash); return; }
     }
-    const lay = doc.sign_layout && Array.isArray(doc.sign_layout.tables) ? JSON.parse(JSON.stringify(doc.sign_layout)) : {v:1, tables:[]};
-    ramsBoxEd = {key, tplId: tplId||null, backHash, ramsId, siteId, doc, pdf:null, numPages:0, page:(lay.tables[0] && lay.tables[0].page) || 1, layout:lay, cur:-1, mode:null, dirty:false, templates:[], busy:false};
+    const boxes = JSON.parse(JSON.stringify(ramsLayoutBoxes(doc.sign_layout)));
+    ramsBoxEd = {key, tplId: tplId||null, backHash, ramsId, siteId, doc, pdf:null, numPages:0, page:(boxes[0] && boxes[0].p) || 1, boxes, who:'op1', mode:null, sel:-1, offset:null, dirty:false, templates:[], busy:false};
   }
   const ed = ramsBoxEd;
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:10px;">
       <p style="margin:0 0 4px;font-weight:700;">${escapeHtml(ed.doc.name||'RAMS document')}</p>
-      <p class="stub" style="margin:0;">${ed.tplId ? 'This is the template\'s sample document. Mark where people sign. Any document you later upload with this template gets the same boxes in the same places.' : 'Mark where people sign in this document. You only do this once — after that every signature drops into the next free row automatically.'}</p>
+      <p class="stub" style="margin:0;">${ed.tplId ? 'This is the template\'s sample document. Mark every place someone signs. Any document you later upload with this template gets the same boxes in the same places.' : 'Mark every place someone signs in this document. You only do this once.'}</p>
     </div>
     <div id="rbCtl"></div>
     <div id="rbPageWrap" style="position:relative;margin:10px 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;">
@@ -21697,7 +21769,7 @@ async function renderRamsBoxes(siteId, ramsId, tplId){
     }
     if(ramsBoxEd !== ed) return;
     const tpl = ed.tplId ? [] : await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout');
-    ed.templates = tpl || [];
+    ed.templates = (tpl || []).filter(tp=>ramsLayoutBoxes(tp.layout).length);
     await ramsBoxDrawPage();
     ramsBoxRefresh();
   }catch(e){
@@ -21718,60 +21790,55 @@ async function ramsBoxDrawPage(){
   canvas.width = vp.width; canvas.height = vp.height;
   await page.render({canvasContext: canvas.getContext('2d'), viewport: vp}).promise;
 }
-function ramsBoxCurTable(){ const ed = ramsBoxEd; return ed && ed.cur>=0 ? ed.layout.tables[ed.cur] : null; }
 function ramsBoxRefresh(){
   const ed = ramsBoxEd; if(!ed) return;
   const ctl = document.getElementById('rbCtl'), ov = document.getElementById('rbOv'), foot = document.getElementById('rbFoot');
   if(!ctl || !ov) return;
-  const tables = ed.layout.tables;
-  const t = ramsBoxCurTable();
-  const onPage = tables.map((x,i)=>({x,i})).filter(o=>o.x.page===ed.page);
-  const modeHelp = {
-    name:'Drag a box over the NAME space on the first row.',
-    sig:'Drag a box over the SIGNATURE space on the first row.',
-    date:'Drag a box over the DATE space on the first row.',
-    last:'Now tap the signature space on the LAST row of the table.',
-  };
+  const opNum = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : 0;
+  const lastOp = opNum || ed.lastOp || 1;
+  const minePage = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
+  const sel = ed.sel>=0 ? ed.boxes[ed.sel] : null;
+  const chip = (on, color)=>`flex:0 0 auto;margin:0;padding:8px 12px;font-size:12.5px;border-radius:999px;border:1.5px solid ${color};background:${on?color:'transparent'};color:${on?'#fff':color};font-weight:700;cursor:pointer;`;
+  const pagesWithBoxes = [...new Set(ed.boxes.map(b=>b.p))].sort((a,b)=>a-b);
+  const help = ed.mode==='repeat' ? `Tap where ${ramsBoxWhoLabel('op'+(opNum+1))}'s signature goes (the next row down).`
+    : ed.mode ? `Drag a box where ${ramsBoxWhoLabel(ed.who)}'s ${RAMS_BOX_WHAT.find(x=>x.key===ed.mode).label.toLowerCase()} goes.` : '';
   ctl.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <span class="homebtn" style="flex:none;" onclick="ramsBoxGoPage(-1)">‹</span>
       <div style="flex:1;text-align:center;font-weight:700;">Page ${ed.page}${ed.numPages?' of '+ed.numPages:''}</div>
       <span class="homebtn" style="flex:none;" onclick="ramsBoxGoPage(1)">›</span>
     </div>
-    ${tables.length ? `<div class="card" style="margin-bottom:10px;padding:10px;">
-      <p class="stub" style="margin:0 0 6px;">Sign-off tables marked (${ramsLayoutSlots(ed.layout)} people can sign):</p>
-      ${tables.map((x,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;${i?'border-top:1px solid var(--line);':''}">
-        <div style="flex:1;cursor:pointer;font-weight:${i===ed.cur?'800':'600'};" onclick="ramsBoxSelect(${i})">${i===ed.cur?'▸ ':''}Page ${x.page} · ${x.rows||1} row${(x.rows||1)===1?'':'s'}${RAMS_BOX_TYPES.filter(b=>!x[b.key]).length ? ' · <span style="color:var(--warn);">'+RAMS_BOX_TYPES.filter(b=>!x[b.key]).map(b=>b.label.toLowerCase()).join(', ')+' not set</span>' : ''}</div>
-        <span class="viewlink" style="cursor:pointer;color:var(--danger,#B23A3A);" onclick="ramsBoxRemove(${i})">Remove</span>
-      </div>`).join('')}
-    </div>` : ''}
-    ${t && t.page===ed.page ? `<div class="card" style="margin-bottom:0;padding:10px;">
-      <p class="stub" style="margin:0 0 8px;"><b>Table on this page.</b> Do the three boxes on the first row, set how many rows, then tap the last row.</p>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${RAMS_BOX_TYPES.map((b,n)=>`<button class="${ed.mode===b.key?'darkbtn':'ghostbtn'}" style="flex:1;min-width:92px;margin:0;padding:9px 6px;font-size:12.5px;${ed.mode===b.key?'':'border-color:'+b.color+';color:'+b.color+';'}" onclick="ramsBoxMode('${b.key}')">${t[b.key]?'✓ ':(n+1)+'. '}${b.label}</button>`).join('')}
+    ${pagesWithBoxes.length ? `<p class="stub" style="margin:0 0 8px;">${escapeHtml(ramsLayoutSummary({v:2,boxes:ed.boxes}))} · pages with boxes: ${pagesWithBoxes.map(p=>`<span class="viewlink" style="cursor:pointer;${p===ed.page?'font-weight:800;':''}" onclick="ramsBoxJump(${p})">${p}</span>`).join(', ')}</p>` : ''}
+    <div class="card" style="margin-bottom:0;padding:12px;">
+      <p class="field-label" style="margin:0 0 6px;">1. Who signs here?</p>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <span style="${chip(!!opNum, ramsBoxWhoColor('op1'))}" onclick="ramsBoxWho('op${lastOp}')">Operative ${lastOp}</span>
+        <span class="homebtn" style="flex:none;" onclick="ramsBoxOp(-1)">−</span>
+        <span class="homebtn" style="flex:none;" onclick="ramsBoxOp(1)">+</span>
+        <span style="${chip(ed.who==='pm', ramsBoxWhoColor('pm'))}" onclick="ramsBoxWho('pm')">Project Manager</span>
+        <span style="${chip(ed.who==='client', ramsBoxWhoColor('client'))}" onclick="ramsBoxWho('client')">Client</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-        <span class="stub" style="flex:1;">Rows in this table</span>
-        <span class="homebtn" style="flex:none;" onclick="ramsBoxRows(-1)">−</span>
-        <b style="min-width:28px;text-align:center;">${t.rows||1}</b>
-        <span class="homebtn" style="flex:none;" onclick="ramsBoxRows(1)">+</span>
+      <p class="field-label" style="margin:12px 0 6px;">2. What goes in the box? Then drag it on the page.</p>
+      <div style="display:flex;gap:6px;">
+        ${RAMS_BOX_WHAT.map(x=>{ const n = minePage.filter(b=>b.t===x.key).length; return `<button class="${ed.mode===x.key?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;padding:9px 4px;font-size:12.5px;" onclick="ramsBoxMode('${x.key}')">${x.label}${n?' ✓'+(n>1?n:''):''}</button>`; }).join('')}
       </div>
-      <button class="${ed.mode==='last'?'darkbtn':'ghostbtn'}" style="width:100%;margin:8px 0 0;" ${(t.rows||1)>1 && t.sig ? '' : 'disabled'} onclick="ramsBoxMode('last')">${t.step ? '✓ ' : '4. '}Tap the last row</button>
-      ${ed.mode ? `<p style="margin:8px 0 0;font-weight:700;color:var(--brand1);">${modeHelp[ed.mode]}</p>` : ''}
-    </div>` : `<button class="darkbtn" style="width:100%;margin:0;" onclick="ramsBoxAddTable()">+ Mark a sign-off table on this page</button>
-      ${onPage.length ? `<p class="stub" style="margin:6px 0 0;">This page already has ${onPage.length} table${onPage.length===1?'':'s'} — tap it in the list above to adjust it.</p>` : ''}`}
-  `;
-  // Overlay: every row of every table on this page.
+      ${opNum && minePage.length ? `
+      <p class="field-label" style="margin:12px 0 6px;">Same boxes for the next operative?</p>
+      <div style="display:flex;gap:6px;">
+        <button class="${ed.mode==='repeat'?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;padding:9px 4px;font-size:12.5px;" onclick="ramsBoxMode('repeat')">Copy to Operative ${opNum+1} — tap where</button>
+        ${ed.offset ? `<button class="ghostbtn" style="flex:1;margin:0;padding:9px 4px;font-size:12.5px;" onclick="ramsBoxRepeatAgain()">Copy again, same spacing</button>` : ''}
+      </div>` : ''}
+      ${help ? `<p style="margin:10px 0 0;font-weight:700;color:var(--brand1);">${escapeHtml(help)}</p>` : `<p class="stub" style="margin:10px 0 0;">Tap a box on the page to select it.</p>`}
+      ${sel ? `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+        <div style="flex:1;font-weight:700;">Selected: ${escapeHtml(ramsBoxWhoLabel(sel.w))} · ${RAMS_BOX_WHAT.find(x=>x.key===sel.t).label}</div>
+        <button class="ghostbtn" style="width:auto;margin:0;padding:7px 12px;color:var(--danger,#B23A3A);" onclick="ramsBoxDelete()">Delete box</button>
+      </div>` : ''}
+    </div>`;
   let html = '';
-  onPage.forEach(({x,i})=>{
-    const rows = x.rows||1, step = x.step||0;
-    for(let r=0; r<rows; r++){
-      if(r>0 && !step) break;
-      RAMS_BOX_TYPES.forEach(b=>{
-        const bx = x[b.key]; if(!bx) return;
-        html += `<div style="position:absolute;left:${bx[0]*100}%;top:${(bx[1]+r*step)*100}%;width:${bx[2]*100}%;height:${bx[3]*100}%;border:${r===0?2:1.5}px ${r===0?'solid':'dashed'} ${b.color};background:${b.color}${i===ed.cur?'30':'18'};border-radius:3px;box-sizing:border-box;pointer-events:none;font-size:9px;font-weight:800;color:${b.color};line-height:1;padding:1px 2px;overflow:hidden;white-space:nowrap;">${b.key==='sig' ? (r+1) : ''}</div>`;
-      });
-    }
+  ed.boxes.forEach((b,i)=>{
+    if(b.p !== ed.page) return;
+    const color = ramsBoxWhoColor(b.w), on = i===ed.sel, mine = b.w===ed.who;
+    html += `<div onclick="ramsBoxPick(${i})" style="position:absolute;left:${b.r[0]*100}%;top:${b.r[1]*100}%;width:${b.r[2]*100}%;height:${b.r[3]*100}%;border:${on?3:(mine?2:1.5)}px ${b.t==='sig'?'solid':'dashed'} ${on?'#111':color};background:${color}${mine?'38':'1c'};border-radius:3px;box-sizing:border-box;pointer-events:${ed.mode?'none':'auto'};cursor:pointer;font-size:9px;font-weight:800;color:${color};line-height:1.05;padding:1px 2px;overflow:hidden;white-space:nowrap;">${escapeHtml(ramsBoxWhoLabel(b.w, true))} ${b.t==='sig'?'sign':b.t}</div>`;
   });
   html += `<div id="rbDrag" style="position:absolute;display:none;border:2px solid #111;background:rgba(17,17,17,.12);border-radius:3px;pointer-events:none;"></div>`;
   ov.innerHTML = html;
@@ -21780,27 +21847,31 @@ function ramsBoxRefresh(){
   ov.onpointerdown = ed.mode ? ramsBoxPointerDown : null;
   if(foot) foot.innerHTML = `
     <button class="darkbtn" style="width:100%;margin:0 0 8px;" ${ed.busy?'disabled':''} onclick="ramsBoxSave()">${ed.busy?'Saving…':(ed.tplId?'Save template':'Save signature boxes')}</button>
-    ${ed.tplId ? `<p class="stub" style="margin:4px 0 0;">Each person who signs gets one row in every table you mark, so mark every page they need to sign.</p>` : `
+    ${ed.tplId ? `<p class="stub" style="margin:4px 0 0;">Set up as many operatives as the form has room for. If fewer people sign, the spare boxes just stay empty.</p>` : `
     <div class="row-gap">
-      <button class="ghostbtn" style="flex:1;margin:0;" ${ramsLayoutTables(ed.layout).length?'':'disabled'} onclick="ramsBoxSaveTemplate()">Save as template</button>
+      <button class="ghostbtn" style="flex:1;margin:0;" ${ed.boxes.length?'':'disabled'} onclick="ramsBoxSaveTemplate()">Save as template</button>
       <button class="ghostbtn" style="flex:1;margin:0;" ${ed.templates.length?'':'disabled'} onclick="ramsBoxUseTemplate()">Use a template</button>
     </div>
     ${ed.doc.sign_layout ? `<button class="ghostbtn" style="width:100%;margin:8px 0 0;" onclick="ramsBoxClear()">Remove all boxes from this document</button>` : ''}
     <p class="stub" style="margin:10px 0 0;">Tip: set your standard forms up once under Settings → Libraries → Signing Templates, then just pick the template when you upload.</p>`}`;
 }
 function ramsBoxPointerDown(ev){
-  const ed = ramsBoxEd, t = ramsBoxCurTable(); if(!ed || !t || !ed.mode) return;
+  const ed = ramsBoxEd; if(!ed || !ed.mode) return;
   const ov = document.getElementById('rbOv'); const rect = ov.getBoundingClientRect();
   const fx = e=>Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width));
   const fy = e=>Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height));
+  const r4 = n=>Math.round(n*10000)/10000;
   ev.preventDefault();
-  if(ed.mode==='last'){
-    // The tap marks the middle of the last row's signature box.
-    const y = fy(ev), rows = t.rows||1;
-    const firstMid = t.sig[1] + t.sig[3]/2;
-    const step = (y - firstMid) / (rows-1);
-    if(step <= t.sig[3]*0.5){ toast('Tap a row further down the table than the first one.'); return; }
-    t.step = step; ed.mode = null; ed.dirty = true; ramsBoxRefresh(); return;
+  if(ed.mode==='repeat'){
+    // The tap marks the middle of the NEXT operative's signature box (or
+    // their first box, if this operative has no signature box on this page).
+    const mine = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
+    const anchor = mine.find(b=>b.t==='sig') || mine[0]; if(!anchor) return;
+    const dx = fx(ev) - (anchor.r[0]+anchor.r[2]/2), dy = fy(ev) - (anchor.r[1]+anchor.r[3]/2);
+    // A straight column or row is the usual case — ignore a few stray pixels the other way.
+    ed.offset = {dx: Math.abs(dx) < 0.02 ? 0 : r4(dx), dy: Math.abs(dy) < 0.006 ? 0 : r4(dy)};
+    if(!ed.offset.dx && !ed.offset.dy){ ed.offset = null; toast('Tap on the next person\'s space, not the same one.'); return; }
+    ed.mode = null; ramsBoxRepeatAgain(); return;
   }
   const x0 = fx(ev), y0 = fy(ev); const drag = document.getElementById('rbDrag');
   const move = e=>{
@@ -21814,11 +21885,12 @@ function ramsBoxPointerDown(ev){
     const x1 = fx(e), y1 = fy(e);
     const w = Math.abs(x1-x0), h = Math.abs(y1-y0);
     if(w < 0.03 || h < 0.008){ toast('Drag across the space to draw the box.'); ramsBoxRefresh(); return; }
-    t[ed.mode] = [Math.min(x0,x1), Math.min(y0,y1), w, h].map(n=>Math.round(n*10000)/10000);
-    ed.dirty = true;
-    // Move on to the next box that still needs drawing.
-    const next = RAMS_BOX_TYPES.find(b=>!t[b.key]);
-    ed.mode = next ? next.key : ((t.rows||1)>1 && !t.step ? 'last' : null);
+    ed.boxes.push({p:ed.page, w:ed.who, t:ed.mode, r:[Math.min(x0,x1), Math.min(y0,y1), w, h].map(r4)});
+    ed.dirty = true; ed.sel = ed.boxes.length-1;
+    // Move on to the next kind this person doesn't have on this page yet.
+    const have = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page).map(b=>b.t);
+    const next = RAMS_BOX_WHAT.find(x=>!have.includes(x.key));
+    ed.mode = next ? next.key : null;
     ramsBoxRefresh();
   };
   try{ ov.setPointerCapture(ev.pointerId); }catch(e){}
@@ -21827,75 +21899,65 @@ function ramsBoxPointerDown(ev){
 window.ramsBoxGoPage = async function(d){
   const ed = ramsBoxEd; if(!ed || !ed.numPages) return;
   const p = Math.min(ed.numPages, Math.max(1, ed.page+d)); if(p===ed.page) return;
-  ed.page = p; ed.mode = null;
-  const idx = ed.layout.tables.findIndex(x=>x.page===p); ed.cur = idx;
+  ed.page = p; ed.mode = null; ed.sel = -1;
   ramsBoxRefresh(); await ramsBoxDrawPage();
 };
-window.ramsBoxSelect = async function(i){
-  const ed = ramsBoxEd; if(!ed) return; const x = ed.layout.tables[i]; if(!x) return;
-  ed.cur = i; ed.mode = null;
-  if(x.page !== ed.page){ ed.page = x.page; ramsBoxRefresh(); await ramsBoxDrawPage(); } else ramsBoxRefresh();
-};
-window.ramsBoxAddTable = function(){
+window.ramsBoxJump = async function(p){ const ed = ramsBoxEd; if(!ed || p===ed.page) return; ed.page = p; ed.mode = null; ed.sel = -1; ramsBoxRefresh(); await ramsBoxDrawPage(); };
+window.ramsBoxWho = function(w){ const ed = ramsBoxEd; if(!ed) return; if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10); ed.who = w; ed.mode = null; ed.sel = -1; ramsBoxRefresh(); };
+window.ramsBoxOp = function(d){
   const ed = ramsBoxEd; if(!ed) return;
-  ed.layout.tables.push({page:ed.page, rows:10, step:0, name:null, sig:null, date:null});
-  ed.cur = ed.layout.tables.length-1; ed.mode = 'name'; ed.dirty = true; ramsBoxRefresh();
+  const cur = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : (ed.lastOp||1);
+  const n = Math.min(RAMS_BOX_MAX_OPS, Math.max(1, /^op\d+$/.test(ed.who) ? cur+d : cur));
+  ed.who = 'op'+n; ed.lastOp = n; ed.mode = null; ed.sel = -1; ramsBoxRefresh();
 };
-window.ramsBoxRemove = function(i){
-  const ed = ramsBoxEd; if(!ed) return;
-  ed.layout.tables.splice(i,1); ed.cur = ed.layout.tables.findIndex(x=>x.page===ed.page); ed.mode = null; ed.dirty = true; ramsBoxRefresh();
+window.ramsBoxMode = function(m){ const ed = ramsBoxEd; if(!ed) return; ed.mode = ed.mode===m ? null : m; ed.sel = -1; ramsBoxRefresh(); };
+window.ramsBoxPick = function(i){ const ed = ramsBoxEd; if(!ed || ed.mode) return; const b = ed.boxes[i]; if(!b) return; ed.sel = ed.sel===i ? -1 : i; if(ed.sel>=0){ if(/^op\d+$/.test(b.w)) ed.lastOp = parseInt(b.w.slice(2),10); ed.who = b.w; } ramsBoxRefresh(); };
+window.ramsBoxDelete = function(){ const ed = ramsBoxEd; if(!ed || ed.sel<0) return; ed.boxes.splice(ed.sel,1); ed.sel = -1; ed.dirty = true; ramsBoxRefresh(); };
+// Copies the current operative's boxes on this page to the next operative,
+// shifted by the remembered spacing, and moves on to that operative — so a
+// ten-row sign-off sheet is one tap and then eight presses of this button.
+window.ramsBoxRepeatAgain = function(){
+  const ed = ramsBoxEd; if(!ed || !ed.offset || !/^op\d+$/.test(ed.who)) return;
+  const n = parseInt(ed.who.slice(2),10);
+  if(n >= RAMS_BOX_MAX_OPS){ toast('That\'s the most operatives a document can have.'); return; }
+  const mine = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
+  const next = 'op'+(n+1);
+  const moved = mine.map(b=>({p:b.p, w:next, t:b.t, r:[b.r[0]+ed.offset.dx, b.r[1]+ed.offset.dy, b.r[2], b.r[3]].map(v=>Math.round(v*10000)/10000)}));
+  if(moved.some(b=>b.r[0]<0 || b.r[1]<0 || b.r[0]+b.r[2]>1.001 || b.r[1]+b.r[3]>1.001)){ toast('No room left on this page for another one.'); ramsBoxRefresh(); return; }
+  // Replace anything that operative already had on this page.
+  ed.boxes = ed.boxes.filter(b=>!(b.w===next && b.p===ed.page)).concat(moved);
+  ed.who = next; ed.lastOp = n+1; ed.sel = -1; ed.mode = null; ed.dirty = true;
+  ramsBoxRefresh();
 };
-window.ramsBoxMode = function(m){ const ed = ramsBoxEd; if(!ed) return; ed.mode = ed.mode===m ? null : m; ramsBoxRefresh(); };
-window.ramsBoxRows = function(d){
-  const ed = ramsBoxEd, t = ramsBoxCurTable(); if(!t) return;
-  const old = t.rows||1; const rows = Math.min(60, Math.max(1, old+d)); if(rows===old) return;
-  // Keep the last row where it was tapped: the spacing changes, not the table's height.
-  if(t.step && old>1 && rows>1) t.step = t.step*(old-1)/(rows-1);
-  if(rows===1) t.step = 0;
-  t.rows = rows; ed.dirty = true; ramsBoxRefresh();
-};
-function ramsBoxProblems(layout){
-  const out = [];
-  (layout.tables||[]).forEach(x=>{
-    if(!x.sig) out.push('Page '+x.page+': draw the signature box.');
-    else if((x.rows||1)>1 && !x.step) out.push('Page '+x.page+': tap the last row so the rows line up.');
-  });
-  return out;
-}
 window.ramsBoxSave = async function(){
   const ed = ramsBoxEd; if(!ed || ed.busy) return;
-  const probs = ramsBoxProblems(ed.layout);
-  if(probs.length){ customAlert(probs.join('\n')); return; }
   ed.busy = true; ramsBoxRefresh();
+  const layout = ed.boxes.length ? {v:2, boxes: ed.boxes} : null;
   if(ed.tplId){
-    const row = await dbUpdate('sign_layout_templates', ed.tplId, {layout:{v:1, tables: ed.layout.tables}, page_count: ed.numPages||null});
+    const row = await dbUpdate('sign_layout_templates', ed.tplId, {layout: layout || {v:2, boxes:[]}, page_count: ed.numPages||null});
     ed.busy = false;
     if(!row){ toast('Could not save — please try again.'); ramsBoxRefresh(); return; }
     toast('Template saved'); const back = ed.backHash; ramsBoxEd = null; go(back); return;
   }
-  const layout = ed.layout.tables.length ? {v:1, tables: ed.layout.tables} : null;
   const row = await dbUpdate('rams_docs', ed.ramsId, {sign_layout: layout});
   ed.busy = false;
   if(!row){ toast('Could not save — please try again.'); ramsBoxRefresh(); return; }
-  ed.doc.sign_layout = layout; ed.dirty = false;
   toast(layout ? 'Signature boxes saved' : 'Signature boxes removed');
-  const siteId = ed.siteId; ramsBoxEd = null;
-  go(`#/site/${siteId}/hs/rams`);
+  const back = ed.backHash; ramsBoxEd = null;
+  go(back);
 };
 window.ramsBoxClear = async function(){
   const ed = ramsBoxEd; if(!ed) return;
   if(!await customConfirm('Remove all signature boxes from this document? Signatures will go back to the summary page at the end.', {confirmLabel:'Remove', danger:true})) return;
-  ed.layout.tables = []; ed.cur = -1; ed.mode = null;
+  ed.boxes = []; ed.sel = -1; ed.mode = null;
   await ramsBoxSave();
 };
 window.ramsBoxSaveTemplate = async function(){
-  const ed = ramsBoxEd; if(!ed) return;
-  const probs = ramsBoxProblems(ed.layout);
-  if(probs.length){ customAlert(probs.join('\n')); return; }
-  const name = await customPrompt('Name this template (e.g. "RTB RAMS form"):', '');
+  const ed = ramsBoxEd; if(!ed || !ed.boxes.length) return;
+  const name = await customPrompt('Name this template (e.g. "Hyde RAMS form"):', '');
   if(!name || !String(name).trim()) return;
-  const rows = await dbInsert('sign_layout_templates', {name:String(name).trim().slice(0,80), page_count: ed.numPages||null, layout:{v:1, tables: ed.layout.tables}, storage_path: ed.doc.storage_path||null});
-  if(rows){ toast('Template saved'); ed.templates = await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout'); ramsBoxRefresh(); }
+  const rows = await dbInsert('sign_layout_templates', {name:String(name).trim().slice(0,80), page_count: ed.numPages||null, layout:{v:2, boxes: ed.boxes}, storage_path: ed.doc.storage_path||null});
+  if(rows){ toast('Template saved'); ed.templates = (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,page_count,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length); ramsBoxRefresh(); }
 };
 window.ramsBoxUseTemplate = function(){
   const ed = ramsBoxEd; if(!ed || !ed.templates.length) return;
@@ -21904,10 +21966,7 @@ window.ramsBoxUseTemplate = function(){
   ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;';
   ov.innerHTML = `<div style="background:var(--card,#fff);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px;max-height:75vh;overflow:auto;">
     <p style="margin:0 0 10px;font-weight:800;">Use a template</p>
-    ${ed.templates.map(tp=>`<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line);">
-      <div style="flex:1;cursor:pointer;" onclick="ramsBoxApplyTemplate('${tp.id}')"><b>${escapeHtml(tp.name)}</b><div class="stub">${ramsLayoutTables(tp.layout).length} table${ramsLayoutTables(tp.layout).length===1?'':'s'} · ${ramsLayoutSlots(tp.layout)} people${tp.page_count ? ' · made on a '+tp.page_count+'-page document' : ''}${tp.page_count && ed.numPages && tp.page_count!==ed.numPages ? ' <span style="color:var(--warn);">(this one has '+ed.numPages+')</span>' : ''}</div></div>
-      <span class="viewlink" style="cursor:pointer;" onclick="ramsBoxDeleteTemplate('${tp.id}')">Delete</span>
-    </div>`).join('')}
+    ${ed.templates.map(tp=>`<div style="padding:10px 0;border-top:1px solid var(--line);cursor:pointer;" onclick="ramsBoxApplyTemplate('${tp.id}')"><b>${escapeHtml(tp.name)}</b><div class="stub">${escapeHtml(ramsLayoutSummary(tp.layout))}${tp.page_count && ed.numPages && tp.page_count!==ed.numPages ? ' <span style="color:var(--warn);">(made on a '+tp.page_count+'-page document; this one has '+ed.numPages+')</span>' : ''}</div></div>`).join('')}
     <button class="ghostbtn" style="width:100%;margin:12px 0 0;" onclick="document.getElementById('rbTplOv').remove()">Cancel</button>
   </div>`;
   ov.addEventListener('click', e=>{ if(e.target===ov) ov.remove(); });
@@ -21917,19 +21976,12 @@ window.ramsBoxApplyTemplate = async function(id){
   const ed = ramsBoxEd; if(!ed) return;
   const tp = ed.templates.find(x=>x.id===id); if(!tp) return;
   const o = document.getElementById('rbTplOv'); if(o) o.remove();
-  const tables = JSON.parse(JSON.stringify(ramsLayoutTables(tp.layout)));
-  const fit = tables.filter(x=>!ed.numPages || x.page<=ed.numPages);
-  ed.layout = {v:1, tables: fit}; ed.dirty = true; ed.mode = null;
-  ed.page = fit.length ? fit[0].page : ed.page; ed.cur = fit.length ? 0 : -1;
-  if(fit.length < tables.length) toast((tables.length-fit.length)+' table(s) left out — this document has fewer pages.');
-  else toast('Template applied — check the boxes line up, then Save.');
+  const all = JSON.parse(JSON.stringify(ramsLayoutBoxes(tp.layout)));
+  const fit = all.filter(b=>!ed.numPages || b.p<=ed.numPages);
+  ed.boxes = fit; ed.dirty = true; ed.mode = null; ed.sel = -1;
+  if(fit.length) ed.page = fit[0].p;
+  toast(fit.length < all.length ? (all.length-fit.length)+' box(es) left out — this document has fewer pages.' : 'Template applied — check the boxes line up, then Save.');
   ramsBoxRefresh(); await ramsBoxDrawPage();
-};
-window.ramsBoxDeleteTemplate = async function(id){
-  const ed = ramsBoxEd; if(!ed) return;
-  if(!await customConfirm('Delete this template? Documents already using it keep their boxes.', {confirmLabel:'Delete', danger:true})) return;
-  const ok = await dbDelete('sign_layout_templates', id);
-  if(ok){ ed.templates = ed.templates.filter(x=>x.id!==id); const o = document.getElementById('rbTplOv'); if(o) o.remove(); if(ed.templates.length) ramsBoxUseTemplate(); ramsBoxRefresh(); }
 };
 /* ================= SIGNING TEMPLATES LIBRARY ================= */
 // Settings → Libraries → Signing Templates. Upload a SAMPLE of a form you use again and
@@ -21944,7 +21996,7 @@ async function renderSignTemplates(){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:12px;">
       <p style="margin:0 0 4px;font-weight:700;">How this works</p>
-      <p class="stub" style="margin:0;">1. Upload a sample of a form you use often. 2. Mark where people sign. 3. When you upload that form for a job, pick the template — the boxes are already in place and operatives sign with one tap.</p>
+      <p class="stub" style="margin:0;">1. Upload a sample of a form you use often. 2. Mark every box and say who it's for — Operative 1, Operative 2, the Project Manager, the Client. 3. When you upload that form for a job, pick the template: the boxes are already in place and everyone signs with one tap.</p>
     </div>
     <div class="card" style="margin-bottom:14px;">
       <p style="margin:0 0 8px;font-weight:700;">New template</p>
@@ -21958,12 +22010,12 @@ async function renderSignTemplates(){
     </div>
     <p class="sectiontitle">Your templates</p>
     ${list.length ? list.map(tp=>{
-      const n = ramsLayoutTables(tp.layout).length, people = ramsLayoutSlots(tp.layout);
+      const n = ramsLayoutBoxes(tp.layout).length;
       return `<div class="card" style="margin-bottom:8px;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <div style="flex:1;min-width:0;">
             <p style="margin:0;font-weight:700;">${escapeHtml(tp.name)}</p>
-            <p class="stub" style="margin:2px 0 0;">${n ? n+' sign-off table'+(n===1?'':'s')+' · room for '+people+' people' : '<span style="color:var(--warn);">No boxes set yet</span>'}${tp.page_count ? ' · '+tp.page_count+' pages' : ''}</p>
+            <p class="stub" style="margin:2px 0 0;">${n ? escapeHtml(ramsLayoutSummary(tp.layout)) : '<span style="color:var(--warn);">No boxes set yet</span>'}${tp.page_count ? ' · '+tp.page_count+' pages' : ''}</p>
           </div>
           ${rowActionsMenuHtml('signtpl-'+tp.id, `
             ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;ramsBoxEd=null;go('#/sign-templates/${tp.id}')">✍ Set / edit boxes</div>` : ''}
@@ -21988,7 +22040,7 @@ window.addSignTemplate = async function(){
     const path = 'sign-templates/'+ME.org_id+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('rams-docs', path, file, 'application/pdf');
     if(!stored){ signTplBusy = false; render(); return; }
-    const rows = await dbInsert('sign_layout_templates', {name: name.slice(0,80), layout:{v:1, tables:[]}, storage_path: stored, file_name: file.name});
+    const rows = await dbInsert('sign_layout_templates', {name: name.slice(0,80), layout:{v:2, boxes:[]}, storage_path: stored, file_name: file.name});
     signTplBusy = false;
     if(rows && rows[0]){ toast('Sample uploaded — now mark the boxes'); ramsBoxEd = null; go('#/sign-templates/'+rows[0].id); }
     else render();
@@ -22005,12 +22057,13 @@ window.deleteSignTemplate = async function(id){
   await dbDelete('sign_layout_templates', id);
   render();
 };
-// Stamps every signer into the document's own boxes. Signers are in the
-// order they signed: signer 1 -> row 1 of every table, signer 2 -> row 2…
-// Returns how many signers did NOT fit in any table (they still get the
-// summary page at the end).
-async function stampRamsSignLayout(pdfDoc, layout, signers){
-  const tables = ramsLayoutTables(layout);
+// Stamps everyone into the document's own boxes.
+//   people = {ops:[…in signing order…], pm, client} — each {plainName,
+//   dateText, imagePath, issued}; pm/client may be null.
+// A box whose person hasn't signed is left empty. Returns how many
+// operatives had no box at all (they still get the summary page).
+async function stampRamsSignLayout(pdfDoc, layout, people){
+  const boxes = ramsLayoutBoxes(layout);
   const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
   const italic = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
   const INK = PDFLib.rgb(0.06,0.06,0.07);
@@ -22021,36 +22074,28 @@ async function stampRamsSignLayout(pdfDoc, layout, signers){
     if(!imgCache.has(path)) imgCache.set(path, (async()=>{ try{ const b = await pdfFetchImageBytes(publicUrl('signatures', path)); return b ? await pdfEmbedImageBytes(pdfDoc, b) : null; }catch(e){ return null; } })());
     return imgCache.get(path);
   };
-  let unplaced = 0;
-  for(let i=0; i<signers.length; i++){
-    const s = signers[i]; let placed = false;
-    for(const t of tables){
-      if(i >= (t.rows||1)) continue;
-      const page = pages[t.page-1]; if(!page) continue;
-      const {width:W, height:H} = page.getSize();
-      const rect = b=>{ const w = b[2]*W, h = b[3]*H; return {x:b[0]*W, y:H - (b[1] + i*(t.step||0))*H - h, w, h}; };
-      const textIn = (b, text, f)=>{
-        const r = rect(b); const size = Math.max(6, Math.min(11, r.h*0.55));
-        pdfDrawFit(page, text, {x:r.x+3, y:r.y + (r.h-size)/2 + 1, size, font:f, color:INK, maxWidth:r.w-6}, 5);
-      };
-      if(t.name) textIn(t.name, s.plainName, font);
-      if(t.date) textIn(t.date, s.dateText, font);
-      if(t.sig){
-        const img = await getImg(s.imagePath);
-        const r = rect(t.sig);
-        if(img){
-          const d = img.scale(1); const sc = Math.min((r.w*0.92)/d.width, (r.h*0.9)/d.height);
-          const w = d.width*sc, h = d.height*sc;
-          page.drawImage(img, {x:r.x + (r.w-w)/2, y:r.y + (r.h-h)/2, width:w, height:h});
-        } else {
-          textIn(t.sig, s.issued ? 'Issued' : s.plainName, italic);
-        }
-      }
-      placed = true;
+  const personFor = w=> w==='pm' ? people.pm : (w==='client' ? people.client : (people.ops[parseInt(String(w).slice(2),10)-1] || null));
+  for(const b of boxes){
+    const s = personFor(b.w); if(!s) continue;
+    const page = pages[b.p-1]; if(!page) continue;
+    const {width:W, height:H} = page.getSize();
+    const r = {x:b.r[0]*W, y:H - b.r[1]*H - b.r[3]*H, w:b.r[2]*W, h:b.r[3]*H};
+    const textIn = (text, f)=>{
+      const size = Math.max(6, Math.min(11, r.h*0.55));
+      pdfDrawFit(page, text, {x:r.x+3, y:r.y + (r.h-size)/2 + 1, size, font:f, color:INK, maxWidth:r.w-6}, 5);
+    };
+    if(b.t==='name') textIn(s.plainName, font);
+    else if(b.t==='date') textIn(s.dateText, font);
+    else {
+      const img = await getImg(s.imagePath);
+      if(img){
+        const d = img.scale(1); const sc = Math.min((r.w*0.92)/d.width, (r.h*0.9)/d.height);
+        const w = d.width*sc, h = d.height*sc;
+        page.drawImage(img, {x:r.x + (r.w-w)/2, y:r.y + (r.h-h)/2, width:w, height:h});
+      } else textIn(s.plainName, italic);
     }
-    if(!placed) unplaced++;
   }
-  return unplaced;
+  return Math.max(0, people.ops.length - ramsLayoutSlots(layout));
 }
 // Shared builder — factored out of exportSignedRams so emailSignedRams (new,
 // lets a PM email a subcontractor's signed RAMS straight from the main RAMS
@@ -22063,7 +22108,16 @@ async function buildSignedRamsPdfBytes(ramsId){
   const doc = docs[0];
   if(!doc){ toast('Document not found.'); return null; }
   const sigs = await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc');
-  if(!sigs.length){ toast('No signatures yet.'); return null; }
+  const clientRows = await dbSelect('rams_client_signatures', 'rams_id=eq.'+ramsId+'&signed_at=not.is.null&order=signed_at.desc&limit=1&select=id,signer_name,client_name,client_email,signed_at,signature_path');
+  const clientRow = clientRows[0] || null;
+  if(!sigs.length && !clientRow){ toast('No signatures yet.'); return null; }
+  const clientSigner = clientRow ? {
+    plainName: clientRow.signer_name || clientRow.client_name || 'Client', issued: false,
+    dateText: new Date(clientRow.signed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}),
+    name: (clientRow.signer_name || clientRow.client_name || 'Client') + ' (Client)',
+    when: new Date(clientRow.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    imagePath: clientRow.signature_path,
+  } : null;
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
@@ -22077,16 +22131,27 @@ async function buildSignedRamsPdfBytes(ramsId){
       name: nameOf(s.user_id) + (s.issued ? ' (Issued — not required to sign)' : ''),
       when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
       imagePath: s.issued ? null : s.signature_image_path,
+      // Only used for a Project Manager BOX in the document; the summary page still shows "Issued".
+      pmImagePath: s.issued ? ((PROFILES[s.user_id] && PROFILES[s.user_id].signature_path) || null) : null,
     }));
     // Signature boxes marked on this document? Stamp everyone into the
     // document's own sign-off tables. The summary page at the end is then
     // only added if somebody didn't fit (more signers than rows).
     let needSummary = true;
-    if(ramsLayoutTables(doc.sign_layout).length){
-      const unplaced = await stampRamsSignLayout(pdfDoc, doc.sign_layout, signers);
-      needSummary = unplaced > 0;
+    if(ramsLayoutBoxes(doc.sign_layout).length){
+      // Operatives fill Operative 1, 2, 3… in the order they signed. The
+      // Project Manager box takes the manager who issued it (with their
+      // saved signature, if they have one). The Client box takes the
+      // client's emailed-link signature.
+      const ops = signers.filter(x=>!x.issued);
+      const mgr0 = signers.find(x=>x.issued) || null;
+      const mgr = mgr0 ? Object.assign({}, mgr0, {imagePath: mgr0.pmImagePath}) : null;
+      const people = {ops, pm: mgr, client: clientSigner};
+      const unplaced = await stampRamsSignLayout(pdfDoc, doc.sign_layout, people);
+      // The summary page is only added for anyone the document had no box for.
+      needSummary = unplaced > 0 || (mgr && !ramsLayoutHas(doc.sign_layout,'pm')) || (clientSigner && !ramsLayoutHas(doc.sign_layout,'client'));
     }
-    if(needSummary) await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
+    if(needSummary) await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers: clientSigner ? signers.concat([clientSigner]) : signers});
 
     const ramsSite = SITES.find(s=>s.id===doc.site_id);
     const filename = exportFilename(ramsSite?ramsSite.name:'', doc.name+' (Signed)', 'pdf');

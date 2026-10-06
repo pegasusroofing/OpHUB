@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Review and sign — OpHUB</title>
+<link rel="icon" href="assets/ophub-logo.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--brand1:#4E8FD1;--brand-deep:#2F6FB3;--ink:#0B0E14;--paper:#F7F8FA;--card:#fff;--line:#E3E7EE;--slate:#566072;--mute:#8A93A3;--ok:#1F9D62;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  .top{background:var(--ink);color:#fff;padding:16px 20px;display:flex;align-items:center;gap:12px;}
+  .top img{height:38px;max-width:150px;object-fit:contain;background:#fff;border-radius:8px;padding:3px;}
+  .top b{font-size:16px;display:block;line-height:1.25;}
+  .top small{color:rgba(255,255,255,.65);font-size:13px;}
+  .wrap{max-width:860px;margin:0 auto;padding:20px 16px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px;box-shadow:0 12px 32px -20px rgba(11,14,20,.2);}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:-.02em;line-height:1.15;}
+  h2{font-size:18px;margin:0 0 10px;letter-spacing:-.01em;}
+  p{margin:0;} .sub{color:var(--slate);font-size:15px;}
+  #pages canvas{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:8px;margin-bottom:10px;background:#fff;}
+  label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:16px 0 7px;}
+  input[type=text]{width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;font-family:inherit;}
+  input[type=text]:focus{outline:none;border-color:var(--brand1);box-shadow:0 0 0 4px rgba(78,143,209,.18);}
+  .padwrap{position:relative;border:1.5px dashed #B9C4D4;border-radius:12px;background:#fff;touch-action:none;}
+  #pad{display:block;width:100%;height:170px;touch-action:none;cursor:crosshair;border-radius:12px;}
+  .padhint{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;color:var(--mute);pointer-events:none;font-size:15px;}
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:8px;}
+  .link{color:var(--brand-deep);font-weight:700;font-size:14px;cursor:pointer;background:none;border:0;padding:0;font-family:inherit;}
+  .agree{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font-size:14.5px;color:var(--slate);}
+  .agree input{width:20px;height:20px;margin-top:2px;flex:0 0 20px;}
+  .btn{display:block;width:100%;margin-top:18px;padding:15px;border-radius:12px;border:0;background:var(--brand1);color:#fff;font-family:inherit;font-weight:800;font-size:16px;cursor:pointer;}
+  .btn:hover{background:var(--brand-deep);} .btn:disabled{background:#D9DEE6;color:#8A93A3;cursor:default;}
+  .err{font-size:14.5px;color:#8A5A0B;background:#FBF0D9;border-radius:10px;padding:11px 14px;margin-top:14px;}
+  .done{text-align:center;padding:26px 10px;}
+  .tick{width:60px;height:60px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:28px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .foot{text-align:center;color:var(--mute);font-size:12.5px;margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="top"><img id="logo" alt="" style="display:none;"><div><b id="company">OpHUB</b><small id="siteLine"></small></div></div>
+<div class="wrap">
+  <div id="main"><div class="card"><p class="sub">Loading your document…</p></div></div>
+  <p class="foot">Secure signing by OpHUB · operativehub.co.uk</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+  const token = new URLSearchParams(location.search).get('t') || '';
+  const main = document.getElementById('main');
+  const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  let info = null, drawn = false, busy = false;
+  async function api(payload){
+    const res = await fetch(SUPABASE_URL + '/functions/v1/client-sign', {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const d = await res.json().catch(()=>({}));
+    return {ok: res.ok && !d.error, d};
+  }
+  function message(title, text){ main.innerHTML = '<div class="card"><h1>'+esc(title)+'</h1><p class="sub">'+esc(text)+'</p></div>'; }
+  function showDone(name, when){
+    main.innerHTML = '<div class="card done"><div class="tick">✓</div><h1>Signed — thank you</h1><p class="sub">'+esc(info.doc_name)+(info.site_name?' · '+esc(info.site_name):'')+'</p><p class="sub" style="margin-top:10px;">Signed by <b>'+esc(name)+'</b>'+(when?' on '+esc(new Date(when).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})):'')+'. '+esc(info.company||'The sender')+' has been told. You can close this page.</p></div>';
+  }
+  async function start(){
+    if(!/^[0-9a-f]{64}$/.test(token)){ message('This link is not valid', 'Please open the link from your email again, or ask the sender for a new one.'); return; }
+    let r;
+    try{ r = await api({action:'info', token}); }catch(e){ message('Could not load the document', 'Check your connection and reload this page.'); return; }
+    if(!r.ok){ message('This link is not valid', r.d.error || 'Please ask the sender for a new one.'); return; }
+    info = r.d;
+    document.getElementById('company').textContent = info.company || 'OpHUB';
+    document.getElementById('siteLine').textContent = info.site_name || '';
+    if(info.logo_url){ const l = document.getElementById('logo'); l.src = info.logo_url; l.style.display = ''; l.onerror = ()=>{ l.style.display='none'; }; }
+    if(info.signed_at){ showDone(info.signer_name || info.client_name || 'you', info.signed_at); return; }
+    if(info.expired){ message('This link has expired', 'Please ask '+(info.company||'the sender')+' to send you a new one.'); return; }
+    main.innerHTML =
+      '<div class="card"><h1>'+esc(info.doc_name)+'</h1><p class="sub">'+esc(info.company||'')+' has asked you to review and sign this document'+(info.site_name?' for <b>'+esc(info.site_name)+'</b>':'')+'. Read it below, then sign at the bottom.</p></div>'+
+      '<div class="card"><h2>The document</h2><p class="sub" id="pageNote" style="margin-bottom:12px;">Loading pages…</p><div id="pages"></div><p class="sub" style="margin-top:6px;"><a class="link" href="'+esc(info.file_url)+'" target="_blank" rel="noopener">Open the PDF in a new tab</a></p></div>'+
+      '<div class="card"><h2>Sign</h2>'+
+        '<label for="nm">Your full name</label><input type="text" id="nm" maxlength="100" autocomplete="name" value="'+esc(info.client_name||'')+'">'+
+        '<label>Your signature</label><div class="padwrap"><canvas id="pad"></canvas><div class="padhint" id="padHint">Sign here with your finger or mouse</div></div>'+
+        '<div class="row"><span class="sub" style="font-size:13.5px;">Draw your signature in the box.</span><button type="button" class="link" onclick="clearPad()">Clear</button></div>'+
+        '<label class="agree" style="text-transform:none;letter-spacing:0;font-weight:500;"><input type="checkbox" id="agree"><span>I confirm I have read this document and I am signing it electronically.</span></label>'+
+        '<div id="err"></div><button class="btn" id="go" onclick="submitSign()">Sign document</button></div>';
+    setupPad(); renderPdf();
+  }
+  async function renderPdf(){
+    const note = document.getElementById('pageNote'), host = document.getElementById('pages');
+    try{
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument(info.file_url).promise;
+      note.textContent = pdf.numPages+' page'+(pdf.numPages===1?'':'s');
+      for(let i=1;i<=pdf.numPages;i++){
+        const page = await pdf.getPage(i);
+        const base = page.getViewport({scale:1});
+        const scale = Math.min(2.2, (Math.min(host.clientWidth||800, 820) * Math.min(2, window.devicePixelRatio||1)) / base.width);
+        const vp = page.getViewport({scale});
+        const c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height; host.appendChild(c);
+        await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+      }
+    }catch(e){ note.textContent = 'The preview could not be shown here — use the link below to open the PDF.'; }
+  }
+  let pad, ctx;
+  function setupPad(){
+    pad = document.getElementById('pad');
+    const size = ()=>{ const r = pad.getBoundingClientRect(), d = Math.min(3, window.devicePixelRatio||1); pad.width = Math.round(r.width*d); pad.height = Math.round(r.height*d); ctx = pad.getContext('2d'); ctx.scale(d,d); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0B0E14'; drawn = false; document.getElementById('padHint').style.display = ''; };
+    size();
+    let down = false, last = null;
+    const pt = e=>{ const r = pad.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+    pad.addEventListener('pointerdown', e=>{ e.preventDefault(); down = true; last = pt(e); try{ pad.setPointerCapture(e.pointerId); }catch(_){} ctx.beginPath(); ctx.arc(last.x,last.y,1.1,0,6.3); ctx.fillStyle='#0B0E14'; ctx.fill(); drawn = true; document.getElementById('padHint').style.display = 'none'; });
+    pad.addEventListener('pointermove', e=>{ if(!down) return; e.preventDefault(); const p = pt(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last = p; });
+    const up = ()=>{ down = false; };
+    pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up); pad.addEventListener('pointerleave', up);
+  }
+  function clearPad(){ if(!ctx) return; ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,pad.width,pad.height); ctx.restore(); drawn = false; document.getElementById('padHint').style.display = ''; }
+  function showErr(t){ const e = document.getElementById('err'); e.innerHTML = ''; const d = document.createElement('div'); d.className = 'err'; d.setAttribute('role','alert'); d.textContent = t; e.appendChild(d); }
+  // The signature is saved on a transparent background, trimmed to the ink, so it sits cleanly in the document's box.
+  function trimmedPng(){
+    const w = pad.width, h = pad.height, data = pad.getContext('2d').getImageData(0,0,w,h).data;
+    let x0=w, y0=h, x1=0, y1=0;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){ if(data[(y*w+x)*4+3] > 20){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+    if(x1<=x0 || y1<=y0) return null;
+    const m = 8; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(w-1,x1+m); y1=Math.min(h-1,y1+m);
+    const sc = Math.min(1, 700/(x1-x0+1));
+    const out = document.createElement('canvas'); out.width = Math.max(1,Math.round((x1-x0+1)*sc)); out.height = Math.max(1,Math.round((y1-y0+1)*sc));
+    out.getContext('2d').drawImage(pad, x0, y0, x1-x0+1, y1-y0+1, 0, 0, out.width, out.height);
+    return out.toDataURL('image/png');
+  }
+  async function submitSign(){
+    if(busy) return;
+    const name = document.getElementById('nm').value.trim();
+    if(!name){ showErr('Please type your full name.'); return; }
+    if(!drawn){ showErr('Please draw your signature in the box.'); return; }
+    if(!document.getElementById('agree').checked){ showErr('Please tick the box to confirm you have read the document.'); return; }
+    const png = trimmedPng();
+    if(!png){ showErr('Please draw your signature in the box.'); return; }
+    const btn = document.getElementById('go'); busy = true; btn.disabled = true; btn.textContent = 'Signing…';
+    try{
+      const r = await api({action:'sign', token, name, signature_png: png});
+      if(r.ok){ showDone(name, r.d.signed_at); window.scrollTo(0,0); return; }
+      if(r.d && r.d.signed_at){ showDone(r.d.signer_name||name, r.d.signed_at); return; }
+      showErr(r.d.error || 'Something went wrong — please try again.');
+    }catch(e){ showErr('Could not reach the server — check your connection and try again.'); }
+    busy = false; btn.disabled = false; btn.textContent = 'Sign document';
+  }
+  start();
+</script>
+</body>
+</html>
