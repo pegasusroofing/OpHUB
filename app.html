@@ -32865,9 +32865,9 @@ async function renderDeliverySchedulePM(){
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <span class="homebtn" style="flex:none;" title="Previous day" onclick="pmDeliveryStep(-1)">‹</span>
+      <button type="button" style="flex:none;width:52px;height:52px;border-radius:14px;background:var(--brand1);color:var(--brand1-text);border:none;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;line-height:1;padding:0 0 4px;cursor:pointer;box-shadow:var(--shadow-card);" title="Previous day" aria-label="Previous day" onclick="pmDeliveryStep(-1)">‹</button>
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(dayLabel)} <span class="stub" style="font-weight:400;">(${tasks.length})</span></div>
-      <span class="homebtn" style="flex:none;" title="Next day" onclick="pmDeliveryStep(1)">›</span>
+      <button type="button" style="flex:none;width:52px;height:52px;border-radius:14px;background:var(--brand1);color:var(--brand1-text);border:none;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;line-height:1;padding:0 0 4px;cursor:pointer;box-shadow:var(--shadow-card);" title="Next day" aria-label="Next day" onclick="pmDeliveryStep(1)">›</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <label class="field-label" for="pmDeliveryJumpInput" style="margin:0;flex:none;">Jump to</label>
