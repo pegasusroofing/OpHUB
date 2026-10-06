@@ -21298,7 +21298,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
             ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${mine.issued?'📝 ':''}${escapeHtml(ME.name)}</span>`) + `<span>${mine.issued?'Issued':'Signed'} ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
           </div>
         `}
-        ${(sigs.length || (ramsClientSigs[r.id] && ramsClientSigs[r.id].signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
+        ${(sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
       ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<div class="meta" style="margin-top:8px;"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>` : ''}
       ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? ramsClientLineHtml(siteId, r) : ''}
@@ -21385,35 +21385,43 @@ async function fetchRamsData(siteId){
     // Client signing requests (emailed link) — managers only; the newest per
     // document wins, with a signed one always beating an unsigned resend.
     if(isManager(ME)){
-      const cs = await dbSelect('rams_client_signatures', 'rams_id=in.('+ids+')&order=requested_at.asc&select=id,rams_id,client_name,client_email,requested_at,expires_at,signed_at,signer_name');
+      const cs = await dbSelect('rams_client_signatures', 'rams_id=in.('+ids+')&order=requested_at.asc&select=id,rams_id,client_slot,client_name,client_email,requested_at,expires_at,signed_at,signer_name');
       const map = {};
-      cs.forEach(c=>{ const cur = map[c.rams_id]; if(!cur || c.signed_at || !cur.signed_at) map[c.rams_id] = c; });
+      cs.forEach(c=>{ const m = (map[c.rams_id] = map[c.rams_id] || {}); const slot = c.client_slot || 1; const cur = m[slot]; if(!cur || c.signed_at || !cur.signed_at) m[slot] = c; });
       ramsClientSigs = map;
     }
   }
   return {docs, superseded, sigsByDoc, assignedIds: assigned.map(a=>a.user_id), nameById: docNameLookup(docs, superseded)};
 }
-let ramsClientSigs = {}; // rams_id -> latest client signing request (see fetchRamsData)
+let ramsClientSigs = {}; // rams_id -> {clientNumber: latest signing request} (see fetchRamsData)
 let ramsClientSendBusy = false;
 function ramsClientLineHtml(siteId, r){
-  const c = ramsClientSigs[r.id];
+  const bySlot = ramsClientSigs[r.id] || {};
+  // One line per client the document has boxes for (at least Client 1), plus any already sent.
+  const count = Math.max(1, ramsLayoutClients(r.sign_layout), ...Object.keys(bySlot).map(Number));
   const d = t=>new Date(t).toLocaleDateString(undefined,{day:'2-digit',month:'short'});
-  if(c && c.signed_at) return `<div class="meta" style="margin-top:6px;color:var(--good,#1F9D62);font-weight:600;">✓ Client signed — ${escapeHtml(c.signer_name||c.client_name||c.client_email)} · ${d(c.signed_at)}</div>`;
-  const send = `<span class="viewlink" style="cursor:pointer;" onclick="sendRamsToClient('${siteId}','${r.id}')">`;
-  if(c){
-    const expired = new Date(c.expires_at).getTime() < Date.now();
-    return `<div class="meta" style="margin-top:6px;">✉ ${expired ? 'Client link expired' : 'Waiting for client to sign'} — ${escapeHtml(c.client_email)} · sent ${d(c.requested_at)} · ${send}Send again</span></div>`;
+  let out = '';
+  for(let slot=1; slot<=count; slot++){
+    const c = bySlot[slot];
+    const label = count>1 ? 'Client '+slot : 'Client';
+    const send = `<span class="viewlink" style="cursor:pointer;" onclick="sendRamsToClient('${siteId}','${r.id}',${slot})">`;
+    if(c && c.signed_at) out += `<div class="meta" style="margin-top:6px;color:var(--good,#1F9D62);font-weight:600;">✓ ${label} signed — ${escapeHtml(c.signer_name||c.client_name||c.client_email)} · ${d(c.signed_at)}</div>`;
+    else if(c){
+      const expired = new Date(c.expires_at).getTime() < Date.now();
+      out += `<div class="meta" style="margin-top:6px;">✉ ${expired ? label+' link expired' : 'Waiting for '+label.toLowerCase()+' to sign'} — ${escapeHtml(c.client_email)} · sent ${d(c.requested_at)} · ${send}Send again</span></div>`;
+    } else out += `<div class="meta" style="margin-top:6px;">${send}✉ Send to ${label.toLowerCase()} to sign (no app needed)</span></div>`;
   }
-  return `<div class="meta" style="margin-top:6px;">${send}✉ Send to client to sign (no app needed)</span></div>`;
+  return out;
 }
 // Emails the client a private link to read and sign this document in their
 // browser. No account or app on their side. Their signature then fills the
 // Client box(es) in the document on export.
-window.sendRamsToClient = async function(siteId, ramsId){
+window.sendRamsToClient = async function(siteId, ramsId, slot){
   if(ramsClientSendBusy) return;
+  slot = slot || 1;
   const site = SITES.find(x=>x.id===siteId);
-  const prev = ramsClientSigs[ramsId];
-  const email = await customPrompt('Client\'s email address — they\'ll get a private link to read and sign this document:', (prev && prev.client_email) || (site && site.client_email) || '');
+  const prev = (ramsClientSigs[ramsId] || {})[slot];
+  const email = await customPrompt((slot>1 ? 'Client '+slot : 'Client')+'\'s email address — they\'ll get a private link to read and sign this document:', (prev && prev.client_email) || (slot===1 && site && site.client_email) || '');
   if(email==null) return;
   const em = String(email).trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast('Enter a valid email address.'); return; }
@@ -21422,7 +21430,11 @@ window.sendRamsToClient = async function(siteId, ramsId){
   ramsClientSendBusy = true; toast('Sending…');
   try{
     const res = await sbFetch('/functions/v1/client-sign', {method:'POST', timeoutMs:30000, body: JSON.stringify({action:'request', rams_id: ramsId, client_email: em, client_name: String(name).trim()})});
-    if(res && res.ok){ toast('Sent to '+em); }
+    if(res && res.ok){
+      // Say which client this request is for, so their signature lands in that client's boxes.
+      if(slot>1){ try{ const out = await res.json(); if(out && out.id) await sbFetch('/rest/v1/rpc/set_client_sign_slot', {method:'POST', body: JSON.stringify({p_id: out.id, p_slot: slot})}); }catch(e){ console.error('[set_client_sign_slot]', e); } }
+      toast('Sent to '+em);
+    }
     else toast('Could not send — '+(await safeErr(res)));
   }catch(e){ console.error('[sendRamsToClient]', e); toast('Could not send — '+((e && e.message) || 'check your connection')); }
   ramsClientSendBusy = false;
@@ -21689,13 +21701,27 @@ window.signAllRams = async function(siteId){
 let ramsBoxEd = null;
 const RAMS_BOX_WHAT = [{key:'sig', label:'Signature'}, {key:'name', label:'Name'}, {key:'date', label:'Date'}];
 const RAMS_BOX_MAX_OPS = 40;
+// 'client' (first version) means the same as 'client1'.
+function ramsBoxClientNum(w){ const m = /^client(\d*)$/.exec(String(w)); return m ? (parseInt(m[1],10) || 1) : 0; }
+function ramsBoxOpNum(w){ const m = /^op(\d+)$/.exec(String(w)); return m ? parseInt(m[1],10) : 0; }
 function ramsBoxWhoLabel(w, short){
-  if(w==='client') return 'Client';
+  const cn = ramsBoxClientNum(w);
+  if(cn) return 'Client ' + cn;
   if(w==='pm') return short ? 'PM' : 'Project Manager';
   const n = parseInt(String(w).slice(2),10) || 1;
   return (short ? 'Op ' : 'Operative ') + n;
 }
-function ramsBoxWhoColor(w){ return w==='client' ? '#B0740F' : (w==='pm' ? '#6B3F86' : '#1F9D62'); }
+// Every operative and every client gets their own colour, so it's obvious
+// at a glance whose box is whose. Operatives: cool/varied; clients: warm;
+// the project manager: purple. The lists repeat after 12 / 6.
+const RAMS_OP_COLORS = ['#1F9D62','#2F6FB3','#0E8C8C','#455A64','#7A8B00','#1B7FA6','#2E7D32','#3F51B5','#00897B','#37474F','#558B2F','#0277BD'];
+const RAMS_CLIENT_COLORS = ['#D9540B','#C2185B','#B0740F','#D32F2F','#AD5A00','#B5179E'];
+function ramsBoxWhoColor(w){
+  const cn = ramsBoxClientNum(w);
+  if(cn) return RAMS_CLIENT_COLORS[(cn-1) % RAMS_CLIENT_COLORS.length];
+  if(w==='pm') return '#6B3F86';
+  return RAMS_OP_COLORS[(Math.max(1, ramsBoxOpNum(w))-1) % RAMS_OP_COLORS.length];
+}
 function ramsLayoutBoxes(layout){
   if(!layout) return [];
   if(Array.isArray(layout.boxes)) return layout.boxes.filter(b=>b && b.p && b.w && b.t && Array.isArray(b.r) && b.r.length===4);
@@ -21713,12 +21739,14 @@ function ramsLayoutBoxes(layout){
 // How many operatives the layout has room for.
 function ramsLayoutSlots(layout){ return ramsLayoutBoxes(layout).reduce((m,b)=>/^op\d+$/.test(b.w) ? Math.max(m, parseInt(b.w.slice(2),10)) : m, 0); }
 function ramsLayoutHas(layout, who){ return ramsLayoutBoxes(layout).some(b=>b.w===who); }
+// How many clients the layout has boxes for (Client 1, 2, 3…).
+function ramsLayoutClients(layout){ return ramsLayoutBoxes(layout).reduce((m,b)=>Math.max(m, ramsBoxClientNum(b.w)), 0); }
 function ramsLayoutSummary(layout){
   const n = ramsLayoutBoxes(layout).length; if(!n) return '';
   const bits = [];
   const ops = ramsLayoutSlots(layout); if(ops) bits.push(ops+' operative'+(ops===1?'':'s'));
   if(ramsLayoutHas(layout,'pm')) bits.push('project manager');
-  if(ramsLayoutHas(layout,'client')) bits.push('client');
+  const cl = ramsLayoutClients(layout); if(cl) bits.push(cl===1 ? 'client' : cl+' clients');
   return n+' box'+(n===1?'':'es')+(bits.length ? ' · '+bits.join(', ') : '');
 }
 // tplId set = editing a template in the Signing Templates library (its
@@ -21796,6 +21824,7 @@ function ramsBoxRefresh(){
   if(!ctl || !ov) return;
   const opNum = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : 0;
   const lastOp = opNum || ed.lastOp || 1;
+  const clNum = ramsBoxClientNum(ed.who), lastClient = clNum || ed.lastClient || 1;
   const minePage = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
   ed.sels = (ed.sels||[]).filter(i=>ed.boxes[i] && ed.boxes[i].p===ed.page);
   const selBoxes = ed.sels.map(i=>ed.boxes[i]);
@@ -21814,11 +21843,15 @@ function ramsBoxRefresh(){
     <div class="card" style="margin-bottom:0;padding:12px;">
       <p class="field-label" style="margin:0 0 6px;">1. Who signs here?</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-        <span style="${chip(!!opNum, ramsBoxWhoColor('op1'))}" onclick="ramsBoxWho('op${lastOp}')">Operative ${lastOp}</span>
+        <span style="${chip(!!opNum, ramsBoxWhoColor('op'+lastOp))}" onclick="ramsBoxWho('op${lastOp}')">Operative ${lastOp}</span>
         <span class="homebtn" style="flex:none;" onclick="ramsBoxOp(-1)">−</span>
         <span class="homebtn" style="flex:none;" onclick="ramsBoxOp(1)">+</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+        <span style="${chip(!!clNum, ramsBoxWhoColor('client'+lastClient))}" onclick="ramsBoxWho('client${lastClient}')">Client ${lastClient}</span>
+        <span class="homebtn" style="flex:none;" onclick="ramsBoxClient(-1)">−</span>
+        <span class="homebtn" style="flex:none;" onclick="ramsBoxClient(1)">+</span>
         <span style="${chip(ed.who==='pm', ramsBoxWhoColor('pm'))}" onclick="ramsBoxWho('pm')">Project Manager</span>
-        <span style="${chip(ed.who==='client', ramsBoxWhoColor('client'))}" onclick="ramsBoxWho('client')">Client</span>
       </div>
       <p class="field-label" style="margin:12px 0 6px;">2. What goes in the box? Then drag it on the page.</p>
       <div style="display:flex;gap:6px;">
@@ -21931,7 +21964,14 @@ window.ramsBoxGoPage = async function(d){
   ramsBoxRefresh(); await ramsBoxDrawPage();
 };
 window.ramsBoxJump = async function(p){ const ed = ramsBoxEd; if(!ed || p===ed.page) return; ed.page = p; ed.mode = null; ed.sels = []; ramsBoxRefresh(); await ramsBoxDrawPage(); };
-window.ramsBoxWho = function(w){ const ed = ramsBoxEd; if(!ed) return; if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10); ed.who = w; ed.mode = null; ed.sels = []; ramsBoxRefresh(); };
+window.ramsBoxWho = function(w){ const ed = ramsBoxEd; if(!ed) return; if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10); if(ramsBoxClientNum(ed.who)) ed.lastClient = ramsBoxClientNum(ed.who); ed.who = w; ed.mode = null; ed.sels = []; ramsBoxRefresh(); };
+window.ramsBoxClient = function(d){
+  const ed = ramsBoxEd; if(!ed) return;
+  const on = ramsBoxClientNum(ed.who), cur = on || ed.lastClient || 1;
+  const n = Math.min(20, Math.max(1, on ? cur+d : cur));
+  if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10);
+  ed.who = 'client'+n; ed.lastClient = n; ed.mode = null; ed.sels = []; ramsBoxRefresh();
+};
 window.ramsBoxOp = function(d){
   const ed = ramsBoxEd; if(!ed) return;
   const cur = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : (ed.lastOp||1);
@@ -21970,7 +22010,7 @@ function ramsBoxMoveDown(ev){
     } else {
       // a tap: toggle this box in the selection
       if(ed.sels.includes(i)) ed.sels = ed.sels.filter(k=>k!==i);
-      else { ed.sels = ed.sels.concat([i]); if(/^op\d+$/.test(b.w)) ed.lastOp = parseInt(b.w.slice(2),10); ed.who = b.w; }
+      else { ed.sels = ed.sels.concat([i]); if(/^op\d+$/.test(b.w)) ed.lastOp = parseInt(b.w.slice(2),10); if(ramsBoxClientNum(b.w)) ed.lastClient = ramsBoxClientNum(b.w); ed.who = b.w; }
     }
     ramsBoxRefresh();
   };
@@ -22159,7 +22199,7 @@ async function stampRamsSignLayout(pdfDoc, layout, people){
     if(!imgCache.has(path)) imgCache.set(path, (async()=>{ try{ const b = await pdfFetchImageBytes(publicUrl('signatures', path)); return b ? await pdfEmbedImageBytes(pdfDoc, b) : null; }catch(e){ return null; } })());
     return imgCache.get(path);
   };
-  const personFor = w=> w==='pm' ? people.pm : (w==='client' ? people.client : (people.ops[parseInt(String(w).slice(2),10)-1] || null));
+  const personFor = w=>{ const cn = ramsBoxClientNum(w); return cn ? ((people.clients||{})[cn] || null) : (w==='pm' ? people.pm : (people.ops[ramsBoxOpNum(w)-1] || null)); };
   for(const b of boxes){
     const s = personFor(b.w); if(!s) continue;
     const page = pages[b.p-1]; if(!page) continue;
@@ -22193,16 +22233,21 @@ async function buildSignedRamsPdfBytes(ramsId){
   const doc = docs[0];
   if(!doc){ toast('Document not found.'); return null; }
   const sigs = await dbSelect('rams_signatures', 'rams_id=eq.'+ramsId+'&order=signed_at.asc');
-  const clientRows = await dbSelect('rams_client_signatures', 'rams_id=eq.'+ramsId+'&signed_at=not.is.null&order=signed_at.desc&limit=1&select=id,signer_name,client_name,client_email,signed_at,signature_path');
-  const clientRow = clientRows[0] || null;
-  if(!sigs.length && !clientRow){ toast('No signatures yet.'); return null; }
-  const clientSigner = clientRow ? {
-    plainName: clientRow.signer_name || clientRow.client_name || 'Client', issued: false,
-    dateText: new Date(clientRow.signed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}),
-    name: (clientRow.signer_name || clientRow.client_name || 'Client') + ' (Client)',
-    when: new Date(clientRow.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-    imagePath: clientRow.signature_path,
-  } : null;
+  // Client signatures (emailed link), one per client number; the newest signed one wins.
+  const clientRows = await dbSelect('rams_client_signatures', 'rams_id=eq.'+ramsId+'&signed_at=not.is.null&order=signed_at.asc&select=id,client_slot,signer_name,client_name,client_email,signed_at,signature_path');
+  if(!sigs.length && !clientRows.length){ toast('No signatures yet.'); return null; }
+  const clientsBySlot = {};
+  clientRows.forEach(c=>{
+    const slot = c.client_slot || 1, nm = c.signer_name || c.client_name || 'Client';
+    clientsBySlot[slot] = {
+      slot, plainName: nm, issued: false,
+      dateText: new Date(c.signed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}),
+      name: nm + ' (Client'+(slot>1?' '+slot:'')+')',
+      when: new Date(c.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+      imagePath: c.signature_path,
+    };
+  });
+  const clientSigners = Object.values(clientsBySlot).sort((x,y)=>x.slot-y.slot);
   try{
     const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
     const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
@@ -22231,12 +22276,12 @@ async function buildSignedRamsPdfBytes(ramsId){
       const ops = signers.filter(x=>!x.issued);
       const mgr0 = signers.find(x=>x.issued) || null;
       const mgr = mgr0 ? Object.assign({}, mgr0, {imagePath: mgr0.pmImagePath}) : null;
-      const people = {ops, pm: mgr, client: clientSigner};
+      const people = {ops, pm: mgr, clients: clientsBySlot};
       const unplaced = await stampRamsSignLayout(pdfDoc, doc.sign_layout, people);
       // The summary page is only added for anyone the document had no box for.
-      needSummary = unplaced > 0 || (mgr && !ramsLayoutHas(doc.sign_layout,'pm')) || (clientSigner && !ramsLayoutHas(doc.sign_layout,'client'));
+      needSummary = unplaced > 0 || (mgr && !ramsLayoutHas(doc.sign_layout,'pm')) || clientSigners.some(c=>c.slot > ramsLayoutClients(doc.sign_layout));
     }
-    if(needSummary) await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers: clientSigner ? signers.concat([clientSigner]) : signers});
+    if(needSummary) await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers: signers.concat(clientSigners)});
 
     const ramsSite = SITES.find(s=>s.id===doc.site_id);
     const filename = exportFilename(ramsSite?ramsSite.name:'', doc.name+' (Signed)', 'pdf');
