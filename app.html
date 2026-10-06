@@ -2475,7 +2475,7 @@ function orgAllowsGps(){ return !ORG || ORG.plan_tier !== 'starter'; }
 const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
 const REPORT_FIELD_TYPES = [
   {k:'text', lbl:'Short Text'},
-  {k:'textarea', lbl:'Long Text / Notes'},
+  {k:'textarea', lbl:'Notes Box (long text)'},
   {k:'number', lbl:'Number'},
   {k:'passfail', lbl:'Pass / Fail / N-A'},
   {k:'choice', lbl:'Multiple Choice (pick one)'},
@@ -14848,15 +14848,18 @@ async function renderTemplateEditor(templateId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="formfield" style="margin-top:0;"><label class="field-label">Template Name</label><input type="text" value="${escapeHtml(t.name)}" oninput="editingTemplate.name=this.value"></div>
     <div class="formfield"><label class="field-label">Description (optional)</label><textarea oninput="editingTemplate.description=this.value">${escapeHtml(t.description||'')}</textarea></div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:-6px 0 8px;">
+    <p class="ddrow" style="margin:0 0 8px;cursor:pointer;" onclick="templateSettingsOpen=!templateSettingsOpen;render()"><span class="arrow">${templateSettingsOpen?'▼':'▶'}</span> Where this template is used <span class="stub" style="font-weight:400;">· ${t.is_daily_briefing?'Daily Briefing':t.is_mc_inspection?'Main Contractor Inspection':t.is_loler_inspection?'LOLER Inspection':'Reports'}</span></p>
+    ${templateSettingsOpen ? `<div class="card" style="margin-bottom:12px;"><p class="stub" style="margin:0 0 12px;">Leave all three unticked for a normal report or survey.</p>
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 8px;">
       <input type="checkbox" ${t.is_daily_briefing?'checked':''} onchange="editingTemplate.is_daily_briefing=this.checked"> Use as a Daily Briefing template — submissions from this template appear in the Daily Briefings tile (Health &amp; Safety) instead of Reports
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 8px;">
       <input type="checkbox" ${t.is_mc_inspection?'checked':''} onchange="editingTemplate.is_mc_inspection=this.checked"> Use as a Main Contractor Inspection template — submissions from this template appear in the Inspections tile (Main Contractor) instead of Reports
     </label>
-    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0 0 14px;">
+    <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:0;">
       <input type="checkbox" ${t.is_loler_inspection?'checked':''} onchange="editingTemplate.is_loler_inspection=this.checked"> Use as a LOLER Inspection template — submissions from this template appear in the LOLER Inspection tile (Health &amp; Safety) instead of Reports, and can be linked to a Plant register item
     </label>
+    </div>` : ''}
     ${t.sections.map((s,si)=>`
       <div class="card">
         <div class="formfield" style="margin-top:0;">
@@ -14864,7 +14867,10 @@ async function renderTemplateEditor(templateId){
           <input type="text" value="${escapeHtml(s.title)}" oninput="editingTemplate.sections[${si}].title=this.value" placeholder="Section title">
         </div>
         ${(s.items||[]).map((it,ii)=>renderTemplateItemEditor(si,ii,it)).join('') || `<div class="empty">No questions in this section yet.</div>`}
-        <button class="ghostbtn" style="margin-top:8px;" onclick="addTemplateItem(${si})">+ Add Question</button>
+        <div class="row-gap" style="margin-top:8px;">
+          <button class="ghostbtn" style="flex:1;" onclick="addTemplateItem(${si})">+ Add Question</button>
+          <button class="ghostbtn" style="flex:1;" onclick="addTemplateItem(${si},'textarea')">+ Add Notes Box</button>
+        </div>
         ${t.sections.length>1 ? `<button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="removeTemplateSection(${si})">Remove Section</button>` : ''}
       </div>
     `).join('')}
@@ -14872,43 +14878,74 @@ async function renderTemplateEditor(templateId){
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
   `, {title:'Edit Template', back: templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates'), tabs:false}); }
 }
+let templateSettingsOpen = false;
+let templateItemOpen = new Set(); // question ids with "More options" expanded
+window.toggleTemplateItemOpen = function(id){ if(templateItemOpen.has(id)) templateItemOpen.delete(id); else templateItemOpen.add(id); render(); };
+// Which answers can carry a free-text note beside them when a report is
+// filled in. On unless the template has it switched off for that question.
+function itemAllowsNote(it){
+  if(!it || it.allowNote===false) return false;
+  return !['instruction','photo','signature','operatives','textarea'].includes(it.type);
+}
+// One question in the template editor. Kept to the three things that matter
+// (the question, the kind of answer, and its order) — everything else sits
+// behind "More options" so the page reads as a simple list.
 function renderTemplateItemEditor(si, ii, it){
+  const P = `editingTemplate.sections[${si}].items[${ii}]`;
+  const open = templateItemOpen.has(it.id);
+  const last = ii>=(editingTemplate.sections[si].items.length-1);
+  const tags = [];
+  if(it.required) tags.push('Required');
+  if(it.scored) tags.push('Scored');
+  if(it.showIf) tags.push('Only shows sometimes');
+  if(it.autofill) tags.push('Auto-filled');
+  if(itemAllowsNote(it)) tags.push('Notes allowed');
+  const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
   return `
-    <div class="sitecard" style="flex-wrap:wrap;align-items:flex-start;">
-      <div class="info" style="min-width:220px;">
-        <input type="text" value="${escapeHtml(it.label||'')}" oninput="editingTemplate.sections[${si}].items[${ii}].label=this.value" placeholder="Question text" style="margin-bottom:6px;">
-        <select onchange="editingTemplate.sections[${si}].items[${ii}].type=this.value;render()">
+    <div style="border:1.5px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <span style="font-weight:800;font-size:12px;color:var(--slate);flex:0 0 auto;min-width:18px;">${ii+1}.</span>
+        <input type="text" value="${escapeHtml(it.label||'')}" oninput="${P}.label=this.value" placeholder="${it.type==='instruction'?'Text to show':it.type==='textarea'?'Heading for the notes box, e.g. Notes':'Type the question'}" style="flex:1;min-width:0;margin:0;">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <select style="flex:1;min-width:0;margin:0;" onchange="${P}.type=this.value;render()">
           ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${it.type===ft.k?'selected':''}>${ft.lbl}</option>`).join('')}
         </select>
-        ${(it.type==='choice' || it.type==='multichoice') ? `
-          <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="editingTemplate.sections[${si}].items[${ii}].options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Options, comma separated">
-          ${it.type==='multichoice' ? `<p class="stub" style="margin:2px 0 0;">Fillers can tick more than one.</p>` : ''}
+        <button class="ghostbtn" style="${smallBtn}" ${ii===0?'disabled':''} title="Move up" onclick="moveTemplateItem(${si},${ii},-1)">▲</button>
+        <button class="ghostbtn" style="${smallBtn}" ${last?'disabled':''} title="Move down" onclick="moveTemplateItem(${si},${ii},1)">▼</button>
+        <button class="ghostbtn" style="${smallBtn}color:var(--warn);" title="Remove" onclick="removeTemplateItem(${si},${ii})">✕</button>
+      </div>
+      ${(it.type==='choice' || it.type==='multichoice') ? `
+        <input type="text" style="margin-top:6px;" value="${escapeHtml((it.options||[]).join(', '))}" oninput="${P}.options=this.value.split(',').map(s=>s.trim()).filter(Boolean)" placeholder="Answers to pick from, separated by commas">
+        ${it.type==='multichoice' ? `<p class="stub" style="margin:2px 0 0;">More than one can be ticked.</p>` : ''}
+      ` : ''}
+      ${it.type!=='instruction' ? `
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <span class="viewlink" style="cursor:pointer;flex:0 0 auto;" onclick="toggleTemplateItemOpen('${it.id}')">${open?'▼ Hide options':'▶ More options'}</span>
+        ${!open && tags.length ? `<span class="stub" style="margin:0;flex:1;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${tags.join(' · ')}</span>` : ''}
+      </div>
+      ${open ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+        <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="${P}.required=this.checked">Must be answered</label>
+        ${!['instruction','photo','signature','operatives','textarea'].includes(it.type) ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Let a note be added to this answer</label>
+        ` : ''}
+        ${(it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowMedia!==false?'checked':''} onchange="${P}.allowMedia=this.checked;if(!this.checked)${P}.mediaRequiredWhen=[];render()">Let a photo be added to this answer</label>
+          ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
+        ` : ''}
+        ${(it.type==='passfail' || it.type==='checkbox') ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="${P}.scored=this.checked">Count towards score${it.type==='passfail' ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
         ` : ''}
         ${(it.type==='text' || it.type==='date') ? `
-          <label class="field-label" style="margin-top:6px;margin-bottom:2px;">Auto-fill</label>
-          <select onchange="editingTemplate.sections[${si}].items[${ii}].autofill=this.value||null">
+          <label class="field-label" style="margin-top:8px;margin-bottom:2px;">Fill in automatically with</label>
+          <select onchange="${P}.autofill=this.value||null">
             ${AUTOFILL_OPTIONS.filter(o=>!o.k || o.types.includes(it.type)).map(o=>`<option value="${o.k}" ${(it.autofill||'')===o.k?'selected':''}>${o.lbl}</option>`).join('')}
           </select>
         ` : ''}
-        ${it.type!=='instruction' ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].required=this.checked">Required</label>
-        ` : ''}
-        ${(it.type==='passfail' || it.type==='checkbox') ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:4px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].scored=this.checked">Count towards score${it.type==='passfail' ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
-        ` : ''}
-        ${it.type!=='instruction' ? renderTemplateItemLogicEditor(si, ii, it) : ''}
-        ${(it.type!=='instruction' && it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowMedia!==false?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].allowMedia=this.checked;if(!this.checked)editingTemplate.sections[${si}].items[${ii}].mediaRequiredWhen=[];render()">Allow a photo to be attached to this answer</label>
-          ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
-        ` : ''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <div style="display:flex;gap:4px;">
-          <button class="ghostbtn" style="width:auto;padding:8px 10px;" ${ii===0?'disabled':''} title="Move up" onclick="moveTemplateItem(${si},${ii},-1)">▲</button>
-          <button class="ghostbtn" style="width:auto;padding:8px 10px;" ${ii>=(editingTemplate.sections[si].items.length-1)?'disabled':''} title="Move down" onclick="moveTemplateItem(${si},${ii},1)">▼</button>
-        </div>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="removeTemplateItem(${si},${ii})">Remove</button>
-      </div>
+        ${renderTemplateItemLogicEditor(si, ii, it)}
+      </div>` : ''}
+      ` : ''}
     </div>
   `;
 }
@@ -15034,8 +15071,8 @@ window.removeTemplateSection = async function(si){
   editingTemplate.sections.splice(si,1);
   render();
 };
-window.addTemplateItem = function(si){
-  editingTemplate.sections[si].items.push({id:uid(), type:'text', label:'', required:false, options:[], scored:false, showIf:null, allowMedia:true, mediaRequiredWhen:[]});
+window.addTemplateItem = function(si, type){
+  editingTemplate.sections[si].items.push({id:uid(), type:type||'text', label: type==='textarea' ? 'Notes' : '', required:false, options:[], scored:false, showIf:null, allowMedia:true, mediaRequiredWhen:[]});
   render();
 };
 window.removeTemplateItem = function(si, ii){
@@ -15522,6 +15559,17 @@ function renderPhotoArrayWidget(key, arr, opts){
   const size = opts.size || 90;
   return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}<input type="file" accept="image/*" multiple onchange="onReportPhotoChosen(this,'${key}')">`;
 }
+// "+ Add note" under an answer while filling in a report. Saved beside the
+// answer as <question id>__note and shown on the report and its PDF.
+let reportNoteOpen = new Set();
+window.openReportNote = function(id){ reportNoteOpen.add(id); render().then(()=>{ const el = document.getElementById('rnote_'+id); if(el) el.focus(); }); };
+function renderItemNoteWidget(it, answers){
+  if(!itemAllowsNote(it)) return '';
+  const key = it.id+'__note';
+  const v = answers[key] || '';
+  if(!v && !reportNoteOpen.has(it.id)) return `<p style="margin:-8px 0 10px;"><span class="viewlink" style="cursor:pointer;font-size:12px;" onclick="openReportNote('${it.id}')">+ Add note</span></p>`;
+  return `<div class="formfield" style="margin-top:-6px;"><label class="field-label" style="font-size:11px;color:var(--slate);">Note</label><textarea id="rnote_${it.id}" style="min-height:54px;" placeholder="Add a note…" oninput="reportFillDraft.answers['${key}']=this.value">${escapeHtml(v)}</textarea></div>`;
+}
 function renderExtraMediaWidget(it, answers){
   if(!itemAllowsMedia(it)) return '';
   const key = it.id+'__media';
@@ -15537,7 +15585,7 @@ function renderReportFillItem(it){
   const reqStar = it.required ? ' *' : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const autoHint = it.autofill ? ` <span style="font-weight:400;color:var(--slate);font-size:11px;">(auto-filled — edit if needed)</span>` : '';
-  const extraMedia = renderExtraMediaWidget(it, reportFillDraft.answers);
+  const extraMedia = renderItemNoteWidget(it, reportFillDraft.answers) + renderExtraMediaWidget(it, reportFillDraft.answers);
   if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>${extraMedia}`;
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
@@ -15787,7 +15835,7 @@ function renderReportViewItem(it, val, answers){
   else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
   else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
   else if(val!=null && val!=='') display = String(val);
-  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${extraMediaHtml}</div>`;
+  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${(answers && itemAllowsNote(it) && answers[it.id+'__note']) ? `<p style="margin:3px 0 0;font-size:12.5px;color:var(--slate);white-space:pre-wrap;"><b>Note:</b> ${escapeHtml(answers[it.id+'__note'])}</p>` : ''}${extraMediaHtml}</div>`;
 }
 let reportEmailBusy = null;
 // Matches the look of the SafetyCulture PDFs these templates were modelled
@@ -16216,6 +16264,13 @@ async function buildReportPdf(submissionId, opts){
           drawAnswerRow(it.label, display, color);
         }
 
+        // a note typed against this specific answer
+        const itemNote = itemAllowsNote(it) ? String(sub.answers[it.id+'__note']||'').trim() : '';
+        if(itemNote){
+          const noteLines = ('Note: '+itemNote).split(/\r?\n/).flatMap(par=>wrapText(par, reg, 9.5, CONTENT_W-12));
+          noteLines.forEach(l=>{ ensureSpace(14); page.drawText(l, {x:MARGIN+6, y:y-10, size:9.5, font:reg, color:SLATE}); y -= 13; });
+          y -= 5;
+        }
         // an optional photo attached to this specific answer
         const extraMedia = itemAllowsMedia(it) && Array.isArray(sub.answers[it.id+'__media']) ? sub.answers[it.id+'__media'] : [];
         if(extraMedia.length) await drawPhotoGrid(collectPhotos(extraMedia));
