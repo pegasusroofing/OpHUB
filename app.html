@@ -8168,10 +8168,6 @@ async function renderSiteHome(siteId){
           <div class="lbl">${escapeHtml(snaggingFolderLabel())}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
-        `<div class="tile" onclick="go('#/site/${siteId}/expenses')">
-          <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
-          <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
-        </div>`,
       ];
       // Schedule of Works always holds position 2 overall (top left, right
       // after the wide Check In/Out tile) — Main Contractor used to be
@@ -21825,7 +21821,8 @@ window.signAllRams = async function(siteId){
   const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
-/* ================= EXPENSES (project tile) ================= */
+/* ================= EXPENSES (sub-tile inside Materials) ================= */
+// Opened from the Expenses sub-tile inside the project's Materials tile.
 // A quick way to get receipts to the office: photograph or attach them, say
 // which job each is for, Save — and they are emailed to the company's
 // preset expenses address (Settings › Branding & Integrations › Expenses
@@ -21907,7 +21904,7 @@ async function renderExpenses(siteId){
         <div class="addr" style="margin-top:2px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}
           ${(r.file_paths||[]).map((p,k)=>` · <span class="viewlink" style="cursor:pointer;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</span>`).join('')}</div>
       </div>`).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
-  `, {title:'Expenses', back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+  `, {title:'Expenses', back:`#/site/${siteId}/materials`, siteId, activeTab:'materials'});
 }
 function expEntry(key){ return expDraft ? expDraft.entries.find(e=>e.key===key) : null; }
 window.expSetJob = function(key, v){ const e = expEntry(key); if(!e) return; e.job = v; if(v!=='manual' && v!=='fuel') e.manual = ''; render(); };
@@ -27306,6 +27303,10 @@ async function renderMaterials(siteId){
           <div class="icon" style="background:#EAF3EC;color:#2E7D46;">🏗</div>
           <div class="lbl">Plant</div><div class="sub">Check in / out</div>
         </div>
+        <div class="tile" onclick="go('#/site/${siteId}/expenses')">
+          <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
+          <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
+        </div>
       </div>
     `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
     return;
@@ -27334,6 +27335,10 @@ async function renderMaterials(siteId){
       <div class="tile" onclick="go('#/site/${siteId}/plant')">
         <div class="icon" style="background:#EAF3EC;color:#2E7D46;">🏗</div>
         <div class="lbl">Plant</div><div class="sub">Check in / out</div>
+      </div>
+      <div class="tile" onclick="go('#/site/${siteId}/expenses')">
+        <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
+        <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
       </div>
     </div>
   `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
