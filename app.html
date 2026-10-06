@@ -32220,8 +32220,6 @@ async function renderDashboardChoice(){
 // the adjacent time slot, which is what "moving the tile changes its
 // time" means here. Sub-priority (1..n) is only ever shown/stored when a
 // slot actually has more than one delivery in it — see resequenceSlot.
-let pmDeliveryWeekOffset = 0;
-let pmDeliveryDayOpen = {}; // dateISO -> bool, seeded lazily per day below
 let pmDeliveryDefaultSlot = null; // same idea for the time slot, when added from a time row's +
 window.addDeliveryFrom = function(dateISO, slotKey){ pmDeliveryDefaultDate = dateISO; pmDeliveryDefaultSlot = slotKey||null; deliveryFormDraft = null; go('#/delivery/new'); };
 let pmDeliveryDefaultDate = null; // set right before go('#/delivery/new') so the form defaults to the day it was opened from
@@ -32425,67 +32423,65 @@ window.exportDeliverySchedulePdf = async function(daysISO, weekLabel){
   }catch(e){ console.error(e); toast('Could not build the export — please try again.'); }
   finally{ deliveryExportBusy = null; render(); } // finally: the early returns above used to leave the buttons stuck on "Building…"
 };
+// One day at a time: ‹ and › step back/forward a day, "Jump to" picks any
+// date, "Today" comes straight back. (It used to list a whole week of
+// collapsible days and the arrows moved a week at a time.) The Excel/PDF
+// exports still cover the 7 days starting from the day on screen.
+let pmDeliveryDayISO = null; // null = today
+window.pmDeliveryStep = function(d){
+  const cur = new Date((pmDeliveryDayISO || localISODate(new Date()))+'T12:00:00');
+  cur.setDate(cur.getDate()+d);
+  const iso = localISODate(cur);
+  pmDeliveryDayISO = iso===localISODate(new Date()) ? null : iso;
+  render();
+};
+window.pmDeliveryJump = function(iso){
+  if(!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+  pmDeliveryDayISO = iso===localISODate(new Date()) ? null : iso;
+  render();
+};
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
-  // A rolling 7-day window anchored on today, not a fixed Mon–Sun calendar
-  // week — offset 0 is always "today plus the next 6 days", so today is
-  // always the first row instead of sitting somewhere mid-week under
-  // earlier days from the same calendar week. Each ‹ step moves the whole
-  // window back 7 days, so yesterday (and the days before it) fall into
-  // that previous block rather than cluttering the view above today.
-  const anchor = new Date(); anchor.setHours(0,0,0,0); anchor.setDate(anchor.getDate() + pmDeliveryWeekOffset*7);
-  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(anchor); d.setDate(d.getDate()+i); return d; });
+  const iso = pmDeliveryDayISO || todayISO;
+  const day = new Date(iso+'T12:00:00');
+  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(day); d.setDate(d.getDate()+i); return d; });
   const daysISO = days.map(localISODate);
   const [tasks, suppliers] = await Promise.all([
-    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=in.('+daysISO.join(',')+')&order=time_slot.asc'),
+    dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+iso+'&order=time_slot.asc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
     loadAllProfiles(),
   ]);
   const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
   tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
-  const byDate = {}; daysISO.forEach(iso=>byDate[iso]=[]);
-  tasks.forEach(t=>{ if(byDate[t.scheduled_date]) byDate[t.scheduled_date].push(t); });
-  daysISO.forEach((iso,i)=>{
-    const isWeekend = days[i].getDay()===0 || days[i].getDay()===6;
-    if(!(iso in pmDeliveryDayOpen)) pmDeliveryDayOpen[iso] = (iso >= todayISO) && !isWeekend; // past days (a previous window) and weekends start collapsed; today/future weekdays start expanded
-  });
-  const weekLabel = pmDeliveryWeekOffset===0
-    ? 'Today – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
-    : days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
+  tasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
+  Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
+  const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
+  const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-      <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset--;render()">‹</span>
-      <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(weekLabel)}</div>
-      <span class="homebtn" style="flex:none;" onclick="pmDeliveryWeekOffset++;render()">›</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span class="homebtn" style="flex:none;" title="Previous day" onclick="pmDeliveryStep(-1)">‹</span>
+      <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${escapeHtml(dayLabel)} <span class="stub" style="font-weight:400;">(${tasks.length})</span></div>
+      <span class="homebtn" style="flex:none;" title="Next day" onclick="pmDeliveryStep(1)">›</span>
     </div>
-    <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="pmDeliveryDefaultDate=null;pmDeliveryDefaultSlot=null;deliveryFormDraft=null;go('#/delivery/new')">+ Add Delivery</button>
-    <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=0;go('#/delivery/driver-view')">👁 Driver view</button>
-    <div class="row-gap" style="margin-bottom:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <label class="field-label" for="pmDeliveryJumpInput" style="margin:0;flex:none;">Jump to</label>
+      <input type="date" id="pmDeliveryJumpInput" value="${iso}" style="flex:1;min-width:0;margin:0;" onchange="pmDeliveryJump(this.value)">
+      ${iso!==todayISO ? `<button class="ghostbtn" style="width:auto;flex:none;margin:0;padding:9px 14px;" onclick="pmDeliveryJump('${todayISO}')">Today</button>` : ''}
+    </div>
+    <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="addDeliveryFrom('${iso}')">+ Add Delivery</button>
+    <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
+    <div class="row-gap" style="margin-bottom:4px;">
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
     </div>
-    ${days.map((d,i)=>{
-      const iso = daysISO[i];
-      const dayTasks = byDate[iso];
-      const open = !!pmDeliveryDayOpen[iso];
-      const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
-      dayTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
-      Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
-      return `
-      <p class="ddrow" style="margin-top:${i===0?'0':'14px'};" onclick="pmDeliveryDayOpen['${iso}']=!pmDeliveryDayOpen['${iso}'];render()">
-        <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}))}${iso===todayISO?' (Today)':''} <span class="stub">(${dayTasks.length})</span>
-        <span class="homebtn" title="Add a delivery on this day" style="margin-left:auto;flex:none;width:30px;height:30px;font-size:18px;font-weight:800;" onclick="event.stopPropagation();addDeliveryFrom('${iso}')">+</span>
-      </p>
-      ${open ? `
-        ${DELIVERY_TIME_SLOTS.map(slot=>`
-          <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery at this time" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
-          ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
-        `).join('')}
-      ` : ''}
-      `;
-    }).join('')}
+    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
+    ${DELIVERY_TIME_SLOTS.map(slot=>`
+      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery at this time" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
+      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
+    `).join('')}
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
 let deliveryFormBusy = false, deliveryFormDraft = null, deliveryFormSiteOperatives = [], deliveryFormPhotoBusy = false, deliveryFormDrivers = [];
@@ -32792,6 +32788,8 @@ window.saveDeliveryTask = async function(){
     }
     toast(d._id && d._id!=='new' ? 'Delivery updated' : 'Added to delivery schedule');
     deliveryFormDraft = null;
+    // Land on the day the delivery is booked for, so it's there on screen.
+    if(payload.scheduled_date) pmDeliveryDayISO = payload.scheduled_date===localISODate(new Date()) ? null : payload.scheduled_date;
     go('#/delivery');
   } else {
     toast('Could not save — check your connection and try again.');
