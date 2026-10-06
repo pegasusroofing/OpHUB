@@ -3963,6 +3963,7 @@ window.refreshAppData = async function(){
   render();
 };
 function fullSiteAddress(s){
+  if(!s) return null;
   return [s.address, s.postcode].map(v=>(v||'').trim()).filter(Boolean).join(', ') || null;
 }
 const SITE_STATUS_LABEL = {live:'Active', upcoming:'Upcoming', closed:'Closed'};
@@ -4218,6 +4219,13 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
+    ${canAdd ? `
+      <div class="sitecard" style="cursor:pointer;margin-top:16px;" onclick="generalReportsBackHash='#/sites';go('#/general-reports')">
+        <div style="font-size:22px;flex:0 0 auto;">📋</div>
+        <div class="info"><div class="name">Inspections &amp; Reports</div><div class="addr">Surveys for potential jobs — not linked to a project</div></div>
+        <div style="color:var(--slate);font-size:20px;">›</div>
+      </div>
+    ` : ''}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
@@ -5453,6 +5461,10 @@ async function renderTeam(){
       <div class="tile" onclick="go('#/deliveries')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
+      </div>
+      <div class="tile" onclick="generalReportsBackHash='#/team';go('#/general-reports')">
+        <div class="icon" style="background:#EDE7F6;color:#5E35B1;">📋</div>
+        <div class="lbl">Reports &amp; Inspections</div><div class="sub">Surveys not linked to a project</div>
       </div>
 
       <div class="tile" onclick="go('#/dashboard')">
@@ -15064,6 +15076,20 @@ const REPORT_STATUS_CLASS = {in_progress:'open', completed:'closed'};
 // admin can view and edit templates (isManager), matching the Reports tile's
 // access level — editing a template never changes inspections already
 // started from it.
+// ---- General (no project) surveys -------------------------------------
+// The same templates / fill / review / export / email engine as a project's
+// Reports tile, but saved against no project at all (site_id is empty) —
+// for surveying potential jobs. 'general' stands in for the site id.
+const GENERAL_REPORTS = 'general';
+function isGeneralReports(siteId){ return siteId === GENERAL_REPORTS || !siteId; }
+function reportListPath(siteId, fromBriefing){
+  if(isGeneralReports(siteId)) return '#/general-reports';
+  return fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
+}
+function reportShellOpts(siteId, site, title, back, label){
+  if(isGeneralReports(siteId)) return {title, subtitle: label || 'Not linked to a project', back, tabs:false};
+  return {title, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back, siteId, activeTab:'more'};
+}
 async function renderSiteReportTemplates(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -15091,17 +15117,19 @@ async function renderSiteReportTemplates(siteId){
 async function renderSiteReports(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
+  const general = isGeneralReports(siteId);
   const [templates, submissions] = await Promise.all([
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'),
-    dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=100'),
+    dbSelect('report_submissions', (general ? 'site_id=is.null&org_id=eq.'+ME.org_id : 'site_id=eq.'+siteId)+'&order=submitted_at.desc&limit=100'),
   ]);
   await loadAllProfiles();
   const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
   const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${general ? `<p class="stub" style="margin:0 0 10px;">Surveys and inspections that aren't linked to a project — for potential jobs. Same templates, export and email as inside a project.</p>` : ''}
     ${isManager(ME) ? `
-      <button class="darkbtn" style="margin-bottom:10px;" onclick="reportPickerOpen=!reportPickerOpen;render()">${reportPickerOpen?'Cancel':'+ New Report'}</button>
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="reportPickerOpen=!reportPickerOpen;render()">${reportPickerOpen?'Cancel':(general?'+ New Survey / Report':'+ New Report')}</button>
       ${reportPickerOpen ? `
         <div class="card" style="margin-bottom:14px;">
           <p class="stub" style="margin:0 0 8px;">Pick a template to start a new inspection:</p>
@@ -15135,36 +15163,54 @@ async function renderSiteReports(siteId){
     ${filtered.map(s=>`
       <div class="sitecard" style="flex-wrap:wrap;">
         ${isManager(ME) ? `<input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;margin-top:2px;" ${selectedReportIds.has(s.id)?'checked':''} onclick="toggleReportSelect('${s.id}')">` : ''}
-        <div class="info" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/reports/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
-          <div class="name">${escapeHtml(s.template_name)}</div>
+        <div class="info" style="cursor:pointer;" onclick="go('${reportListPath(siteId)}/${s.status==='in_progress'?'fill':'view'}/${s.id}')">
+          <div class="name">${general && s.general_label ? escapeHtml(s.general_label)+' — ' : ''}${escapeHtml(s.template_name)}</div>
           <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>
         </div>
         <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
       </div>
     `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
-  `, {title:'Reports', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
+  `, general ? {title:'Reports & Inspections', subtitle:'Not linked to a project', back:generalReportsBackHash, tabs:false} : {title:'Reports', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
 }
+let generalReportsBackHash = '#/sites';
+window.renameGeneralReport = async function(id, current){
+  const v = await customPrompt('Job name / address for this survey:', current||'');
+  if(v===null) return;
+  const row = await dbUpdate('report_submissions', id, {general_label: (v||'').trim() || null});
+  if(row){ toast('Saved'); render(); } else toast('Could not save — try again.');
+};
 window.startReport = async function(siteId, templateId){
   const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
   const t = rows[0];
   if(!t){ toast('Template not found'); return; }
   const answers = {};
-  const site = SITES.find(s=>s.id===siteId);
+  const general = isGeneralReports(siteId);
+  let generalLabel = null;
+  if(general){
+    const v = await customPrompt('Job name / address for this survey (so you can find it later):', '');
+    if(v===null) return;
+    generalLabel = (v||'').trim() || null;
+  }
+  // No project to read an address from, so the site-address question is
+  // pre-filled with what was just typed instead.
+  const site = general ? {address: generalLabel||'', postcode:''} : SITES.find(s=>s.id===siteId);
   (t.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
     if(!it.autofill) return;
     const v = autofillValue(it.autofill, site);
     if(v!==undefined) answers[it.id] = v;
   }));
-  const inserted = await dbInsert('report_submissions', {
-    template_id: t.id, org_id: ME.org_id, site_id: siteId,
+  const payload = {
+    template_id: t.id, org_id: ME.org_id, site_id: general ? null : siteId,
     template_name: t.name, sections: t.sections, answers,
     submitted_by: ME.id, status:'in_progress',
-  });
+  };
+  if(general) payload.general_label = generalLabel;
+  const inserted = await dbInsert('report_submissions', payload);
   if(inserted && inserted[0]){
     reportFillDraft = null;
     reportPickerOpen = false;
     toast('Inspection started');
-    go(`#/site/${siteId}/snagging/reports/fill/${inserted[0].id}`);
+    go(`${reportListPath(siteId)}/fill/${inserted[0].id}`);
   }
 };
 window.setReportsFilter = function(name){ reportsFilterTemplate = name; render(); };
@@ -15220,11 +15266,11 @@ window.emailSelectedReports = async function(){
       const built = await buildReportPdf(id);
       if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
       totalPhotoFailures += built.photoEmbedFailures||0;
-      const path = built.sub.site_id+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+      const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
       const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-        site_id: built.sub.site_id, recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       })});
       if(res && res.ok) sent++; else failed++;
     }catch(e){ failed++; }
@@ -15248,14 +15294,14 @@ window.deleteSelectedReports = async function(siteId){
     }
     selectedReportIds = new Set();
     toast(okCount ? `${okCount} report${okCount>1?'s':''} deleted` : 'Delete failed');
-    if(okCount) logSiteActivity(siteId, 'briefing_reports_deleted', `Deleted ${okCount} daily briefing submission${okCount>1?'s':''}`);
+    if(okCount && !isGeneralReports(siteId)) logSiteActivity(siteId, 'briefing_reports_deleted', `Deleted ${okCount} daily briefing submission${okCount>1?'s':''}`);
   }catch(e){ toast('Delete failed.'); }
   bulkDeleteBusy = false; render();
 };
 async function renderReportFill(siteId, submissionId, fromBriefing){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
+  const listPath = reportListPath(siteId, fromBriefing);
   if(!reportFillDraft || reportFillDraft.submissionId !== submissionId){
     const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
     const sub = rows[0];
@@ -15280,7 +15326,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       }
       if(!editable){ go(`${listPath}/view/${submissionId}`); return; }
     }
-    reportFillDraft = {submissionId, siteId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing, editingCompleted: sub.status==='completed', plantItemId: sub.plant_item_id||null};
+    reportFillDraft = {submissionId, siteId, template_name: sub.template_name, sections: sub.sections, answers: Object.assign({}, sub.answers||{}), fromBriefing:!!fromBriefing, editingCompleted: sub.status==='completed', plantItemId: sub.plant_item_id||null, generalLabel: sub.general_label||null};
   }
   // Operatives-on-site items auto-populate from the site's assigned
   // operatives the first time this draft is opened — done here (not in the
@@ -15305,7 +15351,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" ${reportSubmitBusy||reportSaveBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
     <p class="stub" id="reportProgressNote" style="text-align:center;margin:10px 0 0;font-weight:700;color:var(--ink);display:none;"></p>
-  `, {title: fromBriefing?'Daily Briefing':'Inspection', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
+  `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Inspection', listPath, reportFillDraft.generalLabel)); }
 }
 // ---- Report photos: upload in small batches, keep what's done ----------
 // A report with a lot of photos (a pre-start with 40, say) used to fail both
@@ -15340,7 +15386,7 @@ async function uploadReportDraftPhotos(siteId, quiet){
     while(next < refs.length){
       const r = refs[next++];
       let path = null;
-      try{ path = await uploadDataUrl('site-photos', siteId+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
+      try{ path = await uploadDataUrl('site-photos', (isGeneralReports(siteId)?'general':siteId)+'/reports/'+crypto.randomUUID()+'.jpg', r.val); }catch(e){ path = null; }
       const arr = reportFillDraft && reportFillDraft.answers[r.k];
       if(path && Array.isArray(arr)){
         // Written back by value, in case a photo was removed while uploading.
@@ -15407,7 +15453,7 @@ window.saveReportProgress = async function(siteId){
     toast('Progress saved');
     const fromBriefing = reportFillDraft.fromBriefing;
     reportFillDraft = null;
-    go(fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`);
+    go(reportListPath(siteId, fromBriefing));
     return;
   }
   await render();
@@ -15421,6 +15467,8 @@ window.saveReportProgress = async function(siteId){
 // that the list is whatever the user has edited.
 async function ensureReportOperativesDefault(itemId, siteId){
   if(reportFillDraft.answers[itemId] !== undefined) return;
+  // No project = no assigned team; start empty and add people by hand.
+  if(isGeneralReports(siteId)){ reportFillDraft.answers[itemId] = []; return; }
   const assignedRows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
   await loadAllProfiles();
   const list = assignedRows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative')
@@ -15666,16 +15714,17 @@ window.submitReport = async function(siteId){
     toast(fromBriefing ? 'Briefing completed' : (isPmEdit ? 'Report updated' : 'Report submitted'));
     const submissionId = reportFillDraft.submissionId;
     reportFillDraft = null;
-    go(fromBriefing ? `#/site/${siteId}/hs/briefings/view/${submissionId}` : `#/site/${siteId}/snagging/reports/view/${submissionId}`);
+    go(`${reportListPath(siteId, fromBriefing)}/view/${submissionId}`);
   } else { toast('Could not submit — check your connection and try again.'); render(); }
 };
 async function renderReportView(siteId, submissionId, fromBriefing){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const listPath = fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
+  const listPath = reportListPath(siteId, fromBriefing);
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0];
   if(!sub){ toast('Report not found'); go(listPath); return; }
+  const general = isGeneralReports(siteId);
   await loadAllProfiles();
   let sigs = [];
   if(fromBriefing) sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
@@ -15683,6 +15732,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
   const sc = scoreSections(sub.sections, sub.answers);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
+    ${general ? `<p class="stub" style="margin:0 0 6px;"><b>${escapeHtml(sub.general_label||'No job name')}</b>${isManager(ME) ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="renameGeneralReport('${sub.id}','${jsAttr(sub.general_label||'')}')">Rename</span>` : ''}</p>` : ''}
     <p class="stub">${fromBriefing?'Completed':'Submitted'} ${sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
     ${Array.isArray(sub.answers && sub.answers._editHistory) && sub.answers._editHistory.length ? `<p class="stub" style="color:var(--slate);">${sub.answers._editHistory.map(e=>`Edited ${new Date(e.at).toLocaleString('en-GB')} by ${escapeHtml(e.byName||nameOf(e.by))}`).join(' · ')}</p>` : ''}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
@@ -15706,12 +15756,12 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       </div>
     ` : ''}
     ${fromBriefing && isManager(ME) && !sigs.length ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/hs/briefings/fill/${sub.id}')">Edit Briefing</button>` : ''}
-    ${!fromBriefing && isManager(ME) ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('#/site/${siteId}/snagging/reports/fill/${sub.id}')">Edit Report</button>` : ''}
+    ${!fromBriefing && isManager(ME) ? `<button class="ghostbtn" style="margin-bottom:10px;" onclick="go('${reportListPath(siteId)}/fill/${sub.id}')">Edit Report</button>` : ''}
     <div class="row-gap">
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}',${fromBriefing?'true':'false'})">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>` : ''}
     </div>
-  `, {title: fromBriefing?'Daily Briefing':'Report', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:listPath, siteId, activeTab:'more'}); }
+  `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Report', listPath, sub.general_label)); }
 }
 function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
@@ -15754,6 +15804,7 @@ async function buildReportPdf(submissionId, opts){
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0]; if(!sub) return null;
   const site = SITES.find(s=>s.id===sub.site_id);
+  const generalLabel = !sub.site_id ? (sub.general_label||'') : '';
   await loadAllProfiles();
   try{
     const scoreInfo = scoreSections(sub.sections, sub.answers);
@@ -15808,7 +15859,7 @@ async function buildReportPdf(submissionId, opts){
       page.drawText('INSPECTION REPORT', {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       const titleText = sub.template_name.length>44 ? sub.template_name.slice(0,41)+'…' : sub.template_name;
       page.drawText(titleText, {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
-      pdfDrawFit(page, companyName + (site ? ' · '+pdfSiteLabel(site) : ''), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
+      pdfDrawFit(page, companyName + (site ? ' · '+pdfSiteLabel(site) : (generalLabel ? ' · '+generalLabel : '')), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
     const editHistory = Array.isArray(sub.answers && sub.answers._editHistory) ? sub.answers._editHistory : [];
     const lastEdit = editHistory.length ? editHistory[editHistory.length-1] : null;
@@ -16179,7 +16230,7 @@ async function buildReportPdf(submissionId, opts){
       p.drawText((idx+1)+'/'+total, {x:PAGE_W-MARGIN-26, y:26, size:8.5, font:reg, color:SLATE});
     });
 
-    const filename = exportFilename(site?site.name:'', sub.template_name, 'pdf');
+    const filename = exportFilename(site?site.name:generalLabel, sub.template_name, 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
     let binary=''; const chunk=0x8000;
@@ -16202,7 +16253,7 @@ window.exportReportPDF = async function(submissionId){
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
   try{
-    await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
+    if(built.sub.site_id) await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 };
 // Emails a link to the report PDF (uploaded to storage first) rather than
@@ -16231,12 +16282,12 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     const built = await buildReportPdf(submissionId, {fromBriefing:!!fromBriefing});
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
-    const path = built.sub.site_id+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-      site_id: built.sub.site_id, recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+      site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: trimmed, cc_email: emailTo.cc, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       client_cc_email: ccClientEmailFromPromptAnswer(answer, site),
     })});
     if(res && res.ok){ toast(built.photoEmbedFailures>0 ? `Emailed — but ${built.photoEmbedFailures} photo${built.photoEmbedFailures>1?'s':''} could not be included.` : 'Emailed'); } else { toast('Could not send the email — '+(await safeErr(res))); }
@@ -33186,6 +33237,12 @@ async function renderRoute(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
+  if(parts[0]==='general-reports'){
+    if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }
+    if(parts[1]==='fill' && parts[2]) return renderReportFill(GENERAL_REPORTS, parts[2]);
+    if(parts[1]==='view' && parts[2]) return renderReportView(GENERAL_REPORTS, parts[2]);
+    return renderSiteReports(GENERAL_REPORTS);
+  }
   if(parts[0]==='hub'){ if(!ME || !isManager(ME)){ go('#/sites'); return; } return renderHub(); }
   // Inbox is the operative team's messages feed — off-limits to clients,
   // same as Materials/Team/etc; unlike those, this route had no gate at all
