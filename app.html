@@ -2525,12 +2525,46 @@ function autofillValue(kind, site){
 // "Show unanswered questions" (template setting, kept on the first section
 // so it travels with every report started from the template). Off = the
 // finished report and PDF leave out questions nobody answered.
+// ---- Traffic light system (template setting) ---------------------------
+// A template can switch on a colour-coded condition rating. The key (which
+// colour means what) is kept on the first section so it travels with every
+// report started from the template; each question can opt out. The chosen
+// colour for a question is saved beside its answer as <question id>__tl.
+const TRAFFIC_COLOURS = [
+  {k:'red', lbl:'Red', hex:'#D32F2F'}, {k:'orange', lbl:'Orange', hex:'#EF7D00'}, {k:'yellow', lbl:'Yellow', hex:'#E0B400'},
+  {k:'purple', lbl:'Purple', hex:'#7B3FB5'}, {k:'blue', lbl:'Blue', hex:'#2F6FD9'}, {k:'green', lbl:'Green', hex:'#1F9D52'}, {k:'grey', lbl:'Grey', hex:'#76767A'},
+];
+function trafficHex(k){ const c = TRAFFIC_COLOURS.find(c=>c.k===k); return c ? c.hex : '#76767A'; }
+function trafficDefaultLevels(){ return [
+  {id:'tl_green', color:'green', label:'OK'},
+  {id:'tl_yellow', color:'yellow', label:'Repair'},
+  {id:'tl_orange', color:'orange', label:'Replacement should be planned'},
+  {id:'tl_red', color:'red', label:'Immediate replacement'},
+]; }
+function trafficLevels(sections){
+  const t = sections && sections[0] && sections[0].traffic;
+  return (t && t.on && Array.isArray(t.levels) && t.levels.length) ? t.levels : null;
+}
+function itemHasTraffic(sections, it){
+  if(!it || it.traffic===false) return false;
+  if(['instruction','photo','signature','operatives'].includes(it.type)) return false;
+  return !!trafficLevels(sections);
+}
+function itemTrafficLevel(sections, it, answers){
+  if(!itemHasTraffic(sections, it)) return null;
+  const id = answers && answers[it.id+'__tl'];
+  return id ? (trafficLevels(sections).find(l=>l.id===id) || null) : null;
+}
+function trafficKeyHtml(sections){
+  const lv = trafficLevels(sections); if(!lv) return '';
+  return `<div class="card" style="margin-bottom:12px;"><p class="sectiontitle" style="margin-top:0;">Condition key</p>${lv.map(l=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><span style="width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:${trafficHex(l.color)};"></span><span style="font-size:13px;">${escapeHtml(l.label||'')}</span></div>`).join('')}</div>`;
+}
 function templateShowsUnanswered(sections){ return !(sections && sections[0] && sections[0].showUnanswered===false); }
 function reportListsItem(sections, it, answers){
   if(templateShowsUnanswered(sections)) return true;
   if(it.type==='instruction') return true;
   const a = answers || {};
-  return isAnswered(a[it.id]) || isAnswered(a[it.id+'__note']) || isAnswered(a[it.id+'__media']);
+  return isAnswered(a[it.id]) || isAnswered(a[it.id+'__note']) || isAnswered(a[it.id+'__media']) || isAnswered(a[it.id+'__tl']);
 }
 function isAnswered(val){
   if(val===undefined || val===null) return false;
@@ -14874,6 +14908,22 @@ async function renderTemplateEditor(templateId){
       <input type="checkbox" ${t.is_loler_inspection?'checked':''} onchange="editingTemplate.is_loler_inspection=this.checked"> Use as a LOLER Inspection template — submissions from this template appear in the LOLER Inspection tile (Health &amp; Safety) instead of Reports, and can be linked to a Plant register item
     </label>
     </div>` : ''}
+    <p class="ddrow" style="margin:0 0 8px;cursor:pointer;" onclick="trafficPanelOpen=!trafficPanelOpen;render()"><span class="arrow">${trafficPanelOpen?'▼':'▶'}</span> Traffic light system <span class="stub" style="font-weight:400;">· ${trafficLevels(t.sections) ? 'On — '+trafficLevels(t.sections).map(l=>`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${trafficHex(l.color)};margin-right:2px;"></span>`).join('') : 'Off'}</span></p>
+    ${trafficPanelOpen ? (()=>{ const tr = t.sections[0].traffic || {on:false, levels:[]}; return `<div class="card" style="margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:6px;"><input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${tr.on?'checked':''} onchange="setTemplateTraffic(this.checked)">Use a traffic light system on this template</label>
+      <p class="stub" style="margin:0 0 10px;">Each question gets a row of colours to pick its condition. The key below is printed on the report so the reader knows what each colour means. You can switch it off for individual questions in their More options.</p>
+      ${tr.on ? `
+        <label class="field-label" style="margin-bottom:4px;">Key — what each colour means</label>
+        ${(tr.levels||[]).map((l,li)=>`
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="width:18px;height:18px;border-radius:50%;flex:0 0 18px;background:${trafficHex(l.color)};"></span>
+            <select style="flex:0 0 96px;width:96px;margin:0;" onchange="editingTemplate.sections[0].traffic.levels[${li}].color=this.value;render()">${TRAFFIC_COLOURS.map(c=>`<option value="${c.k}" ${l.color===c.k?'selected':''}>${c.lbl}</option>`).join('')}</select>
+            <input type="text" id="tlvl_${l.id}" value="${escapeHtml(l.label||'')}" oninput="editingTemplate.sections[0].traffic.levels[${li}].label=this.value" placeholder="What this colour means" style="flex:1;min-width:0;margin:0;">
+            <button class="ghostbtn" style="width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;color:var(--warn);" title="Remove this colour" onclick="editingTemplate.sections[0].traffic.levels.splice(${li},1);render()">✕</button>
+          </div>`).join('')}
+        <button class="ghostbtn" style="margin:0;padding:8px;" onclick="addTrafficLevel()">+ Add colour</button>
+      ` : ''}
+    </div>`; })() : ''}
     <p class="ddrow" id="answerSetsRow" style="margin:0 0 8px;cursor:pointer;" onclick="toggleAnswerSets()"><span class="arrow">${answerSetsDraft?'▼':'▶'}</span> Your answer types <span class="stub" style="font-weight:400;">· ${orgAnswerSets().length ? orgAnswerSets().length+' saved' : 'add your own, e.g. Good / Fair / Poor'}</span></p>
     ${answerSetsDraft ? `<div class="card" style="margin-bottom:12px;">
       <p class="stub" style="margin:0 0 10px;">Make your own sets of answers. They appear in the answer-type list on every question, in every template.</p>
@@ -14940,6 +14990,7 @@ function renderTemplateItemEditor(si, ii, it){
   if(it.showIf) tags.push('Only shows sometimes');
   if(it.autofill) tags.push('Auto-filled');
   if(itemAllowsNote(it)) tags.push('Notes allowed');
+  if(itemHasTraffic(editingTemplate.sections, it)) tags.push('Traffic light');
   const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
   // A follow-up question: only asked when an earlier answer matches.
   const parent = it.showIf && it.showIf.qId ? editingTemplate.sections[si].items.find(c=>c.id===it.showIf.qId) : null;
@@ -14990,6 +15041,9 @@ function renderTemplateItemEditor(si, ii, it){
       ${open ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="${P}.required=this.checked">Must be answered</label>
+        ${(trafficLevels(editingTemplate.sections) && !['instruction','photo','signature','operatives'].includes(it.type)) ? `
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.traffic!==false?'checked':''} onchange="${P}.traffic=this.checked">Show the traffic light on this question</label>
+        ` : ''}
       ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
         <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Allow a note</label>
       ` : ''}
@@ -15036,6 +15090,22 @@ window.addFollowUpQuestion = function(si, ii, vi){
 // answer-type list beside the built-in ones. Picking one makes the question
 // a normal multiple-choice with those answers copied in, so reports and
 // PDFs need nothing special; presetId just remembers which set it came from.
+let trafficPanelOpen = false;
+window.setTemplateTraffic = function(on){
+  const s0 = editingTemplate.sections[0];
+  if(!s0.traffic) s0.traffic = {on:false, levels:[]};
+  s0.traffic.on = !!on;
+  if(on && !(s0.traffic.levels||[]).length) s0.traffic.levels = trafficDefaultLevels();
+  render();
+};
+window.addTrafficLevel = function(){
+  const lv = editingTemplate.sections[0].traffic.levels;
+  const used = lv.map(l=>l.color);
+  const next = TRAFFIC_COLOURS.find(c=>!used.includes(c.k)) || TRAFFIC_COLOURS[0];
+  const l = {id:'tl_'+uid(), color:next.k, label:''};
+  lv.push(l);
+  render().then(()=>{ const el = document.getElementById('tlvl_'+l.id); if(el) el.focus(); });
+};
 let answerSetsDraft = null, answerSetsBusy = false;
 const YNNV_OPTIONS = ['Yes','No','N/A','Not Visible'];
 function orgAnswerSets(){ return (ORG && Array.isArray(ORG.report_answer_sets)) ? ORG.report_answer_sets : []; }
@@ -15223,7 +15293,11 @@ window.addTemplateSection = function(){
 };
 window.removeTemplateSection = async function(si){
   if(!await customConfirm('Remove this section and all its questions?')) return;
-  editingTemplate.sections.splice(si,1);
+  const gone = editingTemplate.sections.splice(si,1)[0];
+  if(si===0 && gone && editingTemplate.sections[0]){
+    if(gone.traffic) editingTemplate.sections[0].traffic = gone.traffic;
+    if(gone.showUnanswered===false) editingTemplate.sections[0].showUnanswered = false;
+  }
   render();
 };
 window.addTemplateItem = function(si, type){
@@ -15235,6 +15309,8 @@ window.removeTemplateItem = function(si, ii){
   render();
 };
 window.saveTemplate = async function(){
+  { const tr = editingTemplate.sections && editingTemplate.sections[0] && editingTemplate.sections[0].traffic;
+    if(tr && Array.isArray(tr.levels)) tr.levels = tr.levels.map(l=>Object.assign({}, l, {label:String(l.label||'').trim()})).filter(l=>l.label); }
   (editingTemplate.sections||[]).forEach(sec=>(sec.items||[]).forEach(it=>{ if(Array.isArray(it.options)) it.options = it.options.map(o=>String(o||'').trim()).filter(Boolean); }));
   if(!editingTemplate.name || !editingTemplate.name.trim()){ toast('Give the template a name.'); return; }
   templateBusy = true; render();
@@ -15534,6 +15610,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
   const sc = scoreSections(reportFillDraft.sections, reportFillDraft.answers);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(reportFillDraft.template_name)}</p>
+    ${trafficKeyHtml(reportFillDraft.sections)}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${(reportFillDraft.sections||[]).map(s=>`
       <div class="card">
@@ -15717,6 +15794,12 @@ function renderPhotoArrayWidget(key, arr, opts){
 }
 // "+ Add note" under an answer while filling in a report. Saved beside the
 // answer as <question id>__note and shown on the report and its PDF.
+function renderItemTrafficWidget(it, answers){
+  const secs = reportFillDraft && reportFillDraft.sections;
+  if(!itemHasTraffic(secs, it)) return '';
+  const cur = answers[it.id+'__tl'] || '';
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 10px;">${trafficLevels(secs).map(l=>{ const on = cur===l.id; const hex = trafficHex(l.color); return `<button type="button" title="${escapeHtml(l.label||'')}" onclick="reportFillDraft.answers['${it.id}__tl']=${on?"''":`'${l.id}'`};render()" style="display:flex;align-items:center;gap:6px;margin:0;width:auto;padding:6px 10px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;border:2px solid ${hex};background:${on?hex:'transparent'};color:${on?'#fff':'var(--ink)'};"><span style="width:10px;height:10px;border-radius:50%;background:${on?'#fff':hex};flex:0 0 10px;"></span>${escapeHtml(l.label||'')}</button>`; }).join('')}</div>`;
+}
 let reportNoteOpen = new Set();
 window.openReportNote = function(id){ reportNoteOpen.add(id); render().then(()=>{ const el = document.getElementById('rnote_'+id); if(el) el.focus(); }); };
 function renderItemNoteWidget(it, answers){
@@ -15762,7 +15845,7 @@ function renderReportFillItem(it){
   const reqStar = it.required ? ' *' : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const autoHint = it.autofill ? ` <span style="font-weight:400;color:var(--slate);font-size:11px;">(auto-filled — edit if needed)</span>` : '';
-  const extraMedia = renderItemNoteWidget(it, reportFillDraft.answers) + renderExtraMediaWidget(it, reportFillDraft.answers);
+  const extraMedia = renderItemTrafficWidget(it, reportFillDraft.answers) + renderItemNoteWidget(it, reportFillDraft.answers) + renderExtraMediaWidget(it, reportFillDraft.answers);
   if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>${extraMedia}`;
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
@@ -15967,12 +16050,14 @@ async function renderReportView(siteId, submissionId, fromBriefing){
   if(fromBriefing) sigs = await dbSelect('daily_briefing_signatures', 'submission_id=eq.'+submissionId+'&order=signed_at.asc');
   const mine = sigs.find(s=>s.user_id===ME.id);
   const sc = scoreSections(sub.sections, sub.answers);
+  reportViewSections = sub.sections;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(sub.template_name)}</p>
     ${general ? `<p class="stub" style="margin:0 0 6px;"><b>${escapeHtml(sub.general_label||'No job name')}</b>${isManager(ME) ? ` · <span style="text-decoration:underline;cursor:pointer;" onclick="renameGeneralReport('${sub.id}','${jsAttr(sub.general_label||'')}')">Rename</span>` : ''}</p>` : ''}
     <p class="stub">${fromBriefing?'Completed':'Submitted'} ${sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('en-GB') : 'in progress'} by ${escapeHtml(nameOf(sub.submitted_by))}</p>
     ${Array.isArray(sub.answers && sub.answers._editHistory) && sub.answers._editHistory.length ? `<p class="stub" style="color:var(--slate);">${sub.answers._editHistory.map(e=>`Edited ${new Date(e.at).toLocaleString('en-GB')} by ${escapeHtml(e.byName||nameOf(e.by))}`).join(' · ')}</p>` : ''}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
+    ${trafficKeyHtml(sub.sections)}
     ${(sub.sections||[]).map(s=>`
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;display:flex;justify-content:space-between;align-items:center;">
@@ -16000,7 +16085,10 @@ async function renderReportView(siteId, submissionId, fromBriefing){
     </div>
   `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Report', listPath, sub.general_label)); }
 }
+let reportViewSections = null; // the report on screen, so each answer can show its traffic-light colour
 function renderReportViewItem(it, val, answers){
+  const tlv = itemTrafficLevel(reportViewSections, it, answers);
+  const tlHtml = tlv ? `<p style="margin:4px 0 0;"><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:${trafficHex(tlv.color)};color:#fff;font-size:11.5px;font-weight:700;">${escapeHtml(tlv.label||'')}</span></p>` : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const mediaArr = (answers && itemAllowsMedia(it) && Array.isArray(answers[it.id+'__media'])) ? answers[it.id+'__media'] : [];
   const extraMediaHtml = mediaArr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;">${mediaArr.map(u=>`<img src="${u}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">`).join('')}</div>` : '';
@@ -16019,7 +16107,7 @@ function renderReportViewItem(it, val, answers){
   else if(it.type==='passfail' && val) display = pfLbl(it,val);
   else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
   else if(val!=null && val!=='') display = String(val);
-  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${(answers && itemAllowsNote(it) && answers[it.id+'__note']) ? `<p style="margin:3px 0 0;font-size:12.5px;color:var(--slate);white-space:pre-wrap;"><b>Note:</b> ${escapeHtml(answers[it.id+'__note'])}</p>` : ''}${extraMediaHtml}</div>`;
+  return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${tlHtml}${(answers && itemAllowsNote(it) && answers[it.id+'__note']) ? `<p style="margin:3px 0 0;font-size:12.5px;color:var(--slate);white-space:pre-wrap;"><b>Note:</b> ${escapeHtml(answers[it.id+'__note'])}</p>` : ''}${extraMediaHtml}</div>`;
 }
 let reportEmailBusy = null;
 // Matches the look of the SafetyCulture PDFs these templates were modelled
@@ -16361,6 +16449,19 @@ async function buildReportPdf(submissionId, opts){
     /* ---------- Body: one heading bar per section, then its questions ---------- */
     newPage();
     drawHeadingBar(sub.template_name, scoreInfo.overall.possible>0 ? scoreLabel(scoreInfo.overall) : null, 12.5);
+    // Traffic light key — which colour means what.
+    const tlLevels = trafficLevels(sub.sections);
+    if(tlLevels){
+      ensureSpace(22 + tlLevels.length*16);
+      page.drawText('Condition key', {x:MARGIN, y:y-12, size:10.5, font:bold, color:INK}); y -= 20;
+      tlLevels.forEach(l=>{
+        ensureSpace(16);
+        page.drawRectangle({x:MARGIN+2, y:y-11, width:22, height:10, color:pdfHexToRgb(trafficHex(l.color))});
+        page.drawText(String(l.label||''), {x:MARGIN+32, y:y-10, size:9.5, font:reg, color:INK});
+        y -= 16;
+      });
+      y -= 8;
+    }
 
     for(const s of bodySections){
       const sc = scoreInfo.bySection[s.id];
@@ -16448,6 +16549,16 @@ async function buildReportPdf(submissionId, opts){
           drawAnswerRow(it.label, display, color);
         }
 
+        // the traffic-light condition picked for this answer
+        const tlPick = itemTrafficLevel(sub.sections, it, sub.answers);
+        if(tlPick){
+          const tlText = 'Condition: '+String(tlPick.label||'');
+          const tw = Math.min(bold.widthOfTextAtSize(tlText, 9.5)+16, CONTENT_W);
+          ensureSpace(24);
+          page.drawRectangle({x:MARGIN, y:y-20, width:tw, height:16, color:pdfHexToRgb(trafficHex(tlPick.color))});
+          pdfDrawFit(page, tlText, {x:MARGIN+8, y:y-15.5, size:9.5, font:bold, color:WHITE, maxWidth:tw-12});
+          y -= 26;
+        }
         // a note typed against this specific answer
         const itemNote = itemAllowsNote(it) ? String(sub.answers[it.id+'__note']||'').trim() : '';
         if(itemNote){
