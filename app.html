@@ -14939,6 +14939,7 @@ function renderTemplateItemEditor(si, ii, it){
   if(it.scored) tags.push('Scored');
   if(it.showIf) tags.push('Only shows sometimes');
   if(it.autofill) tags.push('Auto-filled');
+  if(itemAllowsNote(it)) tags.push('Notes allowed');
   const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
   // A follow-up question: only asked when an earlier answer matches.
   const parent = it.showIf && it.showIf.qId ? editingTemplate.sections[si].items.find(c=>c.id===it.showIf.qId) : null;
@@ -14981,9 +14982,6 @@ function renderTemplateItemEditor(si, ii, it){
           : `<select style="margin:0;" onchange="if(this.value!=='')addFollowUpQuestion(${si},${ii},Number(this.value))"><option value="">Pick an answer…</option>${fuVals.map((v,vi)=>`<option value="${vi}">${escapeHtml(v)}</option>`).join('')}</select>`}
         </div>
       ` : ''}
-      ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
-        <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Allow a note</label>
-      ` : ''}
       ${it.type!=='instruction' ? `
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
         <span class="viewlink" style="cursor:pointer;flex:0 0 auto;" onclick="toggleTemplateItemOpen('${it.id}')">${open?'▼ Hide options':'▶ More options'}</span>
@@ -14992,6 +14990,9 @@ function renderTemplateItemEditor(si, ii, it){
       ${open ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="${P}.required=this.checked">Must be answered</label>
+      ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
+        <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Allow a note</label>
+      ` : ''}
         ${(it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowMedia!==false?'checked':''} onchange="${P}.allowMedia=this.checked;if(!this.checked)${P}.mediaRequiredWhen=[];render()">Let a photo be added to this answer</label>
           ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
