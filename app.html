@@ -2491,6 +2491,9 @@ const REPORT_FIELD_TYPES = [
 // the scoring key), but displayed as Yes/No/N-A to match how these
 // questions are actually phrased and shown on RTB's SafetyCulture forms.
 const PASSFAIL_LABEL = {Pass:'Yes', Fail:'No', 'N/A':'N/A'};
+// A pass-fail question normally reads Yes / No / N/A; one set up as
+// "Pass / Fail / N-A" (pfWords) keeps the words Pass and Fail instead.
+function pfLbl(it, v){ return (it && it.pfWords) ? v : (PASSFAIL_LABEL[v]||v); }
 // Auto-fill: lets a template question pull its answer in automatically when
 // a PM opens the form, instead of them typing it every time. Only offered on
 // the field types it makes sense for (text -> address/name, date -> today).
@@ -14927,7 +14930,7 @@ function renderTemplateItemEditor(si, ii, it){
   const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
   // A follow-up question: only asked when an earlier answer matches.
   const parent = it.showIf && it.showIf.qId ? editingTemplate.sections[si].items.find(c=>c.id===it.showIf.qId) : null;
-  const condText = parent ? (it.showIf.mode==='notblank' ? 'is answered' : ((it.showIf.values||[]).length ? 'is '+(it.showIf.values||[]).map(v=>PASSFAIL_LABEL[v]||v).join(' or ') : 'is… (pick the answer in More options)')) : '';
+  const condText = parent ? (it.showIf.mode==='notblank' ? 'is answered' : ((it.showIf.values||[]).length ? 'is '+(it.showIf.values||[]).map(v=>pfLbl(parent,v)).join(' or ') : 'is… (pick the answer in More options)')) : '';
   const fuVals = followUpValuesFor(it);
   const usedSet = (it.presetId && (it.type==='choice' || it.type==='multichoice')) ? orgAnswerSets().find(a=>a.id===it.presetId) : null;
   const isYnnv = it.type==='choice' && it.presetId==='builtin_ynnv';
@@ -14940,7 +14943,7 @@ function renderTemplateItemEditor(si, ii, it){
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <select style="flex:1;min-width:0;margin:0;" onchange="setTemplateItemType(${si},${ii},this.value)">
-          ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${!usedSet && !isYnnv && it.type===ft.k?'selected':''}>${ft.lbl}</option>${ft.k==='passfail' ? `<option value="ynnv" ${isYnnv?'selected':''}>Yes / No / N-A / Not Visible</option>` : ''}`).join('')}
+          ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${!usedSet && !isYnnv && it.type===ft.k && !(ft.k==='passfail' && it.pfWords)?'selected':''}>${ft.lbl}</option>${ft.k==='passfail' ? `<option value="passfailwords" ${!usedSet && !isYnnv && it.type==='passfail' && it.pfWords?'selected':''}>Pass / Fail / N-A</option><option value="ynnv" ${isYnnv?'selected':''}>Yes / No / N-A / Not Visible</option>` : ''}`).join('')}
           ${orgAnswerSets().length ? `<optgroup label="Your answer types">${orgAnswerSets().map(a=>`<option value="set:${a.id}" ${usedSet && usedSet.id===a.id?'selected':''}>${escapeHtml(a.name||'Untitled')} (${escapeHtml((a.options||[]).join(' / '))})</option>`).join('')}</optgroup>` : ''}
           <option value="__manage__">✏️ Add / edit your own answer types…</option>
         </select>
@@ -14962,7 +14965,7 @@ function renderTemplateItemEditor(si, ii, it){
       ${fuVals.length ? `
         <div style="margin-top:8px;">
           <label class="field-label" style="margin-bottom:4px;">Ask a follow-up question if the answer is…</label>
-          ${fuVals.length<=4 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${fuVals.map((v,vi)=>`<button class="ghostbtn" style="width:auto;margin:0;padding:7px 10px;font-size:11.5px;" onclick="addFollowUpQuestion(${si},${ii},${vi})">+ ${escapeHtml(PASSFAIL_LABEL[v]||v)}</button>`).join('')}</div>`
+          ${fuVals.length<=4 ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">${fuVals.map((v,vi)=>`<button class="ghostbtn" style="width:auto;margin:0;padding:7px 10px;font-size:11.5px;" onclick="addFollowUpQuestion(${si},${ii},${vi})">+ ${escapeHtml(pfLbl(it,v))}</button>`).join('')}</div>`
           : `<select style="margin:0;" onchange="if(this.value!=='')addFollowUpQuestion(${si},${ii},Number(this.value))"><option value="">Pick an answer…</option>${fuVals.map((v,vi)=>`<option value="${vi}">${escapeHtml(v)}</option>`).join('')}</select>`}
         </div>
       ` : ''}
@@ -14982,7 +14985,7 @@ function renderTemplateItemEditor(si, ii, it){
           ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
         ` : ''}
         ${(it.type==='passfail' || it.type==='checkbox') ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="${P}.scored=this.checked">Count towards score${it.type==='passfail' ? ' (Yes = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="${P}.scored=this.checked">Count towards score${it.type==='passfail' ? (it.pfWords ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point, N/A excluded)') : ' (Yes = 1 point)'}</label>
         ` : ''}
         ${(it.type==='text' || it.type==='date') ? `
           <label class="field-label" style="margin-top:8px;margin-bottom:2px;">Fill in automatically with</label>
@@ -15071,7 +15074,9 @@ window.setTemplateItemType = function(si, ii, v){
   } else if(v==='ynnv'){
     // Built-in four-way answer, shown as buttons like Yes / No / N-A.
     it.type = 'choice'; it.options = YNNV_OPTIONS.slice(); it.presetId = 'builtin_ynnv'; it.asButtons = true;
-  } else { it.type = v; delete it.presetId; delete it.asButtons; }
+  } else if(v==='passfailwords'){
+    it.type = 'passfail'; it.pfWords = true; delete it.presetId; delete it.asButtons;
+  } else { it.type = v; delete it.presetId; delete it.asButtons; delete it.pfWords; }
   if(v.indexOf('set:')===0) delete it.asButtons;
   render();
 };
@@ -15101,7 +15106,7 @@ function renderMediaRequiredEditor(si, ii, it){
       ${opts ? `
         <label class="field-label" style="margin-bottom:2px;">Require the photo when the answer is…</label>
         <div class="row-gap" style="flex-wrap:wrap;">
-          ${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes(o)?'checked':''} onchange="toggleMediaRequiredValue(${si},${ii},${jsLit(o)},this.checked)">${escapeHtml(typeof o==='boolean'?(o?'Yes':'No'):(PASSFAIL_LABEL[o]||o))}</label>`).join('')}
+          ${opts.map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes(o)?'checked':''} onchange="toggleMediaRequiredValue(${si},${ii},${jsLit(o)},this.checked)">${escapeHtml(typeof o==='boolean'?(o?'Yes':'No'):(pfLbl(it,o)))}</label>`).join('')}
         </div>
       ` : `
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${(it.mediaRequiredWhen||[]).includes('__always__')?'checked':''} onchange="editingTemplate.sections[${si}].items[${ii}].mediaRequiredWhen=this.checked?['__always__']:[];render()">Always require the photo</label>
@@ -15169,7 +15174,7 @@ function renderTemplateItemLogicEditor(si, ii, it){
         </select>
         ${(isEquals && fixedOptions) ? `
           <div class="row-gap" style="margin-top:6px;flex-wrap:wrap;">
-            ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(PASSFAIL_LABEL[o]||o)}</label>`).join('')}
+            ${triggerOptionsFor(it.showIf.qId).map(o=>`<label class="stub" style="display:flex;align-items:center;gap:4px;"><input type="checkbox" style="width:auto;" ${(it.showIf.values||[]).includes(o)?'checked':''} onchange="toggleItemLogicValue(${si},${ii},'${o.replace(/'/g,"\\'")}',this.checked)">${escapeHtml(pfLbl(triggerItem,o))}</label>`).join('')}
           </div>
         ` : ''}
       ` : ''}
@@ -15750,7 +15755,7 @@ function renderReportFillItem(it){
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='date') return `<div class="formfield" onclick="openDatePickerRow(this)"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="date" value="${val||''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='checkbox') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${[{v:true,l:'Yes'},{v:false,l:'No'}].map(o=>`<button type="button" class="${val===o.v?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']=${o.v};render()">${o.l}</button>`).join('')}</div></div>${extraMedia}`;
-  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${PASSFAIL_LABEL[o]}</button>`).join('')}</div></div>${extraMedia}`;
+  if(it.type==='passfail') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div class="row-gap">${['Pass','Fail','N/A'].map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="reportFillDraft.answers['${it.id}']='${o}';render()">${pfLbl(it,o)}</button>`).join('')}</div></div>${extraMedia}`;
   if(it.type==='choice'){
     const opts = reportItemOptions(it, reportFillDraft.answers);
     if(val && !opts.includes(val)) opts.push(val);
@@ -15998,7 +16003,7 @@ function renderReportViewItem(it, val, answers){
   }
   let display = '—';
   if(it.type==='checkbox') display = val===true ? 'Yes' : (val===false ? 'No' : '—');
-  else if(it.type==='passfail' && val) display = PASSFAIL_LABEL[val]||val;
+  else if(it.type==='passfail' && val) display = pfLbl(it,val);
   else if(it.type==='multichoice') display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
   else if(val!=null && val!=='') display = String(val);
   return `<div style="margin-bottom:10px;"><p class="stub" style="margin:0 0 2px;">${escapeHtml(it.label)}</p><p style="margin:0;font-weight:700;font-size:13.5px;">${escapeHtml(display)}</p>${(answers && itemAllowsNote(it) && answers[it.id+'__note']) ? `<p style="margin:3px 0 0;font-size:12.5px;color:var(--slate);white-space:pre-wrap;"><b>Note:</b> ${escapeHtml(answers[it.id+'__note'])}</p>` : ''}${extraMediaHtml}</div>`;
@@ -16419,7 +16424,7 @@ async function buildReportPdf(submissionId, opts){
             display = val===true ? 'Yes' : (val===false ? 'No' : '—');
             color = val===true ? GREEN : (val===false ? RED : GRAY);
           } else if(it.type==='passfail' && val){
-            display = PASSFAIL_LABEL[val]||val;
+            display = pfLbl(it,val);
             color = val==='Pass' ? GREEN : (val==='Fail' ? RED : GRAY);
           } else if(it.type==='multichoice'){
             display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
