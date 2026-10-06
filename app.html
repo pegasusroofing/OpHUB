@@ -22307,7 +22307,7 @@ async function renderExpenses(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:12px;">
       <p style="margin:0 0 4px;font-weight:700;">🧾 Send receipts to the office</p>
-      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, they're emailed to <b>${escapeHtml(toEmail)}</b>.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
+      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, each receipt is emailed <b>on its own</b> to <b>${escapeHtml(toEmail)}</b>, labelled with the job — so 6 receipts is 6 emails.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
     </div>
     ${d.entries.map((e,i)=>`
     <div class="card" style="margin-bottom:10px;">
@@ -22337,7 +22337,7 @@ async function renderExpenses(siteId){
     <label style="display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:14px;cursor:pointer;">
       <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${d.ccMe?'checked':''} onchange="expDraft.ccMe=this.checked"> CC me a copy${ME.email ? ` <span class="stub">(${escapeHtml(ME.email)})</span>` : ''}
     </label>
-    <button class="darkbtn" style="width:85%;margin:0 auto;display:block;padding:12.75px;font-size:12.75px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} file${totalFiles===1?'':'s'}` : 'Save &amp; send')}</button>
+    <button class="darkbtn" style="width:85%;margin:0 auto;display:block;padding:12.75px;font-size:12.75px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} receipt${totalFiles===1?'':'s'} (${totalFiles} email${totalFiles===1?'':'s'})` : 'Save &amp; send')}</button>
     <p class="sectiontitle" style="margin-top:22px;">Sent recently</p>
     ${recent.length ? recent.map(r=>{ const open = expRecentOpen.has(r.id); const nf = (r.file_paths||[]).length; return `
       <div class="sitecard" style="cursor:pointer;" onclick="expToggleRecent('${r.id}')">
@@ -22429,7 +22429,7 @@ async function expSendBatch(batchId, ccMe, justSaved){
   try{
     const res = await sbFetch('/functions/v1/send-expenses-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({batch_id: batchId, cc_me: !!ccMe})});
     let out = null; try{ out = await res.json(); }catch(e){}
-    if(res.ok && out && out.ok){ customAlert('✓ Receipts saved and emailed'+(out.to ? ' to '+out.to : '')+(ccMe && ME.email ? ', with a copy to you' : '')+'.'); return true; }
+    if(res.ok && out && out.ok){ const ne = out.emails || out.files || 0; customAlert('✓ '+(ne ? ne+' receipt'+(ne===1?'':'s')+' saved and emailed'+(ne>1 ? ' — one email each' : '') : 'Receipts saved and emailed')+(out.to ? ', to '+out.to : '')+(ccMe && ME.email ? ', with a copy to you' : '')+'.'); return true; }
     toast((justSaved ? 'Saved, but the email did not send — ' : 'Could not send — ')+((out && out.error) || res.status)+(justSaved ? ' Use "Send now" below.' : ''));
   }catch(e){
     toast((justSaved ? 'Saved, but the email did not send — ' : 'Could not send — ')+'check your connection.'+(justSaved ? ' Use "Send now" below.' : ''));
