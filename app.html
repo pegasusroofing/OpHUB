@@ -5488,17 +5488,7 @@ async function renderTeam(){
     <p class="ddrow ddrow-hdr" style="margin-top:14px;" onclick="toggleTeamSection('brandingintegrations')"><span class="icon" style="background:var(--brand1);color:var(--brand1-text);">🎨</span><span class="lbl">Branding &amp; Integrations</span><span class="arrow">${teamSectionOpen.brandingintegrations?'▼':'▶'}</span></p>
     ${teamSectionOpen.brandingintegrations ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
-    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('expensesemail')"><span class="arrow">${teamSectionOpen.expensesemail?'▼':'▶'}</span> Expenses Email</p>
-    ${teamSectionOpen.expensesemail ? `
-    <div class="card">
-      <p class="stub" style="margin:0 0 10px;">Receipts sent from the Expenses tile on any job are emailed to this address.</p>
-      <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
-        <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
-      </div>
-      <button class="darkbtn" style="margin-top:10px;" onclick="saveExpensesEmail()">Save</button>
-      ${ORG && ORG.expenses_email ? `<p class="stub" style="margin:8px 0 0;color:var(--good,#1F9D62);">✓ Currently going to ${escapeHtml(ORG.expenses_email)}</p>` : `<p class="stub" style="margin:8px 0 0;color:var(--warn);">Not set yet — receipts can't be sent until an address is saved.</p>`}
-    </div>` : ''}
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Company Logo &amp; Theme</p>
+    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Company Logo &amp; Theme</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
@@ -5537,6 +5527,15 @@ async function renderTeam(){
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
     ${teamSectionOpen.integrations ? `
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Expenses email</p>
+      <p class="stub" style="margin:0 0 10px;">Receipts sent from the Expenses tile on any job are emailed to this address.</p>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
+        <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
+      </div>
+      <button class="darkbtn" style="margin-top:10px;" onclick="saveExpensesEmail()">Save</button>
+      ${ORG && ORG.expenses_email ? `<p class="stub" style="margin:8px 0 0;color:var(--good,#1F9D62);">✓ Currently going to ${escapeHtml(ORG.expenses_email)}</p>` : `<p class="stub" style="margin:8px 0 0;color:var(--warn);">Not set yet — receipts can't be sent until an address is saved.</p>`}
+    </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
       ${odConn && odConn.access_token ? `
@@ -21919,7 +21918,7 @@ async function renderExpenses(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:12px;">
       <p style="margin:0 0 4px;font-weight:700;">🧾 Send receipts to the office</p>
-      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, they're emailed to <b>${escapeHtml(toEmail)}</b>.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.expensesemail=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
+      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, they're emailed to <b>${escapeHtml(toEmail)}</b>.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
     </div>
     ${d.entries.map((e,i)=>`
     <div class="card" style="margin-bottom:10px;">
@@ -21949,20 +21948,29 @@ async function renderExpenses(siteId){
     <label style="display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:14px;cursor:pointer;">
       <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${d.ccMe?'checked':''} onchange="expDraft.ccMe=this.checked"> CC me a copy${ME.email ? ` <span class="stub">(${escapeHtml(ME.email)})</span>` : ''}
     </label>
-    <button class="darkbtn" style="width:100%;margin:0;padding:15px;font-size:15px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} file${totalFiles===1?'':'s'}` : 'Save &amp; send')}</button>
+    <button class="darkbtn" style="width:85%;margin:0 auto;display:block;padding:12.75px;font-size:12.75px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} file${totalFiles===1?'':'s'}` : 'Save &amp; send')}</button>
     <p class="sectiontitle" style="margin-top:22px;">Sent recently</p>
-    ${recent.length ? recent.map(r=>`
-      <div class="sitecard" style="display:block;padding:9px 11px;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="name" style="flex:1;min-width:0;">${escapeHtml(expRowLabel(r))}</div>
-          <span class="stub" style="white-space:nowrap;">${new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
+    ${recent.length ? recent.map(r=>{ const open = expRecentOpen.has(r.id); const nf = (r.file_paths||[]).length; return `
+      <div class="sitecard" style="cursor:pointer;" onclick="expToggleRecent('${r.id}')">
+        <div class="info">
+          <div class="name">${escapeHtml(expRowLabel(r))}</div>
+          <div class="addr">${new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} · ${nf} file${nf===1?'':'s'} · ${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>`}</div>
         </div>
-        <div class="addr" style="margin-top:2px;">${(r.file_paths||[]).length} file${(r.file_paths||[]).length===1?'':'s'}${r.note ? ' · '+escapeHtml(r.note) : ''}${isFullManager(ME) && r.created_by!==ME.id ? ' · '+escapeHtml(nameOf(r.created_by)) : ''}</div>
-        <div class="addr" style="margin-top:2px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}
-          ${(r.file_paths||[]).map((p,k)=>` · <span class="viewlink" style="cursor:pointer;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</span>`).join('')}</div>
-      </div>`).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
+        <div style="color:var(--slate);flex:0 0 auto;">${open?'▼':'▶'}</div>
+      </div>
+      ${open ? `
+      <div class="card" style="margin:-4px 0 10px;">
+        ${r.note ? `<p class="stub" style="margin:0 0 6px;">${escapeHtml(r.note)}</p>` : ''}
+        ${isFullManager(ME) && r.created_by!==ME.id ? `<p class="stub" style="margin:0 0 6px;">Sent by ${escapeHtml(nameOf(r.created_by))}</p>` : ''}
+        <p class="stub" style="margin:0 0 8px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
+        </div>
+      </div>` : ''}`; }).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
   `, {title:'Expenses', back:`#/site/${siteId}/materials`, siteId, activeTab:'materials'});
 }
+let expRecentOpen = new Set();
+window.expToggleRecent = function(id){ if(expRecentOpen.has(id)) expRecentOpen.delete(id); else expRecentOpen.add(id); render(); };
 function expEntry(key){ return expDraft ? expDraft.entries.find(e=>e.key===key) : null; }
 window.expSetJob = function(key, v){ const e = expEntry(key); if(!e) return; e.job = v; if(v!=='manual' && v!=='fuel') e.manual = ''; render(); };
 window.expField = function(key, f, v){ const e = expEntry(key); if(e) e[f] = v; };
