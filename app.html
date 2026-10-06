@@ -31286,6 +31286,7 @@ function driverCheckinLogHtml(rows, breaks){
     </div>`;
 }
 let driverScheduleDateOffset = 0; // 0 = today, +1 = tomorrow, -1 = yesterday
+let driverScheduleTab = 'todo'; // 'todo' | 'done' — which of the day's two tabs the driver is on
 async function renderDriverHome(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
@@ -31527,8 +31528,14 @@ async function renderDriverSchedule(preview){
     if(fresh.ok){ SITES = fresh.data; saveBootSnapshot(); }
   }
   myTasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
+  // Two tabs for the day: what's left to do, and what's been completed.
+  // A delivery moves across the moment it is marked complete.
+  const doneTasks = myTasks.filter(t=>t.status==='completed').sort((a,b)=>new Date(b.completed_at||0)-new Date(a.completed_at||0));
+  const todoTasks = myTasks.filter(t=>t.status!=='completed');
+  const showDone = driverScheduleTab==='done';
   const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
-  myTasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
+  (showDone ? doneTasks : todoTasks).forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
+  const shownSlots = showDone ? DELIVERY_TIME_SLOTS.filter(sl=>bySlot[sl.key].length) : DELIVERY_TIME_SLOTS;
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${preview ? `
@@ -31544,11 +31551,17 @@ async function renderDriverSchedule(preview){
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
       <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset++;render()">›</span>
     </div>
-    ${deliveryCollectionSummaryHtml(myTasks)}
-    ${DELIVERY_TIME_SLOTS.map(slot=>`
+    <div class="filterrow" style="margin-bottom:12px;">
+      <div class="filterchip ${showDone?'':'active'}" style="flex:1;text-align:center;" onclick="driverScheduleTab='todo';render()">To do (${todoTasks.length})</div>
+      <div class="filterchip ${showDone?'active':''}" style="flex:1;text-align:center;" onclick="driverScheduleTab='done';render()">✓ Completed (${doneTasks.length})</div>
+    </div>
+    ${showDone ? '' : deliveryCollectionSummaryHtml(todoTasks)}
+    ${showDone && !doneTasks.length ? `<div class="empty">No completed deliveries ${driverScheduleDateOffset===0?'yet today':'on this day'}.</div>` : ''}
+    ${!showDone && !todoTasks.length && doneTasks.length ? `<div class="card" style="text-align:center;margin-bottom:8px;"><p style="margin:0;font-weight:700;color:var(--ok);">✓ All done for ${driverScheduleDateOffset===0?'today':'this day'}</p><p class="stub" style="margin:4px 0 0;">${doneTasks.length} completed — see the Completed tab.</p></div>` : ''}
+    ${shownSlots.map(slot=>`
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
-        <div class="card" style="margin-bottom:8px;${t.status==='completed'?'opacity:.6;':''}">
+        <div class="card" style="margin-bottom:8px;">
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">! HIGH PRIORITY<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This delivery needs to happen first — treat it as urgent.</span></p>` : ''}
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
