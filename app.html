@@ -2522,6 +2522,16 @@ function autofillValue(kind, site){
 //    (Pass/Fail/N-A, choice, Yes/No). Checkbox answers are booleans in state
 //    but compared as 'Yes'/'No' here since that's how their options are
 //    offered.
+// "Show unanswered questions" (template setting, kept on the first section
+// so it travels with every report started from the template). Off = the
+// finished report and PDF leave out questions nobody answered.
+function templateShowsUnanswered(sections){ return !(sections && sections[0] && sections[0].showUnanswered===false); }
+function reportListsItem(sections, it, answers){
+  if(templateShowsUnanswered(sections)) return true;
+  if(it.type==='instruction') return true;
+  const a = answers || {};
+  return isAnswered(a[it.id]) || isAnswered(a[it.id+'__note']) || isAnswered(a[it.id+'__media']);
+}
 function isAnswered(val){
   if(val===undefined || val===null) return false;
   if(typeof val==='string') return val.trim()!=='';
@@ -14902,6 +14912,9 @@ async function renderTemplateEditor(templateId){
       </div>
     `).join('')}
     <button class="ghostbtn" onclick="addTemplateSection()">+ Add Section</button>
+    <div class="card" style="margin-top:12px;">
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13.5px;font-weight:700;cursor:pointer;"><input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;margin-top:1px;" ${templateShowsUnanswered(t.sections)?'checked':''} onchange="editingTemplate.sections[0].showUnanswered=this.checked"><span>Show unanswered questions<br><span class="stub" style="font-weight:400;">Ticked: the finished report and PDF list every question, even ones left blank. Unticked: questions with no answer are left off.</span></span></label>
+    </div>
     <button class="darkbtn" style="margin-top:14px;" ${templateBusy?'disabled':''} onclick="saveTemplate()">${templateBusy?'Saving…':'Save Template'}</button>
   `, {title:'Edit Template', back: templatesReturnPath || (templatesReturnSiteId ? `#/site/${templatesReturnSiteId}/snagging/templates` : '#/templates'), tabs:false}); }
 }
@@ -14926,7 +14939,6 @@ function renderTemplateItemEditor(si, ii, it){
   if(it.scored) tags.push('Scored');
   if(it.showIf) tags.push('Only shows sometimes');
   if(it.autofill) tags.push('Auto-filled');
-  if(itemAllowsNote(it)) tags.push('Notes allowed');
   const smallBtn = 'width:34px;height:34px;padding:0;flex:0 0 34px;margin:0;';
   // A follow-up question: only asked when an earlier answer matches.
   const parent = it.showIf && it.showIf.qId ? editingTemplate.sections[si].items.find(c=>c.id===it.showIf.qId) : null;
@@ -14969,6 +14981,9 @@ function renderTemplateItemEditor(si, ii, it){
           : `<select style="margin:0;" onchange="if(this.value!=='')addFollowUpQuestion(${si},${ii},Number(this.value))"><option value="">Pick an answer…</option>${fuVals.map((v,vi)=>`<option value="${vi}">${escapeHtml(v)}</option>`).join('')}</select>`}
         </div>
       ` : ''}
+      ${!['instruction','photo','signature','operatives','textarea'].includes(it.type) ? `
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">📝 Allow a note to be added to this answer</label>
+      ` : ''}
       ${it.type!=='instruction' ? `
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
         <span class="viewlink" style="cursor:pointer;flex:0 0 auto;" onclick="toggleTemplateItemOpen('${it.id}')">${open?'▼ Hide options':'▶ More options'}</span>
@@ -14977,9 +14992,6 @@ function renderTemplateItemEditor(si, ii, it){
       ${open ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="${P}.required=this.checked">Must be answered</label>
-        ${!['instruction','photo','signature','operatives','textarea'].includes(it.type) ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Let a note be added to this answer</label>
-        ` : ''}
         ${(it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowMedia!==false?'checked':''} onchange="${P}.allowMedia=this.checked;if(!this.checked)${P}.mediaRequiredWhen=[];render()">Let a photo be added to this answer</label>
           ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
@@ -15966,7 +15978,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).filter(it=>itemVisible(it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id], sub.answers)).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, sub.answers) && reportListsItem(sub.sections, it, sub.answers)).map(it=>renderReportViewItem(it, sub.answers[it.id], sub.answers)).join('')}
       </div>
     `).join('')}
     ${fromBriefing ? `
@@ -16332,7 +16344,7 @@ async function buildReportPdf(submissionId, opts){
     }
     if(titleSection){
       for(const it of titleSection.items){
-        if(!itemVisible(it, sub.answers)) continue;
+        if(!itemVisible(it, sub.answers) || !reportListsItem(sub.sections, it, sub.answers)) continue;
         const val = sub.answers[it.id];
         const display = formatAnswerDisplay(it, val);
         const rowH = 30;
@@ -16354,7 +16366,7 @@ async function buildReportPdf(submissionId, opts){
       drawHeadingBar(s.title||'', sc ? scoreLabel(sc) : null);
 
       for(const it of (s.items||[])){
-        if(!itemVisible(it, sub.answers)) continue;
+        if(!itemVisible(it, sub.answers) || !reportListsItem(sub.sections, it, sub.answers)) continue;
         const val = sub.answers[it.id];
 
         if(it.type==='instruction'){
