@@ -2559,6 +2559,21 @@ function trafficKeyHtml(sections){
   const lv = trafficLevels(sections); if(!lv) return '';
   return `<div class="card" style="margin-bottom:12px;"><p class="sectiontitle" style="margin-top:0;">Condition key</p>${lv.map(l=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><span style="width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:${trafficHex(l.color)};"></span><span style="font-size:13px;">${escapeHtml(l.label||'')}</span></div>`).join('')}</div>`;
 }
+function reportListsSection(sections, sec, answers){
+  if(templateShowsUnanswered(sections)) return true;
+  return (sec.items||[]).some(it=>it.type!=='instruction' && itemVisible(it, answers) && reportListsItem(sections, it, answers));
+}
+// The tick box is read from the template as it is NOW, so unticking it also
+// tidies reports that were started before the change.
+async function applyLiveShowUnanswered(sub){
+  try{
+    if(!sub || !sub.template_id || !sub.sections || !sub.sections[0]) return;
+    const rows = await dbSelectNet('report_templates', 'id=eq.'+sub.template_id+'&select=sections&limit=1');
+    const live = rows[0] && rows[0].sections && rows[0].sections[0];
+    if(!live) return;
+    if(live.showUnanswered===false) sub.sections[0].showUnanswered = false; else delete sub.sections[0].showUnanswered;
+  }catch(e){}
+}
 function templateShowsUnanswered(sections){ return !(sections && sections[0] && sections[0].showUnanswered===false); }
 function reportListsItem(sections, it, answers){
   if(templateShowsUnanswered(sections)) return true;
@@ -15790,7 +15805,7 @@ window.commitManualReportOperative = function(itemId){
 function renderPhotoArrayWidget(key, arr, opts){
   opts = opts || {};
   const size = opts.size || 90;
-  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}<input type="file" accept="image/*" multiple onchange="onReportPhotoChosen(this,'${key}')">`;
+  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}${opts.noButton ? '' : `<label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:0;">📷 Add photos<input type="file" accept="image/*" multiple style="display:none;" onchange="onReportPhotoChosen(this,'${key}')"></label>`}`;
 }
 // "+ Add note" under an answer while filling in a report. Saved beside the
 // answer as <question id>__note and shown on the report and its PDF.
@@ -15830,6 +15845,27 @@ window.addReportAnswerOption = async function(id, multi){
   else a[id] = t;
   render();
 };
+// Under each answer: any photos already added, then two clear buttons —
+// "Add note" and "Add photo" — and the note box once it's been opened.
+function renderItemExtras(it, answers){
+  const canNote = itemAllowsNote(it), canMedia = itemAllowsMedia(it);
+  if(!canNote && !canMedia) return '';
+  const nKey = it.id+'__note', mKey = it.id+'__media';
+  const note = answers[nKey] || '';
+  const noteOpen = canNote && (!!note || reportNoteOpen.has(it.id));
+  const arr = canMedia && Array.isArray(answers[mKey]) ? answers[mKey] : [];
+  const isReq = canMedia && mediaRequiredFor(it, answers);
+  const btn = 'flex:1;display:block;text-align:center;cursor:pointer;margin:0;padding:10px 6px;';
+  return `<div style="margin:-4px 0 14px;">
+    ${noteOpen ? `<div class="formfield" style="margin:0 0 8px;"><label class="field-label" style="font-size:11px;color:var(--slate);">Note</label><textarea id="rnote_${it.id}" style="min-height:54px;" placeholder="Add a note…" oninput="reportFillDraft.answers['${nKey}']=this.value">${escapeHtml(note)}</textarea></div>` : ''}
+    ${arr.length ? renderPhotoArrayWidget(mKey, arr, {size:70, noButton:true}) : ''}
+    ${isReq ? `<p class="stub" style="margin:0 0 6px;color:var(--warn);font-weight:700;">A photo is required for this answer *</p>` : ''}
+    <div class="row-gap" style="margin:0;">
+      ${canNote && !noteOpen ? `<button type="button" class="ghostbtn" style="${btn}" onclick="openReportNote('${it.id}')">📝 Add note</button>` : ''}
+      ${canMedia ? `<label class="ghostbtn" style="${btn}${isReq && !arr.length ? 'border-color:var(--warn);color:var(--warn);' : ''}">📷 Add photo<input type="file" accept="image/*" multiple style="display:none;" onchange="onReportPhotoChosen(this,'${mKey}')"></label>` : ''}
+    </div>
+  </div>`;
+}
 function renderExtraMediaWidget(it, answers){
   if(!itemAllowsMedia(it)) return '';
   const key = it.id+'__media';
@@ -15845,7 +15881,7 @@ function renderReportFillItem(it){
   const reqStar = it.required ? ' *' : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const autoHint = it.autofill ? ` <span style="font-weight:400;color:var(--slate);font-size:11px;">(auto-filled — edit if needed)</span>` : '';
-  const extraMedia = renderItemTrafficWidget(it, reportFillDraft.answers) + renderItemNoteWidget(it, reportFillDraft.answers) + renderExtraMediaWidget(it, reportFillDraft.answers);
+  const extraMedia = renderItemTrafficWidget(it, reportFillDraft.answers) + renderItemExtras(it, reportFillDraft.answers);
   if(it.type==='text') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}${autoHint}</label><input type="text" value="${escapeHtml(val||'')}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
   if(it.type==='textarea') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><textarea oninput="reportFillDraft.answers['${it.id}']=this.value">${escapeHtml(val||'')}</textarea></div>${extraMedia}`;
   if(it.type==='number') return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><input type="number" value="${val!=null?val:''}" oninput="reportFillDraft.answers['${it.id}']=this.value"></div>${extraMedia}`;
@@ -15917,7 +15953,7 @@ window.onReportPhotoChosen = async function(input, key){
   const cur = Array.isArray(reportFillDraft.answers[key]) ? reportFillDraft.answers[key].slice() : (reportFillDraft.answers[key] ? [reportFillDraft.answers[key]] : []);
   let failed = 0, heicFailed = 0;
   for(const file of files){
-    try{ cur.push(await compressImage(file)); }
+    try{ cur.push(await compressImage(file, {maxW:2000, quality:0.9})); }
     catch(e){
       failed++;
       if(e && e.message==='heic-unsupported') heicFailed++;
@@ -16044,6 +16080,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0];
   if(!sub){ toast('Report not found'); go(listPath); return; }
+  await applyLiveShowUnanswered(sub);
   const general = isGeneralReports(siteId);
   await loadAllProfiles();
   let sigs = [];
@@ -16058,7 +16095,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
     ${Array.isArray(sub.answers && sub.answers._editHistory) && sub.answers._editHistory.length ? `<p class="stub" style="color:var(--slate);">${sub.answers._editHistory.map(e=>`Edited ${new Date(e.at).toLocaleString('en-GB')} by ${escapeHtml(e.byName||nameOf(e.by))}`).join(' · ')}</p>` : ''}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${trafficKeyHtml(sub.sections)}
-    ${(sub.sections||[]).map(s=>`
+    ${(sub.sections||[]).filter(s=>reportListsSection(sub.sections, s, sub.answers)).map(s=>`
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;display:flex;justify-content:space-between;align-items:center;">
           <span>${escapeHtml(s.title)}</span>
@@ -16128,6 +16165,7 @@ async function buildReportPdf(submissionId, opts){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
   const sub = rows[0]; if(!sub) return null;
+  await applyLiveShowUnanswered(sub);
   const site = SITES.find(s=>s.id===sub.site_id);
   const generalLabel = !sub.site_id ? (sub.general_label||'') : '';
   await loadAllProfiles();
@@ -16266,7 +16304,7 @@ async function buildReportPdf(submissionId, opts){
     // in the Media Summary — and used to be stored twice at full camera
     // size: a 40-photo inspection came out at 49MB, too big to email as an
     // attachment and very slow to build and upload). Photos are also sized
-    // down to 1200px for the PDF, which is still sharp at a quarter page.
+    // down to 1500px for the PDF, which is sharp even at a full-width photo.
     const embeddedImages = new Map();
     function embedFromDataUrl(urlOrDataUrl){
       const key = String(urlOrDataUrl);
@@ -16277,7 +16315,7 @@ async function buildReportPdf(submissionId, opts){
           const b64 = key.split(',')[1];
           bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
         } else {
-          bytes = await pdfFetchImageBytesScaled(urlOrDataUrl, 1200, 0.72);
+          bytes = await pdfFetchImageBytesScaled(urlOrDataUrl, 1500, 0.82);
           if(!bytes) throw new Error('Could not fetch photo');
         }
         try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
@@ -16464,6 +16502,7 @@ async function buildReportPdf(submissionId, opts){
     }
 
     for(const s of bodySections){
+      if(!reportListsSection(sub.sections, s, sub.answers)) continue;
       const sc = scoreInfo.bySection[s.id];
       drawHeadingBar(s.title||'', sc ? scoreLabel(sc) : null);
 
