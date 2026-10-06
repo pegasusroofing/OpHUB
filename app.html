@@ -22354,6 +22354,7 @@ async function renderExpenses(siteId){
         <p class="stub" style="margin:0 0 8px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
           ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
+          ${r.emailed_at && (r.created_by===ME.id || isFullManager(ME)) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="expResendSent('${r.batch_id}','${r.id}',${nf})">✉️ Resend</button>` : ''}
         </div>
       </div>` : ''}`; }).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
   `, {title:'Expenses', back:`#/site/${siteId}/materials`, siteId, activeTab:'materials'});
@@ -22436,6 +22437,18 @@ async function expSendBatch(batchId, ccMe, justSaved){
   }
   return false;
 }
+// Sends an entry that has already been emailed again (one email per receipt).
+window.expResendSent = async function(batchId, expenseId, n){
+  if(!await customConfirm(`Email ${n===1?'this receipt':'these '+n+' receipts'} to the office again?`)) return;
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-expenses-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({batch_id: batchId, expense_id: expenseId, resend: true})});
+    let out = null; try{ out = await res.json(); }catch(e){}
+    if(res.ok && out && out.ok) customAlert('✓ Sent again'+(out.to ? ' to '+out.to : '')+(out.emails>1 ? ' — '+out.emails+' emails' : '')+'.');
+    else toast('Could not send — '+((out && out.error) || res.status));
+  }catch(e){ toast('Could not send — check your connection.'); }
+  render();
+};
 window.expResend = async function(batchId){ toast('Sending…'); await expSendBatch(batchId, false, false); render(); };
 window.saveExpensesEmail = async function(){
   const el = document.getElementById('expensesEmailInput'); if(!el) return;
