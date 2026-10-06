@@ -21742,7 +21742,7 @@ async function renderRamsBoxes(siteId, ramsId, tplId){
       if(!doc){ toast('Document not found.'); go(backHash); return; }
     }
     const boxes = JSON.parse(JSON.stringify(ramsLayoutBoxes(doc.sign_layout)));
-    ramsBoxEd = {key, tplId: tplId||null, backHash, ramsId, siteId, doc, pdf:null, numPages:0, page:(boxes[0] && boxes[0].p) || 1, boxes, who:'op1', mode:null, sel:-1, offset:null, dirty:false, templates:[], busy:false};
+    ramsBoxEd = {key, tplId: tplId||null, backHash, ramsId, siteId, doc, pdf:null, numPages:0, page:(boxes[0] && boxes[0].p) || 1, boxes, who:'op1', mode:null, sels:[], offset:null, dirty:false, templates:[], busy:false};
   }
   const ed = ramsBoxEd;
   if(__gen !== RENDER_GEN) return;
@@ -21797,7 +21797,9 @@ function ramsBoxRefresh(){
   const opNum = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : 0;
   const lastOp = opNum || ed.lastOp || 1;
   const minePage = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
-  const sel = ed.sel>=0 ? ed.boxes[ed.sel] : null;
+  ed.sels = (ed.sels||[]).filter(i=>ed.boxes[i] && ed.boxes[i].p===ed.page);
+  const selBoxes = ed.sels.map(i=>ed.boxes[i]);
+  const pageCount = ed.boxes.filter(b=>b.p===ed.page).length;
   const chip = (on, color)=>`flex:0 0 auto;margin:0;padding:8px 12px;font-size:12.5px;border-radius:999px;border:1.5px solid ${color};background:${on?color:'transparent'};color:${on?'#fff':color};font-weight:700;cursor:pointer;`;
   const pagesWithBoxes = [...new Set(ed.boxes.map(b=>b.p))].sort((a,b)=>a-b);
   const help = ed.mode==='repeat' ? `Tap where ${ramsBoxWhoLabel('op'+(opNum+1))}'s signature goes (the next row down).`
@@ -21828,23 +21830,33 @@ function ramsBoxRefresh(){
         <button class="${ed.mode==='repeat'?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;padding:9px 4px;font-size:12.5px;" onclick="ramsBoxMode('repeat')">Copy to Operative ${opNum+1} — tap where</button>
         ${ed.offset ? `<button class="ghostbtn" style="flex:1;margin:0;padding:9px 4px;font-size:12.5px;" onclick="ramsBoxRepeatAgain()">Copy again, same spacing</button>` : ''}
       </div>` : ''}
-      ${help ? `<p style="margin:10px 0 0;font-weight:700;color:var(--brand1);">${escapeHtml(help)}</p>` : `<p class="stub" style="margin:10px 0 0;">Tap a box on the page to select it.</p>`}
-      ${sel ? `<div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
-        <div style="flex:1;font-weight:700;">Selected: ${escapeHtml(ramsBoxWhoLabel(sel.w))} · ${RAMS_BOX_WHAT.find(x=>x.key===sel.t).label}</div>
-        <button class="ghostbtn" style="width:auto;margin:0;padding:7px 12px;color:var(--danger,#B23A3A);" onclick="ramsBoxDelete()">Delete box</button>
-      </div>` : ''}
+      ${help ? `<p style="margin:10px 0 0;font-weight:700;color:var(--brand1);">${escapeHtml(help)}</p>` : `<p class="stub" style="margin:10px 0 0;">Tap a box on the page to select it, tap others to add them, or drag a box to move it.</p>`}
+      ${selBoxes.length ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;font-weight:700;">${selBoxes.length===1 ? 'Selected: '+escapeHtml(ramsBoxWhoLabel(selBoxes[0].w))+' · '+RAMS_BOX_WHAT.find(x=>x.key===selBoxes[0].t).label : selBoxes.length+' boxes selected'}</div>
+          <span class="viewlink" style="cursor:pointer;" onclick="ramsBoxSelectNone()">Clear</span>
+        </div>
+        <p class="stub" style="margin:4px 0 8px;">Drag ${selBoxes.length===1?'it':'any of them'} on the page to move ${selBoxes.length===1?'it':'them together'}. Tap more boxes to add them.</p>
+        ${selBoxes.length>1 ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+          <button class="ghostbtn" style="flex:1;min-width:130px;margin:0;padding:8px 4px;font-size:12.5px;" onclick="ramsBoxAlign('v')">⬍ Align vertically</button>
+          <button class="ghostbtn" style="flex:1;min-width:130px;margin:0;padding:8px 4px;font-size:12.5px;" onclick="ramsBoxAlign('h')">⬌ Align horizontally</button>
+          <button class="ghostbtn" style="flex:1;min-width:130px;margin:0;padding:8px 4px;font-size:12.5px;" onclick="ramsBoxAlign('size')">▭ Make same size</button>
+        </div>
+        <p class="stub" style="margin:0 0 8px;">They line up with the first box you tapped (the one with the thick outline).</p>` : ''}
+        <button class="ghostbtn" style="width:100%;margin:0;padding:8px 12px;color:var(--danger,#B23A3A);" onclick="ramsBoxDelete()">Delete ${selBoxes.length===1?'box':selBoxes.length+' boxes'}</button>
+      </div>` : (pageCount>1 && !ed.mode ? `<p style="margin:8px 0 0;"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxSelectAll()">Select all ${pageCount} boxes on this page</span></p>` : '')}
     </div>`;
   let html = '';
   ed.boxes.forEach((b,i)=>{
     if(b.p !== ed.page) return;
-    const color = ramsBoxWhoColor(b.w), on = i===ed.sel, mine = b.w===ed.who;
-    html += `<div onclick="ramsBoxPick(${i})" style="position:absolute;left:${b.r[0]*100}%;top:${b.r[1]*100}%;width:${b.r[2]*100}%;height:${b.r[3]*100}%;border:${on?3:(mine?2:1.5)}px ${b.t==='sig'?'solid':'dashed'} ${on?'#111':color};background:${color}${mine?'38':'1c'};border-radius:3px;box-sizing:border-box;pointer-events:${ed.mode?'none':'auto'};cursor:pointer;font-size:9px;font-weight:800;color:${color};line-height:1.05;padding:1px 2px;overflow:hidden;white-space:nowrap;">${escapeHtml(ramsBoxWhoLabel(b.w, true))} ${b.t==='sig'?'sign':b.t}</div>`;
+    const color = ramsBoxWhoColor(b.w), on = ed.sels.includes(i), first = ed.sels[0]===i, mine = b.w===ed.who;
+    html += `<div data-i="${i}" style="touch-action:none;position:absolute;left:${b.r[0]*100}%;top:${b.r[1]*100}%;width:${b.r[2]*100}%;height:${b.r[3]*100}%;border:${first?4:(on?2.5:(mine?2:1.5))}px ${b.t==='sig'?'solid':'dashed'} ${on?'#111':color};background:${color}${mine?'38':'1c'};border-radius:3px;box-sizing:border-box;pointer-events:${ed.mode?'none':'auto'};cursor:${on?'move':'pointer'};font-size:9px;font-weight:800;color:${color};line-height:1.05;padding:1px 2px;overflow:hidden;white-space:nowrap;">${escapeHtml(ramsBoxWhoLabel(b.w, true))} ${b.t==='sig'?'sign':b.t}</div>`;
   });
   html += `<div id="rbDrag" style="position:absolute;display:none;border:2px solid #111;background:rgba(17,17,17,.12);border-radius:3px;pointer-events:none;"></div>`;
   ov.innerHTML = html;
   ov.style.touchAction = ed.mode ? 'none' : 'auto';
   ov.style.cursor = ed.mode ? 'crosshair' : 'default';
-  ov.onpointerdown = ed.mode ? ramsBoxPointerDown : null;
+  ov.onpointerdown = ed.mode ? ramsBoxPointerDown : ramsBoxMoveDown;
   if(foot) foot.innerHTML = `
     <button class="darkbtn" style="width:100%;margin:0 0 8px;" ${ed.busy?'disabled':''} onclick="ramsBoxSave()">${ed.busy?'Saving…':(ed.tplId?'Save template':'Save signature boxes')}</button>
     ${ed.tplId ? `<p class="stub" style="margin:4px 0 0;">Set up as many operatives as the form has room for. If fewer people sign, the spare boxes just stay empty.</p>` : `
@@ -21902,7 +21914,7 @@ function ramsBoxPointerDown(ev){
     const w = Math.abs(x1-x0), h = Math.abs(y1-y0);
     if(w < 0.03 || h < 0.008){ toast('Drag across the space to draw the box.'); ramsBoxRefresh(); return; }
     ed.boxes.push({p:ed.page, w:ed.who, t:ed.mode, r:[Math.min(x0,x1), Math.min(y0,y1), w, h].map(r4)});
-    ed.dirty = true; ed.sel = ed.boxes.length-1;
+    ed.dirty = true; ed.sels = [ed.boxes.length-1];
     // Move on to the next kind this person doesn't have on this page yet.
     const have = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page).map(b=>b.t);
     const next = RAMS_BOX_WHAT.find(x=>!have.includes(x.key));
@@ -21915,20 +21927,74 @@ function ramsBoxPointerDown(ev){
 window.ramsBoxGoPage = async function(d){
   const ed = ramsBoxEd; if(!ed || !ed.numPages) return;
   const p = Math.min(ed.numPages, Math.max(1, ed.page+d)); if(p===ed.page) return;
-  ed.page = p; ed.mode = null; ed.sel = -1;
+  ed.page = p; ed.mode = null; ed.sels = [];
   ramsBoxRefresh(); await ramsBoxDrawPage();
 };
-window.ramsBoxJump = async function(p){ const ed = ramsBoxEd; if(!ed || p===ed.page) return; ed.page = p; ed.mode = null; ed.sel = -1; ramsBoxRefresh(); await ramsBoxDrawPage(); };
-window.ramsBoxWho = function(w){ const ed = ramsBoxEd; if(!ed) return; if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10); ed.who = w; ed.mode = null; ed.sel = -1; ramsBoxRefresh(); };
+window.ramsBoxJump = async function(p){ const ed = ramsBoxEd; if(!ed || p===ed.page) return; ed.page = p; ed.mode = null; ed.sels = []; ramsBoxRefresh(); await ramsBoxDrawPage(); };
+window.ramsBoxWho = function(w){ const ed = ramsBoxEd; if(!ed) return; if(/^op\d+$/.test(ed.who)) ed.lastOp = parseInt(ed.who.slice(2),10); ed.who = w; ed.mode = null; ed.sels = []; ramsBoxRefresh(); };
 window.ramsBoxOp = function(d){
   const ed = ramsBoxEd; if(!ed) return;
   const cur = /^op\d+$/.test(ed.who) ? parseInt(ed.who.slice(2),10) : (ed.lastOp||1);
   const n = Math.min(RAMS_BOX_MAX_OPS, Math.max(1, /^op\d+$/.test(ed.who) ? cur+d : cur));
-  ed.who = 'op'+n; ed.lastOp = n; ed.mode = null; ed.sel = -1; ramsBoxRefresh();
+  ed.who = 'op'+n; ed.lastOp = n; ed.mode = null; ed.sels = []; ramsBoxRefresh();
 };
-window.ramsBoxMode = function(m){ const ed = ramsBoxEd; if(!ed) return; ed.mode = ed.mode===m ? null : m; ed.sel = -1; ramsBoxRefresh(); };
-window.ramsBoxPick = function(i){ const ed = ramsBoxEd; if(!ed || ed.mode) return; const b = ed.boxes[i]; if(!b) return; ed.sel = ed.sel===i ? -1 : i; if(ed.sel>=0){ if(/^op\d+$/.test(b.w)) ed.lastOp = parseInt(b.w.slice(2),10); ed.who = b.w; } ramsBoxRefresh(); };
-window.ramsBoxDelete = function(){ const ed = ramsBoxEd; if(!ed || ed.sel<0) return; ed.boxes.splice(ed.sel,1); ed.sel = -1; ed.dirty = true; ramsBoxRefresh(); };
+window.ramsBoxMode = function(m){ const ed = ramsBoxEd; if(!ed) return; ed.mode = ed.mode===m ? null : m; ed.sels = []; ramsBoxRefresh(); };
+// Tap = add to / remove from the selection. Drag = move every selected box
+// together (dragging an unselected box selects just that one and moves it).
+function ramsBoxMoveDown(ev){
+  const ed = ramsBoxEd; if(!ed || ed.mode) return;
+  const el = ev.target.closest ? ev.target.closest('[data-i]') : null; if(!el) return;
+  const i = parseInt(el.getAttribute('data-i'),10); const b = ed.boxes[i]; if(!b) return;
+  const ov = document.getElementById('rbOv'); const rect = ov.getBoundingClientRect();
+  ev.preventDefault();
+  const sx = ev.clientX, sy = ev.clientY; let moved = false;
+  const group = ed.sels.includes(i) ? ed.sels.slice() : [i];
+  const start = group.map(k=>ed.boxes[k].r.slice());
+  // The whole group stops together at the page edge, so it keeps its shape.
+  const minX = Math.min(...start.map(r=>r[0])), minY = Math.min(...start.map(r=>r[1]));
+  const maxX = Math.max(...start.map(r=>r[0]+r[2])), maxY = Math.max(...start.map(r=>r[1]+r[3]));
+  const els = group.map(k=>ov.querySelector('[data-i="'+k+'"]'));
+  let dx = 0, dy = 0;
+  const move = e=>{
+    if(!moved && Math.abs(e.clientX-sx) < 5 && Math.abs(e.clientY-sy) < 5) return;
+    moved = true;
+    dx = Math.max(-minX, Math.min(1-maxX, (e.clientX-sx)/rect.width));
+    dy = Math.max(-minY, Math.min(1-maxY, (e.clientY-sy)/rect.height));
+    els.forEach((x,n)=>{ if(x){ x.style.left = (start[n][0]+dx)*100+'%'; x.style.top = (start[n][1]+dy)*100+'%'; } });
+  };
+  const up = ()=>{
+    ov.removeEventListener('pointermove', move); ov.removeEventListener('pointerup', up); ov.removeEventListener('pointercancel', up);
+    if(moved){
+      group.forEach((k,n)=>{ ed.boxes[k].r[0] = Math.round((start[n][0]+dx)*10000)/10000; ed.boxes[k].r[1] = Math.round((start[n][1]+dy)*10000)/10000; });
+      ed.sels = group; ed.dirty = true;
+    } else {
+      // a tap: toggle this box in the selection
+      if(ed.sels.includes(i)) ed.sels = ed.sels.filter(k=>k!==i);
+      else { ed.sels = ed.sels.concat([i]); if(/^op\d+$/.test(b.w)) ed.lastOp = parseInt(b.w.slice(2),10); ed.who = b.w; }
+    }
+    ramsBoxRefresh();
+  };
+  try{ ov.setPointerCapture(ev.pointerId); }catch(e){}
+  ov.addEventListener('pointermove', move); ov.addEventListener('pointerup', up); ov.addEventListener('pointercancel', up);
+}
+window.ramsBoxSelectAll = function(){ const ed = ramsBoxEd; if(!ed) return; ed.mode = null; ed.sels = ed.boxes.map((b,i)=>b.p===ed.page ? i : -1).filter(i=>i>=0); ramsBoxRefresh(); };
+window.ramsBoxSelectNone = function(){ const ed = ramsBoxEd; if(!ed) return; ed.sels = []; ramsBoxRefresh(); };
+// Lines the selected boxes up with the FIRST one tapped.
+//   'v'    = align vertically: one straight column (same left edge)
+//   'h'    = align horizontally: one straight row (same top edge)
+//   'size' = same width and height as the first
+window.ramsBoxAlign = function(how){
+  const ed = ramsBoxEd; if(!ed || ed.sels.length < 2) return;
+  const ref = ed.boxes[ed.sels[0]].r;
+  ed.sels.slice(1).forEach(k=>{
+    const r = ed.boxes[k].r;
+    if(how==='v') r[0] = Math.max(0, Math.min(1-r[2], ref[0]));
+    else if(how==='h') r[1] = Math.max(0, Math.min(1-r[3], ref[1]));
+    else { r[2] = Math.min(ref[2], 1-r[0]); r[3] = Math.min(ref[3], 1-r[1]); }
+  });
+  ed.dirty = true; ramsBoxRefresh();
+};
+window.ramsBoxDelete = function(){ const ed = ramsBoxEd; if(!ed || !ed.sels.length) return; const gone = new Set(ed.sels); ed.boxes = ed.boxes.filter((b,i)=>!gone.has(i)); ed.sels = []; ed.dirty = true; ramsBoxRefresh(); };
 // Copies the current operative's boxes on this page to the next operative,
 // shifted by the remembered spacing, and moves on to that operative — so a
 // ten-row sign-off sheet is one tap and then eight presses of this button.
@@ -21945,7 +22011,7 @@ window.ramsBoxRepeatAgain = function(){
   moved.forEach(b=>{ b.r[0] = Math.max(0, Math.min(1-b.r[2], b.r[0])); b.r[1] = Math.max(0, Math.min(1-b.r[3], b.r[1])); });
   // Replace anything that operative already had on this page.
   ed.boxes = ed.boxes.filter(b=>!(b.w===next && b.p===ed.page)).concat(moved);
-  ed.who = next; ed.lastOp = n+1; ed.sel = -1; ed.mode = null; ed.dirty = true;
+  ed.who = next; ed.lastOp = n+1; ed.sels = []; ed.mode = null; ed.dirty = true;
   ramsBoxRefresh();
 };
 window.ramsBoxSave = async function(){
@@ -21968,7 +22034,7 @@ window.ramsBoxSave = async function(){
 window.ramsBoxClear = async function(){
   const ed = ramsBoxEd; if(!ed) return;
   if(!await customConfirm('Remove all signature boxes from this document? Signatures will go back to the summary page at the end.', {confirmLabel:'Remove', danger:true})) return;
-  ed.boxes = []; ed.sel = -1; ed.mode = null;
+  ed.boxes = []; ed.sels = []; ed.mode = null;
   await ramsBoxSave();
 };
 window.ramsBoxSaveTemplate = async function(){
@@ -21997,7 +22063,7 @@ window.ramsBoxApplyTemplate = async function(id){
   const o = document.getElementById('rbTplOv'); if(o) o.remove();
   const all = JSON.parse(JSON.stringify(ramsLayoutBoxes(tp.layout)));
   const fit = all.filter(b=>!ed.numPages || b.p<=ed.numPages);
-  ed.boxes = fit; ed.dirty = true; ed.mode = null; ed.sel = -1;
+  ed.boxes = fit; ed.dirty = true; ed.mode = null; ed.sels = [];
   if(fit.length) ed.page = fit[0].p;
   toast(fit.length < all.length ? (all.length-fit.length)+' box(es) left out — this document has fewer pages.' : 'Template applied — check the boxes line up, then Save.');
   ramsBoxRefresh(); await ramsBoxDrawPage();
