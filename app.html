@@ -2477,7 +2477,7 @@ const REPORT_FIELD_TYPES = [
   {k:'text', lbl:'Short Text'},
   {k:'textarea', lbl:'Notes Box (long text)'},
   {k:'number', lbl:'Number'},
-  {k:'passfail', lbl:'Pass / Fail / N-A'},
+  {k:'passfail', lbl:'Yes / No / N-A'},
   {k:'choice', lbl:'Multiple Choice (pick one)'},
   {k:'multichoice', lbl:'Multiple Choice (tick many)'},
   {k:'checkbox', lbl:'Yes / No'},
@@ -14981,7 +14981,7 @@ function renderTemplateItemEditor(si, ii, it){
           ${it.allowMedia!==false ? renderMediaRequiredEditor(si, ii, it) : ''}
         ` : ''}
         ${(it.type==='passfail' || it.type==='checkbox') ? `
-          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="${P}.scored=this.checked">Count towards score${it.type==='passfail' ? ' (Pass = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
+          <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.scored?'checked':''} onchange="${P}.scored=this.checked">Count towards score${it.type==='passfail' ? ' (Yes = 1 point, N/A excluded)' : ' (Yes = 1 point)'}</label>
         ` : ''}
         ${(it.type==='text' || it.type==='date') ? `
           <label class="field-label" style="margin-top:8px;margin-bottom:2px;">Fill in automatically with</label>
