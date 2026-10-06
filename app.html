@@ -5450,10 +5450,7 @@ async function renderTeam(){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
       </div>
-      <div class="tile" onclick="go('#/sign-templates')">
-        <div class="icon" style="background:var(--ok-bg,#E7F3EC);color:var(--ok,#2E8B57);">✍</div>
-        <div class="lbl">Signing Templates</div><div class="sub">Pre-set sign boxes</div>
-      </div>
+
       <div class="tile" onclick="go('#/dashboard')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
         <div class="lbl">Company Dashboard</div>
@@ -5580,6 +5577,9 @@ async function renderTeam(){
       <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team')">+ New Template</button>
     </div>
     ` : ''}
+    ` : ''}
+    ${isManager(ME) ? `
+    <p class="ddrow" style="${ddHdr}" onclick="teamSectionOpen.libraries=true;go('#/sign-templates')"><span class="arrow">▶</span> Signing Templates <span class="stub" style="font-weight:400;">— pre-set sign boxes for RAMS</span></p>
     ` : ''}
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('sowlibrary')"><span class="arrow">${teamSectionOpen.sowlibrary?'▼':'▶'}</span> Schedule of Works — Library</p>
@@ -21786,7 +21786,7 @@ function ramsBoxRefresh(){
       <button class="ghostbtn" style="flex:1;margin:0;" ${ed.templates.length?'':'disabled'} onclick="ramsBoxUseTemplate()">Use a template</button>
     </div>
     ${ed.doc.sign_layout ? `<button class="ghostbtn" style="width:100%;margin:8px 0 0;" onclick="ramsBoxClear()">Remove all boxes from this document</button>` : ''}
-    <p class="stub" style="margin:10px 0 0;">Tip: set your standard forms up once under Settings → Signing Templates, then just pick the template when you upload.</p>`}`;
+    <p class="stub" style="margin:10px 0 0;">Tip: set your standard forms up once under Settings → Libraries → Signing Templates, then just pick the template when you upload.</p>`}`;
 }
 function ramsBoxPointerDown(ev){
   const ed = ramsBoxEd, t = ramsBoxCurTable(); if(!ed || !t || !ed.mode) return;
@@ -21932,7 +21932,7 @@ window.ramsBoxDeleteTemplate = async function(id){
   if(ok){ ed.templates = ed.templates.filter(x=>x.id!==id); const o = document.getElementById('rbTplOv'); if(o) o.remove(); if(ed.templates.length) ramsBoxUseTemplate(); ramsBoxRefresh(); }
 };
 /* ================= SIGNING TEMPLATES LIBRARY ================= */
-// Settings → Signing Templates. Upload a SAMPLE of a form you use again and
+// Settings → Libraries → Signing Templates. Upload a SAMPLE of a form you use again and
 // again (e.g. a client's RAMS form), mark the sign boxes on it once, and
 // from then on choose that template when uploading the real document for a
 // job: the real document takes the sample's place and keeps the boxes.
