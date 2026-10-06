@@ -5470,7 +5470,17 @@ async function renderTeam(){
     <p class="ddrow ddrow-hdr" style="margin-top:14px;" onclick="toggleTeamSection('brandingintegrations')"><span class="icon" style="background:var(--brand1);color:var(--brand1-text);">🎨</span><span class="lbl">Branding &amp; Integrations</span><span class="arrow">${teamSectionOpen.brandingintegrations?'▼':'▶'}</span></p>
     ${teamSectionOpen.brandingintegrations ? `
     <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
-    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Company Logo &amp; Theme</p>
+    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('expensesemail')"><span class="arrow">${teamSectionOpen.expensesemail?'▼':'▶'}</span> Expenses Email</p>
+    ${teamSectionOpen.expensesemail ? `
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">Receipts sent from the Expenses tile on any job are emailed to this address.</p>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
+        <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
+      </div>
+      <button class="darkbtn" style="margin-top:10px;" onclick="saveExpensesEmail()">Save</button>
+      ${ORG && ORG.expenses_email ? `<p class="stub" style="margin:8px 0 0;color:var(--good,#1F9D62);">✓ Currently going to ${escapeHtml(ORG.expenses_email)}</p>` : `<p class="stub" style="margin:8px 0 0;color:var(--warn);">Not set yet — receipts can't be sent until an address is saved.</p>`}
+    </div>` : ''}
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('branding')"><span class="arrow">${teamSectionOpen.branding?'▼':'▶'}</span> Company Logo &amp; Theme</p>
     ${teamSectionOpen.branding ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Logo</p>
     <div class="card">
@@ -8157,6 +8167,10 @@ async function renderSiteHome(siteId){
           <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
           <div class="lbl">${escapeHtml(snaggingFolderLabel())}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
+        </div>`,
+        `<div class="tile" onclick="go('#/site/${siteId}/expenses')">
+          <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
+          <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
         </div>`,
       ];
       // Schedule of Works always holds position 2 overall (top left, right
@@ -21811,6 +21825,175 @@ window.signAllRams = async function(siteId){
   const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
+/* ================= EXPENSES (project tile) ================= */
+// A quick way to get receipts to the office: photograph or attach them, say
+// which job each is for, Save — and they are emailed to the company's
+// preset expenses address (Settings › Branding & Integrations › Expenses
+// Email). One screen can carry several entries, each for a different job,
+// for fuel, or for a job that isn't on the app (typed in).
+let expDraft = null;
+function expNewEntry(siteId){ return {key: uid(), job: siteId ? 'site:'+siteId : '', manual:'', note:'', files:[]}; }
+function expJobLabel(e){
+  if(e.job==='fuel') return 'Fuel'+(e.manual ? ' — '+e.manual : '');
+  if(e.job==='manual') return e.manual || 'Not on the app';
+  const s = SITES.find(x=>'site:'+x.id===e.job);
+  return s ? s.name : '';
+}
+function expRowLabel(r){
+  if(r.site_id){ const s = SITES.find(x=>x.id===r.site_id); return s ? s.name : 'Job'; }
+  return (r.category==='fuel' ? 'Fuel'+(r.manual_label ? ' — '+r.manual_label : '') : (r.manual_label || 'Not on the app'));
+}
+async function renderExpenses(siteId){
+  const __gen = RENDER_GEN;
+  if(isClient(ME)){ go(`#/site/${siteId}/home`); return; }
+  if(!expDraft || expDraft.siteId !== siteId) expDraft = {siteId, entries:[expNewEntry(siteId)], ccMe:false, busy:false, progress:''};
+  const d = expDraft;
+  await loadOrg();
+  const since = new Date(); since.setDate(since.getDate()-60);
+  const recent = await dbSelect('expenses', (isFullManager(ME) ? '' : 'created_by=eq.'+ME.id+'&')+'created_at=gte.'+since.toISOString()+'&order=created_at.desc&limit=30');
+  if(isFullManager(ME)) await loadAllProfiles();
+  if(__gen !== RENDER_GEN) return;
+  const toEmail = (ORG && ORG.expenses_email) || '';
+  const jobOptions = e=>`
+    <option value="">Choose a job…</option>
+    <optgroup label="Jobs on the app">${SITES.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(s=>`<option value="site:${s.id}" ${e.job==='site:'+s.id?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</optgroup>
+    <optgroup label="Something else">
+      <option value="fuel" ${e.job==='fuel'?'selected':''}>⛽ Fuel</option>
+      <option value="manual" ${e.job==='manual'?'selected':''}>✏️ A job not on the app (type it in)</option>
+    </optgroup>`;
+  const totalFiles = d.entries.reduce((n,e)=>n+e.files.length, 0);
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="margin-bottom:12px;">
+      <p style="margin:0 0 4px;font-weight:700;">🧾 Send receipts to the office</p>
+      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, they're emailed to <b>${escapeHtml(toEmail)}</b>.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.expensesemail=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
+    </div>
+    ${d.entries.map((e,i)=>`
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <p style="margin:0;flex:1;font-weight:700;">Receipt${d.entries.length>1 ? ' group '+(i+1) : 's'}</p>
+        ${d.entries.length>1 ? `<span class="viewlink" style="cursor:pointer;color:var(--danger,#B23A3A);" onclick="expRemoveEntry('${e.key}')">Remove</span>` : ''}
+      </div>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Which job is this for?</label>
+        <select onchange="expSetJob('${e.key}',this.value)">${jobOptions(e)}</select>
+      </div>
+      ${e.job==='manual' ? `<div class="formfield"><label class="field-label">Job name / address</label><input type="text" maxlength="120" value="${escapeHtml(e.manual)}" oninput="expField('${e.key}','manual',this.value)" placeholder="e.g. 14 High Street, Brentwood"></div>` : ''}
+      ${e.job==='fuel' ? `<div class="formfield"><label class="field-label">Vehicle (optional)</label><input type="text" maxlength="60" value="${escapeHtml(e.manual)}" oninput="expField('${e.key}','manual',this.value)" placeholder="e.g. Van reg AB12 CDE"></div>` : ''}
+      <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" maxlength="300" value="${escapeHtml(e.note)}" oninput="expField('${e.key}','note',this.value)" placeholder="What it was for, or the amount"></div>
+      ${e.files.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:10px 0 2px;">${e.files.map((f,k)=>`
+        <div style="position:relative;width:64px;height:64px;flex:0 0 64px;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center;">
+          ${f.preview ? `<img src="${f.preview}" style="width:64px;height:64px;object-fit:cover;display:block;">` : `<span style="font-size:10px;font-weight:700;text-align:center;padding:2px;word-break:break-all;line-height:1.15;">📄<br>${escapeHtml((f.name||'file').slice(0,14))}</span>`}
+          <div class="taskphotodel" title="Remove" onclick="expRemoveFile('${e.key}',${k})">×</div>
+        </div>`).join('')}</div>` : ''}
+      <div class="row-gap" style="margin-top:10px;">
+        <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;margin:0;${d.busy?'opacity:.6;pointer-events:none;':''}">📷 Take photo
+          <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="expAddFiles('${e.key}',this)"></label>
+        <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;margin:0;${d.busy?'opacity:.6;pointer-events:none;':''}">📎 Photos / files
+          <input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="expAddFiles('${e.key}',this)"></label>
+      </div>
+    </div>`).join('')}
+    <button class="ghostbtn" style="width:100%;margin:0 0 12px;" ${d.busy?'disabled':''} onclick="expAddEntry()">+ Add receipts for another job</button>
+    <label style="display:flex;align-items:center;gap:10px;margin:0 0 12px;font-size:14px;cursor:pointer;">
+      <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${d.ccMe?'checked':''} onchange="expDraft.ccMe=this.checked"> CC me a copy${ME.email ? ` <span class="stub">(${escapeHtml(ME.email)})</span>` : ''}
+    </label>
+    <button class="darkbtn" style="width:100%;margin:0;padding:15px;font-size:15px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} file${totalFiles===1?'':'s'}` : 'Save &amp; send')}</button>
+    <p class="sectiontitle" style="margin-top:22px;">Sent recently</p>
+    ${recent.length ? recent.map(r=>`
+      <div class="sitecard" style="display:block;padding:9px 11px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="name" style="flex:1;min-width:0;">${escapeHtml(expRowLabel(r))}</div>
+          <span class="stub" style="white-space:nowrap;">${new Date(r.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
+        </div>
+        <div class="addr" style="margin-top:2px;">${(r.file_paths||[]).length} file${(r.file_paths||[]).length===1?'':'s'}${r.note ? ' · '+escapeHtml(r.note) : ''}${isFullManager(ME) && r.created_by!==ME.id ? ' · '+escapeHtml(nameOf(r.created_by)) : ''}</div>
+        <div class="addr" style="margin-top:2px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}
+          ${(r.file_paths||[]).map((p,k)=>` · <span class="viewlink" style="cursor:pointer;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</span>`).join('')}</div>
+      </div>`).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
+  `, {title:'Expenses', back:`#/site/${siteId}/home`, siteId, activeTab:'more'});
+}
+function expEntry(key){ return expDraft ? expDraft.entries.find(e=>e.key===key) : null; }
+window.expSetJob = function(key, v){ const e = expEntry(key); if(!e) return; e.job = v; if(v!=='manual' && v!=='fuel') e.manual = ''; render(); };
+window.expField = function(key, f, v){ const e = expEntry(key); if(e) e[f] = v; };
+window.expAddEntry = function(){ if(!expDraft) return; expDraft.entries.push(expNewEntry(null)); render(); };
+window.expRemoveEntry = function(key){ if(!expDraft) return; expDraft.entries = expDraft.entries.filter(e=>e.key!==key); if(!expDraft.entries.length) expDraft.entries.push(expNewEntry(expDraft.siteId)); render(); };
+window.expRemoveFile = function(key, i){ const e = expEntry(key); if(!e) return; e.files.splice(i,1); render(); };
+window.expAddFiles = async function(key, input){
+  const e = expEntry(key); const files = input.files ? Array.from(input.files) : [];
+  if(!e || !files.length) return;
+  for(const f of files){
+    const isPdf = f.type==='application/pdf' || /\.pdf$/i.test(f.name||'');
+    if(isPdf){
+      if(f.size > 15*1024*1024){ toast((f.name||'That file')+' is over 15MB — too big to send.'); continue; }
+      e.files.push({name:f.name||'receipt.pdf', file:f, isPdf:true, preview:null});
+    } else {
+      try{
+        // Shrunk now so the upload at Save is quick; plenty sharp to read a receipt.
+        const dataUrl = await compressImage(f, {maxW:1500, quality:0.8});
+        let preview = dataUrl; try{ preview = await shrinkDataUrl(dataUrl, 160, 0.7); }catch(err){}
+        e.files.push({name:f.name||'receipt.jpg', dataUrl, isPdf:false, preview});
+      }catch(err){ /* compressImage has already said why */ }
+    }
+  }
+  try{ input.value = ''; }catch(err){}
+  render();
+};
+window.expSave = async function(){
+  const d = expDraft; if(!d || d.busy) return;
+  const entries = d.entries.filter(e=>e.files.length);
+  if(!entries.length){ toast('Add at least one photo or file.'); return; }
+  for(const e of entries){
+    if(!e.job){ toast('Choose which job each set of receipts is for.'); return; }
+    if(e.job==='manual' && !e.manual.trim()){ toast('Type the job name for the one that\'s not on the app.'); return; }
+  }
+  d.busy = true; d.progress = 'Uploading…'; render();
+  const batchId = crypto.randomUUID();
+  try{
+    const rows = [];
+    let done = 0; const total = entries.reduce((n,e)=>n+e.files.length, 0);
+    for(const e of entries){
+      const stored = await runPool(e.files, 3, async f=>{
+        const path = 'expenses/'+ME.org_id+'/'+batchId+'/'+crypto.randomUUID()+(f.isPdf ? '.pdf' : '.jpg');
+        const p = f.isPdf ? await uploadToStorage('site-photos', path, f.file, 'application/pdf') : await uploadDataUrl('site-photos', path, f.dataUrl);
+        done++; d.progress = 'Uploading '+done+' of '+total+'…';
+        const btn = document.querySelector('button[onclick="expSave()"]'); if(btn) btn.textContent = d.progress;
+        return p ? {path:p, name:f.name} : null;
+      });
+      const ok = stored.filter(Boolean);
+      if(ok.length < e.files.length) throw new Error('Some files did not upload — check your connection and try again.');
+      const siteId = e.job.indexOf('site:')===0 ? e.job.slice(5) : null;
+      rows.push({batch_id:batchId, site_id:siteId, manual_label: siteId ? null : (e.manual.trim() || null), category: e.job==='fuel' ? 'fuel' : (siteId ? 'materials' : 'other'), note: e.note.trim() || null, file_paths: ok.map(x=>x.path), file_names: ok.map(x=>x.name)});
+    }
+    const saved = await dbInsert('expenses', rows);
+    if(!saved) throw new Error('Could not save — please try again.');
+    d.progress = 'Sending email…'; const btn = document.querySelector('button[onclick="expSave()"]'); if(btn) btn.textContent = d.progress;
+    const ccMe = d.ccMe;
+    expDraft = {siteId:d.siteId, entries:[expNewEntry(d.siteId)], ccMe:false, busy:false, progress:''};
+    await expSendBatch(batchId, ccMe, true);
+  }catch(err){
+    console.error('[expSave]', err);
+    d.busy = false; d.progress = '';
+    toast((err && err.message) || 'Could not save — please try again.');
+  }
+  render();
+};
+async function expSendBatch(batchId, ccMe, justSaved){
+  try{
+    const res = await sbFetch('/functions/v1/send-expenses-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({batch_id: batchId, cc_me: !!ccMe})});
+    let out = null; try{ out = await res.json(); }catch(e){}
+    if(res.ok && out && out.ok){ customAlert('✓ Receipts saved and emailed'+(out.to ? ' to '+out.to : '')+(ccMe && ME.email ? ', with a copy to you' : '')+'.'); return true; }
+    toast((justSaved ? 'Saved, but the email did not send — ' : 'Could not send — ')+((out && out.error) || res.status)+(justSaved ? ' Use "Send now" below.' : ''));
+  }catch(e){
+    toast((justSaved ? 'Saved, but the email did not send — ' : 'Could not send — ')+'check your connection.'+(justSaved ? ' Use "Send now" below.' : ''));
+  }
+  return false;
+}
+window.expResend = async function(batchId){ toast('Sending…'); await expSendBatch(batchId, false, false); render(); };
+window.saveExpensesEmail = async function(){
+  const el = document.getElementById('expensesEmailInput'); if(!el) return;
+  const v = el.value.trim();
+  if(v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ toast('Enter a valid email address.'); return; }
+  const row = await dbUpdate('organizations', ME.org_id, {expenses_email: v || null});
+  if(row){ if(ORG) ORG.expenses_email = v || null; toast(v ? 'Expenses email saved' : 'Expenses email removed'); render(); }
+  else toast('Could not save — only a Project Manager or Admin can change this.');
+};
 /* ================= RAMS SIGNATURE BOXES (DocuSign-style placement) ================= */
 // A manager marks, once, every place in a document where somebody signs —
 // in the Signing Templates library (on a sample of the form) or on one
@@ -33246,6 +33429,7 @@ async function renderRoute(){
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='expenses') return renderExpenses(siteId);
     if(page==='plant') return renderPlant(siteId);
     if(page==='materialrequests') return renderMaterialRequests(siteId);
     if(page==='materialrequired') return renderMaterialRequiredList(siteId);
