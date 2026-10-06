@@ -19052,10 +19052,13 @@ async function buildSchedulePdfBytes(siteId){
       {label:'In progress', value:String(progTasks.length), bg:PROGBG, fg:PROG},
       {label:'Complete', value:String(doneTasks.length), bg:OKBG, fg:OK},
     ].forEach((c,i)=>{
-      const x = MARGIN + i*(chipW+chipGap);
+      // The four boxes sit centred across the page (they used to start at
+      // the left margin), with the figure and label centred in each box.
+      const x = (PAGE_W - (4*chipW + 3*chipGap))/2 + i*(chipW+chipGap);
       page.drawRectangle({x, y:chipY, width:chipW, height:44, color:c.bg});
-      page.drawText(c.value, {x:x+12, y:chipY+22, size:16, font:bold, color:c.fg});
-      page.drawText(c.label.toUpperCase(), {x:x+12, y:chipY+8, size:7, font:bold, color:c.fg, opacity:0.85});
+      const lbl = c.label.toUpperCase();
+      page.drawText(c.value, {x:x+(chipW-bold.widthOfTextAtSize(c.value,16))/2, y:chipY+22, size:16, font:bold, color:c.fg});
+      page.drawText(lbl, {x:x+(chipW-bold.widthOfTextAtSize(lbl,7))/2, y:chipY+8, size:7, font:bold, color:c.fg, opacity:0.85});
     });
     // Overall progress bar.
     y = chipY - 22;
@@ -19201,19 +19204,28 @@ async function buildSchedulePdfBytes(siteId){
       }
     }
 
-    if(todoTasks.length){
-      sectionHeader('TO DO (' + todoTasks.length + ')', TODO);
-      for(const t of todoTasks) await drawTaskRow(t, TODO, TODOBG);
+    // Tasks are listed in the Schedule of Works' own order — loose tasks
+    // first, then each section in turn, exactly as on screen — and NOT
+    // regrouped by status (it used to put To Do, then In Progress, then
+    // Complete, which scattered a section's tasks across the report). Each
+    // row still carries its own coloured status pill.
+    const rowColours = t=> t.status==='done' ? [OK, OKBG] : (t.status==='progress' ? [PROG, PROGBG] : [TODO, TODOBG]);
+    const sowSections = await dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
+    const sowGroups = [];
+    const loose = allTasks.filter(t=>!t.section_id);
+    if(loose.length) sowGroups.push({label:'SCHEDULE OF WORKS', tasks: loose});
+    sowSections.forEach(sec=>{
+      const list = allTasks.filter(t=>t.section_id===sec.id);
+      if(list.length) sowGroups.push({label: String(sec.name||'Section').toUpperCase(), tasks: list});
+    });
+    // Anything pointing at a section that no longer exists still gets listed.
+    const known = new Set(sowSections.map(x=>x.id));
+    const orphan = allTasks.filter(t=>t.section_id && !known.has(t.section_id));
+    if(orphan.length) sowGroups.push({label:'OTHER', tasks: orphan});
+    for(const g of sowGroups){
+      sectionHeader(truncateToWidth(bold, g.label, 11.5, PAGE_W - 2*MARGIN - 50) + ' (' + g.tasks.length + ')', INK);
+      for(const t of g.tasks){ const [fg, bg] = rowColours(t); await drawTaskRow(t, fg, bg); }
       y -= 6;
-    }
-    if(progTasks.length){
-      sectionHeader('IN PROGRESS (' + progTasks.length + ')', PROG);
-      for(const t of progTasks) await drawTaskRow(t, PROG, PROGBG);
-      y -= 6;
-    }
-    if(doneTasks.length){
-      sectionHeader('COMPLETE (' + doneTasks.length + ')', OK);
-      for(const t of doneTasks) await drawTaskRow(t, OK, OKBG);
     }
 
     // Media summary appendix — every progress photo on every task, not just
