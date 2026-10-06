@@ -21269,15 +21269,31 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const notSigned = roster.filter(id => !sigs.some(s=>s.user_id===id));
     let outstandingHtml;
     const sigLine = s => `${s.issued ? '📝 Issued by' : '✓'} ${escapeHtml(nameOf(s.user_id))}${(!s.issued && s.signature_image_path) ? `<img src="${publicUrl('signatures', s.signature_image_path)}" style="height:20px;object-fit:contain;">` : ''} — ${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}`;
-    if(!roster.length){
-      outstandingHtml = sigs.length ? `<div class="signerlist">${sigs.map(s=>`<div style="display:flex;align-items:center;gap:8px;">${sigLine(s)}</div>`).join('')}</div>` : '';
-    } else if(!notSigned.length){
-      outstandingHtml = `<div class="signerlist"><div style="display:flex;align-items:center;gap:8px;color:var(--good);font-weight:600;">✓ RAMS signed by all operatives</div></div>`;
-    } else {
-      // Grouped three-to-a-row so a long roster doesn't stretch the card tall.
-      outstandingHtml = `<div class="signerlist"><div class="meta" style="margin-bottom:4px;">Still need to sign:</div>
-        <div style="display:flex;flex-wrap:wrap;">${notSigned.map(id=>`<div style="flex:0 0 33.333%;box-sizing:border-box;display:flex;align-items:center;gap:6px;padding:3px 4px 3px 0;">○ ${escapeHtml(nameOf(id))}</div>`).join('')}</div>
-      </div>`;
+    // Signing progress, spelled out person by person, so it is obvious who
+    // has signed, who hasn't, and (when the document has signature boxes)
+    // which set of boxes each signature goes into. The old single line
+    // "signed by all operatives" said nothing about who or how many.
+    {
+      const hasBoxes = ramsLayoutBoxes(r.sign_layout).length > 0;
+      const slots = ramsLayoutSlots(r.sign_layout);
+      const d = t=>new Date(t).toLocaleDateString(undefined,{day:'2-digit',month:'short'});
+      // Operative signatures in the order they signed = Operative 1, 2, 3… boxes.
+      const opSigs = sigs.filter(x=>!x.issued).slice().sort((x,y)=>new Date(x.signed_at)-new Date(y.signed_at));
+      const boxNote = n=> hasBoxes ? (n<=slots ? ` <span class="stub">→ Operative ${n} boxes</span>` : ` <span class="stub" style="color:var(--warn);">→ no box left, goes on the summary page</span>`) : '';
+      const signedRows = opSigs.map((x,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0;flex-wrap:wrap;"><span style="color:var(--good,#1F9D62);font-weight:700;">✓</span> ${escapeHtml(nameOf(x.user_id))}${x.signature_image_path ? `<img src="${publicUrl('signatures', x.signature_image_path)}" style="height:18px;object-fit:contain;">` : ''} <span class="stub">${d(x.signed_at)}</span>${boxNote(i+1)}</div>`).join('');
+      const waitingRows = notSigned.map((id,i)=>`<div style="display:flex;align-items:center;gap:6px;padding:2px 0;flex-wrap:wrap;">○ ${escapeHtml(nameOf(id))} <span class="stub">not signed yet${hasBoxes && canAdd ? (opSigs.length+i+1<=slots ? ' — will take the next free operative boxes' : '') : ''}</span></div>`).join('');
+      const total = roster.length, done = total - notSigned.length;
+      let head;
+      if(!total) head = canAdd ? `<span class="stub">No operatives are assigned to this job yet, so nobody is being asked to sign. Assign them to the job and they'll see this to sign.</span>` : '';
+      else if(!notSigned.length) head = `<span style="color:var(--good,#1F9D62);font-weight:700;">✓ All ${total} operative${total===1?'':'s'} on this job ${total===1?'has':'have'} signed</span>`;
+      else head = `<b>${done} of ${total}</b> operative${total===1?'':'s'} signed`;
+      let notes = '';
+      if(hasBoxes && canAdd){
+        if(total > slots) notes += `<div class="stub" style="margin-top:4px;color:var(--warn);">⚠ ${total} operatives on this job but the document only has boxes for ${slots}. The extra ${total-slots} will be listed on a summary page at the end.</div>`;
+        else if(slots > total) notes += `<div class="stub" style="margin-top:4px;">Boxes for ${slots} operatives, ${total} on this job — the spare ${slots-total} stay blank.</div>`;
+        notes += `<div class="stub" style="margin-top:4px;">Each operative taps once to sign; their name, signature and date go into every box set for them. <span class="viewlink" style="cursor:pointer;" onclick="previewRamsBoxes('${r.id}')">👁 Test fill — see every box filled with sample names</span></div>`;
+      }
+      outstandingHtml = (head || signedRows || waitingRows) ? `<div class="signerlist">${head ? `<div style="margin-bottom:4px;">${head}</div>` : ''}${signedRows}${waitingRows}${notes}</div>` : '';
     }
     // Everyone who's issued/signed this doc, beyond just the roster's
     // outstanding operatives — shown underneath so a PM's "issued" record is
@@ -22297,6 +22313,28 @@ async function buildSignedRamsPdfBytes(ramsId){
     return null;
   }
 }
+// "Test fill": the document with EVERY signature box filled with sample
+// text ("Operative 3", "Client 1"…), so a manager can check the boxes are
+// in the right places before anybody signs. Nothing is saved or signed.
+window.previewRamsBoxes = async function(ramsId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
+  toast('Building test fill…');
+  try{
+    const docs = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=*');
+    const doc = docs[0];
+    if(!doc || !ramsLayoutBoxes(doc.sign_layout).length){ toast('This document has no signature boxes set.'); return; }
+    const srcBytes = await (await fetch(publicUrl('rams-docs', doc.storage_path))).arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(srcBytes, {ignoreEncryption:true});
+    const today = new Date().toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'});
+    const sample = label=>({plainName: label, dateText: today, imagePath: null, issued: false});
+    const ops = []; for(let i=1; i<=ramsLayoutSlots(doc.sign_layout); i++) ops.push(sample('Operative '+i));
+    const clients = {}; for(let i=1; i<=ramsLayoutClients(doc.sign_layout); i++) clients[i] = sample('Client '+i);
+    await stampRamsSignLayout(pdfDoc, doc.sign_layout, {ops, pm: sample('Project Manager'), clients});
+    const filename = exportFilename('', doc.name+' (TEST FILL - not signed)', 'pdf');
+    pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
+    await deliverPdf(await pdfDoc.save(), filename);
+  }catch(e){ console.error('[previewRamsBoxes]', e); toast('Could not build the test fill — '+((e && e.message) || 'please try again')); }
+};
 window.exportSignedRams = async function(ramsId){
   toast('Building signed PDF…');
   const built = await buildSignedRamsPdfBytes(ramsId);
