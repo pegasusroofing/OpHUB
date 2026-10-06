@@ -14930,6 +14930,7 @@ function renderTemplateItemEditor(si, ii, it){
   const condText = parent ? (it.showIf.mode==='notblank' ? 'is answered' : ((it.showIf.values||[]).length ? 'is '+(it.showIf.values||[]).map(v=>PASSFAIL_LABEL[v]||v).join(' or ') : 'is… (pick the answer in More options)')) : '';
   const fuVals = followUpValuesFor(it);
   const usedSet = (it.presetId && (it.type==='choice' || it.type==='multichoice')) ? orgAnswerSets().find(a=>a.id===it.presetId) : null;
+  const isYnnv = it.type==='choice' && it.presetId==='builtin_ynnv';
   return `
     <div style="border:1.5px solid ${parent?'var(--brand1)':'var(--line)'};border-radius:12px;padding:10px;margin-bottom:8px;background:var(--card);${parent?'margin-left:16px;':''}">
       ${parent ? `<p class="stub" style="margin:0 0 6px;font-weight:700;color:var(--ink);">↳ Only asked if “${escapeHtml(parent.label||'the question above')}” ${escapeHtml(condText)}</p>` : ''}
@@ -14939,7 +14940,7 @@ function renderTemplateItemEditor(si, ii, it){
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <select style="flex:1;min-width:0;margin:0;" onchange="setTemplateItemType(${si},${ii},this.value)">
-          ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${!usedSet && it.type===ft.k?'selected':''}>${ft.lbl}</option>`).join('')}
+          ${REPORT_FIELD_TYPES.map(ft=>`<option value="${ft.k}" ${!usedSet && !isYnnv && it.type===ft.k?'selected':''}>${ft.lbl}</option>${ft.k==='passfail' ? `<option value="ynnv" ${isYnnv?'selected':''}>Yes / No / N-A / Not Visible</option>` : ''}`).join('')}
           ${orgAnswerSets().length ? `<optgroup label="Your answer types">${orgAnswerSets().map(a=>`<option value="set:${a.id}" ${usedSet && usedSet.id===a.id?'selected':''}>${escapeHtml(a.name||'Untitled')} (${escapeHtml((a.options||[]).join(' / '))})</option>`).join('')}</optgroup>` : ''}
           <option value="__manage__">✏️ Add / edit your own answer types…</option>
         </select>
@@ -14947,7 +14948,7 @@ function renderTemplateItemEditor(si, ii, it){
         <button class="ghostbtn" style="${smallBtn}" ${last?'disabled':''} title="Move down" onclick="moveTemplateItem(${si},${ii},1)">▼</button>
         <button class="ghostbtn" style="${smallBtn}color:var(--warn);" title="Remove" onclick="removeTemplateItem(${si},${ii})">✕</button>
       </div>
-      ${(it.type==='choice' || it.type==='multichoice') ? `
+      ${((it.type==='choice' || it.type==='multichoice') && !isYnnv) ? `
         <div style="margin-top:8px;padding:8px;border:1px dashed var(--line);border-radius:10px;">
           <label class="field-label" style="margin-bottom:4px;">Answers to pick from${it.type==='multichoice' ? ' (more than one can be ticked)' : ''}</label>
           ${(it.options||[]).map((o,oi)=>`
@@ -15020,6 +15021,7 @@ window.addFollowUpQuestion = function(si, ii, vi){
 // a normal multiple-choice with those answers copied in, so reports and
 // PDFs need nothing special; presetId just remembers which set it came from.
 let answerSetsDraft = null, answerSetsBusy = false;
+const YNNV_OPTIONS = ['Yes','No','N/A','Not Visible'];
 function orgAnswerSets(){ return (ORG && Array.isArray(ORG.report_answer_sets)) ? ORG.report_answer_sets : []; }
 window.toggleAnswerSets = function(){
   answerSetsDraft = answerSetsDraft ? null : JSON.parse(JSON.stringify(orgAnswerSets()));
@@ -15066,7 +15068,11 @@ window.setTemplateItemType = function(si, ii, v){
   if(v.indexOf('set:')===0){
     const a = orgAnswerSets().find(c=>c.id===v.slice(4));
     if(a){ it.type = a.multi ? 'multichoice' : 'choice'; it.options = (a.options||[]).slice(); it.presetId = a.id; }
-  } else { it.type = v; delete it.presetId; }
+  } else if(v==='ynnv'){
+    // Built-in four-way answer, shown as buttons like Yes / No / N-A.
+    it.type = 'choice'; it.options = YNNV_OPTIONS.slice(); it.presetId = 'builtin_ynnv'; it.asButtons = true;
+  } else { it.type = v; delete it.presetId; delete it.asButtons; }
+  if(v.indexOf('set:')===0) delete it.asButtons;
   render();
 };
 window.addTemplateOption = function(si, ii){
@@ -15748,6 +15754,7 @@ function renderReportFillItem(it){
   if(it.type==='choice'){
     const opts = reportItemOptions(it, reportFillDraft.answers);
     if(val && !opts.includes(val)) opts.push(val);
+    if(it.asButtons) return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><div style="display:flex;flex-wrap:wrap;gap:6px;">${opts.map(o=>`<button type="button" class="${val===o?'darkbtn':'ghostbtn'}" style="margin:0;width:auto;flex:${o.length>5?'1.9':'1'} 1 0;min-width:0;padding:10px 2px;font-size:11.5px;letter-spacing:0;white-space:nowrap;" onclick="reportFillDraft.answers['${it.id}']=${val===o?"''":`'${jsAttr(o)}'`};render()">${escapeHtml(o)}</button>`).join('')}</div></div>${extraMedia}`;
     return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label><select onchange="if(this.value==='__add__'){addReportAnswerOption('${it.id}',false)}else{reportFillDraft.answers['${it.id}']=this.value;render()}"><option value="">Select…</option>${opts.map(o=>`<option value="${escapeHtml(o)}" ${val===o?'selected':''}>${escapeHtml(o)}</option>`).join('')}<option value="__add__">+ Add another answer…</option></select></div>${extraMedia}`;
   }
   if(it.type==='multichoice'){
@@ -16418,7 +16425,7 @@ async function buildReportPdf(submissionId, opts){
             display = (Array.isArray(val) && val.length) ? val.join(', ') : '—';
             color = BLUE;
           } else if(it.type==='choice' && val){
-            display = val; color = BLUE;
+            display = val; color = val==='Yes' ? GREEN : (val==='No' ? RED : ((val==='N/A' || val==='Not Visible') ? GRAY : BLUE));
           }
           drawAnswerRow(it.label, display, color);
         }
