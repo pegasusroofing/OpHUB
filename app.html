@@ -4880,8 +4880,8 @@ async function renderHub(){
   const fmtDue = d => !d ? '—' : d.toLocaleDateString(undefined,{day:'2-digit',month:'short',year:'numeric'});
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 14px;">Everything needing your attention — Toolbox Talks, RAMS/COSHH, snags, tasks and messages — in one place. Tap a row to jump straight to it.</p>
-    <div class="filterrow" style="flex-wrap:wrap;">
-      ${typeChips.map(c=>`<div class="filterchip ${hubFilterType===c.k?'active':''}" onclick="hubFilterType='${c.k}';render()">${escapeHtml(c.lbl)}</div>`).join('')}
+    <div class="filterrow" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;overflow:visible;">
+      ${typeChips.map(c=>`<div class="filterchip ${hubFilterType===c.k?'active':''}" style="flex:none;min-width:0;width:auto;margin:0;padding-left:4px;padding-right:4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="hubFilterType='${c.k}';render()">${escapeHtml(c.lbl)}</div>`).join('')}
     </div>
     <div class="formfield" style="margin-top:12px;">
       <label class="field-label">Site</label>
