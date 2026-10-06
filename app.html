@@ -5399,10 +5399,13 @@ async function renderTeam(){
   // whole month across every site, no need to pull it on every Admin Centre
   // visit if nobody's looking at it.
   // Driver check-ins (not tied to a site) for the Driver Check-In Log.
-  let driverCheckinRows = [];
+  let driverCheckinRows = [], driverBreakRows = [];
   __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.drivercheckins){
     const since = new Date(); since.setDate(since.getDate() - driverCheckinLogDays); since.setHours(0,0,0,0);
-    driverCheckinRows = await dbSelect('driver_checkins', 'org_id=eq.'+ME.org_id+'&ts=gte.'+since.toISOString()+'&order=ts.desc&limit=1000');
+    [driverCheckinRows, driverBreakRows] = await Promise.all([
+      dbSelect('driver_checkins', 'org_id=eq.'+ME.org_id+'&ts=gte.'+since.toISOString()+'&order=ts.desc&limit=1000'),
+      dbSelect('driver_breaks', 'org_id=eq.'+ME.org_id+'&started_at=gte.'+since.toISOString()+'&order=started_at.asc&limit=1000'),
+    ]);
   } })());
   let checkinLogRows = [];
   __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.checkinlogs){
@@ -6022,7 +6025,7 @@ async function renderTeam(){
     ` : ''}
     ${isFullManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('drivercheckins')"><span class="arrow">${teamSectionOpen.drivercheckins?'▼':'▶'}</span> Driver Check-In Log</p>
-    ${teamSectionOpen.drivercheckins ? driverCheckinLogHtml(driverCheckinRows) : ''}
+    ${teamSectionOpen.drivercheckins ? driverCheckinLogHtml(driverCheckinRows, driverBreakRows) : ''}
     ` : ''}
     ${isManager(ME) ? `
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('checkinlogs')"><span class="arrow">${teamSectionOpen.checkinlogs?'▼':'▶'}</span> Check-In Logs</p>
@@ -31201,7 +31204,8 @@ let driverCheckinBusy = false, driverCheckinError = null;
 // they were on duty, and a map link to where each one was recorded.
 let driverCheckinLogDays = 14;
 window.setDriverCheckinLogDays = function(n){ driverCheckinLogDays = n; render(); };
-function driverCheckinLogHtml(rows){
+function driverCheckinLogHtml(rows, breaks){
+  breaks = breaks || [];
   const dayKey = ts=>localISODate(new Date(ts));
   const timeOf = ts=>new Date(ts).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   const mapLink = r=>(typeof r.lat==='number' && typeof r.lon==='number')
@@ -31223,7 +31227,10 @@ function driverCheckinLogHtml(rows){
           // Time on duty: each check-in paired with the next check-out that day.
           let mins = 0, openIn = null;
           list.forEach(r=>{ if(r.type==='in') openIn = r; else if(r.type==='out' && openIn){ mins += Math.max(0, Math.round((new Date(r.ts)-new Date(openIn.ts))/60000)); openIn = null; } });
-          const dur = mins ? Math.floor(mins/60)+'h '+String(mins%60).padStart(2,'0')+'m on duty' : '';
+          // Breaks that day come off the time on duty to give time worked.
+          const myBreaks = breaks.filter(b=>b.user_id===uid && dayKey(b.started_at)===d.key);
+          const tot = driverDayTotals(list, myBreaks, d.key);
+          const dur = mins ? driverMinsLabel(Math.max(0, mins - Math.min(mins, tot.brk)))+' worked'+(tot.brk ? ' · '+driverMinsLabel(tot.brk)+' breaks' : '') : '';
           const stillIn = !!openIn && d.key===localISODate(new Date());
           return `
           <div class="sitecard" style="padding:8px 10px;display:block;">
@@ -31231,7 +31238,9 @@ function driverCheckinLogHtml(rows){
               <div class="name" style="flex:1;min-width:0;">🚐 ${escapeHtml((PROFILES[uid]||{}).name || 'Unknown driver')}</div>
               <span class="stub" style="white-space:nowrap;">${stillIn ? '<span style="color:var(--ok);font-weight:700;">On duty now</span>' : (openIn ? '<span style="color:var(--warn);font-weight:700;">No check-out</span>' : dur)}</span>
             </div>
-            ${list.map(r=>`<div class="addr" style="margin-top:3px;">${r.type==='in' ? '▶ Checked in' : '■ Checked out'} ${timeOf(r.ts)}${mapLink(r)}</div>`).join('')}
+            ${list.map(r=>({ts:r.ts, html:`${r.type==='in' ? '▶ Checked in' : '■ Checked out'} ${timeOf(r.ts)}${mapLink(r)}`}))
+              .concat(myBreaks.map(b=>({ts:b.started_at, html:`☕ Break ${timeOf(b.started_at)} – ${b.ended_at ? timeOf(b.ended_at)+' ('+driverMinsLabel((new Date(b.ended_at)-new Date(b.started_at))/60000)+')' : '<span style="color:var(--warn);font-weight:700;">not ended</span>'}`})))
+              .sort((x,y)=>new Date(x.ts)-new Date(y.ts)).map(e=>`<div class="addr" style="margin-top:3px;">${e.html}</div>`).join('')}
             ${stillIn && dur ? `<div class="addr" style="margin-top:3px;">${dur} earlier today</div>` : ''}
           </div>`;
         }).join('')}`;
@@ -31242,11 +31251,13 @@ let driverScheduleDateOffset = 0; // 0 = today, +1 = tomorrow, -1 = yesterday
 async function renderDriverHome(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
-  const [lastCheckin, todayTasks] = await Promise.all([
+  const [lastCheckin, todayTasks, openBreaks] = await Promise.all([
     dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
     dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+todayISO+'&order=time_slot.asc'),
+    dbSelect('driver_breaks', 'user_id=eq.'+ME.id+'&ended_at=is.null&order=started_at.desc&limit=1'),
   ]);
   const onDuty = !!(lastCheckin[0] && lastCheckin[0].type==='in');
+  const onBreak = onDuty && !!openBreaks[0];
   const myTasksToday = todayTasks.filter(t=>!t.driver_id || t.driver_id===ME.id);
   const pendingToday = myTasksToday.filter(t=>t.status!=='completed').length;
   if(__gen !== RENDER_GEN) return;
@@ -31254,7 +31265,7 @@ async function renderDriverHome(){
     <div class="tilegrid" style="grid-auto-rows:1fr;">
       <div class="tile" onclick="go('#/driver/checkin')">
         <div class="icon" style="background:${onDuty?'var(--ok-bg)':'#E7E9EE'};color:${onDuty?'var(--ok)':'var(--ink)'};">📍</div>
-        <div class="lbl">Check In / Out</div><div class="sub">${onDuty?'Currently checked in':'Not checked in'}</div>
+        <div class="lbl">Check In / Out</div><div class="sub">${onBreak?'On a break':(onDuty?'Currently checked in':'Not checked in')}</div>
       </div>
       <div class="tile" onclick="go('#/driver/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📅</div>
@@ -31275,6 +31286,13 @@ window.doDriverCheckAction = async function(type){
   // blocked or refused location permission was stopping them checking in at
   // all. Only the time is recorded. (To bring location back, restore the
   // getGeo() call here and send lat/lon/accuracy_m with the row.)
+  // Checking out while a break is still running ends the break at the same moment.
+  if(type==='out'){
+    try{
+      const open = await dbSelect('driver_breaks', 'user_id=eq.'+ME.id+'&ended_at=is.null&select=id');
+      for(const b of open) await dbUpdate('driver_breaks', b.id, {ended_at: new Date().toISOString()});
+    }catch(e){ /* the weekly summary also closes a break at check-out */ }
+  }
   const rows = await dbInsert('driver_checkins', {org_id:ME.org_id, user_id:ME.id, type});
   driverCheckinBusy = false;
   if(rows){
@@ -31286,25 +31304,85 @@ window.doDriverCheckAction = async function(type){
   else { driverCheckinError = 'Could not save — check your connection and try again.'; }
   render();
 };
+// Breaks: a driver who is checked in can start a break and end it. Each
+// break is its own row (driver_breaks: started_at / ended_at). Time worked =
+// time checked in, less breaks — shown to the driver, in the office's
+// Driver Check-In Log, and in the Friday 2pm weekly hours email.
+window.doDriverBreak = async function(action){
+  if(driverCheckinBusy) return;
+  driverCheckinError = null; driverCheckinBusy = true; render();
+  let ok = false;
+  try{
+    const open = await dbSelect('driver_breaks', 'user_id=eq.'+ME.id+'&ended_at=is.null&order=started_at.desc&select=id');
+    if(action==='start'){
+      if(open.length) ok = true; // already on a break
+      else ok = !!(await dbInsert('driver_breaks', {org_id:ME.org_id, user_id:ME.id, started_at: new Date().toISOString()}));
+    } else {
+      ok = true;
+      for(const b of open){ if(!(await dbUpdate('driver_breaks', b.id, {ended_at: new Date().toISOString()}))) ok = false; }
+    }
+  }catch(e){ ok = false; }
+  driverCheckinBusy = false;
+  if(ok) toast((action==='start'?'Break started':'Break ended')+' · '+new Date().toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}));
+  else driverCheckinError = 'Could not save — check your connection and try again.';
+  render();
+};
+function driverMinsLabel(mins){ mins = Math.max(0, Math.round(mins)); return Math.floor(mins/60)+'h '+String(mins%60).padStart(2,'0')+'m'; }
+// Today's figures for one driver from their check-ins (oldest first) and breaks.
+function driverDayTotals(checks, breaks, dayKey){
+  const now = Date.now(), isToday = dayKey===localISODate(new Date());
+  let duty = 0, openIn = null;
+  checks.filter(c=>localISODate(new Date(c.ts))===dayKey).forEach(c=>{
+    if(c.type==='in') openIn = new Date(c.ts).getTime();
+    else if(c.type==='out' && openIn){ duty += (new Date(c.ts).getTime()-openIn)/60000; openIn = null; }
+  });
+  const stillIn = !!openIn && isToday;
+  if(stillIn) duty += (now-openIn)/60000;
+  let brk = 0, count = 0;
+  breaks.filter(b=>localISODate(new Date(b.started_at))===dayKey).forEach(b=>{
+    const st = new Date(b.started_at).getTime();
+    const en = b.ended_at ? new Date(b.ended_at).getTime() : (isToday ? now : st);
+    brk += Math.max(0, (en-st)/60000); count++;
+  });
+  duty = Math.round(duty); brk = Math.min(duty, Math.round(brk));
+  return {duty, brk, worked: duty-brk, count, stillIn, noCheckout: !!openIn && !isToday};
+}
 async function renderDriverCheckin(){
   const __gen = RENDER_GEN;
-  const history = await dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=20');
+  const since = new Date(); since.setDate(since.getDate()-7); since.setHours(0,0,0,0);
+  const [history, breaks] = await Promise.all([
+    dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=40'),
+    dbSelect('driver_breaks', 'user_id=eq.'+ME.id+'&started_at=gte.'+since.toISOString()+'&order=started_at.desc&limit=60'),
+  ]);
   const last = history[0];
   const onDuty = !!(last && last.type==='in');
+  const openBreak = onDuty ? breaks.find(b=>!b.ended_at) : null;
+  const t = d=>new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const dt = d=>new Date(d).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+  const today = driverDayTotals(history.slice().reverse(), breaks, localISODate(new Date()));
+  // One "Recent" list: check-ins and breaks together, newest first.
+  const events = history.map(c=>({ts:c.ts, label:c.type==='in'?'Checked In':'Checked Out', sub:dt(c.ts)}))
+    .concat(breaks.map(b=>({ts:b.started_at, label:'☕ Break', sub: dt(b.started_at)+' – '+(b.ended_at ? t(b.ended_at)+' · '+driverMinsLabel((new Date(b.ended_at)-new Date(b.started_at))/60000) : 'still on break')})))
+    .sort((x,y)=>new Date(y.ts)-new Date(x.ts)).slice(0,30);
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="text-align:center;padding:24px 16px;">
-      <p class="stub" style="margin:0 0 14px;">${last ? `${onDuty?'Checked in':'Checked out'} ${new Date(last.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}` : 'You are not currently checked in.'}</p>
+      <p class="stub" style="margin:0 0 14px;">${openBreak ? `☕ On a break since ${t(openBreak.started_at)}` : (last ? `${onDuty?'Checked in':'Checked out'} ${dt(last.ts)}` : 'You are not currently checked in.')}</p>
       ${driverCheckinError ? `<p class="stub" style="color:var(--warn);margin:0 0 14px;">${escapeHtml(driverCheckinError)}</p>` : ''}
-      <button class="darkbtn" style="width:100%;padding:16px;font-size:16px;" ${driverCheckinBusy?'disabled':''} onclick="doDriverCheckAction('${onDuty?'out':'in'}')">
+      ${onDuty ? `
+      <button class="${openBreak?'darkbtn':'ghostbtn'}" style="width:100%;padding:16px;font-size:16px;margin:0 0 10px;" ${driverCheckinBusy?'disabled':''} onclick="doDriverBreak('${openBreak?'end':'start'}')">
+        ${driverCheckinBusy ? 'Saving…' : openBreak ? '▶ End Break' : '☕ Start Break'}
+      </button>` : ''}
+      <button class="${openBreak?'ghostbtn':'darkbtn'}" style="width:100%;padding:16px;font-size:16px;margin:0;" ${driverCheckinBusy?'disabled':''} onclick="doDriverCheckAction('${onDuty?'out':'in'}')">
         ${driverCheckinBusy ? 'Saving…' : onDuty ? 'Check Out' : 'Check In'}
       </button>
-      <p class="stub" style="margin-top:10px;">The time of each check in/out is recorded for the office. Your location is not needed.</p>
+      ${today.duty ? `<p class="stub" style="margin-top:12px;">Today: <b>${driverMinsLabel(today.worked)}</b> worked${today.brk ? ' · '+driverMinsLabel(today.brk)+' on breaks' : ''}</p>` : ''}
+      <p class="stub" style="margin-top:10px;">The time of each check in/out and break is recorded for the office. Your location is not needed.</p>
     </div>
     <p class="sectiontitle" style="margin-top:20px;">Recent</p>
-    ${history.length ? history.map(c=>`
+    ${events.length ? events.map(c=>`
       <div class="sitecard">
-        <div class="info"><div class="name">${c.type==='in'?'Checked In':'Checked Out'}</div><div class="addr">${new Date(c.ts).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div></div>
+        <div class="info"><div class="name">${c.label}</div><div class="addr">${c.sub}</div></div>
       </div>
     `).join('') : `<div class="empty">No check-ins yet.</div>`}
   `, {title:'Check In / Out', back:'#/driver'});
