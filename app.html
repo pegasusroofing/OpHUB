@@ -5596,6 +5596,10 @@ async function renderTeam(){
       <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
         <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
       </div>
+      <div class="formfield"><label class="field-label">Keep receipts in the app for</label>
+        <select id="expensesRetentionInput">${[3,6,9,12].map(m=>`<option value="${m}" ${((ORG && ORG.expenses_retention_months) || 3)===m?'selected':''}>${m} months</option>`).join('')}</select>
+      </div>
+      <p class="stub" style="margin:4px 0 0;">After this, receipts are deleted from the app automatically. Emails already sent to the office are not affected.</p>
       <button class="darkbtn" style="margin-top:10px;" onclick="saveExpensesEmail()">Save</button>
       ${ORG && ORG.expenses_email ? `<p class="stub" style="margin:8px 0 0;color:var(--good,#1F9D62);">✓ Currently going to ${escapeHtml(ORG.expenses_email)}</p>` : `<p class="stub" style="margin:8px 0 0;color:var(--warn);">Not set yet — receipts can't be sent until an address is saved.</p>`}
     </div>
@@ -22291,8 +22295,9 @@ async function renderExpenses(siteId){
   if(!expDraft || expDraft.siteId !== siteId) expDraft = {siteId, entries:[expNewEntry(siteId)], ccMe:false, busy:false, progress:''};
   const d = expDraft;
   await loadOrg();
-  const since = new Date(); since.setDate(since.getDate()-60);
-  const recent = await dbSelect('expenses', (isFullManager(ME) ? '' : 'created_by=eq.'+ME.id+'&')+'created_at=gte.'+since.toISOString()+'&order=created_at.desc&limit=30');
+  const keepMonths = (ORG && ORG.expenses_retention_months) || 3;
+  const since = new Date(); since.setMonth(since.getMonth()-keepMonths);
+  const recent = await dbSelect('expenses', (isFullManager(ME) ? '' : 'created_by=eq.'+ME.id+'&')+'created_at=gte.'+since.toISOString()+'&order=created_at.desc&limit=200');
   if(isFullManager(ME)) await loadAllProfiles();
   if(__gen !== RENDER_GEN) return;
   const toEmail = (ORG && ORG.expenses_email) || '';
@@ -22338,7 +22343,8 @@ async function renderExpenses(siteId){
       <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${d.ccMe?'checked':''} onchange="expDraft.ccMe=this.checked"> CC me a copy${ME.email ? ` <span class="stub">(${escapeHtml(ME.email)})</span>` : ''}
     </label>
     <button class="darkbtn" style="width:85%;margin:0 auto;display:block;padding:12.75px;font-size:12.75px;" ${d.busy || !totalFiles ? 'disabled' : ''} onclick="expSave()">${d.busy ? (d.progress || 'Saving…') : (totalFiles ? `Save &amp; send ${totalFiles} receipt${totalFiles===1?'':'s'} (${totalFiles} email${totalFiles===1?'':'s'})` : 'Save &amp; send')}</button>
-    <p class="sectiontitle" style="margin-top:22px;">Sent recently</p>
+    <p class="sectiontitle" style="margin-top:22px;">Sent receipts</p>
+    <p class="stub" style="margin:-4px 0 8px;">Kept for ${keepMonths} months, then deleted automatically.</p>
     ${recent.length ? recent.map(r=>{ const open = expRecentOpen.has(r.id); const nf = (r.file_paths||[]).length; return `
       <div class="sitecard" style="cursor:pointer;" onclick="expToggleRecent('${r.id}')">
         <div class="info">
@@ -22357,7 +22363,7 @@ async function renderExpenses(siteId){
           ${r.emailed_at && (r.created_by===ME.id || isFullManager(ME)) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="expResendSent('${r.batch_id}','${r.id}',${nf})">✉️ Resend</button>` : ''}
           ${isFullManager(ME) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;color:var(--warn);" onclick="expDelete('${r.id}')">🗑 Delete</button>` : ''}
         </div>
-      </div>` : ''}`; }).join('') : `<div class="empty">Nothing sent in the last 60 days.</div>`}
+      </div>` : ''}`; }).join('') : `<div class="empty">Nothing sent in the last ${keepMonths} months.</div>`}
   `, {title:'Expenses', back:`#/site/${siteId}/materials`, siteId, activeTab:'materials'});
 }
 let expRecentOpen = new Set();
@@ -22461,8 +22467,10 @@ window.saveExpensesEmail = async function(){
   const el = document.getElementById('expensesEmailInput'); if(!el) return;
   const v = el.value.trim();
   if(v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ toast('Enter a valid email address.'); return; }
-  const row = await dbUpdate('organizations', ME.org_id, {expenses_email: v || null});
-  if(row){ if(ORG) ORG.expenses_email = v || null; toast(v ? 'Expenses email saved' : 'Expenses email removed'); render(); }
+  const rEl = document.getElementById('expensesRetentionInput');
+  const months = rEl && [3,6,9,12].includes(Number(rEl.value)) ? Number(rEl.value) : 3;
+  const row = await dbUpdate('organizations', ME.org_id, {expenses_email: v || null, expenses_retention_months: months});
+  if(row){ if(ORG){ ORG.expenses_email = v || null; ORG.expenses_retention_months = months; } toast(v ? 'Expenses settings saved' : 'Saved — no expenses email set'); render(); }
   else toast('Could not save — only a Project Manager or Admin can change this.');
 };
 /* ================= RAMS SIGNATURE BOXES (DocuSign-style placement) ================= */
