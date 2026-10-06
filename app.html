@@ -14982,7 +14982,7 @@ function renderTemplateItemEditor(si, ii, it){
         </div>
       ` : ''}
       ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
-        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">📝 Allow a note to be added to this answer</label>
+        <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Allow a note</label>
       ` : ''}
       ${it.type!=='instruction' ? `
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
