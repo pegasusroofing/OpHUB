@@ -14925,7 +14925,7 @@ window.toggleTemplateItemOpen = function(id){ if(templateItemOpen.has(id)) templ
 // filled in. On unless the template has it switched off for that question.
 function itemAllowsNote(it){
   if(!it || it.allowNote===false) return false;
-  return !['instruction','photo','signature','operatives','textarea'].includes(it.type);
+  return !['instruction','photo','signature','operatives'].includes(it.type);
 }
 // One question in the template editor. Kept to the three things that matter
 // (the question, the kind of answer, and its order) — everything else sits
@@ -14981,7 +14981,7 @@ function renderTemplateItemEditor(si, ii, it){
           : `<select style="margin:0;" onchange="if(this.value!=='')addFollowUpQuestion(${si},${ii},Number(this.value))"><option value="">Pick an answer…</option>${fuVals.map((v,vi)=>`<option value="${vi}">${escapeHtml(v)}</option>`).join('')}</select>`}
         </div>
       ` : ''}
-      ${!['instruction','photo','signature','operatives','textarea'].includes(it.type) ? `
+      ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
         <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;font-weight:600;cursor:pointer;"><input type="checkbox" style="width:18px;height:18px;flex:0 0 18px;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">📝 Allow a note to be added to this answer</label>
       ` : ''}
       ${it.type!=='instruction' ? `
