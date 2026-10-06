@@ -21866,10 +21866,26 @@ function ramsBoxPointerDown(ev){
     // The tap marks the middle of the NEXT operative's signature box (or
     // their first box, if this operative has no signature box on this page).
     const mine = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
-    const anchor = mine.find(b=>b.t==='sig') || mine[0]; if(!anchor) return;
-    const dx = fx(ev) - (anchor.r[0]+anchor.r[2]/2), dy = fy(ev) - (anchor.r[1]+anchor.r[3]/2);
-    // A straight column or row is the usual case — ignore a few stray pixels the other way.
-    ed.offset = {dx: Math.abs(dx) < 0.02 ? 0 : r4(dx), dy: Math.abs(dy) < 0.006 ? 0 : r4(dy)};
+    if(!mine.length) return;
+    // The tap can be on ANY of the next person's spaces (their name, their
+    // signature, their date). Work out which of this person's boxes it
+    // lines up with — the one in the same column (next row down) or the
+    // same row (next column across) — and measure the gap from that one.
+    // It used to always measure from the signature box, so tapping the
+    // next person's NAME space shoved every box off the side of the page
+    // and reported "no room".
+    const tx = fx(ev), ty = fy(ev);
+    let anchor = null, best = Infinity;
+    mine.forEach(b=>{
+      const ax = Math.abs(tx - (b.r[0]+b.r[2]/2)) / b.r[2], ay = Math.abs(ty - (b.r[1]+b.r[3]/2)) / b.r[3];
+      const score = Math.min(ax, ay); // how far off this box's column, or its row, in box-widths
+      if(score < best){ best = score; anchor = b; }
+    });
+    let dx = tx - (anchor.r[0]+anchor.r[2]/2), dy = ty - (anchor.r[1]+anchor.r[3]/2);
+    // Inside the anchor's own column -> straight down; inside its own row -> straight across.
+    if(Math.abs(dx) <= anchor.r[2]*0.6) dx = 0;
+    if(Math.abs(dy) <= anchor.r[3]*0.6) dy = 0;
+    ed.offset = {dx: r4(dx), dy: r4(dy)};
     if(!ed.offset.dx && !ed.offset.dy){ ed.offset = null; toast('Tap on the next person\'s space, not the same one.'); return; }
     ed.mode = null; ramsBoxRepeatAgain(); return;
   }
@@ -21923,7 +21939,10 @@ window.ramsBoxRepeatAgain = function(){
   const mine = ed.boxes.filter(b=>b.w===ed.who && b.p===ed.page);
   const next = 'op'+(n+1);
   const moved = mine.map(b=>({p:b.p, w:next, t:b.t, r:[b.r[0]+ed.offset.dx, b.r[1]+ed.offset.dy, b.r[2], b.r[3]].map(v=>Math.round(v*10000)/10000)}));
-  if(moved.some(b=>b.r[0]<0 || b.r[1]<0 || b.r[0]+b.r[2]>1.001 || b.r[1]+b.r[3]>1.001)){ toast('No room left on this page for another one.'); ramsBoxRefresh(); return; }
+  // Only refuse when a box would land mostly off the page. A box that just
+  // overhangs an edge is nudged back inside instead.
+  if(moved.some(b=>b.r[0]+b.r[2]/2 < 0 || b.r[1]+b.r[3]/2 < 0 || b.r[0]+b.r[2]/2 > 1 || b.r[1]+b.r[3]/2 > 1)){ toast('That would put '+ramsBoxWhoLabel(next)+'\'s boxes off the page. Draw theirs by hand, or go to the next page.'); ed.mode = null; ramsBoxRefresh(); return; }
+  moved.forEach(b=>{ b.r[0] = Math.max(0, Math.min(1-b.r[2], b.r[0])); b.r[1] = Math.max(0, Math.min(1-b.r[3], b.r[1])); });
   // Replace anything that operative already had on this page.
   ed.boxes = ed.boxes.filter(b=>!(b.w===next && b.p===ed.page)).concat(moved);
   ed.who = next; ed.lastOp = n+1; ed.sel = -1; ed.mode = null; ed.dirty = true;
