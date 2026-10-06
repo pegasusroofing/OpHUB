@@ -28670,7 +28670,7 @@ function orderFulfilmentHtml(key, drivers, siteOps){
         </select>
       </div>
       ${!drivers.length && !siteOps.length ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">No drivers or site operatives to choose from yet.</p>` : ''}
-      <div class="formfield" id="reqSlotWrap_${key}" style="display:none;"><label class="field-label">Collection time</label>
+      <div class="formfield" id="reqSlotWrap_${key}" style="display:none;"><label class="field-label">Collection drop</label>
         <select id="reqSlot_${key}">${DELIVERY_TIME_SLOTS.map(x=>`<option value="${x.key}">${x.label}</option>`).join('')}</select>
       </div>
     </div>
@@ -29614,7 +29614,7 @@ window.addCalEventToDeliverySchedule = async function(siteId){
   const rows = await dbInsert('delivery_tasks', payload);
   if(rows && rows[0]){
     await resequenceSlot(calDraft.date, '7am');
-    toast('Added to Delivery Schedule — open it to fill in collection details, time slot and site contact.');
+    toast('Added to Delivery Schedule — open it to fill in collection details, which drop and site contact.');
     calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
     deliveryFormDraft = null;
     go('#/delivery/edit/'+rows[0].id);
@@ -31319,18 +31319,23 @@ window.sendMessageReply = async function(siteId, parentId, audience, targetSiteI
 // delivery schedule. Delivery tasks themselves are created by PMs (Phase 3
 // of this build) — until then this view just shows "nothing scheduled",
 // which is the correct empty state, not a bug.
+// The slots are the driver's running order for the day — "1st drop",
+// "2nd drop"… — not clock times. The keys are the original hourly ones
+// ('7am'…'5pm') and are what's stored on every delivery, so existing
+// deliveries, their order, the priority within a slot and the calendar
+// entries all carry on exactly as before; only the wording changed.
 const DELIVERY_TIME_SLOTS = [
-  {key:'7am', label:'7:00am'},
-  {key:'8am', label:'8:00am'},
-  {key:'9am', label:'9:00am'},
-  {key:'10am', label:'10:00am'},
-  {key:'11am', label:'11:00am'},
-  {key:'12pm', label:'12:00pm'},
-  {key:'1pm', label:'1:00pm'},
-  {key:'2pm', label:'2:00pm'},
-  {key:'3pm', label:'3:00pm'},
-  {key:'4pm', label:'4:00pm'},
-  {key:'5pm', label:'5:00pm'},
+  {key:'7am', label:'1st drop'},
+  {key:'8am', label:'2nd drop'},
+  {key:'9am', label:'3rd drop'},
+  {key:'10am', label:'4th drop'},
+  {key:'11am', label:'5th drop'},
+  {key:'12pm', label:'6th drop'},
+  {key:'1pm', label:'7th drop'},
+  {key:'2pm', label:'8th drop'},
+  {key:'3pm', label:'9th drop'},
+  {key:'4pm', label:'10th drop'},
+  {key:'5pm', label:'11th drop'},
 ];
 let driverCheckinBusy = false, driverCheckinError = null;
 // Admin Centre › Driver Check-In Log: every driver check-in and check-out
@@ -31591,7 +31596,7 @@ function deliveryCollectionSummaryHtml(tasks){
           <div style="padding:8px 0;${i?'border-top:1px solid var(--line);':''}${t.status==='completed'?'opacity:.55;':''}">
             <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${deliverySiteHeadingHtml(t)}</p>
             <p style="margin:0 0 3px;white-space:pre-wrap;overflow-wrap:break-word;">${escapeHtml(t.description||'')}</p>
-            <p class="stub" style="margin:0;">Drop at ${escapeHtml(slotLabel[t.time_slot]||t.time_slot||'')}${t.status==='completed'?' · ✓ Completed':''}</p>
+            <p class="stub" style="margin:0;">${escapeHtml(slotLabel[t.time_slot]||t.time_slot||'')}${t.status==='completed'?' · ✓ Completed':''}</p>
           </div>`).join('')}
       </div>` : ''}`;
     }).join('')}
@@ -31664,7 +31669,7 @@ async function renderDriverSchedule(preview){
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
-          ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order in this slot: ${t.sub_priority}</p>` : ''}
+          ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order within this drop: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
@@ -31684,7 +31689,7 @@ async function renderDriverSchedule(preview){
             <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
           `}
         </div>
-      `).join('') : `<div class="empty">Nothing in this slot.</div>`}
+      `).join('') : `<div class="empty">Nothing in this drop.</div>`}
     `).join('')}
     </div>
   `, preview ? {title:'Driver View', back:'#/delivery', tabs:false} : {title:'Delivery Schedule', back:'#/driver'});
@@ -32329,7 +32334,7 @@ window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
     const rows = await deliveryScheduleExportRows(daysISO);
     if(!rows.length){ toast('No deliveries in this week to export.'); return; }
     const filename = exportFilename('', 'Delivery Schedule', 'xlsx');
-    const cols = ['Date','Time','Site','Description','Collection From','Driver','Priority','Status'];
+    const cols = ['Date','Drop','Site','Description','Collection From','Driver','Priority','Status'];
     const rowVals = r=>[r.date,r.time,r.site,r.description,r.collection,r.driver,r.priority,r.status];
     if((await loadLib('ExcelJS'))){
       try{
@@ -32373,7 +32378,7 @@ window.exportDeliverySchedulePdf = async function(daysISO, weekLabel){
     const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || DEFAULT_BRAND1);
     const WHITE = PDFLib.rgb(1,1,1);
     const cols = [
-      {label:'Date', w:0.11}, {label:'Time', w:0.08}, {label:'Site', w:0.19}, {label:'Description', w:0.24},
+      {label:'Date', w:0.11}, {label:'Drop', w:0.08}, {label:'Site', w:0.19}, {label:'Description', w:0.24},
       {label:'Collection From', w:0.15}, {label:'Driver', w:0.13}, {label:'Status', w:0.10},
     ];
     let page, y;
@@ -32479,8 +32484,8 @@ async function renderDeliverySchedulePM(){
     </div>
     <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
-      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery at this time" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
-      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this slot.</div>`}
+      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
+      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this drop.</div>`}
     `).join('')}
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
@@ -32591,7 +32596,7 @@ async function renderDeliveryForm(taskId){
     <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
       <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value">
     </div>
-    <div class="formfield"><label class="field-label">Time slot</label>
+    <div class="formfield"><label class="field-label">Drop</label>
       <select onchange="deliveryFormDraft.time_slot=this.value">
         ${DELIVERY_TIME_SLOTS.map(s=>`<option value="${s.key}" ${draft.time_slot===s.key?'selected':''}>${s.label}</option>`).join('')}
       </select>
