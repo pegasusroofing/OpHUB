@@ -3035,7 +3035,7 @@ function customConfirm(message, opts){
     ov.onclick = (e)=>{ if(e.target===ov) window._confirmAnswer(false); };
     ov.innerHTML = `
       <div class="geo-modal-card">
-        <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);">${escapeHtml(message)}</p>
+        <p class="stub" style="margin:0 0 18px;font-weight:600;color:var(--ink);white-space:pre-line;max-height:55vh;overflow-y:auto;">${escapeHtml(message)}</p>
         <button class="darkbtn" style="width:100%;margin-bottom:8px;${opts.danger?'background:var(--warn);':''}" onclick="window._confirmAnswer(true)">${escapeHtml(opts.confirmLabel||'Yes, continue')}</button>
         <button class="geo-modal-cancel" onclick="window._confirmAnswer(false)">${escapeHtml(opts.cancelLabel||'Cancel')}</button>
       </div>`;
@@ -27988,6 +27988,11 @@ async function renderMaterialRequests(siteId){
         <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;min-width:0;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>
       </div>
       <button class="darkbtn" onclick="addMaterial('${siteId}')">Request Material Order</button>
+      ${isFullManager(ME) ? `
+        <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:10px 0 0;${matImportBusy?'opacity:.6;pointer-events:none;':''}">${matImportBusy ? 'Importing…' : '📄 Import from Excel'}
+          <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none;" onchange="importMaterialsExcel('${siteId}',this)"></label>
+        <p class="stub" style="margin:4px 0 0;">Pick a material order spreadsheet — each item and quantity becomes its own request. You're shown the list to confirm first.</p>
+      ` : ''}
     </div>
     ` : ''}
     ${isPM ? `
@@ -28226,9 +28231,6 @@ async function renderMaterialRequiredList(siteId){
           ${subAddressesList.map(a=>`<option value="${a.id}" ${matReqDraftSubAddr===a.id?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}
         </select>
       ` : ''}
-      <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:10px 0 0;">📄 Import from Excel
-        <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none;" onchange="importMatReqExcel(this)"></label>
-      <p class="stub" style="margin:4px 0 0;">Pick a material order spreadsheet — the item names and quantities are added to the queue above for you to check before saving.</p>
       <div class="row-gap" style="margin-top:10px;">
         <button class="ghostbtn" style="flex:1;" onclick="addMaterialRequiredDraftRow()">Add More</button>
         <button class="darkbtn" style="flex:1;" onclick="completeMaterialRequiredList('${siteId}')">Complete List</button>
@@ -28291,10 +28293,14 @@ function matReqParseSheetRows(rows){
   }
   return out;
 }
-window.importMatReqExcel = async function(input){
+let matImportBusy = false;
+window.importMaterialsExcel = async function(siteId, input){
   const file = input.files && input.files[0];
+  const reqEl = document.getElementById('matRequiredBy');
+  const requiredBy = reqEl ? reqEl.value : '';
   try{ input.value = ''; }catch(e){}
-  if(!file) return;
+  if(!file || matImportBusy) return;
+  if(!isFullManager(ME)){ toast('Project managers and admins only.'); return; }
   if(file.size > 15*1024*1024){ toast('That file is too big to read.'); return; }
   if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
   let found = [];
@@ -28307,12 +28313,22 @@ window.importMatReqExcel = async function(input){
     }
   }catch(e){ console.error(e); toast('Could not read that file — is it an Excel or CSV file?'); return; }
   if(!found.length){ customAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
-  const supplierId = materialSupplierChoice['reqnew'] || null;
-  const subAddrEl = document.getElementById('matReqSubAddr');
-  const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
-  found.forEach(r=>matReqDraftRows.push({item:r.item, qty:r.qty, supplier_id:supplierId, sub_site_id:subSiteId}));
+  if(found.length > 300){ customAlert('That file has '+found.length+' items — the most that can be imported in one go is 300.'); return; }
+  const preview = found.slice(0,12).map(r=>'• '+r.item+' — '+r.qty).join('\n') + (found.length>12 ? '\n…and '+(found.length-12)+' more' : '');
+  if(!await customConfirm('Add these '+found.length+' item'+(found.length===1?'':'s')+' from "'+file.name+'" as material requests?'+(requiredBy ? ' Required by '+requiredBy+'.' : '')+'\n\n'+preview)) return;
+  matImportBusy = true; render();
+  let ok = 0;
+  try{
+    await runPool(found, 4, async r=>{
+      const rows = await dbInsert('materials', {site_id:siteId, item:r.item, qty:r.qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending'});
+      if(rows) ok++;
+    });
+  }catch(e){ console.error(e); }
+  matImportBusy = false;
+  if(ok) postSystemMessage(siteId, 'material_request', `${ME.name} requested ${ok} material item${ok===1?'':'s'} from a spreadsheet (${file.name})`+(requiredBy?` — required by ${requiredBy}`:''));
   await render();
-  customAlert(found.length+' item'+(found.length===1?'':'s')+' read from "'+file.name+'" and added to the queue. Check them over, bin any you don\'t want, then tap Complete List to save.');
+  if(ok===found.length) customAlert('✓ '+ok+' material request'+(ok===1?'':'s')+' added.');
+  else customAlert(ok+' of '+found.length+' were added — the rest failed. Check your connection, then import again (delete any duplicates).');
 };
 window.addMaterialRequiredDraftRow = function(){
   const itemEl = document.getElementById('matReqItem');
