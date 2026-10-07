@@ -203,6 +203,11 @@
   .sowexportbtn{padding:11px;font-size:13px;}
   .reportsexportbtn{padding:11.5px;font-size:14px;}
   .ghostbtn{background:var(--card);color:var(--ink);border:1.5px solid var(--line);}
+  /* Export / Email / Save-to-OneDrive buttons look the same on every screen
+     (see uniformActionButtons): same outline, weight and size whatever the
+     screen originally gave them. */
+  .actbtn{background:var(--card) !important;color:var(--ink) !important;border:1.5px solid var(--line) !important;border-radius:10px !important;padding:9px 8px !important;font-size:12px !important;letter-spacing:.02em;}
+  .actbtn:disabled{opacity:.55;}
   .primarybtn:disabled,.darkbtn:disabled{background:#f2f1ed;color:#9a978c;border-color:#d8d5cb;}
   input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=tel],textarea,select{
     width:100%;max-width:100%;min-width:0;padding:10px 11px;border:1.5px solid var(--line);border-radius:8px;
@@ -1256,7 +1261,7 @@ window.viewPdfInApp = async function(source, filename, opts){
     }
   }catch(e){
     // #(pdf-viewer-dead-fallback-link): when `source` is raw bytes (every
-    // freshly-generated export — Price Builder, Schedule, Snags, etc. — hands
+    // freshly-generated export — Price Sheet, Schedule, Snags, etc. — hands
     // this straight from PDFLib rather than a storage URL) and pdf.js fails
     // to render it, this used to build the fallback link from `source`
     // itself, and `typeof source==='string'` is false for bytes, so it fell
@@ -1960,7 +1965,7 @@ function blobToBase64(blob){
     reader.readAsDataURL(blob);
   });
 }
-// #(share-no-file-2026-09) — sharing a Priced Sheet PDF out to WhatsApp/
+// #(share-no-file-2026-09) — sharing a Price Sheet PDF out to WhatsApp/
 // email from the in-app viewer once looked completely normal (the OS share
 // sheet opened, WhatsApp/Gmail were listed, no error anywhere) but the app
 // that was picked received no real attachment. At the time that looked like
@@ -2409,12 +2414,12 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
-// Feature flag: the Price Builder rewrite (Excel-driven rate card library,
-// Price/Price Builder tile split, compact builder redesign) is still in
+// Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
+// Price/Price Sheet tile split, compact builder redesign) is still in
 // progress and not signed off yet. While this is false, Price behaves
 // exactly like the single, already-live Pricing Elements page (no landing
-// split, no Price Builder entry points reachable), and the Admin Centre
-// "Price Builder — Rate Card" section stays hidden. Flip to true once
+// split, no Price Sheet entry points reachable), and the Admin Centre
+// "Price Sheet Rate Card" section stays hidden. Flip to true once
 // that work is finished and ready to ship — all the code for it stays in
 // place either way, just unreachable until then.
 const PRICE_BUILDER_LIVE = true;
@@ -2711,7 +2716,7 @@ async function getMySubcontractorCompanyId(siteId){
   subOpCache[siteId] = val;
   return val;
 }
-// Price Builder: full create/edit/delete access for PMs and Admin (the same
+// Price Sheet: full create/edit/delete access for PMs and Admin (the same
 // "Full Manager" group used elsewhere for higher-trust pricing actions).
 // Site Managers still only see already-ISSUED sheets on their site (handled
 // separately in renderPriceHome/renderPriceBuilderSheets), same as before.
@@ -3110,7 +3115,7 @@ window._promptAnswer = function(result){
 };
 // Same overlay/resolve plumbing as customPrompt, plus a "CC me a copy" tick
 // box — used everywhere a single typed recipient email is collected for
-// sending a document (RAMS/COSHH/TBT/Site Induction/Priced Sheet). Resolves
+// sending a document (RAMS/COSHH/TBT/Site Induction/Price Sheet). Resolves
 // to {value, ccMe} on OK, or null on Cancel (same falsy-on-cancel contract
 // as customPrompt).
 // Optional `site` param (added alongside the "CC client contact" rollout):
@@ -5458,7 +5463,7 @@ const ADMIN_ITEMS = {
   reporttemplates:{page:'libraries', group:'Reports & documents', icon:'📝', label:'Report Templates',     sub:'Inspections, surveys, briefings',  flags:['reporttemplates'],              kw:'inspection survey report template briefing', show:()=>isManager(ME)},
   signtemplates:  {page:'libraries', group:'Reports & documents', icon:'✍️', label:'Signing Templates',    sub:'RAMS signature boxes',             href:'#/sign-templates',                kw:'rams signature sign template docusign', show:()=>isManager(ME)},
   sowlibrary:     {page:'libraries', group:'Works & pricing',     icon:'🧱', label:'Schedule of Works Library', sub:'Standard sections and tasks', flags:['sowlibrary'],                   kw:'sow schedule works library', show:()=>isManager(ME)},
-  pricebuilder:   {page:'libraries', group:'Works & pricing',     icon:'💷', label:'Price Builder Rate Card', sub:'Rates by category',             flags:['pricebuilder'],                 kw:'price rate card rates builder', show:()=>ME.role==='admin' && canUsePriceBuilder() && PRICE_BUILDER_LIVE},
+  pricebuilder:   {page:'libraries', group:'Works & pricing',     icon:'💷', label:'Price Sheet Rate Card', sub:'Rates by category',             flags:['pricebuilder'],                 kw:'price rate card rates builder', show:()=>ME.role==='admin' && canUsePriceBuilder() && PRICE_BUILDER_LIVE},
   suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Used on all projects',             flags:['suppliers'],                    kw:'supplier merchant', show:()=>isManager(ME)},
   maincontractor: {page:'libraries', group:'Works & pricing',     icon:'🏢', label:'Main Contractor',      sub:'Inspection templates',             flags:['maincontractor'],               kw:'main contractor mc inspection', show:()=>isManager(ME)},
   hspolicy:       {page:'libraries', group:'Health & Safety',     icon:'📕', label:'H&S Policy',           sub:'Policy document and who has signed', flags:['hspolicy'],                   kw:'health safety policy', show:()=>isFullManager(ME)},
@@ -5506,6 +5511,51 @@ window.adminSearchRender = function(){
   tiles.style.display = 'none';
   res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
 };
+/* ================= UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS =================
+   These buttons were built screen by screen and ended up with different
+   colours, icons and wording. Rather than restyle seventy buttons one at a
+   time, every button drawn on screen is checked once: if it exports, emails
+   or saves to OneDrive it gets the same look (.actbtn), the same icon, and
+   the same wording. Confirm steps ("Confirm & Email…") and the OneDrive
+   set-up buttons in Admin are left alone. */
+function uniformActionLabel(t){
+  let txt = t.replace(/^[\s✉️📄📊📋⬇☁🔗🔄\uFE0F]+/u, '').trim();
+  if(!txt) return null;
+  if(/confirm|link onedrive|sync folder|sync now|disconnect|connect onedrive|import/i.test(txt)) return null;
+  let icon = null;
+  if(/onedrive/i.test(txt)){ icon = '☁️'; txt = txt.replace(/^Upload to OneDrive/i, 'Save to OneDrive').replace(/^Push to OneDrive/i, 'Save to OneDrive'); }
+  else if(/^e-?mail\b|^emailing|\bemail (pdf|report|selected|supplier|to do list)\b/i.test(txt)) icon = '✉️';
+  else if(/^export|^exporting|^building/i.test(txt)){
+    txt = txt.replace(/^Export to PDF$/i, 'Export PDF').replace(/^Export to Excel$/i, 'Export Excel');
+    icon = /excel/i.test(txt) ? '📊' : '📄';
+  }
+  return icon ? icon+' '+txt : null;
+}
+function uniformActionButtons(root){
+  try{
+    (root || document).querySelectorAll('button, label.ghostbtn, label.darkbtn').forEach(el=>{
+      if(el.dataset.act) return;
+      const node = Array.from(el.childNodes).find(n=>n.nodeType===3 && n.nodeValue.trim());
+      if(!node) return;
+      // Only plain one-line buttons: skip anything with other visible content inside.
+      if(Array.from(el.children).some(c=>c.tagName!=='INPUT')) return;
+      const label = uniformActionLabel(node.nodeValue);
+      el.dataset.act = label ? '1' : '0';
+      if(!label) return;
+      node.nodeValue = label;
+      el.classList.add('actbtn');
+    });
+  }catch(e){ /* cosmetic only */ }
+}
+(function(){
+  const start = ()=>{
+    const app = document.getElementById('app'); if(!app) return;
+    let queued = false;
+    new MutationObserver(()=>{ if(queued) return; queued = true; requestAnimationFrame(()=>{ queued = false; uniformActionButtons(document.body); }); }).observe(document.body, {childList:true, subtree:true});
+    uniformActionButtons(document.body);
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
 async function renderTeam(adminPage, adminItemKey){
   const __gen = RENDER_GEN;
   // A link into Admin Centre from inside a site file (e.g. "Upload / manage
@@ -5551,7 +5601,7 @@ async function renderTeam(adminPage, adminItemKey){
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
   let suppliers = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.suppliers) suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'); })());
   let havsTools = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.havstools) havsTools = await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc'); })());
-  // Price Builder rate card — admin only for now (rollout gate, see
+  // Price Sheet rate card — admin only for now (rollout gate, see
   // canUsePriceBuilder), org-wide (mirrors Suppliers).
   let priceRateItems = [], priceRateOptions = [];
   __tp.push((async()=>{ if(PRICE_BUILDER_LIVE && canUsePriceBuilder() && teamSectionOpen.pricebuilder){
@@ -5618,7 +5668,7 @@ async function renderTeam(adminPage, adminItemKey){
   // section is just the root OneDrive folder link, so nothing to query here.
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
-  // Price Builder rate card grouped by category, each item's dropdown
+  // Price Sheet rate card grouped by category, each item's dropdown
   // options (if any) attached — same shape the sheet builder itself uses.
   const priceRateOptionsByItem = {};
   priceRateOptions.forEach(o=>{ (priceRateOptionsByItem[o.rate_item_id]=priceRateOptionsByItem[o.rate_item_id]||[]).push(o); });
@@ -5871,7 +5921,7 @@ async function renderTeam(adminPage, adminItemKey){
     ` : ''}
     ` : ''}
     ${iAmAdmin && canUsePriceBuilder() && PRICE_BUILDER_LIVE ? `
-    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Builder — Rate Card <span class="plaintag" style="margin-left:4px;color:var(--slate-light);font-size:11px;font-weight:600;">Admin only for now</span></p>
+    <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('pricebuilder')"><span class="arrow">${teamSectionOpen.pricebuilder?'▼':'▶'}</span> Price Sheet Rate Card <span class="plaintag" style="margin-left:4px;color:var(--slate-light);font-size:11px;font-weight:600;">Admin only for now</span></p>
     ${teamSectionOpen.pricebuilder ? `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">One shared rate card for the whole company, kept as an Excel file — download it, edit it (add items, rates, or new dropdown options right in the spreadsheet), then re-upload to update the app. The app is the source everyone works from; the Excel is just how you edit it.</p>
@@ -5882,7 +5932,7 @@ async function renderTeam(adminPage, adminItemKey){
       </div>
       <div class="formfield" style="margin:0 0 16px;">
         <label class="field-label">Terms &amp; Conditions</label>
-        <p class="stub" style="margin:0 0 6px;">Shown as its own page 1 on every Price Builder PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</p>
+        <p class="stub" style="margin:0 0 6px;">Shown as its own page 1 on every Price Sheet PDF export, before the priced items — paste your subcontractor T&amp;Cs in here word for word.</p>
         <textarea id="pbTermsField" rows="6" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:inherit;box-sizing:border-box;" placeholder="Paste your subcontractor terms &amp; conditions here...">${escapeHtml((ORG && ORG.price_builder_terms) || '')}</textarea>
         <button class="ghostbtn" style="margin-top:6px;" onclick="savePriceBuilderTerms()">Save Terms</button>
       </div>
@@ -7963,7 +8013,7 @@ window.exportTrainingMatrixExcel = async function(){
     return row;
   };
   // Branded via ExcelJS (company logo top-right, brand-coloured header row,
-  // org name as the sheet title) — same treatment as the Priced Sheet Excel
+  // org name as the sheet title) — same treatment as the Price Sheet Excel
   // export. Falls back to the plain SheetJS file below if ExcelJS isn't
   // available, same "nice-to-have, never blocks the export" rule as there.
   if((await loadLib('ExcelJS'))){
@@ -11743,7 +11793,7 @@ window.toggleElementAccess = async function(elementId, siteId, userId, hasAccess
   render();
 };
 // Bulk version of the grant half of toggleElementAccess above — used by
-// Price Builder to carry the operatives ticked on the sheet itself straight
+// Price Sheet to carry the operatives ticked on the sheet itself straight
 // through to the Pricing Element's access list the moment the sheet is
 // issued, instead of making the PM open "Select Operatives" separately
 // afterwards. Silently skips anyone who already has the grant (e.g. issuing
@@ -12414,8 +12464,8 @@ window.savePriceWeek = async function(elementId, siteId, weekNumber, rawValue){
 // Price landing page — the single "Price" tile on Site Home lands here, with
 // two sub-tiles underneath it: the existing Pricing Elements tool (renamed
 // "Price" here, unchanged otherwise, now reached via /price/elements) and
-// Price Builder (still WIP, reached via /pricebuilder as before). Keeps one
-// entry point on Site Home while still giving Price Builder its own clearly
+// Price Sheet (still WIP, reached via /pricebuilder as before). Keeps one
+// entry point on Site Home while still giving Price Sheet its own clearly
 // separate space rather than being buried inside the Pricing Elements page.
 async function renderPriceHome(siteId){
   const __gen = RENDER_GEN;
@@ -12455,7 +12505,7 @@ async function renderPriceHome(siteId){
       </div>`}
       ${showPriceBuilderTile ? `<div class="tile" onclick="go('#/site/${siteId}/pricebuilder')">
         <div class="icon" style="background:#FFF3D9;color:#8A6300;">🧮</div>
-        <div class="lbl">Price Builder</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (canUsePriceBuilder()?'No sheets yet':'None issued')}</div>
+        <div class="lbl">Price Sheet</div><div class="sub">${priceBuilderTileCount ? priceBuilderTileCount+' sheet'+(priceBuilderTileCount>1?'s':'') : (canUsePriceBuilder()?'No sheets yet':'None issued')}</div>
       </div>` : ''}
     </div>
   `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
@@ -12484,7 +12534,7 @@ async function loadPriceTileData(siteId){
     // on one elevation) with a shared coloured border and one combined
     // figures card — set up per tile via its own "⋮" menu.
     dbSelect('pricing_element_groups', 'site_id=eq.'+siteId+'&order=created_at.asc'),
-    // Price Builder sheets that have been issued into a Pricing Element on
+    // Price Sheets that have been issued into a Pricing Element on
     // this site — keyed by element so each card can show its priced-item
     // weekly booking breakdown instead of the free-form operative build-up.
     dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+'&pricing_element_id=not.is.null&select=id,pricing_element_id,title'),
@@ -12492,7 +12542,7 @@ async function loadPriceTileData(siteId){
   const pbSheetByElementId = {};
   pbLinkedSheets.forEach(s=>{ pbSheetByElementId[s.pricing_element_id] = s; });
   await loadAllProfiles();
-  // Price Builder now has its own Site Home tile (see the tile-grid render
+  // Price Sheet now has its own Site Home tile (see the tile-grid render
   // function) — no longer fetched or entry-pointed from here.
 
   // Per-element price/labour-invoice access for the current user — two
@@ -12592,7 +12642,7 @@ async function loadPriceTileData(siteId){
 }
 // #430: the Price tile's main page — a grid of tappable sub-tiles, one per
 // Pricing Element (whether it's a plain manual lump-sum + tracker element,
-// or one created by issuing a Price Builder sheet — both are just Pricing
+// or one created by issuing a Price Sheet — both are just Pricing
 // Elements underneath, so both render the same way here). Tapping a tile
 // opens that element's own dedicated page (renderPricingElementDetail)
 // instead of everything living on one long scrolling page of expandable
@@ -12751,7 +12801,7 @@ async function renderPriceTile(siteId){
     </div>
     ` : ''}
 
-    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No sub tiles yet — add one above. Each is its own price total &amp; tracker, or a Price Builder sheet once issued ("+ New Sheet" in Price Builder creates its own tile automatically).'}</div>` : ''}
+    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No sub tiles yet — add one above. Each is its own price total &amp; tracker, or a Price Sheet once issued ("+ New Sheet" in Price Sheet creates its own tile automatically).'}</div>` : ''}
 
     ${groupIdsInOrder.map(gid=>`
       ${groupCardHtml(gid)}
@@ -12842,15 +12892,15 @@ function pricingElementCardHtml(el, d, ctx){
   let maxWeek = 0;
   (ctx.weeks||[]).forEach(w=>{ weekMap[w.week_number]=w.amount; if(w.wage_mismatch_override_reason) wageOverrideMap[w.week_number]=w.wage_mismatch_override_reason; if(w.week_number>maxWeek) maxWeek=w.week_number; });
   const weeksToShow = d.hasPriceAcc ? (maxWeek+1) : maxWeek;
-  // Elements fed by an issued Price Builder sheet get a per-item weekly
+  // Elements fed by an issued Price Sheet get a per-item weekly
   // booking breakdown instead of the free-form operative build-up — the
   // qty booked in per item, per week (with an optional manual £ override
   // per item/week) is what now drives each week's price_weeks.amount.
   const pbWeeksByItem = {};
   (d.pbItemWeeks||[]).forEach(w=>{ (pbWeeksByItem[w.sheet_item_id]=pbWeeksByItem[w.sheet_item_id]||{})[w.week_number]=w; });
   const filesOpenState = priceFilesSectionOpen[el.id];
-  // Auto-open only when there are no files AND no priced sheet already
-  // covering this element — once a Price Builder sheet has been issued into
+  // Auto-open only when there are no files AND no price sheet already
+  // covering this element — once a Price Sheet has been issued into
   // it, the upload box is rarely needed so it starts collapsed by default.
   // Operatives never get the upload box at all, so for them every dropdown
   // in this page starts collapsed until they tap it open.
@@ -13059,10 +13109,10 @@ function pricingElementCardHtml(el, d, ctx){
         ${d.pbSheet ? `
         <div class="card" style="margin:14px 0 0;border-color:var(--brand1);">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
-            <p class="sectiontitle" style="margin:0 0 4px;">💷 Priced Sheet — ${escapeHtml(d.pbSheet.title)}</p>
-            ${canManage ? `<div class="roundplusbtn" style="width:28px;height:28px;font-size:17px;flex:0 0 auto;" title="Add another priced sheet" onclick="go('#/site/${siteId}/pricebuilder')">+</div>` : ''}
+            <p class="sectiontitle" style="margin:0 0 4px;">💷 Price Sheet — ${escapeHtml(d.pbSheet.title)}</p>
+            ${canManage ? `<div class="roundplusbtn" style="width:28px;height:28px;font-size:17px;flex:0 0 auto;" title="Add another price sheet" onclick="go('#/site/${siteId}/pricebuilder')">+</div>` : ''}
           </div>
-          <p class="stub" style="margin:0 0 10px;">${d.hasPriceAcc ? 'This element\'s own priced sheet — view or export it here, scoped to whoever has access to this element only.' : 'The priced sheet for this element of work.'}</p>
+          <p class="stub" style="margin:0 0 10px;">${d.hasPriceAcc ? 'This element\'s own price sheet — view or export it here, scoped to whoever has access to this element only.' : 'The price sheet for this element of work.'}</p>
           <div class="row-gap">
             <button class="darkbtn" style="flex:1;" onclick="exportPriceBuilderSheetPdf('${siteId}','${d.pbSheet.id}')">📄 View PDF</button>
             <button class="ghostbtn" style="flex:1;" onclick="exportPriceBuilderSheet('${d.pbSheet.id}')">⬇ Excel</button>
@@ -13178,7 +13228,7 @@ function pricingElementCardHtml(el, d, ctx){
 }
 
 // Per-item weekly booking breakdown for a Pricing Element that was created
-// by issuing a Price Builder sheet (el.id === some price_builder_sheets row's
+// by issuing a Price Sheet (el.id === some price_builder_sheets row's
 // pricing_element_id). Each priced item gets a qty-booked-this-week input
 // (qty × the item's snapshotted rate = that item's contribution for the
 // week) plus a manual £ override that's clearly flagged — the sum across
@@ -13440,7 +13490,7 @@ async function pbwUpsertRow(sheetItemId, wk, qty, amount, isManual){
   return true;
 }
 // Recomputes a linked Pricing Element's price_weeks total for one week from
-// its Price Builder items' weekly rows — same upsert pattern savePriceWeek
+// its Price Sheet items' weekly rows — same upsert pattern savePriceWeek
 // itself uses, so nothing downstream (Booked In, Balance, Overview) needs to
 // change to pick this up.
 async function rollUpPriceWeekFromSheetItems(elementId, siteId, wk){
@@ -13524,10 +13574,10 @@ window.pbWeekSaveAll = async function(elementId, siteId, sheetId, wk){
   render();
 };
 
-/* ================= PRICE BUILDER — priced sheets (WIP feature) =================
+/* ================= PRICE BUILDER — price sheets (WIP feature) =================
    Separate from the Pricing Elements system above (see #PB-wip) — builds a
-   tick-box priced sheet from the org's rate card (Settings & Admin ›
-   Price Builder — Rate Card) for a specific site, to issue to a
+   tick-box price sheet from the org's rate card (Settings & Admin ›
+   Price Sheet Rate Card) for a specific site, to issue to a
    subcontractor. Draft sheets are only ever visible to PM/admin (RLS also
    enforces this); issuing one snapshots every line's rate so a later rate
    card edit never changes an already-issued sheet, and makes it visible
@@ -13568,7 +13618,7 @@ async function renderPriceBuilderSheets(siteId){
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
-      <p class="stub" style="margin:0;flex:1;">${canManage ? 'Tick-box priced sheets built from the company rate card, ready to issue to a subcontractor.' : 'Priced sheets issued for this project.'}</p>
+      <p class="stub" style="margin:0;flex:1;">${canManage ? 'Tick-box price sheets built from the company rate card, ready to issue to a subcontractor.' : 'Price sheets issued for this project.'}</p>
       ${canManage && sheets.length ? `<div class="roundplusbtn" style="width:34px;height:34px;font-size:19px;flex:0 0 auto;" title="New Sheet" onclick="priceBuilderNewOpen=!priceBuilderNewOpen;render()">+</div>` : ''}
     </div>
     ${sheets.filter(s=>canManage || (isManager(ME) && s.status==='issued') || (s.status==='issued' && (s.assigned_user_ids||[]).includes(ME.id))).map(s=>`
@@ -13597,7 +13647,7 @@ async function renderPriceBuilderSheets(siteId){
         </div>
       </div>
     ` : (sheets.length ? '' : `<button class="darkbtn" style="margin-top:14px;" onclick="priceBuilderNewOpen=true;render()">+ New Sheet</button>`)) : ''}
-  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
+  `, {title:'Price Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
 }
 window.createPriceBuilderSheet = async function(siteId){
   const title = document.getElementById('pbNewTitle').value.trim() || 'Price';
@@ -13700,7 +13750,7 @@ function pbCatIsOpen(name, first){ return pbCategoryOpen[name]===undefined ? !!f
 window.pbToggleCategory = function(name, first){ pbCategoryOpen[name] = !pbCatIsOpen(name, first); render(); };
 async function renderPriceBuilderEdit(siteId, sheetId){
   const __gen = RENDER_GEN;
-  if(!canUsePriceBuilder()){ toast('Only PMs and admins can edit Price Builder sheets.'); go(`#/site/${siteId}/price`); return; }
+  if(!canUsePriceBuilder()){ toast('Only PMs and admins can edit Price Sheets.'); go(`#/site/${siteId}/price`); return; }
   const site = SITES.find(s=>s.id===siteId);
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const sheet = sheetRows[0];
@@ -13834,7 +13884,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
             </div>
           </div>
         `;}).join('') : ''}
-      `;}).join('') || `<div class="empty">No rate card items yet — add some from Settings &amp; Admin › Price Builder — Rate Card first.</div>`}
+      `;}).join('') || `<div class="empty">No rate card items yet — add some from Settings &amp; Admin › Price Sheet Rate Card first.</div>`}
 
       <div class="card" style="margin-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -13846,7 +13896,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         <button class="ghostbtn" style="flex:1;" onclick="savePriceBuilderDraft('${siteId}','${sheetId}')">Save Draft</button>
         <button class="darkbtn" style="flex:1;" onclick="pbGoToConfirm()">Continue — set quantities →</button>
       </div>
-    `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
+    `, {title:'Price Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
     return;
   }
 
@@ -13945,7 +13995,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
     </div>
     <button class="darkbtn" style="margin-top:8px;" onclick="issuePriceBuilderSheet('${siteId}','${sheetId}')">Submit for Issuing</button>
     `}
-  `, {title:'Price Builder', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:sheet.status==='issued'?`#/site/${siteId}/pricebuilder/view/${sheetId}`:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
+  `, {title:'Price Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:sheet.status==='issued'?`#/site/${siteId}/pricebuilder/view/${sheetId}`:`#/site/${siteId}/pricebuilder`, siteId, tabs:false});
 }
 window.pbGoToConfirm = function(){
   if(!Object.keys(pbWorking.items).length && !pbWorking.customRows.length){ toast('Tick at least one item first.'); return; }
@@ -14324,7 +14374,7 @@ window.unissuePriceBuilderSheet = async function(siteId, sheetId){
   const row = await dbUpdate('price_builder_sheets', sheetId, {status:'draft'});
   if(row){ toast('Sheet un-issued — back to draft'); go(`#/site/${siteId}/pricebuilder/edit/${sheetId}`); }
 };
-// Mirrors a Price Builder edit onto the Schedule of Works section it already
+// Mirrors a Price Sheet edit onto the Schedule of Works section it already
 // fed (only relevant once a sheet has been issued with "populate SOW"
 // ticked) — renames a linked task when its item's wording changed, adds a
 // task for any newly-added item, and removes the task for a removed item
@@ -14444,9 +14494,9 @@ async function renderPriceBuilderView(siteId, sheetId){
         ${canUsePriceBuilder() ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deletePriceBuilderSheet('${siteId}','${sheetId}')">🗑 Delete</div>` : ''}
       `)}
     </div>
-  `, {title:'Priced Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
+  `, {title:'Price Sheet', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/pricebuilder`, siteId, tabs:false}); }
 }
-// Live Total/Taken/Balance for a Price Builder sheet — once issued, a sheet
+// Live Total/Taken/Balance for a Price Sheet — once issued, a sheet
 // feeds exactly one Pricing Element (sheet.pricing_element_id), so "Taken"
 // and "Balance" here are always read straight off that element's own
 // Booked-In figure (auto-summed from price_weeks, or its manual override)
@@ -14465,7 +14515,7 @@ async function pbSheetLiveFigures(sheet){
   const elTotal = Number(el.price_total!=null?el.price_total:total);
   return {total: elTotal, taken, balance: elTotal-taken};
 }
-// Turns one priced sheet (issued or still-draft) into a clean single-tab
+// Turns one price sheet (issued or still-draft) into a clean single-tab
 // Excel — the actual document you hand to a subcontractor/operative,
 // grouped by element of works the same way the app shows it, with a live
 // Total / Taken / Balance block at the bottom (Taken/Balance pulled fresh
@@ -14482,7 +14532,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   // downloaded file is identifiable on its own once it's out of the app
   // (in an email thread, a Downloads folder, sent on to a subcontractor),
   // rather than just the sheet title which can be ambiguous across sites.
-  const exportFileName = [site && site.name, sheet.title||'Priced Sheet', 'Price List']
+  const exportFileName = [site && site.name, sheet.title||'Price Sheet', 'Price List']
     .filter(Boolean).join(' - ').replace(/[\\/?*\[\]:]/g,'').slice(0,150);
   await loadAllProfiles();
   const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sheetId+'&order=sort_order.asc');
@@ -14502,7 +14552,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   const wageWeeks = Object.keys(wagesByWeek).map(Number).sort((a,b)=>a-b);
 
   const rows = [];
-  rows.push([sheet.title || 'Priced Sheet']);
+  rows.push([sheet.title || 'Price Sheet']);
   if(site){
     rows.push(['Site:', pdfSiteLabel(site)]);
     rows.push(['Job No:', site.job_number || '']);
@@ -14557,7 +14607,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
   if((await loadLib('ExcelJS'))){
     try{
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet('Priced Sheet');
+      const ws = wb.addWorksheet('Price Sheet');
       ws.columns = [{width:42},{width:8},{width:14},{width:12},{width:14},{width:22}];
       rows.forEach(r=>ws.addRow(r));
       const gbp = '"£"#,##0.00';
@@ -14610,7 +14660,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
     const addr = 'B'+(r+1); if(ws[addr]) ws[addr].z = '"£"#,##0.00';
   }
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Priced Sheet');
+  XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
   await deliverExcelFile(wb, exportFileName+'.xlsx');
 };
 // The "Subcontractor SOW" style PDF — same layout as the reference sheet
@@ -14619,7 +14669,7 @@ window.exportPriceBuilderSheet = async function(sheetId){
 // conventions (org logo + brand colour bar, same fonts/spacing every other
 // export in OpHUB uses) instead of a plain black-and-white look. Taken and
 // Balance are always the live figures off the linked Pricing Element.
-// Shared PDF-building logic for a Priced Sheet — factored out so both the
+// Shared PDF-building logic for a Price Sheet — factored out so both the
 // "View PDF" download flow (exportPriceBuilderSheetPdf) and the "Email"
 // flow (emailPriceBuilderSheetPdf, added alongside the row-actions dropdown
 // on renderPriceBuilderView) build from exactly the same bytes rather than
@@ -14695,7 +14745,7 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
     }
     const textX = MARGIN;
     page.drawText('SUBCONTRACTOR SOW', {x:textX, y:PAGE_H-36, size:9, font:bold, color:WHITE, opacity:0.85});
-    page.drawText(sheet.title||'Priced Sheet', {x:textX, y:PAGE_H-58, size:16, font:bold, color:WHITE});
+    page.drawText(sheet.title||'Price Sheet', {x:textX, y:PAGE_H-58, size:16, font:bold, color:WHITE});
     // Site NAME as well as its address — this used to be address-only, which
     // reads fine for a site whose name already looks like an address, but is
     // ambiguous wherever the two differ (multi-site jobs, a site named after
@@ -14842,7 +14892,7 @@ async function buildPriceBuilderSheetPdfBytes(siteId, sheetId){
   }
 
   const bytes = await pdfDoc.save();
-  const filename = exportFilename(site?site.name:'', sheet.title||'Priced Sheet', 'pdf');
+  const filename = exportFilename(site?site.name:'', sheet.title||'Price Sheet', 'pdf');
   return {bytes, filename, site, sheet};
 }
 window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
@@ -14850,12 +14900,12 @@ window.exportPriceBuilderSheetPdf = async function(siteId, sheetId){
   if(!built) return;
   await deliverPdf(built.bytes, built.filename, {emailAction: ()=>emailPriceBuilderSheetPdf(siteId, sheetId)});
 };
-// Emails a Priced Sheet PDF to an address typed in — same pattern as
+// Emails a Price Sheet PDF to an address typed in — same pattern as
 // emailSiteInductionPdf: upload the freshly-built PDF to storage, then hand
 // the edge function a link rather than a base64 attachment (some of these
 // can run to several pages with a full rate breakdown).
 window.emailPriceBuilderSheetPdf = async function(siteId, sheetId){
-  const answer = await customPromptWithCc('Email this priced sheet PDF to:', '');
+  const answer = await customPromptWithCc('Email this price sheet PDF to:', '');
   if(!answer) return;
   const typedTrim = (answer.value||'').trim();
   if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
@@ -29348,7 +29398,7 @@ window.deletePriceRateOption = async function(optionId, itemId){
 // its rate/unit in place; anything not matched is added as new. Dropdown
 // items (and their options) aren't touched by this — add those manually,
 // since a flat rate-per-row sheet can't express the option list.
-/* ---------- Price Builder rate card <-> Excel ----------
+/* ---------- Price Sheet rate card <-> Excel ----------
    The rate card lives as one workbook, one tab per element of works
    (category) — matches the app's own category headers exactly. Each row is
    one item: Item | Unit | Rate (£) | Option 1 | Option 1 Rate (£) | Option 2
@@ -29378,7 +29428,7 @@ window.exportPriceRateExcel = async function(){
 
   const wb = XLSX.utils.book_new();
   const readMeRows = [
-    ['RTB Price Builder — Rate Card'],
+    ['RTB Price Sheet Rate Card'],
     [''],
     ['One tab per element of works. Each row is one item.'],
     ['Columns: Item | Unit | Rate (£) | Option 1 | Option 1 Rate (£) | Option 2 | Option 2 Rate (£) ... up to 6 pairs.'],
@@ -34177,10 +34227,10 @@ async function renderRoute(){
     if(page==='price'){
       const sub = parts[3];
       // A single sub tile's own page — reachable either way, regardless of
-      // the Price/Price Builder landing split flag below.
+      // the Price/Price Sheet landing split flag below.
       if(sub==='element' && parts[4]) return renderPricingElementDetail(siteId, parts[4]);
       // PRICE_BUILDER_LIVE off: Price behaves as the single Pricing Elements
-      // page only (no Price/Price Builder landing split) — see the flag's
+      // page only (no Price/Price Sheet landing split) — see the flag's
       // definition for why.
       if(!PRICE_BUILDER_LIVE) return renderPriceTile(siteId);
       if(sub==='elements') return renderPriceTile(siteId);
