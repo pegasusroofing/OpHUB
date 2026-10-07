@@ -13568,7 +13568,10 @@ function pbCustomLineTotal(row){ return (Number(row.quantity)||0) * (Number(row.
 // default open (undefined -> true) so nothing that used to always show
 // suddenly disappears the first time someone opens the page.
 let pbCategoryOpen = {};
-window.pbToggleCategory = function(name){ pbCategoryOpen[name] = pbCategoryOpen[name]===false ? true : false; render(); };
+// Only the first section (the main roof element) starts open; everything
+// below it — and Additional Items — starts closed until tapped.
+function pbCatIsOpen(name, first){ return pbCategoryOpen[name]===undefined ? !!first : pbCategoryOpen[name]; }
+window.pbToggleCategory = function(name, first){ pbCategoryOpen[name] = !pbCatIsOpen(name, first); render(); };
 async function renderPriceBuilderEdit(siteId, sheetId){
   const __gen = RENDER_GEN;
   if(!canUsePriceBuilder()){ toast('Only PMs and admins can edit Price Builder sheets.'); go(`#/site/${siteId}/price`); return; }
@@ -13669,10 +13672,11 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       <div class="formfield"><label class="field-label">Assign to</label>${pbAssigneeChipsHtml(assignedOperatives, pbWorking.assignedUserIds, 'pbToggleAssignee')}</div>
       <p class="stub" style="margin:0 0 10px;">Tick everything that belongs on this sheet — you'll set quantities next, once everything's ticked.</p>
 
-      ${categories.map(cat=>{
-        const open = pbCategoryOpen[cat.name]!==false;
+      ${categories.map((cat,ci)=>{
+        const open = pbCatIsOpen(cat.name, ci===0);
+        const catIds = new Set(cat.items.map(it=>it.id)); const nTicked = Object.keys(pbWorking.items).filter(k=>catIds.has(pbWorking.items[k].rateItemId)).length;
         return `
-        <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}')"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}</p>
+        <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}',${ci===0})"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}${nTicked ? ` <span class="stub" style="font-weight:400;">· ${nTicked} ticked</span>` : ''}</p>
         ${open ? cat.items.filter(it=>!PB_HIDE_UNLESS_PLAIN_TILE_IDS.has(it.id) || pbPlainTileTicked()).map(it=>{
           const opts = optionsByItem[it.id]||[];
           if(it.is_dropdown){
@@ -13773,8 +13777,8 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       `;}).join('')}
     `;}).join('')}
 
-    <p class="ddrow" style="margin-top:14px;" onclick="pbToggleCategory('__custom')"><span class="arrow">${pbCategoryOpen.__custom!==false?'▼':'▶'}</span> Additional Items</p>
-    ${pbCategoryOpen.__custom!==false ? `
+    <p class="ddrow" style="margin-top:14px;" onclick="pbToggleCategory('__custom',false)"><span class="arrow">${pbCatIsOpen('__custom',false)?'▼':'▶'}</span> Additional Items${pbWorking.customRows.length ? ` <span class="stub" style="font-weight:400;">· ${pbWorking.customRows.length} added</span>` : ''}</p>
+    ${pbCatIsOpen('__custom',false) ? `
       <p class="stub" style="margin:0 0 8px;">Items not on the rate card — add as many as you need, just for this sheet.</p>
       ${pbWorking.customRows.map((row,idx)=>`
         <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;align-items:center;gap:8px;">
