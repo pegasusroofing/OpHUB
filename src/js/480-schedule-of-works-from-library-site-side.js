@@ -947,13 +947,16 @@ async function uploadSchedulePhoto(siteId, taskId, file, stage){
   const base = siteId+'/schedule/'+taskId+'/'+crypto.randomUUID();
   let mid = null, thumb = null;
   try{ mid = await shrinkDataUrl(full, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); thumb = await shrinkDataUrl(mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e){ /* the full photo alone still works */ }
+  // No signal: keep the photo on the phone and send it later (see sowOfflineSend).
+  if(navigator.onLine === false) return (await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb)) ? {queued:true, dataUrl: full} : null;
   const quiet = (path, data)=>{ uploadBusy.quietNext = true; try{ return uploadDataUrl('site-photos', path, data); } finally { uploadBusy.quietNext = false; } };
   const [stored, midStored, thumbStored] = await Promise.all([
     uploadDataUrl('site-photos', base+'.jpg', full),
     mid ? quiet(base+'_m.jpg', mid).catch(()=>null) : null,
     thumb ? quiet(base+'_t.jpg', thumb).catch(()=>null) : null,
   ]);
-  if(!stored) return null;
+  // The upload did not get through (signal dropped part-way): keep it on the phone instead of losing it.
+  if(!stored) return (await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb)) ? {queued:true, dataUrl: full} : null;
   const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, mid_path:midStored||null, thumb_path:thumbStored||null, uploaded_by:ME.id, stage});
   return rows ? {row: rows[0], dataUrl: full} : null;
 }
@@ -992,11 +995,20 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
   // Three photos at a time instead of one after another.
-  let uploaded = 0;
+  let uploaded = 0, queued = 0;
   await runPool(files, 3, async file=>{
     const done = await uploadSchedulePhoto(siteId, taskId, file, 'done');
-    if(done){ uploaded++; queueOneDrivePhoto(done.dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
+    if(done && done.queued) queued++;
+    else if(done){ uploaded++; queueOneDrivePhoto(done.dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
   });
+  if(queued){
+    // Some or all photos are waiting on the phone: the task is marked
+    // Complete on the server only after they have gone up.
+    await sowOfflineKeepTaskPatch(siteId, taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
+    pendingCompleteTaskId = null;
+    customAlert(`${queued} photo${queued===1?'':'s'} kept on this phone. ${queued===1?'It':'They'} will send, and the task will be marked Complete, as soon as you have signal.`);
+    render(); return;
+  }
   if(!uploaded){ toast('Could not process photo(s) — try again.'); return; }
   const row = await dbUpdate('schedule_tasks', taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
   if(row){
@@ -1173,11 +1185,17 @@ window.taskPhoto = async function(input, siteId, taskId, currentStatus){
   ]);
   const taskName = ((taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo').replace(/[^a-z0-9 ]+/gi,'').trim();
   let photoNum = existing ? existing.length : 0;
-  let uploaded = 0;
+  let uploaded = 0, queued = 0;
   await runPool(files, 3, async file=>{
     const done = await uploadSchedulePhoto(siteId, taskId, file, stage);
-    if(done){ uploaded++; photoNum++; queueOneDrivePhoto(done.dataUrl, taskName+' '+photoNum+'.jpg', siteId); }
+    if(done && done.queued) queued++;
+    else if(done){ uploaded++; photoNum++; queueOneDrivePhoto(done.dataUrl, taskName+' '+photoNum+'.jpg', siteId); }
   });
+  if(queued){
+    if(moveToProgress) await sowOfflineKeepTaskPatch(siteId, taskId, {status:'progress'});
+    customAlert(`${queued} photo${queued===1?'':'s'} kept on this phone. ${queued===1?'It':'They'} will send${moveToProgress?', and the task will move to In Progress,':''} as soon as you have signal.`);
+    if(!uploaded){ render(); return; }
+  }
   if(uploaded){
     if(moveToProgress) await dbUpdate('schedule_tasks', taskId, {status:'progress'});
     // A progress photo prompts for an updated percentage (skippable).

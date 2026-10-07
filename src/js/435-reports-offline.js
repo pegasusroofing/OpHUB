@@ -15,23 +15,28 @@
 // person's id only, and is removed once the server has it.
 const REPORT_OFFLINE_DB = 'ophub-offline';
 const REPORT_OFFLINE_STORE = 'reportDrafts';
+const SOW_OFFLINE_STORE = 'sowQueue';        // Schedule of Works photos (and the task change that goes with them)
+let sowOfflinePending = 0;
 let reportOfflinePending = 0;          // how many are waiting to send (shown in the header strip)
 let reportOfflineSyncing = false;
 function reportOfflineDb(){
   return new Promise((resolve, reject)=>{
     if(typeof indexedDB === 'undefined'){ reject(new Error('no indexedDB')); return; }
-    const r = indexedDB.open(REPORT_OFFLINE_DB, 1);
-    r.onupgradeneeded = ()=>{ if(!r.result.objectStoreNames.contains(REPORT_OFFLINE_STORE)) r.result.createObjectStore(REPORT_OFFLINE_STORE, {keyPath:'submissionId'}); };
+    const r = indexedDB.open(REPORT_OFFLINE_DB, 2);
+    r.onupgradeneeded = ()=>{
+      if(!r.result.objectStoreNames.contains(REPORT_OFFLINE_STORE)) r.result.createObjectStore(REPORT_OFFLINE_STORE, {keyPath:'submissionId'});
+      if(!r.result.objectStoreNames.contains(SOW_OFFLINE_STORE)) r.result.createObjectStore(SOW_OFFLINE_STORE, {keyPath:'id'});
+    };
     r.onsuccess = ()=>resolve(r.result);
     r.onerror = ()=>reject(r.error);
   });
 }
-async function reportOfflineTx(mode, fn){
+async function reportOfflineTx(mode, fn, store){
   const db = await reportOfflineDb();
   try{
     return await new Promise((resolve, reject)=>{
-      const tx = db.transaction(REPORT_OFFLINE_STORE, mode);
-      const req = fn(tx.objectStore(REPORT_OFFLINE_STORE));
+      const tx = db.transaction(store || REPORT_OFFLINE_STORE, mode);
+      const req = fn(tx.objectStore(store || REPORT_OFFLINE_STORE));
       tx.oncomplete = ()=>resolve(req ? req.result : undefined);
       tx.onerror = ()=>reject(tx.error); tx.onabort = ()=>reject(tx.error);
     });
@@ -50,19 +55,21 @@ async function reportOfflinePut(rec){
 }
 async function reportOfflineCount(){
   const n = (await reportOfflineAll()).filter(r=>r.pending).length;
-  if(n !== reportOfflinePending){ reportOfflinePending = n; reportOfflinePaintStrip(); }
-  return n;
+  const p = (await sowOfflineAll()).filter(r=>r.kind==='photo').length;
+  if(n !== reportOfflinePending || p !== sowOfflinePending){ reportOfflinePending = n; sowOfflinePending = p; reportOfflinePaintStrip(); }
+  return n + p;
 }
 // A thin strip under the header on every screen while anything is waiting.
 function reportOfflinePaintStrip(){
   let el = document.getElementById('reportOfflineStrip');
-  if(!reportOfflinePending){ if(el) el.remove(); return; }
+  if(!reportOfflinePending && !sowOfflinePending){ if(el) el.remove(); return; }
+  const what = [reportOfflinePending ? reportOfflinePending+' report'+(reportOfflinePending===1?'':'s') : '', sowOfflinePending ? sowOfflinePending+' photo'+(sowOfflinePending===1?'':'s') : ''].filter(Boolean).join(' and ');
   if(!el){
     el = document.createElement('div'); el.id = 'reportOfflineStrip';
     el.style.cssText = 'position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom, 0px) + 74px);z-index:400;display:flex;justify-content:center;pointer-events:none;';
     document.body.appendChild(el);
   }
-  el.innerHTML = `<span onclick="reportOfflineSync(true)" style="pointer-events:auto;cursor:pointer;background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.15);">📤 ${reportOfflinePending} report${reportOfflinePending===1?'':'s'} waiting to send${reportOfflineSyncing ? ' — sending…' : (navigator.onLine===false ? ' — no signal' : ' — tap to send')}</span>`;
+  el.innerHTML = `<span onclick="reportOfflineSync(true)" style="pointer-events:auto;cursor:pointer;background:var(--warn-bg);color:var(--warn);border:1.5px solid var(--warn);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(0,0,0,.15);">📤 ${what} waiting to send${reportOfflineSyncing ? ' — sending…' : (navigator.onLine===false ? ' — no signal' : ' — tap to send')}</span>`;
 }
 // The record kept for the report currently open.
 function reportOfflineRecord(draft, extra){
@@ -137,7 +144,8 @@ window.reportOfflineSync = async function(manual){
   if(reportOfflineSyncing || !ME || !SESSION) return;
   if(navigator.onLine === false){ if(manual) toast('Still no signal — it will send on its own when you have some.'); return; }
   const waiting = (await reportOfflineAll()).filter(r=>r.pending);
-  if(!waiting.length){ reportOfflineCount(); return; }
+  const sowWaiting = await sowOfflineAll();
+  if(!waiting.length && !sowWaiting.length){ reportOfflineCount(); return; }
   reportOfflineSyncing = true; reportOfflinePaintStrip();
   let sent = 0;
   for(const rec of waiting){
@@ -189,11 +197,64 @@ window.reportOfflineSync = async function(manual){
       sent++;
     }catch(e){ console.warn('offline report not sent yet', rec.submissionId, e && e.message); }
   }
+  let photosSent = 0;
+  try{ photosSent = await sowOfflineSend(sowWaiting); }catch(e){ console.warn('offline photos not sent yet', e && e.message); }
   reportOfflineSyncing = false;
   await reportOfflineCount(); reportOfflinePaintStrip();
-  if(sent){ toast('✓ '+sent+' report'+(sent===1?'':'s')+' sent'); try{ uiReadCacheClear(); }catch(e){} if(/reports|briefings|inspections/.test(location.hash)) render(); }
+  if(sent || photosSent){
+    toast('✓ '+[sent ? sent+' report'+(sent===1?'':'s') : '', photosSent ? photosSent+' photo'+(photosSent===1?'':'s') : ''].filter(Boolean).join(' and ')+' sent');
+    try{ uiReadCacheClear(); }catch(e){}
+    if(/reports|briefings|inspections|schedule/.test(location.hash)) render();
+  }
   else if(manual) toast('Could not send yet — it will keep trying.');
 };
 window.addEventListener('online', ()=>{ setTimeout(()=>reportOfflineSync(false), 2000); });
-setInterval(()=>{ if(ME && SESSION && reportOfflinePending && navigator.onLine !== false) reportOfflineSync(false); }, 60000);
+setInterval(()=>{ if(ME && SESSION && (reportOfflinePending || sowOfflinePending) && navigator.onLine !== false) reportOfflineSync(false); }, 60000);
 setTimeout(function first(){ if(ME && SESSION){ reportOfflineCount().then(n=>{ if(n) reportOfflineSync(false); }); } else setTimeout(first, 3000); }, 4000);
+
+/* ---------- Schedule of Works photos with no signal ----------
+   A photo taken on a task with no signal (or whose upload fails) is kept on
+   the phone, already shrunk to its three sizes, together with the change
+   to the task that went with it (moved to In Progress / marked Complete).
+   When signal returns the photos go up first, then the task is updated —
+   so a task is never shown as Complete on the server without its photos. */
+async function sowOfflineAll(){
+  try{ const all = await reportOfflineTx('readonly', st=>st.getAll(), SOW_OFFLINE_STORE); return (all||[]).filter(r=>ME && r.userId === ME.id).sort((a,b)=>a.at-b.at); }catch(e){ return []; }
+}
+async function sowOfflinePut(rec){
+  try{ await reportOfflineTx('readwrite', st=>st.put(rec), SOW_OFFLINE_STORE); reportOfflineCount(); return true; }catch(e){ console.warn('could not keep photo offline', e && e.message); return false; }
+}
+async function sowOfflineDel(id){ try{ await reportOfflineTx('readwrite', st=>st.delete(id), SOW_OFFLINE_STORE); }catch(e){} }
+async function sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb){
+  return sowOfflinePut({id: crypto.randomUUID(), kind:'photo', userId: ME.id, siteId, taskId, stage, full, mid: mid||null, thumb: thumb||null, at: Date.now()});
+}
+// The task change that belongs with photos kept above. One per task; a later one replaces an earlier one.
+async function sowOfflineKeepTaskPatch(siteId, taskId, patch){
+  return sowOfflinePut({id: 'patch:'+taskId, kind:'patch', userId: ME.id, siteId, taskId, patch, at: Date.now()});
+}
+async function sowOfflineSend(recs){
+  let sent = 0;
+  const photos = recs.filter(r=>r.kind==='photo'), patches = recs.filter(r=>r.kind==='patch');
+  const failedTasks = new Set();
+  for(const r of photos){
+    try{
+      const base = r.siteId+'/schedule/'+r.taskId+'/'+r.id;
+      const stored = await reportOfflineUpload(base+'.jpg', r.full);
+      if(!stored){ failedTasks.add(r.taskId); continue; }
+      let m = null, t = null;
+      try{ if(r.mid) m = await reportOfflineUpload(base+'_m.jpg', r.mid); if(r.thumb) t = await reportOfflineUpload(base+'_t.jpg', r.thumb); }catch(e){}
+      const res = await sbFetch('/rest/v1/schedule_photos', {method:'POST', timeoutMs:60000, headers:{'Prefer':'return=minimal'}, body: JSON.stringify({task_id:r.taskId, storage_path:stored, mid_path:m, thumb_path:t, uploaded_by:ME.id, stage:r.stage})});
+      if(!res.ok){ failedTasks.add(r.taskId); continue; }
+      await sowOfflineDel(r.id); sent++;
+      try{ queueOneDrivePhoto(r.full, 'Photo '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+'.jpg', r.siteId); }catch(e){}
+    }catch(e){ failedTasks.add(r.taskId); }
+  }
+  for(const p of patches){
+    if(failedTasks.has(p.taskId)) continue; // its photos aren't all up yet
+    try{
+      const res = await sbFetch('/rest/v1/schedule_tasks?id=eq.'+p.taskId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=minimal'}, body: JSON.stringify(p.patch)});
+      if(res.ok) await sowOfflineDel(p.id);
+    }catch(e){}
+  }
+  return sent;
+}
