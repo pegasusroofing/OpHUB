@@ -338,6 +338,12 @@
      fallback comes first for anything that doesn't understand color-mix(). */
   .tilegrid .tile{border-color:color-mix(in srgb, var(--brand2) 50%, var(--line));}
   .tile:active{transform:scale(.98);}
+  /* Admin Centre item screens: one section shown on its own page. The old
+     drop-down header rows (and the indent they sat in) are hidden; only the
+     chosen section's content is left. */
+  .adminitem p.ddrow[onclick*="toggleTeamSection("], .adminitem p.ddrow[onclick*="sign-templates"]{display:none;}
+  .adminitem div[style*="border-left:2px solid var(--line)"]{margin:0 !important;padding:0 !important;border:0 !important;}
+  .adminitem-expensesemail .adm-od{display:none;}
   /* Admin Centre tiles: 85% of the standard tile size. */
   .admintiles{gap:8.5px;}
   .admintiles .tile{padding:12px 10px;gap:7px;min-height:95px;border-radius:12px;}
@@ -3538,9 +3544,7 @@ function homeBottomBar(canAdd, outstandingCount){
 // expanded, instead of landing on the Admin Centre root and making the PM/
 // admin find and open it themselves.
 window.openInvitesFromHome = function(){
-  teamSectionOpen.invitesusers = true;
-  teamSectionOpen.invites = true;
-  go('#/team');
+  go('#/team/people/invites');
 };
 window.openHomeAddProject = function(){
   addSiteFormOpen = true;
@@ -5432,7 +5436,77 @@ let newInviteId = null;
 let invitesBusy = false;
 let inviteEmailBusy = false;
 let permanentInviteBusy = false;
-async function renderTeam(){
+/* ================= ADMIN CENTRE LAYOUT =================
+   Front page  (#/team)                 search + day-to-day tiles + four set-up tiles
+   Section page (#/team/<page>)         a plain list of what's in Company / Libraries / People / Logs
+   Item screen (#/team/<page>/<item>)   that one thing on its own screen
+   The item screens reuse the original section markup inside renderTeam: the
+   chosen section is switched on, everything else off, and the old drop-down
+   headers are hidden with CSS (.adminitem). */
+const ADMIN_GROUP_FLAGS = ['brandingintegrations','libraries','healthsafety','invitesusers'];
+const ADMIN_PAGES = {
+  company:   {label:'Company',   icon:'🎨', sub:'Logo · Theme · Integrations', bg:'var(--brand1)', fg:'var(--brand1-text)', show:()=>ME.role==='admin'},
+  libraries: {label:'Libraries', icon:'📚', sub:'Templates · Rates · H&S',     bg:'var(--ok-bg)',  fg:'var(--ok)',          show:()=>isManager(ME)},
+  people:    {label:'People',    icon:'👥', sub:'Invites · Users · Phones',    bg:'var(--blue-bg)',fg:'var(--blue)',        show:()=>isManager(ME)},
+  logs:      {label:'Logs',      icon:'🕒', sub:'Check-ins · Drivers',         bg:'#EEEEEE',       fg:'#555555',            show:()=>isManager(ME)},
+};
+// key -> where it lives, what it's called, which original section(s) to open.
+const ADMIN_ITEMS = {
+  branding:       {page:'company',   group:'Branding',            icon:'🖼️', label:'Company Logo & Theme', sub:'Logo and colours',                 flags:['branding'],                     kw:'logo theme colour color brand', show:()=>ME.role==='admin'},
+  expensesemail:  {page:'company',   group:'Integrations',        icon:'🧾', label:'Expenses Email',       sub:()=>((ORG && ORG.expenses_email) || 'Not set')+' · kept '+((ORG && ORG.expenses_retention_months) || 3)+' months', flags:['integrations','expensesemail'], kw:'receipts expenses email', show:()=>ME.role==='admin'},
+  onedrive:       {page:'company',   group:'Integrations',        icon:'☁️', label:'OneDrive',             sub:'Photo and export syncing, quick links', flags:['integrations'],                kw:'onedrive sync folder sharepoint', show:()=>ME.role==='admin'},
+  reporttemplates:{page:'libraries', group:'Reports & documents', icon:'📝', label:'Report Templates',     sub:'Inspections, surveys, briefings',  flags:['reporttemplates'],              kw:'inspection survey report template briefing', show:()=>isManager(ME)},
+  signtemplates:  {page:'libraries', group:'Reports & documents', icon:'✍️', label:'Signing Templates',    sub:'RAMS signature boxes',             href:'#/sign-templates',                kw:'rams signature sign template docusign', show:()=>isManager(ME)},
+  sowlibrary:     {page:'libraries', group:'Works & pricing',     icon:'🧱', label:'Schedule of Works Library', sub:'Standard sections and tasks', flags:['sowlibrary'],                   kw:'sow schedule works library', show:()=>isManager(ME)},
+  pricebuilder:   {page:'libraries', group:'Works & pricing',     icon:'💷', label:'Price Builder Rate Card', sub:'Rates by category',             flags:['pricebuilder'],                 kw:'price rate card rates builder', show:()=>ME.role==='admin' && canUsePriceBuilder() && PRICE_BUILDER_LIVE},
+  suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Used on all projects',             flags:['suppliers'],                    kw:'supplier merchant', show:()=>isManager(ME)},
+  maincontractor: {page:'libraries', group:'Works & pricing',     icon:'🏢', label:'Main Contractor',      sub:'Inspection templates',             flags:['maincontractor'],               kw:'main contractor mc inspection', show:()=>isManager(ME)},
+  hspolicy:       {page:'libraries', group:'Health & Safety',     icon:'📕', label:'H&S Policy',           sub:'Policy document and who has signed', flags:['hspolicy'],                   kw:'health safety policy', show:()=>isFullManager(ME)},
+  havstools:      {page:'libraries', group:'Health & Safety',     icon:'🛠️', label:'HAVS Tools',           sub:'Vibration tool list',              flags:['havstools'],                    kw:'havs vibration tools', show:()=>isFullManager(ME)},
+  coshhlibrary:   {page:'libraries', group:'Health & Safety',     icon:'🧪', label:'COSHH Library',        sub:'Assessments for all sites',        flags:['coshhlibrary'],                 kw:'coshh hazardous substances', show:()=>isFullManager(ME)},
+  tbt:            {page:'libraries', group:'Health & Safety',     icon:'🗣️', label:'Toolbox Talk Templates', sub:'All sites',                      flags:['tbt'],                          kw:'toolbox talk tbt', show:()=>isFullManager(ME) && ME.role==='admin'},
+  ppelog:         {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'PPE Log',              sub:'Issued PPE and the register',      flags:['ppelog'],                       kw:'ppe register', show:()=>isFullManager(ME)},
+  invites:        {page:'people',    group:'',                    icon:'✉️', label:'Invites',              sub:'Invite links and pending invites', flags:['invites'],                      kw:'invite link join', show:()=>isManager(ME)},
+  users:          {page:'people',    group:'',                    icon:'👥', label:'Users',                sub:'Roles, passwords, removing people', flags:['users'],                       kw:'user role admin pm estimator operative driver client password remove', show:()=>isManager(ME)},
+  devicelocks:    {page:'people',    group:'',                    icon:'📱', label:'Device Locks',         sub:'One phone = one person',           flags:['devicelocks'],                  kw:'device phone lock approve', show:()=>isFullManager(ME)},
+  checkinlogs:    {page:'logs',      group:'',                    icon:'📍', label:'Check-In Logs',        sub:'Operatives and PM logins by site', flags:['checkinlogs'],                  kw:'check in out log site attendance', show:()=>isManager(ME)},
+  drivercheckins: {page:'logs',      group:'',                    icon:'🚚', label:'Driver Check-In Log',  sub:'Shifts, breaks, hours',            flags:['drivercheckins'],               kw:'driver check in shift break hours', show:()=>isFullManager(ME)},
+};
+function adminItemHash(key){ const it = ADMIN_ITEMS[key]; return it ? (it.href || '#/team/'+it.page+'/'+key) : '#/team'; }
+function adminRowHtml(key, extraSub){
+  const it = ADMIN_ITEMS[key];
+  const sub = extraSub || (typeof it.sub==='function' ? it.sub() : it.sub);
+  return `<div class="sitecard" style="cursor:pointer;" onclick="go('${adminItemHash(key)}')">
+    <div style="font-size:20px;flex:0 0 auto;width:26px;text-align:center;">${it.icon}</div>
+    <div class="info"><div class="name">${escapeHtml(it.label)}</div>${sub ? `<div class="addr">${escapeHtml(sub)}</div>` : ''}</div>
+    <div style="color:var(--slate);font-size:20px;flex:0 0 auto;">›</div>
+  </div>`;
+}
+function adminPageListHtml(page, counts){
+  const keys = Object.keys(ADMIN_ITEMS).filter(k=>ADMIN_ITEMS[k].page===page && ADMIN_ITEMS[k].show());
+  let lastGroup = null, out = '';
+  keys.forEach(k=>{
+    const g = ADMIN_ITEMS[k].group;
+    if(g && g!==lastGroup){ out += `<p class="sectiontitle" style="margin-top:${lastGroup===null?'0':'18px'};">${escapeHtml(g)}</p>`; }
+    lastGroup = g;
+    out += adminRowHtml(k, counts && counts[k]);
+  });
+  return out || `<div class="empty">Nothing here for your role.</div>`;
+}
+let adminSearch = '';
+// Search box on the Admin Centre front page: filters every section the
+// signed-in person can open. Re-draws only the results area, so typing
+// never loses the cursor.
+window.adminSearchRender = function(){
+  const q = (adminSearch||'').trim().toLowerCase();
+  const res = document.getElementById('adminSearchResults'), tiles = document.getElementById('adminHubTiles');
+  if(!res || !tiles) return;
+  if(!q){ res.innerHTML = ''; tiles.style.display = ''; return; }
+  const hits = Object.keys(ADMIN_ITEMS).filter(k=>{ const it = ADMIN_ITEMS[k]; return it.show() && ADMIN_PAGES[it.page].show() && (it.label+' '+it.kw+' '+it.group+' '+ADMIN_PAGES[it.page].label).toLowerCase().includes(q); });
+  tiles.style.display = 'none';
+  res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
+};
+async function renderTeam(adminPage, adminItemKey){
   const __gen = RENDER_GEN;
   // A link into Admin Centre from inside a site file (e.g. "Upload / manage
   // versions in Settings & Admin" from the RAMS page) can pass ?from=<hash>
@@ -5442,6 +5516,14 @@ async function renderTeam(){
   await loadAllProfiles();
   const people = Object.values(PROFILES).sort((a,b)=>a.name.localeCompare(b.name));
   const iAmAdmin = ME.role==='admin';
+  // Which screen is this? Front page, a section page, or one item.
+  if(adminPage && (!ADMIN_PAGES[adminPage] || !ADMIN_PAGES[adminPage].show())){ go('#/team'); return; }
+  const adminItem = adminItemKey ? ADMIN_ITEMS[adminItemKey] : null;
+  if(adminItemKey && (!adminItem || adminItem.page!==adminPage || !adminItem.show() || !adminItem.flags)){ go(adminPage ? '#/team/'+adminPage : '#/team'); return; }
+  // Only the item on screen is switched on — so only its data is fetched.
+  Object.keys(teamSectionOpen).forEach(k=>{ teamSectionOpen[k] = false; });
+  if(adminItem){ ADMIN_GROUP_FLAGS.concat(adminItem.flags).forEach(k=>{ teamSectionOpen[k] = true; }); }
+  const adminBack = adminItem ? '#/team/'+adminPage : (adminPage ? '#/team' : null);
   // Every fetch below now follows the same "only when that section is
   // actually open" pattern already used further down for Check-In Logs/PPE
   // Log/COSHH Library/Operative Tools/Certifications. Previously these ran
@@ -5548,6 +5630,12 @@ async function renderTeam(){
   });
   sortPriceRateCategories(priceRateCategories);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${adminPage && !adminItem ? adminPageListHtml(adminPage, {users: people.length+' people'}) : ''}
+    ${!adminPage ? `
+    <div class="formfield" style="margin-top:0;"><input type="text" id="adminSearchInput" placeholder="🔍  Search settings, libraries, people…" value="${escapeHtml(adminSearch)}" oninput="adminSearch=this.value;adminSearchRender()" autocomplete="off"></div>
+    <div id="adminSearchResults"></div>
+    <div id="adminHubTiles">
+    <p class="sectiontitle" style="margin-top:6px;">Day to day</p>
     <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
       <div class="tile" onclick="go('#/deliveries')">
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
@@ -5569,6 +5657,17 @@ async function renderTeam(){
       </div>
       ` : ''}
     </div>
+    <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
+    <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
+      ${Object.keys(ADMIN_PAGES).filter(k=>ADMIN_PAGES[k].show()).map(k=>`
+      <div class="tile" onclick="go('#/team/${k}')">
+        <div class="icon" style="background:${ADMIN_PAGES[k].bg};color:${ADMIN_PAGES[k].fg};">${ADMIN_PAGES[k].icon}</div>
+        <div class="lbl">${escapeHtml(ADMIN_PAGES[k].label)}</div><div class="sub">${escapeHtml(ADMIN_PAGES[k].sub)}</div>
+      </div>`).join('')}
+    </div>
+    </div>
+    ` : ''}
+    ${adminItem ? `<div class="adminitem adminitem-${adminItemKey}">
     ${iAmAdmin ? `
     <p class="ddrow ddrow-hdr" style="margin-top:14px;" onclick="toggleTeamSection('brandingintegrations')"><span class="icon" style="background:var(--brand1);color:var(--brand1-text);">🎨</span><span class="lbl">Branding &amp; Integrations</span><span class="arrow">${teamSectionOpen.brandingintegrations?'▼':'▶'}</span></p>
     ${teamSectionOpen.brandingintegrations ? `
@@ -5620,8 +5719,6 @@ async function renderTeam(){
       <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
         <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
       </div>
-    ` : ''}
-    </div>
       <div class="formfield"><label class="field-label">Keep receipts in the app for</label>
         <select id="expensesRetentionInput">${[3,6,9,12].map(m=>`<option value="${m}" ${((ORG && ORG.expenses_retention_months) || 3)===m?'selected':''}>${m} months</option>`).join('')}</select>
       </div>
@@ -5629,6 +5726,9 @@ async function renderTeam(){
       <button class="darkbtn" style="margin-top:10px;" onclick="saveExpensesEmail()">Save</button>
       ${ORG && ORG.expenses_email ? `<p class="stub" style="margin:8px 0 0;color:var(--good,#1F9D62);">✓ Currently going to ${escapeHtml(ORG.expenses_email)}</p>` : `<p class="stub" style="margin:8px 0 0;color:var(--warn);">Not set yet — receipts can't be sent until an address is saved.</p>`}
     </div>
+    ` : ''}
+    </div>
+    <div class="adm-od">
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">OneDrive — progress report photos</p>
       ${odConn && odConn.access_token ? `
@@ -5675,6 +5775,7 @@ async function renderTeam(){
         }).join('');
       })()}
     </div>
+    </div>
     ` : ''}
     </div>
     ` : ''}
@@ -5692,13 +5793,13 @@ async function renderTeam(){
           <div class="swatch">📋</div>
           <div class="info"><div class="name">${escapeHtml(t.name)}</div><div class="addr">${(t.sections||[]).length} section${(t.sections||[]).length===1?'':'s'}</div></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}',null,'#/templates')">Edit</button>
+            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}',null,'#/team/libraries/reporttemplates')">Edit</button>
             <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="duplicateTemplate('${t.id}')">Duplicate</button>
             <div class="taskicon danger" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">🗑</div>
           </div>
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — create your first one below.</div>`}
-      <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/templates')">+ New Template</button>
+      <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team/libraries/reporttemplates')">+ New Template</button>
     </div>
     ` : ''}
     ` : ''}
@@ -5870,7 +5971,7 @@ async function renderTeam(){
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Company-wide Main Contractor tools — shared across every site.</p>
       <button class="ghostbtn" style="display:block;margin-bottom:8px;" onclick="go('#/companylibrary')">📚 Subcontractor Library</button>
-      <button class="ghostbtn" style="display:block;" onclick="teamSectionOpen.libraries=true;teamSectionOpen.reporttemplates=true;teamSectionOpen.maincontractor=false;render();document.getElementById('teamSectionReporttemplates')?.scrollIntoView();">📋 Templates (Report Templates, in Libraries below)</button>
+      <button class="ghostbtn" style="display:block;" onclick="go('#/team/libraries/reporttemplates')">📋 Templates (Report Templates, in Libraries)</button>
     </div>
     ` : ''}
     ` : ''}
@@ -6261,12 +6362,15 @@ async function renderTeam(){
     </div>
     ` : ''}
     ` : ''}
-    <p style="text-align:center;margin-top:20px;">
+    </div>` : ''}
+    ${!adminPage ? `    <p style="text-align:center;margin-top:20px;">
       <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
-  `, {title:'Admin Centre', back: teamBackFrom ? decodeURIComponent(teamBackFrom) : '#/sites', tabs:false, showRoleChip:true, titleGoesHome:true}); }
+    ` : ''}
+  `, {title: adminItem ? adminItem.label : (adminPage ? ADMIN_PAGES[adminPage].label : 'Admin Centre'), back: teamBackFrom ? decodeURIComponent(teamBackFrom) : (adminBack || '#/sites'), tabs:false, showRoleChip:!adminPage, titleGoesHome:true});
+    if(!adminPage && adminSearch) adminSearchRender(); }
 }
 let teamSectionOpen = {branding:false, integrations:false, brandingintegrations:false, libraries:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
 /* ================= Schedule of Works — Library (Admin Centre). Org-wide
@@ -6406,8 +6510,7 @@ window.toggleOperativeToolsUser = function(userId){ operativeToolsOpenByUser[use
 // — same mechanism as Certifications (#207) and Admin Centre (#248).
 window.openAdminPpeRegister = function(siteId){
   if(!isManager(ME)) return;
-  teamSectionOpen.ppelog = true;
-  go('#/team?from='+encodeURIComponent('#/site/'+siteId+'/ppe'));
+  go('#/team/libraries/ppelog?from='+encodeURIComponent('#/site/'+siteId+'/ppe'));
 };
 window.openAdminOperativeTools = function(userId){
   if(!isManager(ME)) return;
@@ -7045,8 +7148,7 @@ window.pinAsQuickLink = async function(id, name, driveId){
     toast('Added Quick Link — "'+name+'"');
   }
   odPickerStack = null;
-  teamSectionOpen.integrations = true;
-  go('#/team');
+  go('#/team/company/onedrive');
 };
 window.odPickerInto = function(id, name, driveId, isSite){
   odPickerStack.push({id, name, driveId: driveId || null, isSite: !!isSite});
@@ -14874,7 +14976,7 @@ async function renderReportTemplates(){
       </div>
     `).join('') || `<div class="empty">No templates yet — create your first one below.</div>`}
     <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>
-  `, {title:'Report Templates', back:'#/team', tabs:false}); }
+  `, {title:'Report Templates', back:'#/team/libraries', tabs:false}); }
 }
 window.createNewTemplate = async function(siteId, returnPath){
   templatesReturnSiteId = siteId || null;
@@ -22344,7 +22446,7 @@ async function renderExpenses(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:12px;">
       <p style="margin:0 0 4px;font-weight:700;">🧾 Send receipts to the office</p>
-      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, each receipt is emailed <b>on its own</b> to <b>${escapeHtml(toEmail)}</b>, labelled with the job — so 6 receipts is 6 emails.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;teamSectionOpen.expensesemail=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
+      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, each receipt is emailed <b>on its own</b> to <b>${escapeHtml(toEmail)}</b>, labelled with the job — so 6 receipts is 6 emails.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="go('#/team/company/expensesemail')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
     </div>
     ${d.entries.map((e,i)=>`
     <div class="card" style="margin-bottom:10px;">
@@ -22972,7 +23074,7 @@ async function renderSignTemplates(){
         </div>
       </div>`;
     }).join('') : `<div class="empty">No templates yet.</div>`}
-  `, {title:'Signing Templates', back:'#/team', tabs:false});
+  `, {title:'Signing Templates', back:'#/team/libraries', tabs:false});
 }
 window.addSignTemplate = async function(){
   if(signTplBusy) return;
@@ -33777,10 +33879,11 @@ async function renderRoute(){
     const odStatus = routeQuery().get('onedrive');
     if(odStatus){
       toast(odStatus==='success' ? 'OneDrive connected' : 'OneDrive connection failed — try again.');
-      history.replaceState(null, '', location.pathname + location.search + '#/team');
+      history.replaceState(null, '', location.pathname + location.search + '#/team/company/onedrive');
+      return renderTeam('company', 'onedrive');
     }
     if(parts[1]==='onedrive-quicklinks') return renderOneDriveFolderPicker(null);
-    return renderTeam();
+    return renderTeam(parts[1] || null, parts[2] || null);
   }
   if(parts[0]==='companylibrary'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
