@@ -2312,6 +2312,7 @@ let pushTokenValue = null; // this phone's push token, once the OS has handed it
 // if that function isn't there.
 async function savePushTokenForMe(){
   if(!ME || !SESSION || !pushTokenValue) return;
+  if(isEstimator(ME)) return; // estimators get no notifications, so their phone is never registered
   const platform = (window.Capacitor && window.Capacitor.getPlatform) ? window.Capacitor.getPlatform() : 'unknown';
   try{
     const res = await sbFetch('/rest/v1/rpc/claim_push_token', {method:'POST', body: JSON.stringify({p_token: pushTokenValue, p_platform: platform})});
@@ -2715,7 +2716,13 @@ function canUsePriceBuilder(){ return isFullManager(ME); }
 function snaggingFolderLabel(){ return isManager(ME) ? 'Inspections & Reports' : 'Snagging & Variations'; }
 function materialsTileLabel(){ return 'Materials'; }
 function todayISODate(){ const d = new Date(); const p = n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+// Estimator = a Project Manager (identical access everywhere) flagged to
+// receive no notifications: no push to their phone, no automatic emails.
+// The role itself stays 'pm' so every permission check keeps working.
+function isEstimator(p){ return !!p && p.role==='pm' && !!p.is_estimator; }
+function personRoleLabel(p){ return isEstimator(p) ? 'Estimator' : roleLabel(p && p.role); }
 function roleLabel(role){
+  if(role==='estimator') return 'Estimator';
   return role==='admin' ? 'Company Admin' : role==='pm' ? 'Project Manager' : role==='site_manager' ? 'Site Manager' : role==='superadmin' ? 'Super Admin' : role==='client' ? 'Client' : role==='driver' ? 'Delivery Driver' : 'Operative';
 }
 // Admin Centre > Users role-change control: what roles a given viewer (ME)
@@ -2737,12 +2744,12 @@ function roleActionsFor(ME, p, allPeople){
     canRemove = true;
   } else if(p.role==='pm'){
     if(!iAmFullManager) return {options:null, canRemove:false};
-    options = [{value:'pm', label:'Project Manager'}, {value:'operative', label:'Operative'}, {value:'site_manager', label:'Site Manager'}];
+    options = [{value:'pm', label:'Project Manager'}, {value:'estimator', label:'Estimator (no notifications)'}, {value:'operative', label:'Operative'}, {value:'site_manager', label:'Site Manager'}];
     if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
     canRemove = iAmAdmin;
   } else if(p.role==='site_manager'){
     if(!iAmFullManager) return {options:null, canRemove:false};
-    options = [{value:'site_manager', label:'Site Manager'}, {value:'operative', label:'Operative'}, {value:'pm', label:'Project Manager'}];
+    options = [{value:'site_manager', label:'Site Manager'}, {value:'operative', label:'Operative'}, {value:'pm', label:'Project Manager'}, {value:'estimator', label:'Estimator (no notifications)'}];
     if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
     canRemove = iAmAdmin;
   } else if(p.role==='operative'){
@@ -2752,7 +2759,7 @@ function roleActionsFor(ME, p, allPeople){
     // the reverse (driver -> operative, below) already worked. Same
     // iAmFullManager gate as PM/Site Manager since it's no higher-trust
     // than those.
-    if(iAmFullManager) options.push({value:'pm', label:'Project Manager'}, {value:'site_manager', label:'Site Manager'}, {value:'driver', label:'Delivery Driver'});
+    if(iAmFullManager) options.push({value:'pm', label:'Project Manager'}, {value:'estimator', label:'Estimator (no notifications)'}, {value:'site_manager', label:'Site Manager'}, {value:'driver', label:'Delivery Driver'});
     if(iAmAdmin) options.push({value:'admin', label:'Company Admin'});
     canRemove = iAmFullManager;
   } else if(p.role==='driver'){
@@ -2765,6 +2772,18 @@ function roleActionsFor(ME, p, allPeople){
   }
   return {options, canRemove};
 }
+function estimatorsSectionHtml(people){
+  return `
+    <p class="sectiontitle" style="margin-top:18px;">Estimators</p>
+    <p class="stub" style="margin:-4px 0 8px;">Same access as a Project Manager, but they get no notifications or automatic emails.</p>
+    ${people.filter(p=>isEstimator(p)).map(p=>`
+      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+        <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
+        <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
+        ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
+      </div>
+    `).join('')}`;
+}
 function roleActionsHtml(ME, p, allPeople){
   const {options, canRemove} = roleActionsFor(ME, p, allPeople);
   if(!options && !canRemove) return '';
@@ -2772,7 +2791,7 @@ function roleActionsHtml(ME, p, allPeople){
   return `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
       ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
-        ${options.map(o=>`<option value="${o.value}" ${o.value===p.role?'selected':''}>${o.label}</option>`).join('')}
+        ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
       ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
     </div>
@@ -2801,7 +2820,7 @@ async function loadAllProfiles(force){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
   if(!rows.length && Object.keys(PROFILES).length) return;
@@ -3402,7 +3421,7 @@ function shell(innerHtml, opts){
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
-            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${roleLabel(ME.role)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
         `}
@@ -3899,7 +3918,7 @@ async function renderAdmin(){
             <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${jsAttr(o.name)}')">Delete Company</button>
             ${people.map(p=>`
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${roleLabel(p.role)}</div></div>
+                <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${personRoleLabel(p)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
@@ -3946,9 +3965,12 @@ window.toggleAdminOrg = function(orgId){
 };
 window.setUserRole = async function(userId, role){
   if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)) return;
-  const row = await dbUpdate('profiles', userId, {role});
+  // 'estimator' isn't a separate role in the database: it is a Project
+  // Manager with the no-notifications flag on.
+  const est = role==='estimator';
+  const row = await dbUpdate('profiles', userId, {role: est ? 'pm' : role, is_estimator: est});
   if(row){
-    if(PROFILES[userId]) PROFILES[userId].role = role; // keep the cache correct without a re-fetch
+    if(PROFILES[userId]){ PROFILES[userId].role = est ? 'pm' : role; PROFILES[userId].is_estimator = est; } // keep the cache correct without a re-fetch
     toast(`Role changed to ${roleLabel(role)}`); render();
   }
 };
@@ -4298,7 +4320,7 @@ async function renderSites(){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
-      <span class="stub" style="margin:0;text-align:right;flex:0 0 auto;">${escapeHtml(roleLabel(ME.role))}</span>
+      <span class="stub" style="margin:0;text-align:right;flex:0 0 auto;">${escapeHtml(personRoleLabel(ME))}</span>
     </div>
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
@@ -6077,13 +6099,14 @@ async function renderTeam(){
     `).join('') || `<div class="empty">No other admins yet.</div>`}
 
     <p class="sectiontitle" style="margin-top:18px;">Project Managers</p>
-    ${people.filter(p=>p.role==='pm').map(p=>`
+    ${people.filter(p=>p.role==='pm' && !p.is_estimator).map(p=>`
       <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && isFullManager(ME) ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && isFullManager(ME) ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
       </div>
     `).join('') || `<div class="empty">No project managers yet.</div>`}
+    ${people.some(p=>isEstimator(p)) ? estimatorsSectionHtml(people) : ''}
 
     <p class="sectiontitle" style="margin-top:18px;">Site Managers</p>
     ${people.filter(p=>p.role==='site_manager').map(p=>`
@@ -19732,7 +19755,7 @@ window.exportSchedulePDF = async function(siteId){
 window.openScheduleEmailPrompt = async function(siteId){
   await loadAllProfiles();
   const site = SITES.find(s=>s.id===siteId);
-  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email);
+  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p));
   let ov = document.getElementById('scheduleEmailModalOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -27424,7 +27447,7 @@ window.emailTbtManual = async function(siteId, tbtId){
     if(site && site.responsible_pm_id && PROFILES[site.responsible_pm_id] && PROFILES[site.responsible_pm_id].email){
       recipients = [PROFILES[site.responsible_pm_id].email];
     } else {
-      recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email).map(p=>p.email);
+      recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p)).map(p=>p.email);
     }
     if(!recipients.length){ tbtEmailBusy=null; toast('No project manager email found to send to.'); render(); return; }
     let binary=''; const chunk=0x8000;
@@ -27531,7 +27554,7 @@ async function emailCompletedTbtToPM(siteId, tbtId){
     if(site && site.responsible_pm_id && PROFILES[site.responsible_pm_id] && PROFILES[site.responsible_pm_id].email){
       recipients = [PROFILES[site.responsible_pm_id].email];
     } else {
-      recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email).map(p=>p.email);
+      recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p)).map(p=>p.email);
     }
     if(!recipients.length) return;
     let binary=''; const chunk=0x8000;
@@ -28371,7 +28394,7 @@ window.saveMatReqEdit = async function(siteId, id){
 window.openMatReqEmailSelectedPrompt = async function(siteId){
   if(!selectedMatReqIds.size){ toast('Nothing selected.'); return; }
   await loadAllProfiles();
-  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email);
+  const managers = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p));
   let ov = document.getElementById('matReqEmailModalOverlay');
   if(!ov){
     ov = document.createElement('div');
