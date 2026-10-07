@@ -28226,6 +28226,9 @@ async function renderMaterialRequiredList(siteId){
           ${subAddressesList.map(a=>`<option value="${a.id}" ${matReqDraftSubAddr===a.id?'selected':''}>${escapeHtml(a.name)}</option>`).join('')}
         </select>
       ` : ''}
+      <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:10px 0 0;">📄 Import from Excel
+        <input type="file" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" style="display:none;" onchange="importMatReqExcel(this)"></label>
+      <p class="stub" style="margin:4px 0 0;">Pick a material order spreadsheet — the item names and quantities are added to the queue above for you to check before saving.</p>
       <div class="row-gap" style="margin-top:10px;">
         <button class="ghostbtn" style="flex:1;" onclick="addMaterialRequiredDraftRow()">Add More</button>
         <button class="darkbtn" style="flex:1;" onclick="completeMaterialRequiredList('${siteId}')">Complete List</button>
@@ -28247,6 +28250,70 @@ window.toggleMatReqSelect = function(id){
 // the next row under the same supplier/address without re-picking them.
 // "Complete List" (below) inserts every queued row plus whatever's still in
 // the open fields, in one go.
+// ---- Import a material order spreadsheet into the queue ----------------
+// Reads the first sheet that has a recognisable table: a header row with a
+// description/item column and a quantity column (a unit column is used too
+// if there is one). Rows with no quantity — section headings like "Lead",
+// blank lines, totals — are skipped. Nothing is saved: rows only join the
+// queue, so they can be checked or binned before tapping Complete List.
+function matReqParseSheetRows(rows){
+  const norm = v=>String(v==null?'':v).trim().toLowerCase();
+  const isDesc = t=>/^(description|item|items|material|materials|product|name|item description|material description)$/.test(t);
+  const isQty = t=>/^(qty|quantity|quantities|qty required|quantity required|no\.?|amount)$/.test(t);
+  const isUnit = t=>/^(unit|units|uom)$/.test(t);
+  let hdr = -1, cDesc = -1, cQty = -1, cUnit = -1;
+  for(let r=0; r<Math.min(rows.length, 40) && hdr<0; r++){
+    const cells = (rows[r]||[]).map(norm);
+    const d = cells.findIndex(isDesc), q = cells.findIndex(isQty);
+    if(d>-1 && q>-1){ hdr = r; cDesc = d; cQty = q; cUnit = cells.findIndex(isUnit); }
+  }
+  if(hdr<0){
+    // No headings found: take the first text column and the first number column.
+    for(let r=0; r<Math.min(rows.length, 60) && cDesc<0; r++){
+      const row = rows[r]||[];
+      const d = row.findIndex(v=>typeof v==='string' && v.trim().length>1);
+      const q = row.findIndex(v=>typeof v==='number');
+      if(d>-1 && q>-1){ cDesc = d; cQty = q; hdr = r-1; }
+    }
+  }
+  if(cDesc<0 || cQty<0) return [];
+  const out = [];
+  for(let r=hdr+1; r<rows.length; r++){
+    const row = rows[r]||[];
+    const item = String(row[cDesc]==null?'':row[cDesc]).trim();
+    const rawQ = row[cQty];
+    const n = typeof rawQ==='number' ? rawQ : parseFloat(String(rawQ==null?'':rawQ).replace(/,/g,''));
+    if(!item || !isFinite(n) || n<=0) continue;
+    if(/total/i.test(item)) continue;
+    const q = String(Math.round(n*100)/100);
+    const unit = cUnit>-1 ? String(row[cUnit]==null?'':row[cUnit]).trim() : '';
+    out.push({item: item.slice(0,300), qty: unit ? q+' '+unit : q});
+  }
+  return out;
+}
+window.importMatReqExcel = async function(input){
+  const file = input.files && input.files[0];
+  try{ input.value = ''; }catch(e){}
+  if(!file) return;
+  if(file.size > 15*1024*1024){ toast('That file is too big to read.'); return; }
+  if(!(await loadLib('XLSX'))){ toast('Excel library failed to load — check connection.'); return; }
+  let found = [];
+  try{
+    const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+    for(const name of wb.SheetNames){
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:null, blankrows:false});
+      found = matReqParseSheetRows(rows);
+      if(found.length) break;
+    }
+  }catch(e){ console.error(e); toast('Could not read that file — is it an Excel or CSV file?'); return; }
+  if(!found.length){ customAlert('No items found in that file. It needs a column headed "Description" (or "Item") and one headed "Quantity" (or "Qty").'); return; }
+  const supplierId = materialSupplierChoice['reqnew'] || null;
+  const subAddrEl = document.getElementById('matReqSubAddr');
+  const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
+  found.forEach(r=>matReqDraftRows.push({item:r.item, qty:r.qty, supplier_id:supplierId, sub_site_id:subSiteId}));
+  await render();
+  customAlert(found.length+' item'+(found.length===1?'':'s')+' read from "'+file.name+'" and added to the queue. Check them over, bin any you don\'t want, then tap Complete List to save.');
+};
 window.addMaterialRequiredDraftRow = function(){
   const itemEl = document.getElementById('matReqItem');
   const item = (itemEl ? itemEl.value : matReqDraftItem || '').trim();
