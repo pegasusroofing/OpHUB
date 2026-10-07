@@ -61,6 +61,13 @@ async function renderSiteReports(siteId){
     dbSelect('report_submissions', (general ? 'site_id=is.null&org_id=eq.'+ME.org_id : 'site_id=eq.'+siteId)+'&order=submitted_at.desc&limit=100'),
   ]);
   await loadAllProfiles();
+  // Reports parked on this phone: flag the ones already in the list, and add
+  // any that were started with no signal (the server doesn't know them yet).
+  const waitingRecs = (await reportOfflineAll()).filter(r=>r.pending && !(r.draft && r.draft.fromBriefing) && (general ? isGeneralReports(r.siteId) : r.siteId===siteId));
+  const waitingIds = new Set(waitingRecs.map(r=>r.submissionId));
+  waitingRecs.filter(r=>!submissions.some(s=>s.id===r.submissionId)).forEach(r=>{
+    submissions.unshift({id:r.submissionId, template_name:r.draft.template_name, general_label:r.draft.generalLabel, status:'in_progress', submitted_at:new Date(r.updatedAt).toISOString(), submitted_by:ME.id});
+  });
   const templateNames = Array.from(new Set(submissions.map(s=>s.template_name))).sort();
   const filtered = reportsFilterTemplate ? submissions.filter(s=>s.template_name===reportsFilterTemplate) : submissions;
 
@@ -105,7 +112,7 @@ async function renderSiteReports(siteId){
           <div class="name">${general && s.general_label ? escapeHtml(s.general_label)+' — ' : ''}${escapeHtml(s.template_name)}</div>
           <div class="addr">${s.status==='in_progress' ? 'Started' : ('Submitted '+new Date(s.submitted_at).toLocaleString('en-GB'))} · ${escapeHtml(nameOf(s.submitted_by))}</div>
         </div>
-        <span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>
+        ${waitingIds.has(s.id) ? `<span class="statustag2 open" style="background:var(--warn-bg);color:var(--warn);">📤 Waiting to send</span>` : `<span class="statustag2 ${REPORT_STATUS_CLASS[s.status]||'closed'}">${REPORT_STATUS_LABEL[s.status]||s.status}</span>`}
       </div>
     `).join('') || `<div class="empty">No inspections started yet${reportsFilterTemplate?' for this template.':'.'}</div>`}
   `, general ? {title:'Reports & Inspections', subtitle:'Not linked to a project', back:generalReportsBackHash, tabs:false} : {title:'Reports', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/snagging`, siteId, activeTab:'more'}); }
@@ -118,7 +125,9 @@ window.renameGeneralReport = async function(id, current){
   if(row){ toast('Saved'); render(); } else toast('Could not save — try again.');
 };
 window.startReport = async function(siteId, templateId){
-  const rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
+  let rows = await dbSelect('report_templates', 'id=eq.'+templateId+'&limit=1');
+  // No signal: fall back to the template list this phone has already seen.
+  if(!rows[0]){ const all = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); rows = (all||[]).filter(x=>x.id===templateId); }
   const t = rows[0];
   if(!t){ toast('Template not found'); return; }
   const answers = {};
@@ -143,6 +152,10 @@ window.startReport = async function(siteId, templateId){
     submitted_by: ME.id, status:'in_progress',
   };
   if(general) payload.general_label = generalLabel;
+  if(navigator.onLine === false){
+    if(await reportOfflineStart(siteId, t, answers, generalLabel)) return;
+    toast('No signal, and this phone cannot keep reports offline.'); return;
+  }
   const inserted = await dbInsert('report_submissions', payload);
   if(inserted && inserted[0]){
     reportFillDraft = null;
@@ -240,10 +253,16 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const listPath = reportListPath(siteId, fromBriefing);
+  // A copy kept on this phone (unsent changes, or a report started or
+  // parked with no signal) always wins over what the server has.
+  if(!reportFillDraft || reportFillDraft.submissionId !== submissionId){
+    const local = await reportOfflineGet(submissionId);
+    if(local && local.draft){ reportFillDraft = local.draft; reportFillDraft.siteId = siteId; reportOfflineLastSig = reportDraftSignature(reportFillDraft); }
+  }
   if(!reportFillDraft || reportFillDraft.submissionId !== submissionId){
     const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
     const sub = rows[0];
-    if(!sub){ toast('Inspection not found'); go(listPath); return; }
+    if(!sub){ toast(navigator.onLine === false ? 'No signal — open this one once with signal first.' : 'Inspection not found'); go(listPath); return; }
     if(sub.status==='completed'){
       // A completed Daily Briefing stays editable by a PM/admin right up
       // until the first operative signature — after that it's locked (same
@@ -373,13 +392,20 @@ async function reportBackgroundSave(){
       if(!reportFillDraft || reportFillDraft.submissionId !== draftId || reportSubmitBusy || reportSaveBusy) break;
       await uploadReportDraftPhotos(reportFillDraft.siteId, true);
       if(!reportFillDraft || reportFillDraft.submissionId !== draftId || reportSubmitBusy || reportSaveBusy) break;
-      await saveReportAnswersToServer();
+      const okSaved = await saveReportAnswersToServer();
+      if(okSaved && reportFillDraft && reportFillDraft.submissionId === draftId && !reportPendingPhotoRefs().length){
+        const rec = await reportOfflineGet(draftId);
+        if(rec && !rec.pending && !rec.create){ await reportOfflineDel(draftId); reportOfflineLastSig = reportDraftSignature(reportFillDraft); }
+      }
     }while(reportAutoSaveAgain);
   }catch(e){ console.warn('report background save failed', e && e.message); }
   reportAutoSaveRunning = false;
 }
 window.saveReportProgress = async function(siteId){
   if(reportSaveBusy || reportSubmitBusy) return;
+  // No signal (or a report that only exists on this phone so far): keep it
+  // here and send it later.
+  if(navigator.onLine === false || ((await reportOfflineGet(reportFillDraft.submissionId))||{}).create){ if(await reportOfflineQueue('save')) return; }
   reportSaveBusy = true; await render();
   let up = {total:0, failed:0}, saved = false;
   try{
@@ -391,13 +417,14 @@ window.saveReportProgress = async function(siteId){
   if(saved && !up.failed){
     toast('Progress saved');
     const fromBriefing = reportFillDraft.fromBriefing;
+    await reportOfflineClear(reportFillDraft.submissionId);
     reportFillDraft = null;
     go(reportListPath(siteId, fromBriefing));
     return;
   }
   await render();
   if(saved) customAlert(`Saved, but ${up.failed} photo${up.failed===1?'':'s'} could not be uploaded. Everything else is safe. Stay on this page and tap Save & Exit again when your signal is better — only the missing photo${up.failed===1?'':'s'} will be sent.`);
-  else toast('Could not save — check your connection and try again. Nothing has been lost from this screen.');
+  else if(!(await reportOfflineQueue('save'))) toast('Could not save — check your connection and try again. Nothing has been lost from this screen.');
 };
 // One-time default for an "Operatives On Site" item: every operative
 // assigned to the site, ticked (included) by default. A manager can untick
@@ -652,6 +679,9 @@ window.submitReport = async function(siteId){
     }
   }
   if(reportSubmitBusy || reportSaveBusy) return;
+  // No signal (or a report that only exists on this phone so far): it is
+  // complete as far as the person is concerned — park it and send it later.
+  if(navigator.onLine === false || ((await reportOfflineGet(reportFillDraft.submissionId))||{}).create){ if(await reportOfflineQueue('complete')) return; }
   reportSubmitBusy = true; await render();
   const isPmEdit = !!reportFillDraft.editingCompleted;
   // Photos first: three at a time, each kept as soon as it lands (see
@@ -718,9 +748,10 @@ window.submitReport = async function(siteId){
     const fromBriefing = reportFillDraft.fromBriefing;
     toast(fromBriefing ? 'Briefing completed' : (isPmEdit ? 'Report updated' : 'Report submitted'));
     const submissionId = reportFillDraft.submissionId;
+    await reportOfflineClear(submissionId);
     reportFillDraft = null;
     go(`${reportListPath(siteId, fromBriefing)}/view/${submissionId}`);
-  } else { toast('Could not submit — check your connection and try again.'); render(); }
+  } else if(!(await reportOfflineQueue('complete'))){ toast('Could not submit — check your connection and try again.'); render(); }
 };
 async function renderReportView(siteId, submissionId, fromBriefing){
   const __gen = RENDER_GEN;
