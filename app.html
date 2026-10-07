@@ -6356,7 +6356,8 @@ function pbPlainTileTicked(){ return PB_PLAIN_TILE_KEYS.some(k=>!!pbWorking.item
 // Categories render in this fixed order rather than alphabetically — any
 // category not in this list (e.g. one someone adds later) is appended after,
 // alphabetically among themselves.
-const PRICE_CATEGORY_ORDER = ['Pitched Roofing','Roofline','General','Leadwork','Loft Insulation'];
+const PRICE_CATEGORY_ORDER = ['Pitched Roofing','Roofline','Leadwork','Loft Insulation','General'];
+const PB_OPEN_BY_DEFAULT = ['Pitched Roofing','Roofline','Leadwork','Loft Insulation']; // every other section (General, Additional Items…) starts closed
 function sortPriceRateCategories(cats){
   cats.sort((a,b)=>{
     const ai = PRICE_CATEGORY_ORDER.indexOf(a.name), bi = PRICE_CATEGORY_ORDER.indexOf(b.name);
@@ -13673,10 +13674,10 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       <p class="stub" style="margin:0 0 10px;">Tick everything that belongs on this sheet — you'll set quantities next, once everything's ticked.</p>
 
       ${categories.map((cat,ci)=>{
-        const open = pbCatIsOpen(cat.name, ci===0);
+        const open = pbCatIsOpen(cat.name, PB_OPEN_BY_DEFAULT.includes(cat.name));
         const catIds = new Set(cat.items.map(it=>it.id)); const nTicked = Object.keys(pbWorking.items).filter(k=>catIds.has(pbWorking.items[k].rateItemId)).length;
         return `
-        <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}',${ci===0})"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}${nTicked ? ` <span class="stub" style="font-weight:400;">· ${nTicked} ticked</span>` : ''}</p>
+        <p class="ddrow" style="margin-top:14px;margin-bottom:8px;" onclick="pbToggleCategory('${jsAttr(cat.name)}',${PB_OPEN_BY_DEFAULT.includes(cat.name)})"><span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(cat.name)}${nTicked ? ` <span class="stub" style="font-weight:400;">· ${nTicked} ticked</span>` : ''}</p>
         ${open ? cat.items.filter(it=>!PB_HIDE_UNLESS_PLAIN_TILE_IDS.has(it.id) || pbPlainTileTicked()).map(it=>{
           const opts = optionsByItem[it.id]||[];
           if(it.is_dropdown){
