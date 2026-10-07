@@ -5590,12 +5590,16 @@ async function renderTeam(){
     ` : ''}
     <p class="ddrow" style="${ddHdr}" onclick="toggleTeamSection('integrations')"><span class="arrow">${teamSectionOpen.integrations?'▼':'▶'}</span> Integrations</p>
     ${teamSectionOpen.integrations ? `
+    <div style="margin:8px 0 0 14px;padding-left:10px;border-left:2px solid var(--line);">
+    <p class="ddrow" style="margin-top:0;${ddHdr}" onclick="toggleTeamSection('expensesemail')"><span class="arrow">${teamSectionOpen.expensesemail?'▼':'▶'}</span> Expenses Email <span class="stub" style="font-weight:400;">· ${ORG && ORG.expenses_email ? escapeHtml(ORG.expenses_email) : 'not set'}</span></p>
+    ${teamSectionOpen.expensesemail ? `
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Expenses email</p>
       <p class="stub" style="margin:0 0 10px;">Receipts sent from the Expenses tile on any job are emailed to this address.</p>
       <div class="formfield" style="margin-top:0;"><label class="field-label">Send expenses to</label>
         <input type="email" id="expensesEmailInput" value="${escapeHtml((ORG && ORG.expenses_email) || '')}" placeholder="e.g. info@yourcompany.co.uk" autocomplete="off">
       </div>
+    ` : ''}
+    </div>
       <div class="formfield"><label class="field-label">Keep receipts in the app for</label>
         <select id="expensesRetentionInput">${[3,6,9,12].map(m=>`<option value="${m}" ${((ORG && ORG.expenses_retention_months) || 3)===m?'selected':''}>${m} months</option>`).join('')}</select>
       </div>
@@ -22312,7 +22316,7 @@ async function renderExpenses(siteId){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:12px;">
       <p style="margin:0 0 4px;font-weight:700;">🧾 Send receipts to the office</p>
-      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, each receipt is emailed <b>on its own</b> to <b>${escapeHtml(toEmail)}</b>, labelled with the job — so 6 receipts is 6 emails.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
+      <p class="stub" style="margin:0;">Add a photo or file of each receipt and say which job it's for. ${toEmail ? `When you save, each receipt is emailed <b>on its own</b> to <b>${escapeHtml(toEmail)}</b>, labelled with the job — so 6 receipts is 6 emails.` : `<span style="color:var(--warn);font-weight:700;">No expenses email address is set up yet.</span> ${isManager(ME) ? `<span class="viewlink" style="cursor:pointer;" onclick="teamSectionOpen.brandingintegrations=true;teamSectionOpen.integrations=true;teamSectionOpen.expensesemail=true;go('#/team')">Add one in Settings › Branding &amp; Integrations</span>.` : 'Ask a manager to add one in Settings.'}`}</p>
     </div>
     ${d.entries.map((e,i)=>`
     <div class="card" style="margin-bottom:10px;">
