@@ -6,7 +6,7 @@ async function renderAssignTeam(siteId){
   const __mc = !!(site && site.acting_as_main_contractor);
   const __pSubCompanies = __mc ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc') : Promise.resolve([]);
   const __pSubOps = __mc ? dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=*') : Promise.resolve([]);
-  const __pActivity = siteTeamSectionOpen.activity ? dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=100') : Promise.resolve([]);
+  const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
@@ -223,17 +223,7 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
 
-    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('activity')"><span class="arrow">${siteTeamSectionOpen.activity?'▼':'▶'}</span> Activity Log</p>
-    ${siteTeamSectionOpen.activity ? `
-    <p class="stub" style="margin:0 0 10px;">Who deleted or closed what on this site, most recent first.</p>
-    ${activityLog.map(a=>`
-      <div class="card" style="padding:9px 12px;margin-bottom:6px;">
-        <div style="font-size:13px;">${escapeHtml(a.description)}</div>
-        <div class="stub" style="margin:3px 0 0;font-size:11px;">${escapeHtml(nameOf(a.actor_id))} · ${new Date(a.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${new Date(a.created_at).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</div>
-      </div>
-    `).join('') || `<div class="empty">No deletions or closures logged for this site yet.</div>`}
-    ${activityLog.length>=100 ? `<p class="stub" style="margin:6px 0 0;">Only the most recent 100 entries are shown.</p>` : ''}
-    ` : ''}
+    <p class="ddrow" style="margin-top:18px;" onclick="go('#/site/${siteId}/activity')"><span class="arrow">▶</span> Activity History <span class="stub" style="font-weight:400;">· who did what, and when</span></p>
 
     <p class="sectiontitle" style="margin-top:22px;">Site Info</p>
     <div class="card">

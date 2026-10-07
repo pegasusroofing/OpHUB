@@ -3557,6 +3557,51 @@ window.openHomeAddProject = function(){
   requestAnimationFrame(()=>window.scrollTo(0,0));
 };
 
+/* ================= UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS =================
+   These buttons were built screen by screen and ended up with different
+   colours, icons and wording. Rather than restyle seventy buttons one at a
+   time, every button drawn on screen is checked once: if it exports, emails
+   or saves to OneDrive it gets the same look (.actbtn), the same icon, and
+   the same wording. Confirm steps ("Confirm & Email…") and the OneDrive
+   set-up buttons in Admin are left alone. */
+function uniformActionLabel(t){
+  let txt = t.replace(/^[\s✉️📄📊📋⬇☁🔗🔄\uFE0F]+/u, '').trim();
+  if(!txt) return null;
+  if(/confirm|link onedrive|sync folder|sync now|disconnect|connect onedrive|import/i.test(txt)) return null;
+  let icon = null;
+  if(/onedrive/i.test(txt)){ icon = '☁️'; txt = txt.replace(/^Upload to OneDrive/i, 'Save to OneDrive').replace(/^Push to OneDrive/i, 'Save to OneDrive'); }
+  else if(/^e-?mail\b|^emailing|\bemail (pdf|report|selected|supplier|to do list)\b/i.test(txt)) icon = '✉️';
+  else if(/^export|^exporting|^building/i.test(txt)){
+    txt = txt.replace(/^Export to PDF$/i, 'Export PDF').replace(/^Export to Excel$/i, 'Export Excel');
+    icon = /excel/i.test(txt) ? '📊' : '📄';
+  }
+  return icon ? icon+' '+txt : null;
+}
+function uniformActionButtons(root){
+  try{
+    (root || document).querySelectorAll('button, label.ghostbtn, label.darkbtn').forEach(el=>{
+      if(el.dataset.act) return;
+      const node = Array.from(el.childNodes).find(n=>n.nodeType===3 && n.nodeValue.trim());
+      if(!node) return;
+      // Only plain one-line buttons: skip anything with other visible content inside.
+      if(Array.from(el.children).some(c=>c.tagName!=='INPUT')) return;
+      const label = uniformActionLabel(node.nodeValue);
+      el.dataset.act = label ? '1' : '0';
+      if(!label) return;
+      node.nodeValue = label;
+      el.classList.add('actbtn');
+    });
+  }catch(e){ /* cosmetic only */ }
+}
+(function(){
+  const start = ()=>{
+    const app = document.getElementById('app'); if(!app) return;
+    let queued = false;
+    new MutationObserver(()=>{ if(queued) return; queued = true; requestAnimationFrame(()=>{ queued = false; uniformActionButtons(document.body); }); }).observe(document.body, {childList:true, subtree:true});
+    uniformActionButtons(document.body);
+  };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
 /* ================= LOGIN ================= */
 let authBusy = false;
 let authBusyLabel = null; // shown on the Sign In button while authBusy — kept up to date at each stage so a slow step never just looks frozen on "Please wait…"
@@ -5501,38 +5546,6 @@ function adminPageListHtml(page, counts){
   return out || `<div class="empty">Nothing here for your role.</div>`;
 }
 let adminSearch = '', adminSearchOpen = false;
-
-/* ================= APP SEARCH (Home Screen) =================
-   A small 🔍 button above the project list. Tapping it opens a search bar
-   that looks through jobs (name, address, postcode, client), people, and —
-   for managers — the Admin Centre screens. Only the results area is
-   re-drawn while typing, so the cursor is never lost. */
-let appSearchOpen = false, appSearchQ = '';
-function appSearchHtml(){
-  if(!appSearchOpen) return `<div style="display:flex;justify-content:flex-end;margin:-6px 0 0;"><span class="homebtn" style="flex:none;" title="Search" onclick="openAppSearch()">🔍</span></div>`;
-  return `<div style="display:flex;gap:6px;align-items:center;margin:0 0 8px;">
-      <input type="text" id="appSearchInput" placeholder="Search jobs, people${isManager(ME)?', settings':''}…" value="${escapeHtml(appSearchQ)}" oninput="appSearchQ=this.value;appSearchRender()" autocomplete="off" style="flex:1;min-width:0;margin:0;">
-      <span class="homebtn" style="flex:none;" title="Close search" onclick="appSearchOpen=false;appSearchQ='';render()">✕</span>
-    </div>
-    <div id="appSearchResults" style="margin-bottom:10px;"></div>`;
-}
-window.openAppSearch = function(){ appSearchOpen = true; render().then(()=>{ const e = document.getElementById('appSearchInput'); if(e) e.focus(); appSearchRender(); }); };
-window.appSearchRender = function(){
-  const res = document.getElementById('appSearchResults'); if(!res) return;
-  const q = (appSearchQ||'').trim().toLowerCase();
-  if(q.length < 2){ res.innerHTML = q ? `<p class="stub" style="margin:0;">Keep typing…</p>` : ''; return; }
-  const row = (icon, name, sub, hash)=>`<div class="sitecard" style="cursor:pointer;" onclick="go('${hash}')"><div style="font-size:20px;flex:0 0 auto;width:26px;text-align:center;">${icon}</div><div class="info"><div class="name">${escapeHtml(name)}</div>${sub ? `<div class="addr">${escapeHtml(sub)}</div>` : ''}</div><div style="color:var(--slate);font-size:20px;flex:0 0 auto;">›</div></div>`;
-  const has = (...v)=>v.some(x=>String(x||'').toLowerCase().includes(q));
-  const jobs = (SITES||[]).filter(s=>has(s.name, s.address, s.postcode, s.client_name, s.client_contact_name)).slice(0,12);
-  const mgr = isManager(ME);
-  const people = isClient(ME) ? [] : Object.values(PROFILES||{}).filter(p=>p && has(p.name, mgr ? p.email : '', mgr ? p.phone : '')).slice(0,10);
-  const settings = mgr ? Object.keys(ADMIN_ITEMS).filter(k=>{ const it = ADMIN_ITEMS[k]; return it.show() && ADMIN_PAGES[it.page].show() && has(it.label, it.kw, it.group); }).slice(0,8) : [];
-  let out = '';
-  if(jobs.length) out += `<p class="sectiontitle" style="margin-top:0;">Jobs</p>` + jobs.map(s=>row('🏗️', s.name, fullSiteAddress(s)||'', '#/site/'+s.id+'/home')).join('');
-  if(people.length) out += `<p class="sectiontitle" style="margin-top:${out?'14px':'0'};">People</p>` + people.map(p=>row('👤', p.name, personRoleLabel(p)+(mgr && p.email ? ' · '+p.email : ''), (isFullManager(ME) && (p.role==='operative'||p.role==='driver'||p.role==='site_manager')) ? '#/operatives/'+p.id : (mgr ? '#/team/people/users' : '#/sites'))).join('');
-  if(settings.length) out += `<p class="sectiontitle" style="margin-top:${out?'14px':'0'};">Settings</p>` + settings.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label)).join('');
-  res.innerHTML = out || `<div class="empty">Nothing matches "${escapeHtml(appSearchQ.trim())}".</div>`;
-};
 // Search box on the Admin Centre front page: filters every section the
 // signed-in person can open. Re-draws only the results area, so typing
 // never loses the cursor.
@@ -5545,51 +5558,6 @@ window.adminSearchRender = function(){
   tiles.style.display = 'none';
   res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
 };
-/* ================= UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS =================
-   These buttons were built screen by screen and ended up with different
-   colours, icons and wording. Rather than restyle seventy buttons one at a
-   time, every button drawn on screen is checked once: if it exports, emails
-   or saves to OneDrive it gets the same look (.actbtn), the same icon, and
-   the same wording. Confirm steps ("Confirm & Email…") and the OneDrive
-   set-up buttons in Admin are left alone. */
-function uniformActionLabel(t){
-  let txt = t.replace(/^[\s✉️📄📊📋⬇☁🔗🔄\uFE0F]+/u, '').trim();
-  if(!txt) return null;
-  if(/confirm|link onedrive|sync folder|sync now|disconnect|connect onedrive|import/i.test(txt)) return null;
-  let icon = null;
-  if(/onedrive/i.test(txt)){ icon = '☁️'; txt = txt.replace(/^Upload to OneDrive/i, 'Save to OneDrive').replace(/^Push to OneDrive/i, 'Save to OneDrive'); }
-  else if(/^e-?mail\b|^emailing|\bemail (pdf|report|selected|supplier|to do list)\b/i.test(txt)) icon = '✉️';
-  else if(/^export|^exporting|^building/i.test(txt)){
-    txt = txt.replace(/^Export to PDF$/i, 'Export PDF').replace(/^Export to Excel$/i, 'Export Excel');
-    icon = /excel/i.test(txt) ? '📊' : '📄';
-  }
-  return icon ? icon+' '+txt : null;
-}
-function uniformActionButtons(root){
-  try{
-    (root || document).querySelectorAll('button, label.ghostbtn, label.darkbtn').forEach(el=>{
-      if(el.dataset.act) return;
-      const node = Array.from(el.childNodes).find(n=>n.nodeType===3 && n.nodeValue.trim());
-      if(!node) return;
-      // Only plain one-line buttons: skip anything with other visible content inside.
-      if(Array.from(el.children).some(c=>c.tagName!=='INPUT')) return;
-      const label = uniformActionLabel(node.nodeValue);
-      el.dataset.act = label ? '1' : '0';
-      if(!label) return;
-      node.nodeValue = label;
-      el.classList.add('actbtn');
-    });
-  }catch(e){ /* cosmetic only */ }
-}
-(function(){
-  const start = ()=>{
-    const app = document.getElementById('app'); if(!app) return;
-    let queued = false;
-    new MutationObserver(()=>{ if(queued) return; queued = true; requestAnimationFrame(()=>{ queued = false; uniformActionButtons(document.body); }); }).observe(document.body, {childList:true, subtree:true});
-    uniformActionButtons(document.body);
-  };
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
-})();
 async function renderTeam(adminPage, adminItemKey){
   const __gen = RENDER_GEN;
   // A link into Admin Centre from inside a site file (e.g. "Upload / manage
@@ -6462,6 +6430,65 @@ async function renderTeam(adminPage, adminItemKey){
     if(!adminPage && adminSearch) adminSearchRender(); }
 }
 let teamSectionOpen = {branding:false, integrations:false, brandingintegrations:false, libraries:false, reporttemplates:false, suppliers:false, healthsafety:false, tbt:false, devicelocks:false, checkinlogs:false, havstools:false, coshhlibrary:false, operativetools:false, invites:false, users:false, ppelog:false, invitesusers:false, hspolicy:false, pricebuilder:false, sowlibrary:false};
+/* ================= APP SEARCH (Home Screen) =================
+   A small 🔍 button above the project list. Tapping it opens a search bar
+   that looks through jobs (name, address, postcode, client), people, the
+   Admin Centre screens (managers), and — after a short pause — materials,
+   to-dos and snags. Only the results area is
+   re-drawn while typing, so the cursor is never lost. */
+let appSearchOpen = false, appSearchQ = '';
+let appSearchSeq = 0, appSearchTimer = null;
+function appSearchHtml(){
+  if(!appSearchOpen) return `<div style="display:flex;justify-content:flex-end;margin:-6px 0 0;"><span class="homebtn" style="flex:none;" title="Search" onclick="openAppSearch()">🔍</span></div>`;
+  return `<div style="display:flex;gap:6px;align-items:center;margin:0 0 8px;">
+      <input type="text" id="appSearchInput" placeholder="Search jobs, people${isManager(ME)?', settings':''}…" value="${escapeHtml(appSearchQ)}" oninput="appSearchQ=this.value;appSearchRender()" autocomplete="off" style="flex:1;min-width:0;margin:0;">
+      <span class="homebtn" style="flex:none;" title="Close search" onclick="appSearchOpen=false;appSearchQ='';render()">✕</span>
+    </div>
+    <div id="appSearchResults" style="margin-bottom:10px;"></div>`;
+}
+window.openAppSearch = function(){ appSearchOpen = true; render().then(()=>{ const e = document.getElementById('appSearchInput'); if(e) e.focus(); appSearchRender(); }); };
+window.appSearchRender = function(){
+  const res = document.getElementById('appSearchResults'); if(!res) return;
+  const q = (appSearchQ||'').trim().toLowerCase();
+  if(q.length < 2){ res.innerHTML = q ? `<p class="stub" style="margin:0;">Keep typing…</p>` : ''; return; }
+  const row = (icon, name, sub, hash)=>`<div class="sitecard" style="cursor:pointer;" onclick="go('${hash}')"><div style="font-size:20px;flex:0 0 auto;width:26px;text-align:center;">${icon}</div><div class="info"><div class="name">${escapeHtml(name)}</div>${sub ? `<div class="addr">${escapeHtml(sub)}</div>` : ''}</div><div style="color:var(--slate);font-size:20px;flex:0 0 auto;">›</div></div>`;
+  const has = (...v)=>v.some(x=>String(x||'').toLowerCase().includes(q));
+  const jobs = (SITES||[]).filter(s=>has(s.name, s.address, s.postcode, s.client_name, s.client_contact_name)).slice(0,12);
+  const mgr = isManager(ME);
+  const people = isClient(ME) ? [] : Object.values(PROFILES||{}).filter(p=>p && has(p.name, mgr ? p.email : '', mgr ? p.phone : '')).slice(0,10);
+  const settings = mgr ? Object.keys(ADMIN_ITEMS).filter(k=>{ const it = ADMIN_ITEMS[k]; return it.show() && ADMIN_PAGES[it.page].show() && has(it.label, it.kw, it.group); }).slice(0,8) : [];
+  let out = '';
+  if(jobs.length) out += `<p class="sectiontitle" style="margin-top:0;">Jobs</p>` + jobs.map(s=>row('🏗️', s.name, fullSiteAddress(s)||'', '#/site/'+s.id+'/home')).join('');
+  if(people.length) out += `<p class="sectiontitle" style="margin-top:${out?'14px':'0'};">People</p>` + people.map(p=>row('👤', p.name, personRoleLabel(p)+(mgr && p.email ? ' · '+p.email : ''), (isFullManager(ME) && (p.role==='operative'||p.role==='driver'||p.role==='site_manager')) ? '#/operatives/'+p.id : (mgr ? '#/team/people/users' : '#/sites'))).join('');
+  if(settings.length) out += `<p class="sectiontitle" style="margin-top:${out?'14px':'0'};">Settings</p>` + settings.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label)).join('');
+  const seq = ++appSearchSeq; clearTimeout(appSearchTimer);
+  const deep = q.length>=3 && navigator.onLine!==false && !isClient(ME);
+  res.innerHTML = (out || (deep ? '' : `<div class="empty">Nothing matches "${escapeHtml(appSearchQ.trim())}".</div>`)) + (deep ? `<p class="stub" id="appSearchDeep" style="text-align:center;margin:12px 0 0;">Searching materials, to-dos and snags…</p>` : '');
+  if(!deep) return;
+  // After a short pause, also look in the database. It only ever returns
+  // rows the signed-in person is allowed to see.
+  appSearchTimer = setTimeout(async ()=>{
+    const term = encodeURIComponent('*'+q.replace(/[*%,()\\]/g, ' ')+'*');
+    const siteName = id=>{ const s = SITES.find(x=>x.id===id); return s ? s.name : 'Job'; };
+    const known = r=>SITES.some(x=>x.id===r.site_id);
+    let mats = [], todos = [], snags = [];
+    try{
+      [mats, todos, snags] = await Promise.all([
+        dbSelectNet('materials', 'item=ilike.'+term+'&select=id,site_id,item,qty,status&order=created_at.desc&limit=12').catch(()=>[]),
+        mgr ? dbSelectNet('todos', 'text=ilike.'+term+'&select=id,site_id,text,done&order=created_at.desc&limit=12').catch(()=>[]) : Promise.resolve([]),
+        dbSelectNet('snags', 'or=(title.ilike.'+term+',location.ilike.'+term+')&select=id,site_id,title,location,status&order=created_at.desc&limit=12').catch(()=>[]),
+      ]);
+    }catch(e){}
+    if(seq !== appSearchSeq) return;
+    const box = document.getElementById('appSearchResults'); if(!box) return;
+    let more = '';
+    const sec = (title, rows)=>{ if(rows.length) more += `<p class="sectiontitle" style="margin-top:14px;">${title}</p>` + rows.join(''); };
+    sec('Materials', (mats||[]).filter(known).map(r=>row('📦', r.item, siteName(r.site_id)+' · qty '+(r.qty||'')+' · '+(r.status||''), '#/site/'+r.site_id+'/materialrequests')));
+    sec('To-dos', (todos||[]).filter(known).map(r=>row('✅', r.text, siteName(r.site_id)+(r.done ? ' · done' : ''), '#/site/'+r.site_id+'/todos')));
+    sec('Snags', (snags||[]).filter(known).map(r=>row('🔧', r.title || 'Snag', siteName(r.site_id)+(r.location ? ' · '+r.location : '')+' · '+(r.status||''), '#/site/'+r.site_id+'/snagging/list')));
+    box.innerHTML = (out + more) || `<div class="empty">Nothing matches "${escapeHtml(appSearchQ.trim())}".</div>`;
+  }, 350);
+};
 /* ================= Schedule of Works — Library (Admin Centre). Org-wide
    reusable templates a PM/admin builds once here, then picks from any
    site's Schedule of Works "+ → From Library" to copy the whole
@@ -11364,7 +11391,7 @@ async function renderAssignTeam(siteId){
   const __mc = !!(site && site.acting_as_main_contractor);
   const __pSubCompanies = __mc ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&order=created_at.asc') : Promise.resolve([]);
   const __pSubOps = __mc ? dbSelect('subcontractor_operatives', 'site_id=eq.'+siteId+'&select=*') : Promise.resolve([]);
-  const __pActivity = siteTeamSectionOpen.activity ? dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit=100') : Promise.resolve([]);
+  const __pActivity = Promise.resolve([]); // the Activity History now has its own screen (renderSiteActivity)
   const __pMain = Promise.all([
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id+'&select=access_token'),
@@ -11581,17 +11608,7 @@ async function renderAssignTeam(siteId){
     ` : ''}
     ` : ''}
 
-    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('activity')"><span class="arrow">${siteTeamSectionOpen.activity?'▼':'▶'}</span> Activity Log</p>
-    ${siteTeamSectionOpen.activity ? `
-    <p class="stub" style="margin:0 0 10px;">Who deleted or closed what on this site, most recent first.</p>
-    ${activityLog.map(a=>`
-      <div class="card" style="padding:9px 12px;margin-bottom:6px;">
-        <div style="font-size:13px;">${escapeHtml(a.description)}</div>
-        <div class="stub" style="margin:3px 0 0;font-size:11px;">${escapeHtml(nameOf(a.actor_id))} · ${new Date(a.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${new Date(a.created_at).toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</div>
-      </div>
-    `).join('') || `<div class="empty">No deletions or closures logged for this site yet.</div>`}
-    ${activityLog.length>=100 ? `<p class="stub" style="margin:6px 0 0;">Only the most recent 100 entries are shown.</p>` : ''}
-    ` : ''}
+    <p class="ddrow" style="margin-top:18px;" onclick="go('#/site/${siteId}/activity')"><span class="arrow">▶</span> Activity History <span class="stub" style="font-weight:400;">· who did what, and when</span></p>
 
     <p class="sectiontitle" style="margin-top:22px;">Site Info</p>
     <div class="card">
@@ -11859,6 +11876,60 @@ async function siteAssignedOperatives(siteId){
   await loadAllProfiles();
   const rows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
   return rows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+/* ================= SITE ACTIVITY HISTORY (one timeline per job) ================= */
+// Everything recorded against a job, newest first, in one place:
+//   - the activity log (things edited, closed and deleted), and
+//   - the job's notices (material requested, snag raised or closed,
+//     variation raised, to-do assigned, permits, deliveries, flags…).
+// Managers only. Filter by type or by person; "Show more" goes further back.
+let siteActivityFilter = 'all';     // all | changes | notices
+let siteActivityPerson = '';        // '' = everyone
+let siteActivityLimit = 150;
+const SITE_ACTIVITY_KIND_LABEL = {material_request:'Material requested', variation:'Variation raised', snag_closed:'Snag closed', snag_raised:'Snag raised', schedule_flag:'Site flag raised', delivery_complete:'Delivery completed', permit_issued:'Permit issued', permit_closed:'Permit closed', havs_elv_exceeded:'HAVS limit exceeded', havs_eav_exceeded:'HAVS action value exceeded', vehicle_checklist_fail:'Vehicle check failed', additional_works_requested:'Variation requested', todo_assigned:'To-do assigned', doc_needs_signing:'Document issued for signing', price_sheet_issued:'Price sheet issued', delivery_assigned:'Delivery / collection assigned'};
+async function renderSiteActivity(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(!site){ go('#/sites'); return; }
+  const [logRows, msgRows] = await Promise.all([
+    dbSelect('site_activity_log', 'site_id=eq.'+siteId+'&order=created_at.desc&limit='+siteActivityLimit),
+    // Ordinary chat messages and the routine "checked in" notices are left out — this is a record of actions.
+    dbSelect('messages', 'site_id=eq.'+siteId+'&kind=not.in.(message,operative_checked_in)&select=id,kind,body,sender_id,created_at&order=created_at.desc&limit='+siteActivityLimit),
+  ]);
+  await loadAllProfiles();
+  if(__gen !== RENDER_GEN) return;
+  const words = a=>String(a||'').replace(/_/g,' ').replace(/^./, c=>c.toUpperCase());
+  const items = [
+    ...(logRows||[]).map(r=>({type:'changes', at:r.created_at, by:r.actor_id, head:words(r.action), text:r.description||''})),
+    ...(msgRows||[]).map(r=>({type:'notices', at:r.created_at, by:r.sender_id, head:SITE_ACTIVITY_KIND_LABEL[r.kind] || words(r.kind), text:r.body||''})),
+  ].sort((a,b)=>String(b.at).localeCompare(String(a.at)));
+  const peopleIds = Array.from(new Set(items.map(i=>i.by).filter(Boolean))).sort((a,b)=>nameOf(a).localeCompare(nameOf(b)));
+  const shown = items.filter(i=>(siteActivityFilter==='all' || i.type===siteActivityFilter) && (!siteActivityPerson || i.by===siteActivityPerson));
+  const more = (logRows||[]).length>=siteActivityLimit || (msgRows||[]).length>=siteActivityLimit;
+  let lastDay = '';
+  document.getElementById('app').innerHTML = shell(`
+    <div class="filterrow" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;overflow:visible;">
+      ${[['all','All'],['changes','Changes'],['notices','Notices']].map(c=>`<div class="filterchip ${siteActivityFilter===c[0]?'active':''}" style="flex:none;min-width:0;width:auto;margin:0;text-align:center;" onclick="siteActivityFilter='${c[0]}';render()">${c[1]}</div>`).join('')}
+    </div>
+    ${peopleIds.length>1 ? `<div class="formfield"><label class="field-label">Person</label><select onchange="siteActivityPerson=this.value;render()"><option value="">Everyone</option>${peopleIds.map(id=>`<option value="${id}" ${siteActivityPerson===id?'selected':''}>${escapeHtml(nameOf(id))}</option>`).join('')}</select></div>` : ''}
+    <p class="stub" style="margin:8px 0 10px;">Changes are edits, closures and deletions. Notices are things raised on the job, such as material requests, snags and variations.</p>
+    ${shown.map(i=>{
+      const d = new Date(i.at);
+      const day = d.toLocaleDateString('en-GB',{weekday:'short', day:'2-digit', month:'short', year:'numeric'});
+      const dayHdr = day!==lastDay ? `<p class="sectiontitle" style="margin-top:14px;">${day}</p>` : '';
+      lastDay = day;
+      return dayHdr + `<div class="card" style="padding:9px 12px;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">
+          <span style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:${i.type==='changes'?'var(--warn)':'var(--blue)'};">${escapeHtml(i.head)}</span>
+          <span class="stub" style="margin:0;font-size:11px;white-space:nowrap;">${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+        <div style="font-size:13px;margin-top:2px;overflow-wrap:anywhere;">${escapeHtml(i.text)}</div>
+        <div class="stub" style="margin:3px 0 0;font-size:11px;">${escapeHtml(i.by ? nameOf(i.by) : 'System')}</div>
+      </div>`;
+    }).join('') || `<div class="empty">Nothing recorded${siteActivityFilter!=='all' || siteActivityPerson ? ' for that filter' : ' on this job yet'}.</div>`}
+    ${more ? `<button class="ghostbtn" style="margin-top:10px;" onclick="siteActivityLimit+=150;render()">Show more</button>` : ''}
+  `, {title:'Activity History', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/team`, siteId, tabs:false});
 }
 
 /* ================= PRICING ELEMENTS ================= */
@@ -34236,6 +34307,7 @@ async function renderRoute(){
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
     if(page==='expenses') return renderExpenses(siteId);
+    if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }
     if(page==='plant') return renderPlant(siteId);
     if(page==='materialrequests') return renderMaterialRequests(siteId);
     if(page==='materialrequired') return renderMaterialRequiredList(siteId);
