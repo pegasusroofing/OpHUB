@@ -27868,7 +27868,7 @@ async function renderMaterialRequests(siteId){
   ]);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
-  materialSelectableIds = isPM ? materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id) : [];
+  if(__gen === RENDER_GEN) materialSelectableIds = isPM ? materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id) : [];
   // Who could collect an order — only needed while the send step is open.
   let orderDrivers = [], orderSiteOps = [];
   if(isPM && (sendingGroup || sendingMaterial)){
@@ -27883,6 +27883,12 @@ async function renderMaterialRequests(siteId){
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
     </div>
+    ${isPM && materialSelectableIds.length>1 ? `
+      <label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-size:13.5px;font-weight:700;cursor:pointer;">
+        <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${selectedMaterialIds.size>=materialSelectableIds.length?'checked':''} onchange="if(this.checked){selectAllMaterials()}else{clearMaterialSelection();render()}">
+        Select all (${materialSelectableIds.length})${selectedMaterialIds.size>0 && selectedMaterialIds.size<materialSelectableIds.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMaterialIds.size} selected</span>` : ''}
+      </label>
+    ` : ''}
 
     ${isPM && selectedMaterialIds.size>0 ? `
       <div class="card" style="border-color:var(--brand1);border-width:1.5px;">
