@@ -23622,13 +23622,13 @@ function ramsNextBtn(from){
 window.ramsNext = function(from){
   if(from==='details'){
     const miss = ramsMissingInfo(ramsEd.build);
-    if(miss.length){ toast('Please fill in: '+miss.join(' and ')); render(); return; }
+    if(miss.length){ toast('Please fill in: '+miss.join(' and ')); ramsRender(); return; }
   }
   ramsSetTab(RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1]);
 };
 window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ window.scrollTo(0,0); }catch(e){} };
 // Info fields that must be filled before moving on / issuing.
-const RAMS_REQUIRED = [['clientContact','Client contact'],['description','Description of works']];
+const RAMS_REQUIRED = [['clientContact','Client contact'],['description','Description of works'],['startDate','Start date']];
 function ramsMissingInfo(b){ return RAMS_REQUIRED.filter(([k])=>!String((b.details||{})[k]||'').trim()).map(([,l])=>l); }
 function ramsField(label, key, type, extra){
   const v = ramsEd.build.details[key];
@@ -23659,20 +23659,22 @@ function ramsDetailsHtml(b){
     </div>
     <div class="card" style="padding:12px 14px;">
       <p class="sectiontitle" style="margin-top:0;">Groups affected</p>
-      <div class="ramschips">${RAMS_GROUPS.concat((d.groups||[]).filter(g=>!RAMS_GROUPS.includes(g))).map(g=>`<label class="ramschip ${d.groups.includes(g)?'on':''}"><input type="checkbox" ${d.groups.includes(g)?'checked':''} onchange="ramsToggleArr('groups','${jsAttr(g)}',this.checked)"> ${escapeHtml(g)}</label>`).join('')}</div>
+      <div class="ramschips">${RAMS_GROUPS.concat((d.groups||[]).filter(g=>!RAMS_GROUPS.includes(g))).map(g=>`<label class="ramschip ${d.groups.includes(g)?'on':''}"><input type="checkbox" ${d.groups.includes(g)?'checked':''} onchange="ramsToggleArr('groups','${jsAttr(g)}',this.checked,this)"> ${escapeHtml(g)}</label>`).join('')}</div>
       <button class="ghostbtn" style="width:auto;margin-top:8px;" onclick="ramsAddGroup()">+ Add group</button>
     </div>
     <div class="card" style="padding:12px 14px;">
       <p class="sectiontitle" style="margin-top:0;">Required PPE</p>
-      <div class="ramschips">${RAMS_PPE.map(p=>`<label class="ramschip ${b.ppe.includes(p.key)?'on':''}"><input type="checkbox" ${b.ppe.includes(p.key)?'checked':''} onchange="ramsTogglePpe('${p.key}',this.checked)"> ${p.icon} ${p.label}</label>`).join('')}</div>
+      <div class="ramschips">${RAMS_PPE.map(p=>`<label class="ramschip ${b.ppe.includes(p.key)?'on':''}"><input type="checkbox" ${b.ppe.includes(p.key)?'checked':''} onchange="ramsTogglePpe('${p.key}',this.checked,this)"> ${p.icon} ${p.label}</label>`).join('')}</div>
     </div>
     <label class="selallrow"><input type="checkbox" ${d.includeDynamic!==false?'checked':''} onchange="ramsEd.build.details.includeDynamic=this.checked;ramsQueueSave()"> Include the Dynamic Risk Assessment page</label>
     <p class="stub" style="margin:10px 0 0;"><span style="color:#C0392B;">*</span> Required</p>
     ${ramsNextBtn('details')}
   `;
 }
-window.ramsToggleArr = function(key, val, on){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); render(); };
-window.ramsTogglePpe = function(key, on){ const b = ramsEd.build; b.ppe = b.ppe.filter(x=>x!==key); if(on) b.ppe.push(key); ramsQueueSave(); render(); };
+window.ramsToggleArr = function(key, val, on, el){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
+window.ramsTogglePpe = function(key, on, el){ const b = ramsEd.build; b.ppe = b.ppe.filter(x=>x!==key); if(on) b.ppe.push(key); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
+// Re-draws the editor without losing your place on the page.
+async function ramsRender(){ const y = window.scrollY; await render(); window.scrollTo(0, y); }
 window.ramsAddGroup = async function(){ const v = await customPrompt('Group affected', ''); if(v && v.trim()){ ramsToggleArr('groups', v.trim(), true); } };
 
 function ramsRRBadge(p, s){ const rr = (Number(p)||0)*(Number(s)||0); const band = ramsRiskBand(rr); return `<span class="ramsrr" style="background:${band.bg};color:${band.fg};">${rr}</span>`; }
@@ -23695,11 +23697,11 @@ function ramsHazardsHtml(b){
         <div class="formfield"><label class="field-label">Hazard</label><input type="text" value="${escapeHtml(h.title)}" oninput="ramsH('${h.id}').title=this.value;ramsQueueSave()"></div>
         <div class="formfield"><label class="field-label">Harm / who could be hurt and how</label><input type="text" value="${escapeHtml(h.harm)}" oninput="ramsH('${h.id}').harm=this.value;ramsQueueSave()"></div>
         <div class="ramsriskedit">
-          <div><div class="field-label">Before controls</div>P ${ramsSelect(h.p, `ramsH('${h.id}').p=+this.value;ramsQueueSave();render()`, RAMS_P_LABELS)} S ${ramsSelect(h.s, `ramsH('${h.id}').s=+this.value;ramsQueueSave();render()`, RAMS_S_LABELS)} ${ramsRRBadge(h.p,h.s)}</div>
-          <div><div class="field-label">Residual (after controls)</div>P ${ramsSelect(h.rp, `ramsH('${h.id}').rp=+this.value;ramsQueueSave();render()`, RAMS_P_LABELS)} S ${ramsSelect(h.rs, `ramsH('${h.id}').rs=+this.value;ramsQueueSave();render()`, RAMS_S_LABELS)} ${ramsRRBadge(h.rp,h.rs)}</div>
+          <div><div class="field-label">Before controls</div>P ${ramsSelect(h.p, `ramsH('${h.id}').p=+this.value;ramsQueueSave();ramsRender()`, RAMS_P_LABELS)} S ${ramsSelect(h.s, `ramsH('${h.id}').s=+this.value;ramsQueueSave();ramsRender()`, RAMS_S_LABELS)} ${ramsRRBadge(h.p,h.s)}</div>
+          <div><div class="field-label">Residual (after controls)</div>P ${ramsSelect(h.rp, `ramsH('${h.id}').rp=+this.value;ramsQueueSave();ramsRender()`, RAMS_P_LABELS)} S ${ramsSelect(h.rs, `ramsH('${h.id}').rs=+this.value;ramsQueueSave();ramsRender()`, RAMS_S_LABELS)} ${ramsRRBadge(h.rp,h.rs)}</div>
         </div>
         <div class="formfield"><label class="field-label">Control procedures — one per line</label><textarea rows="${Math.min(14, Math.max(4, h.controls.length+2))}" oninput="ramsH('${h.id}').controls=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);ramsQueueSave()">${escapeHtml(h.controls.join('\n'))}</textarea></div>
-        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();render()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('hazard','${h.id}')">⭳ Save to library</button></div>
+        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();ramsRender()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('hazard','${h.id}')">⭳ Save to library</button></div>
       </div>`;
       return `<div class="card ramsitem">
         <div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(h.title||'Untitled hazard')}</div><div class="stub" style="margin:0;">${escapeHtml(h.harm||'')}</div></div>
@@ -23722,10 +23724,10 @@ function ramsSectionsHtml(b, onlyPart){
       return (onlyPart ? '' : `<p class="opmat-h">${label}</p>`) + (list.map((s,i)=>{
         if(ramsEd.editId===s.id) return `<div class="card ramsitem editing">
           <div class="formfield"><label class="field-label">Heading</label><input type="text" value="${escapeHtml(s.title)}" oninput="ramsS('${s.id}').title=this.value;ramsQueueSave()"></div>
-          <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();render()"><option value="general" ${s.part==='general'?'selected':''}>Safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
+          <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();ramsRender()"><option value="general" ${s.part==='general'?'selected':''}>Safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
           <div class="formfield"><label class="field-label">Text</label><textarea rows="5" oninput="ramsS('${s.id}').body=this.value;ramsQueueSave()">${escapeHtml(s.body)}</textarea></div>
           <div class="formfield"><label class="field-label">Numbered steps / points — one per line (optional)</label><textarea rows="${Math.min(14, Math.max(4, s.steps.length+2))}" oninput="ramsS('${s.id}').steps=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);ramsQueueSave()">${escapeHtml(s.steps.join('\n'))}</textarea></div>
-          <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();render()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('section','${s.id}')">⭳ Save to library</button></div>
+          <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();ramsRender()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('section','${s.id}')">⭳ Save to library</button></div>
         </div>`;
         return `<div class="card ramsitem">
           <div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(s.title||'Untitled section')}</div>
@@ -23741,7 +23743,7 @@ function ramsSectionsHtml(b, onlyPart){
 }
 window.ramsH = id => ramsEd.build.hazards.find(h=>h.id===id) || {};
 window.ramsS = id => ramsEd.build.sections.find(s=>s.id===id) || {};
-window.ramsEdit = function(id){ ramsEd.editId = id; render(); };
+window.ramsEdit = function(id){ ramsEd.editId = id; ramsRender(); };
 window.ramsMove = function(kind, id, dir){
   const b = ramsEd.build, arr = b[kind];
   const idx = arr.findIndex(x=>x.id===id); if(idx<0) return;
@@ -23750,22 +23752,22 @@ window.ramsMove = function(kind, id, dir){
   if(kind==='sections'){ const part = arr[idx].part; while(j>=0 && j<arr.length && arr[j].part!==part) j += dir; }
   if(j<0 || j>=arr.length) return;
   const t = arr[idx]; arr[idx] = arr[j]; arr[j] = t;
-  ramsQueueSave(); render();
+  ramsQueueSave(); ramsRender();
 };
 window.ramsDup = function(kind, id){
   const arr = ramsEd.build[kind]; const idx = arr.findIndex(x=>x.id===id); if(idx<0) return;
   const c = JSON.parse(JSON.stringify(arr[idx])); c.id = ramsUid(); c.title = c.title+' (copy)';
-  arr.splice(idx+1, 0, c); ramsEd.editId = c.id; ramsQueueSave(); render();
+  arr.splice(idx+1, 0, c); ramsEd.editId = c.id; ramsQueueSave(); ramsRender();
 };
 window.ramsDel = async function(kind, id){
   const it = ramsEd.build[kind].find(x=>x.id===id); if(!it) return;
   if(!(await customConfirm(`Remove "${it.title||'this item'}" from this RAMS?\n\nIt stays in the library.`))) return;
-  ramsEd.build[kind] = ramsEd.build[kind].filter(x=>x.id!==id); ramsQueueSave(); render();
+  ramsEd.build[kind] = ramsEd.build[kind].filter(x=>x.id!==id); ramsQueueSave(); ramsRender();
 };
 window.ramsNewItem = function(kind, part){
   if(kind==='hazard'){ const h = {id:ramsUid(), title:'', harm:'', p:3, s:3, rp:1, rs:3, controls:[]}; ramsEd.build.hazards.push(h); ramsEd.editId = h.id; }
   else { const s = {id:ramsUid(), part: part==='method'?'method':'general', title:'', body:'', steps:[]}; ramsEd.build.sections.push(s); ramsEd.editId = s.id; }
-  ramsQueueSave(); render();
+  ramsQueueSave(); ramsRender();
   setTimeout(()=>{ const el = document.querySelector('.ramsitem.editing input'); if(el){ el.scrollIntoView({block:'center'}); el.focus(); } }, 60);
 };
 window.ramsSaveToLibrary = async function(kind, id){
@@ -23784,33 +23786,44 @@ window.ramsSaveToLibrary = async function(kind, id){
   ramsEd.lib = null; toast('Saved to the library'); ramsQueueSave();
 };
 // Library picker (multi-tick with select all)
-window.ramsOpenPicker = async function(kind, part){ ramsEd.picker = kind; ramsEd.pickerPart = part||null; ramsEd.pickerSel = new Set(); ramsEd.pickerQ = ''; ramsEd.lib = null; render(); };
+window.ramsOpenPicker = async function(kind, part){ ramsEd.picker = kind; ramsEd.pickerPart = part||null; ramsEd.pickerSel = new Set(); ramsEd.pickerQ = ''; ramsEd.lib = null; ramsRender(); };
 function ramsPickerHtml(){
   const kind = ramsEd.picker, q = ramsEd.pickerQ.toLowerCase();
   const lib = (ramsEd.lib||[]).filter(i=>i.kind===kind && (!ramsEd.pickerPart || ((i.data||{}).part==='method' ? 'method' : 'general')===ramsEd.pickerPart));
-  const inUse = new Set((kind==='hazard' ? ramsEd.build.hazards : ramsEd.build.sections).map(x=>x.libId).filter(Boolean));
-  const shown = lib.filter(i=>!q || i.title.toLowerCase().includes(q));
-  const allIds = shown.map(i=>i.id);
-  return `<div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){ramsEd.picker=null;render();}">
+  const have = kind==='hazard' ? ramsEd.build.hazards : ramsEd.build.sections;
+  const inUseIds = new Set(have.map(x=>x.libId).filter(Boolean)), inUseTitles = new Set(have.map(x=>String(x.title||'').trim().toLowerCase()));
+  const used = i => inUseIds.has(i.id) || inUseTitles.has(String(i.title||'').trim().toLowerCase());
+  const match = lib.filter(i=>!q || i.title.toLowerCase().includes(q));
+  const fresh = match.filter(i=>!used(i)), added = match.filter(used);
+  const shown = fresh.concat(added);
+  const allIds = fresh.map(i=>i.id);
+  const pickRow = i => `<label class="ramspicker-row" ${used(i)?'style="opacity:.6;"':''}><input type="checkbox" data-pid="${i.id}" ${ramsEd.pickerSel.has(i.id)?'checked':''} onchange="ramsPickerTick('${i.id}',this.checked)"><div><b>${escapeHtml(i.title)}</b><div class="stub" style="margin:0;">${escapeHtml(kind==='hazard' ? (i.data.harm||'') : (i.data.body||'').slice(0,90))}</div></div></label>`;
+  return `<div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){ramsEd.picker=null;ramsRender();}">
     <div class="geo-modal-card ramspicker">
       <h3 style="margin:0 0 8px;">Add ${kind==='hazard'?'hazards':(ramsEd.pickerPart==='method'?'method statements':(ramsEd.pickerPart==='general'?'safe systems of work':'sections'))} from the library</h3>
-      <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" oninput="ramsEd.pickerQ=this.value;clearTimeout(window._rpq);window._rpq=setTimeout(()=>{render();setTimeout(()=>{const e=document.querySelector('.ramspicker input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},250)" style="width:100%;margin-bottom:8px;">
-      ${shown.length>1 ? `<label class="selallrow" style="margin-bottom:6px;"><input type="checkbox" ${allIds.every(id=>ramsEd.pickerSel.has(id))?'checked':''} onchange="${escapeHtml(`ramsPickerAll(this.checked, ${JSON.stringify(allIds)})`)}"> Select all (${shown.length})</label>` : ''}
+      <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" oninput="ramsEd.pickerQ=this.value;clearTimeout(window._rpq);window._rpq=setTimeout(()=>{ramsRender();setTimeout(()=>{const e=document.querySelector('.ramspicker input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},250)" style="width:100%;margin-bottom:8px;">
+      ${allIds.length>1 ? `<label class="selallrow" style="margin-bottom:6px;"><input type="checkbox" ${allIds.every(id=>ramsEd.pickerSel.has(id))?'checked':''} onchange="${escapeHtml(`ramsPickerAll(this.checked, ${JSON.stringify(allIds)})`)}"> Select all (${allIds.length})</label>` : ''}
       <div class="ramspicker-list">
-        ${shown.map(i=>`<label class="ramspicker-row"><input type="checkbox" ${ramsEd.pickerSel.has(i.id)?'checked':''} onchange="ramsPickerTick('${i.id}',this.checked)"><div><b>${escapeHtml(i.title)}</b>${inUse.has(i.id)?' <span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">already added</span>':''}<div class="stub" style="margin:0;">${escapeHtml(kind==='hazard' ? (i.data.harm||'') : ((i.data.part==='method'?'Method statement · ':'')+(i.data.body||'').slice(0,90)))}</div></div></label>`).join('') || `<div class="empty" style="padding:12px;">${(ramsEd.lib||[]).length ? 'Nothing matches.' : `The library is empty. <span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">Load the starter library</span>`}</div>`}
+        ${fresh.map(pickRow).join('')}
+        ${added.length ? `<p class="opmat-h" style="margin:12px 0 4px;">Already added to this RAMS (${added.length})</p>${added.map(pickRow).join('')}` : ''}
+        ${!shown.length ? `<div class="empty" style="padding:12px;">${(ramsEd.lib||[]).length ? 'Nothing matches.' : `The library is empty. <span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">Load the starter library</span>`}</div>` : ''}
       </div>
-      <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:2;" onclick="ramsPickerAdd()">Add ${ramsEd.pickerSel.size||''} selected</button><button class="ghostbtn" style="flex:1;" onclick="ramsEd.picker=null;render()">Cancel</button></div>
+      <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" id="ramsPickAddBtn" style="flex:2;" onclick="ramsPickerAdd()">Add ${ramsEd.pickerSel.size||''} selected</button><button class="ghostbtn" style="flex:1;" onclick="ramsEd.picker=null;ramsRender()">Cancel</button></div>
     </div></div>`;
 }
-window.ramsPickerTick = function(id, on){ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); render(); };
-window.ramsPickerAll = function(on, ids){ ids.forEach(id=>{ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); }); render(); };
+function ramsPickerSync(){
+  const btn = document.getElementById('ramsPickAddBtn'); if(btn) btn.textContent = 'Add '+(ramsEd.pickerSel.size||'')+' selected';
+  document.querySelectorAll('.ramspicker-row input[data-pid]').forEach(c=>{ c.checked = ramsEd.pickerSel.has(c.dataset.pid); });
+}
+window.ramsPickerTick = function(id, on){ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); ramsPickerSync(); };
+window.ramsPickerAll = function(on, ids){ ids.forEach(id=>{ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); }); ramsPickerSync(); };
 window.ramsPickerAdd = function(){
   const lib = ramsEd.lib||[]; const kind = ramsEd.picker;
   const picked = lib.filter(i=>ramsEd.pickerSel.has(i.id));
   if(!picked.length){ toast('Tick at least one'); return; }
   if(kind==='hazard') picked.forEach(i=>ramsEd.build.hazards.push(ramsHazardFromLib(i)));
   else picked.forEach(i=>ramsEd.build.sections.push(ramsSectionFromLib(i)));
-  ramsEd.picker = null; ramsQueueSave(); toast(picked.length+' added'); render();
+  ramsEd.picker = null; ramsQueueSave(); toast(picked.length+' added'); ramsRender();
 };
 
 function ramsIssueHtml(b, siteId){
@@ -23851,7 +23864,7 @@ window.ramsSaveAsTemplate = async function(){
 window.ramsDeleteBuildRow = async function(siteId, id){
   const b = (await dbSelect('rams_builds', 'id=eq.'+id+'&select=id,title,status'))[0]; if(!b) return;
   if(!(await customConfirm(`Delete "${b.title}"?${b.status==='issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`))) return;
-  if(await dbDelete('rams_builds', id)){ if(ramsEd && ramsEd.buildId===id) ramsEd = null; toast('Deleted'); render(); }
+  if(await dbDelete('rams_builds', id)){ if(ramsEd && ramsEd.buildId===id) ramsEd = null; toast('Deleted'); ramsRender(); }
 };
 window.ramsDeleteBuild = async function(siteId){
   const b = ramsEd.build;
