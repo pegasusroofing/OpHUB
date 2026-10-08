@@ -133,14 +133,23 @@ async function renderMaterialRequests(siteId){
   const isPM = isManager(ME);
   if(!isPM && matFilter==='ordered') matFilter='live';
   const statusQS = matFilter==='closed' ? 'status=in.(closed,cancelled)'
-    : (isPM ? (matFilter==='ordered' ? 'status=eq.sent' : 'status=eq.pending') : 'status=in.(pending,sent)');
-  const [materials, suppliers] = await Promise.all([
+    : (isPM ? (matFilter==='ordered' ? 'status=in.(sent,closed)' : 'status=eq.pending') : 'status=in.(pending,sent)');
+  // A sent order goes straight to status 'closed' (with merchant/sent_at
+  // set), so for managers "Ordered" = sent orders, and "Closed" = requests
+  // closed without an order (closed by hand, moved to the Collection List,
+  // or cancelled).
+  const wasOrdered = m => m.status==='sent' || !!(m.merchant || m.sent_at);
+  const [materialsRaw, suppliers] = await Promise.all([
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
-  if(__gen === RENDER_GEN) materialSelectableIds = isPM ? materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id) : [];
+  const materials = !isPM ? materialsRaw
+    : matFilter==='ordered' ? materialsRaw.filter(wasOrdered)
+    : matFilter==='closed' ? materialsRaw.filter(m=>m.status==='cancelled' || !wasOrdered(m))
+    : materialsRaw;
+  if(__gen === RENDER_GEN) materialSelectableIds = isPM ? (matFilter==='ordered' ? materials.map(m=>m.id) : materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id)) : [];
   // Who could collect an order — only needed while the send step is open.
   let orderDrivers = [], orderSiteOps = [];
   if(isPM && (sendingGroup || sendingMaterial)){
@@ -266,7 +275,7 @@ async function renderMaterialRequests(siteId){
           ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<div class="row-gap" style="margin-top:10px;"><button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit request</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button></div>` : ''}
           ${isPM && m.status==='pending' && !selectedMaterialIds.has(m.id) ? `
           <div class="row-gap" style="margin-top:10px;">
-            <button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">🚚 Order delivery</button>
+            <button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">🚚 Order from merchant</button>
             <button class="ghostbtn" style="flex:1;" onclick="materialToCollection('${siteId}','${m.id}')">📦 Add to collections</button>
           </div>
           <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
@@ -278,11 +287,18 @@ async function renderMaterialRequests(siteId){
           </div>
           <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">✓ Received — close</button>
           ` : ''}
-          ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
+          ${isPM && m.status==='closed' && !selectedMaterialIds.has(m.id) ? (wasOrdered(m) ? `
+          <div class="row-gap" style="margin-top:10px;">
+            <button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit order</button>
+            ${m.merchant && m.supplier_id ? `<button class="darkbtn" style="flex:1;" onclick="openReemailPrompt('${siteId}','${m.id}')">↻ Resend order</button>` : ''}
+          </div>
+          <div class="row-gap" style="margin-top:8px;">
+            <button class="ghostbtn" style="flex:1;" onclick="sendMaterialAgain('${m.id}')">Send to another supplier</button>
+            <button class="ghostbtn" style="flex:1;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
+          </div>` : `<div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
-            ${!selectedMaterialIds.has(m.id) ? `<button class="ghostbtn" style="width:auto;" onclick="sendMaterialAgain('${m.id}')">Send again</button>` : ''}
-            ${m.merchant && m.supplier_id ? `<button class="ghostbtn" style="width:auto;" onclick="openReemailPrompt('${siteId}','${m.id}')">Re-email order</button>` : ''}
-          </div>` : ''}
+            <button class="ghostbtn" style="width:auto;" onclick="sendMaterialAgain('${m.id}')">Order it</button>
+          </div>`) : ''}
       `;
       if(matFilter!=='closed') return `<div class="matcard">${cardBody}</div>`;
       // Closed material requests collapse into a single dropdown row —

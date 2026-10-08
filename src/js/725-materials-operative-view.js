@@ -50,12 +50,16 @@ window.setMatVisibility = async function(siteId, key, role, on){
 async function renderOperativeMaterials(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const [myPickups, coming, myReqs, suppliers] = await Promise.all([
+  let [myPickups, coming, myReqs, suppliers] = await Promise.all([
     dbSelect('material_required_items', 'site_id=eq.'+siteId+'&assigned_to=eq.'+ME.id+'&status=in.(assigned,collected)&order=created_at.asc'),
-    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.sent&order=created_at.desc'),
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(sent,closed)&order=required_for_delivery.asc'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&requested_by=eq.'+ME.id+'&status=eq.pending&order=created_at.desc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name').catch(()=>[]),
   ]);
+  // Coming to site = orders sent for delivery (not collections) that are due
+  // today or later.
+  const todayIso = localISODate(new Date());
+  coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection' && (!m.required_for_delivery || m.required_for_delivery>=todayIso)).slice(0,15);
   const supName = id => { const s=(suppliers||[]).find(x=>x.id===id); return s ? s.name : null; };
   const fmt = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : '';
   // Group pick-ups by merchant so one trip reads as one card.
