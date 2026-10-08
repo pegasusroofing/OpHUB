@@ -86,6 +86,7 @@ async function renderRoute(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='rams-library'){ return renderRamsLibrary(); }
+  if(parts[0]==='suppliers'){ return renderSuppliersAdmin(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
     if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }

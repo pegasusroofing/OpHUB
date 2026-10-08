@@ -44,6 +44,7 @@ async function renderMaterialRequiredList(siteId){
   // site so they know what's coming.
   const items = isPM ? itemsRaw : itemsRaw.filter(m=>m.assigned_to===ME.id || m.status==='open');
   const subAddrById = {}; subAddressesList.forEach(a=>{ subAddrById[a.id]=a; });
+  if(isPM) window.MAT_SUPPLIERS = suppliers;
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const supplierEmail = id => { const s=suppliers.find(x=>x.id===id); return s ? s.email : null; };
   const assignedIds = new Set(assignedRows.map(a=>a.user_id));
@@ -69,6 +70,7 @@ async function renderMaterialRequiredList(siteId){
         <div style="padding:0 12px 14px;">
           <div class="qty">Qty ${escapeHtml(m.qty||'—')}${m.qty_collected ? ` (collected ${escapeHtml(m.qty_collected)})` : ''}</div>
           ${m.supplier_id ? `<div class="qty">Supplier: ${escapeHtml(supplierName(m.supplier_id)||'')}</div>` : ''}
+          ${m.supplier_branch ? `<div class="qty">📍 ${escapeHtml(branchLabel(m.supplier_branch))}</div>` : ''}
           ${m.assigned_to ? `<div class="qty">Assigned to ${escapeHtml(nameOf(m.assigned_to))}</div>` : ''}
           ${subLabel ? `<div class="meta" style="margin-top:2px;"><span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${escapeHtml(subLabel)}</span></div>` : ''}
           ${isPM ? `
@@ -85,6 +87,7 @@ async function renderMaterialRequiredList(siteId){
                 <span class="arrow">${supplierPickerFor==='edit-'+m.id?'▼':'▶'}</span> ${materialSupplierChoice['edit-'+m.id] ? escapeHtml(supplierName(materialSupplierChoice['edit-'+m.id])) : 'Supplier (optional)'}
               </div>
               ${supplierPickerFor==='edit-'+m.id ? (suppliers.length ? supplierPickerHtml('edit-'+m.id, suppliers, materialSupplierChoice['edit-'+m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+              ${branchSelectHtml('branch-edit-'+m.id, (materialSupplierChoice['edit-'+m.id]!==undefined ? materialSupplierChoice['edit-'+m.id] : m.supplier_id), m.supplier_branch)}
               <div class="row-gap" style="margin-top:10px;">
                 <button class="darkbtn" style="flex:1;" onclick="saveMatReqEdit('${siteId}','${m.id}')">Save</button>
                 <button class="ghostbtn" style="flex:1;" onclick="matReqEditFor=null;supplierPickerFor=null;render()">Cancel</button>
@@ -165,7 +168,7 @@ async function renderMaterialRequiredList(siteId){
       <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">To collect</div>
       <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
-    ${isPM && items.length>1 ? `
+    ${isPM && items.length>1 && selectedMatReqIds.size>0 ? `
       <label class="selallrow">
         <input type="checkbox" ${selectedMatReqIds.size>=items.length?'checked':''} onchange="selectedMatReqIds=this.checked?new Set(${escapeHtml(JSON.stringify(items.map(m=>m.id)))}):new Set();render()">
         Select all (${items.length})${selectedMatReqIds.size>0 && selectedMatReqIds.size<items.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMatReqIds.size} selected</span>` : ''}
@@ -209,6 +212,7 @@ async function renderMaterialRequiredList(siteId){
         <span class="arrow">${supplierPickerFor==='reqnew'?'▼':'▶'}</span> ${materialSupplierChoice['reqnew'] ? escapeHtml(supplierName(materialSupplierChoice['reqnew'])) : 'Supplier (optional)'}
       </div>
       ${supplierPickerFor==='reqnew' ? (suppliers.length ? supplierPickerHtml('reqnew', suppliers, materialSupplierChoice['reqnew']) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+      ${branchSelectHtml('branch-reqnew', materialSupplierChoice['reqnew'])}
       ${isMultiSite ? `
         <p class="field-label" style="margin:10px 0 6px;">Address</p>
         <select id="matReqSubAddr" onchange="matReqDraftSubAddr=this.value||null" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
@@ -324,7 +328,7 @@ window.addMaterialRequiredDraftRow = function(){
   const supplierId = materialSupplierChoice['reqnew'] || null;
   const subAddrEl = document.getElementById('matReqSubAddr');
   const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
-  matReqDraftRows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+  matReqDraftRows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId, supplier_branch: readBranch('branch-reqnew', supplierId)});
   matReqDraftItem = ''; matReqDraftQty = '';
   toast('Row queued — add another or tap Complete List');
   render();
@@ -343,10 +347,10 @@ window.completeMaterialRequiredList = async function(siteId){
     const supplierId = materialSupplierChoice['reqnew'] || null;
     const subAddrEl = document.getElementById('matReqSubAddr');
     const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
-    rows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+    rows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId, supplier_branch: readBranch('branch-reqnew', supplierId)});
   }
   if(!rows.length){ toast('Enter at least one item.'); return; }
-  const payload = rows.map(r=>({site_id:siteId, org_id:ME.org_id, item:r.item, qty:r.qty, supplier_id:r.supplier_id, sub_site_id:r.sub_site_id, status:'open', created_by:ME.id}));
+  const payload = rows.map(r=>({site_id:siteId, org_id:ME.org_id, item:r.item, qty:r.qty, supplier_id:r.supplier_id, sub_site_id:r.sub_site_id, supplier_branch:r.supplier_branch||null, status:'open', created_by:ME.id}));
   const inserted = await dbInsert('material_required_items', payload);
   if(inserted){
     matReqDraftRows = [];
@@ -462,6 +466,9 @@ window.saveMatReqEdit = async function(siteId, id){
   const supplierId = Object.prototype.hasOwnProperty.call(materialSupplierChoice, key) ? (materialSupplierChoice[key]||null) : undefined;
   const patch = {item, qty: qty||null};
   if(supplierId !== undefined) patch.supplier_id = supplierId;
+  const effSup = supplierId !== undefined ? supplierId : ((await dbSelect('material_required_items','id=eq.'+id+'&select=supplier_id'))[0]||{}).supplier_id;
+  patch.supplier_branch = readBranch('branch-edit-'+id, effSup);
+  delete matBranchChoice['branch-edit-'+id];
   const row = await dbUpdate('material_required_items', id, patch);
   if(row){
     matReqEditFor = null;

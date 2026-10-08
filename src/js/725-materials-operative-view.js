@@ -42,7 +42,6 @@ function matVisTileHtml(site, key, icon, bg, color, label, sub){
       }).join(''))}</div>` : ''}
       <div class="icon" style="background:${bg};color:${color};">${icon}</div>
       <div class="lbl">${label}</div>
-      <div class="sub">${sub}${full ? ' · '+who : ''}</div>
     </div>`;
 }
 function matVisibilityHtml(){ return ''; }
@@ -63,20 +62,24 @@ async function renderOperativeMaterials(siteId){
     dbSelect('material_required_items', 'site_id=eq.'+siteId+'&assigned_to=eq.'+ME.id+'&status=in.(assigned,collected)&order=created_at.asc'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(sent,closed)&order=required_for_delivery.asc'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&requested_by=eq.'+ME.id+'&status=eq.pending&order=created_at.desc'),
-    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name').catch(()=>[]),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name,branches').catch(()=>[]),
   ]);
   // Coming to site = orders sent for delivery (not collections) that are due
   // today or later.
   const todayIso = localISODate(new Date());
-  coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection' && (!m.required_for_delivery || m.required_for_delivery>=todayIso)).slice(0,15);
+  // Deliveries stay here until someone does the GRN (goods received), then
+  // show as received for the rest of that day.
+  const twoWeeksAgo = localISODate(new Date(Date.now()-14*864e5));
+  coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection'
+    && (m.grn ? String(m.grn.at||'').slice(0,10)===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
   const supName = id => { const s=(suppliers||[]).find(x=>x.id===id); return s ? s.name : null; };
   const fmt = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : '';
   // Group pick-ups by merchant so one trip reads as one card.
   const groups = [];
   (myPickups||[]).forEach(m=>{
-    const key = m.supplier_id || '_';
+    const key = (m.supplier_id || '_')+'|'+((m.supplier_branch && m.supplier_branch.id) || '');
     let g = groups.find(x=>x.key===key);
-    if(!g){ g = {key, name: supName(m.supplier_id) || (m.supplier_id ? 'Merchant' : 'To collect'), items:[]}; groups.push(g); }
+    if(!g){ g = {key, name: (supName(m.supplier_id) || (m.supplier_id ? 'Merchant' : 'To collect')) + (m.supplier_branch ? ', '+(m.supplier_branch.name||'') : ''), addr: m.supplier_branch ? (m.supplier_branch.address||'') : '', phone: m.supplier_branch ? (m.supplier_branch.phone||'') : '', items:[]}; groups.push(g); }
     g.items.push(m);
   });
   const openIds = (myPickups||[]).filter(m=>m.status!=='collected').map(m=>m.id);
@@ -93,18 +96,21 @@ async function renderOperativeMaterials(siteId){
   const showPlant = canSeeMatTile(site,'plant'), showExp = canSeeMatTile(site,'expenses');
   const html = `
     <p class="opmat-h">Your collection list</p>
-    ${openIds.length>1 ? `<label class="selallrow"><input type="checkbox" ${opMatSelected.size>=openIds.length?'checked':''} onchange="opMatSelectAll(this.checked, ${escapeHtml(JSON.stringify(openIds))})"> Select all (${openIds.length})${opMatSelected.size && opMatSelected.size<openIds.length ? ` <span class="stub" style="font-weight:400;">· ${opMatSelected.size} selected</span>` : ''}</label>` : ''}
+    ${openIds.length>1 && opMatSelected.size>0 ? `<label class="selallrow"><input type="checkbox" ${opMatSelected.size>=openIds.length?'checked':''} onchange="opMatSelectAll(this.checked, ${escapeHtml(JSON.stringify(openIds))})"> Select all (${openIds.length})${opMatSelected.size && opMatSelected.size<openIds.length ? ` <span class="stub" style="font-weight:400;">· ${opMatSelected.size} selected</span>` : ''}</label>` : ''}
     ${groups.length ? groups.map(g=>`<div class="card opmat-card">
-        <div class="opmat-sub">${escapeHtml(g.name)}${g.items[0].assigned_at ? ' · asked '+fmt(g.items[0].assigned_at) : ''}</div>
+        <div class="opmat-sub"><b style="color:var(--ink);">${escapeHtml(g.name)}</b>${g.items[0].assigned_at ? ' · asked '+fmt(g.items[0].assigned_at) : ''}${g.addr ? `<br>📍 <a href="https://maps.google.com/?q=${encodeURIComponent(g.addr)}" target="_blank" style="color:inherit;">${escapeHtml(g.addr)}</a>` : ''}${g.phone ? ` · <a href="tel:${escapeHtml(g.phone)}" style="color:inherit;">${escapeHtml(g.phone)}</a>` : ''}</div>
         ${g.items.map(tick).join('')}
       </div>`).join('') : `<div class="empty" style="padding:12px;">Nothing for you to collect.</div>`}
     ${openIds.length ? `<button class="darkbtn" style="margin:0 0 4px;${opMatSelected.size?'':'opacity:.5;'}" onclick="${opMatSelected.size ? `opMatCollect('${siteId}', Array.from(opMatSelected))` : `toast('Tick the items you have collected first')`}">✓ Mark ${opMatSelected.size ? opMatSelected.size+' ' : ''}collected</button>` : ''}
 
     <p class="opmat-h">Coming to site</p>
-    ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card opmat-row">
-        <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
-        <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
-        <span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>
+    ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card">
+        <div class="opmat-row">
+          <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
+          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
+          ${m.grn ? matGrnTag(m.grn) : `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>`}
+        </div>
+        ${m.grn ? '' : (grnOpenFor===m.id ? grnFormHtml(siteId, m) : `<label class="grnchk grnopen" onclick="event.preventDefault();openGrn('${m.id}')"><input type="checkbox"> Goods received (GRN)</label>`)}
       </div>`).join('') : `<div class="empty" style="padding:12px;">No deliveries booked.</div>`}
 
     <p class="opmat-h">Your requests</p>

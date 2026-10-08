@@ -625,6 +625,19 @@
 .ramspicker-row input{width:18px;height:18px;flex:none;margin-top:2px;}
 .tile.matvis-off{background:#F3F3F1;}
 .tile.matvis-off > .icon, .tile.matvis-off > .lbl, .tile.matvis-off > .sub{opacity:.45;}
+/* Suppliers branches + GRN */
+.supbranch{display:flex;flex-direction:column;gap:6px;padding:10px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--paper,#F7F6F1);}
+.grnchk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;cursor:pointer;}
+.grnchk input{width:20px;height:20px;flex:none;}
+.grnopen{margin-top:10px;padding:9px 11px;border:1.5px dashed var(--line);border-radius:9px;}
+.grnform{margin-top:10px;padding:10px;border:1.5px solid var(--brand1,#4E8FD1);border-radius:10px;}
+.grnthumbs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;}
+.grnthumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;cursor:pointer;}
+.grnthumb img{width:100%;height:100%;object-fit:cover;}
+.grnthumb span{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;display:flex;align-items:center;justify-content:center;}
+.grndetail{margin:8px 0 4px;padding:8px 10px;border-radius:9px;font-size:13px;}
+.grndetail.ok{background:#E7F5EC;color:#1E5A33;}
+.grndetail.bad{background:#FDECEA;color:#8E1F17;}
 </style>
 </head>
 <body>
@@ -5575,6 +5588,7 @@ const ADMIN_ITEMS = {
   maincontractor: {page:'libraries', group:'Works & pricing',     icon:'🏢', label:'Main Contractor',      sub:'Inspection templates',             flags:['maincontractor'],               kw:'main contractor mc inspection', show:()=>isManager(ME)},
   hspolicy:       {page:'libraries', group:'Health & Safety',     icon:'📕', label:'H&S Policy',           sub:'Policy document and who has signed', flags:['hspolicy'],                   kw:'health safety policy', show:()=>isFullManager(ME)},
   havstools:      {page:'libraries', group:'Health & Safety',     icon:'🛠️', label:'HAVS Tools',           sub:'Vibration tool list',              flags:['havstools'],                    kw:'havs vibration tools', show:()=>isFullManager(ME)},
+  suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Suppliers, order emails and branches', href:'#/suppliers', kw:'supplier merchant branch address materials', show:()=>isFullManager(ME)},
   ramslibrary:    {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'RAMS Library',         sub:'Hazards, method statements, templates', href:'#/rams-library', kw:'rams risk assessment method statement hazard template builder', show:()=>isFullManager(ME)},
   coshhlibrary:   {page:'libraries', group:'Health & Safety',     icon:'🧪', label:'COSHH Library',        sub:'Assessments for all sites',        flags:['coshhlibrary'],                 kw:'coshh hazardous substances', show:()=>isFullManager(ME)},
   tbt:            {page:'libraries', group:'Health & Safety',     icon:'🗣️', label:'Toolbox Talk Templates', sub:'All sites',                      flags:['tbt'],                          kw:'toolbox talk tbt', show:()=>isFullManager(ME) && ME.role==='admin'},
@@ -5764,6 +5778,10 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="lbl">Reports &amp; Inspections</div>
       </div>
 
+      ${isFullManager(ME) ? `<div class="tile" onclick="go('#/suppliers')">
+        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🏪</div>
+        <div class="lbl">Suppliers</div>
+      </div>` : ''}
       <div class="tile" onclick="go('#/dashboard')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
         <div class="lbl">Company Dashboard</div>
@@ -22787,7 +22805,6 @@ async function renderRams(siteId){
   const unsignedRamsCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${hsPolicyHtml}
     ${ramsBuilderHtml}
     <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
@@ -22850,6 +22867,7 @@ async function renderRams(siteId){
       `;
     }).join('')}
     ` : ''}
+    <div style="margin-top:22px;">${hsPolicyHtml}</div>
   `, {title:'RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
   if(ramsPollTimer) clearInterval(ramsPollTimer);
@@ -29314,17 +29332,17 @@ async function renderMaterials(siteId){
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/materialrequests')">
         <div class="icon" style="background:#F1E4FA;color:#6A2C91;">🙋</div>
-        <div class="lbl">Material Requests</div><div class="sub">From operatives — order for delivery</div>
+        <div class="lbl">Material Requests</div>
         ${pendingCount.length ? `<div class="matcount" style="background:#F1E4FA;color:#6A2C91;">${pendingCount.length} to action</div>` : ''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
         <div class="icon" style="background:#FCEFD2;color:#8A5A00;">📦</div>
-        <div class="lbl">Collection List</div><div class="sub">Items for someone to pick up</div>
+        <div class="lbl">Collection List</div>
         ${requiredOpenCount.length ? `<div class="matcount" style="background:#FCEFD2;color:#8A5A00;">${requiredOpenCount.length} to collect</div>` : ''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
         <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📄</div>
-        <div class="lbl">Material PO's</div><div class="sub">Synced daily from OneDrive${orderFileCount.length ? ' · '+orderFileCount.length+' files' : ''}</div>
+        <div class="lbl">Material PO's</div>
       </div>
       ${matVisTileHtml(site, 'plant', '🏗', '#EAF3EC', '#2E7D46', 'Plant', 'Check in / out')}
       ${matVisTileHtml(site, 'expenses', '🧾', '#FDF1DE', '#B0740F', 'Expenses', 'Send receipts')}
@@ -29336,8 +29354,12 @@ async function renderMaterialRequests(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
   if(!isPM && matFilter==='ordered') matFilter='live';
-  const statusQS = matFilter==='closed' ? 'status=in.(closed,cancelled)'
-    : (isPM ? (matFilter==='ordered' ? 'status=in.(sent,closed)' : 'status=eq.pending') : 'status=in.(pending,sent)');
+  if(isPM && matFilter==='closed') matFilter='ordered';
+  // Managers: To action (pending) and Completed (everything else — sent
+  // orders, requests moved to the Collection List, closed or cancelled).
+  const doneTab = matFilter==='closed' || (isPM && matFilter==='ordered');
+  const statusQS = isPM ? (matFilter==='ordered' ? 'status=in.(sent,closed,cancelled)' : 'status=eq.pending')
+    : (matFilter==='closed' ? 'status=in.(closed,cancelled)' : 'status=in.(pending,sent)');
   // A sent order goes straight to status 'closed' (with merchant/sent_at
   // set), so for managers "Ordered" = sent orders, and "Closed" = requests
   // closed without an order (closed by hand, moved to the Collection List,
@@ -29347,11 +29369,10 @@ async function renderMaterialRequests(siteId){
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
+  if(isPM) window.MAT_SUPPLIERS = suppliers;
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
-    : matFilter==='ordered' ? materialsRaw.filter(wasOrdered)
-    : matFilter==='closed' ? materialsRaw.filter(m=>m.status==='cancelled' || !wasOrdered(m))
     : materialsRaw;
   if(__gen === RENDER_GEN) materialSelectableIds = isPM ? (matFilter==='ordered' ? materials.map(m=>m.id) : materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id)) : [];
   // Who could collect an order — only needed while the send step is open.
@@ -29367,45 +29388,14 @@ async function renderMaterialRequests(siteId){
     ${isPM ? `<div class="matbanner" style="background:#F1E4FA;color:#4E1F6E;"><span>🙋</span><div><b>Requests from operatives.</b> Order each one from a merchant for delivery, or add it to the <a href="#/site/${siteId}/materialrequired" style="color:inherit;font-weight:800;">Collection List</a>.</div></div>
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">To action</div>
-      <div class="filterchip ${matFilter==='ordered'?'active':''}" onclick="matFilter='ordered';clearMaterialSelection();render()">Ordered</div>
-      <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
+      <div class="filterchip ${matFilter==='ordered'?'active':''}" onclick="matFilter='ordered';clearMaterialSelection();render()">Completed</div>
     </div>
-    ${isPM ? `
-    <p class="ddrow" style="margin:0 0 12px;" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> 🏪 Suppliers <span class="stub" style="margin:0 0 0 auto;display:inline;">${suppliers.length} saved</span></p>
-    ${suppliersOpen ? `
-    <div class="card">
-      ${suppliers.map(s=>`
-        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
-            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
-            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
-          </div>
-          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
-          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
-        </div>
-      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
-      ${supplierAddOpen ? `
-        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
-        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
-        <div class="row-gap">
-          <button class="darkbtn" style="flex:1;" onclick="addSupplier('${siteId}')">Add Supplier</button>
-          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
-        </div>
-        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B):</p>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInput').click()">Choose Excel/CSV file</div>
-        <input type="file" id="supplierExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,'${siteId}')">
-      ` : `
-        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
-      `}
-    </div>
-    ` : ''}
-    ` : ''}
     ` : `
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
     </div>`}
-    ${isPM && materialSelectableIds.length>1 ? `
+    ${isPM && materialSelectableIds.length>1 && selectedMaterialIds.size>0 ? `
       <label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-size:13.5px;font-weight:700;cursor:pointer;">
         <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${selectedMaterialIds.size>=materialSelectableIds.length?'checked':''} onchange="if(this.checked){selectAllMaterials()}else{clearMaterialSelection();render()}">
         Select all (${materialSelectableIds.length})${selectedMaterialIds.size>0 && selectedMaterialIds.size<materialSelectableIds.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMaterialIds.size} selected</span>` : ''}
@@ -29414,8 +29404,8 @@ async function renderMaterialRequests(siteId){
 
     ${isPM && selectedMaterialIds.size>0 ? `
       <div class="card" style="border-color:var(--brand1);border-width:1.5px;">
-        <p class="sectiontitle" style="margin-top:0;">${matFilter==='closed' ? `${selectedMaterialIds.size} closed order${selectedMaterialIds.size>1?'s':''} selected` : `${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order`}</p>
-        ${matFilter==='closed' && !sendingGroup ? `<p class="stub" style="margin:0 0 8px;">Send these again as one order, or reopen or delete them together.</p>` : ''}
+        <p class="sectiontitle" style="margin-top:0;">${doneTab ? `${selectedMaterialIds.size} completed order${selectedMaterialIds.size>1?'s':''} selected` : `${selectedMaterialIds.size} request${selectedMaterialIds.size>1?'s':''} selected for a grouped order`}</p>
+        ${doneTab && !sendingGroup ? `<p class="stub" style="margin:0 0 8px;">Send these again as one order, or reopen or delete them together.</p>` : ''}
         ${sendingGroup ? `
           ${orderFulfilmentHtml('group', orderDrivers, orderSiteOps)}
           <button class="darkbtn" onclick="confirmSendGroupedMaterial('${siteId}')">Confirm &amp; ${groupSupplierId===SUPPLIER_EMAIL_ME ? 'Email '+selectedMaterialIds.size+' Items to me' : 'Send '+selectedMaterialIds.size+' Items to '+escapeHtml(supplierName(groupSupplierId)||'')}</button>
@@ -29425,8 +29415,8 @@ async function renderMaterialRequests(siteId){
             <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
           ${supplierPickerFor==='group' ? supplierPickerHtml('group', suppliers, groupSupplierId) : ''}
-          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${matFilter==='closed' ? 'Send Again' : 'Send Order'} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
-          ${matFilter==='closed' ? `<div class="row-gap" style="margin-top:8px;">
+          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${doneTab ? 'Send Again' : 'Send Order'} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
+          ${doneTab ? `<div class="row-gap" style="margin-top:8px;">
             <button class="ghostbtn" style="flex:1;" onclick="reopenSelectedMaterials('${siteId}')">Reopen selected</button>
             <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSelectedMaterials('${siteId}')">Delete selected</button>
           </div>` : ''}
@@ -29453,6 +29443,8 @@ async function renderMaterialRequests(siteId){
               `) : ''}
             </div>
           </div>
+          ${m.grn ? matGrnDetailHtml(m) : ''}
+          ${isPM && m.supplier_branch ? `<div class="merchantrow">📍 ${escapeHtml(branchLabel(m.supplier_branch))}</div>` : ''}
           ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? (
             m.status==='closed'
               // Closed tab: supplier name is hidden here (kept only in the
@@ -29504,7 +29496,7 @@ async function renderMaterialRequests(siteId){
             <button class="ghostbtn" style="width:auto;" onclick="sendMaterialAgain('${m.id}')">Order it</button>
           </div>`) : ''}
       `;
-      if(matFilter!=='closed') return `<div class="matcard">${cardBody}</div>`;
+      if(!doneTab) return `<div class="matcard">${cardBody}</div>`;
       // Closed material requests collapse into a single dropdown row —
       // tap to expand the same detail shown for live requests above. Supplier
       // is intentionally hidden in the Closed tab — the emailed date shows
@@ -29513,15 +29505,15 @@ async function renderMaterialRequests(siteId){
       const emailedLabel = m.email_sent_at ? 'Emailed '+new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : null;
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
-          ${isPM && m.status==='closed' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(m.item)}
-          <span style="margin-left:auto;font-weight:600;color:var(--slate);white-space:nowrap;">Qty ${escapeHtml(m.qty)}${emailedLabel ? ' · '+emailedLabel : ''}</span>
+          ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}</span>
+          <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(m)}${m.grn ? matGrnTag(m.grn) : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
-    }).join('') || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : matFilter==='ordered' ? 'No orders waiting for delivery.' : 'No closed requests.') : 'No '+matFilter+' material requests.'}</div>`}
+    }).join('') || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
 
-    ${matFilter!=='closed' ? `
+    ${matFilter==='live' ? `
     <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
@@ -29536,6 +29528,36 @@ async function renderMaterialRequests(siteId){
         <p class="stub" style="margin:4px 0 0;">Pick a material order spreadsheet — each item and quantity becomes its own request. You're shown the list to confirm first.</p>
       ` : ''}
     </div>
+    ` : ''}
+    ${isPM && matFilter==='live' ? `
+    <p class="ddrow" style="margin:18px 0 12px;" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> 🏪 Suppliers <span class="stub" style="margin:0 0 0 auto;display:inline;">${suppliers.length} saved</span></p>
+    ${suppliersOpen ? `
+    <div class="card">
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
+            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
+          </div>
+          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
+          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      ${supplierAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addSupplier('${siteId}')">Add Supplier</button>
+          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B):</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInput').click()">Choose Excel/CSV file</div>
+        <input type="file" id="supplierExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,'${siteId}')">
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
+      `}
+    </div>
+    ` : ''}
     ` : ''}
   `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
@@ -29584,7 +29606,6 @@ function matVisTileHtml(site, key, icon, bg, color, label, sub){
       }).join(''))}</div>` : ''}
       <div class="icon" style="background:${bg};color:${color};">${icon}</div>
       <div class="lbl">${label}</div>
-      <div class="sub">${sub}${full ? ' · '+who : ''}</div>
     </div>`;
 }
 function matVisibilityHtml(){ return ''; }
@@ -29605,20 +29626,24 @@ async function renderOperativeMaterials(siteId){
     dbSelect('material_required_items', 'site_id=eq.'+siteId+'&assigned_to=eq.'+ME.id+'&status=in.(assigned,collected)&order=created_at.asc'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(sent,closed)&order=required_for_delivery.asc'),
     dbSelect('materials', 'site_id=eq.'+siteId+'&requested_by=eq.'+ME.id+'&status=eq.pending&order=created_at.desc'),
-    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name').catch(()=>[]),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name,branches').catch(()=>[]),
   ]);
   // Coming to site = orders sent for delivery (not collections) that are due
   // today or later.
   const todayIso = localISODate(new Date());
-  coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection' && (!m.required_for_delivery || m.required_for_delivery>=todayIso)).slice(0,15);
+  // Deliveries stay here until someone does the GRN (goods received), then
+  // show as received for the rest of that day.
+  const twoWeeksAgo = localISODate(new Date(Date.now()-14*864e5));
+  coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection'
+    && (m.grn ? String(m.grn.at||'').slice(0,10)===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
   const supName = id => { const s=(suppliers||[]).find(x=>x.id===id); return s ? s.name : null; };
   const fmt = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : '';
   // Group pick-ups by merchant so one trip reads as one card.
   const groups = [];
   (myPickups||[]).forEach(m=>{
-    const key = m.supplier_id || '_';
+    const key = (m.supplier_id || '_')+'|'+((m.supplier_branch && m.supplier_branch.id) || '');
     let g = groups.find(x=>x.key===key);
-    if(!g){ g = {key, name: supName(m.supplier_id) || (m.supplier_id ? 'Merchant' : 'To collect'), items:[]}; groups.push(g); }
+    if(!g){ g = {key, name: (supName(m.supplier_id) || (m.supplier_id ? 'Merchant' : 'To collect')) + (m.supplier_branch ? ', '+(m.supplier_branch.name||'') : ''), addr: m.supplier_branch ? (m.supplier_branch.address||'') : '', phone: m.supplier_branch ? (m.supplier_branch.phone||'') : '', items:[]}; groups.push(g); }
     g.items.push(m);
   });
   const openIds = (myPickups||[]).filter(m=>m.status!=='collected').map(m=>m.id);
@@ -29635,18 +29660,21 @@ async function renderOperativeMaterials(siteId){
   const showPlant = canSeeMatTile(site,'plant'), showExp = canSeeMatTile(site,'expenses');
   const html = `
     <p class="opmat-h">Your collection list</p>
-    ${openIds.length>1 ? `<label class="selallrow"><input type="checkbox" ${opMatSelected.size>=openIds.length?'checked':''} onchange="opMatSelectAll(this.checked, ${escapeHtml(JSON.stringify(openIds))})"> Select all (${openIds.length})${opMatSelected.size && opMatSelected.size<openIds.length ? ` <span class="stub" style="font-weight:400;">· ${opMatSelected.size} selected</span>` : ''}</label>` : ''}
+    ${openIds.length>1 && opMatSelected.size>0 ? `<label class="selallrow"><input type="checkbox" ${opMatSelected.size>=openIds.length?'checked':''} onchange="opMatSelectAll(this.checked, ${escapeHtml(JSON.stringify(openIds))})"> Select all (${openIds.length})${opMatSelected.size && opMatSelected.size<openIds.length ? ` <span class="stub" style="font-weight:400;">· ${opMatSelected.size} selected</span>` : ''}</label>` : ''}
     ${groups.length ? groups.map(g=>`<div class="card opmat-card">
-        <div class="opmat-sub">${escapeHtml(g.name)}${g.items[0].assigned_at ? ' · asked '+fmt(g.items[0].assigned_at) : ''}</div>
+        <div class="opmat-sub"><b style="color:var(--ink);">${escapeHtml(g.name)}</b>${g.items[0].assigned_at ? ' · asked '+fmt(g.items[0].assigned_at) : ''}${g.addr ? `<br>📍 <a href="https://maps.google.com/?q=${encodeURIComponent(g.addr)}" target="_blank" style="color:inherit;">${escapeHtml(g.addr)}</a>` : ''}${g.phone ? ` · <a href="tel:${escapeHtml(g.phone)}" style="color:inherit;">${escapeHtml(g.phone)}</a>` : ''}</div>
         ${g.items.map(tick).join('')}
       </div>`).join('') : `<div class="empty" style="padding:12px;">Nothing for you to collect.</div>`}
     ${openIds.length ? `<button class="darkbtn" style="margin:0 0 4px;${opMatSelected.size?'':'opacity:.5;'}" onclick="${opMatSelected.size ? `opMatCollect('${siteId}', Array.from(opMatSelected))` : `toast('Tick the items you have collected first')`}">✓ Mark ${opMatSelected.size ? opMatSelected.size+' ' : ''}collected</button>` : ''}
 
     <p class="opmat-h">Coming to site</p>
-    ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card opmat-row">
-        <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
-        <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
-        <span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>
+    ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card">
+        <div class="opmat-row">
+          <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
+          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
+          ${m.grn ? matGrnTag(m.grn) : `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>`}
+        </div>
+        ${m.grn ? '' : (grnOpenFor===m.id ? grnFormHtml(siteId, m) : `<label class="grnchk grnopen" onclick="event.preventDefault();openGrn('${m.id}')"><input type="checkbox"> Goods received (GRN)</label>`)}
       </div>`).join('') : `<div class="empty" style="padding:12px;">No deliveries booked.</div>`}
 
     <p class="opmat-h">Your requests</p>
@@ -29709,6 +29737,152 @@ window.materialToCollection = async function(siteId, matId){
   render();
 };
 
+/* ================= SUPPLIERS & BRANCHES, BRANCH PICKING, GRN =================
+ * Suppliers can hold branches (suppliers.branches jsonb [{id,name,address,phone}]),
+ * managed from Admin Centre → Suppliers (#/suppliers). When an order is
+ * sent for collection/delivery, or an item is put on the Collection List,
+ * a branch can be chosen; it's stored as supplier_branch {id,name,address,phone}.
+ * GRN: operatives tick "Goods received" on a delivery coming to site, with
+ * notes for any errors and photos; stored on materials.grn
+ * {at, by, byName, ok, notes, photos:[storage paths]}. */
+window.MAT_SUPPLIERS = window.MAT_SUPPLIERS || [];
+function supplierBranches(supplierId){
+  const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId);
+  return s && Array.isArray(s.branches) ? s.branches : [];
+}
+function branchLabel(b){ return b ? [b.name, b.address].filter(Boolean).join(' — ') : ''; }
+// A <select> of the chosen supplier's branches (nothing if it has none).
+function branchSelectHtml(selId, supplierId, selected){
+  const brs = supplierBranches(supplierId);
+  if(!brs.length) return '';
+  const selId2 = selected && selected.id;
+  return `<div class="formfield" style="margin-top:8px;"><label class="field-label">Branch / address</label>
+    <select id="${selId}" onchange="matBranchChoice['${selId}']=this.value">
+      <option value="">— Any branch / not specified —</option>
+      ${brs.map(b=>`<option value="${b.id}" ${(matBranchChoice[selId]||selId2)===b.id?'selected':''}>${escapeHtml(branchLabel(b))}</option>`).join('')}
+    </select></div>`;
+}
+const matBranchChoice = {};
+function readBranch(selId, supplierId){
+  const el = document.getElementById(selId);
+  const id = el ? el.value : (matBranchChoice[selId]||'');
+  if(!id) return null;
+  const b = supplierBranches(supplierId).find(x=>x.id===id);
+  return b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||''} : null;
+}
+
+// ---------- Admin Centre → Suppliers ----------
+let suppliersAdminOpen = null; // supplier id whose branches are open
+async function renderSuppliersAdmin(){
+  const __gen = RENDER_GEN;
+  if(!isFullManager(ME)){ go('#/team'); return; }
+  const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  window.MAT_SUPPLIERS = suppliers;
+  const html = `
+    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🏪</span><div><b>Suppliers</b> — names, order emails and branches. Branches can be picked when you order for collection or add to a Collection List.</div></div>
+    ${suppliers.map(s=>{
+      const open = suppliersAdminOpen===s.id; const brs = Array.isArray(s.branches) ? s.branches : [];
+      return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
+        <div class="ddrow" style="margin:0;padding:12px;" onclick="suppliersAdminOpen=${open?'null':`'${s.id}'`};render()">
+          <span class="arrow">${open?'▼':'▶'}</span><b style="flex:1;min-width:0;">${escapeHtml(s.name)}${s.favourite?' <span style="color:#D9A441;">★</span>':''}</b>
+          <span class="stub" style="margin:0;white-space:nowrap;">${brs.length} branch${brs.length===1?'':'es'}</span>
+        </div>
+        ${open ? `<div style="padding:0 12px 12px;">
+          <div class="formfield"><label class="field-label">Name</label><input type="text" value="${escapeHtml(s.name)}" onblur="saveSupplierField(this,'${s.id}','name')"></div>
+          <div class="formfield"><label class="field-label">Order email</label><input type="email" value="${escapeHtml(s.email||'')}" onblur="saveSupplierField(this,'${s.id}','email')"></div>
+          <p class="opmat-h" style="margin-top:6px;">Branches</p>
+          ${brs.map(b=>`<div class="supbranch">
+            <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
+            <input type="text" placeholder="Address" value="${escapeHtml(b.address||'')}" onblur="saveBranchField('${s.id}','${b.id}','address',this.value)">
+            <div style="display:flex;gap:6px;"><input type="tel" placeholder="Phone (optional)" style="flex:1;" value="${escapeHtml(b.phone||'')}" onblur="saveBranchField('${s.id}','${b.id}','phone',this.value)"><button class="ghostbtn" style="width:auto;color:var(--warn);" onclick="deleteBranch('${s.id}','${b.id}')">🗑</button></div>
+          </div>`).join('') || `<p class="stub" style="margin:0 0 8px;">No branches yet.</p>`}
+          <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="addBranch('${s.id}')">+ Add branch</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSupplier(null,'${s.id}')">Delete supplier</button></div>
+        </div>` : ''}
+      </div>`;
+    }).join('') || `<div class="empty">No suppliers yet.</div>`}
+    ${supplierAddOpen ? `<div class="card">
+      <div class="formfield"><input type="text" id="supName" placeholder="Supplier name"></div>
+      <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+      <div class="row-gap"><button class="darkbtn" style="flex:1;" onclick="addSupplier(null)">Add Supplier</button><button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button></div>
+    </div>` : `<button class="darkbtn" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>`}
+  `;
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Suppliers', back:'#/team'});
+}
+async function updateSupplierBranches(supplierId, fn){
+  const s = (await dbSelect('suppliers', 'id=eq.'+supplierId))[0]; if(!s) return null;
+  const brs = fn((Array.isArray(s.branches) ? s.branches : []).map(b=>Object.assign({}, b)));
+  return await dbUpdate('suppliers', supplierId, {branches: brs});
+}
+window.addBranch = async function(supplierId){
+  const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:''}]));
+  if(row) render();
+};
+window.saveBranchField = async function(supplierId, branchId, field, value){
+  const row = await updateSupplierBranches(supplierId, brs=>brs.map(b=>b.id===branchId ? Object.assign(b, {[field]: String(value||'').trim()}) : b));
+  if(row){ const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId); if(s) s.branches = row.branches; toast('Saved'); }
+};
+window.deleteBranch = async function(supplierId, branchId){
+  if(!(await customConfirm('Delete this branch?'))) return;
+  const row = await updateSupplierBranches(supplierId, brs=>brs.filter(b=>b.id!==branchId));
+  if(row) render();
+};
+
+// ---------- GRN (goods received) ----------
+let grnOpenFor = null;      // material id whose GRN form is open
+let grnDraft = {ok:true, notes:'', photos:[]}; // photos: data URLs (compressed)
+window.openGrn = function(id){ grnOpenFor = grnOpenFor===id ? null : id; grnDraft = {ok:true, notes:'', photos:[]}; render(); };
+function grnFormHtml(siteId, m){
+  return `<div class="grnform">
+    <label class="grnchk"><input type="checkbox" ${grnDraft.ok?'checked':''} onchange="grnDraft.ok=this.checked;render()"> Everything received and correct</label>
+    <div class="formfield" style="margin-top:8px;"><label class="field-label">${grnDraft.ok ? 'Notes (optional)' : 'What\'s wrong? (shortages, damage, wrong items)'}</label>
+      <textarea rows="3" oninput="grnDraft.notes=this.value" placeholder="${grnDraft.ok?'e.g. left by the welfare unit':'e.g. 2 packs short, 1 damaged'}">${escapeHtml(grnDraft.notes)}</textarea></div>
+    ${grnDraft.photos.length ? `<div class="grnthumbs">${grnDraft.photos.map((p,i)=>`<div class="grnthumb"><img src="${p}"><span onclick="grnDraft.photos.splice(${i},1);render()">✕</span></div>`).join('')}</div>` : ''}
+    <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:0 0 8px;">📷 Add photos<input type="file" accept="image/*" multiple style="display:none;" onchange="grnAddPhotos(this)"></label>
+    <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="saveGrn('${siteId}','${m.id}')">✓ Save GRN</button><button class="ghostbtn" style="flex:1;" onclick="grnOpenFor=null;render()">Cancel</button></div>
+  </div>`;
+}
+window.grnAddPhotos = async function(input){
+  const files = Array.from(input.files||[]);
+  for(const f of files){ try{ const d = await compressImage(f, {maxW:1600, quality:0.82}); if(d) grnDraft.photos.push(d); }catch(e){} }
+  render();
+};
+window.saveGrn = async function(siteId, matId){
+  if(!grnDraft.ok && !grnDraft.notes.trim()){ toast('Add a note saying what\'s wrong'); return; }
+  toast('Saving…');
+  const paths = [];
+  for(const d of grnDraft.photos){
+    const p = await uploadDataUrl('site-photos', siteId+'/grn/'+matId+'/'+uid()+'.jpg', d);
+    if(p) paths.push(p);
+  }
+  if(paths.length < grnDraft.photos.length){ customAlert('Some photos could not upload — check signal and try again.'); return; }
+  const grn = {at:new Date().toISOString(), by:ME.id, byName:ME.name||'', ok:!!grnDraft.ok, notes:grnDraft.notes.trim(), photos:paths};
+  const row = await dbUpdate('materials', matId, {grn});
+  if(!row) return;
+  const item = row.item + (row.qty ? ' × '+row.qty : '');
+  logSiteActivity(siteId, 'material_grn', `Goods received: ${item}${grn.ok ? '' : ' — PROBLEM: '+grn.notes}`);
+  if(!grn.ok || grn.notes || paths.length) postSystemMessage(siteId, 'material_grn', `${ME.name} received "${item}"${grn.ok ? '' : ' with a problem'}${grn.notes ? ': '+grn.notes : ''}${paths.length ? ' ('+paths.length+' photo'+(paths.length>1?'s':'')+')' : ''}`);
+  grnOpenFor = null; grnDraft = {ok:true, notes:'', photos:[]};
+  toast(grn.ok ? 'Goods received ✓' : 'Saved — managers told about the problem');
+  render();
+};
+function matGrnTag(g){
+  return g.ok ? `<span class="opmat-pill" style="background:#DDF3E3;color:#1E7A3C;">GRN ✓</span>` : `<span class="opmat-pill" style="background:#FDE2E0;color:#B3261E;">GRN ⚠</span>`;
+}
+function matDoneTag(m){
+  if(m.status==='cancelled') return `<span class="opmat-pill" style="background:#EEE;color:#666;">Cancelled</span>`;
+  if(m.status==='sent' || m.merchant || m.sent_at) return `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">${m.fulfilment==='collection'?'Collection':'Ordered'}</span>`;
+  if(/Collection List/.test(m.order_note||'')) return `<span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">To collect</span>`;
+  return `<span class="opmat-pill" style="background:#EEE;color:#666;">Closed</span>`;
+}
+function matGrnDetailHtml(m){
+  const g = m.grn; if(!g) return '';
+  return `<div class="grndetail ${g.ok?'ok':'bad'}">
+    <b>${g.ok ? '✓ Goods received' : '⚠ Received with a problem'}</b> · ${escapeHtml(g.byName||nameOf(g.by))} · ${new Date(g.at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}
+    ${g.notes ? `<div style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(g.notes)}</div>` : ''}
+    ${(g.photos||[]).length ? `<div class="grnthumbs" style="margin-top:6px;">${g.photos.map(p=>`<div class="grnthumb" onclick="event.stopPropagation();viewDrawing('${publicUrl('site-photos', p)}', true)"><img src="${publicUrl('site-photos', p)}"></div>`).join('')}</div>` : ''}
+  </div>`;
+}
+
 /* ================= MATERIAL LIST (pick-up list) ================
  * A separate flow from Material Requests (operative-raised) — PM/admin adds
  * rows to a pick-up list, assigns one to an operative to collect, and the
@@ -29755,6 +29929,7 @@ async function renderMaterialRequiredList(siteId){
   // site so they know what's coming.
   const items = isPM ? itemsRaw : itemsRaw.filter(m=>m.assigned_to===ME.id || m.status==='open');
   const subAddrById = {}; subAddressesList.forEach(a=>{ subAddrById[a.id]=a; });
+  if(isPM) window.MAT_SUPPLIERS = suppliers;
   const supplierName = id => { const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   const supplierEmail = id => { const s=suppliers.find(x=>x.id===id); return s ? s.email : null; };
   const assignedIds = new Set(assignedRows.map(a=>a.user_id));
@@ -29780,6 +29955,7 @@ async function renderMaterialRequiredList(siteId){
         <div style="padding:0 12px 14px;">
           <div class="qty">Qty ${escapeHtml(m.qty||'—')}${m.qty_collected ? ` (collected ${escapeHtml(m.qty_collected)})` : ''}</div>
           ${m.supplier_id ? `<div class="qty">Supplier: ${escapeHtml(supplierName(m.supplier_id)||'')}</div>` : ''}
+          ${m.supplier_branch ? `<div class="qty">📍 ${escapeHtml(branchLabel(m.supplier_branch))}</div>` : ''}
           ${m.assigned_to ? `<div class="qty">Assigned to ${escapeHtml(nameOf(m.assigned_to))}</div>` : ''}
           ${subLabel ? `<div class="meta" style="margin-top:2px;"><span style="display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--slate);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 8px;">📍 ${escapeHtml(subLabel)}</span></div>` : ''}
           ${isPM ? `
@@ -29796,6 +29972,7 @@ async function renderMaterialRequiredList(siteId){
                 <span class="arrow">${supplierPickerFor==='edit-'+m.id?'▼':'▶'}</span> ${materialSupplierChoice['edit-'+m.id] ? escapeHtml(supplierName(materialSupplierChoice['edit-'+m.id])) : 'Supplier (optional)'}
               </div>
               ${supplierPickerFor==='edit-'+m.id ? (suppliers.length ? supplierPickerHtml('edit-'+m.id, suppliers, materialSupplierChoice['edit-'+m.id]) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+              ${branchSelectHtml('branch-edit-'+m.id, (materialSupplierChoice['edit-'+m.id]!==undefined ? materialSupplierChoice['edit-'+m.id] : m.supplier_id), m.supplier_branch)}
               <div class="row-gap" style="margin-top:10px;">
                 <button class="darkbtn" style="flex:1;" onclick="saveMatReqEdit('${siteId}','${m.id}')">Save</button>
                 <button class="ghostbtn" style="flex:1;" onclick="matReqEditFor=null;supplierPickerFor=null;render()">Cancel</button>
@@ -29876,7 +30053,7 @@ async function renderMaterialRequiredList(siteId){
       <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">To collect</div>
       <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
-    ${isPM && items.length>1 ? `
+    ${isPM && items.length>1 && selectedMatReqIds.size>0 ? `
       <label class="selallrow">
         <input type="checkbox" ${selectedMatReqIds.size>=items.length?'checked':''} onchange="selectedMatReqIds=this.checked?new Set(${escapeHtml(JSON.stringify(items.map(m=>m.id)))}):new Set();render()">
         Select all (${items.length})${selectedMatReqIds.size>0 && selectedMatReqIds.size<items.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMatReqIds.size} selected</span>` : ''}
@@ -29920,6 +30097,7 @@ async function renderMaterialRequiredList(siteId){
         <span class="arrow">${supplierPickerFor==='reqnew'?'▼':'▶'}</span> ${materialSupplierChoice['reqnew'] ? escapeHtml(supplierName(materialSupplierChoice['reqnew'])) : 'Supplier (optional)'}
       </div>
       ${supplierPickerFor==='reqnew' ? (suppliers.length ? supplierPickerHtml('reqnew', suppliers, materialSupplierChoice['reqnew']) : `<p class="stub" style="margin:8px 0 0;">No suppliers set up yet — add one on Material Requests.</p>`) : ''}
+      ${branchSelectHtml('branch-reqnew', materialSupplierChoice['reqnew'])}
       ${isMultiSite ? `
         <p class="field-label" style="margin:10px 0 6px;">Address</p>
         <select id="matReqSubAddr" onchange="matReqDraftSubAddr=this.value||null" style="width:100%;padding:8px 10px;font-size:12px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);box-sizing:border-box;">
@@ -30035,7 +30213,7 @@ window.addMaterialRequiredDraftRow = function(){
   const supplierId = materialSupplierChoice['reqnew'] || null;
   const subAddrEl = document.getElementById('matReqSubAddr');
   const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
-  matReqDraftRows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+  matReqDraftRows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId, supplier_branch: readBranch('branch-reqnew', supplierId)});
   matReqDraftItem = ''; matReqDraftQty = '';
   toast('Row queued — add another or tap Complete List');
   render();
@@ -30054,10 +30232,10 @@ window.completeMaterialRequiredList = async function(siteId){
     const supplierId = materialSupplierChoice['reqnew'] || null;
     const subAddrEl = document.getElementById('matReqSubAddr');
     const subSiteId = subAddrEl ? (subAddrEl.value || null) : (matReqDraftSubAddr || null);
-    rows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId});
+    rows.push({item, qty: qty||null, supplier_id: supplierId, sub_site_id: subSiteId, supplier_branch: readBranch('branch-reqnew', supplierId)});
   }
   if(!rows.length){ toast('Enter at least one item.'); return; }
-  const payload = rows.map(r=>({site_id:siteId, org_id:ME.org_id, item:r.item, qty:r.qty, supplier_id:r.supplier_id, sub_site_id:r.sub_site_id, status:'open', created_by:ME.id}));
+  const payload = rows.map(r=>({site_id:siteId, org_id:ME.org_id, item:r.item, qty:r.qty, supplier_id:r.supplier_id, sub_site_id:r.sub_site_id, supplier_branch:r.supplier_branch||null, status:'open', created_by:ME.id}));
   const inserted = await dbInsert('material_required_items', payload);
   if(inserted){
     matReqDraftRows = [];
@@ -30173,6 +30351,9 @@ window.saveMatReqEdit = async function(siteId, id){
   const supplierId = Object.prototype.hasOwnProperty.call(materialSupplierChoice, key) ? (materialSupplierChoice[key]||null) : undefined;
   const patch = {item, qty: qty||null};
   if(supplierId !== undefined) patch.supplier_id = supplierId;
+  const effSup = supplierId !== undefined ? supplierId : ((await dbSelect('material_required_items','id=eq.'+id+'&select=supplier_id'))[0]||{}).supplier_id;
+  patch.supplier_branch = readBranch('branch-edit-'+id, effSup);
+  delete matBranchChoice['branch-edit-'+id];
   const row = await dbUpdate('material_required_items', id, patch);
   if(row){
     matReqEditFor = null;
@@ -31161,8 +31342,14 @@ window.addMaterial = async function(siteId){
 // order and a grouped (collated) order. Collection asks who is collecting:
 // a driver (the order goes onto the Delivery Schedule as one job) or a site
 // operative (each item goes onto the Material List, assigned to them).
+function orderSupplierFor(key){
+  if(key==='group') return groupSupplierId;
+  if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
+  return materialSupplierChoice[key];
+}
 function orderFulfilmentHtml(key, drivers, siteOps){
   return `
+    ${branchSelectHtml('reqBranch_'+key, orderSupplierFor(key))}
     <div class="formfield"><label class="field-label">Delivery or collection</label>
       <select id="reqMode_${key}" onchange="onOrderModeChange('${key}')">
         <option value="delivery">Delivery — supplier delivers to site</option>
@@ -31209,13 +31396,16 @@ function readOrderFulfilment(key){
   const date = g('reqDeliveryDate') ? g('reqDeliveryDate').value : '';
   const mode = g('reqMode') && g('reqMode').value==='collection' ? 'collection' : 'delivery';
   if(!date){ toast((mode==='collection'?'Collection':'Delivery')+' date is required before sending.'); return null; }
-  const note = g('reqNote') ? g('reqNote').value.trim() : '';
+  const branch = readBranch('reqBranch_'+key, orderSupplierFor(key));
+  const typedNote = g('reqNote') ? g('reqNote').value.trim() : '';
+  // The supplier sees the branch on the order (it goes out in the note).
+  const note = branch ? ('Branch: '+branchLabel(branch)+(branch.phone?' ('+branch.phone+')':'')+(typedNote ? ' — '+typedNote : '')) : typedNote;
   const ccIds = Array.from(document.querySelectorAll('.reqCc_'+key+':checked')).map(el=>el.value);
-  if(mode==='delivery') return {mode, date, note, ccIds, collectorKind:null, collectorId:null, slot:null};
+  if(mode==='delivery') return {mode, date, note, ccIds, branch, collectorKind:null, collectorId:null, slot:null};
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, note, ccIds, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, branch, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -31243,9 +31433,9 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       const payload = {
         org_id: ME.org_id, site_id: siteId,
         description: 'Collect order: '+itemsText+(f.note ? ' — Note: '+f.note : ''),
-        collection_type: toMe ? 'manual' : 'supplier',
+        collection_type: (toMe || f.branch) ? 'manual' : 'supplier',
         supplier_id: toMe ? null : supplier.id,
-        collection_address_manual: toMe ? 'Supplier to be confirmed' : null,
+        collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
         scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
       };
@@ -31259,7 +31449,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
     const nowIso = new Date().toISOString();
     const rows = await dbInsert('material_required_items', materials.map(m=>({
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
-      supplier_id: toMe ? null : supplier.id, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
+      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
     if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
@@ -31290,7 +31480,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   if(!(await confirmRebookCollection(fulfil, material ? [material] : []))) fulfil.skipBooking = true;
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
-  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null});
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
@@ -31384,7 +31574,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
@@ -35497,6 +35687,7 @@ async function renderRoute(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='rams-library'){ return renderRamsLibrary(); }
+  if(parts[0]==='suppliers'){ return renderSuppliersAdmin(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
     if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }

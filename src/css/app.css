@@ -611,3 +611,16 @@
 .ramspicker-row input{width:18px;height:18px;flex:none;margin-top:2px;}
 .tile.matvis-off{background:#F3F3F1;}
 .tile.matvis-off > .icon, .tile.matvis-off > .lbl, .tile.matvis-off > .sub{opacity:.45;}
+/* Suppliers branches + GRN */
+.supbranch{display:flex;flex-direction:column;gap:6px;padding:10px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--paper,#F7F6F1);}
+.grnchk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;cursor:pointer;}
+.grnchk input{width:20px;height:20px;flex:none;}
+.grnopen{margin-top:10px;padding:9px 11px;border:1.5px dashed var(--line);border-radius:9px;}
+.grnform{margin-top:10px;padding:10px;border:1.5px solid var(--brand1,#4E8FD1);border-radius:10px;}
+.grnthumbs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px;}
+.grnthumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;cursor:pointer;}
+.grnthumb img{width:100%;height:100%;object-fit:cover;}
+.grnthumb span{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:18px;height:18px;font-size:11px;display:flex;align-items:center;justify-content:center;}
+.grndetail{margin:8px 0 4px;padding:8px 10px;border-radius:9px;font-size:13px;}
+.grndetail.ok{background:#E7F5EC;color:#1E5A33;}
+.grndetail.bad{background:#FDECEA;color:#8E1F17;}

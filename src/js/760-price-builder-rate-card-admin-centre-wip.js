@@ -276,8 +276,14 @@ window.addMaterial = async function(siteId){
 // order and a grouped (collated) order. Collection asks who is collecting:
 // a driver (the order goes onto the Delivery Schedule as one job) or a site
 // operative (each item goes onto the Material List, assigned to them).
+function orderSupplierFor(key){
+  if(key==='group') return groupSupplierId;
+  if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
+  return materialSupplierChoice[key];
+}
 function orderFulfilmentHtml(key, drivers, siteOps){
   return `
+    ${branchSelectHtml('reqBranch_'+key, orderSupplierFor(key))}
     <div class="formfield"><label class="field-label">Delivery or collection</label>
       <select id="reqMode_${key}" onchange="onOrderModeChange('${key}')">
         <option value="delivery">Delivery — supplier delivers to site</option>
@@ -324,13 +330,16 @@ function readOrderFulfilment(key){
   const date = g('reqDeliveryDate') ? g('reqDeliveryDate').value : '';
   const mode = g('reqMode') && g('reqMode').value==='collection' ? 'collection' : 'delivery';
   if(!date){ toast((mode==='collection'?'Collection':'Delivery')+' date is required before sending.'); return null; }
-  const note = g('reqNote') ? g('reqNote').value.trim() : '';
+  const branch = readBranch('reqBranch_'+key, orderSupplierFor(key));
+  const typedNote = g('reqNote') ? g('reqNote').value.trim() : '';
+  // The supplier sees the branch on the order (it goes out in the note).
+  const note = branch ? ('Branch: '+branchLabel(branch)+(branch.phone?' ('+branch.phone+')':'')+(typedNote ? ' — '+typedNote : '')) : typedNote;
   const ccIds = Array.from(document.querySelectorAll('.reqCc_'+key+':checked')).map(el=>el.value);
-  if(mode==='delivery') return {mode, date, note, ccIds, collectorKind:null, collectorId:null, slot:null};
+  if(mode==='delivery') return {mode, date, note, ccIds, branch, collectorKind:null, collectorId:null, slot:null};
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, note, ccIds, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, branch, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -358,9 +367,9 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       const payload = {
         org_id: ME.org_id, site_id: siteId,
         description: 'Collect order: '+itemsText+(f.note ? ' — Note: '+f.note : ''),
-        collection_type: toMe ? 'manual' : 'supplier',
+        collection_type: (toMe || f.branch) ? 'manual' : 'supplier',
         supplier_id: toMe ? null : supplier.id,
-        collection_address_manual: toMe ? 'Supplier to be confirmed' : null,
+        collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
         scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
       };
@@ -374,7 +383,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
     const nowIso = new Date().toISOString();
     const rows = await dbInsert('material_required_items', materials.map(m=>({
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
-      supplier_id: toMe ? null : supplier.id, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
+      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
     if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
@@ -405,7 +414,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   if(!(await confirmRebookCollection(fulfil, material ? [material] : []))) fulfil.skipBooking = true;
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
-  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null});
+  const row = await dbUpdate('materials', matId, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : supplierId, sent_at:new Date().toISOString(), required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null});
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
@@ -499,7 +508,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();
-  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null})));
+  const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null})));
   if(updateResults.some(r=>!r)){ toast('Some requests could not be updated — check them manually.'); }
   sendingGroup = false;
   selectedMaterialIds = new Set();
