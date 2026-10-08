@@ -374,8 +374,8 @@ async function renderRams(siteId){
       const cdocs = ramsByCompany[c.id]||[];
       const open = !!ramsSubOpenFor[c.id];
       return `
-      <div>
-        <p class="ddrow" onclick="toggleRamsSub('${c.id}')">
+      <div style="margin-top:14px;">
+        <p class="ddrow" style="margin-top:0;" onclick="toggleRamsSub('${c.id}')">
           <span class="arrow">${open?'▼':'▶'}</span> Subcontractor RAMS — ${escapeHtml(c.name)} <span class="stub" style="display:inline;margin:0;">(${cdocs.length})</span>
         </p>
         ${open ? `<div class="card" style="margin-top:6px;">
