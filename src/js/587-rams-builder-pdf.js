@@ -128,7 +128,21 @@ async function buildRamsPdf(build, which){
     if((b.ppe||[]).length){
       bar('6.0 Required PPE');
       const items = RAMS_PPE.filter(p=>b.ppe.includes(p.key)); const cw = CW/3;
-      for(let i=0;i<items.length;i+=3){ ensure(30); items.slice(i,i+3).forEach((p,j)=>{ rect(M+j*cw+2, y-26, cw-4, 24, LIGHT, false); rect(M+j*cw+8, y-20, 12, 12, WHITE); txt('X', M+j*cw+11, y-17.5, 9, bold, BRAND); txt(p.label, M+j*cw+28, y-17, 9.5, bold); }); y -= 30; }
+      // The PPE signs, three to a row, with the name under each (like the RTB RAMS).
+      const imgs = {};
+      for(const p of items){ try{ const u = (typeof RAMS_PPE_IMG!=='undefined') && RAMS_PPE_IMG[p.key]; if(u) imgs[p.key] = await pdf.embedJpg(Uint8Array.from(atob(u.split(',')[1]), c=>c.charCodeAt(0))); }catch(e){} }
+      const IS = 40, rowH = IS + 22;
+      for(let i=0;i<items.length;i+=3){
+        ensure(rowH+4);
+        items.slice(i,i+3).forEach((p,j)=>{
+          const cx = M + j*cw + cw/2;
+          if(imgs[p.key]) page.drawImage(imgs[p.key], {x:cx-IS/2, y:y-IS-2, width:IS, height:IS});
+          else { rect(cx-6, y-IS/2-8, 12, 12, WHITE); txt('X', cx-3, y-IS/2-5.5, 9, bold, BRAND); }
+          const lw = reg.widthOfTextAtSize(ramsPdfSafe(p.label), 9);
+          txt(p.label, cx-lw/2, y-IS-14, 9, reg);
+        });
+        y -= rowH;
+      }
       y -= 6;
     }
   } else {
