@@ -206,29 +206,30 @@ async function renderTeam(adminPage, adminItemKey){
     <div id="adminHubTiles">
     <p class="sectiontitle" style="margin-top:6px;">Day to day</p>
     <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
-      <div class="tile" onclick="go('#/deliveries')">
-        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
-        <div class="lbl">Deliveries</div><div class="sub">Schedule · Vehicle checks</div>
-      </div>
-      <div class="tile" onclick="generalReportsBackHash='#/team';go('#/general-reports')">
-        <div class="icon" style="background:#EDE7F6;color:#5E35B1;">📋</div>
-        <div class="lbl">Reports &amp; Inspections</div>
-      </div>
-
-      ${isFullManager(ME) ? `<div class="tile" onclick="go('#/suppliers')">
-        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🏪</div>
-        <div class="lbl">Suppliers</div>
-      </div>` : ''}
       <div class="tile" onclick="go('#/dashboard')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
         <div class="lbl">Company Dashboard</div>
       </div>
-      ${iAmAdmin ? `
-      <div class="tile" onclick="go('#/operatives')">
+      ${iAmAdmin ? `<div class="tile" onclick="go('#/operatives')">
         <div class="icon" style="background:var(--ok-bg);color:var(--ok);">👷</div>
         <div class="lbl">Operatives</div>
+      </div>` : ''}
+      <div class="tile" onclick="generalReportsBackHash='#/team';go('#/general-reports')">
+        <div class="icon" style="background:#EDE7F6;color:#5E35B1;">📋</div>
+        <div class="lbl">Reports &amp; Inspections</div>
       </div>
-      ` : ''}
+      <div class="tile" onclick="go('#/vehicle-checklists')">
+        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚐</div>
+        <div class="lbl">Vehicle Checks</div>
+      </div>
+      <div class="tile" onclick="go('#/team/libraries/maincontractor')">
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
+        <div class="lbl">Main Contractor</div>
+      </div>
+      ${isFullManager(ME) ? `<div class="tile" onclick="go('#/suppliers')">
+        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🏪</div>
+        <div class="lbl">Suppliers</div>
+      </div>` : ''}
     </div>
     <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
     <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
