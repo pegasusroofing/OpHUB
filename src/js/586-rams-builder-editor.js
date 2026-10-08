@@ -160,11 +160,12 @@ async function renderRamsBuild(siteId, buildId){
   }
   if(ramsEd.picker && !ramsEd.lib) ramsEd.lib = await ramsLoadLibrary();
   const b = ramsEd.build, tab = ramsEd.tab;
-  const tabs = [['details', ramsMissingInfo(b).length ? 'Info ⚠' : 'Info'],['ra','RA ('+b.hazards.length+')'],['ms','MS ('+b.sections.length+')'],['issue','Issue']];
+  const tabs = [['details', ramsMissingInfo(b).length ? 'Info ⚠' : 'Info'],['ra','RA ('+b.hazards.length+')'],['ssow','SSOW ('+b.sections.filter(x=>x.part!=='method').length+')'],['ms','MS ('+b.sections.filter(x=>x.part==='method').length+')'],['issue','Issue']];
   let body = '';
   if(tab==='details') body = ramsDetailsHtml(b);
   else if(tab==='ra') body = ramsHazardsHtml(b);
-  else if(tab==='ms') body = ramsSectionsHtml(b);
+  else if(tab==='ssow') body = ramsSectionsHtml(b, 'general');
+  else if(tab==='ms') body = ramsSectionsHtml(b, 'method');
   else body = ramsIssueHtml(b, siteId);
   const html = `
     <div class="ramsed-top">
@@ -177,10 +178,10 @@ async function renderRamsBuild(siteId, buildId){
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'RAMS Builder', subtitle:site?site.name:'', siteNameSubtitle:true, back:`#/site/${siteId}/hs/rams`, siteId});
 }
-const RAMS_TAB_ORDER = ['details','ra','ms','issue'];
+const RAMS_TAB_ORDER = ['details','ra','ssow','ms','issue'];
 function ramsNextBtn(from){
   const nx = RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1];
-  const lbl = {ra:'Next: Risk Assessment', ms:'Next: Method Statement', issue:'Next: Issue'}[nx];
+  const lbl = {ra:'Next: Risk Assessment', ssow:'Next: Safe Systems of Work', ms:'Next: Method Statements', issue:'Next: Issue'}[nx];
   return nx ? `<button class="darkbtn" style="margin-top:14px;" onclick="ramsNext('${from}')">${lbl} ›</button>` : '';
 }
 window.ramsNext = function(from){
@@ -276,13 +277,14 @@ function ramsHazardsHtml(b){
     ${ramsNextBtn('ra')}
   `;
 }
-function ramsSectionsHtml(b){
-  const parts = [['general','Safe Systems of Work'],['method','Method Statements']];
+function ramsSectionsHtml(b, onlyPart){
+  const parts = [['general','Safe Systems of Work'],['method','Method Statements']].filter(([p])=>!onlyPart || p===onlyPart);
+  const isM = onlyPart==='method';
   return `
-    <p class="stub" style="margin:0 0 10px;">Each item is its own section. Safe systems of work print first, then the step-by-step method statements.</p>
+    <p class="stub" style="margin:0 0 10px;">${isM ? 'The step-by-step method statements — each is its own section. They print after the safe systems of work in the Method Statement document.' : 'Safe systems of work (general precautions) — each is its own section. They print first in the Method Statement document.'}</p>
     ${parts.map(([part,label])=>{
       const list = b.sections.filter(s=>s.part===part);
-      return `<p class="opmat-h">${label}</p>` + (list.map((s,i)=>{
+      return (onlyPart ? '' : `<p class="opmat-h">${label}</p>`) + (list.map((s,i)=>{
         if(ramsEd.editId===s.id) return `<div class="card ramsitem editing">
           <div class="formfield"><label class="field-label">Heading</label><input type="text" value="${escapeHtml(s.title)}" oninput="ramsS('${s.id}').title=this.value;ramsQueueSave()"></div>
           <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();render()"><option value="general" ${s.part==='general'?'selected':''}>Safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
@@ -298,8 +300,8 @@ function ramsSectionsHtml(b){
         </div>`;
       }).join('') || `<div class="empty" style="padding:10px;">None yet.</div>`);
     }).join('')}
-    <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section')">+ New safe system / method</button></div>
-    ${ramsNextBtn('ms')}
+    <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section','${isM?'method':'general'}')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section','${isM?'method':'general'}')">+ New ${isM?'method statement':'safe system of work'}</button></div>
+    ${ramsNextBtn(isM?'ms':'ssow')}
   `;
 }
 window.ramsH = id => ramsEd.build.hazards.find(h=>h.id===id) || {};
@@ -325,9 +327,9 @@ window.ramsDel = async function(kind, id){
   if(!(await customConfirm(`Remove "${it.title||'this item'}" from this RAMS?\n\nIt stays in the library.`))) return;
   ramsEd.build[kind] = ramsEd.build[kind].filter(x=>x.id!==id); ramsQueueSave(); render();
 };
-window.ramsNewItem = function(kind){
+window.ramsNewItem = function(kind, part){
   if(kind==='hazard'){ const h = {id:ramsUid(), title:'', harm:'', p:3, s:3, rp:1, rs:3, controls:[]}; ramsEd.build.hazards.push(h); ramsEd.editId = h.id; }
-  else { const s = {id:ramsUid(), part:'general', title:'', body:'', steps:[]}; ramsEd.build.sections.push(s); ramsEd.editId = s.id; }
+  else { const s = {id:ramsUid(), part: part==='method'?'method':'general', title:'', body:'', steps:[]}; ramsEd.build.sections.push(s); ramsEd.editId = s.id; }
   ramsQueueSave(); render();
   setTimeout(()=>{ const el = document.querySelector('.ramsitem.editing input'); if(el){ el.scrollIntoView({block:'center'}); el.focus(); } }, 60);
 };
@@ -347,16 +349,16 @@ window.ramsSaveToLibrary = async function(kind, id){
   ramsEd.lib = null; toast('Saved to the library'); ramsQueueSave();
 };
 // Library picker (multi-tick with select all)
-window.ramsOpenPicker = async function(kind){ ramsEd.picker = kind; ramsEd.pickerSel = new Set(); ramsEd.pickerQ = ''; ramsEd.lib = null; render(); };
+window.ramsOpenPicker = async function(kind, part){ ramsEd.picker = kind; ramsEd.pickerPart = part||null; ramsEd.pickerSel = new Set(); ramsEd.pickerQ = ''; ramsEd.lib = null; render(); };
 function ramsPickerHtml(){
   const kind = ramsEd.picker, q = ramsEd.pickerQ.toLowerCase();
-  const lib = (ramsEd.lib||[]).filter(i=>i.kind===kind);
+  const lib = (ramsEd.lib||[]).filter(i=>i.kind===kind && (!ramsEd.pickerPart || ((i.data||{}).part==='method' ? 'method' : 'general')===ramsEd.pickerPart));
   const inUse = new Set((kind==='hazard' ? ramsEd.build.hazards : ramsEd.build.sections).map(x=>x.libId).filter(Boolean));
   const shown = lib.filter(i=>!q || i.title.toLowerCase().includes(q));
   const allIds = shown.map(i=>i.id);
   return `<div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){ramsEd.picker=null;render();}">
     <div class="geo-modal-card ramspicker">
-      <h3 style="margin:0 0 8px;">Add ${kind==='hazard'?'hazards':'sections'} from the library</h3>
+      <h3 style="margin:0 0 8px;">Add ${kind==='hazard'?'hazards':(ramsEd.pickerPart==='method'?'method statements':(ramsEd.pickerPart==='general'?'safe systems of work':'sections'))} from the library</h3>
       <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" oninput="ramsEd.pickerQ=this.value;clearTimeout(window._rpq);window._rpq=setTimeout(()=>{render();setTimeout(()=>{const e=document.querySelector('.ramspicker input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},250)" style="width:100%;margin-bottom:8px;">
       ${shown.length>1 ? `<label class="selallrow" style="margin-bottom:6px;"><input type="checkbox" ${allIds.every(id=>ramsEd.pickerSel.has(id))?'checked':''} onchange="${escapeHtml(`ramsPickerAll(this.checked, ${JSON.stringify(allIds)})`)}"> Select all (${shown.length})</label>` : ''}
       <div class="ramspicker-list">
