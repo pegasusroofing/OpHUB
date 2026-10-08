@@ -481,7 +481,7 @@ window.commitManualReportOperative = function(itemId){
 function renderPhotoArrayWidget(key, arr, opts){
   opts = opts || {};
   const size = opts.size || 90;
-  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}${opts.noButton ? '' : `<label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:0;">📷 Add photos<input type="file" accept="image/*" multiple style="display:none;" onchange="onReportPhotoChosen(this,'${key}')"></label>`}`;
+  return `${arr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${arr.map((u,idx)=>`<div style="position:relative;"><img src="${u}" onclick="viewImageEl(this)" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);cursor:pointer;"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeReportPhoto('${key}',${idx})">✕</div></div>`).join('')}</div>` : ''}${opts.noButton ? '' : `<label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:0;">📷 Add photos<input type="file" accept="image/*" multiple style="display:none;" onchange="onReportPhotoChosen(this,'${key}')"></label>`}`;
 }
 // "+ Add note" under an answer while filling in a report. Saved beside the
 // answer as <question id>__note and shown on the report and its PDF.
@@ -808,11 +808,11 @@ function renderReportViewItem(it, val, answers){
   const tlHtml = tlv ? `<p style="margin:4px 0 0;"><span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:${trafficHex(tlv.color)};color:#fff;font-size:11.5px;font-weight:700;">${escapeHtml(tlv.label||'')}</span></p>` : '';
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const mediaArr = (answers && itemAllowsMedia(it) && Array.isArray(answers[it.id+'__media'])) ? answers[it.id+'__media'] : [];
-  const extraMediaHtml = mediaArr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;">${mediaArr.map(u=>`<img src="${u}" style="width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">`).join('')}</div>` : '';
+  const extraMediaHtml = mediaArr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;">${mediaArr.map(u=>`<img src="${u}" onclick="viewImageEl(this)" style="cursor:pointer;width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">`).join('')}</div>` : '';
   if(it.type==='photo'){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
     if(!arr.length) return '';
-    return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">${arr.map(u=>`<img src="${u}" style="width:140px;height:140px;object-fit:cover;border-radius:8px;">`).join('')}</div>`;
+    return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">${arr.map(u=>`<img src="${u}" onclick="viewImageEl(this)" style="cursor:pointer;width:140px;height:140px;object-fit:cover;border-radius:8px;">`).join('')}</div>`;
   }
   if(it.type==='signature' && val) return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p><img src="${publicUrl('signatures', val)}" style="height:44px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;margin-bottom:10px;">`;
   if(it.type==='operatives'){

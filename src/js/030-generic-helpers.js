@@ -223,6 +223,43 @@ function applyImgViewerTransform(){
   const img = document.getElementById('imgViewerImg');
   if(img) img.style.transform = `translate(${imgViewerZoom.x}px, ${imgViewerZoom.y}px) scale(${imgViewerZoom.scale})`;
 }
+// Swipe between photos: when a photo is opened, every other photo on the
+// same screen that opens the viewer (viewImage / viewDrawing(...,true) /
+// viewImageEl(this)) becomes the gallery, in on-screen order.
+let imgGallery = [], imgGalleryIdx = 0;
+function buildImgGallery(){
+  const out = [];
+  document.querySelectorAll('#app [onclick]').forEach(el=>{
+    const oc = el.getAttribute('onclick')||''; let u = null, m;
+    if(/viewImageEl\(this\)/.test(oc)) u = el.currentSrc || el.src;
+    else if((m = /viewImage\('([^']+)'/.exec(oc))) u = m[1];
+    else if((m = /viewDrawing\('([^']+)',\s*true/.exec(oc))) u = m[1];
+    if(u && !out.includes(u)) out.push(u);
+  });
+  return out;
+}
+window.viewImageEl = function(el){ viewImage(el.currentSrc || el.src); };
+function imgViewerShow(i){
+  if(!imgGallery.length) return;
+  imgGalleryIdx = (i + imgGallery.length) % imgGallery.length;
+  imgViewerZoom = {scale:1, x:0, y:0};
+  const img = document.getElementById('imgViewerImg');
+  img.style.transform = 'translate(0px,0px) scale(1)';
+  img.src = imgGallery[imgGalleryIdx];
+  const multi = imgGallery.length > 1;
+  const cnt = document.getElementById('imgViewerCount');
+  if(cnt){ cnt.textContent = multi ? (imgGalleryIdx+1)+' / '+imgGallery.length : ''; cnt.style.display = multi ? '' : 'none'; }
+  document.querySelectorAll('.img-viewer-nav').forEach(b=>{ b.style.display = multi ? '' : 'none'; });
+  const hint = document.getElementById('imgViewerHint'); if(hint) hint.textContent = multi ? 'Swipe for more · pinch or double-tap to zoom' : 'Pinch or double-tap to zoom';
+}
+window.imgViewerStep = function(d){ if(imgGallery.length>1) imgViewerShow(imgGalleryIdx + d); };
+document.addEventListener('keydown', e=>{
+  const ov = document.getElementById('imgViewerOverlay');
+  if(!ov || ov.style.display!=='flex') return;
+  if(e.key==='ArrowLeft') imgViewerStep(-1);
+  else if(e.key==='ArrowRight') imgViewerStep(1);
+  else if(e.key==='Escape') closeImageViewer();
+});
 window.viewImage = function(url){
   let ov = document.getElementById('imgViewerOverlay');
   if(!ov){
@@ -230,8 +267,11 @@ window.viewImage = function(url){
     ov.id = 'imgViewerOverlay';
     ov.className = 'img-viewer-overlay';
     ov.innerHTML = `
-      <div class="img-viewer-hint" id="imgViewerHint">Pinch or double-tap to zoom</div>
+      <div class="img-viewer-hint" id="imgViewerHint">Swipe for more · pinch or double-tap to zoom</div>
       <div class="img-viewer-zoombtn" style="position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:2;" onclick="event.stopPropagation();closeImageViewer()">✕</div>
+      <div id="imgViewerCount" class="img-viewer-count"></div>
+      <div class="img-viewer-nav prev" onclick="event.stopPropagation();imgViewerStep(-1)">‹</div>
+      <div class="img-viewer-nav next" onclick="event.stopPropagation();imgViewerStep(1)">›</div>
       <img id="imgViewerImg" draggable="false">
       <div class="img-viewer-zoombar">
         <div class="img-viewer-zoombtn" onclick="event.stopPropagation();imgViewerZoomBy(1.5)">+</div>
@@ -242,10 +282,10 @@ window.viewImage = function(url){
     setupImgViewerGestures(ov);
     ov.addEventListener('click', (e)=>{ if(e.target===ov) closeImageViewer(); });
   }
-  imgViewerZoom = {scale:1, x:0, y:0};
-  const img = document.getElementById('imgViewerImg');
-  img.style.transform = 'translate(0px,0px) scale(1)';
-  img.src = url;
+  imgGallery = buildImgGallery();
+  let i = imgGallery.indexOf(url);
+  if(i < 0){ imgGallery = [url]; i = 0; }
+  imgViewerShow(i);
   ov.style.display = 'flex';
 };
 window.imgViewerZoomBy = function(factor){
@@ -260,8 +300,10 @@ function setupImgViewerGestures(ov){
   let lastTap = 0;
   function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
   function mid(a,b){ return {x:(a.x+b.x)/2, y:(a.y+b.y)/2}; }
+  let swipeStart = null;
   img.addEventListener('pointerdown', (e)=>{
     img.setPointerCapture(e.pointerId);
+    swipeStart = (pointers.size===0 && imgViewerZoom.scale<=1) ? {x:e.clientX, y:e.clientY, t:Date.now()} : null;
     pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
     if(pointers.size===2){
       const [a,b] = [...pointers.values()];
@@ -295,6 +337,11 @@ function setupImgViewerGestures(ov){
     }
   });
   function endPointer(e){
+    if(swipeStart && pointers.size===1 && imgViewerZoom.scale<=1 && e.type==='pointerup'){
+      const dx = e.clientX - swipeStart.x, dy = e.clientY - swipeStart.y;
+      if(Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)*1.3 && Date.now()-swipeStart.t < 900) imgViewerStep(dx < 0 ? 1 : -1);
+    }
+    if(pointers.size>1) swipeStart = null;
     pointers.delete(e.pointerId);
     if(pointers.size<2 && imgViewerZoom.scale<=1){ imgViewerZoom.x = 0; imgViewerZoom.y = 0; applyImgViewerTransform(); }
   }
@@ -481,7 +528,7 @@ window.viewPdfInApp = async function(source, filename, opts){
         <span class="pdf-viewer-btn" title="Close" onclick="closePdfViewer()">✕</span>
       </div>
       <div class="pdf-viewer-body" id="pdfViewerBody"></div>
-      <div class="img-viewer-hint" id="pdfViewerHint">Pinch or double-tap to zoom</div>
+      <div class="img-viewer-hint" id="pdfViewerHint">Swipe for more · pinch or double-tap to zoom</div>
       <div class="img-viewer-zoombar">
         <div class="img-viewer-zoombtn" onclick="event.stopPropagation();pdfViewerZoomBy(1.5)">+</div>
         <div class="img-viewer-zoombtn" onclick="event.stopPropagation();pdfViewerZoomBy(1/1.5)">−</div>
