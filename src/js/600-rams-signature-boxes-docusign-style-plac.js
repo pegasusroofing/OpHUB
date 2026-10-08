@@ -378,7 +378,8 @@ window.ramsBoxSave = async function(){
     if(!row){ toast('Could not save — please try again.'); ramsBoxRefresh(); return; }
     toast('Template saved'); const back = ed.backHash; ramsBoxEd = null; go(back); return;
   }
-  const row = await dbUpdate('rams_docs', ed.ramsId, {sign_layout: layout});
+  // Boxes set by hand on a document = it's a multi-page signing one (see ramsMultiOn).
+  const row = await dbUpdate('rams_docs', ed.ramsId, {sign_layout: layout ? Object.assign({}, layout, {multi:true}) : {v:2, boxes:[], multi:true}});
   ed.busy = false;
   if(!row){ toast('Could not save — please try again.'); ramsBoxRefresh(); return; }
   toast(layout ? 'Signature boxes saved' : 'Signature boxes removed');

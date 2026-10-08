@@ -1,5 +1,30 @@
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
+// "Multi-page signing" (signature boxes inside the document itself, like the
+// Hyde forms, and sending to the client to sign) is tucked away per document
+// behind a tick box, so a normal RAMS shows none of that.
+let ramsMultiState = {}; // rams_id -> true/false once someone has ticked/unticked it
+function ramsMultiOn(r){
+  if(ramsMultiState[r.id] != null) return ramsMultiState[r.id];
+  const lay = r.sign_layout;
+  if(lay && lay.multi != null) return !!lay.multi;
+  if(Object.keys(ramsClientSigs[r.id]||{}).length) return true;
+  // Older uploads that already had boxes set (the builder's own sign-off sheet doesn't count).
+  return ramsLayoutBoxes(lay).length > 0 && !/^(Risk Assessment|Method Statement) — /.test(r.name||'');
+}
+window.ramsSetMulti = async function(ramsId, on){
+  ramsMultiState[ramsId] = on;
+  try{
+    const r = (await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=sign_layout'))[0];
+    const lay = Object.assign({v:2, boxes:[]}, (r && r.sign_layout) || {}, {multi: !!on});
+    await dbUpdate('rams_docs', ramsId, {sign_layout: lay});
+  }catch(e){}
+  render();
+};
+function ramsIssuedLine(s){
+  const sig = s.signature_image_path || (PROFILES[s.user_id] && PROFILES[s.user_id].signature_path) || null;
+  return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 0;"><b style="letter-spacing:.3px;">ISSUED BY:</b> ${escapeHtml(nameOf(s.user_id))}${sig ? `<img src="${publicUrl('signatures', sig)}" style="height:22px;max-width:110px;object-fit:contain;">` : ''} <span class="stub">${new Date(s.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span></div>`;
+}
 function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById){
   nameById = nameById || {};
   // PMs/admins aren't required to sign RAMS at all (they instead get a
@@ -20,7 +45,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     // which set of boxes each signature goes into. The old single line
     // "signed by all operatives" said nothing about who or how many.
     {
-      const hasBoxes = ramsLayoutBoxes(r.sign_layout).length > 0;
+      const hasBoxes = ramsLayoutBoxes(r.sign_layout).length > 0 && ramsMultiOn(r);
       const slots = ramsLayoutSlots(r.sign_layout);
       const d = t=>new Date(t).toLocaleDateString(undefined,{day:'2-digit',month:'short'});
       // Operative signatures in the order they signed = Operative 1, 2, 3… boxes.
@@ -45,7 +70,9 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     // outstanding operatives — shown underneath so a PM's "issued" record is
     // visible even though they're not part of the mandatory roster above.
     const issuedBy = sigs.filter(s=>s.issued);
-    const issuedHtml = issuedBy.length ? `<div class="signerlist">${issuedBy.map(s=>`<div style="display:flex;align-items:center;gap:8px;">${sigLine(s)}</div>`).join('')}</div>` : '';
+    const issuedHtml = issuedBy.length ? `<div class="signerlist" style="margin-bottom:0;">${issuedBy.map(ramsIssuedLine).join('')}</div>` : '';
+    const anyIssued = issuedBy.length > 0;
+    const multi = ramsMultiOn(r);
     return `
     <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
@@ -59,16 +86,19 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
             <span class="name">${sigs.length} signed</span><span>${roster.length ? notSigned.length+' outstanding' : ''}</span>
           </div>
         ` : `
-          <div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
-            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${mine.issued?'📝 ':''}${escapeHtml(ME.name)}</span>`) + `<span>${mine.issued?'Issued':'Signed'} ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
-          </div>
+          ${iAmManager && (anyIssued || mine) ? '' : `<div class="siglinebox ramssigbox ${mine?'signed':''}" onclick="${mine?'':`signRams('${siteId}','${r.id}')`}" style="flex:1;margin-top:0;${mine?'':'cursor:pointer;'}">
+            ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
+          </div>`}
         `}
         ${(sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
       </div>
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<div class="meta" style="margin-top:8px;"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>` : ''}
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? ramsClientLineHtml(siteId, r) : ''}
-      ${outstandingHtml}
       ${issuedHtml}
+      ${outstandingHtml}
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<label class="selallrow" style="margin:8px 0 0;font-size:12.5px;"><input type="checkbox" ${multi?'checked':''} onchange="ramsSetMulti('${r.id}',this.checked)"> Multi-page sign required</label>
+      ${multi ? `<div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+        <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
+        ${ramsClientLineHtml(siteId, r)}
+      </div>` : ''}` : ''}
     </div>`;
   }).join('') || `<div class="empty">No RAMS uploaded.</div>`;
 }
@@ -285,9 +315,12 @@ async function renderRams(siteId){
           <select id="ramsSupersedes"><option value="">— New document, doesn't replace anything —</option>${docs.map(d=>`<option value="${d.id}">${escapeHtml(d.name)} (${escapeHtml(d.doc_type||'RAMS')})</option>`).join('')}</select>
           <p class="stub" style="margin:4px 0 0;">Picking one keeps the old version on file (marked Superseded) and requires everyone to sign the new one again.</p>
         </div>` : ''}
+        <label class="selallrow" style="margin:4px 0 6px;font-size:12.5px;"><input type="checkbox" onchange="document.getElementById('ramsUpMulti').style.display=this.checked?'':'none';if(!this.checked){const t=document.getElementById('ramsSignTemplate');if(t)t.value='';}"> Multi-page sign required</label>
+        <div id="ramsUpMulti" style="display:none;">
         <div class="formfield"><label class="field-label">Signing template</label>
           ${signTemplates.length ? `<select id="ramsSignTemplate"><option value="">— None (signatures listed on a page at the end) —</option>${signTemplates.map(tp=>`<option value="${tp.id}">${escapeHtml(tp.name)} · ${escapeHtml(ramsLayoutSummary(tp.layout))}</option>`).join('')}</select>
           <p class="stub" style="margin:4px 0 0;">Pick the template for this form and the sign boxes are put in for you.</p>` : `<p class="stub" style="margin:0;">None set up yet. <span class="viewlink" style="cursor:pointer;" onclick="go('#/sign-templates')">Create one in Signing Templates</span> to have signatures drop straight into the document's own boxes.</p>`}
+        </div>
         </div>
         <div class="row-gap" style="margin-bottom:6px;">
           <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
@@ -298,13 +331,12 @@ async function renderRams(siteId){
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
   `;
 
-  const unsignedRamsCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
+  const unsignedRamsCount = docs.filter(r=> canAdd ? !(sigsByDoc[r.id]||[]).some(s=>s.issued || s.user_id===ME.id) : !(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${ramsBuilderHtml}
     <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
-    ${docs.length && !isClientView ? `
+    ${docs.length && !isClientView && !(canAdd && !unsignedRamsCount) ? `
       <button class="darkbtn" style="margin-bottom:10px;padding:8px 6px;font-size:11.5px;" ${unsignedRamsCount?'':'disabled'} onclick="signAllRams('${siteId}')">
         ${isManager(ME)
           ? (unsignedRamsCount ? `Mark All RAMS as Issued (${unsignedRamsCount})` : 'All RAMS documents marked as issued')
@@ -314,11 +346,12 @@ async function renderRams(siteId){
     ${canAdd && docs.length ? `<button class="ghostbtn" style="margin-bottom:14px;padding:8px 6px;font-size:11.5px;" onclick="sendRamsSignReminder('${siteId}')">🔔 Ask Outstanding to Sign</button>` : ''}
 
     ${canAdd ? (docs.length ? `
-      <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Upload RAMS</div>
-      ${ramsUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
+      <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Create / Upload RAMS</div>
+      ${ramsUploadOpen ? `<div class="card">${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}${uploadForm}</div>` : ''}
     ` : `
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload RAMS</p>
+        <p class="sectiontitle" style="margin-top:0;">Create / Upload RAMS</p>
+        ${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}
         ${uploadForm}
       </div>
     `) : ''}
@@ -401,13 +434,15 @@ window.addRams = async function(siteId){
   const tplEl = document.getElementById('ramsSignTemplate');
   if(tplEl && tplEl.value){
     const tps = await dbSelect('sign_layout_templates', 'id=eq.'+tplEl.value+'&select=name,layout');
-    if(tps[0] && ramsLayoutBoxes(tps[0].layout).length){ signLayout = {v:2, boxes: ramsLayoutBoxes(tps[0].layout)}; signTplName = tps[0].name; }
+    if(tps[0] && ramsLayoutBoxes(tps[0].layout).length){ signLayout = {v:2, boxes: ramsLayoutBoxes(tps[0].layout), multi:true}; signTplName = tps[0].name; }
   }
   const newRow = {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:docType, supersedes: supersedesId||null};
   if(signLayout) newRow.sign_layout = signLayout;
   const rows = await dbInsert('rams_docs', newRow);
   if(rows){
     if(supersedesId) await dbUpdate('rams_docs', supersedesId, {status:'superseded', superseded_by:rows[0].id});
+    // Uploading it is issuing it: recorded straight away as issued by whoever uploaded it.
+    if(isManager(ME)) await dbInsert('rams_signatures', {rams_id:rows[0].id, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null});
     toast(signLayout ? 'RAMS uploaded — sign boxes set from "'+signTplName+'"' : 'RAMS uploaded');
     notifyDocNeedsSigning(siteId, docType==='COSHH'?'COSHH':'RAMS', name);
     ramsUploadOpen = false; render();
@@ -418,7 +453,7 @@ window.signRams = async function(siteId, ramsId){
   // signature" flow at all — a plain one-tap "issued" record instead,
   // shown and exported distinctly (see ramsDocsHtml/buildSignedRamsPdfBytes).
   if(isManager(ME)){
-    const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, issued:true});
+    const rows = await dbInsert('rams_signatures', {rams_id:ramsId, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null});
     if(rows){ toast('Marked as issued'); render(); }
     return;
   }
@@ -436,10 +471,10 @@ window.signRams = async function(siteId, ramsId){
 // exportSignedRams still produces one PDF per document.
 window.signAllRams = async function(siteId){
   const {docs, sigsByDoc} = await fetchRamsData(siteId);
-  const toSign = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
+  const toSign = docs.filter(r=> isManager(ME) ? !(sigsByDoc[r.id]||[]).some(s=>s.issued || s.user_id===ME.id) : !(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id));
   if(!toSign.length){ toast(isManager(ME)?'Already marked as issued on everything.':'Already signed everything.'); render(); return; }
   if(isManager(ME)){
-    const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, issued:true})));
+    const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null})));
     if(rows){ toast(`Marked as issued on ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
     return;
   }

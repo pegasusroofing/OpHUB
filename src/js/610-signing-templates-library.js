@@ -145,15 +145,13 @@ async function buildSignedRamsPdfBytes(ramsId){
     const signers = sigs.map(s=>({
       plainName: nameOf(s.user_id), issued: !!s.issued,
       dateText: new Date(s.signed_at).toLocaleDateString('en-GB', {day:'2-digit',month:'2-digit',year:'numeric'}),
-      // A PM/admin's "issued" record never carries an adopted signature —
-      // labelled in the Name column instead so it reads clearly as
-      // "issued", not as a missing/blank signature on an operative row.
-      name: nameOf(s.user_id) + (s.issued ? ' (Issued — not required to sign)' : ''),
+      // A PM/admin's "issued" record reads "ISSUED BY: name" with their signature, listed first.
+      name: (s.issued ? 'ISSUED BY: ' : '') + nameOf(s.user_id),
       when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-      imagePath: s.issued ? null : s.signature_image_path,
+      imagePath: s.issued ? (s.signature_image_path || (PROFILES[s.user_id] && PROFILES[s.user_id].signature_path) || null) : s.signature_image_path,
       // Only used for a Project Manager BOX in the document; the summary page still shows "Issued".
-      pmImagePath: s.issued ? ((PROFILES[s.user_id] && PROFILES[s.user_id].signature_path) || null) : null,
-    }));
+      pmImagePath: s.issued ? (s.signature_image_path || (PROFILES[s.user_id] && PROFILES[s.user_id].signature_path) || null) : null,
+    })).sort((a,b)=>(b.issued?1:0)-(a.issued?1:0)); // issued by goes above everyone else
     // Signature boxes marked on this document? Stamp everyone into the
     // document's own sign-off tables. The summary page at the end is then
     // only added if somebody didn't fit (more signers than rows).

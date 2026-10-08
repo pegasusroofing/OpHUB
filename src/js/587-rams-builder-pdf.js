@@ -150,7 +150,17 @@ async function buildRamsPdf(build, which){
     .forEach(s=>{ wrap(s, reg, 9.5, CW).forEach(l=>{ txt(l, (W-reg.widthOfTextAtSize(l,9.5))/2, y-10, 9.5, reg); y -= 13; }); y -= 3; });
   y -= 8;
   const cols = [['Print Name', CW*0.42], ['Signed', CW*0.36], ['Date', CW*0.22]];
-  let x = M; cols.forEach(([c,w])=>{ rect(x, y-16, w, 16, LIGHT); txt(c, x+5, y-11.5, 9, bold); x += w; }); y -= 16;
+  let x = M;
+  // Issued by — the manager who issued it signs here, above everyone else.
+  {
+    const ih = 30, lw = CW*0.16;
+    rect(M, y-ih, lw, ih, LIGHT); txt('ISSUED BY:', M+5, y-ih/2-3, 9, bold);
+    const iCols = [CW*0.42-lw, CW*0.36, CW*0.22];
+    x = M+lw;
+    iCols.forEach((w,i)=>{ rect(x, y-ih, w, ih); signBoxes.push({p:pages.length, w:'pm', t:['name','sig','date'][i], r:[(x+2)/W, (H-(y-2))/H, (w-4)/W, (ih-4)/H]}); x += w; });
+    y -= ih + 14;
+  }
+  x = M; cols.forEach(([c,w])=>{ rect(x, y-16, w, 16, LIGHT); txt(c, x+5, y-11.5, 9, bold); x += w; }); y -= 16;
   const rowH = Math.min(34, Math.floor((y-60)/RAMS_SIGN_ROWS));
   for(let r=0;r<RAMS_SIGN_ROWS;r++){
     x = M;
@@ -213,6 +223,8 @@ window.ramsIssue = async function(siteId){
       const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:isRA?'Risk Assessment':'Method Statement', supersedes:prevId||null, sign_layout:out.signLayout});
       if(!rows || !rows[0]){ customAlert('Could not save the document.'); return; }
       if(prevId) await dbUpdate('rams_docs', prevId, {status:'superseded', superseded_by:rows[0].id});
+      // Issuing it marks it issued straight away — by whoever issued it, with their signature.
+      await dbInsert('rams_signatures', {rams_id:rows[0].id, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null});
       made.push([which, rows[0].id, name, isRA?'Risk Assessment':'Method Statement']);
     }
     const patch = {status:'issued', revision:rev, issued_at:new Date().toISOString(), updated_at:new Date().toISOString()};

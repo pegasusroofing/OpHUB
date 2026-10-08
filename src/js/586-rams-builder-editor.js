@@ -21,6 +21,14 @@ async function ramsSaveNow(){
   const el = document.getElementById('ramsSaveState');
   if(el) el.textContent = row ? 'All changes saved' : 'Not saved — check signal';
 }
+// Client contact as entered on the job's Client Info tab.
+function ramsSiteClientContact(site){
+  if(!site) return '';
+  const who = [site.client_contact_name, site.client_name && site.client_name!==site.client_contact_name ? '('+site.client_name+')' : ''].filter(Boolean).join(' ');
+  return [who, site.client_phone, site.client_email].filter(Boolean).join(' · ');
+}
+// Ticked on every new RAMS (more can be added, any can be unticked).
+const RAMS_DEFAULT_PPE = ['hat','boots','hivis','hand','eye'];
 function ramsDefaultDetails(site){
   const st = ramsSettings();
   const today = localISODate(new Date());
@@ -28,7 +36,7 @@ function ramsDefaultDetails(site){
   return {
     raNumber: String(st.nextRa).padStart(10,'0'), msNumber: String(st.nextMs),
     date: today, reviewDate: localISODate(review), author: ME.name||'',
-    project: site ? site.name : '', startDate:'', duration:'', clientContact:'', description:'',
+    project: site ? site.name : '', startDate:'', duration:'', clientContact: ramsSiteClientContact(site), description:'',
     address: site ? fullSiteAddress(site) : '', notes:'', mainContractor:'', groups:[],
     emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:true,
   };
@@ -41,11 +49,16 @@ async function renderRamsNew(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const [lib, builds] = await Promise.all([
     ramsLoadLibrary(),
-    dbSelect('rams_builds', 'org_id=eq.'+ME.org_id+'&select=id,title,site_id,status,updated_at,revision&order=updated_at.desc&limit=60'),
+    dbSelect('rams_builds', 'org_id=eq.'+ME.org_id+'&select=id,title,site_id,status,updated_at,revision&order=updated_at.desc&limit=500'),
   ]);
   const templates = lib.filter(i=>i.kind==='template');
   const others = (builds||[]).filter(b=>true);
   const siteName = id => { const s = SITES.find(x=>x.id===id); return s ? s.name : 'Another job'; };
+  // Jobs that have RAMS to copy, for the job drop-down.
+  const bySite = {};
+  others.forEach(b=>{ (bySite[b.site_id] = bySite[b.site_id] || []).push(b); });
+  const copySites = Object.keys(bySite).map(id=>({id, name: siteName(id), n: bySite[id].length})).sort((x,y)=>x.name.localeCompare(y.name));
+  window.RAMS_COPY_SRC = {bySite, sites: copySites};
   const html = `
     <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🦺</span><div><b>Create RAMS</b> — builds a <b>Risk Assessment</b> and a <b>Method Statement</b> as two separate documents for this job. Everything stays editable until you issue it. <span class="stub" style="display:inline;">(Trial)</span></div></div>
     <div class="formfield"><label class="field-label">RAMS name</label><input type="text" id="ramsNewTitle" value="${escapeHtml((site?site.name+' — ':'')+'Roof Renewal')}"></div>
@@ -56,14 +69,33 @@ async function renderRamsNew(siteId){
       ${!templates.length ? `<p class="stub" style="margin:10px 0;">No templates yet — ${lib.length ? 'save one from any RAMS.' : `<span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">load the starter library</span> (built from your Cleveland Primary School RAMS).`}</p>` : ''}
     </div>
     ${others.length ? `<p class="opmat-h">Or copy another job's RAMS</p>
-    <div class="card" style="padding:4px 14px;">
-      ${others.map(b=>`<label class="ramsstart"><input type="radio" name="ramsStart" value="copy:${b.id}"> <div><b>⧉ ${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${escapeHtml(siteName(b.site_id))} · ${b.status==='issued' ? 'issued rev '+b.revision : 'draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('')}
-      <p class="stub" style="margin:6px 0 10px;">Copies its hazards, sections, PPE and groups — job details (dates, address, numbers) start fresh. Edit anything afterwards.</p>
+    <div class="card" style="padding:10px 14px;">
+      <label class="ramsstart" style="padding-top:0;"><input type="radio" name="ramsStart" value="copy" id="ramsStartCopy"> <div><b>⧉ Copy from another job</b><div class="stub" style="margin:0;">Pick the job, then tick one or more of its RAMS — ticking several combines them into one.</div></div></label>
+      <input type="search" id="ramsCopyQ" placeholder="Type to filter jobs…" style="width:100%;margin:6px 0;" oninput="ramsCopyFilter(this.value)">
+      <select id="ramsCopySite" style="width:100%;" onchange="ramsCopyPickSite(this.value)">
+        <option value="">— Choose a job (${copySites.length}) —</option>
+        ${copySites.map(c=>`<option value="${c.id}">${escapeHtml(c.name)} (${c.n})</option>`).join('')}
+      </select>
+      <div id="ramsCopyList" style="margin-top:8px;"></div>
+      <p class="stub" style="margin:6px 0 0;">Copies hazards, sections, PPE and groups — job details (dates, address, numbers) start fresh. Edit anything afterwards.</p>
     </div>` : ''}
     <button class="darkbtn" style="margin-top:6px;" onclick="ramsCreate('${siteId}')">Create RAMS</button>
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Create RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/rams`, siteId});
 }
+window.ramsCopyFilter = function(q){
+  const src = window.RAMS_COPY_SRC || {sites:[]}; const sel = document.getElementById('ramsCopySite'); if(!sel) return;
+  const cur = sel.value, ql = String(q||'').toLowerCase().trim();
+  const list = src.sites.filter(c=>!ql || c.name.toLowerCase().includes(ql));
+  sel.innerHTML = `<option value="">— ${list.length ? 'Choose a job ('+list.length+')' : 'No jobs match'} —</option>` + list.map(c=>`<option value="${c.id}" ${c.id===cur?'selected':''}>${escapeHtml(c.name)} (${c.n})</option>`).join('');
+  if(list.length===1 && cur!==list[0].id){ sel.value = list[0].id; ramsCopyPickSite(list[0].id); }
+};
+window.ramsCopyPickSite = function(siteId){
+  const box = document.getElementById('ramsCopyList'); if(!box) return;
+  const list = ((window.RAMS_COPY_SRC||{}).bySite||{})[siteId] || [];
+  const r = document.getElementById('ramsStartCopy'); if(r && list.length) r.checked = true;
+  box.innerHTML = list.length ? `${list.length>1 ? `<label class="selallrow" style="margin:0 0 4px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsCopyPick').forEach(c=>c.checked=this.checked)"> Select all</label>` : ''}` + list.map(b=>`<label class="ramsstart"><input type="checkbox" class="ramsCopyPick" value="${b.id}" ${list.length===1?'checked':''} onchange="document.getElementById('ramsStartCopy').checked=true"> <div><b>${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${b.status==='issued' ? 'Issued rev '+b.revision : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('') : '';
+};
 window.ramsSeedAndReload = async function(){
   const rows = await ramsSeedLibrary();
   if(rows) toast('Starter library loaded'); render();
@@ -73,7 +105,7 @@ window.ramsCreate = async function(siteId){
   const choice = (document.querySelector('input[name="ramsStart"]:checked')||{}).value || 'blank';
   const title = (document.getElementById('ramsNewTitle').value||'').trim() || 'RAMS';
   const details = ramsDefaultDetails(site);
-  let hazards = [], sections = [], ppe = [];
+  let hazards = [], sections = [], ppe = RAMS_DEFAULT_PPE.slice();
   if(choice.startsWith('tpl:')){
     const lib = await ramsLoadLibrary();
     const tpl = lib.find(i=>i.id===choice.slice(4));
@@ -81,17 +113,21 @@ window.ramsCreate = async function(siteId){
       const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t);
       hazards = (tpl.data.hazards||[]).map(h=> typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})).filter(Boolean);
       sections = (tpl.data.sections||[]).map(s=> typeof s==='string' ? (byTitle('section',s) ? ramsSectionFromLib(byTitle('section',s)) : null) : Object.assign({}, s, {id:ramsUid(), steps:(s.steps||[]).slice()})).filter(Boolean);
-      ppe = (tpl.data.ppe||[]).slice(); details.groups = (tpl.data.groups||[]).slice();
+      (tpl.data.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); }); details.groups = (tpl.data.groups||[]).slice();
     }
-  } else if(choice.startsWith('copy:')){
-    const src = (await dbSelect('rams_builds', 'id=eq.'+choice.slice(5)))[0];
-    if(src){
-      hazards = ramsBuildList(src,'hazards').map(h=>Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()}));
-      sections = ramsBuildList(src,'sections').map(s=>Object.assign({}, s, {id:ramsUid(), steps:(s.steps||[]).slice()}));
-      ppe = (src.ppe||[]).slice();
+  } else if(choice==='copy'){
+    // One or more RAMS from another job — several are combined into one.
+    const ids = Array.from(document.querySelectorAll('.ramsCopyPick:checked')).map(c=>c.value);
+    if(!ids.length){ toast('Choose a job and tick the RAMS to copy'); return; }
+    const srcs = await dbSelect('rams_builds', 'id=in.('+ids.join(',')+')');
+    srcs.sort((x,y)=>ids.indexOf(x.id)-ids.indexOf(y.id)).forEach((src,i)=>{
+      ramsBuildList(src,'hazards').forEach(h=>hazards.push(Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})));
+      ramsBuildList(src,'sections').forEach(x=>sections.push(Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})));
+      (src.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); });
       const sd = src.details||{};
-      Object.assign(details, {groups:(sd.groups||[]).slice(), description:sd.description||'', duration:sd.duration||'', includeDynamic: sd.includeDynamic!==false});
-    }
+      (sd.groups||[]).forEach(g=>{ if(!details.groups.includes(g)) details.groups.push(g); });
+      if(i===0) Object.assign(details, {description:sd.description||'', duration:sd.duration||'', includeDynamic: sd.includeDynamic!==false});
+    });
   }
   const rows = await dbInsert('rams_builds', [{org_id:ME.org_id, site_id:siteId, title, details, hazards, sections, ppe, created_by:ME.id}]);
   if(!rows || !rows[0]) return;
@@ -112,11 +148,12 @@ async function renderRamsBuild(siteId, buildId){
     const b = (await dbSelect('rams_builds', 'id=eq.'+buildId))[0];
     if(!b){ toast('RAMS not found'); go('#/site/'+siteId+'/hs/rams'); return; }
     b.hazards = ramsBuildList(b,'hazards'); b.sections = ramsBuildList(b,'sections'); b.ppe = Array.isArray(b.ppe)?b.ppe:[]; b.details = Object.assign(ramsDefaultDetails(site), b.details||{});
-    ramsEd = {buildId, build:b, tab:'ra', editId:null, picker:null, pickerSel:new Set(), pickerQ:'', lib:null};
+    if(!b.details.clientContact) b.details.clientContact = ramsSiteClientContact(site);
+    ramsEd = {buildId, build:b, tab:'details', editId:null, picker:null, pickerSel:new Set(), pickerQ:'', lib:null};
   }
   if(ramsEd.picker && !ramsEd.lib) ramsEd.lib = await ramsLoadLibrary();
   const b = ramsEd.build, tab = ramsEd.tab;
-  const tabs = [['details','Details'],['ra','Risk Assessment ('+b.hazards.length+')'],['ms','Method Statement ('+b.sections.length+')'],['issue','Issue']];
+  const tabs = [['details','Info'],['ra','RA ('+b.hazards.length+')'],['ms','MS ('+b.sections.length+')'],['issue','Issue']];
   let body = '';
   if(tab==='details') body = ramsDetailsHtml(b);
   else if(tab==='ra') body = ramsHazardsHtml(b);
@@ -149,7 +186,7 @@ function ramsDetailsHtml(b){
       ${ramsField('Author','author')}
       ${ramsField('Project / contract','project')}
       <div class="row-gap">${ramsField('Start date','startDate','date')}${ramsField('Expected duration','duration')}</div>
-      ${ramsField('Client contact','clientContact')}
+      ${ramsField('Client contact (from the Client Info tab)','clientContact')}
       ${ramsField('Description of works','description')}
       ${ramsField('Site address','address')}
       ${ramsField('Main contractor','mainContractor')}
@@ -354,8 +391,8 @@ window.ramsDeleteBuild = async function(siteId){
 async function ramsBuilderCardHtml(siteId){
   if(!isFullManager(ME)) return '';
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
-  return `<div class="card ramsbuildcard">
-    <div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;"><p class="sectiontitle" style="margin:0;">🦺 RAMS Builder <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:2px 0 0;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p></div></div>
+  return `<div style="margin-bottom:6px;">
+    <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:2px 0 0;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
     ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="arrow" style="margin-left:auto;">›</span></div>`).join('')}
     <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
   </div>`;
