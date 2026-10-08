@@ -950,6 +950,11 @@ async function renderPriceTile(siteId){
   const groupedElementIds = new Set();
   groupIdsInOrder.forEach(gid=>{ openElements.forEach(el=>{ if(el.group_id===gid) groupedElementIds.add(el.id); }); });
   const ungroupedOpenElements = openElements.filter(el=>!groupedElementIds.has(el.id));
+  // Price Sheets live inside Price now (one place, not two tabs). Managers
+  // only — operatives never see the Price Sheet builder; an issued sheet
+  // still shows to them as its own sub tile below if they have price access.
+  const showSheets = PRICE_BUILDER_LIVE && canManage;
+  const sheetCount = showSheets ? (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+(canUsePriceBuilder() ? '' : '&status=eq.issued')+'&select=id')).length : 0;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isMultiSite ? `
@@ -968,6 +973,11 @@ async function renderPriceTile(siteId){
     </div>
     ` : ''}
 
+    ${showSheets ? `<div class="pricesheetrow" onclick="go('#/site/${siteId}/pricebuilder')">
+      <span class="pricesheetrow-ic">🧮</span>
+      <div style="flex:1;min-width:0;"><b>Price Sheets</b><div class="stub" style="margin:0;">${sheetCount ? sheetCount+' sheet'+(sheetCount>1?'s':'') : (canUsePriceBuilder()?'Build a priced sheet for this job':'None issued')}</div></div>
+      <span class="arrow">›</span>
+    </div>` : ''}
     ${canManage && !isMultiSite || (isMultiSite && selectedSubId && canManage) ? `
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
       <span class="ghostbtn" style="width:auto;padding:8px 14px;cursor:pointer;" onclick="toggleRowActionsMenu('pbtile-page')">⋮ Manage</span>
@@ -1006,7 +1016,7 @@ async function renderPriceTile(siteId){
       ` : ''}
     </div>
     ` : ''}
-  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: PRICE_BUILDER_LIVE ? `#/site/${siteId}/price` : `#/site/${siteId}/home`, siteId, tabs:false}); }
+  `, {title:'Price', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, tabs:false}); }
 }
 // #430: a single Pricing Element's own page — everything that used to live
 // inline inside its card on the old one-long-page Price tile (Price Total,
@@ -1022,7 +1032,7 @@ async function renderPricingElementDetail(siteId, elementId){
   if(!el || !elementData[elementId]){ toast('Sub tile not found, or you don\'t have access to it.'); go(`#/site/${siteId}/price`); return; }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${pricingElementCardHtml(el, elementData[el.id], {siteId, canManage, fmt, figures:elementFigures[el.id], weeks:weeksByElement[el.id]||[]})}
-  `, {title:el.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: PRICE_BUILDER_LIVE ? `#/site/${siteId}/price/elements` : `#/site/${siteId}/price`, siteId, tabs:false}); }
+  `, {title:el.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
 }
 window.addPricingElementViaPopup = async function(siteId, subSiteId){
   const name = await customPrompt('Name this sub tile', '');

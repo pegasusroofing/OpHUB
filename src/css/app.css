@@ -624,3 +624,5 @@
 .grndetail{margin:8px 0 4px;padding:8px 10px;border-radius:9px;font-size:13px;}
 .grndetail.ok{background:#E7F5EC;color:#1E5A33;}
 .grndetail.bad{background:#FDECEA;color:#8E1F17;}
+.pricesheetrow{display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;}
+.pricesheetrow-ic{width:36px;height:36px;border-radius:10px;background:#FFF3D9;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}

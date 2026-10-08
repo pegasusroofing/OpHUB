@@ -384,7 +384,7 @@ async function renderRoute(){
       // definition for why.
       if(!PRICE_BUILDER_LIVE) return renderPriceTile(siteId);
       if(sub==='elements') return renderPriceTile(siteId);
-      return renderPriceHome(siteId);
+      return renderPriceTile(siteId);
     }
     if(page==='pricebuilder'){
       // Not reachable while the rewrite is still in progress — send anyone
