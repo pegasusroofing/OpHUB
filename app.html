@@ -3613,7 +3613,7 @@ function homeBottomBar(canAdd, outstandingCount){
     ...(canAdd ? [{ic:'📅', lbl:'Calendar', onclick:"go('#/calendar')"}] : []),
     // Managers land straight in the Admin Centre — no intermediate page.
     // Operatives (no Admin Centre) go to the lighter Account page instead.
-    {ic:'⚙️', lbl:'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
+    {ic:'⚙️', lbl: canAdd ? 'Admin' : 'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
   ];
   return `<div class="tabbar">${items.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''}" style="position:relative;${t.branded?'background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);':''}" onclick="${t.onclick}">
