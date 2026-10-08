@@ -201,6 +201,8 @@ window.ramsIssue = async function(siteId){
   await ramsSaveNow();
   const b = ramsEd.build;
   if(!b.hazards.length && !b.sections.length){ toast('Add some hazards or sections first'); return; }
+  const miss = ramsMissingInfo(b);
+  if(miss.length){ toast('Fill in '+miss.join(' and ')+' on the Info tab first'); ramsSetTab('details'); return; }
   const reissue = b.status==='issued';
   if(!(await customConfirm(reissue
     ? `Re-issue "${b.title}" as revision ${b.revision+1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.`

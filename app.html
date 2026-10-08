@@ -23586,7 +23586,7 @@ async function renderRamsBuild(siteId, buildId){
   }
   if(ramsEd.picker && !ramsEd.lib) ramsEd.lib = await ramsLoadLibrary();
   const b = ramsEd.build, tab = ramsEd.tab;
-  const tabs = [['details','Info'],['ra','RA ('+b.hazards.length+')'],['ms','MS ('+b.sections.length+')'],['issue','Issue']];
+  const tabs = [['details', ramsMissingInfo(b).length ? 'Info ⚠' : 'Info'],['ra','RA ('+b.hazards.length+')'],['ms','MS ('+b.sections.length+')'],['issue','Issue']];
   let body = '';
   if(tab==='details') body = ramsDetailsHtml(b);
   else if(tab==='ra') body = ramsHazardsHtml(b);
@@ -23603,9 +23603,30 @@ async function renderRamsBuild(siteId, buildId){
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'RAMS Builder', subtitle:site?site.name:'', siteNameSubtitle:true, back:`#/site/${siteId}/hs/rams`, siteId});
 }
+const RAMS_TAB_ORDER = ['details','ra','ms','issue'];
+function ramsNextBtn(from){
+  const nx = RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1];
+  const lbl = {ra:'Next: Risk Assessment', ms:'Next: Method Statement', issue:'Next: Issue'}[nx];
+  return nx ? `<button class="darkbtn" style="margin-top:14px;" onclick="ramsNext('${from}')">${lbl} ›</button>` : '';
+}
+window.ramsNext = function(from){
+  if(from==='details'){
+    const miss = ramsMissingInfo(ramsEd.build);
+    if(miss.length){ toast('Please fill in: '+miss.join(' and ')); render(); return; }
+  }
+  ramsSetTab(RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1]);
+};
 window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ window.scrollTo(0,0); }catch(e){} };
+// Info fields that must be filled before moving on / issuing.
+const RAMS_REQUIRED = [['clientContact','Client contact'],['description','Description of works']];
+function ramsMissingInfo(b){ return RAMS_REQUIRED.filter(([k])=>!String((b.details||{})[k]||'').trim()).map(([,l])=>l); }
 function ramsField(label, key, type, extra){
   const v = ramsEd.build.details[key];
+  const req = RAMS_REQUIRED.some(([k])=>k===key);
+  if(req){
+    const bad = !String(v||'').trim();
+    return `<div class="formfield" ${extra||''}><label class="field-label">${label} <span style="color:#C0392B;">*</span></label><input type="${type||'text'}" value="${escapeHtml(v||'')}" placeholder="Required" style="${bad?'border-color:#C0392B;':''}" oninput="ramsEd.build.details['${key}']=this.value;this.style.borderColor=this.value.trim()?'':'#C0392B';ramsQueueSave()"></div>`;
+  }
   if(type==='textarea') return `<div class="formfield"><label class="field-label">${label}</label><textarea rows="3" oninput="ramsEd.build.details['${key}']=this.value;ramsQueueSave()">${escapeHtml(v||'')}</textarea></div>`;
   return `<div class="formfield" ${extra||''}><label class="field-label">${label}</label><input type="${type||'text'}" value="${escapeHtml(v||'')}" oninput="ramsEd.build.details['${key}']=this.value;ramsQueueSave()" onchange="ramsEd.build.details['${key}']=this.value;ramsQueueSave()"></div>`;
 }
@@ -23636,6 +23657,8 @@ function ramsDetailsHtml(b){
       <div class="ramschips">${RAMS_PPE.map(p=>`<label class="ramschip ${b.ppe.includes(p.key)?'on':''}"><input type="checkbox" ${b.ppe.includes(p.key)?'checked':''} onchange="ramsTogglePpe('${p.key}',this.checked)"> ${p.icon} ${p.label}</label>`).join('')}</div>
     </div>
     <label class="selallrow"><input type="checkbox" ${d.includeDynamic!==false?'checked':''} onchange="ramsEd.build.details.includeDynamic=this.checked;ramsQueueSave()"> Include the Dynamic Risk Assessment page</label>
+    <p class="stub" style="margin:10px 0 0;"><span style="color:#C0392B;">*</span> Required</p>
+    ${ramsNextBtn('details')}
   `;
 }
 window.ramsToggleArr = function(key, val, on){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); render(); };
@@ -23676,6 +23699,7 @@ function ramsHazardsHtml(b){
       </div>`;
     }).join('') || `<div class="empty">No hazards yet.</div>`}
     <div class="row-gap" style="margin-top:6px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('hazard')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('hazard')">+ New hazard</button></div>
+    ${ramsNextBtn('ra')}
   `;
 }
 function ramsSectionsHtml(b){
@@ -23701,6 +23725,7 @@ function ramsSectionsHtml(b){
       }).join('') || `<div class="empty" style="padding:10px;">None yet.</div>`);
     }).join('')}
     <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section')">+ New section / safe system of work</button></div>
+    ${ramsNextBtn('ms')}
   `;
 }
 window.ramsH = id => ramsEd.build.hazards.find(h=>h.id===id) || {};
@@ -24034,6 +24059,8 @@ window.ramsIssue = async function(siteId){
   await ramsSaveNow();
   const b = ramsEd.build;
   if(!b.hazards.length && !b.sections.length){ toast('Add some hazards or sections first'); return; }
+  const miss = ramsMissingInfo(b);
+  if(miss.length){ toast('Fill in '+miss.join(' and ')+' on the Info tab first'); ramsSetTab('details'); return; }
   const reissue = b.status==='issued';
   if(!(await customConfirm(reissue
     ? `Re-issue "${b.title}" as revision ${b.revision+1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.`
