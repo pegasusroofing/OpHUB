@@ -85,6 +85,7 @@ async function renderRoute(){
     return renderCompanyLibraryHub(null);
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='rams-library'){ return renderRamsLibrary(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
     if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }
@@ -219,6 +220,8 @@ async function renderRoute(){
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
+      if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);
+      if(sub==='rams' && parts[4]==='build' && parts[5]) return renderRamsBuild(siteId, parts[5]);
       if(sub==='rams') return renderRams(siteId);
       if(sub==='coshh') return renderCoshh(siteId);
       if(sub==='coshh-pick') return renderCoshhLibraryPick(siteId);

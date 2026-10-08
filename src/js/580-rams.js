@@ -260,6 +260,7 @@ async function renderRams(siteId){
   // Signing templates (Settings → Signing Templates) offered on the upload form.
   const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length) : [];
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
+  const ramsBuilderHtml = await ramsBuilderCardHtml(siteId);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
   // company in a dropdown) — same idea as the Subcontractor Inspections
   // section on the main Inspections page — but they stay out of the sign
@@ -301,6 +302,7 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${hsPolicyHtml}
+    ${ramsBuilderHtml}
     <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
     ${docs.length && !isClientView ? `

@@ -588,6 +588,41 @@
 .matvis-lbl{font-weight:800;font-size:14px;margin-bottom:6px;}
 .matvis-chk{display:inline-flex;align-items:center;gap:6px;margin:0 14px 6px 0;font-size:13.5px;cursor:pointer;}
 .matvis-chk input{width:18px;height:18px;}
+/* RAMS Builder (trial) */
+.ramsbuildcard{border:1.5px solid #CFE0F5;}
+.ramsbuildrow{display:flex;align-items:center;gap:8px;padding:10px 2px;border-top:1px solid var(--line);cursor:pointer;font-size:14px;}
+.ramsstart{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);cursor:pointer;}
+.ramsstart:first-child{border-top:0;}
+.ramsstart input{margin-top:3px;width:18px;height:18px;flex:none;}
+.ramsed-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.ramsed-title{flex:1;min-width:0;font-weight:800;font-size:16px;padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;background:var(--card);}
+.ramsed-tabs{flex-wrap:wrap;}
+.ramsitem{padding:12px 14px;margin-bottom:10px;}
+.ramsitem.editing{border:1.5px solid var(--brand1,#4E8FD1);}
+.ramsitem-head{display:flex;gap:10px;align-items:flex-start;}
+.ramsitem-num{flex:none;width:24px;height:24px;border-radius:7px;background:var(--paper,#F1F0EB);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;color:var(--slate);}
+.ramsitem-title{font-weight:800;font-size:15px;overflow-wrap:break-word;}
+.ramsitem-list{margin:8px 0 0 34px;padding:0 0 0 14px;font-size:13px;color:var(--ink);}
+.ramsitem-list li{margin:2px 0;}
+.ramsitem-list li.more{list-style:none;margin-left:-14px;color:var(--slate);font-weight:700;cursor:pointer;}
+.ramsitem-tools{display:flex;gap:6px;margin-top:10px;justify-content:flex-end;}
+.ramsitem-tools button{width:36px;height:32px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);font-size:15px;cursor:pointer;padding:0;}
+.ramsitem-tools button:disabled{opacity:.3;cursor:default;}
+.ramsitem-tools button.danger{color:var(--warn);}
+.ramsrr{display:inline-block;min-width:26px;text-align:center;font-weight:800;font-size:12px;border-radius:6px;padding:3px 5px;}
+.ramsrrpair{display:flex;align-items:center;gap:4px;flex:none;color:var(--slate);font-size:12px;}
+.ramsriskedit{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;font-size:13px;}
+.ramsriskedit>div{flex:1;min-width:240px;}
+.ramsriskedit select{padding:5px;border:1.5px solid var(--line);border-radius:7px;margin:0 6px 0 2px;max-width:150px;}
+.ramsclamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.ramschips{display:flex;flex-wrap:wrap;gap:8px;}
+.ramschip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:99px;padding:6px 11px;font-size:13px;cursor:pointer;background:var(--card);}
+.ramschip.on{border-color:var(--brand1,#4E8FD1);background:#EEF4FC;font-weight:700;}
+.ramschip input{width:15px;height:15px;}
+.ramspicker{max-width:560px;width:calc(100vw - 32px);max-height:86vh;display:flex;flex-direction:column;}
+.ramspicker-list{overflow:auto;flex:1;min-height:120px;}
+.ramspicker-row{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer;font-size:14px;}
+.ramspicker-row input{width:18px;height:18px;flex:none;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -5539,6 +5574,7 @@ const ADMIN_ITEMS = {
   maincontractor: {page:'libraries', group:'Works & pricing',     icon:'🏢', label:'Main Contractor',      sub:'Inspection templates',             flags:['maincontractor'],               kw:'main contractor mc inspection', show:()=>isManager(ME)},
   hspolicy:       {page:'libraries', group:'Health & Safety',     icon:'📕', label:'H&S Policy',           sub:'Policy document and who has signed', flags:['hspolicy'],                   kw:'health safety policy', show:()=>isFullManager(ME)},
   havstools:      {page:'libraries', group:'Health & Safety',     icon:'🛠️', label:'HAVS Tools',           sub:'Vibration tool list',              flags:['havstools'],                    kw:'havs vibration tools', show:()=>isFullManager(ME)},
+  ramslibrary:    {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'RAMS Library',         sub:'Hazards, method statements, templates', href:'#/rams-library', kw:'rams risk assessment method statement hazard template builder', show:()=>isFullManager(ME)},
   coshhlibrary:   {page:'libraries', group:'Health & Safety',     icon:'🧪', label:'COSHH Library',        sub:'Assessments for all sites',        flags:['coshhlibrary'],                 kw:'coshh hazardous substances', show:()=>isFullManager(ME)},
   tbt:            {page:'libraries', group:'Health & Safety',     icon:'🗣️', label:'Toolbox Talk Templates', sub:'All sites',                      flags:['tbt'],                          kw:'toolbox talk tbt', show:()=>isFullManager(ME) && ME.role==='admin'},
   ppelog:         {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'PPE Log',              sub:'Issued PPE and the register',      flags:['ppelog'],                       kw:'ppe register', show:()=>isFullManager(ME)},
@@ -22709,6 +22745,7 @@ async function renderRams(siteId){
   // Signing templates (Settings → Signing Templates) offered on the upload form.
   const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length) : [];
   const hsPolicyHtml = await hsPolicySectionHtml(siteId);
+  const ramsBuilderHtml = await ramsBuilderCardHtml(siteId);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
   // company in a dropdown) — same idea as the Subcontractor Inspections
   // section on the main Inspections page — but they stay out of the sign
@@ -22750,6 +22787,7 @@ async function renderRams(siteId){
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${hsPolicyHtml}
+    ${ramsBuilderHtml}
     <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
     ${docs.length && !isClientView ? `
@@ -22898,6 +22936,872 @@ window.signAllRams = async function(siteId){
   const rows = await dbInsert('rams_signatures', toSign.map(r=>({rams_id:r.id, user_id:ME.id, signature_image_path:ME.signature_path})));
   if(rows){ toast(`Signed ${toSign.length} document${toSign.length===1?'':'s'}`); render(); }
 };
+/* ================= RAMS BUILDER (trial) — data, library, starter content =================
+ * Create RAMS on a job from a company library, then issue a Risk Assessment
+ * and a Method Statement as two separate PDFs. Issued PDFs become ordinary
+ * rams_docs rows (doc_type 'Risk Assessment' / 'Method Statement'), so the
+ * existing signing, client signing, reminders and supersede/re-sign flow
+ * all work unchanged. Uploading a ready-made RAMS PDF still works as before.
+ *
+ * Tables:
+ *   rams_library_items  org library — kind 'hazard' | 'section' | 'template'
+ *     hazard  data: {harm, p, s, rp, rs, controls:[string]}
+ *     section data: {part:'general'|'method', body, steps:[string]}
+ *     template data: {hazards:[title], sections:[title], ppe:[key], groups:[string]}
+ *   rams_builds          one per RAMS being written for a job; holds its own
+ *                        COPIES of hazards/sections so job edits never change
+ *                        the library (and library edits never change a job).
+ *   organizations.rams_settings  {address, phone, dataProtection, nextRa, nextMs}
+ */
+const RAMS_PPE = [
+  {key:'dust', label:'Dust Mask', icon:'😷'}, {key:'ear', label:'Ear Protection', icon:'🎧'}, {key:'eye', label:'Eye Protection', icon:'🥽'},
+  {key:'ffp3', label:'FFP3 Mask', icon:'😷'}, {key:'firstaid', label:'First Aid Kit', icon:'⛑️'}, {key:'hand', label:'Hand Protection', icon:'🧤'},
+  {key:'hat', label:'Hard Hat', icon:'⛑️'}, {key:'hivis', label:'Hi Visibility Vest', icon:'🦺'}, {key:'boots', label:'Safety Footwear', icon:'🥾'},
+  {key:'harness', label:'Harness', icon:'🪢'}, {key:'face', label:'Face Shield', icon:'🛡️'}, {key:'overalls', label:'Overalls', icon:'👷'},
+];
+const RAMS_GROUPS = ['Client Staff','Employees','Members of Public','Sub Contractors','Tenants','Visitors','Other Trades'];
+const RAMS_P_LABELS = ['', 'Highly Unlikely', 'Unlikely', 'Possible', 'Probable', 'Certain'];
+const RAMS_S_LABELS = ['', 'Trivial', 'Minor injury', 'Over 3 Day injury', 'Major injury or condition', 'Incapacity or Death'];
+// Colour bands match the RTB RAMS: 15+ red, 10–14 orange, 8–9 yellow, below green.
+function ramsRiskBand(rr){
+  rr = Number(rr)||0;
+  if(rr>=15) return {bg:'#E0301E', fg:'#fff', label:'Urgent'};
+  if(rr>=10) return {bg:'#F39237', fg:'#fff', label:'High'};
+  if(rr>=8)  return {bg:'#F4E04D', fg:'#1A1D21', label:'Medium'};
+  if(rr>=3)  return {bg:'#9BD27A', fg:'#1A1D21', label:'Low'};
+  return {bg:'#CFE8C0', fg:'#1A1D21', label:'Very low'};
+}
+function ramsUid(){ return 'x'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
+function ramsSettings(){
+  const s = (ORG && ORG.rams_settings) || {};
+  return {
+    address: s.address != null ? s.address : '',
+    phone: s.phone != null ? s.phone : '',
+    dataProtection: s.dataProtection || `The information and data provided herein applies only to the contract for which it was written, it shall not be duplicated, disclosed or disseminated by the recipient in whole or in part for any purpose whatsoever without the prior written permission from ${(ORG&&ORG.name)||'the company'}.\n\nIt is the duty of all employees to observe the following Risk Assessment framed to provide a code of good practice and conduct with the object of preventing accidents. At all times employees must work in a safe manner both to prevent personal injury to themselves or to other personnel.`,
+    nextRa: Number(s.nextRa)||1,
+    nextMs: Number(s.nextMs)||1,
+  };
+}
+async function saveRamsSettings(patch){
+  const next = Object.assign({}, (ORG && ORG.rams_settings) || {}, patch);
+  const row = await dbUpdate('organizations', ME.org_id, {rams_settings: next});
+  if(row && ORG) ORG.rams_settings = next;
+  return !!row;
+}
+
+// ---- Starter library (taken from RTB's own Cleveland Primary School RAMS) ----
+const RAMS_STARTER_HAZARDS = [
+  ['Tile Bumpa', 'Falling of materials, machine falling', 4,5,2,5, [
+    'Check for overhead obstructions, ensure machine is securely fastened to the scaffolding at the top and brakes are on.',
+    'Ensure the loading platform is clear from debris and trip hazards. Ensure the path from the top of the hoist to where the tiles are to be taken is clear with no trip hazard. Run the machine with no load to check correct operation.',
+    'Ensure the hoist is inspected weekly and results recorded in the LOLER register. The Bumpa hoist will have an in-date thorough examination certificate as per LOLER regs.',
+    'Only competent trained operators to use the Bumpa hoist; anyone who has not used these machines before must report to a supervisor who will carry out training. Hoist to be installed on the scaffolding using the clip provided to attach to the handrail.',
+    'An exclusion zone will be fitted around the machine and its path so no one apart from the operatives using the hoist can come close to it or walk under it. The zone must be wide enough that a falling load would land inside it. Checked by a supervisor before lifting starts.',
+    'Supervisor to monitor and check that the processes are being followed.',
+    'The Bumpa will be checked before each use for any damage or missing parts.']],
+  ['Paslode Gun', 'Serious injury, death, severe damage to limbs', 4,4,2,4, [
+    'Always maintain secure and unobstructed footing when on ladders, platforms and other access-to-height equipment.',
+    'When operating the tool at height it should be attached to a suitable tether or lanyard.',
+    'ALWAYS point the tool away from yourself and others when clearing jams or removing fasteners. Isolate the tool where possible.',
+    'ALWAYS store the tool with the fuel cell and battery removed. Store the fuel cell in the case with the nailer.',
+    'Be aware of the potential for ricochets; make sure the opposite side of where the gun is being used is clear.',
+    'DO NOT drive fasteners into knots or on top of other fasteners.',
+    'DO NOT load fasteners with the trigger and/or work contacting element pressed in.',
+    'DO NOT put your face or any other part of your body in the firing line.',
+    'NEVER assume the tool is empty. NEVER point the tool at yourself or anyone else. NEVER carry it with a finger on the trigger. NEVER engage in horseplay with the tool.',
+    'The gun should be inspected in an isolated condition to ensure all protection systems are in good condition before energising.']],
+  ['Material Handling / Distribution', 'Falling objects, machine malfunction, human error', 4,4,2,4, [
+    'A rope & wheel will be used to lift awkward and longer items under 50kg — one operative at the bottom and one at the top pulling the material onto the scaffold.',
+    'Area where lifting/loading takes place is to be cordoned off from the public.',
+    'Only competent operatives are to use the Bumpa machine and the wheel/rope.',
+    'Installation of the rope/wheel is by a trained and competent scaffolding company, with maximum lifting instructions handed over to us.',
+    'Machine / rope / wheel to be inspected prior to every lift.',
+    'Materials are to be delivered as close as possible to the loading area, and part-delivered to minimise storage.',
+    'Materials are to be loaded via a tile Bumpa where possible to reduce manual handling.',
+    'Operatives are to be manual handling trained.']],
+  ['Hand Tools (Use)', 'Bruising, cuts, eye damage — improper use or defective hand tools', 4,3,2,3, [
+    'All hand tools are kept in tool bags/boxes when not in use.',
+    'All hand tools should be in good condition and must be inspected prior to use.',
+    'All tools to be tethered when working at height.',
+    'Daily checks of equipment in place; damaged or blunt equipment removed immediately until repaired.']],
+  ['Fixed Scaffold Erection', 'Collapse of structure, death / serious injury', 4,5,1,5, [
+    'Scaffolding must not be altered by anyone other than the competent scaffolder.',
+    'Fixed scaffold to be erected by trained competent scaffolders in compliance with current TG20.',
+    'Fixed scaffold to be inspected on completion of erection and a handover certificate issued.',
+    'Scaffold access ladders to be closed off and secured or removed outside working shifts.']],
+  ['Working At Height', 'Serious injury caused by incorrect selection and use of equipment', 4,5,1,5, [
+    'Lone workers are not permitted to work at height.',
+    'Tool tethering is required for all tools that have a risk of falling where tethering is possible.',
+    'Weather conditions are considered and planned for. Suitable clothing and equipment is provided (including sun protection).',
+    'Where there is a risk of falling items or a threat from above, a hard hat must be worn.',
+    'Work at height equipment (hop-ups, ladders etc) to be visually inspected prior to each use.',
+    'Working at height training is carried out with the staff it affects.']],
+  ['Slips Trips and Falls', 'Risk of injury from access/egress hazards that can cause trips & falls', 4,4,1,4, [
+    'Good housekeeping standards observed & maintained by operatives throughout the task.']],
+  ['Manual Handling', 'Musculoskeletal disorders — twisting, over-reaching, poor technique, load too heavy', 4,3,1,3, [
+    'Manual handling training is provided.',
+    'Team lifting to be used when loads are heavy or awkward.']],
+  ['Access/Egress', 'Slips, trips and falls, fractures, collisions', 4,1,1,1, [
+    'Access to the roof is via designated ladder access to scaffold lifts, clipped tight and removed by the MC at the end of each shift.',
+    'Work in particularly busy areas to be programmed for quieter times of day.',
+    'Exclusion zones around access points and loading areas (ginny wheel, Bumpa hoist). Works only proceed once exclusion zones are in place.',
+    'Fencing or barriers with signage highlighting the dangers of falling objects.',
+    'Take extra care crossing roads and around pedestrians when moving tools and materials.']],
+  ['Loading / Unloading Deliveries', 'Serious injury, crushing, death', 4,1,1,1, [
+    'Drivers coming onto site receive instructions on vehicle movement restrictions and loading/unloading areas.',
+    'Deliveries mostly unloaded by the driver; staff only assist when authorised by the manager.',
+    'Gloves are to be worn. Lifting aids used where possible (ginny wheel and/or tile Bumpa).',
+    'Materials unloaded into the designated storage area. Unloading supervised by the driver where required.']],
+  ['Working With Lead', 'Burns, inhalation, poisoning, death', 4,1,1,1, [
+    '1 hour firewatch after the lead burning kit has been extinguished at the end of the shift.',
+    'Fire extinguishers to be present during works. Hot works permit issued daily.',
+    'Portable Oxyturbo lead welding kit to be used and taken off site after each shift.',
+    'Gloves are to be worn when working with lead.',
+    'Visual inspection of equipment before use; defective equipment reported and not used.']],
+  ['Noise', 'Hearing damage', 4,1,1,1, [
+    'All staff must wear appropriate ear defenders in noisy areas.',
+    'Staff rotation in place to reduce exposure to noise.',
+    'Where noise is likely to be above 80 dB(A) a noise assessment is carried out and hearing protection provided.',
+    'Where possible, less noisy work equipment will be used.']],
+];
+const RAMS_STARTER_SECTIONS = [
+  ['general','Communication with Other Workers on Site','All staff will report to the site office for induction on arrival at the site. The site manager will inform staff of any hazards present on site. Staff will inform the site manager of the work to be carried out and how it could affect other trades.\n\nWhere necessary notices will be posted advising of any hazards present during the works. Where contractor activities cross, the senior person must liaise with the other trades to ensure safe operation.',[]],
+  ['general','First Aid','It is the responsibility of the Main Contractor to ensure adequate First Aid provision for its staff — a trained first aider, suitable first aid equipment and/or an appointed person at the minimum. All staff when inducted will be made aware of the location of the First Aid kit.',[]],
+  ['general','Manual Handling','All staff and contractors have been instructed on the potential dangers of manual handling and have received manual handling training. Equipment provided to reduce manual handling must be used where possible. Heavy or awkward items will be split into smaller units or dual lifted.',[]],
+  ['general','Material Handling','All materials will be unloaded to a designated unloading and storage area away from the work area as far as practicable, kept tidy to minimise trip hazards. When stacking materials care must be taken to ensure the stack is secure.',[]],
+  ['general','Personal Protective Equipment (PPE)','PPE will be provided as a last form of protection against a hazard. Wearing of PPE is mandatory on all client contracts: safety boots (EN20345 with midsole), hi-visibility clothing, hard hat (EN397), gloves (EN388) and glasses (EN166) at all times. Other PPE such as hearing protection, face-fit tested FFP2/FFP3 masks and face shields are worn as determined by the risk assessment.',['Impact goggles — drilling, cutting','Ear defenders — drilling, cutting','Face-fit dust mask — drilling, cutting (certificate available on site)']],
+  ['general','Preparation and Induction','Staff and contractors will be inducted onto site to understand the hazards present and the tasks taking place, and advised of other site activities that could impact their work. Staff will follow all site rules and safety procedures.',[]],
+  ['general','Staff and Training','The task will be carried out by our own trained, qualified and experienced operatives holding suitable qualifications for this project (working at height, CSCS, manual handling, asbestos awareness).',[]],
+  ['general','Tools and Electrical Equipment','All tools and equipment will be visually inspected regularly; defective or damaged equipment removed from service. Electrical tools will be 110V or battery operated where possible. Portable electrical equipment must be PAT tested every 3 months on construction sites.',[]],
+  ['general','Welfare','The principal contractor is responsible for providing adequate washing, toilet, drying and refreshment facilities. Staff are responsible for keeping welfare facilities clean.',[]],
+  ['general','Controlling Dust — Drilling and Cutting','During cutting of tiles / installation of loft insulation dust may be created. Correct PPE including a face-fitted dust mask must be worn. All cutting equipment must have dust suppression or extraction; cutting areas ventilated and restricted to authorised persons.',[]],
+  ['general','Daily Briefings','The working foreman carries out a daily briefing on the location and scope of works for the day with any notable risks/hazards, documented daily.',[]],
+  ['general','Loading / Weight','Loading of materials will be kept to a minimum to prevent overloading trusses/joists and materials falling through the scaffold. Materials are transported to the roof via a Bumpa machine and/or rope & wheel.',[]],
+  ['general','Plant & Tool Register','All tools are to be visually inspected prior to use, with exclusion zones for any plant/tools that require it.',['Paslode gun','Hand tools (hammer, stapler, knife, handsaw)','Petrol grinder (refuel off site, exclusion zone while running)','Bumpa machine (exclusion zone required)','Circular saw']],
+  ['general','Waste Management','',['Waste cleared regularly from each elevation into skips supplied and managed by us','Waste segregated where applicable','Waste disposed of via the chute and/or ginny wheel','Do not overload skips — report a full skip to the site manager']],
+  ['general','Working at Height','All working at height will be properly planned, organised and supervised; only operatives with a working at height certificate will work at height. The site foreman ensures conditions are safe before work at height starts. All company access equipment is inspected regularly and damaged equipment withdrawn immediately.',[]],
+  ['general','Working with COSHH Materials','',['COSHH assessments to be followed','COSHH materials stored in designated storage','Kept out of direct sunlight/heat where required','Staff at risk instructed on safe clean-up and disposal']],
+  ['method','Pitched Roof Strip & Renewal (Refurbishment)','Attend site to strip the existing roof covering and replace with new. Works carried out off a scaffold with adequate fall protection in place.',[
+    'Scaffolding erected to access the roof (by others) — handed over and visually inspected by our working foreman before we start; concerns reported to the site manager.',
+    'Remove existing roof covering (tiles/slates, felt & battens) working from the top down in sections that can be made watertight; waste into the skip via the chute/pulley.',
+    'Working from the top down lets operatives stand on the battens as a safe footing.',
+    'Install the eaves system side to side.',
+    'From the bottom up, using the scaffold as the starting platform, roll out and fix the breather membrane.',
+    'Fix timber battens to each rafter using a Paslode gun, forming the "ladder" for access up the roof.',
+    'Once an elevation is felt and battened, set up the Bumpa with an exclusion zone and load tiles to the roof — one man up, one man down.',
+    'Load tiles onto the battens spread across the rafters so weight is evenly distributed.',
+    'Tile as a rake so there is always a standing point on the battens; use ladders near completion if the pitch requires.',
+    'Install ridges as we tile (dry vented system); use a ridge ladder if required.',
+    'Leadwork as per its own method statement.',
+    'On completion clear all leftover materials and waste via the ginny wheel and/or chute.']],
+  ['method','Leadworks','',[
+    'Hot works permit required daily when lead welding.',
+    'All lead welding using a portable Oxyturbo kit, removed from site after each shift.',
+    'Load lead to the working area (cut down to reduce weight where required).',
+    'Install building paper to the surface.',
+    'Cut and dress lead to suit the substructure following manufacturer\'s guidelines.',
+    'Weld gussets and corners as required.',
+    'Oil lead on completion.',
+    '1 hour firewatch to be carried out.']],
+];
+const RAMS_STARTER_TEMPLATE = {
+  title:'Pitched Roof Strip & Renewal',
+  data:{hazards: RAMS_STARTER_HAZARDS.map(h=>h[0]), sections: RAMS_STARTER_SECTIONS.map(s=>s[1]),
+    ppe:['dust','ear','eye','ffp3','firstaid','hand','hat','hivis','boots'], groups:['Client Staff','Employees','Members of Public','Sub Contractors','Tenants']},
+};
+async function ramsLoadLibrary(){
+  return await dbSelect('rams_library_items', 'org_id=eq.'+ME.org_id+'&order=sort_order.asc,title.asc');
+}
+async function ramsSeedLibrary(){
+  const rows = [];
+  RAMS_STARTER_HAZARDS.forEach((h,i)=>rows.push({org_id:ME.org_id, kind:'hazard', title:h[0], sort_order:i, created_by:ME.id,
+    data:{harm:h[1], p:h[2], s:h[3], rp:h[4], rs:h[5], controls:h[6]}}));
+  RAMS_STARTER_SECTIONS.forEach((s,i)=>rows.push({org_id:ME.org_id, kind:'section', title:s[1], sort_order:i, created_by:ME.id,
+    data:{part:s[0], body:s[2], steps:s[3]}}));
+  rows.push({org_id:ME.org_id, kind:'template', title:RAMS_STARTER_TEMPLATE.title, sort_order:0, created_by:ME.id, data:RAMS_STARTER_TEMPLATE.data});
+  return await dbInsert('rams_library_items', rows);
+}
+// Library row → a job copy (fresh id so the same hazard can be added twice
+// and edited independently).
+function ramsHazardFromLib(it){
+  const d = it.data||{};
+  return {id:ramsUid(), libId:it.id, title:it.title, harm:d.harm||'', p:d.p||1, s:d.s||1, rp:d.rp||1, rs:d.rs||1, controls:(d.controls||[]).slice()};
+}
+function ramsSectionFromLib(it){
+  const d = it.data||{};
+  return {id:ramsUid(), libId:it.id, part:d.part==='method'?'method':'general', title:it.title, body:d.body||'', steps:(d.steps||[]).slice()};
+}
+
+/* ================= RAMS BUILDER (trial) — create + edit screens =================
+ * Routes:
+ *   #/site/<id>/hs/rams/new            start: blank, from a template, or copy another job's RAMS
+ *   #/site/<id>/hs/rams/build/<buildId> the editor (Details / Risk Assessment / Method Statement / Issue)
+ * Every hazard and every method-statement section is its own item: move up /
+ * down, edit, duplicate, delete, add from the library, or write a new one
+ * (and optionally save it back to the library). Changes save automatically. */
+let ramsEd = null; // {buildId, build, tab, editId, picker, pickerSel:Set, pickerQ, saving}
+let ramsSaveTimer = null;
+function ramsBuildList(b, k){ return Array.isArray(b[k]) ? b[k] : []; }
+function ramsQueueSave(){
+  clearTimeout(ramsSaveTimer);
+  ramsSaveTimer = setTimeout(ramsSaveNow, 700);
+  const el = document.getElementById('ramsSaveState'); if(el) el.textContent = 'Saving…';
+}
+async function ramsSaveNow(){
+  clearTimeout(ramsSaveTimer);
+  if(!ramsEd || !ramsEd.build) return;
+  const b = ramsEd.build;
+  const row = await dbUpdate('rams_builds', b.id, {title:b.title, details:b.details, hazards:b.hazards, sections:b.sections, ppe:b.ppe, updated_at:new Date().toISOString()});
+  const el = document.getElementById('ramsSaveState');
+  if(el) el.textContent = row ? 'All changes saved' : 'Not saved — check signal';
+}
+function ramsDefaultDetails(site){
+  const st = ramsSettings();
+  const today = localISODate(new Date());
+  const review = new Date(); review.setFullYear(review.getFullYear()+1);
+  return {
+    raNumber: String(st.nextRa).padStart(10,'0'), msNumber: String(st.nextMs),
+    date: today, reviewDate: localISODate(review), author: ME.name||'',
+    project: site ? site.name : '', startDate:'', duration:'', clientContact:'', description:'',
+    address: site ? fullSiteAddress(site) : '', notes:'', mainContractor:'', groups:[],
+    emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:true,
+  };
+}
+
+// ---------- Create screen ----------
+async function renderRamsNew(siteId){
+  const __gen = RENDER_GEN;
+  if(!isFullManager(ME)){ go('#/site/'+siteId+'/hs/rams'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  const [lib, builds] = await Promise.all([
+    ramsLoadLibrary(),
+    dbSelect('rams_builds', 'org_id=eq.'+ME.org_id+'&select=id,title,site_id,status,updated_at,revision&order=updated_at.desc&limit=60'),
+  ]);
+  const templates = lib.filter(i=>i.kind==='template');
+  const others = (builds||[]).filter(b=>true);
+  const siteName = id => { const s = SITES.find(x=>x.id===id); return s ? s.name : 'Another job'; };
+  const html = `
+    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🦺</span><div><b>Create RAMS</b> — builds a <b>Risk Assessment</b> and a <b>Method Statement</b> as two separate documents for this job. Everything stays editable until you issue it. <span class="stub" style="display:inline;">(Trial)</span></div></div>
+    <div class="formfield"><label class="field-label">RAMS name</label><input type="text" id="ramsNewTitle" value="${escapeHtml((site?site.name+' — ':'')+'Roof Renewal')}"></div>
+    <p class="opmat-h">Start from</p>
+    <div class="card" style="padding:4px 14px;">
+      <label class="ramsstart"><input type="radio" name="ramsStart" value="blank"> <div><b>Blank</b><div class="stub" style="margin:0;">Add hazards and sections yourself from the library.</div></div></label>
+      ${templates.map((t,i)=>`<label class="ramsstart"><input type="radio" name="ramsStart" value="tpl:${t.id}" ${i===0?'checked':''}> <div><b>📋 ${escapeHtml(t.title)}</b><div class="stub" style="margin:0;">Template · ${(t.data.hazards||[]).length} hazards · ${(t.data.sections||[]).length} sections</div></div></label>`).join('')}
+      ${!templates.length ? `<p class="stub" style="margin:10px 0;">No templates yet — ${lib.length ? 'save one from any RAMS.' : `<span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">load the starter library</span> (built from your Cleveland Primary School RAMS).`}</p>` : ''}
+    </div>
+    ${others.length ? `<p class="opmat-h">Or copy another job's RAMS</p>
+    <div class="card" style="padding:4px 14px;">
+      ${others.map(b=>`<label class="ramsstart"><input type="radio" name="ramsStart" value="copy:${b.id}"> <div><b>⧉ ${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${escapeHtml(siteName(b.site_id))} · ${b.status==='issued' ? 'issued rev '+b.revision : 'draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('')}
+      <p class="stub" style="margin:6px 0 10px;">Copies its hazards, sections, PPE and groups — job details (dates, address, numbers) start fresh. Edit anything afterwards.</p>
+    </div>` : ''}
+    <button class="darkbtn" style="margin-top:6px;" onclick="ramsCreate('${siteId}')">Create RAMS</button>
+  `;
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Create RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/rams`, siteId});
+}
+window.ramsSeedAndReload = async function(){
+  const rows = await ramsSeedLibrary();
+  if(rows) toast('Starter library loaded'); render();
+};
+window.ramsCreate = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const choice = (document.querySelector('input[name="ramsStart"]:checked')||{}).value || 'blank';
+  const title = (document.getElementById('ramsNewTitle').value||'').trim() || 'RAMS';
+  const details = ramsDefaultDetails(site);
+  let hazards = [], sections = [], ppe = [];
+  if(choice.startsWith('tpl:')){
+    const lib = await ramsLoadLibrary();
+    const tpl = lib.find(i=>i.id===choice.slice(4));
+    if(tpl){
+      const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t);
+      hazards = (tpl.data.hazards||[]).map(h=> typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})).filter(Boolean);
+      sections = (tpl.data.sections||[]).map(s=> typeof s==='string' ? (byTitle('section',s) ? ramsSectionFromLib(byTitle('section',s)) : null) : Object.assign({}, s, {id:ramsUid(), steps:(s.steps||[]).slice()})).filter(Boolean);
+      ppe = (tpl.data.ppe||[]).slice(); details.groups = (tpl.data.groups||[]).slice();
+    }
+  } else if(choice.startsWith('copy:')){
+    const src = (await dbSelect('rams_builds', 'id=eq.'+choice.slice(5)))[0];
+    if(src){
+      hazards = ramsBuildList(src,'hazards').map(h=>Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()}));
+      sections = ramsBuildList(src,'sections').map(s=>Object.assign({}, s, {id:ramsUid(), steps:(s.steps||[]).slice()}));
+      ppe = (src.ppe||[]).slice();
+      const sd = src.details||{};
+      Object.assign(details, {groups:(sd.groups||[]).slice(), description:sd.description||'', duration:sd.duration||'', includeDynamic: sd.includeDynamic!==false});
+    }
+  }
+  const rows = await dbInsert('rams_builds', [{org_id:ME.org_id, site_id:siteId, title, details, hazards, sections, ppe, created_by:ME.id}]);
+  if(!rows || !rows[0]) return;
+  // Reserve the document numbers.
+  const st = ramsSettings();
+  saveRamsSettings({nextRa: st.nextRa+1, nextMs: st.nextMs+1});
+  logSiteActivity(siteId, 'rams_build_created', `Started RAMS "${title}"`);
+  ramsEd = null;
+  go('#/site/'+siteId+'/hs/rams/build/'+rows[0].id);
+};
+
+// ---------- Editor ----------
+async function renderRamsBuild(siteId, buildId){
+  const __gen = RENDER_GEN;
+  if(!isFullManager(ME)){ go('#/site/'+siteId+'/hs/rams'); return; }
+  const site = SITES.find(s=>s.id===siteId);
+  if(!ramsEd || ramsEd.buildId!==buildId){
+    const b = (await dbSelect('rams_builds', 'id=eq.'+buildId))[0];
+    if(!b){ toast('RAMS not found'); go('#/site/'+siteId+'/hs/rams'); return; }
+    b.hazards = ramsBuildList(b,'hazards'); b.sections = ramsBuildList(b,'sections'); b.ppe = Array.isArray(b.ppe)?b.ppe:[]; b.details = Object.assign(ramsDefaultDetails(site), b.details||{});
+    ramsEd = {buildId, build:b, tab:'ra', editId:null, picker:null, pickerSel:new Set(), pickerQ:'', lib:null};
+  }
+  if(ramsEd.picker && !ramsEd.lib) ramsEd.lib = await ramsLoadLibrary();
+  const b = ramsEd.build, tab = ramsEd.tab;
+  const tabs = [['details','Details'],['ra','Risk Assessment ('+b.hazards.length+')'],['ms','Method Statement ('+b.sections.length+')'],['issue','Issue']];
+  let body = '';
+  if(tab==='details') body = ramsDetailsHtml(b);
+  else if(tab==='ra') body = ramsHazardsHtml(b);
+  else if(tab==='ms') body = ramsSectionsHtml(b);
+  else body = ramsIssueHtml(b, siteId);
+  const html = `
+    <div class="ramsed-top">
+      <input class="ramsed-title" value="${escapeHtml(b.title)}" oninput="ramsEd.build.title=this.value;ramsQueueSave()">
+      <span id="ramsSaveState" class="stub" style="margin:0;white-space:nowrap;">${b.status==='issued' ? '✓ Issued rev '+b.revision+' · edits need re-issuing' : 'Draft · saves automatically'}</span>
+    </div>
+    <div class="filterrow ramsed-tabs">${tabs.map(([k,l])=>`<div class="filterchip ${tab===k?'active':''}" onclick="ramsSetTab('${k}')">${l}</div>`).join('')}</div>
+    ${body}
+    ${ramsEd.picker ? ramsPickerHtml() : ''}
+  `;
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'RAMS Builder', subtitle:site?site.name:'', siteNameSubtitle:true, back:`#/site/${siteId}/hs/rams`, siteId});
+}
+window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ window.scrollTo(0,0); }catch(e){} };
+function ramsField(label, key, type, extra){
+  const v = ramsEd.build.details[key];
+  if(type==='textarea') return `<div class="formfield"><label class="field-label">${label}</label><textarea rows="3" oninput="ramsEd.build.details['${key}']=this.value;ramsQueueSave()">${escapeHtml(v||'')}</textarea></div>`;
+  return `<div class="formfield" ${extra||''}><label class="field-label">${label}</label><input type="${type||'text'}" value="${escapeHtml(v||'')}" oninput="ramsEd.build.details['${key}']=this.value;ramsQueueSave()" onchange="ramsEd.build.details['${key}']=this.value;ramsQueueSave()"></div>`;
+}
+function ramsDetailsHtml(b){
+  const d = b.details;
+  return `
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Document details</p>
+      <div class="row-gap">${ramsField('Risk Assessment no.','raNumber')}${ramsField('Method Statement no.','msNumber')}</div>
+      <div class="row-gap">${ramsField('Date','date','date')}${ramsField('Review date','reviewDate','date')}</div>
+      ${ramsField('Author','author')}
+      ${ramsField('Project / contract','project')}
+      <div class="row-gap">${ramsField('Start date','startDate','date')}${ramsField('Expected duration','duration')}</div>
+      ${ramsField('Client contact','clientContact')}
+      ${ramsField('Description of works','description')}
+      ${ramsField('Site address','address')}
+      ${ramsField('Main contractor','mainContractor')}
+      ${ramsField('Risk assessment notes (e.g. site supervisor & phone)','notes','textarea')}
+      <div class="row-gap">${ramsField('Emergency contact','emergencyName')}${ramsField('Emergency phone','emergencyPhone','tel')}</div>
+    </div>
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Groups affected</p>
+      <div class="ramschips">${RAMS_GROUPS.concat((d.groups||[]).filter(g=>!RAMS_GROUPS.includes(g))).map(g=>`<label class="ramschip ${d.groups.includes(g)?'on':''}"><input type="checkbox" ${d.groups.includes(g)?'checked':''} onchange="ramsToggleArr('groups','${jsAttr(g)}',this.checked)"> ${escapeHtml(g)}</label>`).join('')}</div>
+      <button class="ghostbtn" style="width:auto;margin-top:8px;" onclick="ramsAddGroup()">+ Add group</button>
+    </div>
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Required PPE</p>
+      <div class="ramschips">${RAMS_PPE.map(p=>`<label class="ramschip ${b.ppe.includes(p.key)?'on':''}"><input type="checkbox" ${b.ppe.includes(p.key)?'checked':''} onchange="ramsTogglePpe('${p.key}',this.checked)"> ${p.icon} ${p.label}</label>`).join('')}</div>
+    </div>
+    <label class="selallrow"><input type="checkbox" ${d.includeDynamic!==false?'checked':''} onchange="ramsEd.build.details.includeDynamic=this.checked;ramsQueueSave()"> Include the Dynamic Risk Assessment page</label>
+  `;
+}
+window.ramsToggleArr = function(key, val, on){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); render(); };
+window.ramsTogglePpe = function(key, on){ const b = ramsEd.build; b.ppe = b.ppe.filter(x=>x!==key); if(on) b.ppe.push(key); ramsQueueSave(); render(); };
+window.ramsAddGroup = async function(){ const v = await customPrompt('Group affected', ''); if(v && v.trim()){ ramsToggleArr('groups', v.trim(), true); } };
+
+function ramsRRBadge(p, s){ const rr = (Number(p)||0)*(Number(s)||0); const band = ramsRiskBand(rr); return `<span class="ramsrr" style="background:${band.bg};color:${band.fg};">${rr}</span>`; }
+function ramsItemTools(kind, id, i, n){
+  return `<div class="ramsitem-tools">
+    <button title="Move up" ${i===0?'disabled':''} onclick="ramsMove('${kind}','${id}',-1)">↑</button>
+    <button title="Move down" ${i===n-1?'disabled':''} onclick="ramsMove('${kind}','${id}',1)">↓</button>
+    <button title="Edit" onclick="ramsEdit('${id}')">✎</button>
+    <button title="Duplicate" onclick="ramsDup('${kind}','${id}')">⧉</button>
+    <button title="Delete" class="danger" onclick="ramsDel('${kind}','${id}')">🗑</button>
+  </div>`;
+}
+function ramsSelect(val, onch, labels){ return `<select onchange="${onch}">${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(val)===n?'selected':''}>${n} — ${labels[n]}</option>`).join('')}</select>`; }
+function ramsHazardsHtml(b){
+  const n = b.hazards.length;
+  return `
+    <p class="stub" style="margin:0 0 10px;">Each hazard is its own item. P = probability, S = severity, RR = P × S. Pre-control on the left, residual (after controls) on the right.</p>
+    ${b.hazards.map((h,i)=>{
+      if(ramsEd.editId===h.id) return `<div class="card ramsitem editing">
+        <div class="formfield"><label class="field-label">Hazard</label><input type="text" value="${escapeHtml(h.title)}" oninput="ramsH('${h.id}').title=this.value;ramsQueueSave()"></div>
+        <div class="formfield"><label class="field-label">Harm / who could be hurt and how</label><input type="text" value="${escapeHtml(h.harm)}" oninput="ramsH('${h.id}').harm=this.value;ramsQueueSave()"></div>
+        <div class="ramsriskedit">
+          <div><div class="field-label">Before controls</div>P ${ramsSelect(h.p, `ramsH('${h.id}').p=+this.value;ramsQueueSave();render()`, RAMS_P_LABELS)} S ${ramsSelect(h.s, `ramsH('${h.id}').s=+this.value;ramsQueueSave();render()`, RAMS_S_LABELS)} ${ramsRRBadge(h.p,h.s)}</div>
+          <div><div class="field-label">Residual (after controls)</div>P ${ramsSelect(h.rp, `ramsH('${h.id}').rp=+this.value;ramsQueueSave();render()`, RAMS_P_LABELS)} S ${ramsSelect(h.rs, `ramsH('${h.id}').rs=+this.value;ramsQueueSave();render()`, RAMS_S_LABELS)} ${ramsRRBadge(h.rp,h.rs)}</div>
+        </div>
+        <div class="formfield"><label class="field-label">Control procedures — one per line</label><textarea rows="${Math.min(14, Math.max(4, h.controls.length+2))}" oninput="ramsH('${h.id}').controls=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);ramsQueueSave()">${escapeHtml(h.controls.join('\n'))}</textarea></div>
+        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();render()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('hazard','${h.id}')">⭳ Save to library</button></div>
+      </div>`;
+      return `<div class="card ramsitem">
+        <div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(h.title||'Untitled hazard')}</div><div class="stub" style="margin:0;">${escapeHtml(h.harm||'')}</div></div>
+          <div class="ramsrrpair" title="Pre-control → residual">${ramsRRBadge(h.p,h.s)}<span>→</span>${ramsRRBadge(h.rp,h.rs)}</div></div>
+        <ul class="ramsitem-list">${h.controls.slice(0,3).map(c=>`<li>${escapeHtml(c)}</li>`).join('')}${h.controls.length>3?`<li class="more" onclick="ramsEdit('${h.id}')">+ ${h.controls.length-3} more control${h.controls.length-3>1?'s':''}</li>`:''}</ul>
+        ${ramsItemTools('hazards', h.id, i, n)}
+      </div>`;
+    }).join('') || `<div class="empty">No hazards yet.</div>`}
+    <div class="row-gap" style="margin-top:6px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('hazard')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('hazard')">+ New hazard</button></div>
+  `;
+}
+function ramsSectionsHtml(b){
+  const parts = [['general','General precautions / safe systems of work'],['method','Method statements (step by step)']];
+  return `
+    <p class="stub" style="margin:0 0 10px;">Each section is its own item. General precautions print first, then the step-by-step method statements.</p>
+    ${parts.map(([part,label])=>{
+      const list = b.sections.filter(s=>s.part===part);
+      return `<p class="opmat-h">${label}</p>` + (list.map((s,i)=>{
+        if(ramsEd.editId===s.id) return `<div class="card ramsitem editing">
+          <div class="formfield"><label class="field-label">Heading</label><input type="text" value="${escapeHtml(s.title)}" oninput="ramsS('${s.id}').title=this.value;ramsQueueSave()"></div>
+          <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();render()"><option value="general" ${s.part==='general'?'selected':''}>General precaution / safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
+          <div class="formfield"><label class="field-label">Text</label><textarea rows="5" oninput="ramsS('${s.id}').body=this.value;ramsQueueSave()">${escapeHtml(s.body)}</textarea></div>
+          <div class="formfield"><label class="field-label">Numbered steps / points — one per line (optional)</label><textarea rows="${Math.min(14, Math.max(4, s.steps.length+2))}" oninput="ramsS('${s.id}').steps=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);ramsQueueSave()">${escapeHtml(s.steps.join('\n'))}</textarea></div>
+          <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();render()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('section','${s.id}')">⭳ Save to library</button></div>
+        </div>`;
+        return `<div class="card ramsitem">
+          <div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(s.title||'Untitled section')}</div>
+          ${s.body ? `<div class="stub ramsclamp" style="margin:2px 0 0;">${escapeHtml(s.body)}</div>` : ''}</div></div>
+          ${s.steps.length ? `<ol class="ramsitem-list">${s.steps.slice(0,3).map(c=>`<li>${escapeHtml(c)}</li>`).join('')}${s.steps.length>3?`<li class="more" onclick="ramsEdit('${s.id}')">+ ${s.steps.length-3} more</li>`:''}</ol>` : ''}
+          ${ramsItemTools('sections', s.id, i, list.length)}
+        </div>`;
+      }).join('') || `<div class="empty" style="padding:10px;">None yet.</div>`);
+    }).join('')}
+    <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section')">+ New section / safe system of work</button></div>
+  `;
+}
+window.ramsH = id => ramsEd.build.hazards.find(h=>h.id===id) || {};
+window.ramsS = id => ramsEd.build.sections.find(s=>s.id===id) || {};
+window.ramsEdit = function(id){ ramsEd.editId = id; render(); };
+window.ramsMove = function(kind, id, dir){
+  const b = ramsEd.build, arr = b[kind];
+  const idx = arr.findIndex(x=>x.id===id); if(idx<0) return;
+  // Sections move within their own part (general / method).
+  let j = idx + dir;
+  if(kind==='sections'){ const part = arr[idx].part; while(j>=0 && j<arr.length && arr[j].part!==part) j += dir; }
+  if(j<0 || j>=arr.length) return;
+  const t = arr[idx]; arr[idx] = arr[j]; arr[j] = t;
+  ramsQueueSave(); render();
+};
+window.ramsDup = function(kind, id){
+  const arr = ramsEd.build[kind]; const idx = arr.findIndex(x=>x.id===id); if(idx<0) return;
+  const c = JSON.parse(JSON.stringify(arr[idx])); c.id = ramsUid(); c.title = c.title+' (copy)';
+  arr.splice(idx+1, 0, c); ramsEd.editId = c.id; ramsQueueSave(); render();
+};
+window.ramsDel = async function(kind, id){
+  const it = ramsEd.build[kind].find(x=>x.id===id); if(!it) return;
+  if(!(await customConfirm(`Remove "${it.title||'this item'}" from this RAMS?\n\nIt stays in the library.`))) return;
+  ramsEd.build[kind] = ramsEd.build[kind].filter(x=>x.id!==id); ramsQueueSave(); render();
+};
+window.ramsNewItem = function(kind){
+  if(kind==='hazard'){ const h = {id:ramsUid(), title:'', harm:'', p:3, s:3, rp:1, rs:3, controls:[]}; ramsEd.build.hazards.push(h); ramsEd.editId = h.id; }
+  else { const s = {id:ramsUid(), part:'general', title:'', body:'', steps:[]}; ramsEd.build.sections.push(s); ramsEd.editId = s.id; }
+  ramsQueueSave(); render();
+  setTimeout(()=>{ const el = document.querySelector('.ramsitem.editing input'); if(el){ el.scrollIntoView({block:'center'}); el.focus(); } }, 60);
+};
+window.ramsSaveToLibrary = async function(kind, id){
+  const it = kind==='hazard' ? ramsH(id) : ramsS(id);
+  if(!it.title){ toast('Give it a heading first'); return; }
+  const lib = await ramsLoadLibrary();
+  const existing = lib.find(x=>x.kind===kind && (x.id===it.libId || x.title===it.title));
+  const data = kind==='hazard' ? {harm:it.harm, p:it.p, s:it.s, rp:it.rp, rs:it.rs, controls:it.controls} : {part:it.part, body:it.body, steps:it.steps};
+  if(existing){
+    if(!(await customConfirm(`"${existing.title}" is already in the library.\n\nReplace the library copy with this version? (Other jobs' RAMS are not changed.)`))) return;
+    await dbUpdate('rams_library_items', existing.id, {title:it.title, data, updated_at:new Date().toISOString()});
+  } else {
+    const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind, title:it.title, data, sort_order:999, created_by:ME.id}]);
+    if(rows && rows[0]) it.libId = rows[0].id;
+  }
+  ramsEd.lib = null; toast('Saved to the library'); ramsQueueSave();
+};
+// Library picker (multi-tick with select all)
+window.ramsOpenPicker = async function(kind){ ramsEd.picker = kind; ramsEd.pickerSel = new Set(); ramsEd.pickerQ = ''; ramsEd.lib = null; render(); };
+function ramsPickerHtml(){
+  const kind = ramsEd.picker, q = ramsEd.pickerQ.toLowerCase();
+  const lib = (ramsEd.lib||[]).filter(i=>i.kind===kind);
+  const inUse = new Set((kind==='hazard' ? ramsEd.build.hazards : ramsEd.build.sections).map(x=>x.libId).filter(Boolean));
+  const shown = lib.filter(i=>!q || i.title.toLowerCase().includes(q));
+  const allIds = shown.map(i=>i.id);
+  return `<div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){ramsEd.picker=null;render();}">
+    <div class="geo-modal-card ramspicker">
+      <h3 style="margin:0 0 8px;">Add ${kind==='hazard'?'hazards':'sections'} from the library</h3>
+      <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" oninput="ramsEd.pickerQ=this.value;clearTimeout(window._rpq);window._rpq=setTimeout(()=>{render();setTimeout(()=>{const e=document.querySelector('.ramspicker input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},250)" style="width:100%;margin-bottom:8px;">
+      ${shown.length>1 ? `<label class="selallrow" style="margin-bottom:6px;"><input type="checkbox" ${allIds.every(id=>ramsEd.pickerSel.has(id))?'checked':''} onchange="${escapeHtml(`ramsPickerAll(this.checked, ${JSON.stringify(allIds)})`)}"> Select all (${shown.length})</label>` : ''}
+      <div class="ramspicker-list">
+        ${shown.map(i=>`<label class="ramspicker-row"><input type="checkbox" ${ramsEd.pickerSel.has(i.id)?'checked':''} onchange="ramsPickerTick('${i.id}',this.checked)"><div><b>${escapeHtml(i.title)}</b>${inUse.has(i.id)?' <span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">already added</span>':''}<div class="stub" style="margin:0;">${escapeHtml(kind==='hazard' ? (i.data.harm||'') : ((i.data.part==='method'?'Method statement · ':'')+(i.data.body||'').slice(0,90)))}</div></div></label>`).join('') || `<div class="empty" style="padding:12px;">${(ramsEd.lib||[]).length ? 'Nothing matches.' : `The library is empty. <span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">Load the starter library</span>`}</div>`}
+      </div>
+      <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:2;" onclick="ramsPickerAdd()">Add ${ramsEd.pickerSel.size||''} selected</button><button class="ghostbtn" style="flex:1;" onclick="ramsEd.picker=null;render()">Cancel</button></div>
+    </div></div>`;
+}
+window.ramsPickerTick = function(id, on){ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); render(); };
+window.ramsPickerAll = function(on, ids){ ids.forEach(id=>{ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); }); render(); };
+window.ramsPickerAdd = function(){
+  const lib = ramsEd.lib||[]; const kind = ramsEd.picker;
+  const picked = lib.filter(i=>ramsEd.pickerSel.has(i.id));
+  if(!picked.length){ toast('Tick at least one'); return; }
+  if(kind==='hazard') picked.forEach(i=>ramsEd.build.hazards.push(ramsHazardFromLib(i)));
+  else picked.forEach(i=>ramsEd.build.sections.push(ramsSectionFromLib(i)));
+  ramsEd.picker = null; ramsQueueSave(); toast(picked.length+' added'); render();
+};
+
+function ramsIssueHtml(b, siteId){
+  const st = ramsSettings();
+  return `
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Issue to this job</p>
+      <p class="stub" style="margin:0 0 10px;">Creates two documents in this job's RAMS list — <b>Risk Assessment</b> (${b.hazards.length} hazards) and <b>Method Statement</b> (${b.sections.length} sections) — each with a sign-off sheet that operatives sign in the app, exactly like an uploaded RAMS.${b.status==='issued' ? ' <b>Re-issuing replaces the current versions and everyone is asked to sign again.</b>' : ''}</p>
+      <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="ramsPreview('ra')">👁 Preview Risk Assessment</button><button class="ghostbtn" style="flex:1;" onclick="ramsPreview('ms')">👁 Preview Method Statement</button></div>
+      <button class="darkbtn" style="margin-top:10px;" onclick="ramsIssue('${siteId}')">${b.status==='issued' ? '↻ Re-issue (rev '+(b.revision+1)+')' : '✓ Issue Risk Assessment & Method Statement'}</button>
+    </div>
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Reuse</p>
+      <button class="ghostbtn" onclick="ramsSaveAsTemplate()">📋 Save as a template</button>
+      <p class="stub" style="margin:6px 0 0;">Saves these hazards, sections, PPE and groups — exactly as edited here — as a template for future jobs.</p>
+    </div>
+    <div class="card" style="padding:12px 14px;">
+      <p class="sectiontitle" style="margin-top:0;">Company details on the documents</p>
+      <div class="formfield"><label class="field-label">Address (one line per row)</label><textarea id="ramsSetAddr" rows="4">${escapeHtml(st.address)}</textarea></div>
+      <div class="formfield"><label class="field-label">Telephone</label><input type="tel" id="ramsSetPhone" value="${escapeHtml(st.phone)}"></div>
+      <div class="formfield"><label class="field-label">Data protection statement</label><textarea id="ramsSetDp" rows="5">${escapeHtml(st.dataProtection)}</textarea></div>
+      <button class="ghostbtn" onclick="ramsSaveCompany()">Save company details</button>
+    </div>
+    <button class="ghostbtn" style="color:var(--warn);margin-top:4px;" onclick="ramsDeleteBuild('${siteId}')">Delete this RAMS draft</button>
+  `;
+}
+window.ramsSaveCompany = async function(){
+  const ok = await saveRamsSettings({address:document.getElementById('ramsSetAddr').value, phone:document.getElementById('ramsSetPhone').value, dataProtection:document.getElementById('ramsSetDp').value});
+  toast(ok ? 'Saved' : 'Could not save — admins only');
+};
+window.ramsSaveAsTemplate = async function(){
+  const b = ramsEd.build;
+  const name = await customPrompt('Template name', b.title);
+  if(!name || !name.trim()) return;
+  const strip = x => { const c = JSON.parse(JSON.stringify(x)); delete c.id; return c; };
+  const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:'template', title:name.trim(), sort_order:999, created_by:ME.id,
+    data:{hazards:b.hazards.map(strip), sections:b.sections.map(strip), ppe:b.ppe.slice(), groups:(b.details.groups||[]).slice()}}]);
+  toast(rows ? 'Template saved' : 'Could not save');
+};
+window.ramsDeleteBuild = async function(siteId){
+  const b = ramsEd.build;
+  if(!(await customConfirm(`Delete "${b.title}"?${b.status==='issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`))) return;
+  await dbDelete('rams_builds', b.id); ramsEd = null; go('#/site/'+siteId+'/hs/rams');
+};
+
+// Card on the job's RAMS screen (managers): create + list of builds.
+async function ramsBuilderCardHtml(siteId){
+  if(!isFullManager(ME)) return '';
+  const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
+  return `<div class="card ramsbuildcard">
+    <div style="display:flex;align-items:center;gap:10px;"><div style="flex:1;"><p class="sectiontitle" style="margin:0;">🦺 RAMS Builder <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:2px 0 0;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p></div></div>
+    ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="arrow" style="margin-left:auto;">›</span></div>`).join('')}
+    <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
+  </div>`;
+}
+
+/* ================= RAMS BUILDER (trial) — PDFs + issuing =================
+ * Builds the Risk Assessment and Method Statement as separate A4 PDFs in the
+ * same layout as RTB's existing RAMS (details table, signatures, data
+ * protection, groups, hazard tables with pre-control / residual P-S-RR,
+ * risk legend, PPE, sign-off sheet, optional dynamic risk assessment).
+ * The sign-off sheet's rows are registered as signature boxes (op1..opN and
+ * the author as 'pm'), so operatives' signatures drop straight into it. */
+const RAMS_SIGN_ROWS = 18;
+// Standard PDF fonts only cover Windows-1252; anything else (emoji, odd
+// symbols) would throw, so it is swapped or dropped.
+const RAMS_WIN1252_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
+function ramsPdfSafe(t){
+  return String(t==null?'':t).replace(/[→]/g,'->').replace(/[≤]/g,'<=').replace(/[≥]/g,'>=').replace(/[×]/g,'x')
+    .split('').filter(c=>{ const n=c.charCodeAt(0); return (n>=32 && n<=126) || (n>=160 && n<=255) || RAMS_WIN1252_EXTRA.includes(c) || c==='\n'; }).join('');
+}
+async function buildRamsPdf(build, which){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
+  const b = build, d = b.details||{}, st = ramsSettings();
+  const isRA = which==='ra';
+  const docNo = isRA ? (d.raNumber||'') : (d.msNumber||'');
+  const pdf = await PDFLib.PDFDocument.create();
+  const bold = await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);
+  const reg = await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
+  const rgb = PDFLib.rgb;
+  const INK = rgb(0.08,0.08,0.09), SLATE = rgb(0.35,0.36,0.4), LINE = rgb(0.55,0.55,0.58), LIGHT = rgb(0.93,0.93,0.94), WHITE = rgb(1,1,1);
+  const BRAND = pdfHexToRgb((ORG && ORG.color_primary) || '#8B1A1A');
+  const W = 595.28, H = 841.89, M = 36, CW = W-2*M;
+  const company = (ORG && ORG.name) || 'Company';
+  let logo = null;
+  if(ORG && ORG.logo_path){ const bytes = await pdfFetchImageBytes(publicUrl('org-logos', ORG.logo_path)); if(bytes){ try{ logo = await pdf.embedPng(bytes); }catch(e){ try{ logo = await pdf.embedJpg(bytes); }catch(e2){} } } }
+  let page, y;
+  const pages = [];
+  const signBoxes = [];
+  function newPage(){ page = pdf.addPage([W,H]); pages.push(page); y = H - M; }
+  function ensure(h){ if(y - h < 46) newPage(); }
+  function txt(t, x, yy, size, font, color){ page.drawText(ramsPdfSafe(t), {x, y:yy, size, font:font||reg, color:color||INK}); }
+  function wrap(t, font, size, maxW){
+    const out = [];
+    ramsPdfSafe(t).split('\n').forEach(par=>{
+      const words = par.split(/\s+/).filter(Boolean); let line = '';
+      if(!words.length){ out.push(''); return; }
+      words.forEach(w=>{
+        let test = line ? line+' '+w : w;
+        if(font.widthOfTextAtSize(test, size) > maxW && line){ out.push(line); line = w; }
+        else line = test;
+        while(font.widthOfTextAtSize(line, size) > maxW && line.length>1){ let k=line.length-1; while(k>1 && font.widthOfTextAtSize(line.slice(0,k),size)>maxW) k--; out.push(line.slice(0,k)); line = line.slice(k); }
+      });
+      if(line) out.push(line);
+    });
+    return out;
+  }
+  function rect(x, yy, w, h, fill, border){ page.drawRectangle({x, y:yy, width:w, height:h, color:fill||undefined, borderColor:border===false?undefined:(border||LINE), borderWidth:border===false?0:0.6}); }
+  function bar(label){ ensure(26); rect(M, y-18, CW, 18, BRAND, false); txt(label, M+6, y-13, 10.5, bold, WHITE); y -= 24; }
+  function para(t, size){ size = size||9; wrap(t, reg, size, CW).forEach(l=>{ ensure(size+4); txt(l, M, y-size, size, reg); y -= size+3.5; }); y -= 4; }
+  function kvTable(rows){
+    const lw = 190;
+    rows.forEach(([k,v])=>{
+      const lines = wrap(v||'', reg, 9, CW-lw-10); const h = Math.max(16, lines.length*11+6);
+      ensure(h); rect(M, y-h, lw, h, LIGHT); rect(M+lw, y-h, CW-lw, h);
+      txt(k, M+5, y-11.5, 9, bold);
+      lines.forEach((l,i)=>txt(l, M+lw+5, y-11.5-i*11, 9, reg));
+      y -= h;
+    });
+    y -= 10;
+  }
+  // ---- header (first page) ----
+  newPage();
+  const addr = String(st.address||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  let hy = y-12;
+  txt(company.toUpperCase(), M, hy, 12, bold); hy -= 13;
+  addr.forEach(l=>{ txt(l, M, hy, 9, reg, SLATE); hy -= 11; });
+  if(st.phone){ txt('Tel: '+st.phone, M, hy, 9, reg, SLATE); hy -= 11; }
+  if(logo){ const dim = logo.scale(1); const s = Math.min(150/dim.width, 64/dim.height); page.drawImage(logo, {x:W-M-dim.width*s, y:y-dim.height*s, width:dim.width*s, height:dim.height*s}); }
+  y = Math.min(hy, y-70) - 14;
+  const title = isRA ? 'Risk Assessment' : 'Method Statement';
+  txt(title, (W - bold.widthOfTextAtSize(title, 18))/2, y-16, 18, bold); y -= 32;
+  const fmt = v => v ? (/^\d{4}-\d{2}-\d{2}$/.test(v) ? new Date(v+'T00:00:00').toLocaleDateString('en-GB') : v) : '';
+  const L = isRA ? 'Risk Assessment' : 'Method Statement';
+  bar(isRA ? '1.0 Risk Assessment Details' : 'Method Statement Details');
+  kvTable([[L+' Number', docNo], [L+' Date', fmt(d.date)], ...(isRA?[['Risk Review Date', fmt(d.reviewDate)]]:[]), [L+' Author', d.author], ['Project/Contract', d.project], ['Start Date', fmt(d.startDate)], ['Expected Job Duration', d.duration], ['Client Contact', d.clientContact], ['Description', d.description], ['Site Address', d.address]]);
+  bar(isRA ? '2.0 Signatures' : 'Signatures');
+  { ensure(40); const cols = [['', 120],['Name',110],['Title',90],['Signature',105],['Date',CW-425]]; let x = M;
+    cols.forEach(([c,w])=>{ rect(x, y-14, w, 14, LIGHT); txt(c, x+4, y-10, 8.5, bold); x += w; }); y -= 14;
+    x = M; const rowH = 26; const vals = ['Document Author', d.author||'', '', '', fmt(d.date)];
+    cols.forEach(([c,w],i)=>{ rect(x, y-rowH, w, rowH); if(vals[i]) txt(vals[i], x+4, y-16, 9, i===0?bold:reg); if(i===3) signBoxes.push({p:pages.length, w:'pm', t:'sig', r:[(x+2)/W, (H-(y-2))/H, (w-4)/W, (rowH-4)/H]}); x += w; });
+    y -= rowH+12; }
+  bar('Data Protection Statement'); para(st.dataProtection, 8.5);
+  if(isRA){
+    if(d.notes){ bar('3.0 Risk Assessment Notes'); para(d.notes); }
+    bar('4.0 Individuals or Groups Affected By This Assessment');
+    kvTable([['Groups Affected', (d.groups||[]).join(', ')], ...(d.mainContractor?[['Main Contractor', d.mainContractor]]:[])]);
+    bar('5.0 Hazards and Control Procedures');
+    const sideW = 66, cellW = sideW/3, midW = CW - 2*sideW;
+    (b.hazards||[]).forEach(hz=>{
+      const harmLines = wrap(hz.harm||'', reg, 8.5, midW-8);
+      const ctrl = (hz.controls||[]).map(c=>wrap(c, reg, 8.5, midW-8));
+      const headH = 16 + 12 + Math.max(14, harmLines.length*10.5+4) + 16;
+      ensure(headH + (ctrl[0] ? ctrl[0].length*10.5+6 : 0));
+      // row 1: titles
+      rect(M, y-16, sideW, 16, LIGHT); txt('Pre-Control', M+4, y-11.5, 8, bold);
+      rect(M+sideW, y-16, midW, 16, LIGHT); txt('Hazard: '+(hz.title||''), M+sideW+4, y-11.5, 9.5, bold);
+      rect(M+sideW+midW, y-16, sideW, 16, LIGHT); txt('Residual Risk', M+sideW+midW+4, y-11.5, 8, bold);
+      y -= 16;
+      const hH = Math.max(14, harmLines.length*10.5+4);
+      ['P','S','RR'].forEach((c,i)=>{ rect(M+i*cellW, y-hH, cellW, hH, LIGHT); txt(c, M+i*cellW+cellW/2-3, y-10, 8, bold); rect(M+sideW+midW+i*cellW, y-hH, cellW, hH, LIGHT); txt(c, M+sideW+midW+i*cellW+cellW/2-3, y-10, 8, bold); });
+      rect(M+sideW, y-hH, midW, hH); harmLines.forEach((l,i)=>txt(l, M+sideW+4, y-10-i*10.5, 8.5, reg));
+      y -= hH;
+      const vals = [[hz.p, hz.s],[hz.rp, hz.rs]];
+      const valH = 16;
+      vals.forEach(([p,s],side)=>{
+        const x0 = side ? M+sideW+midW : M; const rr = (Number(p)||0)*(Number(s)||0); const band = ramsRiskBand(rr);
+        [p, s, rr].forEach((v,i)=>{ const isRR = i===2; rect(x0+i*cellW, y-valH, cellW, valH, isRR ? pdfHexToRgb(band.bg) : undefined); txt(String(v), x0+i*cellW+cellW/2-(String(v).length*2.4), y-11.5, 9, bold, isRR && band.fg==='#fff' ? WHITE : INK); });
+      });
+      rect(M+sideW, y-valH, midW, valH, LIGHT); txt('Control Procedures', M+sideW+4, y-11.5, 9, bold);
+      y -= valH;
+      ctrl.forEach(lines=>{
+        const h = lines.length*10.5+6; ensure(h);
+        rect(M+sideW, y-h, midW, h); lines.forEach((l,i)=>txt(l, M+sideW+4, y-10-i*10.5, 8.5, reg));
+        y -= h;
+      });
+      y -= 12;
+    });
+    // legend
+    ensure(80);
+    const lg = [['Probability (P)','Severity (S)','Risk Ranking (RR = P x S)']].concat([1,2,3,4,5].map(n=>[n+' '+RAMS_P_LABELS[n], n+' '+RAMS_S_LABELS[n], ['1-2  Very low','3-7  Low priority','8-9  Medium priority','10-14  High priority','15-25  Urgent action required'][n-1]]));
+    lg.forEach((r,i)=>{ const cw = CW/3; r.forEach((c,j)=>{ rect(M+j*cw, y-13, cw, 13, i===0?LIGHT:undefined); txt(c, M+j*cw+4, y-9.5, 8, i===0?bold:reg); }); y -= 13; });
+    y -= 12;
+    if((b.ppe||[]).length){
+      bar('6.0 Required PPE');
+      const items = RAMS_PPE.filter(p=>b.ppe.includes(p.key)); const cw = CW/3;
+      for(let i=0;i<items.length;i+=3){ ensure(30); items.slice(i,i+3).forEach((p,j)=>{ rect(M+j*cw+2, y-26, cw-4, 24, LIGHT, false); rect(M+j*cw+8, y-20, 12, 12, WHITE); txt('X', M+j*cw+11, y-17.5, 9, bold, BRAND); txt(p.label, M+j*cw+28, y-17, 9.5, bold); }); y -= 30; }
+      y -= 6;
+    }
+  } else {
+    if(d.emergencyName || d.emergencyPhone){ bar('Emergency Contact Details'); kvTable([['Name', d.emergencyName], ['Telephone Number', d.emergencyPhone]]); }
+    const gen = (b.sections||[]).filter(s=>s.part!=='method'), meth = (b.sections||[]).filter(s=>s.part==='method');
+    const sectionOut = s=>{
+      ensure(40); txt(s.title||'', M, y-12, 11, bold); y -= 18;
+      if(s.body) para(s.body, 9);
+      (s.steps||[]).forEach((stp,i)=>{ const lines = wrap(stp, reg, 9, CW-22); ensure(lines.length*12+2); txt((i+1)+'.', M+4, y-9, 9, bold); lines.forEach((l,k)=>txt(l, M+20, y-9-k*12, 9, reg)); y -= lines.length*12+2; });
+      y -= 10;
+    };
+    if(gen.length){ bar('General Precautions'); para('To be observed by all staff at all times; any deviation from these control procedures must be authorised by the site manager or safety representative.', 8.5); gen.forEach(sectionOut); }
+    if(meth.length){ bar('Method Statements'); meth.forEach(sectionOut); }
+  }
+  // ---- sign-off sheet ----
+  newPage();
+  txt('Sign Off Sheet', M, y-16, 16, bold); y -= 34;
+  [`I have read and understood the contents of this ${L}.`, 'Anything I did not understand has been explained to me to my satisfaction.', `I agree to follow the ${L} and understand that any ${isRA?'control procedures':'instructions'} are provided for my safety and the safety of others.`]
+    .forEach(s=>{ wrap(s, reg, 9.5, CW).forEach(l=>{ txt(l, (W-reg.widthOfTextAtSize(l,9.5))/2, y-10, 9.5, reg); y -= 13; }); y -= 3; });
+  y -= 8;
+  const cols = [['Print Name', CW*0.42], ['Signed', CW*0.36], ['Date', CW*0.22]];
+  let x = M; cols.forEach(([c,w])=>{ rect(x, y-16, w, 16, LIGHT); txt(c, x+5, y-11.5, 9, bold); x += w; }); y -= 16;
+  const rowH = Math.min(34, Math.floor((y-60)/RAMS_SIGN_ROWS));
+  for(let r=0;r<RAMS_SIGN_ROWS;r++){
+    x = M;
+    cols.forEach(([c,w],i)=>{ rect(x, y-rowH, w, rowH); signBoxes.push({p:pages.length, w:'op'+(r+1), t:['name','sig','date'][i], r:[(x+2)/W, (H-(y-2))/H, (w-4)/W, (rowH-4)/H]}); x += w; });
+    y -= rowH;
+  }
+  // ---- dynamic risk assessment ----
+  if(isRA && d.includeDynamic!==false){
+    newPage();
+    txt('Dynamic Risk Assessment', (W-bold.widthOfTextAtSize('Dynamic Risk Assessment',15))/2, y-15, 15, bold); y -= 28;
+    para('Please note a copy of this Dynamic Risk Assessment must be returned to head office complete with signatures. Tick items covered by the risk assessment, then list in the table below hazards and controls for any additional items on this job.', 8.5);
+    const dyn = ['Access / Egress','Adverse Weather','Asbestos','Biological','Excavations','Exposure to Gases','Movement of Vehicles','Chemicals','Confined Space','Dusts / Particles','Electrical','Other Contractors','Limited Headroom','Moving Machinery','Lone Working','Fire','Fumes','Lighting','Flooding','Noise','Scaffold','Work at Height','Slips, Trips or Falls','Extreme Temperatures','Demolition Works','Work Near Water','Vibration','Wastes','Uneven Surfaces','Ladders / Stepladders','Ventilation','Vermin / Weils Disease','Overhead Cables','Hidden Services','Manual Handling'];
+    const cw = CW/5;
+    for(let i=0;i<dyn.length;i+=5){ dyn.slice(i,i+5).forEach((h,j)=>{ rect(M+j*cw, y-20, cw, 20); rect(M+j*cw+4, y-15, 9, 9, WHITE); txt(h, M+j*cw+17, y-13, 7.5, reg); }); y -= 20; }
+    y -= 14;
+    txt('Additional task(s) or hazards not covered by the original risk assessment', M, y-10, 9.5, bold); y -= 18;
+    const dc = [['Hazard identified',0.2],['Injury risk',0.15],['Control measure adopted',0.25],['L',0.05],['S',0.05],['LxS',0.06],['Proceed Y/N',0.08],['Supervisor',0.08],['Client',0.08]];
+    x = M; dc.forEach(([c,f])=>{ rect(x, y-24, CW*f, 24, LIGHT); wrap(c, bold, 7.5, CW*f-6).forEach((l,k)=>txt(l, x+3, y-9-k*9, 7.5, bold)); x += CW*f; }); y -= 24;
+    for(let r=0;r<6;r++){ x = M; dc.forEach(([c,f])=>{ rect(x, y-26, CW*f, 26); x += CW*f; }); y -= 26; }
+    y -= 12;
+    [['15 - 25 = High Risk - STOP - advise your supervisor that the risk is high and seek further advice.','#E0301E'],['8 - 12 = Medium Risk - CAUTION - proceed but take extra precautions.','#F39237'],['1 - 6 = Low Risk - PROCEED with task maintaining controls.','#9BD27A']]
+      .forEach(([t,c])=>{ rect(M, y-14, 14, 12, pdfHexToRgb(c), false); txt(t, M+20, y-11, 8.5, reg); y -= 17; });
+  }
+  // ---- footers ----
+  pages.forEach((pg,i)=>{ const f = ramsPdfSafe(`Doc #: ${docNo} || Page ${i+1} of ${pages.length}`); pg.drawText(f, {x:(W-reg.widthOfTextAtSize(f,8))/2, y:20, size:8, font:reg, color:SLATE}); pg.drawText('Generated via OpHUB', {x:M, y:20, size:7, font:reg, color:SLATE}); });
+  const bytes = await pdf.save();
+  return {bytes, signLayout:{v:2, boxes:signBoxes}, pageCount: pages.length};
+}
+window.ramsPreview = async function(which){
+  await ramsSaveNow();
+  toast('Building PDF…');
+  try{
+    const out = await buildRamsPdf(ramsEd.build, which);
+    if(out) viewPdfInApp(out.bytes, (which==='ra'?'Risk Assessment':'Method Statement')+' - '+ramsEd.build.title+'.pdf');
+  }catch(e){ console.error(e); customAlert('Could not build the PDF: '+e.message); }
+};
+window.ramsIssue = async function(siteId){
+  await ramsSaveNow();
+  const b = ramsEd.build;
+  if(!b.hazards.length && !b.sections.length){ toast('Add some hazards or sections first'); return; }
+  const reissue = b.status==='issued';
+  if(!(await customConfirm(reissue
+    ? `Re-issue "${b.title}" as revision ${b.revision+1}?\n\nThe current Risk Assessment and Method Statement are marked superseded and everyone on the job is asked to sign the new versions.`
+    : `Issue "${b.title}"?\n\nThis adds a Risk Assessment and a Method Statement to this job's RAMS for operatives to sign.`))) return;
+  toast('Building documents…');
+  try{
+    const rev = b.revision+1;
+    const made = [];
+    for(const which of ['ra','ms']){
+      const isRA = which==='ra';
+      if(isRA && !b.hazards.length) continue;
+      if(!isRA && !b.sections.length) continue;
+      const out = await buildRamsPdf(b, which);
+      if(!out) return;
+      const name = (isRA?'Risk Assessment':'Method Statement')+' — '+b.title+(rev>1?' (rev '+rev+')':'');
+      const path = siteId+'/rams/'+uid()+'-'+(isRA?'RA':'MS')+'-'+b.title.replace(/[^a-z0-9.\-]+/gi,'_').slice(0,60)+'.pdf';
+      const stored = await uploadToStorage('rams-docs', path, new Blob([out.bytes], {type:'application/pdf'}), 'application/pdf');
+      if(!stored){ customAlert('Upload failed — check signal and try again.'); return; }
+      const prevId = isRA ? b.ra_doc_id : b.ms_doc_id;
+      const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:isRA?'Risk Assessment':'Method Statement', supersedes:prevId||null, sign_layout:out.signLayout});
+      if(!rows || !rows[0]){ customAlert('Could not save the document.'); return; }
+      if(prevId) await dbUpdate('rams_docs', prevId, {status:'superseded', superseded_by:rows[0].id});
+      made.push([which, rows[0].id, name, isRA?'Risk Assessment':'Method Statement']);
+    }
+    const patch = {status:'issued', revision:rev, issued_at:new Date().toISOString(), updated_at:new Date().toISOString()};
+    made.forEach(([w,id])=>{ patch[w==='ra'?'ra_doc_id':'ms_doc_id'] = id; });
+    const row = await dbUpdate('rams_builds', b.id, patch);
+    if(row) Object.assign(b, patch);
+    made.forEach(([w,id,name,label])=>notifyDocNeedsSigning(siteId, 'RAMS', name));
+    logSiteActivity(siteId, 'rams_build_issued', `Issued RAMS "${b.title}" rev ${rev}`);
+    toast(reissue ? 'Re-issued — everyone will be asked to sign again' : 'Issued — operatives can now sign');
+    ramsEd = null; go('#/site/'+siteId+'/hs/rams');
+  }catch(e){ console.error(e); customAlert('Could not issue: '+e.message); }
+};
+
+/* ================= RAMS LIBRARY (Admin Centre → Libraries) =================
+ * Company library of hazards, method-statement sections and templates used by
+ * the RAMS Builder. Editing here never changes a job's RAMS that already
+ * pulled an item in (jobs hold their own copies). Route: #/rams-library */
+let ramsLibTab = 'hazard';
+let ramsLibEditId = null;
+let ramsLibQ = '';
+async function renderRamsLibrary(){
+  const __gen = RENDER_GEN;
+  if(!isFullManager(ME)){ go('#/team'); return; }
+  const lib = await ramsLoadLibrary();
+  const items = lib.filter(i=>i.kind===ramsLibTab && (!ramsLibQ || i.title.toLowerCase().includes(ramsLibQ.toLowerCase())));
+  const counts = k => lib.filter(i=>i.kind===k).length;
+  const row = (it, i, n) => {
+    const d = it.data||{};
+    if(ramsLibEditId===it.id){
+      if(it.kind==='hazard') return `<div class="card ramsitem editing">
+        <div class="formfield"><label class="field-label">Hazard</label><input id="rlTitle" value="${escapeHtml(it.title)}"></div>
+        <div class="formfield"><label class="field-label">Harm</label><input id="rlHarm" value="${escapeHtml(d.harm||'')}"></div>
+        <div class="ramsriskedit"><div><div class="field-label">Before controls</div>P <select id="rlP">${[1,2,3,4,5].map(n=>`<option ${d.p==n?'selected':''}>${n}</option>`).join('')}</select> S <select id="rlS">${[1,2,3,4,5].map(n=>`<option ${d.s==n?'selected':''}>${n}</option>`).join('')}</select></div>
+        <div><div class="field-label">Residual</div>P <select id="rlRP">${[1,2,3,4,5].map(n=>`<option ${d.rp==n?'selected':''}>${n}</option>`).join('')}</select> S <select id="rlRS">${[1,2,3,4,5].map(n=>`<option ${d.rs==n?'selected':''}>${n}</option>`).join('')}</select></div></div>
+        <div class="formfield"><label class="field-label">Control procedures — one per line</label><textarea id="rlList" rows="8">${escapeHtml((d.controls||[]).join('\n'))}</textarea></div>
+        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsLibSave('${it.id}')">Save</button><button class="ghostbtn" style="flex:1;" onclick="ramsLibEditId=null;render()">Cancel</button></div></div>`;
+      if(it.kind==='section') return `<div class="card ramsitem editing">
+        <div class="formfield"><label class="field-label">Heading</label><input id="rlTitle" value="${escapeHtml(it.title)}"></div>
+        <div class="formfield"><label class="field-label">Type</label><select id="rlPart"><option value="general" ${d.part!=='method'?'selected':''}>General precaution / safe system of work</option><option value="method" ${d.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
+        <div class="formfield"><label class="field-label">Text</label><textarea id="rlBody" rows="5">${escapeHtml(d.body||'')}</textarea></div>
+        <div class="formfield"><label class="field-label">Numbered steps — one per line</label><textarea id="rlList" rows="6">${escapeHtml((d.steps||[]).join('\n'))}</textarea></div>
+        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsLibSave('${it.id}')">Save</button><button class="ghostbtn" style="flex:1;" onclick="ramsLibEditId=null;render()">Cancel</button></div></div>`;
+      return `<div class="card ramsitem editing"><div class="formfield"><label class="field-label">Template name</label><input id="rlTitle" value="${escapeHtml(it.title)}"></div>
+        <p class="stub">To change what's in a template: create a RAMS from it on any job, edit it, then use Issue → Save as a template.</p>
+        <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsLibSave('${it.id}')">Save</button><button class="ghostbtn" style="flex:1;" onclick="ramsLibEditId=null;render()">Cancel</button></div></div>`;
+    }
+    const sub = it.kind==='hazard' ? `${escapeHtml(d.harm||'')} · ${(d.controls||[]).length} controls` : it.kind==='section' ? `${d.part==='method'?'Method statement':'General'} · ${(d.steps||[]).length} steps` : `${(d.hazards||[]).length} hazards · ${(d.sections||[]).length} sections`;
+    return `<div class="card ramsitem"><div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div><div class="stub" style="margin:0;">${sub}</div></div>
+      ${it.kind==='hazard' ? `<div class="ramsrrpair">${ramsRRBadge(d.p,d.s)}<span>→</span>${ramsRRBadge(d.rp,d.rs)}</div>` : ''}</div>
+      <div class="ramsitem-tools">
+        ${ramsLibQ ? '' : `<button ${i===0?'disabled':''} onclick="ramsLibMove('${it.id}',-1)">↑</button><button ${i===n-1?'disabled':''} onclick="ramsLibMove('${it.id}',1)">↓</button>`}
+        <button onclick="ramsLibEditId='${it.id}';render()">✎</button><button class="danger" onclick="ramsLibDelete('${it.id}')">🗑</button></div></div>`;
+  };
+  const html = `
+    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>📚</span><div><b>RAMS Library</b> — the hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn't change RAMS already written for a job.</div></div>
+    <div class="filterrow">${[['hazard','Hazards'],['section','Sections'],['template','Templates']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l} (${counts(k)})</div>`).join('')}</div>
+    <input type="search" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" style="width:100%;margin-bottom:10px;" oninput="ramsLibQ=this.value;clearTimeout(window._rlq);window._rlq=setTimeout(()=>{render();setTimeout(()=>{const e=document.querySelector('input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},300)">
+    ${items.map((it,i)=>row(it,i,items.length)).join('') || `<div class="empty">${lib.length ? 'Nothing here yet.' : 'Your library is empty.'}</div>`}
+    ${ramsLibTab!=='template' ? `<button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew()">+ New ${ramsLibTab==='hazard'?'hazard':'section / safe system of work'}</button>` : ''}
+    ${!lib.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="ramsSeedAndReload()">Load the starter library (from your Cleveland Primary School RAMS)</button>` : ''}
+  `;
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'RAMS Library', back:'#/team/libraries'});
+}
+window.ramsLibNew = async function(){
+  const kind = ramsLibTab;
+  const data = kind==='hazard' ? {harm:'', p:3, s:3, rp:1, rs:3, controls:[]} : {part:'general', body:'', steps:[]};
+  const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind, title:kind==='hazard'?'New hazard':'New section', data, sort_order:999, created_by:ME.id}]);
+  if(rows && rows[0]){ ramsLibEditId = rows[0].id; ramsLibQ=''; render(); }
+};
+window.ramsLibSave = async function(id){
+  const v = k => { const e = document.getElementById(k); return e ? e.value : ''; };
+  const it = (await dbSelect('rams_library_items', 'id=eq.'+id))[0]; if(!it) return;
+  const list = v('rlList').split('\n').map(x=>x.trim()).filter(Boolean);
+  let data = it.data||{};
+  if(it.kind==='hazard') data = {harm:v('rlHarm'), p:+v('rlP'), s:+v('rlS'), rp:+v('rlRP'), rs:+v('rlRS'), controls:list};
+  else if(it.kind==='section') data = {part:v('rlPart'), body:v('rlBody'), steps:list};
+  const row = await dbUpdate('rams_library_items', id, {title:v('rlTitle').trim()||it.title, data, updated_at:new Date().toISOString()});
+  if(row){ ramsLibEditId = null; toast('Saved'); render(); }
+};
+window.ramsLibDelete = async function(id){
+  const it = (await dbSelect('rams_library_items', 'id=eq.'+id))[0]; if(!it) return;
+  if(!(await customConfirm(`Delete "${it.title}" from the library?\n\nRAMS already written for jobs keep their own copy.`))) return;
+  await dbDelete('rams_library_items', id); render();
+};
+window.ramsLibMove = async function(id, dir){
+  const lib = (await ramsLoadLibrary()).filter(i=>i.kind===ramsLibTab);
+  const idx = lib.findIndex(i=>i.id===id), j = idx+dir; if(idx<0 || j<0 || j>=lib.length) return;
+  const t = lib[idx]; lib[idx] = lib[j]; lib[j] = t;
+  await Promise.all(lib.map((it,k)=> it.sort_order===k ? null : dbUpdate('rams_library_items', it.id, {sort_order:k})));
+  render();
+};
+
 /* ================= EXPENSES (sub-tile inside Materials) ================= */
 // Opened from the Expenses sub-tile inside the project's Materials tile.
 // A quick way to get receipts to the office: photograph or attach them, say
@@ -34589,6 +35493,7 @@ async function renderRoute(){
     return renderCompanyLibraryHub(null);
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
+  if(parts[0]==='rams-library'){ return renderRamsLibrary(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
     if(!ME || !isManager(ME)){ toast('Project managers and admins only.'); go('#/sites'); return; }
@@ -34723,6 +35628,8 @@ async function renderRoute(){
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
+      if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);
+      if(sub==='rams' && parts[4]==='build' && parts[5]) return renderRamsBuild(siteId, parts[5]);
       if(sub==='rams') return renderRams(siteId);
       if(sub==='coshh') return renderCoshh(siteId);
       if(sub==='coshh-pick') return renderCoshhLibraryPick(siteId);
