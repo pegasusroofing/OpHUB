@@ -62,15 +62,16 @@ async function renderRamsNew(siteId){
   const html = `
     <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🦺</span><div><b>Create RAMS</b> — builds a <b>Risk Assessment</b> and a <b>Method Statement</b> as two separate documents for this job. Everything stays editable until you issue it. <span class="stub" style="display:inline;">(Trial)</span></div></div>
     <div class="formfield"><label class="field-label">RAMS name</label><input type="text" id="ramsNewTitle" value="${escapeHtml((site?site.name+' — ':'')+'Roof Renewal')}"></div>
-    <p class="opmat-h">Start from</p>
+    <p class="opmat-h">Start from — tick one or more</p>
     <div class="card" style="padding:4px 14px;">
-      <label class="ramsstart"><input type="radio" name="ramsStart" value="blank"> <div><b>Blank</b><div class="stub" style="margin:0;">Add hazards and sections yourself from the library.</div></div></label>
-      ${templates.map((t,i)=>`<label class="ramsstart"><input type="radio" name="ramsStart" value="tpl:${t.id}" ${i===0?'checked':''}> <div><b>📋 ${escapeHtml(t.title)}</b><div class="stub" style="margin:0;">Template · ${(t.data.hazards||[]).length} hazards · ${(t.data.sections||[]).length} sections</div></div></label>`).join('')}
+      ${templates.length>1 ? `<label class="selallrow" style="margin:8px 0 2px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsTplPick').forEach(c=>c.checked=this.checked)"> Select all templates</label>` : ''}
+      ${templates.map((t,i)=>`<label class="ramsstart"><input type="checkbox" class="ramsTplPick" value="${t.id}"> <div><b>📋 ${escapeHtml(t.title)}</b><div class="stub" style="margin:0;">Template · ${(t.data.hazards||[]).length} hazards · ${(t.data.sections||[]).length} sections</div></div></label>`).join('')}
+      <p class="stub" style="margin:8px 0;">Tick nothing to start blank and add hazards and sections yourself from the library. Ticking several combines them — anything in more than one is only added once.</p>
       ${!templates.length ? `<p class="stub" style="margin:10px 0;">No templates yet — ${lib.length ? 'save one from any RAMS.' : `<span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">load the starter library</span> (built from your Cleveland Primary School RAMS).`}</p>` : ''}
     </div>
     ${others.length ? `<p class="opmat-h">Or copy another job's RAMS</p>
     <div class="card" style="padding:10px 14px;">
-      <label class="ramsstart" style="padding-top:0;"><input type="radio" name="ramsStart" value="copy" id="ramsStartCopy"> <div><b>⧉ Copy from another job</b><div class="stub" style="margin:0;">Pick the job, then tick one or more of its RAMS — ticking several combines them into one.</div></div></label>
+      <div style="padding:2px 0 4px;"><b>⧉ Copy from another job</b><div class="stub" style="margin:0;">Pick the job, then tick one or more of its RAMS. Can be combined with templates above.</div></div>
       <input type="search" id="ramsCopyQ" placeholder="Type to filter jobs…" style="width:100%;margin:6px 0;" oninput="ramsCopyFilter(this.value)">
       <select id="ramsCopySite" style="width:100%;" onchange="ramsCopyPickSite(this.value)">
         <option value="">— Choose a job (${copySites.length}) —</option>
@@ -93,8 +94,7 @@ window.ramsCopyFilter = function(q){
 window.ramsCopyPickSite = function(siteId){
   const box = document.getElementById('ramsCopyList'); if(!box) return;
   const list = ((window.RAMS_COPY_SRC||{}).bySite||{})[siteId] || [];
-  const r = document.getElementById('ramsStartCopy'); if(r && list.length) r.checked = true;
-  box.innerHTML = list.length ? `${list.length>1 ? `<label class="selallrow" style="margin:0 0 4px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsCopyPick').forEach(c=>c.checked=this.checked)"> Select all</label>` : ''}` + list.map(b=>`<label class="ramsstart"><input type="checkbox" class="ramsCopyPick" value="${b.id}" ${list.length===1?'checked':''} onchange="document.getElementById('ramsStartCopy').checked=true"> <div><b>${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${b.status==='issued' ? 'Issued rev '+b.revision : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('') : '';
+  box.innerHTML = list.length ? `${list.length>1 ? `<label class="selallrow" style="margin:0 0 4px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsCopyPick').forEach(c=>c.checked=this.checked)"> Select all</label>` : ''}` + list.map(b=>`<label class="ramsstart"><input type="checkbox" class="ramsCopyPick" value="${b.id}"> <div><b>${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${b.status==='issued' ? 'Issued rev '+b.revision : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('') : '';
 };
 window.ramsSeedAndReload = async function(){
   const rows = await ramsSeedLibrary();
@@ -102,33 +102,40 @@ window.ramsSeedAndReload = async function(){
 };
 window.ramsCreate = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
-  const choice = (document.querySelector('input[name="ramsStart"]:checked')||{}).value || 'blank';
+  const tplIds = Array.from(document.querySelectorAll('.ramsTplPick:checked')).map(c=>c.value);
+  const copyIds = Array.from(document.querySelectorAll('.ramsCopyPick:checked')).map(c=>c.value);
   const title = (document.getElementById('ramsNewTitle').value||'').trim() || 'RAMS';
   const details = ramsDefaultDetails(site);
   let hazards = [], sections = [], ppe = RAMS_DEFAULT_PPE.slice();
-  if(choice.startsWith('tpl:')){
+  // Several templates / copied RAMS are combined; an item in more than one is only added once.
+  const key = x => String(x.title||'').trim().toLowerCase();
+  const addH = h => { if(h && !hazards.some(x=>key(x)===key(h))) hazards.push(h); };
+  const addS = x => { if(x && !sections.some(y=>key(y)===key(x) && y.part===x.part)) sections.push(x); };
+  const addGroups = gs => (gs||[]).forEach(g=>{ if(!details.groups.includes(g)) details.groups.push(g); });
+  if(tplIds.length){
     const lib = await ramsLoadLibrary();
-    const tpl = lib.find(i=>i.id===choice.slice(4));
-    if(tpl){
-      const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t);
-      hazards = (tpl.data.hazards||[]).map(h=> typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})).filter(Boolean);
-      sections = (tpl.data.sections||[]).map(s=> typeof s==='string' ? (byTitle('section',s) ? ramsSectionFromLib(byTitle('section',s)) : null) : Object.assign({}, s, {id:ramsUid(), steps:(s.steps||[]).slice()})).filter(Boolean);
-      (tpl.data.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); }); details.groups = (tpl.data.groups||[]).slice();
-    }
-  } else if(choice==='copy'){
-    // One or more RAMS from another job — several are combined into one.
-    const ids = Array.from(document.querySelectorAll('.ramsCopyPick:checked')).map(c=>c.value);
-    if(!ids.length){ toast('Choose a job and tick the RAMS to copy'); return; }
-    const srcs = await dbSelect('rams_builds', 'id=in.('+ids.join(',')+')');
-    srcs.sort((x,y)=>ids.indexOf(x.id)-ids.indexOf(y.id)).forEach((src,i)=>{
-      ramsBuildList(src,'hazards').forEach(h=>hazards.push(Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})));
-      ramsBuildList(src,'sections').forEach(x=>sections.push(Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})));
-      (src.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); });
-      const sd = src.details||{};
-      (sd.groups||[]).forEach(g=>{ if(!details.groups.includes(g)) details.groups.push(g); });
-      if(i===0) Object.assign(details, {description:sd.description||'', duration:sd.duration||'', includeDynamic: sd.includeDynamic!==false});
+    const byTitle = (kind, t) => lib.find(i=>i.kind===kind && i.title===t);
+    tplIds.forEach(id=>{
+      const tpl = lib.find(i=>i.id===id); if(!tpl) return;
+      (tpl.data.hazards||[]).forEach(h=> addH(typeof h==='string' ? (byTitle('hazard',h) ? ramsHazardFromLib(byTitle('hazard',h)) : null) : Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})));
+      (tpl.data.sections||[]).forEach(x=> addS(typeof x==='string' ? (byTitle('section',x) ? ramsSectionFromLib(byTitle('section',x)) : null) : Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})));
+      (tpl.data.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); });
+      addGroups(tpl.data.groups);
     });
   }
+  if(copyIds.length){
+    const srcs = await dbSelect('rams_builds', 'id=in.('+copyIds.join(',')+')');
+    srcs.sort((x,y)=>copyIds.indexOf(x.id)-copyIds.indexOf(y.id)).forEach((src,i)=>{
+      ramsBuildList(src,'hazards').forEach(h=>addH(Object.assign({}, h, {id:ramsUid(), controls:(h.controls||[]).slice()})));
+      ramsBuildList(src,'sections').forEach(x=>addS(Object.assign({}, x, {id:ramsUid(), steps:(x.steps||[]).slice()})));
+      (src.ppe||[]).forEach(k=>{ if(!ppe.includes(k)) ppe.push(k); });
+      const sd = src.details||{};
+      addGroups(sd.groups);
+      if(i===0 && !tplIds.length) Object.assign(details, {description:sd.description||'', duration:sd.duration||'', includeDynamic: sd.includeDynamic!==false});
+    });
+  }
+  // General precautions first, then method statements, keeping their order.
+  sections = sections.filter(x=>x.part!=='method').concat(sections.filter(x=>x.part==='method'));
   const rows = await dbInsert('rams_builds', [{org_id:ME.org_id, site_id:siteId, title, details, hazards, sections, ppe, created_by:ME.id}]);
   if(!rows || !rows[0]) return;
   // Reserve the document numbers.
@@ -392,7 +399,7 @@ async function ramsBuilderCardHtml(siteId){
   if(!isFullManager(ME)) return '';
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
   return `<div style="margin-bottom:6px;">
-    <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:2px 0 0;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
+    <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:4px 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
     ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="arrow" style="margin-left:auto;">›</span></div>`).join('')}
     <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
   </div>`;

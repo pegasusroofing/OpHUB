@@ -76,8 +76,10 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     return `
     <div class="ramsdoc" style="padding:10px 12px;">
       <div class="taskrowtop">
-        <div class="name" style="font-size:16.5px;font-weight:800;">${escapeHtml(r.name)}</div>
-        ${canAdd ? `<div class="taskicons"><div class="taskicon danger" onclick="deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑</div></div>` : ''}
+        <div class="name" style="font-size:16.5px;font-weight:800;flex:1;min-width:0;">${escapeHtml(r.name)}</div>
+        ${canAdd ? `<div class="taskicons" style="flex:0 0 auto;white-space:nowrap;">${rowActionsMenuHtml('ramsdoc-'+r.id, `
+          ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`)}</div>` : ''}
       </div>
       <div class="meta" style="margin-top:3px;">Uploaded by ${escapeHtml(nameOf(r.uploaded_by))} · ${new Date(r.uploaded_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.supersedes?' · Supersedes "'+escapeHtml(nameById[r.supersedes]||'an earlier version')+'"':''}${resignDueLabel(r, site)} · <span class="viewlink" style="cursor:pointer;" onclick="viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')">View document ↗</span></div>
       <div style="display:flex;gap:8px;margin-top:8px;">
@@ -94,8 +96,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
       </div>
       ${issuedHtml}
       ${outstandingHtml}
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `<label class="selallrow" style="margin:8px 0 0;font-size:12.5px;"><input type="checkbox" ${multi?'checked':''} onchange="ramsSetMulti('${r.id}',this.checked)"> Multi-page sign required</label>
-      ${multi ? `<div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `${multi ? `<div class="stub" style="margin:8px 0 0;font-weight:700;">Multi-page sign</div><div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
         <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
         ${ramsClientLineHtml(siteId, r)}
       </div>` : ''}` : ''}
@@ -369,16 +370,15 @@ async function renderRams(siteId){
     `).join('')}</div>` : ''}
     ` : ''}
     ${canAdd && ramsSubCompanies.length ? `
-    <p class="sectiontitle" style="margin-top:22px;">Subcontractor RAMS</p>
     ${ramsSubCompanies.map(c=>{
       const cdocs = ramsByCompany[c.id]||[];
       const open = !!ramsSubOpenFor[c.id];
       return `
-      <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;" onclick="toggleRamsSub('${c.id}')">
-          <span class="arrow">${open?'▼':'▶'}</span> ${escapeHtml(c.name)} <span class="stub" style="display:inline;">(${cdocs.length} document${cdocs.length===1?'':'s'})</span>
+      <div>
+        <p class="ddrow" onclick="toggleRamsSub('${c.id}')">
+          <span class="arrow">${open?'▼':'▶'}</span> Subcontractor RAMS — ${escapeHtml(c.name)} <span class="stub" style="display:inline;margin:0;">(${cdocs.length})</span>
         </p>
-        ${open ? `<div style="padding:0 14px 14px;">
+        ${open ? `<div class="card" style="margin-top:6px;">
           ${cdocs.map(d=>`
             <div style="padding:8px 0;border-bottom:1px solid var(--line);">
               <div style="font-weight:700;font-size:12.5px;">${escapeHtml(d.name)}</div>
