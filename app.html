@@ -5786,10 +5786,6 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚐</div>
         <div class="lbl">Vehicle Checks</div>
       </div>
-      <div class="tile" onclick="go('#/team/libraries/maincontractor')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
-        <div class="lbl">Main Contractor</div>
-      </div>
     </div>
     <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
     <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
@@ -5798,6 +5794,10 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="icon" style="background:${ADMIN_PAGES[k].bg};color:${ADMIN_PAGES[k].fg};">${ADMIN_PAGES[k].icon}</div>
         <div class="lbl">${escapeHtml(ADMIN_PAGES[k].label)}</div><div class="sub">${escapeHtml(ADMIN_PAGES[k].sub)}</div>
       </div>`).join('')}
+      ${isManager(ME) ? `<div class="tile" onclick="go('#/team/libraries/maincontractor')">
+        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
+        <div class="lbl">Main Contractor</div><div class="sub">Subcontractors · Inspections</div>
+      </div>` : ''}
     </div>
     </div>
     ` : ''}
