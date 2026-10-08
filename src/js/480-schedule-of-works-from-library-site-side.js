@@ -163,12 +163,12 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               <button class="ghostbtn" style="margin-top:8px;" onclick="subcontractorAssignPickerTaskId=null;render()">Close</button>
             </div>
           ` : ''}
-          ${photosByTask[t.id] ? `<div class="taskphoto">${photosByTask[t.id].map(p=>`
+          ${(photosByTask[t.id] || SOW_PENDING[t.id]) ? `<div class="taskphoto" id="sowPh-${t.id}">${(photosByTask[t.id]||[]).filter(p=>!sowPendingFind(p.id)).map(p=>`
             <div class="taskphotowrap">
               <img src="${sowPhotoUrl(p,'thumb')}" loading="lazy" decoding="async" width="40" height="40" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p.storage_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">
               ${t.status!=='done' && (isManager(ME) || p.uploaded_by===ME.id) ? `<div class="taskphotodel" onclick="event.stopPropagation();deleteSchedulePhoto('${siteId}','${t.id}','${p.id}','${p.storage_path}')">×</div>` : ''}
             </div>
-          `).join('')}</div>` : ''}
+          `).join('')}${(SOW_PENDING[t.id]||[]).map(sowPendingTileHtml).join('')}</div>` : `<div class="taskphoto" id="sowPh-${t.id}" style="display:none;"></div>`}
           ${pendingCompleteTaskId===t.id ? `
             <div class="card" style="margin:10px 0 0;padding:10px;background:#FCEFEF;border-color:#E8B4B4;">
               <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
@@ -442,6 +442,8 @@ async function renderSchedule(siteId){
     dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc'),
   ]);
   scheduleSectionsCache = sections;
+  // Task changes made on this phone that are still waiting on their photos.
+  try{ await sowPendingForRender(siteId, allTasks, null); }catch(e){}
   if(canAdd) await loadAllProfiles();
   const operativeOptions = canAdd ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   // Flags row visibility/state is driven off allTasks (every task ever added
@@ -478,6 +480,8 @@ async function renderSchedule(siteId){
     const ids = allTasks.map(t=>t.id).join(',');
     const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
     photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
+    // Photos still going up from this phone, and the task changes that go with them.
+    try{ await sowPendingForRender(siteId, null, photos); }catch(e){}
     // Older photos have no small versions yet — make them in the background.
     setTimeout(()=>{ backfillSchedulePhotoRenditions(photos); }, 1500);
   }
@@ -881,6 +885,7 @@ window.setTaskStatus = async function(siteId, taskId, next){
   // handles the direct, no-evidence-needed To Commence/In Progress moves.
   if(next==='done') return;
   if(pendingCompleteTaskId===taskId) pendingCompleteTaskId = null;
+  try{ await sowOfflineDel('patch:'+taskId); }catch(e){}
   if(percentPromptTaskId===taskId) percentPromptTaskId = null;
   // Moving a task back off "done" (e.g. re-opening it) clears the completed
   // date too, so it doesn't keep a stale timestamp from a previous completion.
@@ -992,32 +997,19 @@ async function backfillSchedulePhotoRenditions(photos){
   }catch(e){ /* best effort */ }
   sowBackfillRunning = false;
 }
+// Instant: the photos show on the task and the task shows Complete straight
+// away; both are sent in the background (see 481). The server copy of the
+// task only becomes Complete once its photos have landed.
 window.completeTaskWithPhotos = async function(input, siteId, taskId){
   const files = input.files ? Array.from(input.files) : [];
+  input.value = '';
   if(!files.length) return;
-  // Three photos at a time instead of one after another.
-  let uploaded = 0, queued = 0;
-  await runPool(files, 1, async file=>{
-    const done = await uploadSchedulePhoto(siteId, taskId, file, 'done');
-    if(done && done.queued) queued++;
-    else if(done){ uploaded++; queueOneDrivePhoto(done.dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
-  });
-  if(queued){
-    // Some or all photos are waiting on the phone: the task is marked
-    // Complete on the server only after they have gone up.
-    await sowOfflineKeepTaskPatch(siteId, taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
-    pendingCompleteTaskId = null;
-    customAlert(`${queued} photo${queued===1?'':'s'} kept on this phone. ${queued===1?'It':'They'} will send, and the task will be marked Complete, as soon as you have signal.`);
-    render(); return;
-  }
-  if(!uploaded){ toast('Could not process photo(s) — try again.'); return; }
-  const row = await dbUpdate('schedule_tasks', taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
-  if(row){
-    pendingCompleteTaskId = null;
-    toast('Task marked complete');
-    if(row.section_id) await maybeAutoCloseVariationForSection(siteId, row.section_id);
-    render();
-  }
+  pendingCompleteTaskId = null;
+  if(percentPromptTaskId===taskId) percentPromptTaskId = null;
+  sowAddPhotos(siteId, taskId, files, 'done');
+  await sowOfflineKeepTaskPatch(siteId, taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
+  toast('Task marked complete — '+files.length+' photo'+(files.length===1?'':'s')+' uploading');
+  render();
 };
 // A variation added to the Schedule of Works becomes its own section
 // (see addVariationToSchedule) — once every task in that section is done,
@@ -1171,6 +1163,7 @@ window.deleteScheduleMultiSelected = async function(siteId){
 // keeps both the task and the new photos exactly where they were.
 window.taskPhoto = async function(input, siteId, taskId, currentStatus){
   const files = input.files ? Array.from(input.files) : [];
+  input.value = '';
   if(!files.length) return;
   let stage = currentStatus === 'done' ? 'done' : (currentStatus === 'progress' ? 'progress' : 'todo');
   let moveToProgress = false;
@@ -1178,33 +1171,13 @@ window.taskPhoto = async function(input, siteId, taskId, currentStatus){
     const started = await customConfirm('Has this task started?', {confirmLabel:'Yes — move to In Progress', cancelLabel:'No — still To Do'});
     if(started){ stage = 'progress'; moveToProgress = true; }
   }
-  // Looked up once for the whole batch (it used to be asked again after
-  // every single photo), then three photos go up at a time.
-  const [existing, taskRows] = await Promise.all([
-    dbSelect('schedule_photos', 'task_id=eq.'+taskId+'&select=id'),
-    dbSelect('schedule_tasks', 'id=eq.'+taskId+'&select=name&limit=1'),
-  ]);
-  const taskName = ((taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo').replace(/[^a-z0-9 ]+/gi,'').trim();
-  let photoNum = existing ? existing.length : 0;
-  let uploaded = 0, queued = 0;
-  await runPool(files, 1, async file=>{
-    const done = await uploadSchedulePhoto(siteId, taskId, file, stage);
-    if(done && done.queued) queued++;
-    else if(done){ uploaded++; photoNum++; queueOneDrivePhoto(done.dataUrl, taskName+' '+photoNum+'.jpg', siteId); }
-  });
-  if(queued){
-    if(moveToProgress) await sowOfflineKeepTaskPatch(siteId, taskId, {status:'progress'});
-    customAlert(`${queued} photo${queued===1?'':'s'} kept on this phone. ${queued===1?'It':'They'} will send${moveToProgress?', and the task will move to In Progress,':''} as soon as you have signal.`);
-    if(!uploaded){ render(); return; }
-  }
-  if(uploaded){
-    if(moveToProgress) await dbUpdate('schedule_tasks', taskId, {status:'progress'});
-    // A progress photo prompts for an updated percentage (skippable).
-    if(stage==='progress') percentPromptTaskId = taskId;
-    toast(uploaded===1 ? (moveToProgress?'Photo added — moved to In Progress':'Photo added') : (moveToProgress?`${uploaded} photos added — moved to In Progress`:`${uploaded} photos added`));
-    render();
-  }
-  else toast('Could not process photo(s).');
+  // Instant: the photos appear on the task now and go up in the background (see 481).
+  sowAddPhotos(siteId, taskId, files, stage);
+  if(moveToProgress) await sowOfflineKeepTaskPatch(siteId, taskId, {status:'progress'});
+  // A progress photo prompts for an updated percentage (skippable).
+  if(stage==='progress') percentPromptTaskId = taskId;
+  toast((files.length===1 ? 'Photo added' : files.length+' photos added')+(moveToProgress?' — moved to In Progress':''));
+  if(moveToProgress || stage==='progress') render();
 };
 // Photos can be removed while a task is still To Do/In Progress — once it's
 // marked Complete its photos are the evidence record and are locked (the ×
