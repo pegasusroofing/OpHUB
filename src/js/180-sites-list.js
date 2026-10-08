@@ -215,7 +215,6 @@ async function renderSites(){
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
-    ${appSearchHtml()}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>
       <div style="display:flex;align-items:center;gap:8px;">
