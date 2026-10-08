@@ -91,67 +91,49 @@ async function renderMaterials(siteId){
   // — Material Requests (theirs to raise) and the Material List
   // (theirs to action, if a PM has assigned them something to collect) —
   // deliberately not the PM/admin folder-tile navigation below.
-  if(!isPM){
-    const myPickups = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&assigned_to=eq.'+ME.id+'&status=in.(assigned,collected)&select=id');
-    if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-      <div class="tilegrid">
-        <div class="tile" onclick="go('#/site/${siteId}/materialrequests')">
-          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-          <div class="lbl">Material Requests</div>
-        </div>
-        <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
-          <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🧾</div>
-          <div class="lbl">Pick-up List</div><div class="sub">${myPickups.length} to collect</div>
-        </div>
-        <div class="tile" onclick="go('#/site/${siteId}/plant')">
-          <div class="icon" style="background:#EAF3EC;color:#2E7D46;">🏗</div>
-          <div class="lbl">Plant</div><div class="sub">Check in / out</div>
-        </div>
-        <div class="tile" onclick="go('#/site/${siteId}/expenses')">
-          <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
-          <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
-        </div>
-      </div>
-    `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
-    return;
-  }
+  if(!isPM){ return renderOperativeMaterials(siteId); }
   const [pendingCount, orderFileCount, requiredOpenCount] = await Promise.all([
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
-    dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
+    dbSelect('materials', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
     dbSelect('material_order_files', 'site_id=eq.'+siteId+'&select=id'),
-    dbSelect('material_required_items', 'site_id=eq.'+siteId+'&status=in.(open,assigned,collected)&select=id'),
+    dbSelect('material_required_items', 'site_id=eq.'+siteId+'&status=in.(open,assigned)&select=id'),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid">
       <div class="tile" onclick="go('#/site/${siteId}/materialrequests')">
-        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
-        <div class="lbl">Material Requests</div><div class="sub">${pendingCount.length} pending</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
-        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📦</div>
-        <div class="lbl">Material PO's</div><div class="sub">${orderFileCount.length ? orderFileCount.length+' synced' : 'Synced daily'}</div>
+        <div class="icon" style="background:#F1E4FA;color:#6A2C91;">🙋</div>
+        <div class="lbl">Material Requests</div><div class="sub">From operatives — order for delivery</div>
+        ${pendingCount.length ? `<div class="matcount" style="background:#F1E4FA;color:#6A2C91;">${pendingCount.length} to action</div>` : ''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
-        <div class="icon" style="background:#EAEFFB;color:#2F4B99;">🧾</div>
-        <div class="lbl">Material List</div><div class="sub">${requiredOpenCount.length} live</div>
+        <div class="icon" style="background:#FCEFD2;color:#8A5A00;">📦</div>
+        <div class="lbl">Collection List</div><div class="sub">Items for someone to pick up</div>
+        ${requiredOpenCount.length ? `<div class="matcount" style="background:#FCEFD2;color:#8A5A00;">${requiredOpenCount.length} to collect</div>` : ''}
       </div>
-      <div class="tile" onclick="go('#/site/${siteId}/plant')">
+      <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
+        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📄</div>
+        <div class="lbl">Material PO's</div><div class="sub">Synced daily from OneDrive${orderFileCount.length ? ' · '+orderFileCount.length+' files' : ''}</div>
+      </div>
+      ${canSeeMatTile(site,'plant') ? `      <div class="tile" onclick="go('#/site/${siteId}/plant')">
         <div class="icon" style="background:#EAF3EC;color:#2E7D46;">🏗</div>
         <div class="lbl">Plant</div><div class="sub">Check in / out</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/expenses')">
+      </div>` : ''}
+      ${canSeeMatTile(site,'expenses') ? `      <div class="tile" onclick="go('#/site/${siteId}/expenses')">
         <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
         <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
-      </div>
+      </div>` : ''}
     </div>
+    ${matVisibilityHtml(siteId)}
   `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 async function renderMaterialRequests(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const isPM = isManager(ME);
-  const statusQS = matFilter==='live' ? 'status=in.(pending,sent)' : 'status=in.(closed,cancelled)';
+  if(!isPM && matFilter==='ordered') matFilter='live';
+  const statusQS = matFilter==='closed' ? 'status=in.(closed,cancelled)'
+    : (isPM ? (matFilter==='ordered' ? 'status=eq.sent' : 'status=eq.pending') : 'status=in.(pending,sent)');
   const [materials, suppliers] = await Promise.all([
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
@@ -169,10 +151,47 @@ async function renderMaterialRequests(siteId){
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${isPM ? `<div class="matbanner" style="background:#F1E4FA;color:#4E1F6E;"><span>🙋</span><div><b>Requests from operatives.</b> Order each one from a merchant for delivery, or add it to the <a href="#/site/${siteId}/materialrequired" style="color:inherit;font-weight:800;">Collection List</a>.</div></div>
+    <div class="filterrow">
+      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">To action</div>
+      <div class="filterchip ${matFilter==='ordered'?'active':''}" onclick="matFilter='ordered';clearMaterialSelection();render()">Ordered</div>
+      <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
+    </div>
+    ${isPM ? `
+    <p class="ddrow" style="margin:0 0 12px;" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> 🏪 Suppliers <span class="stub" style="margin:0 0 0 auto;display:inline;">${suppliers.length} saved</span></p>
+    ${suppliersOpen ? `
+    <div class="card">
+      ${suppliers.map(s=>`
+        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
+          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
+            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
+            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
+          </div>
+          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
+          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
+        </div>
+      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
+      ${supplierAddOpen ? `
+        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
+        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
+        <div class="row-gap">
+          <button class="darkbtn" style="flex:1;" onclick="addSupplier('${siteId}')">Add Supplier</button>
+          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
+        </div>
+        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B):</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInput').click()">Choose Excel/CSV file</div>
+        <input type="file" id="supplierExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,'${siteId}')">
+      ` : `
+        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
+      `}
+    </div>
+    ` : ''}
+    ` : ''}
+    ` : `
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
-    </div>
+    </div>`}
     ${isPM && materialSelectableIds.length>1 ? `
       <label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-size:13.5px;font-weight:700;cursor:pointer;">
         <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${selectedMaterialIds.size>=materialSelectableIds.length?'checked':''} onchange="if(this.checked){selectAllMaterials()}else{clearMaterialSelection();render()}">
@@ -245,12 +264,19 @@ async function renderMaterialRequests(siteId){
             </div>`
             ) : `<div class="merchantrow">Awaiting action from project manager</div>`) : ''}
           ${!isPM && m.status==='pending' && m.requested_by===ME.id ? `<div class="row-gap" style="margin-top:10px;"><button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit request</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="cancelMaterial('${siteId}','${m.id}')">Cancel request</button></div>` : ''}
-          ${isPM && m.status!=='closed' && m.status!=='cancelled' ? `
+          ${isPM && m.status==='pending' && !selectedMaterialIds.has(m.id) ? `
           <div class="row-gap" style="margin-top:10px;">
-            ${m.status==='pending' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">Send order</button>` : ''}
-            ${m.status==='sent' && !selectedMaterialIds.has(m.id) ? `<button class="darkbtn" style="flex:1;" onclick="sendMaterialAgain('${m.id}')">Send again</button>` : ''}
-            <button class="ghostbtn" style="flex:1;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
+            <button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">🚚 Order delivery</button>
+            <button class="ghostbtn" style="flex:1;" onclick="materialToCollection('${siteId}','${m.id}')">📦 Add to collections</button>
           </div>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
+          ` : ''}
+          ${isPM && m.status==='sent' && !selectedMaterialIds.has(m.id) ? `
+          <div class="row-gap" style="margin-top:10px;">
+            <button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit order</button>
+            <button class="darkbtn" style="flex:1;" onclick="sendMaterialAgain('${m.id}')">↻ Resend order</button>
+          </div>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">✓ Received — close</button>
           ` : ''}
           ${isPM && m.status==='closed' ? `<div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="width:auto;" onclick="reopenMaterial('${siteId}','${m.id}')">Reopen</button>
@@ -273,10 +299,10 @@ async function renderMaterialRequests(siteId){
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
-    }).join('') || `<div class="empty">No ${matFilter} material requests.</div>`}
+    }).join('') || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : matFilter==='ordered' ? 'No orders waiting for delivery.' : 'No closed requests.') : 'No '+matFilter+' material requests.'}</div>`}
 
-    ${matFilter==='live' ? `
-    <div class="card" style="margin-top:24px;">
+    ${matFilter!=='closed' ? `
+    <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       <div class="row-gap">
@@ -290,36 +316,6 @@ async function renderMaterialRequests(siteId){
         <p class="stub" style="margin:4px 0 0;">Pick a material order spreadsheet — each item and quantity becomes its own request. You're shown the list to confirm first.</p>
       ` : ''}
     </div>
-    ` : ''}
-    ${isPM ? `
-    <p class="ddrow" style="" onclick="suppliersOpen=!suppliersOpen;render()"><span class="arrow">${suppliersOpen?'▼':'▶'}</span> Suppliers</p>
-    ${suppliersOpen ? `
-    <div class="card">
-      ${suppliers.map(s=>`
-        <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
-          <div class="info" style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1;">
-            <input type="text" value="${escapeHtml(s.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','name')">
-            <input type="email" value="${escapeHtml(s.email)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;font-family:inherit;background:#fff;color:var(--ink);" onblur="saveSupplierField(this,'${s.id}','email')">
-          </div>
-          <span style="cursor:pointer;font-size:19px;line-height:1;color:${s.favourite?'#D9A441':'var(--line)'};align-self:center;" title="${s.favourite?'Unfavourite':'Favourite (up to 3 pin to the top)'}" onclick="toggleSupplierFavourite('${s.id}',${s.favourite?'true':'false'})">${s.favourite?'★':'☆'}</span>
-          <div class="taskicon danger" onclick="deleteSupplier('${siteId}','${s.id}')">🗑</div>
-        </div>
-      `).join('') || `<div class="empty" style="padding:10px;">No suppliers yet.</div>`}
-      ${supplierAddOpen ? `
-        <div class="formfield" style="margin-top:10px;"><input type="text" id="supName" placeholder="Supplier name"></div>
-        <div class="formfield"><input type="email" id="supEmail" placeholder="Supplier order email"></div>
-        <div class="row-gap">
-          <button class="darkbtn" style="flex:1;" onclick="addSupplier('${siteId}')">Add Supplier</button>
-          <button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button>
-        </div>
-        <p class="stub" style="margin:12px 0 6px;">Or import a list — Excel/CSV with Name and Email columns (or Name in column A, Email in column B):</p>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('supplierExcelInput').click()">Choose Excel/CSV file</div>
-        <input type="file" id="supplierExcelInput" accept=".xlsx,.xls,.csv" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="importSuppliersExcel(this,'${siteId}')">
-      ` : `
-        <button class="darkbtn" style="margin-top:10px;" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>
-      `}
-    </div>
-    ` : ''}
     ` : ''}
   `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }

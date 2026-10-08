@@ -14,7 +14,8 @@ let matReqAssignFor = null; // material_required_items id whose assign picker is
 let matReqCollectFor = null; // id whose "confirm collected qty" field is open
 let matReqEditFor = null; // id whose item/qty/supplier edit card is open — PM/admin only
 let expandedMatReqIds = new Set(); // ids whose collapsible row is expanded
-let selectedMatReqIds = new Set(); // ids ticked for "Email Selected" / "Mark Selected Collected"
+let selectedMatReqIds = new Set();
+let matReqBulkAssignOpen = false; // ids ticked for "Email Selected" / "Mark Selected Collected"
 // Draft rows for the "Add More" / "Complete List" flow (item 14) — the row
 // currently in the open input fields is NOT in this array until either
 // "Add More" pushes it in (to start a new row) or "Complete List" inserts
@@ -133,9 +134,9 @@ async function renderMaterialRequiredList(siteId){
   // supplier management/emailing for them).
   const groupsHtml = ()=>{
     if(!isPM){
-      return items.map(rowHtml).join('') || `<div class="empty">No ${matReqFilter==='live'?'live':'collected'} items.</div>`;
+      return items.map(rowHtml).join('') || `<div class="empty">${matReqFilter==='live'?'Nothing waiting to be collected.':'Nothing collected yet.'}</div>`;
     }
-    if(!items.length) return `<div class="empty">No ${matReqFilter==='live'?'live':'collected'} items.</div>`;
+    if(!items.length) return `<div class="empty">${matReqFilter==='live'?'Nothing waiting to be collected.':'Nothing collected yet.'}</div>`;
     const groups = {};
     items.forEach(m=>{ const key = m.supplier_id || '__none'; (groups[key]=groups[key]||[]).push(m); });
     const keys = Object.keys(groups).sort((a,b)=>{
@@ -159,10 +160,16 @@ async function renderMaterialRequiredList(siteId){
   };
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${isPM ? `<div class="matbanner" style="background:#FCEFD2;color:#5E3D00;"><span>📦</span><div><b>Items for someone to pick up.</b> Assign who collects each one — it shows on their Materials screen as a tick list.</div></div>` : ''}
     <div class="filterrow">
-      <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Live</div>
+      <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">To collect</div>
       <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
+    ${isPM && items.length>1 ? `
+      <label class="selallrow">
+        <input type="checkbox" ${selectedMatReqIds.size>=items.length?'checked':''} onchange="selectedMatReqIds=this.checked?new Set(${escapeHtml(JSON.stringify(items.map(m=>m.id)))}):new Set();render()">
+        Select all (${items.length})${selectedMatReqIds.size>0 && selectedMatReqIds.size<items.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMatReqIds.size} selected</span>` : ''}
+      </label>` : ''}
     ${isPM && selectedMatReqIds.size>0 ? `
       <div class="card" style="border-color:var(--brand1);border-width:1.5px;margin-top:12px;">
         <p class="sectiontitle" style="margin-top:0;">${selectedMatReqIds.size} item${selectedMatReqIds.size>1?'s':''} selected</p>
@@ -170,7 +177,15 @@ async function renderMaterialRequiredList(siteId){
           <button class="darkbtn" style="flex:1;" onclick="openMatReqEmailSelectedPrompt('${siteId}')">✉ Email Selected</button>
           ${matReqFilter==='live' ? `<button class="darkbtn" style="flex:1;background:var(--ok);" onclick="closeMaterialRequiredItems('${siteId}', Array.from(selectedMatReqIds))">✓ Mark Selected Collected</button>` : ''}
         </div>
-        <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMatReqIds=new Set();render()">Clear selection</button>
+        ${matReqFilter==='live' ? (matReqBulkAssignOpen ? `
+          <div class="row-gap" style="margin-top:8px;">
+            <select id="matReqBulkAssignSelect" style="flex:1;padding:8px 10px;font-size:13px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);">
+              <option value="">— Who collects? —</option>
+              ${siteOperatives.map(o=>`<option value="${o.id}">${escapeHtml(o.name)}</option>`).join('')}
+            </select>
+            <button class="darkbtn" style="width:auto;padding:8px 16px;" onclick="assignSelectedMatReq('${siteId}')">Assign</button>
+          </div>` : `<button class="ghostbtn" style="margin-top:8px;" onclick="matReqBulkAssignOpen=true;render()">👤 Assign selected to an operative</button>`) : ''}
+        <button class="ghostbtn" style="margin-top:8px;" onclick="selectedMatReqIds=new Set();matReqBulkAssignOpen=false;render()">Clear selection</button>
       </div>
     ` : ''}
     <div style="margin-top:12px;">${groupsHtml()}</div>
@@ -207,7 +222,7 @@ async function renderMaterialRequiredList(siteId){
       </div>
     </div>
     ` : ''}
-  `, {title:'Material List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
+  `, {title:'Collection List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
 window.toggleMatReqExpand = function(id){
   if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);
@@ -365,6 +380,23 @@ window.confirmAssignMaterialRequired = async function(siteId, id){
   }catch(e){ /* best-effort push — the assignment itself already saved */ }
   postSystemMessageTo(siteId, 'material_pickup', `${nameOf(userId)} was asked to collect "${itemLabel}" for ${SITES.find(s=>s.id===siteId)?.name||'this site'}.`);
 };
+window.assignSelectedMatReq = async function(siteId){
+  const sel = document.getElementById('matReqBulkAssignSelect');
+  const userId = sel ? sel.value : '';
+  if(!userId){ toast('Choose an operative.'); return; }
+  const ids = Array.from(selectedMatReqIds);
+  if(!ids.length) return;
+  const now = new Date().toISOString();
+  const res = await Promise.all(ids.map(id=>dbUpdate('material_required_items', id, {assigned_to:userId, status:'assigned', assigned_at:now})));
+  const n = res.filter(Boolean).length;
+  matReqBulkAssignOpen = false; selectedMatReqIds = new Set();
+  toast(n+' item'+(n>1?'s':'')+' assigned to '+nameOf(userId));
+  render();
+  if(n){
+    try{ await sbFetch('/functions/v1/notify-material-pickup', {method:'POST', body: JSON.stringify({site_id:siteId, user_id:userId, item_label: n+' items'})}); }catch(e){}
+    postSystemMessageTo(siteId, 'material_pickup', `${nameOf(userId)} was asked to collect ${n} item${n>1?'s':''} for ${SITES.find(s=>s.id===siteId)?.name||'this site'}.`);
+  }
+};
 window.confirmCollectMaterialRequired = async function(siteId, id){
   const input = document.getElementById('matReqCollectQty-'+id);
   const qtyCollected = input ? input.value.trim() : '';
@@ -459,7 +491,7 @@ window.openMatReqEmailSelectedPrompt = async function(siteId){
   const ticked = managers.filter(p=>p.id===ME.id).map(p=>p.id);
   ov.innerHTML = `
     <div class="geo-modal-card">
-      <h3>Email ${selectedMatReqIds.size} Material List item${selectedMatReqIds.size>1?'s':''}</h3>
+      <h3>Email ${selectedMatReqIds.size} Collection List item${selectedMatReqIds.size>1?'s':''}</h3>
       <p class="stub">Tick who should receive it, or add another address below.</p>
       <div style="max-height:180px;overflow-y:auto;margin-bottom:10px;">
         ${managers.map(p=>`
@@ -500,7 +532,7 @@ window.confirmMatReqEmailSelected = async function(siteId){
   const items = rows.map(r=>({item:r.item, qty:r.qty, supplier_name: r.supplier_id ? supplierName(r.supplier_id) : null}));
   try{
     const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients, items, context_label: 'Material List',
+      site_id: siteId, recipients, items, context_label: 'Collection List',
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -562,13 +594,13 @@ window.confirmMatReqSupplierEmail = async function(siteId, supplierId, supplierN
   const items = rows.map(r=>({item:r.item, qty:r.qty}));
   try{
     const res = await sbFetch('/functions/v1/send-material-list-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients:[supplierEmail], items, context_label: 'Material List — '+supplierName,
+      site_id: siteId, recipients:[supplierEmail], items, context_label: 'Collection List — '+supplierName,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
       const card = document.querySelector('#matReqSupplierEmailModalOverlay .geo-modal-card');
       if(card){
-        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Material List was emailed to ${escapeHtml(supplierName)}.</p><button class="darkbtn" style="width:100%;" onclick="closeMatReqSupplierEmailPrompt()">Done</button>`;
+        card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">The Collection List was emailed to ${escapeHtml(supplierName)}.</p><button class="darkbtn" style="width:100%;" onclick="closeMatReqSupplierEmailPrompt()">Done</button>`;
       } else { closeMatReqSupplierEmailPrompt(); toast('Email sent'); }
     } else {
       console.error('send-material-list-email failed:', d.error || res.status);

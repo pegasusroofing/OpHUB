@@ -340,6 +340,7 @@ async function renderRoute(){
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
+    if((page==='expenses' || page==='plant') && !canSeeMatTile(SITES.find(x=>x.id===siteId), page)){ go('#/site/'+siteId+'/materials'); return; }
     if(page==='expenses') return renderExpenses(siteId);
     if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }
     if(page==='plant') return renderPlant(siteId);

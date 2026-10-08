@@ -291,7 +291,7 @@ function orderFulfilmentHtml(key, drivers, siteOps){
         <select id="reqCollector_${key}" onchange="onOrderModeChange('${key}')">
           <option value="">Choose…</option>
           ${drivers.length ? `<optgroup label="Driver — adds to the Delivery Schedule">${drivers.map(d=>`<option value="driver:${d.id}">🚐 ${escapeHtml(d.name)}</option>`).join('')}</optgroup>` : ''}
-          ${siteOps.length ? `<optgroup label="Operative — adds to the Material List">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
+          ${siteOps.length ? `<optgroup label="Operative — adds to the Collection List">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
         </select>
       </div>
       ${!drivers.length && !siteOps.length ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">No drivers or site operatives to choose from yet.</p>` : ''}
@@ -342,13 +342,13 @@ async function confirmRebookCollection(f, materials){
   if(!f || f.mode!=='collection') return true;
   const sentBefore = (materials||[]).some(m=>m && (m.sent_at || m.email_sent_at));
   if(!sentBefore) return true;
-  const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Material List';
+  const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Collection List';
   const who = (PROFILES[f.collectorId]||{}).name || 'them';
   return await customConfirm(`This order has been sent before. Add it to the ${where} for ${who} again? Choose No if it is already on there — the email will still be sent.`, {confirmLabel:'Yes — add it again', cancelLabel:'No — email only'});
 }
 async function bookOrderCollection(siteId, f, supplier, toMe, materials){
   if(!f || f.mode!=='collection') return '';
-  if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Material List')+' again';
+  if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Collection List')+' again';
   const who = PROFILES[f.collectorId];
   const whoName = who ? who.name : 'them';
   const dateLabel = new Date(f.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
@@ -376,9 +376,9 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
       supplier_id: toMe ? null : supplier.id, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
-    if(!rows) return ' — but it could not be added to the Material List, add it by hand';
+    if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
-    return ' — added to the Material List for '+whoName+' to collect '+dateLabel;
+    return ' — added to the Collection List for '+whoName+' to collect '+dateLabel;
   }catch(e){ console.error('bookOrderCollection failed', e); return ' — but the collection could not be booked, add it by hand'; }
 }
 window.beginSendMaterial = async function(matId){
