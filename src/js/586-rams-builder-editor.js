@@ -64,7 +64,7 @@ async function renderRamsNew(siteId){
     <div class="formfield"><label class="field-label">RAMS name</label><input type="text" id="ramsNewTitle" value="${escapeHtml((site?site.name+' — ':'')+'Roof Renewal')}"></div>
     <p class="opmat-h">Start from — tick one or more</p>
     <div class="card" style="padding:4px 14px;">
-      ${templates.length>1 ? `<label class="selallrow" style="margin:8px 0 2px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsTplPick').forEach(c=>c.checked=this.checked)"> Select all templates</label>` : ''}
+      ${templates.length>1 ? `<label class="ramsstart"><input type="checkbox" onchange="document.querySelectorAll('.ramsTplPick').forEach(c=>c.checked=this.checked)"> <div><b>Select all templates</b></div></label>` : ''}
       ${templates.map((t,i)=>`<label class="ramsstart"><input type="checkbox" class="ramsTplPick" value="${t.id}"> <div><b>📋 ${escapeHtml(t.title)}</b><div class="stub" style="margin:0;">Template · ${(t.data.hazards||[]).length} hazards · ${(t.data.sections||[]).length} sections</div></div></label>`).join('')}
       <p class="stub" style="margin:8px 0;">Tick nothing to start blank and add hazards and sections yourself from the library. Ticking several combines them — anything in more than one is only added once.</p>
       ${!templates.length ? `<p class="stub" style="margin:10px 0;">No templates yet — ${lib.length ? 'save one from any RAMS.' : `<span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">load the starter library</span> (built from your Cleveland Primary School RAMS).`}</p>` : ''}
@@ -94,7 +94,7 @@ window.ramsCopyFilter = function(q){
 window.ramsCopyPickSite = function(siteId){
   const box = document.getElementById('ramsCopyList'); if(!box) return;
   const list = ((window.RAMS_COPY_SRC||{}).bySite||{})[siteId] || [];
-  box.innerHTML = list.length ? `${list.length>1 ? `<label class="selallrow" style="margin:0 0 4px;"><input type="checkbox" onchange="document.querySelectorAll('.ramsCopyPick').forEach(c=>c.checked=this.checked)"> Select all</label>` : ''}` + list.map(b=>`<label class="ramsstart"><input type="checkbox" class="ramsCopyPick" value="${b.id}"> <div><b>${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${b.status==='issued' ? 'Issued rev '+b.revision : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('') : '';
+  box.innerHTML = list.length ? `${list.length>1 ? `<label class="ramsstart"><input type="checkbox" onchange="document.querySelectorAll('.ramsCopyPick').forEach(c=>c.checked=this.checked)"> <div><b>Select all</b></div></label>` : ''}` + list.map(b=>`<label class="ramsstart"><input type="checkbox" class="ramsCopyPick" value="${b.id}"> <div><b>${escapeHtml(b.title)}</b><div class="stub" style="margin:0;">${b.status==='issued' ? 'Issued rev '+b.revision : 'Draft'} · ${new Date(b.updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div></label>`).join('') : '';
 };
 window.ramsSeedAndReload = async function(){
   const rows = await ramsSeedLibrary();
