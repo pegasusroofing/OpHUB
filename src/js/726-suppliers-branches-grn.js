@@ -67,7 +67,7 @@ async function renderSuppliersAdmin(){
       <div class="row-gap"><button class="darkbtn" style="flex:1;" onclick="addSupplier(null)">Add Supplier</button><button class="ghostbtn" style="flex:1;" onclick="supplierAddOpen=false;render()">Cancel</button></div>
     </div>` : `<button class="darkbtn" onclick="supplierAddOpen=true;render()">+ Add Supplier</button>`}
   `;
-  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Suppliers', back:'#/team'});
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'Suppliers', back:'#/team/libraries'});
 }
 async function updateSupplierBranches(supplierId, fn){
   const s = (await dbSelect('suppliers', 'id=eq.'+supplierId))[0]; if(!s) return null;

@@ -21,11 +21,10 @@ const ADMIN_ITEMS = {
   signtemplates:  {page:'libraries', group:'Reports & documents', icon:'✍️', label:'Signing Templates',    sub:'RAMS signature boxes',             href:'#/sign-templates',                kw:'rams signature sign template docusign', show:()=>isManager(ME)},
   sowlibrary:     {page:'libraries', group:'Works & pricing',     icon:'🧱', label:'Schedule of Works Library', sub:'Standard sections and tasks', flags:['sowlibrary'],                   kw:'sow schedule works library', show:()=>isManager(ME)},
   pricebuilder:   {page:'libraries', group:'Works & pricing',     icon:'💷', label:'Price Sheet Rate Card', sub:'Rates by category',             flags:['pricebuilder'],                 kw:'price rate card rates builder', show:()=>ME.role==='admin' && canUsePriceBuilder() && PRICE_BUILDER_LIVE},
-  suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Used on all projects',             flags:['suppliers'],                    kw:'supplier merchant', show:()=>isManager(ME)},
+  suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Suppliers, order emails and branches', href:'#/suppliers', kw:'supplier merchant branch address materials', show:()=>isFullManager(ME)},
   maincontractor: {page:'libraries', group:'Works & pricing',     icon:'🏢', label:'Main Contractor',      sub:'Inspection templates',             flags:['maincontractor'],               kw:'main contractor mc inspection', show:()=>isManager(ME)},
   hspolicy:       {page:'libraries', group:'Health & Safety',     icon:'📕', label:'H&S Policy',           sub:'Policy document and who has signed', flags:['hspolicy'],                   kw:'health safety policy', show:()=>isFullManager(ME)},
   havstools:      {page:'libraries', group:'Health & Safety',     icon:'🛠️', label:'HAVS Tools',           sub:'Vibration tool list',              flags:['havstools'],                    kw:'havs vibration tools', show:()=>isFullManager(ME)},
-  suppliers:      {page:'libraries', group:'Works & pricing',     icon:'🏪', label:'Suppliers',            sub:'Suppliers, order emails and branches', href:'#/suppliers', kw:'supplier merchant branch address materials', show:()=>isFullManager(ME)},
   ramslibrary:    {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'RAMS Library',         sub:'Hazards, method statements, templates', href:'#/rams-library', kw:'rams risk assessment method statement hazard template builder', show:()=>isFullManager(ME)},
   coshhlibrary:   {page:'libraries', group:'Health & Safety',     icon:'🧪', label:'COSHH Library',        sub:'Assessments for all sites',        flags:['coshhlibrary'],                 kw:'coshh hazardous substances', show:()=>isFullManager(ME)},
   tbt:            {page:'libraries', group:'Health & Safety',     icon:'🗣️', label:'Toolbox Talk Templates', sub:'All sites',                      flags:['tbt'],                          kw:'toolbox talk tbt', show:()=>isFullManager(ME) && ME.role==='admin'},
@@ -226,10 +225,6 @@ async function renderTeam(adminPage, adminItemKey){
         <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
         <div class="lbl">Main Contractor</div>
       </div>
-      ${isFullManager(ME) ? `<div class="tile" onclick="go('#/suppliers')">
-        <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">🏪</div>
-        <div class="lbl">Suppliers</div>
-      </div>` : ''}
     </div>
     <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
     <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
