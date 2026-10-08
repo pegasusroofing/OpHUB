@@ -9,8 +9,8 @@ const ADMIN_GROUP_FLAGS = ['brandingintegrations','libraries','healthsafety','in
 const ADMIN_PAGES = {
   company:   {label:'Company',   icon:'🎨', sub:'Logo · Theme · Integrations', bg:'var(--brand1)', fg:'var(--brand1-text)', show:()=>ME.role==='admin'},
   libraries: {label:'Libraries', icon:'📚', sub:'Templates · Rates · H&S',     bg:'var(--ok-bg)',  fg:'var(--ok)',          show:()=>isManager(ME)},
-  people:    {label:'People',    icon:'👥', sub:'Invites · Users · Phones',    bg:'var(--blue-bg)',fg:'var(--blue)',        show:()=>isManager(ME)},
-  logs:      {label:'Logs',      icon:'🕒', sub:'Check-ins · Drivers',         bg:'#EEEEEE',       fg:'#555555',            show:()=>isManager(ME)},
+  people:    {label:'People',    icon:'👥', sub:'Users · Phones · Check-in logs',    bg:'var(--blue-bg)',fg:'var(--blue)',        show:()=>isManager(ME)},
+  logs:      {label:'Logs',      icon:'🕒', sub:'Check-ins · Drivers',         bg:'#EEEEEE',       fg:'#555555',            show:()=>false},
 };
 // key -> where it lives, what it's called, which original section(s) to open.
 const ADMIN_ITEMS = {
@@ -29,11 +29,11 @@ const ADMIN_ITEMS = {
   coshhlibrary:   {page:'libraries', group:'Health & Safety',     icon:'🧪', label:'COSHH Library',        sub:'Assessments for all sites',        flags:['coshhlibrary'],                 kw:'coshh hazardous substances', show:()=>isFullManager(ME)},
   tbt:            {page:'libraries', group:'Health & Safety',     icon:'🗣️', label:'Toolbox Talk Templates', sub:'All sites',                      flags:['tbt'],                          kw:'toolbox talk tbt', show:()=>isFullManager(ME) && ME.role==='admin'},
   ppelog:         {page:'libraries', group:'Health & Safety',     icon:'🦺', label:'PPE Log',              sub:'Issued PPE and the register',      flags:['ppelog'],                       kw:'ppe register', show:()=>isFullManager(ME)},
-  invites:        {page:'people',    group:'',                    icon:'✉️', label:'Invites',              sub:'Invite links and pending invites', flags:['invites'],                      kw:'invite link join', show:()=>isManager(ME)},
-  users:          {page:'people',    group:'',                    icon:'👥', label:'Users',                sub:'Roles, passwords, removing people', flags:['users'],                       kw:'user role admin pm estimator operative driver client password remove', show:()=>isManager(ME)},
-  devicelocks:    {page:'people',    group:'',                    icon:'📱', label:'Device Locks',         sub:'One phone = one person',           flags:['devicelocks'],                  kw:'device phone lock approve', show:()=>isFullManager(ME)},
-  checkinlogs:    {page:'logs',      group:'',                    icon:'📍', label:'Check-In Logs',        sub:'Operatives and PM logins by site', flags:['checkinlogs'],                  kw:'check in out log site attendance', show:()=>isManager(ME)},
-  drivercheckins: {page:'logs',      group:'',                    icon:'🚚', label:'Driver Check-In Log',  sub:'Shifts, breaks, hours',            flags:['drivercheckins'],               kw:'driver check in shift break hours', show:()=>isFullManager(ME)},
+  invites:        {page:'people',    group:'Team',                    icon:'✉️', label:'Invites',              sub:'Invite links and pending invites', flags:['invites'],                      kw:'invite link join', show:()=>isManager(ME)},
+  users:          {page:'people',    group:'Team',                    icon:'👥', label:'Users',                sub:'Roles, passwords, removing people', flags:['users'],                       kw:'user role admin pm estimator operative driver client password remove', show:()=>isManager(ME)},
+  devicelocks:    {page:'people',    group:'Team',                    icon:'📱', label:'Device Locks',         sub:'One phone = one person',           flags:['devicelocks'],                  kw:'device phone lock approve', show:()=>isFullManager(ME)},
+  checkinlogs:    {page:'people',      group:'Logs',                    icon:'📍', label:'Check-In Logs',        sub:'Operatives and PM logins by site', flags:['checkinlogs'],                  kw:'check in out log site attendance', show:()=>isManager(ME)},
+  drivercheckins: {page:'people',      group:'Logs',                    icon:'🚚', label:'Driver Check-In Log',  sub:'Shifts, breaks, hours',            flags:['drivercheckins'],               kw:'driver check in shift break hours', show:()=>isFullManager(ME)},
 };
 function adminItemHash(key){ const it = ADMIN_ITEMS[key]; return it ? (it.href || '#/team/'+it.page+'/'+key) : '#/team'; }
 function adminRowHtml(key, extraSub){
