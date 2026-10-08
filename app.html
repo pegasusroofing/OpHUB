@@ -23827,18 +23827,16 @@ function ramsIssueHtml(b, siteId){
       <button class="ghostbtn" onclick="ramsSaveAsTemplate()">📋 Save as a template</button>
       <p class="stub" style="margin:6px 0 0;">Saves these hazards, sections, PPE and groups — exactly as edited here — as a template for future jobs.</p>
     </div>
-    <div class="card" style="padding:12px 14px;">
-      <p class="sectiontitle" style="margin-top:0;">Company details on the documents</p>
-      <div class="formfield"><label class="field-label">Address (one line per row)</label><textarea id="ramsSetAddr" rows="4">${escapeHtml(st.address)}</textarea></div>
-      <div class="formfield"><label class="field-label">Telephone</label><input type="tel" id="ramsSetPhone" value="${escapeHtml(st.phone)}"></div>
-      <div class="formfield"><label class="field-label">Data protection statement</label><textarea id="ramsSetDp" rows="5">${escapeHtml(st.dataProtection)}</textarea></div>
-      <button class="ghostbtn" onclick="ramsSaveCompany()">Save company details</button>
-    </div>
+    <p class="stub" style="margin:4px 2px 10px;">Company address, phone and data protection text come from Admin Centre → Libraries → RAMS Library → Company Details.</p>
     <button class="ghostbtn" style="color:var(--warn);margin-top:4px;" onclick="ramsDeleteBuild('${siteId}')">Delete this RAMS draft</button>
   `;
 }
 window.ramsSaveCompany = async function(){
-  const ok = await saveRamsSettings({address:document.getElementById('ramsSetAddr').value, phone:document.getElementById('ramsSetPhone').value, dataProtection:document.getElementById('ramsSetDp').value});
+  const patch = {address:document.getElementById('ramsSetAddr').value, phone:document.getElementById('ramsSetPhone').value, dataProtection:document.getElementById('ramsSetDp').value};
+  const ra = document.getElementById('ramsSetNextRa'), ms = document.getElementById('ramsSetNextMs');
+  if(ra && +ra.value>0) patch.nextRa = Math.floor(+ra.value);
+  if(ms && +ms.value>0) patch.nextMs = Math.floor(+ms.value);
+  const ok = await saveRamsSettings(patch);
   toast(ok ? 'Saved' : 'Could not save — admins only');
 };
 window.ramsSaveAsTemplate = async function(){
@@ -24169,7 +24167,8 @@ async function renderRamsLibrary(){
   const html = `
     <div class="card">
     <p class="stub" style="margin:0 0 12px;">The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn't change RAMS already written for a job.</p>
-    <div class="filterrow">${[['hazard','Hazards'],['section','Safe Systems of Work & Method Statements'],['template','Templates']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" style="${k==='section'?'flex:2;':''}" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l} (${counts(k)})</div>`).join('')}</div>
+    <div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${[['hazard','Hazards'],['section','Safe Systems of Work & Method Statements'],['template','Templates'],['company','Company Details']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" style="margin:0;" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l}${k==='company'?'':' ('+counts(k)+')'}</div>`).join('')}</div>
+    ${ramsLibTab==='company' ? ramsCompanyDetailsHtml() : `
     <input type="text" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="ramsLibQ=this.value;clearTimeout(window._rlq);window._rlq=setTimeout(()=>{render();setTimeout(()=>{const e=document.getElementById('ramsLibSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},300)">
     ${ramsLibTab==='section' ? [['general','Safe Systems of Work'],['method','Method Statements']].map(([part,lbl])=>{
         const g = items.filter(it=>((it.data||{}).part==='method' ? 'method' : 'general')===part);
@@ -24179,7 +24178,7 @@ async function renderRamsLibrary(){
       }).join('') : `
     ${items.map((it,i)=>row(it,i,items.length)).join('') || `<div class="empty">${lib.length ? 'Nothing here yet.' : 'Your library is empty.'}</div>`}
     <button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew()">+ New ${ramsLibTab==='template'?'template':'hazard'}</button>`}
-    ${!lib.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="ramsSeedAndReload()">Load the starter library (from your Cleveland Primary School RAMS)</button>` : ''}
+    ${!lib.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="ramsSeedAndReload()">Load the starter library (from your Cleveland Primary School RAMS)</button>` : ''}`}
     </div>
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'RAMS Library', back:'#/team/libraries'});
@@ -24252,6 +24251,17 @@ function ramsLibTemplateEditHtml(it, lib){
     <div class="ramschips">${RAMS_PPE.map(p=>`<label class="ramschip ${(d.ppe||[]).includes(p.key)?'on':''}"><input type="checkbox" class="rlTplPpe" value="${p.key}" ${(d.ppe||[]).includes(p.key)?'checked':''} onchange="this.parentNode.classList.toggle('on',this.checked)"> ${p.icon} ${p.label}</label>`).join('')}</div>
     <div class="row-gap" style="margin-top:12px;"><button class="darkbtn" style="flex:2;" onclick="ramsLibSave('${it.id}')">Save template</button><button class="ghostbtn" style="flex:1;" onclick="ramsLibEditId=null;render()">Cancel</button></div>
   </div>`;
+}
+
+// Company details printed at the top of every builder RAMS — set once here.
+function ramsCompanyDetailsHtml(){
+  const st = ramsSettings();
+  return `<p class="stub" style="margin:4px 0 10px;">Printed at the top of every Risk Assessment and Method Statement made in the RAMS Builder.</p>
+    <div class="formfield"><label class="field-label">Address (one line per row)</label><textarea id="ramsSetAddr" rows="4">${escapeHtml(st.address)}</textarea></div>
+    <div class="formfield"><label class="field-label">Telephone</label><input type="tel" id="ramsSetPhone" value="${escapeHtml(st.phone)}"></div>
+    <div class="formfield"><label class="field-label">Data protection statement</label><textarea id="ramsSetDp" rows="6">${escapeHtml(st.dataProtection)}</textarea></div>
+    <div class="row-gap"><div class="formfield" style="flex:1;"><label class="field-label">Next RA number</label><input type="number" id="ramsSetNextRa" min="1" value="${st.nextRa}"></div><div class="formfield" style="flex:1;"><label class="field-label">Next MS number</label><input type="number" id="ramsSetNextMs" min="1" value="${st.nextMs}"></div></div>
+    <button class="darkbtn" onclick="ramsSaveCompany()">Save company details</button>`;
 }
 
 /* ================= EXPENSES (sub-tile inside Materials) ================= */

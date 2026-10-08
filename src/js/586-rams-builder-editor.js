@@ -392,18 +392,16 @@ function ramsIssueHtml(b, siteId){
       <button class="ghostbtn" onclick="ramsSaveAsTemplate()">📋 Save as a template</button>
       <p class="stub" style="margin:6px 0 0;">Saves these hazards, sections, PPE and groups — exactly as edited here — as a template for future jobs.</p>
     </div>
-    <div class="card" style="padding:12px 14px;">
-      <p class="sectiontitle" style="margin-top:0;">Company details on the documents</p>
-      <div class="formfield"><label class="field-label">Address (one line per row)</label><textarea id="ramsSetAddr" rows="4">${escapeHtml(st.address)}</textarea></div>
-      <div class="formfield"><label class="field-label">Telephone</label><input type="tel" id="ramsSetPhone" value="${escapeHtml(st.phone)}"></div>
-      <div class="formfield"><label class="field-label">Data protection statement</label><textarea id="ramsSetDp" rows="5">${escapeHtml(st.dataProtection)}</textarea></div>
-      <button class="ghostbtn" onclick="ramsSaveCompany()">Save company details</button>
-    </div>
+    <p class="stub" style="margin:4px 2px 10px;">Company address, phone and data protection text come from Admin Centre → Libraries → RAMS Library → Company Details.</p>
     <button class="ghostbtn" style="color:var(--warn);margin-top:4px;" onclick="ramsDeleteBuild('${siteId}')">Delete this RAMS draft</button>
   `;
 }
 window.ramsSaveCompany = async function(){
-  const ok = await saveRamsSettings({address:document.getElementById('ramsSetAddr').value, phone:document.getElementById('ramsSetPhone').value, dataProtection:document.getElementById('ramsSetDp').value});
+  const patch = {address:document.getElementById('ramsSetAddr').value, phone:document.getElementById('ramsSetPhone').value, dataProtection:document.getElementById('ramsSetDp').value};
+  const ra = document.getElementById('ramsSetNextRa'), ms = document.getElementById('ramsSetNextMs');
+  if(ra && +ra.value>0) patch.nextRa = Math.floor(+ra.value);
+  if(ms && +ms.value>0) patch.nextMs = Math.floor(+ms.value);
+  const ok = await saveRamsSettings(patch);
   toast(ok ? 'Saved' : 'Could not save — admins only');
 };
 window.ramsSaveAsTemplate = async function(){
