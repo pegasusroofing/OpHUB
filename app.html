@@ -20506,33 +20506,33 @@ async function buildSchedulePdfBytes(siteId){
       const thumbSize = 74, thumbGap = 8; // another 1.3x on top of the previous 57pt (which itself was 1.3x of the original 44pt)
       const usableW = cardWidth - 2*cardPad;
       const perRow = Math.max(1, Math.floor((usableW+thumbGap)/(thumbSize+thumbGap)));
-      let remaining = STAGE_SECTIONS.filter(s=>stageBuckets[s.key].length>0).map(s=>{
-        const photos = stageBuckets[s.key];
-        const rows = Math.max(1, Math.ceil(photos.length/perRow));
-        return {...s, photos, rows};
-      });
+      // Laid out row by row: a card fills whatever room is left on the page
+      // and carries on as "(continued)" at the top of the next one. (It used
+      // to move a whole stage of photos to the next page if it didn't fit,
+      // which on jobs with lots of photos left half of every page blank.)
       const headerH = 30;
-      const stageH = s => 14 + s.rows*(thumbSize+thumbGap);
-      // Body height available starting fresh at the top of a brand-new page
-      // (matches newPage()'s y plus the same "y - blockH < 60" bottom check
-      // used everywhere else in this export), minus the card's own 12pt of
-      // bottom padding — the budget each chunk's "used" total is sized against.
-      const MAX_FRESH_PAGE_BODY = (PAGE_H - 118) - 60 - 12;
-
-      let isFirstChunk = true;
-      while(isFirstChunk || remaining.length){
+      const ROW_H = thumbSize+thumbGap, LABEL_H = 14, BOTTOM = 60, PAD_B = 12;
+      const items = [];
+      STAGE_SECTIONS.forEach(st=>{
+        const ph = stageBuckets[st.key];
+        if(!ph.length) return;
+        for(let r=0; r*perRow<ph.length; r++) items.push({stage:st, total:ph.length, photos:ph.slice(r*perRow, (r+1)*perRow), first:r===0});
+      });
+      let idx = 0, isFirstChunk = true;
+      while(isFirstChunk || idx < items.length){
         const chunkHeaderH = isFirstChunk ? headerH : 20;
-        let used = chunkHeaderH, take = 0;
-        for(; take<remaining.length; take++){
-          const h = stageH(remaining[take]);
-          if(used + h > MAX_FRESH_PAGE_BODY && take>0) break;
-          used += h;
+        // Not even room for the heading and one row of photos: start a new page.
+        const need = chunkHeaderH + (idx < items.length ? LABEL_H + ROW_H : 0) + PAD_B;
+        if(y - need < BOTTOM) newPage();
+        const room = y - BOTTOM - PAD_B;
+        let used = chunkHeaderH, end = idx;
+        while(end < items.length){
+          const it = items[end];
+          const h = ROW_H + ((it.first || end===idx) ? LABEL_H : 0) + ((it.first && end>idx) ? 6 : 0);
+          if(used + h > room && end > idx) break;
+          used += h; end++;
         }
-        if(take===0) take = 1; // always make progress, even if one stage alone exceeds a full page
-        const chunkStages = remaining.slice(0, take);
-        remaining = remaining.slice(take);
-        const blockH = used + 12;
-        if(y - blockH < 60) newPage();
+        const blockH = used + PAD_B;
         const cardTop = y;
         page.drawRectangle({x:MARGIN, y:cardTop-blockH, width:cardWidth, height:blockH, color:CARDBG});
         let ty = cardTop - 20;
@@ -20554,14 +20554,16 @@ async function buildSchedulePdfBytes(siteId){
           page.drawText(contName + ' (continued)', {x:textLeft, y:ty, size:10, font:bold, color:SLATE});
           ty -= 16;
         }
-        for(const s of chunkStages){
-          page.drawText(s.label.toUpperCase() + ' (' + s.photos.length + ')', {x:textLeft, y:ty, size:8, font:bold, color:SLATE});
-          ty -= 12;
-          let cx = textLeft, cy = ty;
-          for(let i=0; i<s.photos.length; i++){
-            if(i>0 && i%perRow===0){ cx = textLeft; cy -= (thumbSize+thumbGap); }
+        for(let k=idx; k<end; k++){
+          const it = items[k];
+          if(it.first || k===idx){
+            if(it.first && k>idx) ty -= 6; // a little space between one stage's photos and the next heading
+            page.drawText(it.stage.label.toUpperCase() + ' (' + it.total + ')' + (it.first ? '' : ' continued'), {x:textLeft, y:ty, size:8, font:bold, color:SLATE});
+            ty -= 12;
+          }
+          let cx = textLeft;
+          for(const ph of it.photos){
             try{
-              const ph = s.photos[i];
               // A ready-made 200px tile needs no shrinking; older photos still get shrunk here.
               const bytes = ph.thumb_path ? await pdfFetchImageBytes(sowPhotoUrl(ph,'thumb')) : await pdfFetchImageBytesScaled(publicUrl('site-photos', ph.storage_path), Math.round(thumbSize*3), 0.78);
               if(bytes){
@@ -20569,13 +20571,14 @@ async function buildSchedulePdfBytes(siteId){
                 const dim = img.scale(1);
                 const sc = thumbSize/Math.max(dim.width, dim.height);
                 const w = dim.width*sc, h = dim.height*sc;
-                page.drawImage(img, {x:cx+(thumbSize-w)/2, y:cy-thumbSize+(thumbSize-h)/2, width:w, height:h});
+                page.drawImage(img, {x:cx+(thumbSize-w)/2, y:ty-thumbSize+(thumbSize-h)/2, width:w, height:h});
               }
             }catch(e){ /* skip photo if it fails to embed */ }
             cx += thumbSize+thumbGap;
           }
-          ty = cy - thumbSize - thumbGap;
+          ty -= ROW_H;
         }
+        idx = end;
         y = cardTop - blockH - 10;
         isFirstChunk = false;
       }
