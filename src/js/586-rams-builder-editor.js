@@ -277,15 +277,15 @@ function ramsHazardsHtml(b){
   `;
 }
 function ramsSectionsHtml(b){
-  const parts = [['general','General precautions / safe systems of work'],['method','Method statements (step by step)']];
+  const parts = [['general','Safe Systems of Work'],['method','Method Statements']];
   return `
-    <p class="stub" style="margin:0 0 10px;">Each section is its own item. General precautions print first, then the step-by-step method statements.</p>
+    <p class="stub" style="margin:0 0 10px;">Each item is its own section. Safe systems of work print first, then the step-by-step method statements.</p>
     ${parts.map(([part,label])=>{
       const list = b.sections.filter(s=>s.part===part);
       return `<p class="opmat-h">${label}</p>` + (list.map((s,i)=>{
         if(ramsEd.editId===s.id) return `<div class="card ramsitem editing">
           <div class="formfield"><label class="field-label">Heading</label><input type="text" value="${escapeHtml(s.title)}" oninput="ramsS('${s.id}').title=this.value;ramsQueueSave()"></div>
-          <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();render()"><option value="general" ${s.part==='general'?'selected':''}>General precaution / safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
+          <div class="formfield"><label class="field-label">Type</label><select onchange="ramsS('${s.id}').part=this.value;ramsQueueSave();render()"><option value="general" ${s.part==='general'?'selected':''}>Safe system of work</option><option value="method" ${s.part==='method'?'selected':''}>Method statement (step by step)</option></select></div>
           <div class="formfield"><label class="field-label">Text</label><textarea rows="5" oninput="ramsS('${s.id}').body=this.value;ramsQueueSave()">${escapeHtml(s.body)}</textarea></div>
           <div class="formfield"><label class="field-label">Numbered steps / points — one per line (optional)</label><textarea rows="${Math.min(14, Math.max(4, s.steps.length+2))}" oninput="ramsS('${s.id}').steps=this.value.split('\\n').map(x=>x.trim()).filter(Boolean);ramsQueueSave()">${escapeHtml(s.steps.join('\n'))}</textarea></div>
           <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsEd.editId=null;ramsSaveNow();render()">Done</button><button class="ghostbtn" style="flex:1;" onclick="ramsSaveToLibrary('section','${s.id}')">⭳ Save to library</button></div>
@@ -298,7 +298,7 @@ function ramsSectionsHtml(b){
         </div>`;
       }).join('') || `<div class="empty" style="padding:10px;">None yet.</div>`);
     }).join('')}
-    <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section')">+ New section / safe system of work</button></div>
+    <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" style="flex:1;" onclick="ramsOpenPicker('section')">+ Add from library</button><button class="ghostbtn" style="flex:1;" onclick="ramsNewItem('section')">+ New safe system / method</button></div>
     ${ramsNextBtn('ms')}
   `;
 }

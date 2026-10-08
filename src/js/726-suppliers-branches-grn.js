@@ -40,7 +40,7 @@ async function renderSuppliersAdmin(){
   const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
   window.MAT_SUPPLIERS = suppliers;
   const html = `
-    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🏪</span><div><b>Suppliers</b> — names, order emails and branches. Branches can be picked when you order for collection or add to a Collection List.</div></div>
+    <p class="stub" style="margin:0 2px 12px;">Supplier names, order emails and branches. Branches can be picked when you order for collection or add to a Collection List.</p>
     ${suppliers.map(s=>{
       const open = suppliersAdminOpen===s.id; const brs = Array.isArray(s.branches) ? s.branches : [];
       return `<div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
