@@ -141,6 +141,7 @@ async function renderMaterialRequests(siteId){
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
+  if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
@@ -214,6 +215,7 @@ async function renderMaterialRequests(siteId){
               `) : ''}
             </div>
           </div>
+          ${m.sub_site_label ? '<div>'+subAddrPill(m.sub_site_label)+'</div>' : ''}
           ${m.grn ? matGrnDetailHtml(m) : ''}
           ${isPM && m.supplier_branch ? `<div class="merchantrow">📍 ${escapeHtml(branchLabel(m.supplier_branch))}</div>` : ''}
           ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? (
@@ -287,6 +289,7 @@ async function renderMaterialRequests(siteId){
     ${matFilter==='live' ? `
     <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
+      ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       <div class="row-gap">
         <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>

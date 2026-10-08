@@ -394,6 +394,8 @@ function deliverySiteHeadingHtml(taskOrSiteId){
   }
   const site = SITES.find(s=>s.id===siteId);
   if(!site) return 'Unknown site';
+  // Multi-site job: the chosen address is where the driver actually goes.
+  if(t && t.sub_site_label) return escapeHtml((site.name||'').trim())+'<br><b>'+escapeHtml(t.sub_site_label)+'</b>';
   const name = (site.name||'').trim();
   const addr = fullSiteAddress(site);
   if(!addr) return escapeHtml(name || 'Unknown site');
@@ -405,11 +407,11 @@ function deliverySiteLabel(taskOrSiteId){
   const siteId = t ? t.site_id : taskOrSiteId;
   if(t && !siteId) return (t.manual_site_name||'').trim() || (t.manual_site_address||'').trim() || 'a site';
   const site = SITES.find(s=>s.id===siteId);
-  return site ? site.name : 'a site';
+  return site ? site.name + (t && t.sub_site_label ? ' ('+t.sub_site_label.split(' — ')[0]+')' : '') : 'a site';
 }
 // Full "name, address" on one line — for exports.
 function deliverySiteFullLabel(t){
-  if(t.site_id) return pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site';
+  if(t.site_id) return (t.sub_site_label ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'')+' — '+t.sub_site_label : (pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site'));
   return [(t.manual_site_name||'').trim(), (t.manual_site_address||'').trim()].filter(Boolean).join(', ') || 'Unknown site';
 }
 // "Push to Tomorrow" — for when a drop doesn't get done. Moves the delivery

@@ -107,7 +107,7 @@ async function renderOperativeMaterials(siteId){
     ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card">
         <div class="opmat-row">
           <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
-          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
+          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div>${m.sub_site_label ? subAddrPill(m.sub_site_label) : ''}</div>
           ${m.grn ? matGrnTag(m.grn) : `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>`}
         </div>
         ${m.grn ? '' : (grnOpenFor===m.id ? grnFormHtml(siteId, m) : `<label class="grnchk grnopen" onclick="event.preventDefault();openGrn('${m.id}')"><input type="checkbox"> Goods received (GRN)</label>`)}

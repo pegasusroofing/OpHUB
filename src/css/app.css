@@ -630,3 +630,4 @@
 .img-viewer-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;display:flex;align-items:center;justify-content:center;font-size:40px;line-height:1;color:#fff;background:rgba(255,255,255,0.12);border-radius:12px;z-index:2;cursor:pointer;user-select:none;}
 .img-viewer-nav.prev{left:8px;}
 .img-viewer-nav.next{right:8px;}
+.subaddrpill{display:inline-block;font-size:11.5px;font-weight:700;color:var(--slate);background:var(--paper,#F1F0EB);border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin-top:4px;overflow-wrap:anywhere;}

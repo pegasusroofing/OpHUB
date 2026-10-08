@@ -64,7 +64,7 @@ function deliveryTaskCardHtml(t, opts){
   return `
     <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
-        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
         <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
@@ -292,8 +292,10 @@ async function renderDeliveryForm(taskId){
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
+    if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
+  if(deliveryFormDraft.site_id && siteIsMulti(deliveryFormDraft.site_id) && !SUB_ADDR_CACHE[deliveryFormDraft.site_id]) await loadSubAddrs(deliveryFormDraft.site_id);
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
@@ -324,6 +326,7 @@ async function renderDeliveryForm(taskId){
       </select>
       <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
     </div>
+    ${!draft._manualSite && draft.site_id ? subAddrSelectHtml('deliverySubAddr', draft.site_id, draft.sub_site_id, "deliveryFormDraft.sub_site_id=this.value", 'Which address on this job?') : ''}
     ${draft._manualSite ? `
     <div class="card" style="margin-bottom:12px;">
       <p class="stub" style="margin:0 0 8px;">For a job that isn't set up on the app. Type the details the driver needs.</p>
@@ -446,6 +449,8 @@ window.onDeliveryFormSiteChange = async function(siteId){
   deliveryFormDraft._manualSite = manual;
   deliveryFormDraft.site_id = manual ? '' : siteId;
   deliveryFormDraft.site_contact_id = '';
+  deliveryFormDraft.sub_site_id = '';
+  if(!manual && siteIsMulti(siteId)) await loadSubAddrs(siteId);
   await loadDeliveryFormSiteOperatives(manual ? '' : siteId);
   render();
 };
@@ -492,6 +497,7 @@ window.saveDeliveryTask = async function(){
   if(d._manualSite){
     if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the job name or address.'); return; }
   } else if(!d.site_id){ toast('Choose a site.'); return; }
+  if(!d._manualSite && siteIsMulti(d.site_id) && (SUB_ADDR_CACHE[d.site_id]||[]).length && !d.sub_site_id){ toast('Choose which address on this job.'); return; }
   if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
   if(!d.scheduled_date){ toast('Choose a date.'); return; }
   if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
@@ -522,6 +528,8 @@ window.saveDeliveryTask = async function(){
     site_id: d._manualSite ? null : d.site_id,
     manual_site_name: d._manualSite ? ((d.manual_site_name||'').trim() || null) : null,
     manual_site_address: d._manualSite ? ((d.manual_site_address||'').trim() || null) : null,
+    sub_site_id: (!d._manualSite && d.sub_site_id) ? d.sub_site_id : null,
+    sub_site_label: (!d._manualSite && d.sub_site_id) ? subAddrLabel((SUB_ADDR_CACHE[d.site_id]||[]).find(a=>a.id===d.sub_site_id)) || null : null,
     description: d.description.trim(),
     collection_type: d.collection_type,
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,

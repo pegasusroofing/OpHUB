@@ -644,6 +644,7 @@
 .img-viewer-nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:64px;display:flex;align-items:center;justify-content:center;font-size:40px;line-height:1;color:#fff;background:rgba(255,255,255,0.12);border-radius:12px;z-index:2;cursor:pointer;user-select:none;}
 .img-viewer-nav.prev{left:8px;}
 .img-viewer-nav.next{right:8px;}
+.subaddrpill{display:inline-block;font-size:11.5px;font-weight:700;color:var(--slate);background:var(--paper,#F1F0EB);border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin-top:4px;overflow-wrap:anywhere;}
 </style>
 </head>
 <body>
@@ -29461,6 +29462,7 @@ async function renderMaterialRequests(siteId){
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
+  if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
@@ -29534,6 +29536,7 @@ async function renderMaterialRequests(siteId){
               `) : ''}
             </div>
           </div>
+          ${m.sub_site_label ? '<div>'+subAddrPill(m.sub_site_label)+'</div>' : ''}
           ${m.grn ? matGrnDetailHtml(m) : ''}
           ${isPM && m.supplier_branch ? `<div class="merchantrow">📍 ${escapeHtml(branchLabel(m.supplier_branch))}</div>` : ''}
           ${(m.status==='sent'||(m.status==='closed'&&m.merchant)) ? (isPM ? (
@@ -29607,6 +29610,7 @@ async function renderMaterialRequests(siteId){
     ${matFilter==='live' ? `
     <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
+      ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       <div class="row-gap">
         <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
@@ -29762,7 +29766,7 @@ async function renderOperativeMaterials(siteId){
     ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card">
         <div class="opmat-row">
           <div style="min-width:0;flex:1;"><div class="opmat-item">${escapeHtml(m.item)}${m.qty ? ` <span class="opmat-qty">× ${escapeHtml(m.qty)}</span>` : ''}</div>
-          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div></div>
+          <div class="opmat-sub" style="margin:2px 0 0;">Delivery${m.required_for_delivery ? ' · '+fmt(m.required_for_delivery) : ''}</div>${m.sub_site_label ? subAddrPill(m.sub_site_label) : ''}</div>
           ${m.grn ? matGrnTag(m.grn) : `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">Delivery</span>`}
         </div>
         ${m.grn ? '' : (grnOpenFor===m.id ? grnFormHtml(siteId, m) : `<label class="grnchk grnopen" onclick="event.preventDefault();openGrn('${m.id}')"><input type="checkbox"> Goods received (GRN)</label>`)}
@@ -29972,6 +29976,46 @@ function matGrnDetailHtml(m){
     ${g.notes ? `<div style="margin-top:4px;white-space:pre-wrap;">${escapeHtml(g.notes)}</div>` : ''}
     ${(g.photos||[]).length ? `<div class="grnthumbs" style="margin-top:6px;">${g.photos.map(p=>`<div class="grnthumb" onclick="event.stopPropagation();viewDrawing('${publicUrl('site-photos', p)}', true)"><img src="${publicUrl('site-photos', p)}"></div>`).join('')}</div>` : ''}
   </div>`;
+}
+
+/* ================= MULTI-SITE JOBS — choosing the address =================
+ * A multi-site job (site.multi_site) has several addresses
+ * (site_sub_addresses). Deliveries and material requests/orders on such a
+ * job ask which address it's for; the choice is stored as sub_site_id plus a
+ * ready-to-show sub_site_label ("Block A — 12 High St, AB1 2CD") so lists,
+ * the driver and emails can show it without another lookup. */
+const SUB_ADDR_CACHE = {};
+async function loadSubAddrs(siteId){
+  if(!siteId) return [];
+  const rows = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+  SUB_ADDR_CACHE[siteId] = (rows||[]).filter(a=>!a.closed);
+  return SUB_ADDR_CACHE[siteId];
+}
+function subAddrLabel(a){
+  if(!a) return '';
+  const addr = [a.address, a.postcode].filter(Boolean).join(', ');
+  return (a.name||'') + (addr ? ' — '+addr : '');
+}
+function siteIsMulti(siteId){ const s = SITES.find(x=>x.id===siteId); return !!(s && s.multi_site); }
+// <select> of a multi-site job's addresses (nothing for a normal job).
+function subAddrSelectHtml(selId, siteId, selected, onchange, label){
+  if(!siteIsMulti(siteId)) return '';
+  const list = SUB_ADDR_CACHE[siteId] || [];
+  return `<div class="formfield"><label class="field-label">${label || 'Which address on this job?'}</label>
+    <select id="${selId}" ${onchange ? `onchange="${onchange}"` : ''}>
+      <option value="">— Choose address —</option>
+      ${list.map(a=>`<option value="${a.id}" ${selected===a.id?'selected':''}>${escapeHtml(subAddrLabel(a))}</option>`).join('')}
+    </select>${list.length ? '' : `<p class="stub" style="margin:4px 0 0;">No addresses added to this job yet — add them in the job's Settings › Multi-Site.</p>`}</div>`;
+}
+function readSubAddr(selId, siteId){
+  const el = document.getElementById(selId);
+  const id = el ? el.value : '';
+  if(!id) return {sub_site_id:null, sub_site_label:null};
+  const a = (SUB_ADDR_CACHE[siteId]||[]).find(x=>x.id===id);
+  return {sub_site_id:id, sub_site_label: a ? subAddrLabel(a) : null};
+}
+function subAddrPill(label){
+  return label ? `<span class="subaddrpill">📍 ${escapeHtml(label)}</span>` : '';
 }
 
 /* ================= MATERIAL LIST (pick-up list) ================
@@ -31423,7 +31467,9 @@ window.addMaterial = async function(siteId){
   const requiredByEl = document.getElementById('matRequiredBy');
   const requiredBy = requiredByEl ? requiredByEl.value : '';
   if(!item) return;
-  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending'});
+  const sub = readSubAddr('matSubAddr', siteId);
+  if(siteIsMulti(siteId) && (SUB_ADDR_CACHE[siteId]||[]).length && !sub.sub_site_id){ toast('Choose which address on this job.'); return; }
+  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label});
   if(rows){
     postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`+(requiredBy?` — required by ${requiredBy}`:''));
     toast('Request added'); render();
@@ -31433,6 +31479,11 @@ window.addMaterial = async function(siteId){
 // order and a grouped (collated) order. Collection asks who is collecting:
 // a driver (the order goes onto the Delivery Schedule as one job) or a site
 // operative (each item goes onto the Material List, assigned to them).
+// Multi-site job: tell the supplier which address to deliver to.
+function addDeliverTo(fulfil, materials){
+  const labels = Array.from(new Set((materials||[]).map(m=>m.sub_site_label).filter(Boolean)));
+  if(fulfil.mode==='delivery' && labels.length===1) fulfil.note = 'Deliver to: '+labels[0]+(fulfil.note ? ' — '+fulfil.note : '');
+}
 function orderSupplierFor(key){
   if(key==='group') return groupSupplierId;
   if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
@@ -31529,6 +31580,8 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
         collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
         scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
+        sub_site_id: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_id) ? materials[0].sub_site_id : null,
+        sub_site_label: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_label) ? materials[0].sub_site_label : null,
       };
       const rows = await dbInsert('delivery_tasks', payload);
       const saved = rows && rows[0];
@@ -31540,7 +31593,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
     const nowIso = new Date().toISOString();
     const rows = await dbInsert('material_required_items', materials.map(m=>({
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
-      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
+      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, sub_site_id: m.sub_site_id||null, sub_site_label: m.sub_site_label||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
     if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
@@ -31568,6 +31621,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  if(material) addDeliverTo(fulfil, [material]);
   if(!(await confirmRebookCollection(fulfil, material ? [material] : []))) fulfil.skipBooking = true;
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
@@ -31663,6 +31717,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
+  addDeliverTo(fulfil, materials);
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();
   const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null})));
@@ -34500,6 +34555,8 @@ function deliverySiteHeadingHtml(taskOrSiteId){
   }
   const site = SITES.find(s=>s.id===siteId);
   if(!site) return 'Unknown site';
+  // Multi-site job: the chosen address is where the driver actually goes.
+  if(t && t.sub_site_label) return escapeHtml((site.name||'').trim())+'<br><b>'+escapeHtml(t.sub_site_label)+'</b>';
   const name = (site.name||'').trim();
   const addr = fullSiteAddress(site);
   if(!addr) return escapeHtml(name || 'Unknown site');
@@ -34511,11 +34568,11 @@ function deliverySiteLabel(taskOrSiteId){
   const siteId = t ? t.site_id : taskOrSiteId;
   if(t && !siteId) return (t.manual_site_name||'').trim() || (t.manual_site_address||'').trim() || 'a site';
   const site = SITES.find(s=>s.id===siteId);
-  return site ? site.name : 'a site';
+  return site ? site.name + (t && t.sub_site_label ? ' ('+t.sub_site_label.split(' — ')[0]+')' : '') : 'a site';
 }
 // Full "name, address" on one line — for exports.
 function deliverySiteFullLabel(t){
-  if(t.site_id) return pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site';
+  if(t.site_id) return (t.sub_site_label ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'')+' — '+t.sub_site_label : (pdfSiteLabel(SITES.find(s=>s.id===t.site_id)) || 'Unknown site'));
   return [(t.manual_site_name||'').trim(), (t.manual_site_address||'').trim()].filter(Boolean).join(', ') || 'Unknown site';
 }
 // "Push to Tomorrow" — for when a drop doesn't get done. Moves the delivery
@@ -35074,7 +35131,7 @@ function deliveryTaskCardHtml(t, opts){
   return `
     <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
-        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
         <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
@@ -35302,8 +35359,10 @@ async function renderDeliveryForm(taskId){
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
+    if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
+  if(deliveryFormDraft.site_id && siteIsMulti(deliveryFormDraft.site_id) && !SUB_ADDR_CACHE[deliveryFormDraft.site_id]) await loadSubAddrs(deliveryFormDraft.site_id);
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
@@ -35334,6 +35393,7 @@ async function renderDeliveryForm(taskId){
       </select>
       <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
     </div>
+    ${!draft._manualSite && draft.site_id ? subAddrSelectHtml('deliverySubAddr', draft.site_id, draft.sub_site_id, "deliveryFormDraft.sub_site_id=this.value", 'Which address on this job?') : ''}
     ${draft._manualSite ? `
     <div class="card" style="margin-bottom:12px;">
       <p class="stub" style="margin:0 0 8px;">For a job that isn't set up on the app. Type the details the driver needs.</p>
@@ -35456,6 +35516,8 @@ window.onDeliveryFormSiteChange = async function(siteId){
   deliveryFormDraft._manualSite = manual;
   deliveryFormDraft.site_id = manual ? '' : siteId;
   deliveryFormDraft.site_contact_id = '';
+  deliveryFormDraft.sub_site_id = '';
+  if(!manual && siteIsMulti(siteId)) await loadSubAddrs(siteId);
   await loadDeliveryFormSiteOperatives(manual ? '' : siteId);
   render();
 };
@@ -35502,6 +35564,7 @@ window.saveDeliveryTask = async function(){
   if(d._manualSite){
     if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the job name or address.'); return; }
   } else if(!d.site_id){ toast('Choose a site.'); return; }
+  if(!d._manualSite && siteIsMulti(d.site_id) && (SUB_ADDR_CACHE[d.site_id]||[]).length && !d.sub_site_id){ toast('Choose which address on this job.'); return; }
   if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
   if(!d.scheduled_date){ toast('Choose a date.'); return; }
   if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
@@ -35532,6 +35595,8 @@ window.saveDeliveryTask = async function(){
     site_id: d._manualSite ? null : d.site_id,
     manual_site_name: d._manualSite ? ((d.manual_site_name||'').trim() || null) : null,
     manual_site_address: d._manualSite ? ((d.manual_site_address||'').trim() || null) : null,
+    sub_site_id: (!d._manualSite && d.sub_site_id) ? d.sub_site_id : null,
+    sub_site_label: (!d._manualSite && d.sub_site_id) ? subAddrLabel((SUB_ADDR_CACHE[d.site_id]||[]).find(a=>a.id===d.sub_site_id)) || null : null,
     description: d.description.trim(),
     collection_type: d.collection_type,
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,

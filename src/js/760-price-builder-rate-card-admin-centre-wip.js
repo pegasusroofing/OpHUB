@@ -266,7 +266,9 @@ window.addMaterial = async function(siteId){
   const requiredByEl = document.getElementById('matRequiredBy');
   const requiredBy = requiredByEl ? requiredByEl.value : '';
   if(!item) return;
-  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending'});
+  const sub = readSubAddr('matSubAddr', siteId);
+  if(siteIsMulti(siteId) && (SUB_ADDR_CACHE[siteId]||[]).length && !sub.sub_site_id){ toast('Choose which address on this job.'); return; }
+  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label});
   if(rows){
     postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`+(requiredBy?` — required by ${requiredBy}`:''));
     toast('Request added'); render();
@@ -276,6 +278,11 @@ window.addMaterial = async function(siteId){
 // order and a grouped (collated) order. Collection asks who is collecting:
 // a driver (the order goes onto the Delivery Schedule as one job) or a site
 // operative (each item goes onto the Material List, assigned to them).
+// Multi-site job: tell the supplier which address to deliver to.
+function addDeliverTo(fulfil, materials){
+  const labels = Array.from(new Set((materials||[]).map(m=>m.sub_site_label).filter(Boolean)));
+  if(fulfil.mode==='delivery' && labels.length===1) fulfil.note = 'Deliver to: '+labels[0]+(fulfil.note ? ' — '+fulfil.note : '');
+}
 function orderSupplierFor(key){
   if(key==='group') return groupSupplierId;
   if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
@@ -372,6 +379,8 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
         collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
         scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
+        sub_site_id: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_id) ? materials[0].sub_site_id : null,
+        sub_site_label: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_label) ? materials[0].sub_site_label : null,
       };
       const rows = await dbInsert('delivery_tasks', payload);
       const saved = rows && rows[0];
@@ -383,7 +392,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
     const nowIso = new Date().toISOString();
     const rows = await dbInsert('material_required_items', materials.map(m=>({
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
-      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
+      supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, sub_site_id: m.sub_site_id||null, sub_site_label: m.sub_site_label||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
     if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
@@ -411,6 +420,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
+  if(material) addDeliverTo(fulfil, [material]);
   if(!(await confirmRebookCollection(fulfil, material ? [material] : []))) fulfil.skipBooking = true;
   // Goes straight to 'closed' — an order that's just been sent to a merchant
   // doesn't need a separate manual "Close request" step afterwards.
@@ -506,6 +516,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
+  addDeliverTo(fulfil, materials);
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
   const nowIso = new Date().toISOString();
   const updateResults = await Promise.all(matIds.map(id => dbUpdate('materials', id, {status:'closed', merchant: toMe ? 'Emailed to '+ME.name : supplier.name, supplier_id: toMe ? null : groupSupplierId, sent_at:nowIso, required_for_delivery:requiredForDelivery, fulfilment:fulfil.mode, collector_id:fulfil.collectorId||null, order_note:fulfil.note||null, supplier_branch:fulfil.branch||null})));
