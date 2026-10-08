@@ -24,19 +24,28 @@ function canSeeMatTile(site, key, p){
   if(isFullManager(p) || p.role==='superadmin') return true;
   return matVisibility(site)[key].includes(p.role);
 }
-let matVisOpen = false;
-function matVisibilityHtml(siteId){
-  if(!isFullManager(ME)) return '';
-  const site = SITES.find(s=>s.id===siteId);
-  const v = matVisibility(site);
-  const row = (key, label) => `<div class="matvis-row"><div class="matvis-lbl">${label}</div>${MAT_VIS_ROLES.map(r=>`
-      <label class="matvis-chk"><input type="checkbox" ${v[key].includes(r.role)?'checked':''} onchange="setMatVisibility('${siteId}','${key}','${r.role}',this.checked)"> ${r.label}</label>`).join('')}</div>`;
-  return `<p class="ddrow" style="margin-top:16px;" onclick="matVisOpen=!matVisOpen;render()"><span class="arrow">${matVisOpen?'▼':'▶'}</span> 👁 Who can see Plant &amp; Expenses on this job</p>
-    ${matVisOpen ? `<div class="card" style="padding:12px 14px;">
-      <p class="stub" style="margin:0 0 8px;">PMs and admins always see both. Tick the job roles that should also see them on this job.</p>
-      ${row('plant','🏗 Plant')}${row('expenses','🧾 Expenses')}
-    </div>` : ''}`;
+// Plant / Expenses tiles on the manager Materials screen. PMs/admins get a
+// ⋮ menu on the tile (same pattern as the Main Contractor and Live Jobs
+// tiles) to choose which job roles see it; the tile greys out while it's
+// hidden from operatives. Site managers only see the tile if allowed.
+function matVisTileHtml(site, key, icon, bg, color, label, sub){
+  if(!canSeeMatTile(site, key)) return '';
+  const siteId = site.id;
+  const v = matVisibility(site)[key];
+  const full = isFullManager(ME);
+  const hiddenFromOps = !v.includes('operative');
+  const who = v.length ? 'Seen by '+MAT_VIS_ROLES.filter(r=>v.includes(r.role)).map(r=>r.label).join(', ') : 'PM / admin only';
+  return `<div class="tile ${full && hiddenFromOps ? 'matvis-off' : ''}" style="position:relative;" onclick="go('#/site/${siteId}/${key}')">
+      ${full ? `<div style="position:absolute;top:6px;right:6px;z-index:1;" onclick="event.stopPropagation()">${rowActionsMenuHtml('mattile-'+key, MAT_VIS_ROLES.map(r=>{
+        const on = v.includes(r.role);
+        return `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;setMatVisibility('${siteId}','${key}','${r.role}',${on?'false':'true'})">${on ? '🙈 Hide from '+r.label : '👁 Show to '+r.label}</div>`;
+      }).join(''))}</div>` : ''}
+      <div class="icon" style="background:${bg};color:${color};">${icon}</div>
+      <div class="lbl">${label}</div>
+      <div class="sub">${sub}${full ? ' · '+who : ''}</div>
+    </div>`;
 }
+function matVisibilityHtml(){ return ''; }
 window.setMatVisibility = async function(siteId, key, role, on){
   const site = SITES.find(s=>s.id===siteId);
   const v = matVisibility(site);

@@ -115,16 +115,9 @@ async function renderMaterials(siteId){
         <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📄</div>
         <div class="lbl">Material PO's</div><div class="sub">Synced daily from OneDrive${orderFileCount.length ? ' · '+orderFileCount.length+' files' : ''}</div>
       </div>
-      ${canSeeMatTile(site,'plant') ? `      <div class="tile" onclick="go('#/site/${siteId}/plant')">
-        <div class="icon" style="background:#EAF3EC;color:#2E7D46;">🏗</div>
-        <div class="lbl">Plant</div><div class="sub">Check in / out</div>
-      </div>` : ''}
-      ${canSeeMatTile(site,'expenses') ? `      <div class="tile" onclick="go('#/site/${siteId}/expenses')">
-        <div class="icon" style="background:#FDF1DE;color:#B0740F;">🧾</div>
-        <div class="lbl">Expenses</div><div class="sub">Send receipts</div>
-      </div>` : ''}
+      ${matVisTileHtml(site, 'plant', '🏗', '#EAF3EC', '#2E7D46', 'Plant', 'Check in / out')}
+      ${matVisTileHtml(site, 'expenses', '🧾', '#FDF1DE', '#B0740F', 'Expenses', 'Send receipts')}
     </div>
-    ${matVisibilityHtml(siteId)}
   `, {title: materialsTileLabel(), subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'materials'}); }
 }
 async function renderMaterialRequests(siteId){

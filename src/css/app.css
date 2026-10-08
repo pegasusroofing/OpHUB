@@ -609,3 +609,5 @@
 .ramspicker-list{overflow:auto;flex:1;min-height:120px;}
 .ramspicker-row{display:flex;gap:10px;align-items:flex-start;padding:9px 2px;border-top:1px solid var(--line);cursor:pointer;font-size:14px;}
 .ramspicker-row input{width:18px;height:18px;flex:none;margin-top:2px;}
+.tile.matvis-off{background:#F3F3F1;}
+.tile.matvis-off > .icon, .tile.matvis-off > .lbl, .tile.matvis-off > .sub{opacity:.45;}
