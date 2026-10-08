@@ -23843,6 +23843,11 @@ window.ramsSaveAsTemplate = async function(){
     data:{hazards:b.hazards.map(strip), sections:b.sections.map(strip), ppe:b.ppe.slice(), groups:(b.details.groups||[]).slice()}}]);
   toast(rows ? 'Template saved' : 'Could not save');
 };
+window.ramsDeleteBuildRow = async function(siteId, id){
+  const b = (await dbSelect('rams_builds', 'id=eq.'+id+'&select=id,title,status'))[0]; if(!b) return;
+  if(!(await customConfirm(`Delete "${b.title}"?${b.status==='issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`))) return;
+  if(await dbDelete('rams_builds', id)){ if(ramsEd && ramsEd.buildId===id) ramsEd = null; toast('Deleted'); render(); }
+};
 window.ramsDeleteBuild = async function(siteId){
   const b = ramsEd.build;
   if(!(await customConfirm(`Delete "${b.title}"?${b.status==='issued' ? '\n\nThe issued documents stay in the RAMS list — only this editable copy is deleted.' : ''}`))) return;
@@ -23855,7 +23860,7 @@ async function ramsBuilderCardHtml(siteId){
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
   return `<div style="margin-bottom:6px;">
     <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:4px 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
-    ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="arrow" style="margin-left:auto;">›</span></div>`).join('')}
+    ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="taskicon danger" title="Delete" style="margin-left:auto;" onclick="event.stopPropagation();ramsDeleteBuildRow('${siteId}','${b.id}')">🗑</span><span class="arrow">›</span></div>`).join('')}
     <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
   </div>`;
 }
