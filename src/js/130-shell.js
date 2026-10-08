@@ -169,3 +169,28 @@ window.openHomeAddProject = function(){
   render();
   requestAnimationFrame(()=>window.scrollTo(0,0));
 };
+// #(tabbar-snap-back) Phones (iOS especially) can leave the fixed bottom bar
+// floating out of place after the keyboard closes, a pop-up closes, or the
+// browser bars show/hide while a long page (e.g. Schedule of Works with lots
+// of photos) is still loading images. Whenever the visible area changes we
+// hide the bar while the keyboard is up, and nudge it back into place after.
+(function(){
+  let t = null;
+  function snap(){
+    clearTimeout(t);
+    t = setTimeout(()=>{
+      const bars = document.querySelectorAll('.tabbar');
+      const vv = window.visualViewport;
+      const keyboardUp = !!(vv && vv.height < window.innerHeight * 0.72);
+      bars.forEach(b=>{
+        b.style.visibility = keyboardUp ? 'hidden' : '';
+        if(!keyboardUp){ b.style.transform = 'translateZ(0) translateY(0.01px)'; void b.offsetHeight; b.style.transform = ''; }
+      });
+    }, 120);
+  }
+  if(window.visualViewport){ window.visualViewport.addEventListener('resize', snap); window.visualViewport.addEventListener('scroll', snap); }
+  window.addEventListener('resize', snap);
+  window.addEventListener('orientationchange', snap);
+  document.addEventListener('focusout', snap, true);
+  document.addEventListener('load', e=>{ if(e.target && e.target.tagName==='IMG') snap(); }, true);
+})();

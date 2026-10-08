@@ -205,12 +205,15 @@ async function uploadToStorage(bucket, path, blobOrFile, contentType){
     body: blobOrFile
   }, timeoutMs);
   let res;
+  // Storage sometimes answers 544/504 (server busy/timeout) when lots of
+  // photos go up at once — those are worth trying again, with a short pause.
+  const retryable = r => r && [408,429,500,502,503,504,520,522,524,544].includes(r.status);
   try{
-    try{ res = await attempt(); }
-    catch(first){
-      if(navigator.onLine === false) throw first;
-      await new Promise(r=>setTimeout(r, 1500));
-      res = await attempt();
+    for(let tryNo=0; ; tryNo++){
+      try{ res = await attempt(); }
+      catch(e){ if(navigator.onLine === false || tryNo>=2) throw e; await new Promise(r=>setTimeout(r, 1500*(tryNo+1))); continue; }
+      if(retryable(res) && tryNo<2){ await new Promise(r=>setTimeout(r, 2000*(tryNo+1))); continue; }
+      break;
     }
   }catch(e){
     const detail = (e && (e.name === 'AbortError')) ? 'the upload timed out' : ((e && e.message) || 'connection dropped');
@@ -220,9 +223,12 @@ async function uploadToStorage(bucket, path, blobOrFile, contentType){
   if(!res.ok){ toast('Upload failed — '+(await safeErr(res))); return null; }
   return path;
 }
-async function uploadDataUrl(bucket, path, dataUrl){
+async function uploadDataUrl(bucket, path, dataUrl, quiet){
   const blob = await (await fetch(dataUrl)).blob();
-  return uploadToStorage(bucket, path, blob, blob.type);
+  // quiet: background extra (small versions of a photo) — no upload pill, no
+  // "1 of N" count. Set right before the (synchronous) wrapper call.
+  if(quiet) uploadBusy.quietNext = true;
+  try{ return uploadToStorage(bucket, path, blob, blob.type); } finally { if(quiet) uploadBusy.quietNext = false; }
 }
 // Upload progress pill: every photo/file that is being prepared or sent goes
 // through compressImage / uploadToStorage, so wrapping those two gives one

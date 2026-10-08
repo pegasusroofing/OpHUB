@@ -949,14 +949,15 @@ async function uploadSchedulePhoto(siteId, taskId, file, stage){
   try{ mid = await shrinkDataUrl(full, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); thumb = await shrinkDataUrl(mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e){ /* the full photo alone still works */ }
   // No signal: keep the photo on the phone and send it later (see sowOfflineSend).
   if(navigator.onLine === false) return (await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb)) ? {queued:true, dataUrl: full} : null;
-  const quiet = (path, data)=>{ uploadBusy.quietNext = true; try{ return uploadDataUrl('site-photos', path, data); } finally { uploadBusy.quietNext = false; } };
-  const [stored, midStored, thumbStored] = await Promise.all([
-    uploadDataUrl('site-photos', base+'.jpg', full),
-    mid ? quiet(base+'_m.jpg', mid).catch(()=>null) : null,
-    thumb ? quiet(base+'_t.jpg', thumb).catch(()=>null) : null,
-  ]);
+  // Main photo first; the two small versions only once it has landed, one
+  // after the other — firing all of them at once on site signal is what made
+  // the server time out (544/504) and photos never finish.
+  const stored = await uploadDataUrl('site-photos', base+'.jpg', full);
   // The upload did not get through (signal dropped part-way): keep it on the phone instead of losing it.
   if(!stored) return (await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb)) ? {queued:true, dataUrl: full} : null;
+  let midStored = null, thumbStored = null;
+  try{ if(mid) midStored = await uploadDataUrl('site-photos', base+'_m.jpg', mid, true); }catch(e){}
+  try{ if(thumb) thumbStored = await uploadDataUrl('site-photos', base+'_t.jpg', thumb, true); }catch(e){}
   const rows = await dbInsert('schedule_photos', {task_id:taskId, storage_path:stored, mid_path:midStored||null, thumb_path:thumbStored||null, uploaded_by:ME.id, stage});
   return rows ? {row: rows[0], dataUrl: full} : null;
 }
@@ -974,9 +975,9 @@ async function backfillSchedulePhotoRenditions(photos){
   const todo = (photos||[]).filter(p=>p && p.storage_path && !p.thumb_path).slice(0, 60);
   if(!todo.length) return;
   sowBackfillRunning = true;
-  const quiet = (path, data)=>{ uploadBusy.quietNext = true; try{ return uploadDataUrl('site-photos', path, data); } finally { uploadBusy.quietNext = false; } };
+  const quiet = (path, data)=>uploadDataUrl('site-photos', path, data, true);
   try{
-    await runPool(todo, 3, async p=>{
+    await runPool(todo, 1, async p=>{
       const res = await fetchWithTimeout(publicUrl('site-photos', p.storage_path), {}, 30000);
       if(!res.ok) return;
       const dataUrl = 'data:image/jpeg;base64,'+(await blobToBase64(await res.blob()));
@@ -996,7 +997,7 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
   if(!files.length) return;
   // Three photos at a time instead of one after another.
   let uploaded = 0, queued = 0;
-  await runPool(files, 3, async file=>{
+  await runPool(files, 1, async file=>{
     const done = await uploadSchedulePhoto(siteId, taskId, file, 'done');
     if(done && done.queued) queued++;
     else if(done){ uploaded++; queueOneDrivePhoto(done.dataUrl, 'Completed '+uploaded+'.jpg', siteId); }
@@ -1186,7 +1187,7 @@ window.taskPhoto = async function(input, siteId, taskId, currentStatus){
   const taskName = ((taskRows && taskRows[0] && taskRows[0].name) ? taskRows[0].name : 'Photo').replace(/[^a-z0-9 ]+/gi,'').trim();
   let photoNum = existing ? existing.length : 0;
   let uploaded = 0, queued = 0;
-  await runPool(files, 3, async file=>{
+  await runPool(files, 1, async file=>{
     const done = await uploadSchedulePhoto(siteId, taskId, file, stage);
     if(done && done.queued) queued++;
     else if(done){ uploaded++; photoNum++; queueOneDrivePhoto(done.dataUrl, taskName+' '+photoNum+'.jpg', siteId); }

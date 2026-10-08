@@ -136,8 +136,17 @@ async function reportOfflineStart(siteId, t, answers, generalLabel){
 async function reportOfflineUpload(path, dataUrl){
   // Quiet version of the normal upload: no pop-ups from a background send.
   const blob = await (await fetch(dataUrl)).blob();
-  const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, 120000);
-  return res.ok ? path : null;
+  try{ await ensureFreshToken(); }catch(e){}
+  if(!SESSION || !SESSION.access_token) return null;
+  for(let tryNo=0; tryNo<3; tryNo++){
+    try{
+      const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, 120000);
+      if(res.ok) return path;
+      if(![408,429,500,502,503,504,520,522,524,544].includes(res.status)) return null;
+    }catch(e){ if(navigator.onLine === false) return null; }
+    await new Promise(r=>setTimeout(r, 2000*(tryNo+1)));
+  }
+  return null;
 }
 // Sends everything that is waiting. Safe to call at any time.
 window.reportOfflineSync = async function(manual){
@@ -200,6 +209,9 @@ window.reportOfflineSync = async function(manual){
   let photosSent = 0;
   try{ photosSent = await sowOfflineSend(sowWaiting); }catch(e){ console.warn('offline photos not sent yet', e && e.message); }
   reportOfflineSyncing = false;
+  const stillWaiting = (await reportOfflineAll()).filter(r=>r.pending).length + (await sowOfflineAll()).length;
+  if(stillWaiting && !sent && !photosSent){ offlineSyncFails++; offlineSyncNextAt = Date.now() + Math.min(15, Math.pow(2, offlineSyncFails-1))*60000; }
+  else { offlineSyncFails = 0; offlineSyncNextAt = 0; }
   await reportOfflineCount(); reportOfflinePaintStrip();
   if(sent || photosSent){
     toast('✓ '+[sent ? sent+' report'+(sent===1?'':'s') : '', photosSent ? photosSent+' photo'+(photosSent===1?'':'s') : ''].filter(Boolean).join(' and ')+' sent');
@@ -209,7 +221,10 @@ window.reportOfflineSync = async function(manual){
   else if(manual) toast('Could not send yet — it will keep trying.');
 };
 window.addEventListener('online', ()=>{ setTimeout(()=>reportOfflineSync(false), 2000); });
-setInterval(()=>{ if(ME && SESSION && (reportOfflinePending || sowOfflinePending) && navigator.onLine !== false) reportOfflineSync(false); }, 60000);
+// Tries again every minute — but backs off (up to 15 minutes) while sends keep
+// failing, so a stuck item can't keep the phone busy uploading all day.
+let offlineSyncFails = 0, offlineSyncNextAt = 0;
+setInterval(()=>{ if(ME && SESSION && (reportOfflinePending || sowOfflinePending) && navigator.onLine !== false && Date.now() >= offlineSyncNextAt) reportOfflineSync(false); }, 60000);
 setTimeout(function first(){ if(ME && SESSION){ reportOfflineCount().then(n=>{ if(n) reportOfflineSync(false); }); } else setTimeout(first, 3000); }, 4000);
 
 /* ---------- Schedule of Works photos with no signal ----------
