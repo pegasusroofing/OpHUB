@@ -25140,6 +25140,59 @@ window.sendCoshhSignReminder = async function(siteId){
   }catch(e){ console.error(e); toast('Could not send reminder.'); }
 };
 
+/* ================= TILE VISIBILITY BY JOB ROLE (per job) =================
+ * Generic version of the Plant/Expenses ⋮ menu: any tile can be shown or
+ * hidden per job role on a given job. Stored on sites.tile_visibility as
+ * {tileKey: [roles that can see it]}; a key that isn't there uses the tile's
+ * default list. PMs/admins always see every tile — for them a tile hidden
+ * from operatives is greyed out, with the ⋮ menu to change it. */
+const TILE_VIS_ALL = ['site_manager','operative','driver'];
+function tileVisRoles(site, key, def){
+  const v = site && site.tile_visibility && site.tile_visibility[key];
+  return Array.isArray(v) ? v : (def || TILE_VIS_ALL);
+}
+function canSeeTile(site, key, def, p){
+  p = p || ME;
+  if(!p) return false;
+  if(isFullManager(p) || p.role==='superadmin') return true;
+  if(isClient(p)) return true;
+  return tileVisRoles(site, key, def).includes(p.role);
+}
+// t: {href, icon, bg, fg, label, sub, badge, def}
+function visTileHtml(site, key, t){
+  if(!canSeeTile(site, key, t.def)) return '';
+  const full = isFullManager(ME);
+  const v = tileVisRoles(site, key, t.def);
+  const hiddenFromOps = !v.includes('operative');
+  return `<div class="tile ${full && hiddenFromOps ? 'matvis-off' : ''}" style="position:relative;" onclick="go('${t.href}')">
+      ${full ? `<div style="position:absolute;top:6px;right:6px;z-index:1;" onclick="event.stopPropagation()">${rowActionsMenuHtml('vistile-'+key, MAT_VIS_ROLES.map(r=>{
+        const on = v.includes(r.role);
+        return `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;setTileVisibility('${site.id}','${key}','${r.role}',${on?'false':'true'})">${on ? '🙈 Hide from '+r.label : '👁 Show to '+r.label}</div>`;
+      }).join(''))}</div>` : ''}
+      <div class="icon" style="background:${t.bg};color:${t.fg};">${t.icon}</div>
+      <div class="lbl">${t.label}</div>${t.sub ? `<div class="sub">${t.sub}</div>` : ''}
+      ${t.badge || ''}
+    </div>`;
+}
+const TILE_VIS_DEFAULTS = {};
+window.setTileVisibility = async function(siteId, key, role, on){
+  const site = SITES.find(s=>s.id===siteId);
+  const cur = tileVisRoles(site, key, TILE_VIS_DEFAULTS[key]).slice();
+  const nextRoles = on ? Array.from(new Set(cur.concat(role))) : cur.filter(r=>r!==role);
+  const next = Object.assign({}, (site && site.tile_visibility) || {}, {[key]: nextRoles});
+  const row = await dbUpdate('sites', siteId, {tile_visibility: next});
+  if(row){
+    if(site) site.tile_visibility = next;
+    const label = (MAT_VIS_ROLES.find(r=>r.role===role)||{}).label || role;
+    toast((on ? 'Now shown to ' : 'Hidden from ')+label);
+    logSiteActivity(siteId, 'tile_visibility', `${key.replace(/^hs_/,'H&S ').replace(/_/g,' ')} ${on?'shown to':'hidden from'} ${label}`);
+  }
+  render();
+};
+// Health & Safety sub-pages → their tile key (used by the router to stop
+// someone opening a hidden page from an old link).
+const HS_ROUTE_TILE = {rams:'hs_rams', coshh:'hs_coshh', tbt:'hs_tbt', briefings:'hs_briefings', havspuwer:'hs_havspuwer', havs:'hs_havspuwer', puwer:'hs_havspuwer', loler:'hs_havspuwer', incidents:'hs_incidents', operatives:'hs_operatives'};
+
 /* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
 async function renderHealthSafety(siteId){
   const __gen = RENDER_GEN;
@@ -25204,43 +25257,22 @@ async function renderHealthSafety(siteId){
   const ppeTileCount = ppeRows.length;
   const ppeTileSub = mgr ? (ppeRows.length ? ppeRows.length+' request'+(ppeRows.length===1?'':'s') : 'Issue & track PPE')
                          : (ppeRows.length ? ppeRows.length+' to sign' : 'My PPE');
+  const ramsBadge = isManager(ME) ? (ramsOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:'');
+  const coshhBadge = isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'');
+  const hsTiles = [
+    ['hs_rams', {href:`#/site/${siteId}/hs/rams`, icon:'📄', bg:'#E7E9EE', fg:'var(--ink)', label:'RAMS', sub:`${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}`, badge:ramsBadge}],
+    ['hs_coshh', {href:`#/site/${siteId}/hs/coshh`, icon:'🧪', bg:'#E7E9EE', fg:'var(--ink)', label:'COSHH', sub:`${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}`, badge:coshhBadge}],
+    ['hs_tbt', {href:`#/site/${siteId}/hs/tbt`, icon:'🗣', bg:'var(--blue-bg)', fg:'var(--blue)', label:'TBT', sub:liveTbt.length ? 'Live now' : 'None live'}],
+    ['hs_briefings', {href:`#/site/${siteId}/hs/briefings`, icon:'📣', bg:'#FDECEA', fg:'var(--brand1)', label:'Daily Briefings', sub:briefingSub}],
+    ['hs_havspuwer', {href:`#/site/${siteId}/hs/havspuwer`, icon:'🖐', bg:'#FFF3E0', fg:'#B85C00', label:'Tools, HAVS &amp; PUWER', sub:'Tools, vibration &amp; tool checks'}],
+    ['hs_ppe', {href:`#/site/${siteId}/ppe`, icon:'🦺', bg:'#FDECEA', fg:'#B4231A', label:'PPE', sub:ppeTileSub, badge: ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}],
+    ['hs_incidents', {href:`#/site/${siteId}/hs/incidents`, icon:'⚠️', bg:'#FDECEA', fg:'#B4231A', label:'Accident / Incident', sub: incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}],
+    ['hs_operatives', {href:`#/site/${siteId}/hs/operatives`, icon:'🪪', bg:'#E8F0FE', fg:'#1A56B0', label:'Operatives', sub:'Dashboard &amp; certifications'}],
+  ];
+  const hsHtml = hsTiles.map(([k,t])=>visTileHtml(site, k, t)).join('');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
-      <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
-        <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
-        ${isManager(ME) ? (ramsOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:'')}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
-        <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
-        ${isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'')}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
-        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
-        <div class="lbl">TBT</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/briefings')">
-        <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
-        <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/havspuwer')">
-        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
-        <div class="lbl">Tools, HAVS &amp; PUWER</div><div class="sub">Tools, vibration &amp; tool checks</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/ppe')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
-        <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
-        ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
-        <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
-        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
-        <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
-      </div>
+      ${hsHtml || `<div class="empty" style="grid-column:1/-1;">Nothing here for you on this job.</div>`}
     </div>
   `, {title:'Health & Safety', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
@@ -35879,6 +35911,7 @@ async function renderRoute(){
       // Clients get a cut-down H&S area — RAMS/COSHH/TBT/PUWER only, no
       // briefings/HAVS/incidents/my-tools/policy-as-its-own-page/operatives.
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
+      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub])){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
       if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);
@@ -36004,6 +36037,7 @@ async function renderRoute(){
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if((page==='expenses' || page==='plant') && !canSeeMatTile(SITES.find(x=>x.id===siteId), page)){ go('#/site/'+siteId+'/materials'); return; }
     if(page==='expenses') return renderExpenses(siteId);
     if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }

@@ -219,6 +219,7 @@ async function renderRoute(){
       // Clients get a cut-down H&S area — RAMS/COSHH/TBT/PUWER only, no
       // briefings/HAVS/incidents/my-tools/policy-as-its-own-page/operatives.
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
+      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub])){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
       if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);
@@ -344,6 +345,7 @@ async function renderRoute(){
     }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
+    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if((page==='expenses' || page==='plant') && !canSeeMatTile(SITES.find(x=>x.id===siteId), page)){ go('#/site/'+siteId+'/materials'); return; }
     if(page==='expenses') return renderExpenses(siteId);
     if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }

@@ -62,43 +62,22 @@ async function renderHealthSafety(siteId){
   const ppeTileCount = ppeRows.length;
   const ppeTileSub = mgr ? (ppeRows.length ? ppeRows.length+' request'+(ppeRows.length===1?'':'s') : 'Issue & track PPE')
                          : (ppeRows.length ? ppeRows.length+' to sign' : 'My PPE');
+  const ramsBadge = isManager(ME) ? (ramsOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:'');
+  const coshhBadge = isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'');
+  const hsTiles = [
+    ['hs_rams', {href:`#/site/${siteId}/hs/rams`, icon:'📄', bg:'#E7E9EE', fg:'var(--ink)', label:'RAMS', sub:`${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}`, badge:ramsBadge}],
+    ['hs_coshh', {href:`#/site/${siteId}/hs/coshh`, icon:'🧪', bg:'#E7E9EE', fg:'var(--ink)', label:'COSHH', sub:`${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}`, badge:coshhBadge}],
+    ['hs_tbt', {href:`#/site/${siteId}/hs/tbt`, icon:'🗣', bg:'var(--blue-bg)', fg:'var(--blue)', label:'TBT', sub:liveTbt.length ? 'Live now' : 'None live'}],
+    ['hs_briefings', {href:`#/site/${siteId}/hs/briefings`, icon:'📣', bg:'#FDECEA', fg:'var(--brand1)', label:'Daily Briefings', sub:briefingSub}],
+    ['hs_havspuwer', {href:`#/site/${siteId}/hs/havspuwer`, icon:'🖐', bg:'#FFF3E0', fg:'#B85C00', label:'Tools, HAVS &amp; PUWER', sub:'Tools, vibration &amp; tool checks'}],
+    ['hs_ppe', {href:`#/site/${siteId}/ppe`, icon:'🦺', bg:'#FDECEA', fg:'#B4231A', label:'PPE', sub:ppeTileSub, badge: ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}],
+    ['hs_incidents', {href:`#/site/${siteId}/hs/incidents`, icon:'⚠️', bg:'#FDECEA', fg:'#B4231A', label:'Accident / Incident', sub: incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}],
+    ['hs_operatives', {href:`#/site/${siteId}/hs/operatives`, icon:'🪪', bg:'#E8F0FE', fg:'#1A56B0', label:'Operatives', sub:'Dashboard &amp; certifications'}],
+  ];
+  const hsHtml = hsTiles.map(([k,t])=>visTileHtml(site, k, t)).join('');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="tilegrid hstiles" style="grid-auto-rows:1fr;">
-      <div class="tile" onclick="go('#/site/${siteId}/hs/rams')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
-        <div class="lbl">RAMS</div><div class="sub">${pendingRamsRows.length} document${pendingRamsRows.length===1?'':'s'}</div>
-        ${isManager(ME) ? (ramsOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (ramsUnsignedCount?`<span class="badge-count">${ramsUnsignedCount}</span>`:'')}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/coshh')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🧪</div>
-        <div class="lbl">COSHH</div><div class="sub">${pendingCoshhRows.length} document${pendingCoshhRows.length===1?'':'s'}</div>
-        ${isManager(ME) ? (coshhOperativeGap?`<span class="badge-count" title="An operative still needs to sign">!</span>`:'') : (coshhUnsignedCount?`<span class="badge-count">${coshhUnsignedCount}</span>`:'')}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/tbt')">
-        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🗣</div>
-        <div class="lbl">TBT</div><div class="sub">${liveTbt.length ? 'Live now' : 'None live'}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/briefings')">
-        <div class="icon" style="background:#FDECEA;color:var(--brand1);">📣</div>
-        <div class="lbl">Daily Briefings</div><div class="sub">${briefingSub}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/havspuwer')">
-        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
-        <div class="lbl">Tools, HAVS &amp; PUWER</div><div class="sub">Tools, vibration &amp; tool checks</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/ppe')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">🦺</div>
-        <div class="lbl">PPE</div><div class="sub">${ppeTileSub}</div>
-        ${ppeTileCount?`<span class="badge-count">${ppeTileCount}</span>`:''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/incidents')">
-        <div class="icon" style="background:#FDECEA;color:#B4231A;">⚠️</div>
-        <div class="lbl">Accident / Incident</div><div class="sub">${incidentCount.length ? incidentCount.length+' filed' : 'Report near miss'}</div>
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/operatives')">
-        <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🪪</div>
-        <div class="lbl">Operatives</div><div class="sub">Dashboard &amp; certifications</div>
-      </div>
+      ${hsHtml || `<div class="empty" style="grid-column:1/-1;">Nothing here for you on this job.</div>`}
     </div>
   `, {title:'Health & Safety', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'more'}); }
 }
