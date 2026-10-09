@@ -263,8 +263,10 @@ function deliveryCollectionSummaryHtml(tasks){
     pl.tasks.push(t);
   });
   // Yard first, then the rest alphabetically.
-  places.sort((a,b)=> (a.key==='yard'?-1:b.key==='yard'?1:a.label.localeCompare(b.label)));
-  places.forEach(pl=>pl.tasks.sort((a,b)=>((slotOrder[a.time_slot]??99)-(slotOrder[b.time_slot]??99)) || ((a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority))));
+  // The 1st drop always comes first, then the yard, then the rest.
+  const hasFirst = pl => pl.tasks.some(t=>t.high_priority && t.status!=='completed');
+  places.sort((a,b)=> (hasFirst(b)-hasFirst(a)) || (a.key==='yard'?-1:b.key==='yard'?1:a.label.localeCompare(b.label)));
+  places.forEach(pl=>pl.tasks.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || ((slotOrder[a.time_slot]??99)-(slotOrder[b.time_slot]??99)) || ((a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority))));
   return `
     <p class="sectiontitle" style="margin-top:0;">Collections — what to pick up where</p>
     ${places.map(pl=>{
@@ -279,7 +281,7 @@ function deliveryCollectionSummaryHtml(tasks){
       <div class="card" style="margin-top:0;">
         ${pl.tasks.map((t,i)=>`
           <div style="padding:8px 0;${i?'border-top:1px solid var(--line);':''}${t.status==='completed'?'opacity:.55;':''}">
-            <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${deliverySiteHeadingHtml(t)}</p>
+            <p style="margin:0 0 3px;font-weight:700;">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${deliverySiteHeadingHtml(t)}</p>
             <p style="margin:0 0 3px;white-space:pre-wrap;overflow-wrap:break-word;">${escapeHtml(t.description||'')}</p>
             <p class="stub" style="margin:0;">${escapeHtml(slotLabel[t.time_slot]||t.time_slot||'')}${t.status==='completed'?' · ✓ Completed':''}</p>
           </div>`).join('')}
@@ -348,7 +350,7 @@ async function renderDriverSchedule(preview){
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
         <div class="card" style="margin-bottom:8px;">
-          ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">! HIGH PRIORITY<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This delivery needs to happen first — treat it as urgent.</span></p>` : ''}
+          ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
@@ -449,7 +451,7 @@ window.pushDeliveryToTomorrow = async function(taskId){
   }catch(e){ /* the move itself is saved — ordering/calendar tidy-up is best-effort */ }
   if(t.created_by && t.created_by!==ME.id){
     postSystemMessageToUser(t.created_by, t.site_id, 'message',
-      `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : ''),
+      `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (1st drop removed — that day already has one)' : ''),
       taskId);
   }
   toast('Moved to '+nextLabel+', 2pm');
@@ -520,7 +522,7 @@ window.reopenDeliveryTask = async function(taskId){
     }
     const slotLabel = (DELIVERY_TIME_SLOTS.find(x=>x.key===choice.slot)||{}).label || choice.slot;
     const whenLabel = new Date(choice.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'})+', '+slotLabel;
-    const body = `Delivery re-opened by ${ME.name} for ${whenLabel} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (high priority removed — that day already has one)' : '');
+    const body = `Delivery re-opened by ${ME.name} for ${whenLabel} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (1st drop removed — that day already has one)' : '');
     const tell = new Set([t.driver_id, t.created_by].filter(id=>id && id!==ME.id));
     tell.forEach(id=>{ try{ postSystemMessageToUser(id, t.site_id, 'message', body, taskId); }catch(e){} });
     toast('Re-opened for '+whenLabel);

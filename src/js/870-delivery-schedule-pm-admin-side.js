@@ -18,7 +18,7 @@ let pmDeliveryDefaultDate = null; // set right before go('#/delivery/new') so th
 let deliveryScheduleBackHash = '#/team';
 async function resequenceSlot(dateISO, slotKey){
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+slotKey);
-  rows.sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
+  rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
   for(let i=0;i<rows.length;i++){
     const want = rows.length>1 ? i+1 : null;
     if(rows[i].sub_priority !== want){ await dbUpdate('delivery_tasks', rows[i].id, {sub_priority:want}); }
@@ -32,7 +32,7 @@ window.moveDeliveryTask = async function(taskId, dir){
   const oldSlot = task.time_slot;
   const slotIdx = DELIVERY_TIME_SLOTS.findIndex(s=>s.key===oldSlot);
   const slotTasks = (await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+oldSlot))
-    .sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
+    .sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
   const pos = slotTasks.findIndex(t=>t.id===taskId);
   if(dir==='up'){
     if(pos>0){
@@ -64,7 +64,7 @@ function deliveryTaskCardHtml(t, opts){
   return `
     <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
-        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">! </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
         <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
@@ -91,6 +91,7 @@ async function deliveryScheduleExportRows(daysISO){
   const slotOrder = {}; DELIVERY_TIME_SLOTS.forEach((s,i)=>slotOrder[s.key]=i);
   tasks.sort((a,b)=>{
     if(a.scheduled_date!==b.scheduled_date) return a.scheduled_date<b.scheduled_date?-1:1;
+    if(!!a.high_priority !== !!b.high_priority) return a.high_priority ? -1 : 1;
     const so = (slotOrder[a.time_slot]??99)-(slotOrder[b.time_slot]??99);
     if(so) return so;
     return (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority);
@@ -103,7 +104,7 @@ async function deliveryScheduleExportRows(daysISO){
     description: t.description || '',
     collection: deliveryCollectionLabel(t),
     driver: (t.driver_id && PROFILES[t.driver_id]) ? PROFILES[t.driver_id].name : 'Unassigned',
-    priority: t.high_priority ? 'High' : '',
+    priority: t.high_priority ? '1st drop' : '',
     status: t.status==='completed' ? 'Completed' : (t.needs_completing ? 'Needs completing' : 'Scheduled'),
   }));
 }
@@ -242,7 +243,7 @@ async function renderDeliverySchedulePM(){
   tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
   const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
   tasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
-  Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>(a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
+  Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
   const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   if(__gen !== RENDER_GEN) return;
@@ -406,12 +407,12 @@ async function renderDeliveryForm(taskId){
       </label>
       <p class="stub" style="margin:4px 0 0;">You can pick several at once.</p>
     </div>
-    <div class="card" style="cursor:pointer;" onclick="deliveryFormDraft.high_priority=!deliveryFormDraft.high_priority;render()">
+    <div class="card" style="cursor:pointer;" onclick="deliveryFormDraft.high_priority=!deliveryFormDraft.high_priority;if(deliveryFormDraft.high_priority&&DELIVERY_TIME_SLOTS[0])deliveryFormDraft.time_slot=DELIVERY_TIME_SLOTS[0].key;render()">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-        <input type="checkbox" ${draft.high_priority?'checked':''} onclick="event.stopPropagation();deliveryFormDraft.high_priority=this.checked">
-        <span style="font-weight:800;color:var(--brand1);">! HIGH PRIORITY</span>
+        <input type="checkbox" ${draft.high_priority?'checked':''} onclick="event.stopPropagation();deliveryFormDraft.high_priority=this.checked;if(this.checked&&DELIVERY_TIME_SLOTS[0]){deliveryFormDraft.time_slot=DELIVERY_TIME_SLOTS[0].key;render();}">
+        <span style="font-weight:800;color:var(--brand1);">1st DROP</span>
       </label>
-      <p class="stub" style="margin:6px 0 0;">Tick this if the driver needs to see this delivery flagged as urgent — it shows in bold at the top of their view for this time slot.</p>
+      <p class="stub" style="margin:6px 0 0;">Tick this if it must be the driver's first delivery of the day. Only one delivery can be the 1st drop each day — it shows at the top of the driver's list.</p>
     </div>
     <button class="darkbtn" style="width:100%;margin-top:16px;" ${deliveryFormBusy?'disabled':''} onclick="saveDeliveryTask()">${deliveryFormBusy?'Saving…':(taskId?'Save Changes':'Add to Delivery Schedule')}</button>
     ${taskId ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--warn);" onclick="deleteDeliveryTask('${taskId}')">Delete Delivery</button>` : ''}
@@ -513,10 +514,10 @@ window.saveDeliveryTask = async function(){
     highPriorityToClear = existingHigh.filter(o=>o.id!==d._id);
     if(highPriorityToClear.length){
       const o = highPriorityToClear[0];
-      const swap = await customConfirm('A first drop high priority is already assigned for this day ('+deliverySiteLabel(o)+(o.description?' — '+o.description:'')+'). Do you want to swap?', {confirmLabel:'Yes', cancelLabel:'No'});
+      const swap = await customConfirm('There is already a 1st drop on this day ('+deliverySiteLabel(o)+(o.description?' — '+o.description:'')+'). Only one delivery can be the 1st drop — make this one the 1st drop instead?', {confirmLabel:'Yes', cancelLabel:'No'});
       if(!swap){
         d.high_priority = false;
-        toast('Left the existing high priority in place — this one is unticked.');
+        toast('Kept the existing 1st drop — this one is unticked.');
         render();
         return;
       }
@@ -566,7 +567,7 @@ window.saveDeliveryTask = async function(){
     for(const o of highPriorityToClear){
       const cleared = await dbUpdate('delivery_tasks', o.id, {high_priority:false});
       if(cleared && o.created_by && o.created_by!==ME.id){
-        postSystemMessageToUser(o.created_by, o.site_id, 'message', `High priority removed from your delivery (${deliverySiteLabel(o)}: ${o.description||''}) — ${ME.name} made a different delivery the first drop for that day.`, o.id);
+        postSystemMessageToUser(o.created_by, o.site_id, 'message', `1st drop removed from your delivery (${deliverySiteLabel(o)}: ${o.description||''}) — ${ME.name} made a different delivery the first drop for that day.`, o.id);
       }
     }
     // #notif-review-2026-09: previously a total gap — a driver was never
