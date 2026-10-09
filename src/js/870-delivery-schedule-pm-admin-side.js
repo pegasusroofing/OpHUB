@@ -62,12 +62,13 @@ window.moveDeliveryTask = async function(taskId, dir){
 function deliveryTaskCardHtml(t, opts){
   const showOrder = opts.slotCount>1;
   return `
-    <div class="sitecard" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
-      <div class="info" style="cursor:pointer;" onclick="deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
-        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}</div>
+    <div class="sitecard dlvcard" data-tid="${t.id}" data-slot="${t.time_slot}" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
+      <div class="info" style="cursor:pointer;" onclick="if(dlvDrag.justDropped)return;deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
+        <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}${deliveryDoublePill(t)}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
         <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
+        ${t.status!=='completed' ? `<button class="ghostbtn" style="width:auto;margin:6px 0 0;padding:4px 10px;font-size:10.5px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="event.stopPropagation();pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id?'Moving…':'⏭ Push to next day'}</button>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:2px;" onclick="event.stopPropagation()">
         <span class="homebtn" style="width:26px;height:26px;font-size:13px;" onclick="moveDeliveryTask('${t.id}','up')">▲</span>
@@ -265,9 +266,11 @@ async function renderDeliverySchedulePM(){
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
     </div>
     <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
+    <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
-      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : `<div class="empty">Nothing in this drop.</div>`}
+      ${deliveryContinuations(tasks, slot.key).map(deliveryContinuedHtml).join('')}
+      <div class="dlvslot" data-slot="${slot.key}">${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (deliveryContinuations(tasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
@@ -288,9 +291,9 @@ async function renderDeliveryForm(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
+      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
-      deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, driver_id:''};
+      deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, double_slot:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
     }
     if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
@@ -354,6 +357,13 @@ async function renderDeliveryForm(taskId){
     <div class="formfield"><label class="field-label">Collection address</label>
       <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
     </div>` : ''}
+    <div class="formfield"><label class="field-label">Is additional time required?</label>
+      <select onchange="deliveryFormDraft.double_slot=this.value==='yes';render()">
+        <option value="no" ${draft.double_slot?'':'selected'}>No</option>
+        <option value="yes" ${draft.double_slot?'selected':''}>Yes — book 2 drops</option>
+      </select>
+      ${draft.double_slot ? `<p class="stub" style="margin:4px 0 0;">Takes the chosen drop and the one after it.</p>` : ''}
+    </div>
     <div class="formfield"><label class="field-label">Site contact</label>
       ${(()=>{
         // Grouped by role (the group heading shows in bold in the list):
@@ -541,6 +551,7 @@ window.saveDeliveryTask = async function(){
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
     high_priority: !!d.high_priority,
+    double_slot: !!d.double_slot,
     driver_id: (d.driver_id && d.driver_id!=='none') ? d.driver_id : null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
   };
@@ -627,3 +638,118 @@ window.deleteDeliveryTask = async function(taskId){
   }
   else { toast('Could not delete — try again.'); }
 };
+// ---- Press-and-hold to drag a delivery up or down (PM / admin schedule) ----
+// Hold a delivery card for a moment, then drag it to where it should go —
+// within its drop or into another drop. Letting go saves the new drop and
+// order. A quick swipe still scrolls the page as normal.
+const dlvDrag = {timer:null, active:false, card:null, ghost:null, ph:null, startY:0, startX:0, offY:0, justDropped:false, scrollTimer:null, lastY:0};
+function dlvPoint(e){ const p = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e; return {x:p.clientX, y:p.clientY}; }
+function dlvStart(e){
+  const card = e.target.closest && e.target.closest('.dlvcard');
+  if(!card || !document.querySelector('.dlvslot')) return;
+  if(e.target.closest('button,.homebtn,a,input,select')) return;
+  if(e.type==='mousedown' && e.button!==0) return;
+  const p = dlvPoint(e);
+  dlvDrag.startX = p.x; dlvDrag.startY = p.y; dlvDrag.card = card;
+  clearTimeout(dlvDrag.timer);
+  dlvDrag.timer = setTimeout(()=>dlvActivate(p), 380);
+}
+function dlvActivate(p){
+  const card = dlvDrag.card; if(!card) return;
+  dlvDrag.active = true;
+  try{ navigator.vibrate && navigator.vibrate(20); }catch(e){}
+  const r = card.getBoundingClientRect();
+  dlvDrag.offY = p.y - r.top;
+  const ghost = card.cloneNode(true);
+  ghost.classList.add('dlvghost');
+  ghost.style.width = r.width+'px'; ghost.style.left = r.left+'px'; ghost.style.top = r.top+'px';
+  document.body.appendChild(ghost);
+  dlvDrag.ghost = ghost;
+  const ph = document.createElement('div'); ph.className = 'dlvph'; ph.style.height = r.height+'px';
+  card.parentNode.insertBefore(ph, card);
+  card.style.display = 'none';
+  dlvDrag.ph = ph;
+  document.body.classList.add('dlv-dragging');
+}
+function dlvMove(e){
+  if(!dlvDrag.card) return;
+  const p = dlvPoint(e);
+  if(!dlvDrag.active){
+    if(Math.abs(p.y-dlvDrag.startY)>8 || Math.abs(p.x-dlvDrag.startX)>8){ clearTimeout(dlvDrag.timer); dlvDrag.card = null; }
+    return;
+  }
+  if(e.cancelable) e.preventDefault();
+  dlvDrag.lastY = p.y;
+  dlvDrag.ghost.style.top = (p.y - dlvDrag.offY)+'px';
+  dlvPlace(p);
+  // keep scrolling while held near the top or bottom edge
+  if(!dlvDrag.scrollTimer) dlvDrag.scrollTimer = setInterval(()=>{
+    const y = dlvDrag.lastY, h = window.innerHeight;
+    const step = y < 90 ? -12 : (y > h-110 ? 12 : 0);
+    if(step){ window.scrollBy(0, step); dlvPlace({x:dlvDrag.startX, y}); }
+  }, 30);
+}
+function dlvPlace(p){
+  const ghost = dlvDrag.ghost; ghost.style.visibility = 'hidden';
+  let el = document.elementFromPoint(Math.max(4, Math.min(window.innerWidth-4, p.x)), p.y);
+  ghost.style.visibility = '';
+  let slot = el && el.closest ? el.closest('.dlvslot') : null;
+  if(!slot){
+    // between drops: use the nearest drop list above or below the finger
+    const slots = Array.from(document.querySelectorAll('.dlvslot'));
+    let best = null, bd = 1e9;
+    slots.forEach(s=>{ const r = s.getBoundingClientRect(); const d = p.y < r.top ? r.top-p.y : (p.y > r.bottom ? p.y-r.bottom : 0); if(d < bd){ bd = d; best = s; } });
+    slot = best;
+  }
+  if(!slot) return;
+  const cards = Array.from(slot.querySelectorAll('.dlvcard')).filter(c=>c!==dlvDrag.card);
+  let before = null;
+  for(const c of cards){ const r = c.getBoundingClientRect(); if(p.y < r.top + r.height/2){ before = c; break; } }
+  const empty = slot.querySelector('.empty'); if(empty) empty.style.display = 'none';
+  if(before) slot.insertBefore(dlvDrag.ph, before); else slot.appendChild(dlvDrag.ph);
+}
+async function dlvEnd(){
+  clearTimeout(dlvDrag.timer);
+  clearInterval(dlvDrag.scrollTimer); dlvDrag.scrollTimer = null;
+  if(!dlvDrag.active){ dlvDrag.card = null; return; }
+  const card = dlvDrag.card, ph = dlvDrag.ph;
+  dlvDrag.active = false; dlvDrag.card = null;
+  if(dlvDrag.ghost){ dlvDrag.ghost.remove(); dlvDrag.ghost = null; }
+  document.body.classList.remove('dlv-dragging');
+  dlvDrag.justDropped = true; setTimeout(()=>{ dlvDrag.justDropped = false; }, 400);
+  const slotEl = ph.parentNode;
+  slotEl.insertBefore(card, ph); ph.remove(); card.style.display = '';
+  const taskId = card.dataset.tid, fromSlot = card.dataset.slot, toSlot = slotEl.dataset.slot;
+  const order = Array.from(slotEl.querySelectorAll('.dlvcard')).map(c=>c.dataset.tid);
+  await dlvSaveOrder(taskId, fromSlot, toSlot, order);
+}
+async function dlvSaveOrder(taskId, fromSlot, toSlot, order){
+  const dateISO = pmDeliveryDayISO || localISODate(new Date());
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId))[0];
+  if(!t){ render(); return; }
+  const patch = {time_slot: toSlot};
+  if(t.high_priority && toSlot !== DELIVERY_TIME_SLOTS[0].key){
+    if(!(await customConfirm('This is the 1st DROP. Moving it to a later drop takes the 1st DROP off it — carry on?', {confirmLabel:'Yes — move it', cancelLabel:'No'}))){ render(); return; }
+    patch.high_priority = false;
+  }
+  if(toSlot !== fromSlot || patch.high_priority===false) await dbUpdate('delivery_tasks', taskId, patch);
+  // number the drop in the order it now shows (1st DROP always stays at the top)
+  const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+toSlot);
+  rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (order.indexOf(a.id)<0?999:order.indexOf(a.id)) - (order.indexOf(b.id)<0?999:order.indexOf(b.id)));
+  for(let i=0;i<rows.length;i++){
+    const want = rows.length>1 ? i+1 : null;
+    if(rows[i].sub_priority !== want) await dbUpdate('delivery_tasks', rows[i].id, {sub_priority: want});
+  }
+  if(fromSlot && fromSlot !== toSlot) await resequenceSlot(dateISO, fromSlot);
+  if(t.calendar_event_id && toSlot !== fromSlot){ /* same day — calendar date unchanged */ }
+  toast(toSlot!==fromSlot ? 'Moved to the '+((DELIVERY_TIME_SLOTS.find(s=>s.key===toSlot)||{}).label||toSlot) : 'Order saved');
+  render();
+}
+document.addEventListener('touchstart', dlvStart, {passive:true});
+document.addEventListener('touchmove', dlvMove, {passive:false});
+document.addEventListener('touchend', dlvEnd);
+document.addEventListener('touchcancel', dlvEnd);
+document.addEventListener('mousedown', dlvStart);
+document.addEventListener('mousemove', dlvMove);
+document.addEventListener('mouseup', dlvEnd);
+document.addEventListener('contextmenu', e=>{ if(dlvDrag.active || (dlvDrag.card && e.target.closest && e.target.closest('.dlvcard'))) e.preventDefault(); });

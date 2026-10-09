@@ -669,3 +669,9 @@
   .snagmk{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;border-radius:7px;font-size:10px;padding:3px 5px;white-space:nowrap;cursor:pointer;line-height:1.2;}
   .matgroupbody{margin:0 0 4px 10px;padding:2px 0 4px 10px;border-left:3px solid #D9C7EA;}
   .matgroupbody .ddrow{margin-top:8px !important;}
+  /* Delivery schedule: press-and-hold drag, 2-drop bookings */
+  .dlvcard{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .dlvghost{position:fixed;z-index:9000;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.25);transform:scale(1.02);opacity:.95;margin:0;}
+  .dlvph{border:2px dashed var(--brand1);border-radius:12px;margin:0 0 8px;background:rgba(0,0,0,.03);}
+  .dlvslot{min-height:34px;}
+  .dlvcont{border:1.5px dashed var(--line);border-radius:10px;padding:8px 12px;margin:0 0 8px;font-size:12.5px;color:var(--slate);background:var(--paper);}

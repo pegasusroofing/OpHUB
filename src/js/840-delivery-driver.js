@@ -22,6 +22,17 @@ const DELIVERY_TIME_SLOTS = [
   {key:'4pm', label:'10th drop'},
   {key:'5pm', label:'11th drop'},
 ];
+// 2-drop bookings (a longer job): the delivery sits in its own drop and also
+// takes the next one. The next drop shows a "continues" line so nothing else
+// gets planned into it without seeing that.
+function deliveryNextSlotKey(key){ const i = DELIVERY_TIME_SLOTS.findIndex(s=>s.key===key); return (i>-1 && i<DELIVERY_TIME_SLOTS.length-1) ? DELIVERY_TIME_SLOTS[i+1].key : null; }
+function deliveryContinuations(list, slotKey){ return (list||[]).filter(t=>t.double_slot && deliveryNextSlotKey(t.time_slot)===slotKey); }
+function deliveryContinuedHtml(t){
+  const prev = (DELIVERY_TIME_SLOTS.find(s=>s.key===t.time_slot)||{}).label || '';
+  return `<div class="dlvcont">⤷ <b>${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||'Site'))}</b> continues from the ${escapeHtml(prev)} <span class="stub" style="margin:0;">(2-drop booking)</span></div>`;
+}
+function deliveryDoublePill(t){ return t.double_slot ? '<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;margin-left:4px;">⏱ 2 drops</span>' : ''; }
+
 let driverCheckinBusy = false, driverCheckinError = null;
 // Admin Centre › Driver Check-In Log: every driver check-in and check-out
 // for the last 14 / 30 / 90 days, newest day first, with the time, how long
@@ -348,10 +359,11 @@ async function renderDriverSchedule(preview){
     ${!showDone && !todoTasks.length && doneTasks.length ? `<div class="card" style="text-align:center;margin-bottom:8px;"><p style="margin:0;font-weight:700;color:var(--ok);">✓ All done for ${driverScheduleDateOffset===0?'today':'this day'}</p><p class="stub" style="margin:4px 0 0;">${doneTasks.length} completed — see the Completed tab.</p></div>` : ''}
     ${shownSlots.map(slot=>`
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
+      ${deliveryContinuations(showDone ? doneTasks : todoTasks, slot.key).map(deliveryContinuedHtml).join('')}
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
         <div class="card" style="margin-bottom:8px;">
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
-          <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}</p>
+          <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
@@ -376,7 +388,7 @@ async function renderDriverSchedule(preview){
             <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
           `}
         </div>
-      `).join('') : `<div class="empty">Nothing in this drop.</div>`}
+      `).join('') : (deliveryContinuations(showDone ? doneTasks : todoTasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}
     `).join('')}
     </div>
   `, preview ? {title:'Driver View', back:'#/delivery', tabs:false} : {title:'Delivery Schedule', back:'#/driver'});
@@ -441,7 +453,7 @@ window.pushDeliveryToTomorrow = async function(taskId){
     const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
     if(clash.length) keepHigh = false;
   }
-  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot:'2pm', sub_priority: 999, high_priority: keepHigh});
+  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot:'2pm', sub_priority: 999, high_priority: keepHigh, updated_at: new Date().toISOString()});
   deliveryPushBusyId = null;
   if(!row){ toast('Could not move it — try again.'); render(); return; }
   try{
@@ -454,6 +466,8 @@ window.pushDeliveryToTomorrow = async function(taskId){
       `Delivery pushed to ${nextLabel}, 2pm by ${ME.name} — ${deliverySiteLabel(t)}: ${t.description||''}`+(t.high_priority && !keepHigh ? ' (1st drop removed — that day already has one)' : ''),
       taskId);
   }
+  // Email the job's PM (or whoever booked it, if the site isn't on the app).
+  try{ sbFetch('/functions/v1/notify-delivery-pushed', {method:'POST', timeoutMs:30000, body: JSON.stringify({task_id: taskId})}).catch(()=>{}); }catch(e){}
   toast('Moved to '+nextLabel+', 2pm');
   render();
 };
