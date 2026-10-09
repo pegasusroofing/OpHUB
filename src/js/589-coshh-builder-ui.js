@@ -37,14 +37,17 @@ async function renderCoshhLibrary(editId){
   if(!isFullManager(ME)){ go('#/team'); return; }
   if(editId) return renderCoshhSubstanceEdit(editId);
   const lib = await coshhLoadLibrary();
-  const shown = lib.filter(i=>!coshhLibQ || (i.title+' '+(i.data.manufacturer||'')).toLowerCase().includes(coshhLibQ.toLowerCase()));
+  const lfq = coshhLibQ.trim().toLowerCase(), lfOf = i => (i.title+' '+(i.data.manufacturer||'')).toLowerCase();
+  const hits = lib.filter(i=>!lfq || lfOf(i).includes(lfq)).length;
   const html = `<div class="card">
     <p class="stub" style="margin:0 0 12px;">One entry per product. Add its Safety Data Sheet and the app reads the hazard codes and symbols off it. These are picked from when you create a COSHH assessment on a job.</p>
-    <input type="text" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="coshhLibQ=this.value;clearTimeout(window._clq);window._clq=setTimeout(()=>{render();setTimeout(()=>{const e=document.getElementById('coshhLibSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},300)">
-    ${shown.map(it=>{ const d = it.data; return `<div class="card ramsitem" style="cursor:pointer;" onclick="go('#/coshh-substances/${it.id}')">
+    <input type="search" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="coshhLibQ=this.value;liveFilter(this.value,'#coshhLibList')">
+    <div id="coshhLibList">
+    ${lib.map(it=>{ const d = it.data; return `<div class="card ramsitem" data-lf="${lfText(lfOf(it))}" style="cursor:pointer;${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
       <div class="ramsitem-head"><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div>
         <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}</div></div>
-        <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div></div>`; }).join('') || `<div class="empty">${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>`}
+        <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div></div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
+    </div>
     <button class="darkbtn" style="margin-top:6px;" onclick="coshhNewSubstance()">+ New product</button>
   </div>`;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'COSHH Substances', back:'#/team/libraries'});

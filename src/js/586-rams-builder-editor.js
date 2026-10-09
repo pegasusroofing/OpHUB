@@ -358,30 +358,40 @@ function ramsPickerHtml(){
   const have = kind==='hazard' ? ramsEd.build.hazards : ramsEd.build.sections;
   const inUseIds = new Set(have.map(x=>x.libId).filter(Boolean)), inUseTitles = new Set(have.map(x=>String(x.title||'').trim().toLowerCase()));
   const used = i => inUseIds.has(i.id) || inUseTitles.has(String(i.title||'').trim().toLowerCase());
-  const match = lib.filter(i=>!q || i.title.toLowerCase().includes(q));
-  const fresh = match.filter(i=>!used(i)), added = match.filter(used);
-  const shown = fresh.concat(added);
-  const allIds = fresh.map(i=>i.id);
-  const pickRow = i => `<label class="ramspicker-row" ${used(i)?'style="opacity:.6;"':''}><input type="checkbox" data-pid="${i.id}" ${ramsEd.pickerSel.has(i.id)?'checked':''} onchange="ramsPickerTick('${i.id}',this.checked)"><div><b>${escapeHtml(i.title)}</b><div class="stub" style="margin:0;">${escapeHtml(kind==='hazard' ? (i.data.harm||'') : (i.data.body||'').slice(0,90))}</div></div></label>`;
+  const hit = i => !q || i.title.toLowerCase().includes(q);
+  const fresh = lib.filter(i=>!used(i)), added = lib.filter(used);
+  const freshHits = fresh.filter(hit).length, addedHits = added.filter(hit).length;
+  const pickRow = i => `<label class="ramspicker-row" data-lf="${lfText(i.title)}" style="${used(i)?'opacity:.6;':''}${hit(i)?'':'display:none;'}"><input type="checkbox" data-pid="${i.id}" ${used(i)?'':'data-fresh="1"'} ${ramsEd.pickerSel.has(i.id)?'checked':''} onchange="ramsPickerTick('${i.id}',this.checked)"><div><b>${escapeHtml(i.title)}</b><div class="stub" style="margin:0;">${escapeHtml(kind==='hazard' ? (i.data.harm||'') : (i.data.body||'').slice(0,90))}</div></div></label>`;
   return `<div class="geo-modal-overlay" style="display:flex;" onclick="if(event.target===this){ramsEd.picker=null;ramsRender();}">
     <div class="geo-modal-card ramspicker">
       <h3 style="margin:0 0 8px;">Add ${kind==='hazard'?'hazards':(ramsEd.pickerPart==='method'?'method statements':(ramsEd.pickerPart==='general'?'safe systems of work':'sections'))} from the library</h3>
-      <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" oninput="ramsEd.pickerQ=this.value;clearTimeout(window._rpq);window._rpq=setTimeout(()=>{ramsRender();setTimeout(()=>{const e=document.querySelector('.ramspicker input[type=search]');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},250)" style="width:100%;margin-bottom:8px;">
-      ${allIds.length>1 ? `<label class="selallrow" style="margin-bottom:6px;"><input type="checkbox" ${allIds.every(id=>ramsEd.pickerSel.has(id))?'checked':''} onchange="${escapeHtml(`ramsPickerAll(this.checked, ${JSON.stringify(allIds)})`)}"> Select all (${allIds.length})</label>` : ''}
+      <input type="search" placeholder="Search…" value="${escapeHtml(ramsEd.pickerQ)}" autocomplete="off" oninput="ramsPickerFilter(this.value)" style="width:100%;margin-bottom:8px;">
+      <label class="selallrow" id="ramsPickAll" style="margin-bottom:6px;${freshHits>1?'':'display:none;'}"><input type="checkbox" onchange="ramsPickerAll(this.checked)"> Select all (<span>${freshHits}</span>)</label>
       <div class="ramspicker-list">
-        ${fresh.map(pickRow).join('')}
-        ${added.length ? `<p class="opmat-h" style="margin:12px 0 4px;">Already added to this RAMS (${added.length})</p>${added.map(pickRow).join('')}` : ''}
-        ${!shown.length ? `<div class="empty" style="padding:12px;">${(ramsEd.lib||[]).length ? 'Nothing matches.' : `The library is empty. <span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">Load the starter library</span>`}</div>` : ''}
+        <div id="ramsPickFresh">${fresh.map(pickRow).join('')}</div>
+        ${added.length ? `<div id="ramsPickAdded"><p class="opmat-h" style="margin:12px 0 4px;${addedHits?'':'display:none;'}">Already added to this RAMS (<span>${added.length}</span>)</p>${added.map(pickRow).join('')}</div>` : ''}
+        <div class="empty" id="ramsPickNone" style="padding:12px;${freshHits+addedHits?'display:none;':''}">${(ramsEd.lib||[]).length ? 'Nothing matches.' : `The library is empty. <span class="viewlink" style="cursor:pointer;" onclick="ramsSeedAndReload()">Load the starter library</span>`}</div>
       </div>
       <div class="row-gap" style="margin-top:10px;"><button class="darkbtn" id="ramsPickAddBtn" style="flex:2;" onclick="ramsPickerAdd()">Add ${ramsEd.pickerSel.size||''} selected</button><button class="ghostbtn" style="flex:1;" onclick="ramsEd.picker=null;ramsRender()">Cancel</button></div>
     </div></div>`;
 }
+function ramsPickerVisibleFresh(){ return Array.from(document.querySelectorAll('#ramsPickFresh .ramspicker-row')).filter(r=>r.style.display!=='none').map(r=>r.querySelector('input[data-pid]').dataset.pid); }
 function ramsPickerSync(){
   const btn = document.getElementById('ramsPickAddBtn'); if(btn) btn.textContent = 'Add '+(ramsEd.pickerSel.size||'')+' selected';
   document.querySelectorAll('.ramspicker-row input[data-pid]').forEach(c=>{ c.checked = ramsEd.pickerSel.has(c.dataset.pid); });
+  const ids = ramsPickerVisibleFresh(), all = document.getElementById('ramsPickAll');
+  if(all){ all.style.display = ids.length>1 ? '' : 'none'; all.querySelector('span').textContent = ids.length; all.querySelector('input').checked = ids.length>0 && ids.every(id=>ramsEd.pickerSel.has(id)); }
 }
+// Typing in the picker's search hides / shows rows in place (no redraw, so nothing jumps).
+window.ramsPickerFilter = function(v){
+  ramsEd.pickerQ = v;
+  const f = liveFilter(v, '#ramsPickFresh'), a = liveFilter(v, '#ramsPickAdded');
+  const h = document.querySelector('#ramsPickAdded .opmat-h'); if(h) h.style.display = a ? '' : 'none';
+  const none = document.getElementById('ramsPickNone'); if(none) none.style.display = (f + a) ? 'none' : '';
+  ramsPickerSync();
+};
 window.ramsPickerTick = function(id, on){ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); ramsPickerSync(); };
-window.ramsPickerAll = function(on, ids){ ids.forEach(id=>{ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); }); ramsPickerSync(); };
+window.ramsPickerAll = function(on){ ramsPickerVisibleFresh().forEach(id=>{ if(on) ramsEd.pickerSel.add(id); else ramsEd.pickerSel.delete(id); }); ramsPickerSync(); };
 window.ramsPickerAdd = function(){
   const lib = ramsEd.lib||[]; const kind = ramsEd.picker;
   const picked = lib.filter(i=>ramsEd.pickerSel.has(i.id));

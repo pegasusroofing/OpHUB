@@ -597,6 +597,7 @@
 .ramsitem-list li.more{list-style:none;margin-left:-14px;color:var(--slate);font-weight:700;cursor:pointer;}
 .ramsitem-tools{display:flex;gap:6px;margin-top:10px;justify-content:flex-end;}
 .ramsitem-tools button{width:36px;height:32px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);font-size:15px;cursor:pointer;padding:0;}
+.lf-on .lf-mv{display:none;}
 .ramsitem-tools button:disabled{opacity:.3;cursor:default;}
 .ramsitem-tools button.danger{color:var(--warn);}
 .ramsrr{display:inline-block;min-width:26px;text-align:center;font-weight:800;font-size:12px;border-radius:6px;padding:3px 5px;}

@@ -10,7 +10,9 @@ async function renderRamsLibrary(){
   const __gen = RENDER_GEN;
   if(!isFullManager(ME)){ go('#/team'); return; }
   const lib = await ramsLoadLibrary();
-  const items = lib.filter(i=>i.kind===ramsLibTab && (!ramsLibQ || i.title.toLowerCase().includes(ramsLibQ.toLowerCase())));
+  const items = lib.filter(i=>i.kind===ramsLibTab);
+  const lfq = ramsLibQ.trim().toLowerCase();
+  const hideIf = it => (lfq && !it.title.toLowerCase().includes(lfq)) ? ' style="display:none;"' : '';
   const counts = k => lib.filter(i=>i.kind===k).length;
   const row = (it, i, n) => {
     const d = it.data||{};
@@ -31,10 +33,10 @@ async function renderRamsLibrary(){
       return ramsLibTemplateEditHtml(it, lib);
     }
     const sub = it.kind==='hazard' ? `${escapeHtml(d.harm||'')} · ${(d.controls||[]).length} controls` : it.kind==='section' ? `${(d.steps||[]).length ? (d.steps||[]).length+' steps' : 'Text'}` : `${(d.hazards||[]).length} hazards · ${(d.sections||[]).length} sections`;
-    return `<div class="card ramsitem"><div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div><div class="stub" style="margin:0;">${sub}</div></div>
+    return `<div class="card ramsitem" data-lf="${lfText(it.title)}"${hideIf(it)}><div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div><div class="stub" style="margin:0;">${sub}</div></div>
       ${it.kind==='hazard' ? `<div class="ramsrrpair">${ramsRRBadge(d.p,d.s)}<span>→</span>${ramsRRBadge(d.rp,d.rs)}</div>` : ''}</div>
       <div class="ramsitem-tools">
-        ${ramsLibQ ? '' : `<button ${i===0?'disabled':''} onclick="ramsLibMove('${it.id}',-1)">↑</button><button ${i===n-1?'disabled':''} onclick="ramsLibMove('${it.id}',1)">↓</button>`}
+        <button class="lf-mv" ${i===0?'disabled':''} onclick="ramsLibMove('${it.id}',-1)">↑</button><button class="lf-mv" ${i===n-1?'disabled':''} onclick="ramsLibMove('${it.id}',1)">↓</button>
         <button onclick="ramsLibEditId='${it.id}';render()">✎</button><button class="danger" onclick="ramsLibDelete('${it.id}')">🗑</button></div></div>`;
   };
   const html = `
@@ -42,17 +44,20 @@ async function renderRamsLibrary(){
     <p class="stub" style="margin:0 0 12px;">The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn't change RAMS already written for a job.</p>
     <div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${[['hazard','Hazards'],['section','Safe Systems of Work & Method Statements'],['template','Templates'],['company','Company Details']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" style="margin:0;" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l}${k==='company'?'':' ('+counts(k)+')'}</div>`).join('')}</div>
     ${ramsLibTab==='company' ? ramsCompanyDetailsHtml() : `
-    <input type="text" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="ramsLibQ=this.value;clearTimeout(window._rlq);window._rlq=setTimeout(()=>{render();setTimeout(()=>{const e=document.getElementById('ramsLibSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},300)">
+    <input type="search" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="ramsLibQ=this.value;liveFilter(this.value,'#ramsLibList')">
+    <div id="ramsLibList" class="${lfq?'lf-on':''}">
     ${ramsLibTab==='section' ? (()=>{
         const partOf = it=>((it.data||{}).part==='method' ? 'method' : 'general');
         const parts = [['general','Safe Systems of Work'],['method','Method Statements']];
         const tabs = `<div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px;">${parts.map(([pt,lbl])=>`<div class="filterchip ${ramsLibPart===pt?'active':''}" style="margin:0;" onclick="ramsLibPart='${pt}';ramsLibEditId=null;render()">${lbl} (${items.filter(it=>partOf(it)===pt).length})</div>`).join('')}</div>`;
         const g = items.filter(it=>partOf(it)===ramsLibPart);
-        return tabs + (g.map((it,i)=>row(it,i,g.length)).join('') || `<div class="empty" style="padding:8px 0;">None yet.</div>`) +
+        const anyShown = g.some(it=>!hideIf(it));
+        return tabs + g.map((it,i)=>row(it,i,g.length)).join('') + `<div class="empty lf-empty" style="padding:8px 0;${anyShown?'display:none;':''}">${g.length?'Nothing matches.':'None yet.'}</div>` +
           `<button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew('${ramsLibPart}')">+ New ${ramsLibPart==='method'?'method statement':'safe system of work'}</button>`;
       })() : `
-    ${items.map((it,i)=>row(it,i,items.length)).join('') || `<div class="empty">${lib.length ? 'Nothing here yet.' : 'Your library is empty.'}</div>`}
+    ${items.map((it,i)=>row(it,i,items.length)).join('')}<div class="empty lf-empty" ${items.some(it=>!hideIf(it))?'style="display:none;"':''}>${items.length ? 'Nothing matches.' : lib.length ? 'Nothing here yet.' : 'Your library is empty.'}</div>
     <button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew()">+ New ${ramsLibTab==='template'?'template':'hazard'}</button>`}
+    </div>
     ${!lib.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="ramsSeedAndReload()">Load the starter library (from your Cleveland Primary School RAMS)</button>` : ''}`}
     </div>
   `;
