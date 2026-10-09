@@ -10,9 +10,18 @@ window.toggleSnagExpand = function(id){
   if(expandedSnagIds.has(id)) expandedSnagIds.delete(id); else expandedSnagIds.add(id);
   render();
 };
+function snagThumbHtml(p){
+  const u = publicUrl('site-photos', p);
+  return `<img class="snagthumb" src="${u}" style="cursor:pointer;" onclick="viewImage('${u}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`;
+}
 function snagCardBody(siteId, s, canAdd){
   return `
-        ${(s.photo_paths && s.photo_paths.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;">${s.photo_paths.map(p=>`<img class="snagthumb" src="${publicUrl('site-photos',p)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',p)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">`).join('')}</div>` : s.photo_path ? `<img class="snagthumb" src="${publicUrl('site-photos',s.photo_path)}" style="cursor:pointer;" onclick="viewImage('${publicUrl('site-photos',s.photo_path)}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';this.style.cursor='default';this.removeAttribute('onclick');">` : ''}
+        ${(()=>{
+          const paths = (s.photo_paths && s.photo_paths.length) ? s.photo_paths : (s.photo_path ? [s.photo_path] : []);
+          if(!paths.length) return '';
+          const canMark = s.status!=='closed' && !isClient(ME);
+          return `<div style="display:flex;gap:8px;flex-wrap:wrap;">${paths.map(p=>`<div style="position:relative;">${snagThumbHtml(p)}${canMark ? `<div class="snagmk" onclick="snagMarkupSaved('${siteId}','${s.id}','${jsAttr(p)}')">✏️ Mark up</div>` : ''}</div>`).join('')}</div>`;
+        })()}
         ${s.pdf_path ? `<div class="ghostbtn" style="display:block;margin-top:10px;text-align:center;cursor:pointer;" onclick="viewDrawing('${publicUrl('site-photos',s.pdf_path)}', false, '${jsAttr((s.title||'Snag')+' - Attachment.pdf')}')">📄 View PDF</div>` : ''}
         ${s.status==='closed' ? `
           <div class="closurerow">
@@ -72,7 +81,7 @@ async function renderSnagging(siteId){
         <div class="formfield"><input type="text" id="snagLoc" placeholder="Location" value="${escapeHtml(snagNewLocation)}" oninput="snagNewLocation=this.value"></div>
         <div class="formfield">
           <label class="field-label">Photos</label>
-          ${snagNewPhotos.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${snagNewPhotos.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeSnagNewPhoto(${idx})">✕</div></div>`).join('')}</div>` : ''}
+          ${snagNewPhotos.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">${snagNewPhotos.map((u,idx)=>`<div style="position:relative;"><img src="${u}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--line);"><div class="taskicon danger" style="position:absolute;top:-6px;right:-6px;background:#fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.25);" onclick="removeSnagNewPhoto(${idx})">✕</div><div class="snagmk" onclick="snagMarkupNew(${idx})">✏️ Mark up</div></div>`).join('')}</div>` : ''}
           <div class="photoupload" style="cursor:pointer;" onclick="document.getElementById('snagPhotoInput').click()">
             <div style="font-size:20px;">📷</div>Take a photo or choose from library
           </div>
@@ -109,6 +118,27 @@ window.snagAddPhoto = async function(input){
   render();
   if(failed) toast(failed===files.length ? 'Could not process photo.' : (failed+' photo'+(failed===1?'':'s')+' could not be processed — the rest were added.'));
   input.value = '';
+};
+// Draw / add text on a photo before the snag is added.
+window.snagMarkupNew = async function(idx){
+  const src = snagNewPhotos[idx]; if(!src) return;
+  const out = await photoMarkup(src);
+  if(out && snagNewPhotos[idx]===src){ snagNewPhotos[idx] = out; render(); }
+};
+// Mark up a photo on a snag that's already been raised: the marked-up copy
+// is uploaded and takes the old photo's place on the snag.
+window.snagMarkupSaved = async function(siteId, snagId, path){
+  if(isClient(ME)) return;
+  const out = await photoMarkup(publicUrl('site-photos', path)+'?v='+Date.now());
+  if(!out) return;
+  const newPath = await uploadDataUrl('site-photos', siteId+'/snags/'+crypto.randomUUID()+'.jpg', out);
+  if(!newPath){ toast('Could not save the marked-up photo — check your connection.'); return; }
+  const cur = (await dbSelect('snags', 'id=eq.'+snagId+'&select=photo_path,photo_paths&limit=1'))[0] || {};
+  let paths = (cur.photo_paths && cur.photo_paths.length) ? cur.photo_paths.slice() : (cur.photo_path ? [cur.photo_path] : []);
+  const i = paths.indexOf(path);
+  if(i>=0) paths[i] = newPath; else paths.push(newPath);
+  const row = await dbUpdate('snags', snagId, {photo_paths:paths, photo_path:paths[0]||null});
+  if(row){ toast('✓ Photo marked up'); render(); }
 };
 window.removeSnagNewPhoto = function(idx){
   snagNewPhotos.splice(idx,1);
