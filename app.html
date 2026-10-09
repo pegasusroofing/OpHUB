@@ -24495,42 +24495,152 @@ window.coshhAddSds = async function(input){
     const stored = await uploadToStorage('coshh-library', path, file, 'application/pdf');
     if(stored){ e.data.sdsPath = stored; e.data.sdsName = file.name; }
     const found = await coshhReadSds(file);
-    const d = e.data; const got = [];
-    if(found.h.length){ d.h = found.h; got.push(found.h.length+' hazard codes'); }
-    if(found.p.length){ d.p = found.p; got.push(found.p.length+' precaution codes'); }
-    if(found.pictos.length){ d.pictos = found.pictos; got.push('symbols'); }
-    else if(found.h.length && !d.pictos.length){ d.pictos = coshhSuggestPictos(found.h); }
-    if(found.signal){ d.signal = found.signal; got.push('signal word'); }
-    else if(found.h.length && !d.signal) d.signal = coshhSuggestSignal(found.h);
-    if(found.manufacturer && !d.manufacturer) d.manufacturer = found.manufacturer;
-    if(found.h.some(c=>/^H33|^H335|^H336|^H304/.test(c)) && !d.routes.includes('inhale')) d.routes.push('inhale');
-    if(found.h.some(c=>/^H31|^EUH066/.test(c)) && !d.routes.includes('skin')) d.routes.push('skin');
-    if(found.h.some(c=>/^H31[89]|^H314/.test(c)) && !d.routes.includes('eyes')) d.routes.push('eyes');
-    if(found.h.some(c=>/^H30[0-4]/.test(c)) && !d.routes.includes('swallow')) d.routes.push('swallow');
-    toast(got.length ? 'Read from the data sheet: '+got.join(', ')+' — please check' : 'Data sheet attached. No codes could be read from it (it may be a scan) — type them in.');
-  }catch(err){ console.warn('[sds]', err); toast('Data sheet attached, but it could not be read — type the codes in.'); }
+    const n = coshhApplySds(e, found);
+    toast(n ? 'Filled in '+n+' item'+(n===1?'':'s')+' from the data sheet — please check them' : 'Data sheet attached. Nothing could be read from it (it may be a scan) — fill it in by hand.');
+  }catch(err){ console.warn('[sds]', err); toast('Data sheet attached, but it could not be read — fill it in by hand.'); }
   e.busy = false; coshhRerender();
 };
-// Pulls codes out of a data sheet's text, from Section 2 (Hazards identification) where possible.
-async function coshhReadSds(file){
-  const res = {h:[], p:[], pictos:[], signal:'', manufacturer:''};
-  if(!(await loadLib('pdfjsLib'))) return res;
+// Puts what was read into the form. Text boxes are only filled if they're empty
+// or still hold the standard wording, so nothing you've typed is overwritten.
+function coshhApplySds(e, f){
+  const d = e.data; let n = 0;
+  const isDefault = k => !String(d[k]||'').trim() || d[k]===COSHH_DEFAULTS[k];
+  const setText = (k, v) => { if(v && isDefault(k)){ d[k] = v; n++; } };
+  if(f.h.length){ d.h = f.h; n++; }
+  if(f.p.length){ d.p = f.p; n++; }
+  if(f.pictos.length){ d.pictos = f.pictos; n++; } else if(f.h.length && !d.pictos.length){ d.pictos = coshhSuggestPictos(f.h); n++; }
+  if(f.signal){ d.signal = f.signal; n++; } else if(f.h.length && !d.signal){ d.signal = coshhSuggestSignal(f.h); }
+  if(f.product && (!e.title || /^new product$/i.test(e.title))){ e.title = f.product; n++; }
+  if(f.manufacturer && !d.manufacturer){ d.manufacturer = f.manufacturer; n++; }
+  if(f.use && !d.use){ d.use = f.use; n++; }
+  if(f.wel && !d.wel){ d.wel = f.wel; n++; }
+  setText('firstAid', f.firstAid); setText('fire', f.fire); setText('spill', f.spill); setText('storage', f.storage); setText('disposal', f.disposal);
+  if(f.controls && !String(d.controls||'').trim()){ d.controls = f.controls; n++; }
+  if(f.ppe.length){ f.ppe.forEach(k=>{ if(!d.ppe.includes(k)) d.ppe.push(k); }); n++; }
+  const add = r => { if(!d.routes.includes(r)) d.routes.push(r); };
+  if(f.h.some(c=>/^H33|^H304/.test(c))) add('inhale');
+  if(f.h.some(c=>/^H31[0-7]|^EUH066/.test(c))) add('skin');
+  if(f.h.some(c=>/^H31[489]/.test(c))) add('eyes');
+  if(f.h.some(c=>/^H30[0-4]/.test(c))) add('swallow');
+  return n;
+}
+// ---- Safety Data Sheet reader (no AI) ----
+// Every SDS has the same 16 numbered sections (UK/EU REACH), even though the
+// layouts differ. The text is rebuilt line by line, split at those section
+// headings, then each part is tidied up for the form.
+const COSHH_SDS_SECTIONS = [
+  [1, 'identification'], [2, 'hazards?\\s*identification'], [3, 'composition'], [4, 'first[\\s-]*aid'], [5, 'fire[\\s-]*fighting'],
+  [6, 'accidental\\s*release'], [7, 'handling\\s*and\\s*storage'], [8, 'exposure\\s*controls'], [9, 'physical'],
+  [10, 'stability'], [11, 'toxicolog'], [12, 'ecolog'], [13, 'disposal'], [14, 'transport'], [15, 'regulatory'], [16, 'other\\s*information'],
+];
+async function coshhSdsText(file){
+  if(!(await loadLib('pdfjsLib'))) return '';
   const pdf = await pdfjsLib.getDocument({data: new Uint8Array(await file.arrayBuffer())}).promise;
-  let text = '';
-  for(let i=1; i<=Math.min(pdf.numPages, 8); i++){
+  const pages = [];
+  for(let i=1; i<=Math.min(pdf.numPages, 25); i++){
     const pg = await pdf.getPage(i); const tc = await pg.getTextContent();
-    text += tc.items.map(t=>t.str).join(' ') + '\n';
+    // Put the text back in reading order (top to bottom, left to right) —
+    // PDFs don't always store it that way.
+    const items = tc.items.filter(t=>t.str && t.transform).map(t=>({s:t.str, x:t.transform[4], y:t.transform[5]}));
+    items.sort((a,b)=> Math.abs(b.y-a.y) > 3 ? b.y-a.y : a.x-b.x);
+    let out = '', lastY = null;
+    items.forEach(t=>{
+      if(lastY!==null && Math.abs(t.y-lastY) > 3) out += '\n'; else if(out && !/[ \n]$/.test(out)) out += ' ';
+      out += t.s; lastY = t.y;
+    });
+    pages.push(out);
   }
-  text = text.replace(/\s+/g,' ');
-  let s2 = text;
-  const a = text.search(/SECTION\s*2\b|2\.\s*Hazards? identification/i);
-  if(a >= 0){ const rest = text.slice(a+10); const b = rest.search(/SECTION\s*3\b|3\.\s*Composition/i); s2 = b > 0 ? text.slice(a, a+10+b) : text.slice(a, a+6000); }
+  // Lines that repeat on most pages are headers/footers — drop them.
+  const count = {};
+  pages.forEach(p=>{ new Set(p.split('\n').map(l=>l.trim()).filter(Boolean)).forEach(l=>{ count[l] = (count[l]||0)+1; }); });
+  const minRep = Math.max(3, Math.ceil(pages.length*0.6));
+  return pages.map(p=>p.split('\n').filter(l=>{ const t = l.trim(); return !(count[t] >= minRep) && !/^pag\s*e\s*\d+\s*(of|\/)\s*\d+$/i.test(t) && !/^page\s*\d+\s*(of|\/)\s*\d+$/i.test(t); }).join('\n')).join('\n');
+}
+function coshhSdsSplit(text){
+  const pos = {};
+  let from = 0;
+  COSHH_SDS_SECTIONS.forEach(([n, kw])=>{
+    const re = new RegExp('(?:^|\\n)[ \\t]*(?:section|SECTION|Section)?[ \\t]*'+n+'[ \\t]*[.:\\-–)]?[ \\t]*(?:[A-Za-z ]{0,15})?'+kw, 'i');
+    const m = re.exec(text.slice(from));
+    if(m){ pos[n] = from + m.index; from = pos[n] + 4; }
+  });
+  const out = {};
+  const keys = Object.keys(pos).map(Number).sort((a,b)=>a-b);
+  keys.forEach((n,i)=>{ const end = i+1<keys.length ? pos[keys[i+1]] : text.length; out[n] = text.slice(pos[n], end); });
+  return out;
+}
+// Clean a section for a text box: drop its heading, join wrapped lines, keep "Eye contact:"-style labels on new lines.
+function coshhSdsTidy(t, max){
+  if(!t) return '';
+  let lines = t.split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+  lines.shift(); // section heading
+  lines = lines.filter(l=>!/^(SECTION|Section)\s*\d+/.test(l) && !/^\d{1,2}\.\d{1,2}\.?\s*$/.test(l));
+  let out = '';
+  lines.forEach(l=>{
+    l = l.replace(/^\d{1,2}\.\d{1,2}(\.\d)?\.?\s+/, '');
+    l = l.replace(/^description of first[\s-]*aid measures\s*:?\s*/i, '');
+    l = l.replace(/^(extinguishing media|suitable extinguishing (?:media|equipment)|unsuitable extinguishing (?:media|equipment)|special hazards arising from the substance or mixture|advice for fire[\s-]*fighters|personal precautions[^:]{0,60}|environmental precautions|methods and materials? for containment and cleaning up|methods for cleaning up|precautions for safe handling|conditions for safe storage[^:]{0,60}|waste treatment methods)\s*:?\s*/i, (m0,t)=>t.charAt(0).toUpperCase()+t.slice(1).toLowerCase()+': ');
+    if(!l) return;
+    const startsNew = /^[A-Z][A-Za-z /()\-]{2,45}[:\-–]/.test(l) || /^[•\-–]\s/.test(l) || /[.:]$/.test(out);
+    out += out ? (startsNew ? '\n' : ' ') + l : l;
+  });
+  out = out.replace(/\n{2,}/g,'\n').replace(/[ \t]{2,}/g,' ').replace(/: \n/g,':\n').trim();
+  if(max && out.length > max){ out = out.slice(0, max); out = out.slice(0, Math.max(out.lastIndexOf('. '), max-80)+1) + ' (see data sheet)'; }
+  return out;
+}
+function coshhSdsSub(sec, n, sub){
+  if(!sec) return '';
+  const re = new RegExp('(?:^|\\n)[ \\t]*'+n+'\\.'+sub+'\\b');
+  const m = re.exec(sec); if(!m) return '';
+  const rest = sec.slice(m.index+1);
+  const nx = new RegExp('\\n[ \\t]*'+n+'\\.'+(sub+1)+'\\b').exec(rest);
+  return 'x\n'+(nx ? rest.slice(0, nx.index) : rest);
+}
+async function coshhReadSds(file){
+  const res = {h:[], p:[], pictos:[], signal:'', manufacturer:'', product:'', use:'', wel:'', firstAid:'', fire:'', spill:'', storage:'', disposal:'', controls:'', ppe:[]};
+  const text = await coshhSdsText(file);
+  if(!text.trim()) return res;
+  const S = coshhSdsSplit(text);
+  const s2 = S[2] || text.slice(0, 8000);
   res.h = coshhParseCodes(s2, 'H').filter(c=>coshhCodeText(c));
   res.p = coshhParseCodes(s2, 'P').filter(c=>coshhCodeText(c));
   res.pictos = COSHH_PICTOS.map(p=>p.key).filter(k=>new RegExp(k.replace('0','0?'),'i').test(s2));
-  const sw = /Signal\s*word[s]?\s*[:\-]?\s*(Danger|Warning)/i.exec(s2); if(sw) res.signal = sw[1][0].toUpperCase()+sw[1].slice(1).toLowerCase();
-  const mf = /(?:Manufacturer|Supplier|Company)\s*(?:name)?\s*[:\-]\s*([A-Z][A-Za-z0-9&.,()' \-]{2,50}?)(?=\s{2,}|\s(?:Address|Street|Tel|Telephone|Unit|Email)\b|,)/.exec(text);
-  if(mf) res.manufacturer = mf[1].trim();
+  const sw = /Signal\s*words?\s*[:\-]?\s*(Danger|Warning)/i.exec(s2); if(sw) res.signal = sw[1][0].toUpperCase()+sw[1].slice(1).toLowerCase();
+  const s1 = S[1] || text.slice(0, 3000);
+  const pick = (re) => { const m = re.exec(s1); return m ? m[1].replace(/\s+/g,' ').trim().replace(/[.,;]$/,'') : ''; };
+  res.product = pick(/(?:Product\s*name|Trade\s*name)[ \t]*[:\-]?[ \t]*([^\n]{3,90})/i) || pick(/Product\s*identifier[ \t]*[:\-][ \t]*([^\n]{3,90})/i);
+  res.use = pick(/(?:Intended\s*use|Identified\s*uses?|Recommended\s*use|Use\s*of\s*the\s*(?:substance|mixture))[ \t]*[:\-][ \t]*([^\n]{3,90})/i);
+  res.manufacturer = pick(/(?:Company\s*name|Supplier|Manufacturer)[ \t]*(?:name)?[ \t]*[:\-][ \t]*([^\n]{3,120})/i) || (()=>{ const m = /1\.3[^\n]*\n\s*([^\n]{3,120})/.exec(s1); return m ? m[1].replace(/\s+/g,' ').trim() : ''; })();
+  if(/^(name|address|details|of the)/i.test(res.manufacturer)) res.manufacturer = '';
+  res.firstAid = coshhSdsTidy(coshhSdsSub(S[4], 4, 1) || S[4], 900);
+  res.fire = coshhSdsTidy(S[5], 600);
+  res.spill = coshhSdsTidy((coshhSdsSub(S[6], 6, 2)||'') + (coshhSdsSub(S[6], 6, 3)||'').replace(/^x\n/, '\n') || S[6], 700);
+  res.storage = coshhSdsTidy(coshhSdsSub(S[7], 7, 2) || S[7], 600);
+  res.controls = coshhSdsTidy(coshhSdsSub(S[7], 7, 1), 700);
+  res.disposal = coshhSdsTidy(coshhSdsSub(S[13], 13, 1) || S[13], 500);
+  if(S[8]){
+    // UK limits: a "WEL GBR" row in a limits table (with the substance named above it), or any line giving mg/m³ / ppm.
+    const lines8 = S[8].split('\n').map(l=>l.replace(/\s+/g,' ').trim()).filter(Boolean);
+    const wel = [];
+    lines8.forEach((l,i)=>{
+      const m = /^WEL\s+(?:GBR|UK|GB)\s+([\d.,-]+)\s+([\d.,-]+)(?:\s+([\d.,-]+)\s+([\d.,-]+))?/i.exec(l);
+      if(m){
+        let name = ''; for(let j=i-1; j>=0 && j>i-25; j--){ const c = lines8[j]; if(/^[A-Z0-9][A-Z0-9 ,()\-\/]{3,60}$/.test(c) && !/THRESHOLD|TYPE|TWA|STEL|COUNTRY|VALUE|MG\/M|PPM/i.test(c) && !/\b(ESP|FRA|FIN|GBR|ITA|ROU|EU|DEU|NLD|IRL|BEL|AUT|POL|PRT|SWE|DNK|CZE|SVK|HUN|USA)\b/.test(c) && (c.match(/\d+/g)||[]).length < 3){ name = c; break; } }
+        const v = (a,b)=>[a&&a!=='-'?a+' mg/m³':'', b&&b!=='-'?b+' ppm':''].filter(Boolean).join(' / ');
+        wel.push((name ? name.charAt(0)+name.slice(1).toLowerCase()+': ' : '')+[v(m[1],m[2]) ? v(m[1],m[2])+' (8hr)' : '', v(m[3],m[4]) ? v(m[3],m[4])+' (15 min)' : ''].filter(Boolean).join(', '));
+      }
+    });
+    if(!wel.length) lines8.forEach(l=>{ if(/(mg\/m|ppm|f\/ml)/i.test(l) && /\d/.test(l) && /[a-z]{3}/i.test(l.replace(/mg\/m|ppm/gi,'')) && l.length > 15 && l.length < 160 && !/^type\b/i.test(l)) wel.push(l); });
+    res.wel = wel.slice(0, 6).join('; ');
+    const t = S[8].toLowerCase();
+    if(/glove|hand protection/.test(t)) res.ppe.push('hand');
+    if(/goggle|safety glasses|eye protection|eye\/face/.test(t)) res.ppe.push('eye');
+    if(/face shield|face-shield|visor/.test(t)) res.ppe.push('face');
+    if(/respirator|respiratory protection|filter type|ffp3|half mask|full face mask/.test(t)) res.ppe.push(/dust|ffp2|p2\b/.test(t) && !/ffp3|filter type a/.test(t) ? 'dust' : 'ffp3');
+    if(/overall|coverall|protective clothing|body protection/.test(t)) res.ppe.push('overalls');
+    if(/safety boots|safety footwear|protective footwear|boots/.test(t)) res.ppe.push('boots');
+    if(/hearing|ear protection|ear defender/.test(t)) res.ppe.push('ear');
+  }
   return res;
 }
 
