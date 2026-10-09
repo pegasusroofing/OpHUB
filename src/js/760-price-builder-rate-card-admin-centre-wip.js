@@ -35,6 +35,14 @@ window.savePriceRateField = async function(input, itemId, field){
   const row = await dbUpdate('price_rate_items', itemId, {[field]:val});
   if(row) toast('Rate card updated');
 };
+// Unit (lm / m² / each) can be changed on an existing rate item. Sheets
+// already issued keep the unit they were priced with.
+window.savePriceRateUnit = async function(sel, itemId){
+  const unit = sel.value;
+  if(['lm','m2','each'].indexOf(unit) < 0) return;
+  const row = await dbUpdate('price_rate_items', itemId, {unit});
+  if(row) toast('Unit updated'); else render();
+};
 window.deletePriceRateItem = async function(itemId, name){
   if(!await customConfirm(`Remove "${name}" from the rate card? This can't be undone — it won't affect any sheet that's already been issued, since those keep their own snapshot of the rates used.`)) return;
   const ok = await dbDelete('price_rate_items', itemId);

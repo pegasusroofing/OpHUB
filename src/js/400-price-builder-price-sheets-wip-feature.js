@@ -161,9 +161,10 @@ function pbResolvedRate(entry, item){
 function pbLineTotal(entry, item){
   const qty = Number(entry.quantity)||0;
   const rate = pbResolvedRate(entry, item);
-  return qty * rate;
+  return pbRound2(qty * rate);
 }
-function pbCustomLineTotal(row){ return (Number(row.quantity)||0) * (Number(row.rate)||0); }
+// Every line, and so the sheet total, is rounded to the penny (2 decimal places).
+function pbCustomLineTotal(row){ return pbRound2((Number(row.quantity)||0) * (Number(row.rate)||0)); }
 // Collapsible category headers in the builder — keyed by category name,
 // default open (undefined -> true) so nothing that used to always show
 // suddenly disappears the first time someone opens the page.
@@ -261,6 +262,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
   let grandTotal = 0;
   Object.keys(pbWorking.items).forEach(key=>{ const entry = pbWorking.items[key]; const item = itemsById[entry.rateItemId]; if(item) grandTotal += pbLineTotal(entry, item); });
   pbWorking.customRows.forEach(row=>{ grandTotal += pbCustomLineTotal(row); });
+  grandTotal = pbRound2(grandTotal);
   const tickedCount = Object.keys(pbWorking.items).length + pbWorking.customRows.length;
 
   if(__gen !== RENDER_GEN) return;
@@ -399,9 +401,9 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       <button class="ghostbtn" style="margin-top:4px;" onclick="pbAddCustomRow()">+ Add item</button>
     ` : ''}
 
-    <label class="stub" style="display:flex;align-items:center;gap:8px;margin:14px 0 0;padding:10px 12px;background:var(--paper);border-radius:8px;">
-      <input type="checkbox" style="width:auto;" ${pbWorking.populateSOW?'checked':''} onchange="pbToggleSOW(this.checked)" ${sheet.schedule_section_id?'disabled':''}>
-      ${sheet.schedule_section_id ? 'Already populated into the Schedule of Works' : 'Also create a Schedule of Works section for this sheet — one task per item, so the SOW matches the price sheet'}
+    <label class="stub" style="display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:10px 12px;background:var(--paper);border-radius:8px;line-height:1.35;">
+      <input type="checkbox" style="width:16px;height:16px;flex:0 0 16px;margin:0;padding:0;align-self:center;" ${pbWorking.populateSOW?'checked':''} onchange="pbToggleSOW(this.checked)" ${sheet.schedule_section_id?'disabled':''}>
+      <span style="flex:1;min-width:0;margin:0;">${sheet.schedule_section_id ? 'Already populated into the Schedule of Works' : 'Also create a Schedule of Works section for this sheet — one task per item, so the SOW matches the price sheet'}</span>
     </label>
 
     <div class="card" style="margin-top:14px;position:sticky;bottom:70px;">
@@ -458,7 +460,7 @@ window.pbSetItemName = function(key, value){
 // Qty spinners step in 0.1s (1.1, 1.2, 1.3…) but the box stays a free-text
 // number field underneath — typed values are just rounded to 2dp on blur so
 // measurements always store/display the same precision either way.
-const pbRound2 = n => Math.round((Number(n)||0)*100)/100;
+function pbRound2(n){ n = Number(n)||0; return Math.round((n + (n>=0?1:-1)*Number.EPSILON*Math.max(1,Math.abs(n)))*100)/100; }
 window.pbSetQuantity = function(key, value){
   const entry = pbWorking.items[key]; if(!entry) return;
   entry.quantity = value==='' ? '' : pbRound2(parseFloat(value));
@@ -592,7 +594,7 @@ async function pbPersist(siteId, sheetId, status){
     const qty = Number(row.quantity)||0;
     const rate = Number(row.rate)||0;
     if(!row.name || !qty || !rate) return; // incomplete custom row — don't save a blank/zero line
-    const lineTotal = qty * rate;
+    const lineTotal = pbRound2(qty * rate);
     total += lineTotal;
     rows.push({
       id: row.id || null, _customIdx: rowIdx,
@@ -666,6 +668,7 @@ async function pbPersist(siteId, sheetId, status){
   const subcontractor_name = pbWorking.assignedUserIds.map(id=>PROFILES[id]&&PROFILES[id].name).filter(Boolean).join(', ') || null;
   const sheetRows = await dbSelect('price_builder_sheets', 'id=eq.'+sheetId);
   const existingSheet = sheetRows[0];
+  total = pbRound2(total);
   const patch = {title: pbWorking.title, subcontractor_name, assigned_user_ids: pbWorking.assignedUserIds, total, updated_at: new Date().toISOString()};
   if(status){
     patch.status = status;

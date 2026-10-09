@@ -462,7 +462,12 @@ async function renderTeam(adminPage, adminItemKey){
           <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
             <div class="info" style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
               <input type="text" value="${escapeHtml(it.name)}" style="border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:700;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','name')">
-              <div class="meta">${it.is_dropdown ? 'Dropdown — priced by option below' : escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)}</div>
+              <div class="meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <select title="Unit" style="width:auto;min-width:0;height:auto;padding:4px 8px;font-size:12.5px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-family:inherit;" onchange="savePriceRateUnit(this,'${it.id}')">
+                  ${[['lm','Linear metre (lm)'],['m2','m²'],['each','Each']].map(([k,l])=>`<option value="${k}" ${it.unit===k?'selected':''}>${l}</option>`).join('')}
+                </select>
+                ${it.is_dropdown ? '<span>Dropdown — priced by option below</span>' : ''}
+              </div>
             </div>
             ${!it.is_dropdown ? `
             <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" value="${it.rate!=null?it.rate:''}" style="width:70px;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-family:inherit;background:#fff;color:var(--ink);" onblur="savePriceRateField(this,'${it.id}','rate')"></div>
