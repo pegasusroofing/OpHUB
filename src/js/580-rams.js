@@ -281,6 +281,14 @@ window.toggleRamsSub = function(companyId){
   ramsSubOpenFor[companyId] = !ramsSubOpenFor[companyId];
   render();
 };
+// Create / Upload RAMS: two buttons first; the chosen one opens its own part.
+let ramsAddMode = null; // null | 'create' | 'upload'
+function ramsAddChooserHtml(builderHtml, uploadForm){
+  if(!builderHtml) return uploadForm; // can't use the builder: just the upload form
+  const btn = (k, label) => `<button class="${ramsAddMode===k?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;" onclick="ramsAddMode=ramsAddMode==='${k}'?null:'${k}';render()">${label}</button>`;
+  return `<div class="row-gap" style="margin:0 0 ${ramsAddMode?'14px':'0'};">${btn('create','🦺 Create RAMS')}${btn('upload','📄 Upload RAMS')}</div>
+    ${ramsAddMode==='create' ? builderHtml : ramsAddMode==='upload' ? uploadForm : ''}`;
+}
 async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -324,8 +332,8 @@ async function renderRams(siteId){
         </div>
         </div>
         <div class="row-gap" style="margin-bottom:6px;">
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
-          <button class="darkbtn" style="flex:2;" onclick="addRams('${siteId}')">Upload</button>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
+          <button class="darkbtn" style="flex:1;" onclick="addRams('${siteId}')">Upload</button>
         </div>
         <input type="file" accept="application/pdf" id="ramsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('ramsFileName'); el.innerHTML = f ? ('✓ <b>'+escapeHtml(f.name)+'</b> selected') : ''; el.style.color = f ? 'var(--brand1,#1A1D21)' : '';">
         <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;font-size:12.5px;"></p>
@@ -348,12 +356,11 @@ async function renderRams(siteId){
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Create / Upload RAMS</div>
-      ${ramsUploadOpen ? `<div class="card">${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}${uploadForm}</div>` : ''}
+      ${ramsUploadOpen ? `<div class="card">${ramsAddChooserHtml(ramsBuilderHtml, uploadForm)}</div>` : ''}
     ` : `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Create / Upload RAMS</p>
-        ${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}
-        ${uploadForm}
+        ${ramsAddChooserHtml(ramsBuilderHtml, uploadForm)}
       </div>
     `) : ''}
     ${superseded.length ? `

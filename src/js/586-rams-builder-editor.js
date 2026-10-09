@@ -442,8 +442,8 @@ async function ramsBuilderCardHtml(siteId){
   if(!isFullManager(ME)) return '';
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
   return `<div style="margin-bottom:6px;">
-    <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:4px 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
+    <p class="stub" style="margin:0 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents. <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p>
     ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="taskicon danger" title="Delete" style="margin-left:auto;" onclick="event.stopPropagation();ramsDeleteBuildRow('${siteId}','${b.id}')">🗑</span><span class="arrow">›</span></div>`).join('')}
-    <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
+    <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Start new RAMS</button>
   </div>`;
 }

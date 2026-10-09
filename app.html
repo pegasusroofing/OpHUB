@@ -23288,6 +23288,14 @@ window.toggleRamsSub = function(companyId){
   ramsSubOpenFor[companyId] = !ramsSubOpenFor[companyId];
   render();
 };
+// Create / Upload RAMS: two buttons first; the chosen one opens its own part.
+let ramsAddMode = null; // null | 'create' | 'upload'
+function ramsAddChooserHtml(builderHtml, uploadForm){
+  if(!builderHtml) return uploadForm; // can't use the builder: just the upload form
+  const btn = (k, label) => `<button class="${ramsAddMode===k?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;" onclick="ramsAddMode=ramsAddMode==='${k}'?null:'${k}';render()">${label}</button>`;
+  return `<div class="row-gap" style="margin:0 0 ${ramsAddMode?'14px':'0'};">${btn('create','🦺 Create RAMS')}${btn('upload','📄 Upload RAMS')}</div>
+    ${ramsAddMode==='create' ? builderHtml : ramsAddMode==='upload' ? uploadForm : ''}`;
+}
 async function renderRams(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -23331,8 +23339,8 @@ async function renderRams(siteId){
         </div>
         </div>
         <div class="row-gap" style="margin-bottom:6px;">
-          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:1;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
-          <button class="darkbtn" style="flex:2;" onclick="addRams('${siteId}')">Upload</button>
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('ramsFile').click()">Choose PDF</div>
+          <button class="darkbtn" style="flex:1;" onclick="addRams('${siteId}')">Upload</button>
         </div>
         <input type="file" accept="application/pdf" id="ramsFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('ramsFileName'); el.innerHTML = f ? ('✓ <b>'+escapeHtml(f.name)+'</b> selected') : ''; el.style.color = f ? 'var(--brand1,#1A1D21)' : '';">
         <p class="stub" id="ramsFileName" style="margin:-4px 0 10px;font-size:12.5px;"></p>
@@ -23355,12 +23363,11 @@ async function renderRams(siteId){
 
     ${canAdd ? (docs.length ? `
       <div class="ddrow" onclick="ramsUploadOpen=!ramsUploadOpen;render()"><span class="arrow">${ramsUploadOpen?'▼':'▶'}</span> Create / Upload RAMS</div>
-      ${ramsUploadOpen ? `<div class="card">${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}${uploadForm}</div>` : ''}
+      ${ramsUploadOpen ? `<div class="card">${ramsAddChooserHtml(ramsBuilderHtml, uploadForm)}</div>` : ''}
     ` : `
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Create / Upload RAMS</p>
-        ${ramsBuilderHtml}${ramsBuilderHtml ? '<p class="sectiontitle" style="margin-top:16px;">📄 Upload RAMS (PDF)</p>' : ''}
-        ${uploadForm}
+        ${ramsAddChooserHtml(ramsBuilderHtml, uploadForm)}
       </div>
     `) : ''}
     ${superseded.length ? `
@@ -24137,9 +24144,9 @@ async function ramsBuilderCardHtml(siteId){
   if(!isFullManager(ME)) return '';
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
   return `<div style="margin-bottom:6px;">
-    <p class="sectiontitle" style="margin:0;">🦺 Create RAMS <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p><p class="stub" style="margin:4px 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
+    <p class="stub" style="margin:0 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents. <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p>
     ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="taskicon danger" title="Delete" style="margin-left:auto;" onclick="event.stopPropagation();ramsDeleteBuildRow('${siteId}','${b.id}')">🗑</span><span class="arrow">›</span></div>`).join('')}
-    <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Create RAMS</button>
+    <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Start new RAMS</button>
   </div>`;
 }
 
