@@ -474,7 +474,12 @@ async function drawSignatureTablePages(pdfDoc, opts){
     page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
+    if(s.issued){
+      // Issued-by row (COSHH): shaded, labelled, sits above everyone else.
+      page.drawRectangle({x:MARGIN, y:rowTop-ROW_H, width:TABLE_W, height:ROW_H, color:HEADBG});
+      page.drawText('ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
+      page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-8, size:10, font:bold, color:INK});
+    } else page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
     if(s.imagePath){
       try{
         const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.imagePath));

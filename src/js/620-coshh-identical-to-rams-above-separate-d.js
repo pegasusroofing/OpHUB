@@ -266,6 +266,18 @@ async function buildSignedCoshhPdf(coshhId){
       when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
       imagePath: s.signature_image_path,
     }));
+    // Whoever put the COSHH on the job issued it: their name, signature and
+    // the date it was issued go at the top, above the operatives.
+    if(doc.uploaded_by){
+      let issuer = PROFILES[doc.uploaded_by];
+      if(!issuer || issuer.signature_path===undefined){ try{ issuer = (await dbSelect('profiles', 'id=eq.'+doc.uploaded_by+'&select=id,name,signature_path'))[0] || issuer; }catch(e){} }
+      signers.unshift({
+        issued: true,
+        name: (issuer && issuer.name) || nameOf(doc.uploaded_by),
+        when: new Date(doc.uploaded_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}),
+        imagePath: issuer && issuer.signature_path,
+      });
+    }
     await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
 
     const coshhSite = SITES.find(s=>s.id===doc.site_id);

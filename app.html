@@ -20375,7 +20375,12 @@ async function drawSignatureTablePages(pdfDoc, opts){
     page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
+    if(s.issued){
+      // Issued-by row (COSHH): shaded, labelled, sits above everyone else.
+      page.drawRectangle({x:MARGIN, y:rowTop-ROW_H, width:TABLE_W, height:ROW_H, color:HEADBG});
+      page.drawText('ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
+      page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-8, size:10, font:bold, color:INK});
+    } else page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
     if(s.imagePath){
       try{
         const bytes = await pdfFetchImageBytes(publicUrl('signatures', s.imagePath));
@@ -26212,6 +26217,18 @@ async function buildSignedCoshhPdf(coshhId){
       when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
       imagePath: s.signature_image_path,
     }));
+    // Whoever put the COSHH on the job issued it: their name, signature and
+    // the date it was issued go at the top, above the operatives.
+    if(doc.uploaded_by){
+      let issuer = PROFILES[doc.uploaded_by];
+      if(!issuer || issuer.signature_path===undefined){ try{ issuer = (await dbSelect('profiles', 'id=eq.'+doc.uploaded_by+'&select=id,name,signature_path'))[0] || issuer; }catch(e){} }
+      signers.unshift({
+        issued: true,
+        name: (issuer && issuer.name) || nameOf(doc.uploaded_by),
+        when: new Date(doc.uploaded_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'}),
+        imagePath: issuer && issuer.signature_path,
+      });
+    }
     await drawSignatureTablePages(pdfDoc, {title: doc.name, disclaimer, signers});
 
     const coshhSite = SITES.find(s=>s.id===doc.site_id);
