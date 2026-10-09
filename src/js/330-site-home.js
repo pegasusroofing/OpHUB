@@ -156,7 +156,9 @@ async function renderSiteHome(siteId){
         const tasksTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>`;
         const calTile = `<div class="stat calstat" style="cursor:pointer;" onclick="go('#/site/${siteId}/calendar')" title="${escapeHtml(todayCalLabel)}"><b>${todayDateLabel}</b><span>${escapeHtml(todayCalLabel)}</span></div>`;
         const snagsTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/list')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>`;
-        if(mgr) return clientTile + calTile + snagsTile;
+        // Managers: when there are no open snags, the third tile shows who's on site instead.
+        const onSiteTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin')"><b style="${onSiteCount?'color:var(--ok);':''}">${onSiteCount}</b><span>On site now</span></div>`;
+        if(mgr) return clientTile + calTile + (openSnags.length ? snagsTile : onSiteTile);
         if(clientUser) return tasksTile + calTile + snagsTile;
         // Operatives: client details, calendar, then tasks done.
         return clientTile + calTile + tasksTile;

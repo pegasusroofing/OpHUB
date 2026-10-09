@@ -92,9 +92,7 @@ async function renderAssignTeam(siteId){
             `)}
           </div>
           ${a.geofence_lat!=null ? `
-            <div class="row-gap" style="margin-top:8px;">
-              ${[50,100,200].map(r=>`<button class="${(a.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;padding:5px 8px;font-size:11px;" onclick="setSubGeofenceRadius('${a.id}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoRadiusRowHtml('geoRadiusSel-'+a.id, a.geofence_radius_m, 'setSubGeofenceRadius', a.id)}
           ` : ''}
         </div>
       `).join('') || `<div class="empty">No addresses added yet.</div>`}

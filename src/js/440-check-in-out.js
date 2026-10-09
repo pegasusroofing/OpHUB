@@ -1,3 +1,31 @@
+// Geofence controls: distance limit as a dropdown with a Save button beside
+// it (50/50); saving closes the geofence dropdown so it's clear it's saved.
+function geoRadiusRowHtml(selId, current, saveFn, idArg){
+  const cur = current||100;
+  const opts = [25,50,75,100,150,200,300,500];
+  if(opts.indexOf(cur)<0) opts.push(cur);
+  opts.sort((a,b)=>a-b);
+  return `<p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+    <div class="row-gap" style="align-items:stretch;">
+      <select id="${selId}" style="flex:1;min-width:0;margin:0;">${opts.map(r=>`<option value="${r}" ${r===cur?'selected':''}>${r}m</option>`).join('')}</select>
+      <button class="darkbtn" style="flex:1;margin:0;" onclick="geoRadiusSave('${saveFn}','${idArg}','${selId}')">Save</button>
+    </div>`;
+}
+window.geoRadiusSave = async function(fn, id, selId){
+  const el = document.getElementById(selId); if(!el) return;
+  const r = parseInt(el.value,10); if(!r) return;
+  checkinGeofenceOpen = false;
+  await window[fn](id, r);
+};
+function geoLocRowHtml(lat, lon, onUpdate){
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="min-width:0;">
+        <div class="stub" style="margin:0;font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+        <a class="stub" style="display:inline-block;margin:2px 0 0;color:var(--blue);" href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" rel="noopener">View on map ↗</a>
+      </div>
+      <button class="ghostbtn" style="width:auto;flex:none;margin:0;padding:6px 12px;font-size:11px;" onclick="${onUpdate}">Update location</button>
+    </div>`;
+}
 /* ================= CHECK IN/OUT ================= */
 let checkinBusy = false;
 let checkinError = null;
@@ -113,23 +141,15 @@ async function renderCheckin(siteId, subId){
         <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${site.geofence_radius_m||100}m radius</div>
         ${checkinGeofenceOpen ? `
           <div class="card">
-            <div class="stub" style="font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)}</div>
-            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
-            <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
-            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-            <div class="row-gap">
-              ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoLocRowHtml(site.geofence_lat, site.geofence_lon, `openGeoOptions('${siteId}')`)}
+            ${geoRadiusRowHtml('geoRadiusSel', site.geofence_radius_m, 'setGeofenceRadius', siteId)}
           </div>
         ` : ''}
       ` : `
         <div class="card">
           <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
           <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
-          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-          <div class="row-gap">
-            ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
-          </div>
+          ${geoRadiusRowHtml('geoRadiusSel', site.geofence_radius_m, 'setGeofenceRadius', siteId)}
         </div>
       `}
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>

@@ -105,7 +105,7 @@ async function renderToolboxTalks(siteId){
             ${isPM && tbtFilter==='completed' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedTbtIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTbtSelect('${t.id}')">` : ''}
             <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
           </div>
-          <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex:none;"><span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>${isPM && t.status==='live' ? `<span class="taskicon danger" title="Delete" onclick="event.stopPropagation();deleteToolboxTalk('${siteId}','${t.id}','${jsAttr(t.storage_path)}',${sigCounts[t.id]||0})">🗑</span>` : ''}</span>
         </div>
         ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
         ${isPM && t.status==='live' && outstandingByTalk[t.id] ? (outstandingByTalk[t.id].length ? `<div class="stub" style="margin:2px 0 0;color:var(--warn);">Still to sign: ${outstandingByTalk[t.id].map(escapeHtml).join(', ')}</div>` : `<div class="stub" style="margin:2px 0 0;color:var(--ok);">Everyone assigned has signed</div>`) : ''}
@@ -303,6 +303,7 @@ async function renderToolboxTalkView(siteId, tbtId){
         ${talk.status==='live' ? `<button style="flex:1;font-size:11px;padding:6px 4px;border:none;border-radius:9px;font-weight:700;background:var(--brand1);color:var(--brand1-text);" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : '<div style="flex:1;"></div>'}
         ${sigs.length ? `<button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>` : '<div style="flex:1;"></div>'}
       </div>
+      ${hasAnySignature && talk.status==='live' ? `<button class="ghostbtn" style="margin-top:8px;color:var(--warn);font-size:11px;padding:6px 4px;" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}',${sigs.length})">🗑 Delete TBT</button>` : ''}
       ${!hasAnySignature ? `
       <div class="row-gap" style="margin-top:8px;">
         <select style="flex:1;min-width:0;margin:0;font-size:11px;padding:6px 4px;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
@@ -544,8 +545,9 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
     render();
   }
 };
-window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
-  if(!await customConfirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
+window.deleteToolboxTalk = async function(siteId, tbtId, storagePath, signedCount){
+  const n = Number(signedCount)||0;
+  if(!await customConfirm(n ? 'Delete this toolbox talk? '+n+' '+(n===1?'person has':'people have')+' already signed it — their signatures will be deleted too. This can\'t be undone.' : 'Delete this toolbox talk and all its signatures? This can\'t be undone.', n ? {confirmLabel:'Yes — delete', danger:true} : undefined)) return;
   const tbtRows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=title');
   const tbtTitle = tbtRows[0] && tbtRows[0].title;
   const ok = await dbDelete('toolbox_talks', tbtId);

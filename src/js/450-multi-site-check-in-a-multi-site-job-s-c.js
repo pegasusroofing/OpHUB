@@ -109,23 +109,15 @@ async function renderCheckinSubAddress(siteId, subId){
         <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${addr.geofence_radius_m||100}m radius</div>
         ${checkinGeofenceOpen ? `
           <div class="card">
-            <div class="stub" style="font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${addr.geofence_lat.toFixed(5)}, ${addr.geofence_lon.toFixed(5)}</div>
-            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${addr.geofence_lat},${addr.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
-            <button class="ghostbtn" onclick="openSubGeoOptions('${subId}')">Update location</button>
-            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-            <div class="row-gap">
-              ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoLocRowHtml(addr.geofence_lat, addr.geofence_lon, `openSubGeoOptions('${subId}')`)}
+            ${geoRadiusRowHtml('geoRadiusSel', addr.geofence_radius_m, 'setSubGeofenceRadius', subId)}
           </div>
         ` : ''}
       ` : `
         <div class="card">
           <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
           <button class="darkbtn" onclick="openSubGeoOptions('${subId}')">Set address location</button>
-          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-          <div class="row-gap">
-            ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
-          </div>
+          ${geoRadiusRowHtml('geoRadiusSel', addr.geofence_radius_m, 'setSubGeofenceRadius', subId)}
         </div>
       `}
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>

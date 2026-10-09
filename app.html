@@ -8663,7 +8663,9 @@ async function renderSiteHome(siteId){
         const tasksTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/schedule')"><b>${scheduleDone}/${tasks.length}</b><span>Tasks done</span></div>`;
         const calTile = `<div class="stat calstat" style="cursor:pointer;" onclick="go('#/site/${siteId}/calendar')" title="${escapeHtml(todayCalLabel)}"><b>${todayDateLabel}</b><span>${escapeHtml(todayCalLabel)}</span></div>`;
         const snagsTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/snagging/list')"><b style="${openSnags.length?'color:var(--warn);':''}">${openSnags.length}</b><span>Open snags</span></div>`;
-        if(mgr) return clientTile + calTile + snagsTile;
+        // Managers: when there are no open snags, the third tile shows who's on site instead.
+        const onSiteTile = `<div class="stat" style="cursor:pointer;" onclick="go('#/site/${siteId}/checkin')"><b style="${onSiteCount?'color:var(--ok);':''}">${onSiteCount}</b><span>On site now</span></div>`;
+        if(mgr) return clientTile + calTile + (openSnags.length ? snagsTile : onSiteTile);
         if(clientUser) return tasksTile + calTile + snagsTile;
         // Operatives: client details, calendar, then tasks done.
         return clientTile + calTile + tasksTile;
@@ -11681,9 +11683,7 @@ async function renderAssignTeam(siteId){
             `)}
           </div>
           ${a.geofence_lat!=null ? `
-            <div class="row-gap" style="margin-top:8px;">
-              ${[50,100,200].map(r=>`<button class="${(a.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;padding:5px 8px;font-size:11px;" onclick="setSubGeofenceRadius('${a.id}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoRadiusRowHtml('geoRadiusSel-'+a.id, a.geofence_radius_m, 'setSubGeofenceRadius', a.id)}
           ` : ''}
         </div>
       `).join('') || `<div class="empty">No addresses added yet.</div>`}
@@ -17495,6 +17495,34 @@ async function sowOfflineSend(recs){
   return sowPump();
 }
 
+// Geofence controls: distance limit as a dropdown with a Save button beside
+// it (50/50); saving closes the geofence dropdown so it's clear it's saved.
+function geoRadiusRowHtml(selId, current, saveFn, idArg){
+  const cur = current||100;
+  const opts = [25,50,75,100,150,200,300,500];
+  if(opts.indexOf(cur)<0) opts.push(cur);
+  opts.sort((a,b)=>a-b);
+  return `<p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
+    <div class="row-gap" style="align-items:stretch;">
+      <select id="${selId}" style="flex:1;min-width:0;margin:0;">${opts.map(r=>`<option value="${r}" ${r===cur?'selected':''}>${r}m</option>`).join('')}</select>
+      <button class="darkbtn" style="flex:1;margin:0;" onclick="geoRadiusSave('${saveFn}','${idArg}','${selId}')">Save</button>
+    </div>`;
+}
+window.geoRadiusSave = async function(fn, id, selId){
+  const el = document.getElementById(selId); if(!el) return;
+  const r = parseInt(el.value,10); if(!r) return;
+  checkinGeofenceOpen = false;
+  await window[fn](id, r);
+};
+function geoLocRowHtml(lat, lon, onUpdate){
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="min-width:0;">
+        <div class="stub" style="margin:0;font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+        <a class="stub" style="display:inline-block;margin:2px 0 0;color:var(--blue);" href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" rel="noopener">View on map ↗</a>
+      </div>
+      <button class="ghostbtn" style="width:auto;flex:none;margin:0;padding:6px 12px;font-size:11px;" onclick="${onUpdate}">Update location</button>
+    </div>`;
+}
 /* ================= CHECK IN/OUT ================= */
 let checkinBusy = false;
 let checkinError = null;
@@ -17610,23 +17638,15 @@ async function renderCheckin(siteId, subId){
         <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${site.geofence_radius_m||100}m radius</div>
         ${checkinGeofenceOpen ? `
           <div class="card">
-            <div class="stub" style="font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${site.geofence_lat.toFixed(5)}, ${site.geofence_lon.toFixed(5)}</div>
-            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${site.geofence_lat},${site.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
-            <button class="ghostbtn" onclick="openGeoOptions('${siteId}')">Update location</button>
-            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-            <div class="row-gap">
-              ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoLocRowHtml(site.geofence_lat, site.geofence_lon, `openGeoOptions('${siteId}')`)}
+            ${geoRadiusRowHtml('geoRadiusSel', site.geofence_radius_m, 'setGeofenceRadius', siteId)}
           </div>
         ` : ''}
       ` : `
         <div class="card">
           <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
           <button class="darkbtn" onclick="openGeoOptions('${siteId}')">Set site location</button>
-          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-          <div class="row-gap">
-            ${[50,100,200].map(r=>`<button class="${(site.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setGeofenceRadius('${siteId}',${r})">${r}m</button>`).join('')}
-          </div>
+          ${geoRadiusRowHtml('geoRadiusSel', site.geofence_radius_m, 'setGeofenceRadius', siteId)}
         </div>
       `}
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
@@ -17792,23 +17812,15 @@ async function renderCheckinSubAddress(siteId, subId){
         <div class="ddrow" style="margin-top:0;" onclick="checkinGeofenceOpen=!checkinGeofenceOpen;render()"><span class="arrow">${checkinGeofenceOpen?'▼':'▶'}</span> Geofence set — ${addr.geofence_radius_m||100}m radius</div>
         ${checkinGeofenceOpen ? `
           <div class="card">
-            <div class="stub" style="font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;">${addr.geofence_lat.toFixed(5)}, ${addr.geofence_lon.toFixed(5)}</div>
-            <a class="stub" style="display:inline-block;margin:2px 0 8px;color:var(--blue);" href="https://www.google.com/maps?q=${addr.geofence_lat},${addr.geofence_lon}" target="_blank" rel="noopener">View on map ↗</a>
-            <button class="ghostbtn" onclick="openSubGeoOptions('${subId}')">Update location</button>
-            <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-            <div class="row-gap">
-              ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
-            </div>
+            ${geoLocRowHtml(addr.geofence_lat, addr.geofence_lon, `openSubGeoOptions('${subId}')`)}
+            ${geoRadiusRowHtml('geoRadiusSel', addr.geofence_radius_m, 'setSubGeofenceRadius', subId)}
           </div>
         ` : ''}
       ` : `
         <div class="card">
           <p class="stub" style="margin:0 0 8px;">Not set — check-ins won't be distance-checked yet.</p>
           <button class="darkbtn" onclick="openSubGeoOptions('${subId}')">Set address location</button>
-          <p class="stub" style="margin:14px 0 6px;">Check-in/out distance limit</p>
-          <div class="row-gap">
-            ${[50,100,200].map(r=>`<button class="${(addr.geofence_radius_m||100)===r?'darkbtn':'ghostbtn'}" style="flex:1;" onclick="setSubGeofenceRadius('${subId}',${r})">${r}m</button>`).join('')}
-          </div>
+          ${geoRadiusRowHtml('geoRadiusSel', addr.geofence_radius_m, 'setSubGeofenceRadius', subId)}
         </div>
       `}
       <p class="sectiontitle" style="margin-top:18px;">Site Team — Live Status</p>
@@ -26000,6 +26012,7 @@ async function fetchCoshhData(siteId){
   return {docs, sigsByDoc, assignedIds: rosterUserIds};
 }
 let coshhUploadOpen = false;
+let coshhAddMode = null; // null | 'create' | 'upload'
 let coshhSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main COSHH page
 window.toggleCoshhSub = function(companyId){
   coshhSubOpenFor[companyId] = !coshhSubOpenFor[companyId];
@@ -26026,18 +26039,23 @@ async function renderCoshh(siteId){
       coshhSubCompanies = allSubCompanies.filter(c=>(coshhByCompany[c.id]||[]).length);
     }
   }
-  const uploadForm = `
-        <p class="sectiontitle" style="margin:0;">🧪 Create COSHH</p><p class="stub" style="margin:4px 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
-        <button class="darkbtn" style="margin-bottom:16px;" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Create COSHH</button>
-        <p class="sectiontitle" style="margin:0 0 8px;">📄 Upload COSHH (PDF)</p>
+  // Two buttons first (Create COSHH / Upload COSHH); the chosen one opens its own part.
+  const coshhCreatePart = `
+        <p class="stub" style="margin:0 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
+        <button class="darkbtn" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Start new COSHH</button>`;
+  const coshhUploadPart = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
-        <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('coshhFileName').textContent=this.files[0]?this.files[0].name:''">
-        <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;"></p>
-        <button class="darkbtn" style="padding:8px 6px;font-size:11.5px;" onclick="addCoshh('${siteId}')">Upload</button>
-        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
-        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>
-  `;
+        <div class="row-gap" style="margin-bottom:6px;">
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
+          <button class="darkbtn" style="flex:1;" onclick="addCoshh('${siteId}')">Upload</button>
+        </div>
+        <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('coshhFileName'); el.innerHTML = f ? ('✓ <b>'+escapeHtml(f.name)+'</b> selected') : '';">
+        <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;font-size:12.5px;"></p>
+        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file.</p>
+        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>`;
+  const coshhBtn = (k, label) => `<button class="${coshhAddMode===k?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;" onclick="coshhAddMode=coshhAddMode==='${k}'?null:'${k}';render()">${label}</button>`;
+  const uploadForm = `<div class="row-gap" style="margin:0 0 ${coshhAddMode?'14px':'0'};">${coshhBtn('create','🧪 Create COSHH')}${coshhBtn('upload','📄 Upload COSHH')}</div>
+        ${coshhAddMode==='create' ? coshhCreatePart : coshhAddMode==='upload' ? coshhUploadPart : ''}`;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
@@ -29926,7 +29944,7 @@ async function renderToolboxTalks(siteId){
             ${isPM && tbtFilter==='completed' ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedTbtIds.has(t.id)?'checked':''} onclick="event.stopPropagation();toggleTbtSelect('${t.id}')">` : ''}
             <div><div class="title">${escapeHtml(t.title)}</div><div class="loc">${new Date(t.created_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div></div>
           </div>
-          <span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>
+          <span style="display:flex;align-items:center;gap:6px;flex:none;"><span class="statustag2 ${TBT_STATUS_CLASS[t.status]||'closed'}">${TBT_STATUS_LABEL[t.status]||t.status}</span>${isPM && t.status==='live' ? `<span class="taskicon danger" title="Delete" onclick="event.stopPropagation();deleteToolboxTalk('${siteId}','${t.id}','${jsAttr(t.storage_path)}',${sigCounts[t.id]||0})">🗑</span>` : ''}</span>
         </div>
         ${isPM ? `<div class="stub" style="margin:8px 0 0;">${sigCounts[t.id]||0} signed</div>` : ''}
         ${isPM && t.status==='live' && outstandingByTalk[t.id] ? (outstandingByTalk[t.id].length ? `<div class="stub" style="margin:2px 0 0;color:var(--warn);">Still to sign: ${outstandingByTalk[t.id].map(escapeHtml).join(', ')}</div>` : `<div class="stub" style="margin:2px 0 0;color:var(--ok);">Everyone assigned has signed</div>`) : ''}
@@ -30124,6 +30142,7 @@ async function renderToolboxTalkView(siteId, tbtId){
         ${talk.status==='live' ? `<button style="flex:1;font-size:11px;padding:6px 4px;border:none;border-radius:9px;font-weight:700;background:var(--brand1);color:var(--brand1-text);" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : '<div style="flex:1;"></div>'}
         ${sigs.length ? `<button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>` : '<div style="flex:1;"></div>'}
       </div>
+      ${hasAnySignature && talk.status==='live' ? `<button class="ghostbtn" style="margin-top:8px;color:var(--warn);font-size:11px;padding:6px 4px;" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}',${sigs.length})">🗑 Delete TBT</button>` : ''}
       ${!hasAnySignature ? `
       <div class="row-gap" style="margin-top:8px;">
         <select style="flex:1;min-width:0;margin:0;font-size:11px;padding:6px 4px;" onchange="handleTbtActionMenu(this.value,'${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}');this.selectedIndex=0;">
@@ -30365,8 +30384,9 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
     render();
   }
 };
-window.deleteToolboxTalk = async function(siteId, tbtId, storagePath){
-  if(!await customConfirm('Delete this toolbox talk and all its signatures? This can\'t be undone.')) return;
+window.deleteToolboxTalk = async function(siteId, tbtId, storagePath, signedCount){
+  const n = Number(signedCount)||0;
+  if(!await customConfirm(n ? 'Delete this toolbox talk? '+n+' '+(n===1?'person has':'people have')+' already signed it — their signatures will be deleted too. This can\'t be undone.' : 'Delete this toolbox talk and all its signatures? This can\'t be undone.', n ? {confirmLabel:'Yes — delete', danger:true} : undefined)) return;
   const tbtRows = await dbSelect('toolbox_talks', 'id=eq.'+tbtId+'&select=title');
   const tbtTitle = tbtRows[0] && tbtRows[0].title;
   const ok = await dbDelete('toolbox_talks', tbtId);

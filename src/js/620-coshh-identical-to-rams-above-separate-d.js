@@ -72,6 +72,7 @@ async function fetchCoshhData(siteId){
   return {docs, sigsByDoc, assignedIds: rosterUserIds};
 }
 let coshhUploadOpen = false;
+let coshhAddMode = null; // null | 'create' | 'upload'
 let coshhSubOpenFor = {}; // subcontractor_company_id -> bool, dropdown state on the main COSHH page
 window.toggleCoshhSub = function(companyId){
   coshhSubOpenFor[companyId] = !coshhSubOpenFor[companyId];
@@ -98,18 +99,23 @@ async function renderCoshh(siteId){
       coshhSubCompanies = allSubCompanies.filter(c=>(coshhByCompany[c.id]||[]).length);
     }
   }
-  const uploadForm = `
-        <p class="sectiontitle" style="margin:0;">🧪 Create COSHH</p><p class="stub" style="margin:4px 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
-        <button class="darkbtn" style="margin-bottom:16px;" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Create COSHH</button>
-        <p class="sectiontitle" style="margin:0 0 8px;">📄 Upload COSHH (PDF)</p>
+  // Two buttons first (Create COSHH / Upload COSHH); the chosen one opens its own part.
+  const coshhCreatePart = `
+        <p class="stub" style="margin:0 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
+        <button class="darkbtn" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Start new COSHH</button>`;
+  const coshhUploadPart = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
-        <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('coshhFileName').textContent=this.files[0]?this.files[0].name:''">
-        <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;"></p>
-        <button class="darkbtn" style="padding:8px 6px;font-size:11.5px;" onclick="addCoshh('${siteId}')">Upload</button>
-        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file — see the note in chat.</p>
-        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>
-  `;
+        <div class="row-gap" style="margin-bottom:6px;">
+          <div class="ghostbtn" style="cursor:pointer;text-align:center;flex:2;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
+          <button class="darkbtn" style="flex:1;" onclick="addCoshh('${siteId}')">Upload</button>
+        </div>
+        <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('coshhFileName'); el.innerHTML = f ? ('✓ <b>'+escapeHtml(f.name)+'</b> selected') : '';">
+        <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;font-size:12.5px;"></p>
+        <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file.</p>
+        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from Library</button>`;
+  const coshhBtn = (k, label) => `<button class="${coshhAddMode===k?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;" onclick="coshhAddMode=coshhAddMode==='${k}'?null:'${k}';render()">${label}</button>`;
+  const uploadForm = `<div class="row-gap" style="margin:0 0 ${coshhAddMode?'14px':'0'};">${coshhBtn('create','🧪 Create COSHH')}${coshhBtn('upload','📄 Upload COSHH')}</div>
+        ${coshhAddMode==='create' ? coshhCreatePart : coshhAddMode==='upload' ? coshhUploadPart : ''}`;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
