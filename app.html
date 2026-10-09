@@ -681,6 +681,8 @@
   .pm-dot{width:30px;height:30px;border-radius:50%;border:2px solid #555;cursor:pointer;padding:0;}
   .pm-dot.on{border:3px solid #fff;box-shadow:0 0 0 2px #1e88e5;}
   .snagmk{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.7);color:#fff;border-radius:7px;font-size:10px;padding:3px 5px;white-space:nowrap;cursor:pointer;line-height:1.2;}
+  .matgroupbody{margin:0 0 4px 10px;padding:2px 0 4px 10px;border-left:3px solid #D9C7EA;}
+  .matgroupbody .ddrow{margin-top:8px !important;}
 </style>
 </head>
 <body>
@@ -30463,6 +30465,33 @@ window.toggleMaterialExpand = function(id){
   if(expandedMaterialIds.has(id)) expandedMaterialIds.delete(id); else expandedMaterialIds.add(id);
   render();
 };
+// Completed tab: items sent together in one grouped order (same send time and
+// supplier) show as one row — the first item's name, "N items", and a dropdown
+// with every item (each still has its own GRN, edit, resend etc).
+function matDoneEntries(list){
+  const out = [], byKey = {};
+  list.forEach(m=>{
+    const key = m.sent_at ? m.sent_at+'|'+(m.merchant||m.supplier_id||'') : null;
+    if(key && byKey[key]){ byKey[key].items.push(m); return; }
+    const e = {m, items:[m]};
+    if(key) byKey[key] = e;
+    out.push(e);
+  });
+  return out;
+}
+function matGroupGrnTag(items){
+  const withGrn = items.filter(x=>x.grn);
+  if(!withGrn.length) return '';
+  if(withGrn.some(x=>!x.grn.ok)) return matGrnTag({ok:false});
+  if(withGrn.length===items.length) return matGrnTag({ok:true});
+  return `<span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">GRN ${withGrn.length}/${items.length}</span>`;
+}
+window.toggleMaterialGroupSelect = function(ids){
+  ids = String(ids).split(',');
+  const all = ids.every(id=>selectedMaterialIds.has(id));
+  ids.forEach(id=>{ if(all) selectedMaterialIds.delete(id); else selectedMaterialIds.add(id); });
+  render();
+};
 let suppliersOpen = false;
 let supplierAddOpen = false;
 let sendingMaterial = null; // {matId, supplierId, supplierName} while PM is entering Required for Delivery
@@ -30625,7 +30654,7 @@ async function renderMaterialRequests(siteId){
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
       <div class="filterchip ${matFilter==='closed'?'active':''}" onclick="matFilter='closed';clearMaterialSelection();render()">Closed</div>
     </div>`}
-    ${isPM && materialSelectableIds.length>1 && selectedMaterialIds.size>0 ? `
+    ${isPM && materialSelectableIds.length>1 && (selectedMaterialIds.size>0 || !doneTab) ? `
       <label style="display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card);font-size:13.5px;font-weight:700;cursor:pointer;">
         <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${selectedMaterialIds.size>=materialSelectableIds.length?'checked':''} onchange="if(this.checked){selectAllMaterials()}else{clearMaterialSelection();render()}">
         Select all (${materialSelectableIds.length})${selectedMaterialIds.size>0 && selectedMaterialIds.size<materialSelectableIds.length ? ` <span class="stub" style="font-weight:400;">· ${selectedMaterialIds.size} selected</span>` : ''}
@@ -30645,7 +30674,7 @@ async function renderMaterialRequests(siteId){
             <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
           ${supplierPickerFor==='group' ? supplierPickerHtml('group', suppliers, groupSupplierId) : ''}
-          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${doneTab ? 'Send Again' : 'Send Order'} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
+          <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${doneTab ? 'Send Again' : (selectedMaterialIds.size>1 ? 'Send as one grouped order' : 'Send Order')} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
           ${doneTab ? `<div class="row-gap" style="margin-top:8px;">
             <button class="ghostbtn" style="flex:1;" onclick="reopenSelectedMaterials('${siteId}')">Reopen selected</button>
             <button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSelectedMaterials('${siteId}')">Delete selected</button>
@@ -30658,7 +30687,7 @@ async function renderMaterialRequests(siteId){
       </div>
     ` : ''}
 
-    ${materials.map(m=>{
+    ${(()=>{ const rowFn = m=>{
       const cardBody = `
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
@@ -30742,7 +30771,23 @@ async function renderMaterialRequests(siteId){
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
-    }).join('') || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
+    };
+    if(!doneTab) return materials.map(rowFn).join('');
+    return matDoneEntries(materials).map(e=>{
+      if(e.items.length<2) return rowFn(e.m);
+      const first = e.items[0], ids = e.items.map(x=>x.id), gk = 'grp:'+first.id;
+      const open = expandedMaterialIds.has(gk);
+      const allSel = ids.every(id=>selectedMaterialIds.has(id));
+      const sentLabel = new Date(first.sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      return `
+        <div class="ddrow matgrouprow" style="margin-top:10px;" onclick="toggleMaterialExpand('${gk}')">
+          ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${allSel?'checked':''} onclick="event.stopPropagation();toggleMaterialGroupSelect('${ids.join(',')}')">` : ''}
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span></span>
+          <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(first)}${matGroupGrnTag(e.items)}</span>
+        </div>
+        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
+    }).join('');
+    })() || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
 
     ${matFilter==='live' ? `
     <div class="card" id="matRequestCard" style="margin-top:24px;">
