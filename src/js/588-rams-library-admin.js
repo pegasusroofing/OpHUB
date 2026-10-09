@@ -3,6 +3,7 @@
  * the RAMS Builder. Editing here never changes a job's RAMS that already
  * pulled an item in (jobs hold their own copies). Route: #/rams-library */
 let ramsLibTab = 'hazard';
+let ramsLibPart = 'general'; // Safe Systems of Work & Method Statements tab: which of the two is shown
 let ramsLibEditId = null;
 let ramsLibQ = '';
 async function renderRamsLibrary(){
@@ -42,12 +43,14 @@ async function renderRamsLibrary(){
     <div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${[['hazard','Hazards'],['section','Safe Systems of Work & Method Statements'],['template','Templates'],['company','Company Details']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" style="margin:0;" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l}${k==='company'?'':' ('+counts(k)+')'}</div>`).join('')}</div>
     ${ramsLibTab==='company' ? ramsCompanyDetailsHtml() : `
     <input type="text" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="ramsLibQ=this.value;clearTimeout(window._rlq);window._rlq=setTimeout(()=>{render();setTimeout(()=>{const e=document.getElementById('ramsLibSearch');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30)},300)">
-    ${ramsLibTab==='section' ? [['general','Safe Systems of Work'],['method','Method Statements']].map(([part,lbl])=>{
-        const g = items.filter(it=>((it.data||{}).part==='method' ? 'method' : 'general')===part);
-        return `<p class="sectiontitle" style="margin:16px 0 8px;">${lbl} (${g.length})</p>
-          ${g.map((it,i)=>row(it,i,g.length)).join('') || `<div class="empty" style="padding:8px 0;">None yet.</div>`}
-          <button class="ghostbtn" style="margin-top:4px;" onclick="ramsLibNew('${part}')">+ New ${part==='method'?'method statement':'safe system of work'}</button>`;
-      }).join('') : `
+    ${ramsLibTab==='section' ? (()=>{
+        const partOf = it=>((it.data||{}).part==='method' ? 'method' : 'general');
+        const parts = [['general','Safe Systems of Work'],['method','Method Statements']];
+        const tabs = `<div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 12px;">${parts.map(([pt,lbl])=>`<div class="filterchip ${ramsLibPart===pt?'active':''}" style="margin:0;" onclick="ramsLibPart='${pt}';ramsLibEditId=null;render()">${lbl} (${items.filter(it=>partOf(it)===pt).length})</div>`).join('')}</div>`;
+        const g = items.filter(it=>partOf(it)===ramsLibPart);
+        return tabs + (g.map((it,i)=>row(it,i,g.length)).join('') || `<div class="empty" style="padding:8px 0;">None yet.</div>`) +
+          `<button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew('${ramsLibPart}')">+ New ${ramsLibPart==='method'?'method statement':'safe system of work'}</button>`;
+      })() : `
     ${items.map((it,i)=>row(it,i,items.length)).join('') || `<div class="empty">${lib.length ? 'Nothing here yet.' : 'Your library is empty.'}</div>`}
     <button class="darkbtn" style="margin-top:6px;" onclick="ramsLibNew()">+ New ${ramsLibTab==='template'?'template':'hazard'}</button>`}
     ${!lib.length ? `<button class="ghostbtn" style="margin-top:8px;" onclick="ramsSeedAndReload()">Load the starter library (from your Cleveland Primary School RAMS)</button>` : ''}`}
