@@ -675,3 +675,18 @@
   .dlvph{border:2px dashed var(--brand1);border-radius:12px;margin:0 0 8px;background:rgba(0,0,0,.03);}
   .dlvslot{min-height:34px;}
   .dlvcont{border:1.5px dashed var(--line);border-radius:10px;padding:8px 12px;margin:0 0 8px;font-size:12.5px;color:var(--slate);background:var(--paper);}
+  /* Price sheet rows: Rate / Qty / Unit / Total line up with their headings */
+  .pbgrid{display:grid;grid-template-columns:minmax(0,1fr) 84px 64px 46px 92px 30px;gap:8px;align-items:start;}
+  .pbgridhead{padding:0 11px;margin:0 0 4px;}
+  .pbgridrow{padding:8px 10px;}
+  .pbgridrow .pbunit,.pbgridrow .pbtotal{line-height:32px;height:32px;margin:0;font-size:13px;}
+  .pbgridrow .pbunit{text-align:center;color:var(--slate);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;border-radius:6px;}
+  .pbgridrow .pbunit:hover{background:var(--paper);}
+  .pbgridrow .pbtotal{text-align:right;font-weight:700;color:var(--ink);white-space:nowrap;}
+  .pbgridrow .pbunitsel{width:100%;height:32px;margin:0;padding:0 2px;font-size:12px;border:1px solid var(--line);border-radius:6px;background:#fff;}
+  .pbgridrow .taskicon{justify-self:center;margin-top:3px;}
+  @media (max-width:600px){
+    .pbgrid{grid-template-columns:76px 60px 44px minmax(0,1fr) 28px;}
+    .pbgrid .pbitem{grid-column:1 / -1;}
+    .pbgridhead .pbitem{display:none;}
+  }

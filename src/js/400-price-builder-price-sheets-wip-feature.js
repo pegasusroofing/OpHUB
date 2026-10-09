@@ -158,6 +158,8 @@ function pbResolvedRate(entry, item){
   if(entry.isManualRate && entry.rateOverride!=null) return Number(entry.rateOverride);
   return item.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(item.rate||0);
 }
+let pbUnitEditKey = null; // price sheet row whose unit is being changed
+window.pbSetUnit = function(key, unit){ const e = pbWorking && pbWorking.items[key]; if(!e) return; e.unit = unit; pbUnitEditKey = null; render(); };
 function pbLineTotal(entry, item){
   const qty = Number(entry.quantity)||0;
   const rate = pbResolvedRate(entry, item);
@@ -244,6 +246,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         id: row.id,
         rateItemId: row.rate_item_id,
         quantity:row.quantity, optionId:row.option_id||null, optionRate, optionLabel:row.option_label||null, nameOverride,
+        unit: (linkedItem && row.unit && row.unit!==linkedItem.unit) ? row.unit : null,
         rateOverride: row.is_manual_rate ? Number(row.rate) : null,
         isManualRate: !!row.is_manual_rate,
       };
@@ -347,8 +350,8 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       if(!catRows.length) return '';
       return `
       <p class="sectiontitle" style="margin:14px 0 6px;">${escapeHtml(cat.name)}</p>
-      <div class="drawheaderrow" style="grid-template-columns:1fr 70px 48px 40px 62px 24px;display:grid;gap:6px;padding:0 10px;margin:0 0 4px;">
-        <span>Item</span><span style="text-align:right;">Rate</span><span style="text-align:right;">Qty</span><span>Unit</span><span style="text-align:right;">Total</span><span></span>
+      <div class="drawheaderrow pbgrid pbgridhead">
+        <span class="pbitem">Item</span><span style="text-align:center;">Rate</span><span style="text-align:center;">Qty</span><span style="text-align:center;">Unit</span><span style="text-align:right;">Total</span><span></span>
       </div>
       ${catRows.map(({key, entry, it})=>{
         const baseRate = it.is_dropdown ? (entry.optionRate!=null?Number(entry.optionRate):0) : Number(it.rate||0);
@@ -358,8 +361,8 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         // across every row regardless of how long the item text is or
         // whether it wraps to a second line.
         return `
-        <div class="sitecard" style="display:grid;grid-template-columns:1fr 70px 48px 40px 62px 24px;gap:6px;align-items:start;padding:8px 10px;">
-          <div style="min-width:0;max-width:80%;">
+        <div class="sitecard pbgrid pbgridrow">
+          <div class="pbitem" style="min-width:0;">
             <input type="text" value="${escapeHtml(entry.nameOverride||it.name)}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;font-weight:600;font-family:inherit;box-sizing:border-box;" onblur="pbSetItemName('${key}', this.value)">
             ${it.is_dropdown ? `
             <select style="width:100%;margin-top:4px;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:11.5px;font-family:inherit;color:var(--slate);background:#fff;" onchange="pbChangeOption('${key}','${it.id}', this.value)">
@@ -368,10 +371,12 @@ async function renderPriceBuilderEdit(siteId, sheetId){
             ` : ''}
             ${entry.isManualRate?`<div class="sub" style="margin-top:2px;color:var(--warn);font-weight:700;">⚠ Manual rate — non-conforming</div>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:2px;">£<input type="number" step="0.01" inputmode="decimal" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;height:32px;line-height:32px;box-sizing:border-box;font-size:13.6px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
+          <div style="display:flex;align-items:center;gap:3px;">£<input type="number" step="0.01" inputmode="decimal" value="${displayRate!=null?displayRate:''}" style="width:100%;min-width:0;height:32px;line-height:32px;box-sizing:border-box;font-size:13.6px;font-weight:700;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-family:inherit;" onblur="pbSetRateOverride('${key}', this.value, ${baseRate})"></div>
           <input type="number" step="0.01" inputmode="decimal" placeholder="Qty" value="${entry.quantity!=null?entry.quantity:''}" style="width:100%;min-width:0;height:32px;line-height:32px;box-sizing:border-box;border:1px solid var(--line);border-radius:6px;padding:0 4px;font-size:13px;font-family:inherit;" onblur="pbSetQuantity('${key}', this.value)">
-          <span class="stub" style="margin:2px 0 0;">${PRICE_UNIT_LABEL[it.unit]}</span>
-          <span class="stub" style="margin:2px 0 0;font-size:13.2px;font-weight:700;text-align:right;">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
+          ${pbUnitEditKey===key
+            ? `<select class="pbunitsel" onchange="pbSetUnit('${key}', this.value)" onblur="pbUnitEditKey=null;render()">${['lm','m2','each','item'].map(u=>`<option value="${u}" ${(entry.unit||it.unit)===u?'selected':''}>${PRICE_UNIT_LABEL[u]}</option>`).join('')}</select>`
+            : `<span class="pbunit" title="Tap to change the unit" onclick="pbUnitEditKey='${key}';render();setTimeout(()=>{const s=document.querySelector('.pbunitsel');if(s)s.focus();},30)">${PRICE_UNIT_LABEL[entry.unit||it.unit]||entry.unit||it.unit}</span>`}
+          <span class="pbtotal">${PRICE_BUILDER_FMT(pbLineTotal(entry, it))}</span>
           ${pbEntryAllocated(entry)
             ? `<div class="taskicon" title="Can't remove — already booked in against" style="justify-self:center;opacity:.35;cursor:not-allowed;">🔒</div>`
             : `<div class="taskicon danger" title="Untick" onclick="pbRemoveEntry('${key}')" style="justify-self:center;">🗑</div>`}
@@ -401,10 +406,7 @@ async function renderPriceBuilderEdit(siteId, sheetId){
       <button class="ghostbtn" style="margin-top:4px;" onclick="pbAddCustomRow()">+ Add item</button>
     ` : ''}
 
-    <label class="stub" style="display:flex;align-items:center;gap:10px;margin:14px 0 0;padding:10px 12px;background:var(--paper);border-radius:8px;line-height:1.35;">
-      <input type="checkbox" style="width:16px;height:16px;flex:0 0 16px;margin:0;padding:0;align-self:center;" ${pbWorking.populateSOW?'checked':''} onchange="pbToggleSOW(this.checked)" ${sheet.schedule_section_id?'disabled':''}>
-      <span style="flex:1;min-width:0;margin:0;">${sheet.schedule_section_id ? 'Already populated into the Schedule of Works' : 'Also create a Schedule of Works section for this sheet — one task per item, so the SOW matches the price sheet'}</span>
-    </label>
+
 
     <div class="card" style="margin-top:14px;position:sticky;bottom:70px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -412,6 +414,10 @@ async function renderPriceBuilderEdit(siteId, sheetId){
         <span style="font-size:18px;font-weight:800;">${PRICE_BUILDER_FMT(grandTotal)}</span>
       </div>
     </div>
+    <label class="stub" style="display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:10px 12px;background:var(--paper);border-radius:8px;line-height:1.35;">
+      <input type="checkbox" style="width:16px;height:16px;flex:0 0 16px;margin:0;padding:0;align-self:center;" ${pbWorking.populateSOW?'checked':''} onchange="pbToggleSOW(this.checked)" ${sheet.schedule_section_id?'disabled':''}>
+      <span style="flex:1;min-width:0;margin:0;">${sheet.schedule_section_id ? 'Already populated into the Schedule of Works' : 'Also create a Schedule of Works section for this sheet — one task per item, so the SOW matches the price sheet'}</span>
+    </label>
     ${sheet.status==='issued' ? `
     <button class="darkbtn" style="margin-top:8px;" onclick="savePriceBuilderEdits('${siteId}','${sheetId}')">Save Changes</button>
     ` : `
@@ -580,7 +586,7 @@ async function pbPersist(siteId, sheetId, status){
     const resolvedId = entry.id || existingKeyToId[key] || null;
     rows.push({
       id: resolvedId, _key: key,
-      sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: item.unit,
+      sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: entry.unit||item.unit,
       rate: pbResolvedRate(entry, item), quantity: qty,
       option_id: entry.optionId||null, option_label: entry.optionLabel||null,
       is_manual_rate: !!entry.isManualRate,
