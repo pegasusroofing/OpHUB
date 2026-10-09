@@ -1447,10 +1447,10 @@ function priceBuilderItemWeekBreakdownHtml(elId, siteId, wk, items, weeksByItem,
             <div style="font-size:10.5px;color:var(--slate);">${it.quantity} ${escapeHtml(PRICE_UNIT_LABEL[it.unit]||it.unit)} on order @ ${fmt(rate)}</div>
           </div>
           ${canManage
-            ? `<input type="number" id="pbwQtyInput_${it.id}_${wk}" step="0.1" placeholder="Qty" value="${qty!=null?qty:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})" ${manual?'disabled':''}>`
+            ? `<input type="number" id="pbwQtyInput_${it.id}_${wk}" step="0.01" inputmode="decimal" placeholder="Qty" value="${qty!=null?qty:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})" ${manual?'disabled':''}>`
             : `<span class="stub" style="margin:0;">${qty!=null?qty:'—'}</span>`}
           ${canManage
-            ? `<input type="number" id="pbwManualInput_${it.id}_${wk}" step="0.01" placeholder="Override £" value="${manual&&amount!=null?amount:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})">`
+            ? `<input type="number" id="pbwManualInput_${it.id}_${wk}" step="0.01" inputmode="decimal" placeholder="Override £" value="${manual&&amount!=null?amount:''}" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:12px;font-family:inherit;" oninput="pbwLiveRecalc('${rowId}',${rate})">`
             : (manual?`<span class="stub" style="margin:0;">${fmt(amount)}</span>`:'')}
           <span class="stub" id="${rowId}" data-rate="${rate}" style="margin:0;font-weight:700;text-align:right;">${fmt(amount)}${manual?`<br><span style="font-size:8px;color:var(--warn);font-weight:800;text-transform:uppercase;letter-spacing:.03em;">Manual</span>`:''}</span>
         </div>
