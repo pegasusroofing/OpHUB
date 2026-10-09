@@ -308,10 +308,13 @@ window.importMaterialsExcel = async function(siteId, input){
   matImportBusy = true; render();
   let ok = 0;
   try{
-    await runPool(found, 4, async r=>{
-      const rows = await dbInsert('materials', {site_id:siteId, item:r.item, qty:r.qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending'});
-      if(rows) ok++;
-    });
+    // Lists show newest first, so each row is stamped a millisecond earlier
+    // than the one above it in the spreadsheet: the items then read top to
+    // bottom in the same order as the file (they used to come out reversed).
+    const base = Date.now();
+    const payload = found.map((r,i)=>({site_id:siteId, item:r.item, qty:r.qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', created_at:new Date(base - i).toISOString()}));
+    const rows = await dbInsert('materials', payload);
+    if(rows) ok = Array.isArray(rows) ? rows.length : found.length;
   }catch(e){ console.error(e); }
   matImportBusy = false;
   if(ok) postSystemMessage(siteId, 'material_request', `${ME.name} requested ${ok} material item${ok===1?'':'s'} from a spreadsheet (${file.name})`+(requiredBy?` — required by ${requiredBy}`:''));

@@ -514,7 +514,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const matIds = Array.from(selectedMaterialIds);
-  const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*');
+  const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*&order=created_at.desc');
   if(!materials || !materials.length){ toast('Could not load the selected requests.'); return; }
   addDeliverTo(fulfil, materials);
   if(!(await confirmRebookCollection(fulfil, materials))) fulfil.skipBooking = true;
