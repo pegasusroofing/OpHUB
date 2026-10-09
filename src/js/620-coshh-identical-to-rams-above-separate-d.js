@@ -99,6 +99,9 @@ async function renderCoshh(siteId){
     }
   }
   const uploadForm = `
+        <p class="sectiontitle" style="margin:0;">🧪 Create COSHH</p><p class="stub" style="margin:4px 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
+        <button class="darkbtn" style="margin-bottom:16px;" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Create COSHH</button>
+        <p class="sectiontitle" style="margin:0 0 8px;">📄 Upload COSHH (PDF)</p>
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:10px;padding:8px 6px;font-size:11.5px;" onclick="document.getElementById('coshhFile').click()">Choose PDF</div>
         <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('coshhFileName').textContent=this.files[0]?this.files[0].name:''">
@@ -124,11 +127,11 @@ async function renderCoshh(siteId){
     ` : ''}
 
     ${canAdd ? (docs.length ? `
-      <div class="ddrow" onclick="coshhUploadOpen=!coshhUploadOpen;render()"><span class="arrow">${coshhUploadOpen?'▼':'▶'}</span> Upload COSHH</div>
+      <div class="ddrow" onclick="coshhUploadOpen=!coshhUploadOpen;render()"><span class="arrow">${coshhUploadOpen?'▼':'▶'}</span> Create / Upload COSHH</div>
       ${coshhUploadOpen ? `<div class="card">${uploadForm}</div>` : ''}
     ` : `
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">Upload COSHH</p>
+        <p class="sectiontitle" style="margin-top:0;">Create / Upload COSHH</p>
         ${uploadForm}
       </div>
     `) : ''}

@@ -86,6 +86,7 @@ async function renderRoute(){
   }
   if(parts[0]==='signature'){ return renderSignaturePad(); }
   if(parts[0]==='rams-library'){ return renderRamsLibrary(); }
+  if(parts[0]==='coshh-substances'){ return renderCoshhLibrary(parts[1]||null); }
   if(parts[0]==='suppliers'){ return renderSuppliersAdmin(); }
   if(parts[0]==='outstanding'){ return renderOutstandingTasks(); }
   if(parts[0]==='general-reports'){
@@ -225,6 +226,7 @@ async function renderRoute(){
       if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);
       if(sub==='rams' && parts[4]==='build' && parts[5]) return renderRamsBuild(siteId, parts[5]);
       if(sub==='rams') return renderRams(siteId);
+      if(sub==='coshh' && parts[4]==='new') return renderCoshhNew(siteId);
       if(sub==='coshh') return renderCoshh(siteId);
       if(sub==='coshh-pick') return renderCoshhLibraryPick(siteId);
       if(sub==='coshh-save') return renderCoshhSaveToLibrary(siteId);
