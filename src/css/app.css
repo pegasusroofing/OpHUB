@@ -40,7 +40,10 @@
        land somewhere sideways) so our own touchstart/touchend handler below
        — which follows CURRENT_BACK_HASH, i.e. "up one folder level", same as
        the visible '‹' back arrow — is what actually handles the gesture. */
-    overscroll-behavior-x:none;}
+    overscroll-behavior-x:none;
+    /* No rubber-band bounce on the page itself - on iPhones the bounce dragged
+       the bottom bar up and down with it, so it looked like it was moving. */
+    overscroll-behavior-y:none;}
   /* Lots of tiles/rows/buttons in this app are plain divs/spans with an
      onclick handler rather than real <button>/<a> elements, so the browser
      was showing its default text-select (I-beam) cursor over their text
@@ -704,3 +707,14 @@ details.rlmenu[open] > summary{background:var(--line);}
 .ramsitem-tools .rlmenu-list button{width:100%;height:auto;padding:9px 10px;text-align:left;border:none;background:transparent;font-size:14px;border-radius:6px;}
 .ramsitem-tools .rlmenu-list button:hover{background:var(--line);}
 .ramsitem-tools .rlmenu-list button.danger{color:#C0392B;}
+/* #(app-shell) On normal pages the page itself doesn't scroll - only the
+   middle .scrollarea does - and the column is exactly the visible screen
+   height (dvh follows the phone browser's toolbar). The bottom bar is then
+   just the last item in that column, so it stays locked to the bottom
+   instead of drifting or hiding behind the browser toolbar. Pages without
+   the normal layout (sign-in, PDF viewer) scroll as before. */
+html:has(#app > .appshell), html:has(#app > .appshell) body{height:100%;overflow:hidden;}
+#app:has(> .appshell){height:100vh;height:100dvh;min-height:0;}
+#app > .appshell{height:100%;min-height:0 !important;}
+#app > .appshell > .scrollarea{min-height:0;padding-bottom:24px;}
+#app > .appshell > .tabbar{position:relative;left:auto;right:auto;bottom:auto;max-width:none;margin:0;transform:none;-webkit-transform:none;will-change:auto;}

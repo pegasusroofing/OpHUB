@@ -58,7 +58,7 @@ let scrollPositionByHash = {};
 let lastScrollHash = location.hash;
 window.addEventListener('hashchange', function(){
   const fromHash = lastScrollHash, toHash = location.hash;
-  if(fromHash !== toHash) scrollPositionByHash[fromHash] = window.scrollY;
+  if(fromHash !== toHash) scrollPositionByHash[fromHash] = appScrollY();
   lastScrollHash = toHash;
   SELF_NAV = false;
   // Safety net for the unsaved-notes guard in go() above: that guard only
@@ -95,7 +95,7 @@ window.addEventListener('hashchange', function(){
   const pending = render();
   if(pending && pending.then){
     pending.then(function(){
-      requestAnimationFrame(function(){ window.scrollTo(0, isBackUp ? (scrollPositionByHash[toHash] || 0) : 0); });
+      requestAnimationFrame(function(){ appScrollTo(isBackUp ? (scrollPositionByHash[toHash] || 0) : 0); });
     });
   }
 });

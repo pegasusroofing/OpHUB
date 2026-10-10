@@ -467,7 +467,7 @@ window.confirmSendMaterial = async function(siteId, matId){
 window.sendMaterialAgain = async function(matId){
   selectedMaterialIds.add(matId);
   await render();
-  try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+  appScrollTo(0, true);
   toast('Choose a supplier at the top, then send. Tick more orders to send them together.');
 };
 let materialSelectableIds = [];

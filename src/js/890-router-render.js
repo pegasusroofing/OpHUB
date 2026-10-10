@@ -7,6 +7,7 @@
 // dropdown/card had just been expanded stayed frozen because the render()
 // call that was supposed to redraw it had thrown partway through and never
 // finished, and nothing on screen indicated anything had gone wrong.
+let RENDERED_HASH = null;
 async function render(){
   // New page, or the remembered data is more than 30 seconds old: start fresh.
   if(uiReadCache.hash !== location.hash || (Date.now() - uiReadCache.at) > UI_READ_CACHE_MS){
@@ -14,9 +15,15 @@ async function render(){
     uiReadCache.hash = location.hash;
     uiReadCache.at = Date.now();
   }
+  // A redraw of the same page keeps your place: the scrolling list is
+  // replaced on every render, so put it back where it was.
+  const sameHash = (RENDERED_HASH === location.hash) && uiRenderDepth === 0;
+  const keepY = sameHash ? appScrollY() : 0;
   uiRenderDepth++;
   try{
     await renderRoute();
+    if(sameHash && location.hash === RENDERED_HASH && keepY > 0) appScrollTo(keepY);
+    RENDERED_HASH = location.hash;
   }catch(e){
     uiReadCacheClear();
     console.error('render() failed', e);

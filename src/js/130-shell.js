@@ -11,7 +11,7 @@ function shell(innerHtml, opts){
   opts = opts||{};
   CURRENT_BACK_HASH = opts.back || null;
   return `
-    <div style="display:flex;flex-direction:column;min-height:100vh;">
+    <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
       ${OFFLINE_CACHE_USED ? `<div style="background:var(--warn-bg);color:var(--warn);padding:6px 14px;font-size:12px;font-weight:700;text-align:center;">📡 Offline — showing saved data from earlier</div>` : ''}
       <div class="appbar">
@@ -167,8 +167,28 @@ window.openInvitesFromHome = function(){
 window.openHomeAddProject = function(){
   addSiteFormOpen = true;
   render();
-  requestAnimationFrame(()=>window.scrollTo(0,0));
+  requestAnimationFrame(()=>appScrollTo(0));
 };
+// #(app-shell) Normal pages are a fixed-height column: header, the scrolling
+// .scrollarea, then the bottom bar. The page itself never scrolls (see the
+// .appshell CSS), so the bar stays locked to the bottom on phones instead of
+// drifting with the browser's toolbar / bounce. These helpers read and set the
+// scroll position of whichever element is actually scrolling.
+function appScroller(){
+  const s = document.querySelector('.appshell > .scrollarea');
+  if(s && getComputedStyle(document.documentElement).overflowY === 'hidden') return s;
+  return null;
+}
+function appScrollY(){ const s = appScroller(); return s ? s.scrollTop : (window.scrollY || 0); }
+function appScrollTo(y, smooth){
+  const s = appScroller();
+  try{
+    if(s) s.scrollTo({top:y||0, behavior: smooth ? 'smooth' : 'auto'});
+    else window.scrollTo({top:y||0, behavior: smooth ? 'smooth' : 'auto'});
+  }catch(e){ if(s) s.scrollTop = y||0; else window.scrollTo(0, y||0); }
+}
+function appScrollBy(dy){ const s = appScroller(); if(s) s.scrollTop += dy; else window.scrollBy(0, dy); }
+window.appScrollTo = appScrollTo;
 // #(tabbar-snap-back) Phones (iOS especially) can leave the fixed bottom bar
 // floating out of place after the keyboard closes, a pop-up closes, or the
 // browser bars show/hide while a long page (e.g. Schedule of Works with lots
@@ -181,7 +201,12 @@ window.openHomeAddProject = function(){
     t = setTimeout(()=>{
       const bars = document.querySelectorAll('.tabbar');
       const vv = window.visualViewport;
-      const keyboardUp = !!(vv && vv.height < window.innerHeight * 0.72);
+      // Only treat it as "keyboard up" while something you type into has focus.
+      // (Pinch-zoom also shrinks the visual viewport - vv.scale accounts for
+      // that - and without the focus check the bar could stay hidden on Home.)
+      const ae = document.activeElement;
+      const typing = !!(ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) && !/^(checkbox|radio|button|submit|range|file|color)$/i.test(ae.type||''));
+      const keyboardUp = !!(typing && vv && vv.height * (vv.scale || 1) < window.innerHeight * 0.72);
       bars.forEach(b=>{
         b.style.visibility = keyboardUp ? 'hidden' : '';
         if(!keyboardUp){ b.style.transform = 'translateZ(0) translateY(0.01px)'; void b.offsetHeight; b.style.transform = ''; }
@@ -192,5 +217,8 @@ window.openHomeAddProject = function(){
   window.addEventListener('resize', snap);
   window.addEventListener('orientationchange', snap);
   document.addEventListener('focusout', snap, true);
+  document.addEventListener('focusin', snap, true);
+  window.addEventListener('hashchange', snap);
+  window.ophubTabbarSnap = snap;
   document.addEventListener('load', e=>{ if(e.target && e.target.tagName==='IMG') snap(); }, true);
 })();

@@ -120,7 +120,7 @@ async function renderCoshhSubstanceEdit(id){
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'COSHH Product', back:'#/coshh-substances'});
 }
-async function coshhRerender(){ const y = window.scrollY; await render(); window.scrollTo(0, y); }
+async function coshhRerender(){ const y = appScrollY(); await render(); appScrollTo(y); }
 window.coshhTogglePicto = function(k, on, el){ const d = coshhEd.data; d.pictos = d.pictos.filter(x=>x!==k); if(on) d.pictos.push(k); d.pictos = COSHH_PICTOS.map(p=>p.key).filter(x=>d.pictos.includes(x)); if(el) el.parentNode.classList.toggle('on', on); };
 window.coshhToggleArr = function(key, val, on, el){ const d = coshhEd.data; d[key] = (d[key]||[]).filter(x=>x!==val); if(on) d[key].push(val); if(el) el.parentNode.classList.toggle('on', on); };
 window.coshhCodesInput = function(which, val){

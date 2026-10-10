@@ -54,7 +54,10 @@
        land somewhere sideways) so our own touchstart/touchend handler below
        — which follows CURRENT_BACK_HASH, i.e. "up one folder level", same as
        the visible '‹' back arrow — is what actually handles the gesture. */
-    overscroll-behavior-x:none;}
+    overscroll-behavior-x:none;
+    /* No rubber-band bounce on the page itself - on iPhones the bounce dragged
+       the bottom bar up and down with it, so it looked like it was moving. */
+    overscroll-behavior-y:none;}
   /* Lots of tiles/rows/buttons in this app are plain divs/spans with an
      onclick handler rather than real <button>/<a> elements, so the browser
      was showing its default text-select (I-beam) cursor over their text
@@ -718,6 +721,17 @@ details.rlmenu[open] > summary{background:var(--line);}
 .ramsitem-tools .rlmenu-list button{width:100%;height:auto;padding:9px 10px;text-align:left;border:none;background:transparent;font-size:14px;border-radius:6px;}
 .ramsitem-tools .rlmenu-list button:hover{background:var(--line);}
 .ramsitem-tools .rlmenu-list button.danger{color:#C0392B;}
+/* #(app-shell) On normal pages the page itself doesn't scroll - only the
+   middle .scrollarea does - and the column is exactly the visible screen
+   height (dvh follows the phone browser's toolbar). The bottom bar is then
+   just the last item in that column, so it stays locked to the bottom
+   instead of drifting or hiding behind the browser toolbar. Pages without
+   the normal layout (sign-in, PDF viewer) scroll as before. */
+html:has(#app > .appshell), html:has(#app > .appshell) body{height:100%;overflow:hidden;}
+#app:has(> .appshell){height:100vh;height:100dvh;min-height:0;}
+#app > .appshell{height:100%;min-height:0 !important;}
+#app > .appshell > .scrollarea{min-height:0;padding-bottom:24px;}
+#app > .appshell > .tabbar{position:relative;left:auto;right:auto;bottom:auto;max-width:none;margin:0;transform:none;-webkit-transform:none;will-change:auto;}
 </style>
 </head>
 <body>
@@ -3118,7 +3132,7 @@ let scrollPositionByHash = {};
 let lastScrollHash = location.hash;
 window.addEventListener('hashchange', function(){
   const fromHash = lastScrollHash, toHash = location.hash;
-  if(fromHash !== toHash) scrollPositionByHash[fromHash] = window.scrollY;
+  if(fromHash !== toHash) scrollPositionByHash[fromHash] = appScrollY();
   lastScrollHash = toHash;
   SELF_NAV = false;
   // Safety net for the unsaved-notes guard in go() above: that guard only
@@ -3155,7 +3169,7 @@ window.addEventListener('hashchange', function(){
   const pending = render();
   if(pending && pending.then){
     pending.then(function(){
-      requestAnimationFrame(function(){ window.scrollTo(0, isBackUp ? (scrollPositionByHash[toHash] || 0) : 0); });
+      requestAnimationFrame(function(){ appScrollTo(isBackUp ? (scrollPositionByHash[toHash] || 0) : 0); });
     });
   }
 });
@@ -3605,7 +3619,7 @@ function shell(innerHtml, opts){
   opts = opts||{};
   CURRENT_BACK_HASH = opts.back || null;
   return `
-    <div style="display:flex;flex-direction:column;min-height:100vh;">
+    <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
       ${OFFLINE_CACHE_USED ? `<div style="background:var(--warn-bg);color:var(--warn);padding:6px 14px;font-size:12px;font-weight:700;text-align:center;">📡 Offline — showing saved data from earlier</div>` : ''}
       <div class="appbar">
@@ -3761,8 +3775,28 @@ window.openInvitesFromHome = function(){
 window.openHomeAddProject = function(){
   addSiteFormOpen = true;
   render();
-  requestAnimationFrame(()=>window.scrollTo(0,0));
+  requestAnimationFrame(()=>appScrollTo(0));
 };
+// #(app-shell) Normal pages are a fixed-height column: header, the scrolling
+// .scrollarea, then the bottom bar. The page itself never scrolls (see the
+// .appshell CSS), so the bar stays locked to the bottom on phones instead of
+// drifting with the browser's toolbar / bounce. These helpers read and set the
+// scroll position of whichever element is actually scrolling.
+function appScroller(){
+  const s = document.querySelector('.appshell > .scrollarea');
+  if(s && getComputedStyle(document.documentElement).overflowY === 'hidden') return s;
+  return null;
+}
+function appScrollY(){ const s = appScroller(); return s ? s.scrollTop : (window.scrollY || 0); }
+function appScrollTo(y, smooth){
+  const s = appScroller();
+  try{
+    if(s) s.scrollTo({top:y||0, behavior: smooth ? 'smooth' : 'auto'});
+    else window.scrollTo({top:y||0, behavior: smooth ? 'smooth' : 'auto'});
+  }catch(e){ if(s) s.scrollTop = y||0; else window.scrollTo(0, y||0); }
+}
+function appScrollBy(dy){ const s = appScroller(); if(s) s.scrollTop += dy; else window.scrollBy(0, dy); }
+window.appScrollTo = appScrollTo;
 // #(tabbar-snap-back) Phones (iOS especially) can leave the fixed bottom bar
 // floating out of place after the keyboard closes, a pop-up closes, or the
 // browser bars show/hide while a long page (e.g. Schedule of Works with lots
@@ -3775,7 +3809,12 @@ window.openHomeAddProject = function(){
     t = setTimeout(()=>{
       const bars = document.querySelectorAll('.tabbar');
       const vv = window.visualViewport;
-      const keyboardUp = !!(vv && vv.height < window.innerHeight * 0.72);
+      // Only treat it as "keyboard up" while something you type into has focus.
+      // (Pinch-zoom also shrinks the visual viewport - vv.scale accounts for
+      // that - and without the focus check the bar could stay hidden on Home.)
+      const ae = document.activeElement;
+      const typing = !!(ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) && !/^(checkbox|radio|button|submit|range|file|color)$/i.test(ae.type||''));
+      const keyboardUp = !!(typing && vv && vv.height * (vv.scale || 1) < window.innerHeight * 0.72);
       bars.forEach(b=>{
         b.style.visibility = keyboardUp ? 'hidden' : '';
         if(!keyboardUp){ b.style.transform = 'translateZ(0) translateY(0.01px)'; void b.offsetHeight; b.style.transform = ''; }
@@ -3786,6 +3825,9 @@ window.openHomeAddProject = function(){
   window.addEventListener('resize', snap);
   window.addEventListener('orientationchange', snap);
   document.addEventListener('focusout', snap, true);
+  document.addEventListener('focusin', snap, true);
+  window.addEventListener('hashchange', snap);
+  window.ophubTabbarSnap = snap;
   document.addEventListener('load', e=>{ if(e.target && e.target.tagName==='IMG') snap(); }, true);
 })();
 
@@ -23974,7 +24016,7 @@ window.ramsNext = function(from){
   }
   ramsSetTab(RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1]);
 };
-window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ window.scrollTo(0,0); }catch(e){} };
+window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ appScrollTo(0); }catch(e){} };
 // Info fields that must be filled before moving on / issuing.
 const RAMS_REQUIRED = [['clientContact','Client contact'],['description','Description of works'],['startDate','Start date']];
 function ramsMissingInfo(b){ return RAMS_REQUIRED.filter(([k])=>!String((b.details||{})[k]||'').trim()).map(([,l])=>l); }
@@ -24022,7 +24064,7 @@ function ramsDetailsHtml(b){
 window.ramsToggleArr = function(key, val, on, el){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
 window.ramsTogglePpe = function(key, on, el){ const b = ramsEd.build; b.ppe = b.ppe.filter(x=>x!==key); if(on) b.ppe.push(key); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
 // Re-draws the editor without losing your place on the page.
-async function ramsRender(){ const y = window.scrollY; await render(); window.scrollTo(0, y); }
+async function ramsRender(){ const y = appScrollY(); await render(); appScrollTo(y); }
 window.ramsAddGroup = async function(){ const v = await customPrompt('Group affected', ''); if(v && v.trim()){ ramsToggleArr('groups', v.trim(), true); } };
 
 function ramsRRBadge(p, s){ const rr = (Number(p)||0)*(Number(s)||0); const band = ramsRiskBand(rr); return `<span class="ramsrr" style="background:${band.bg};color:${band.fg};">${rr}</span>`; }
@@ -24881,7 +24923,7 @@ async function renderCoshhSubstanceEdit(id){
   `;
   if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'COSHH Product', back:'#/coshh-substances'});
 }
-async function coshhRerender(){ const y = window.scrollY; await render(); window.scrollTo(0, y); }
+async function coshhRerender(){ const y = appScrollY(); await render(); appScrollTo(y); }
 window.coshhTogglePicto = function(k, on, el){ const d = coshhEd.data; d.pictos = d.pictos.filter(x=>x!==k); if(on) d.pictos.push(k); d.pictos = COSHH_PICTOS.map(p=>p.key).filter(x=>d.pictos.includes(x)); if(el) el.parentNode.classList.toggle('on', on); };
 window.coshhToggleArr = function(key, val, on, el){ const d = coshhEd.data; d[key] = (d[key]||[]).filter(x=>x!==val); if(on) d[key].push(val); if(el) el.parentNode.classList.toggle('on', on); };
 window.coshhCodesInput = function(which, val){
@@ -33044,7 +33086,7 @@ window.confirmSendMaterial = async function(siteId, matId){
 window.sendMaterialAgain = async function(matId){
   selectedMaterialIds.add(matId);
   await render();
-  try{ window.scrollTo({top:0, behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+  appScrollTo(0, true);
   toast('Choose a supplier at the top, then send. Tick more orders to send them together.');
 };
 let materialSelectableIds = [];
@@ -37153,7 +37195,7 @@ function dlvMove(e){
   if(!dlvDrag.scrollTimer) dlvDrag.scrollTimer = setInterval(()=>{
     const y = dlvDrag.lastY, h = window.innerHeight;
     const step = y < 90 ? -12 : (y > h-110 ? 12 : 0);
-    if(step){ window.scrollBy(0, step); dlvPlace({x:dlvDrag.startX, y}); }
+    if(step){ appScrollBy(step); dlvPlace({x:dlvDrag.startX, y}); }
   }, 30);
 }
 function dlvPlace(p){
@@ -37291,6 +37333,7 @@ async function renderVehicleChecklistDetail(id){
 // dropdown/card had just been expanded stayed frozen because the render()
 // call that was supposed to redraw it had thrown partway through and never
 // finished, and nothing on screen indicated anything had gone wrong.
+let RENDERED_HASH = null;
 async function render(){
   // New page, or the remembered data is more than 30 seconds old: start fresh.
   if(uiReadCache.hash !== location.hash || (Date.now() - uiReadCache.at) > UI_READ_CACHE_MS){
@@ -37298,9 +37341,15 @@ async function render(){
     uiReadCache.hash = location.hash;
     uiReadCache.at = Date.now();
   }
+  // A redraw of the same page keeps your place: the scrolling list is
+  // replaced on every render, so put it back where it was.
+  const sameHash = (RENDERED_HASH === location.hash) && uiRenderDepth === 0;
+  const keepY = sameHash ? appScrollY() : 0;
   uiRenderDepth++;
   try{
     await renderRoute();
+    if(sameHash && location.hash === RENDERED_HASH && keepY > 0) appScrollTo(keepY);
+    RENDERED_HASH = location.hash;
   }catch(e){
     uiReadCacheClear();
     console.error('render() failed', e);

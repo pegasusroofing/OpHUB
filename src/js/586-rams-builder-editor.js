@@ -191,7 +191,7 @@ window.ramsNext = function(from){
   }
   ramsSetTab(RAMS_TAB_ORDER[RAMS_TAB_ORDER.indexOf(from)+1]);
 };
-window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ window.scrollTo(0,0); }catch(e){} };
+window.ramsSetTab = function(k){ ramsSaveNow(); ramsEd.tab = k; ramsEd.editId = null; ramsEd.picker = null; render(); try{ appScrollTo(0); }catch(e){} };
 // Info fields that must be filled before moving on / issuing.
 const RAMS_REQUIRED = [['clientContact','Client contact'],['description','Description of works'],['startDate','Start date']];
 function ramsMissingInfo(b){ return RAMS_REQUIRED.filter(([k])=>!String((b.details||{})[k]||'').trim()).map(([,l])=>l); }
@@ -239,7 +239,7 @@ function ramsDetailsHtml(b){
 window.ramsToggleArr = function(key, val, on, el){ const a = ramsEd.build.details[key] = (ramsEd.build.details[key]||[]).filter(x=>x!==val); if(on) a.push(val); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
 window.ramsTogglePpe = function(key, on, el){ const b = ramsEd.build; b.ppe = b.ppe.filter(x=>x!==key); if(on) b.ppe.push(key); ramsQueueSave(); if(el && el.parentNode) el.parentNode.classList.toggle('on', on); else ramsRender(); };
 // Re-draws the editor without losing your place on the page.
-async function ramsRender(){ const y = window.scrollY; await render(); window.scrollTo(0, y); }
+async function ramsRender(){ const y = appScrollY(); await render(); appScrollTo(y); }
 window.ramsAddGroup = async function(){ const v = await customPrompt('Group affected', ''); if(v && v.trim()){ ramsToggleArr('groups', v.trim(), true); } };
 
 function ramsRRBadge(p, s){ const rr = (Number(p)||0)*(Number(s)||0); const band = ramsRiskBand(rr); return `<span class="ramsrr" style="background:${band.bg};color:${band.fg};">${rr}</span>`; }

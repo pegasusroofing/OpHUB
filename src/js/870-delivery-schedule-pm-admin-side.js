@@ -686,7 +686,7 @@ function dlvMove(e){
   if(!dlvDrag.scrollTimer) dlvDrag.scrollTimer = setInterval(()=>{
     const y = dlvDrag.lastY, h = window.innerHeight;
     const step = y < 90 ? -12 : (y > h-110 ? 12 : 0);
-    if(step){ window.scrollBy(0, step); dlvPlace({x:dlvDrag.startX, y}); }
+    if(step){ appScrollBy(step); dlvPlace({x:dlvDrag.startX, y}); }
   }, 30);
 }
 function dlvPlace(p){
