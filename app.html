@@ -16277,7 +16277,8 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>renderReportFillItem(it)).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>`<div data-rid="${it.id}">` + renderReportFillItem(it) + `</div>` + (it.addedOnSite ? `<div style="text-align:right;margin:-4px 0 8px;"><span class="viewlink" style="cursor:pointer;font-size:12px;color:var(--slate);" onclick="removeReportExtraItem('${s.id}','${it.id}')">✕ Remove ${escapeHtml(it.label)}</span></div>` : '')).join('')}
+        ${reportCanAddItem(s) ? `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="addReportExtraItem('${s.id}')">+ Add another item</button>` : ''}
       </div>
     `).join('')}
     <div class="row-gap">
@@ -16287,6 +16288,69 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
     <p class="stub" id="reportProgressNote" style="text-align:center;margin:10px 0 0;font-weight:700;color:var(--ink);display:none;"></p>
   `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Inspection', listPath, reportFillDraft.generalLabel)); }
 }
+// ---- Add more items while filling in ----------------------------------
+// A section can need more entries than the template has (a roof condition
+// report with 3 areas on one job and 40 on the next). "+ Add another item"
+// copies the section's last question (same type, options and photo setting)
+// with the next number, e.g. "Item 10" -> "Item 11". The extra questions live
+// on this report only (its own copy of the sections), not on the template.
+function reportHasExtraItems(d){
+  d = d || reportFillDraft;
+  return !!(d && (d.sections||[]).some(s=>(s.items||[]).some(it=>it.addedOnSite)));
+}
+function reportCanAddItem(s){
+  const items = (s && s.items) || [];
+  const last = items[items.length-1];
+  if(!last) return false;
+  return ['text','textarea','choice','multichoice','passfail','checkbox','number','photo','date'].indexOf(last.type || 'text') >= 0;
+}
+function reportNextItemLabel(items, last){
+  const m = /^(.*?)(\d+)\s*$/.exec(String(last.label||''));
+  if(m){
+    const base = m[1];
+    let n = parseInt(m[2],10);
+    items.forEach(it=>{ const mm = /^(.*?)(\d+)\s*$/.exec(String(it.label||'')); if(mm && mm[1]===base) n = Math.max(n, parseInt(mm[2],10)); });
+    return base + (n+1);
+  }
+  const same = items.filter(it=>String(it.label||'').replace(/ \(\d+\)$/,'') === String(last.label||'').replace(/ \(\d+\)$/,'')).length;
+  return String(last.label||'Item').replace(/ \(\d+\)$/,'') + ' (' + (same+1) + ')';
+}
+window.addReportExtraItem = function(sectionId){
+  if(!reportFillDraft) return;
+  const s = (reportFillDraft.sections||[]).find(x=>x.id===sectionId); if(!s) return;
+  const items = s.items || (s.items = []);
+  const last = items[items.length-1]; if(!last) return;
+  const copy = JSON.parse(JSON.stringify(last));
+  copy.id = 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
+  copy.label = reportNextItemLabel(items, last);
+  copy.required = false;
+  copy.showIf = null;
+  copy.addedOnSite = true;
+  delete copy.autofill;
+  items.push(copy);
+  render().then(()=>{ setTimeout(()=>{ const el = document.querySelector('[data-rid="'+copy.id+'"]') ; if(el && el.scrollIntoView) el.scrollIntoView({block:'center', behavior:'smooth'}); }, 50); });
+};
+window.removeReportExtraItem = async function(sectionId, itemId){
+  if(!reportFillDraft) return;
+  const s = (reportFillDraft.sections||[]).find(x=>x.id===sectionId); if(!s) return;
+  const it = (s.items||[]).find(x=>x.id===itemId); if(!it || !it.addedOnSite) return;
+  const a = reportFillDraft.answers[itemId];
+  const hasAnswer = a!==undefined && a!==null && a!=='' && !(Array.isArray(a) && !a.length);
+  const media = reportFillDraft.answers[itemId+'__media'];
+  if((hasAnswer || (Array.isArray(media) && media.length)) && !(await customConfirm('Remove "'+it.label+'" and what you have entered for it?'))) return;
+  s.items = s.items.filter(x=>x.id!==itemId);
+  // Close the gap in the numbering of the items added on this report.
+  const num = /^(.*?)(\d+)\s*$/;
+  const m0 = num.exec(String(it.label||''));
+  if(m0){
+    const base = m0[1];
+    let n = 0;
+    s.items.forEach(x=>{ const mm = num.exec(String(x.label||'')); if(!x.addedOnSite && mm && mm[1]===base) n = Math.max(n, parseInt(mm[2],10)); });
+    s.items.forEach(x=>{ const mm = num.exec(String(x.label||'')); if(x.addedOnSite && mm && mm[1]===base) x.label = base + (++n); });
+  }
+  Object.keys(reportFillDraft.answers).forEach(k=>{ if(k===itemId || k.indexOf(itemId+'_')===0 || k.indexOf(itemId+'__')===0) delete reportFillDraft.answers[k]; });
+  render();
+};
 // ---- Report photos: upload in small batches, keep what's done ----------
 // A report with a lot of photos (a pre-start with 40, say) used to fail both
 // ways out: "Save & Exit" tried to send every photo inside one request, far
@@ -16345,7 +16409,7 @@ async function saveReportAnswersToServer(extra){
     out[k] = Array.isArray(v) ? v.filter(val=>!(typeof val==='string' && val.startsWith('data:'))) : v;
   });
   try{
-    const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(Object.assign({answers: out}, extra||{}))});
+    const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(Object.assign({answers: out}, reportHasExtraItems() ? {sections: reportFillDraft.sections} : {}, extra||{}))});
     if(!res.ok){ console.error(await safeErr(res)); return false; }
     const d = await res.json().catch(()=>[]);
     return Array.isArray(d) ? d.length>0 : !!d;
@@ -16697,6 +16761,7 @@ window.submitReport = async function(siteId){
   const updatePayload = isPmEdit
     ? { answers: Object.assign({}, answers, { _editHistory: (Array.isArray(answers._editHistory) ? answers._editHistory : []).concat([{ by: ME.id, byName: ME.name, at: new Date().toISOString() }]) }), status:'completed' }
     : { answers, status:'completed', submitted_at:new Date().toISOString() };
+  if(reportHasExtraItems()) updatePayload.sections = reportFillDraft.sections;
   try{
     const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(updatePayload)});
     if(res.ok){ const d = await res.json().catch(()=>[]); rows = Array.isArray(d) ? d[0] : d; }
@@ -17439,7 +17504,8 @@ function reportDraftSignature(d){
     else if(Array.isArray(v)){ n += v.length*7; v.forEach(x=>{ n += (typeof x === 'string') ? x.length : JSON.stringify(x||'').length; }); }
     else n += JSON.stringify(v===undefined?null:v).length;
   }
-  return d.submissionId+':'+k+':'+n;
+  const items = (d.sections||[]).reduce((t,s)=>t+((s.items||[]).length), 0);
+  return d.submissionId+':'+k+':'+n+':'+items;
 }
 let reportOfflineLastSig = '';
 setInterval(async ()=>{
@@ -17544,6 +17610,7 @@ window.reportOfflineSync = async function(manual){
           ? {answers: Object.assign({}, answers, {_editHistory: (Array.isArray(answers._editHistory) ? answers._editHistory : []).concat([{by: ME.id, byName: ME.name, at: rec.completedAt || new Date().toISOString()}])}), status:'completed'}
           : {answers, status:'completed', submitted_at: rec.completedAt || new Date().toISOString()};
       }
+      if(reportHasExtraItems(d)) payload.sections = d.sections;
       const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+rec.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(payload)});
       if(!res.ok) throw new Error('save failed '+res.status);
       const back = await res.json().catch(()=>[]);

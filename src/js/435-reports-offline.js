@@ -89,7 +89,8 @@ function reportDraftSignature(d){
     else if(Array.isArray(v)){ n += v.length*7; v.forEach(x=>{ n += (typeof x === 'string') ? x.length : JSON.stringify(x||'').length; }); }
     else n += JSON.stringify(v===undefined?null:v).length;
   }
-  return d.submissionId+':'+k+':'+n;
+  const items = (d.sections||[]).reduce((t,s)=>t+((s.items||[]).length), 0);
+  return d.submissionId+':'+k+':'+n+':'+items;
 }
 let reportOfflineLastSig = '';
 setInterval(async ()=>{
@@ -194,6 +195,7 @@ window.reportOfflineSync = async function(manual){
           ? {answers: Object.assign({}, answers, {_editHistory: (Array.isArray(answers._editHistory) ? answers._editHistory : []).concat([{by: ME.id, byName: ME.name, at: rec.completedAt || new Date().toISOString()}])}), status:'completed'}
           : {answers, status:'completed', submitted_at: rec.completedAt || new Date().toISOString()};
       }
+      if(reportHasExtraItems(d)) payload.sections = d.sections;
       const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+rec.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(payload)});
       if(!res.ok) throw new Error('save failed '+res.status);
       const back = await res.json().catch(()=>[]);
