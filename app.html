@@ -20248,6 +20248,16 @@ function plmBar(){
   const nextN = PLM.nextNum || plmNextFree();
   const tools = [['num','<span class="plm-keydot" style="background:'+PLM.colour+';">'+nextN+'</span> Number'],['cross','✕ Cross'],['tick','✓ Tick'],['warn','⚠ Warning'],['arrow','➚ Arrow'],['pen','✏️ Pen'],['text','T Text'],['erase','🧽 Erase'],['pan','✋ Move']];
   document.getElementById('plmTools').innerHTML = tools.map(([k,n])=>`<button class="pm-tool ${PLM.tool===k?'on':''}" onclick="plmSetTool('${k}')">${n}</button>`).join('');
+  const selOp = PLM.sel!=null ? PLM.ops[PLM.sel] : null;
+  if(selOp){
+    document.getElementById('plmEdit').innerHTML = `<span class="pm-lbl">Selected ${selOp.t==='num'?selOp.n:selOp.t==='text'?'text':selOp.t}</span>` +
+      `<button class="pm-tool" onclick="plmSelSmaller()">－ Smaller</button><button class="pm-tool" onclick="plmSelBigger()">＋ Bigger</button>` +
+      (selOp.t==='text' ? `<button class="pm-tool" onclick="plmSelEditText()">✎ Edit</button>` : '') +
+      `<button class="pm-tool" onclick="plmSelDelete()">🗑</button><button class="pm-tool on" onclick="plmSelDone()">Done</button>`;
+    document.getElementById('plmColours').innerHTML = `<span class="pm-lbl">Colour</span>` +
+      PLM_COLOURS.map(c=>`<button class="pm-dot ${selOp.c===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSelColour('${c.k}')"></button>`).join('');
+    return;
+  }
   document.getElementById('plmEdit').innerHTML =
     `<span class="pm-lbl">Size</span>` + ['xs','s','m','l'].map(k=>`<button class="pm-tool pm-size ${PLM.size===k?'on':''}" onclick="plmSetSize('${k}')">${k.toUpperCase()}</button>`).join('') +
     (PLM.tool==='num' ? `<button class="pm-tool" onclick="plmSetNext()">Start at…</button>` : '') +
@@ -20255,7 +20265,7 @@ function plmBar(){
   document.getElementById('plmColours').innerHTML = `<span class="pm-lbl">Colour</span>` +
     PLM_COLOURS.map(c=>`<button class="pm-dot ${PLM.colour===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSetColour('${c.k}')"></button>`).join('');
 }
-window.plmSetTool = function(t){ PLM.tool = t; if(t!=='key') PLM.keyPick = null; plmBar(); };
+window.plmSetTool = function(t){ if(PLM.sel!=null){ PLM.sel = null; plmRebuildBase(); plmDraw(); } PLM.tool = t; if(t!=='key') PLM.keyPick = null; plmBar(); };
 // Picking an item switches the colour to that item's condition colour; tapping
 // a colour after that overrides it for the numbers you place.
 function plmKeyColour(n){ const k = PLM.keys.find(x=>+x.n===+n); return (k && k.color) || null; }
@@ -20266,11 +20276,11 @@ window.plmSetNext = async function(){
   const v = await customPrompt('Next number to place', String(PLM.nextNum || plmNextFree()));
   const n = parseInt(v, 10); if(n>0){ PLM.nextNum = n; plmBar(); }
 };
-window.plmUndo = function(){ PLM.ops.pop(); plmRebuildBase(); plmDraw(); plmBar(); };
+window.plmUndo = function(){ PLM.sel = null; PLM.ops.pop(); plmRebuildBase(); plmDraw(); plmBar(); };
 window.plmClear = async function(){
   if(!PLM.ops.length) return;
   if(!(await customConfirm('Remove all marks from this drawing?'))) return;
-  PLM.ops = []; PLM.nextNum = null; plmRebuildBase(); plmDraw(); plmBar();
+  PLM.ops = []; PLM.sel = null; PLM.nextNum = null; plmRebuildBase(); plmDraw(); plmBar();
 };
 function plmPt(e){
   const cv = document.getElementById('plmCanvas'), b = cv.getBoundingClientRect();
@@ -20283,16 +20293,30 @@ function plmDown(e){
   try{ e.target.setPointerCapture(e.pointerId); }catch(_){}
   PLM.ptrs.set(e.pointerId, plmStagePt(e));
   if(PLM.ptrs.size === 2){
-    // two fingers: pinch to zoom / drag to pan; drop anything half-drawn
+    // two fingers: pinch to zoom / drag to pan - or, with a mark selected,
+    // squeeze / stretch to make that mark smaller / bigger
     PLM.cur = null; PLM.tap = null;
+    if(PLM.drag){ plmEndDrag(false); }
     const [a,b] = Array.from(PLM.ptrs.values());
-    PLM.pinch = {d: Math.hypot(a.x-b.x, a.y-b.y), cx:(a.x+b.x)/2, cy:(a.y+b.y)/2};
+    PLM.pinch = {d: Math.hypot(a.x-b.x, a.y-b.y), cx:(a.x+b.x)/2, cy:(a.y+b.y)/2, resize: PLM.sel!=null};
     plmDraw(); return;
   }
   if(PLM.ptrs.size > 2) return;
   const sp = plmStagePt(e);
   if(PLM.tool==='pan'){ PLM.pan = {x:sp.x, y:sp.y, tx:PLM.tx, ty:PLM.ty}; return; }
   const p = plmPt(e);
+  // Press on a number / symbol / text you've already placed: hold and drag to
+  // move it, or just tap it to select it (then resize, edit or delete it).
+  if(PLM.tool!=='erase'){
+    const hit = plmHit(p);
+    if(hit >= 0){
+      const o = PLM.ops[hit];
+      PLM.drag = {i:hit, dx:o.x-p.x, dy:o.y-p.y, sx:sp.x, sy:sp.y, moved:false};
+      PLM.sel = hit;
+      plmRebuildBase(hit); plmDraw(); plmBar();
+      return;
+    }
+  }
   if(PLM.tool==='pen' || PLM.tool==='arrow'){
     PLM.cur = {t:PLM.tool, c:PLM.colour, w:Math.max(4, Math.round(plmR()/4)), pts:[p]};
     return;
@@ -20303,6 +20327,13 @@ function plmMove(e){
   if(!PLM || !PLM.ptrs.has(e.pointerId)) return;
   e.preventDefault();
   PLM.ptrs.set(e.pointerId, plmStagePt(e));
+  if(PLM.pinch && PLM.ptrs.size >= 2 && PLM.pinch.resize && PLM.sel!=null && PLM.ops[PLM.sel]){
+    const [a,b] = Array.from(PLM.ptrs.values());
+    const d = Math.hypot(a.x-b.x, a.y-b.y);
+    if(PLM.pinch.d > 0) plmScaleSel(d/PLM.pinch.d, true);
+    PLM.pinch.d = d;
+    return;
+  }
   if(PLM.pinch && PLM.ptrs.size >= 2){
     const [a,b] = Array.from(PLM.ptrs.values());
     const d = Math.hypot(a.x-b.x, a.y-b.y), cx = (a.x+b.x)/2, cy = (a.y+b.y)/2;
@@ -20315,6 +20346,14 @@ function plmMove(e){
     const sp = plmStagePt(e);
     PLM.tx = PLM.pan.tx + (sp.x - PLM.pan.x); PLM.ty = PLM.pan.ty + (sp.y - PLM.pan.y);
     plmApplyView(); return;
+  }
+  if(PLM.drag){
+    const sp = plmStagePt(e);
+    if(!PLM.drag.moved && Math.hypot(sp.x-PLM.drag.sx, sp.y-PLM.drag.sy) < 6) return;
+    PLM.drag.moved = true;
+    const p = plmPt(e), o = PLM.ops[PLM.drag.i];
+    if(o){ o.x = p.x + PLM.drag.dx; o.y = p.y + PLM.drag.dy; }
+    plmDraw(); return;
   }
   if(PLM.cur){
     const p = plmPt(e);
@@ -20330,7 +20369,23 @@ async function plmUp(e){
   if(!PLM) return;
   PLM.ptrs.delete(e.pointerId);
   if(PLM.ptrs.size < 2) PLM.pinch = null;
+  if(PLM.pinch===null && PLM._resized){ PLM._resized = false; plmRebuildBase(PLM.sel); plmDraw(); }
   if(PLM.pan){ PLM.pan = null; return; }
+  if(PLM.drag){
+    const d = PLM.drag; PLM.drag = null;
+    const o = PLM.ops[d.i];
+    if(!d.moved && o && o.t==='text'){
+      // tap on text: change what it says
+      const txt = await customPrompt('Edit text', o.s);
+      if(PLM && txt != null && txt.trim()){ o.s = txt.trim(); }
+    }
+    if(PLM){ plmRebuildBase(PLM.sel); plmDraw(); plmBar(); }
+    return;
+  }
+  if(PLM.sel!=null && PLM.tap){
+    // a tap on an empty spot just puts the selected mark down
+    PLM.tap = null; PLM.sel = null; plmRebuildBase(); plmDraw(); plmBar(); return;
+  }
   if(PLM.cur){
     const o = PLM.cur; PLM.cur = null;
     const ok = o.t==='pen' ? o.pts.length>1 : (o.pts[1] && Math.hypot(o.pts[1].x-o.pts[0].x, o.pts[1].y-o.pts[0].y) > 8);
@@ -20351,7 +20406,7 @@ async function plmUp(e){
       const reach = (o.r || o.fs || o.w*4 || r) * 1.6;
       if(d < reach && d < bd){ bd = d; best = i; }
     });
-    if(best >= 0){ PLM.ops.splice(best, 1); plmRebuildBase(); plmDraw(); plmBar(); }
+    if(best >= 0){ PLM.sel = null; PLM.ops.splice(best, 1); plmRebuildBase(); plmDraw(); plmBar(); }
     return;
   }
   let op = null;
@@ -20378,6 +20433,46 @@ async function plmUp(e){
   }
   if(op){ PLM.ops.push(op); plmDrawOp(PLM.base.getContext('2d'), op); plmDraw(); plmBar(); }
 }
+// The number / symbol / text nearest a point (within reach), or -1.
+function plmHit(p){
+  let best = -1, bd = Infinity;
+  PLM.ops.forEach((o,i)=>{
+    if(o.pts) return; // pen lines and arrows are not picked up
+    let d, reach;
+    if(o.t==='text'){
+      const w = (o.s||'').length * o.fs * 0.6;
+      const inside = p.x >= o.x - o.fs*0.3 && p.x <= o.x + w + o.fs*0.3 && Math.abs(p.y - o.y) <= o.fs*0.8;
+      d = inside ? 0 : Infinity; reach = 1;
+    } else { d = Math.hypot(o.x-p.x, o.y-p.y); reach = Math.max(o.r*1.25, 14/(PLM.fit*PLM.z)); }
+    if(d < reach && d < bd){ bd = d; best = i; }
+  });
+  return best;
+}
+function plmEndDrag(){ PLM.drag = null; }
+// Make the selected mark bigger / smaller (buttons, or a pinch while it's selected).
+function plmScaleSel(f, live){
+  const o = PLM.sel!=null ? PLM.ops[PLM.sel] : null; if(!o) return;
+  if(o.t==='text') o.fs = Math.max(8, Math.min(PLM.W/4, o.fs*f));
+  else if(o.r) o.r = Math.max(6, Math.min(PLM.W/6, o.r*f));
+  if(live){ PLM._resized = true; plmDraw(); }
+  else { plmRebuildBase(PLM.sel); plmDraw(); }
+}
+window.plmSelBigger = function(){ plmScaleSel(1.2); };
+window.plmSelSmaller = function(){ plmScaleSel(1/1.2); };
+window.plmSelDelete = function(){
+  if(PLM.sel==null) return;
+  PLM.ops.splice(PLM.sel, 1); PLM.sel = null; plmRebuildBase(); plmDraw(); plmBar();
+};
+window.plmSelDone = function(){ PLM.sel = null; plmRebuildBase(); plmDraw(); plmBar(); };
+window.plmSelEditText = async function(){
+  const o = PLM.sel!=null ? PLM.ops[PLM.sel] : null; if(!o || o.t!=='text') return;
+  const txt = await customPrompt('Edit text', o.s);
+  if(PLM && txt != null && txt.trim()){ o.s = txt.trim(); plmRebuildBase(PLM.sel); plmDraw(); }
+};
+window.plmSelColour = function(c){
+  const o = PLM.sel!=null ? PLM.ops[PLM.sel] : null; if(!o) return;
+  o.c = c; o.auto = false; plmRebuildBase(PLM.sel); plmDraw(); plmBar();
+};
 function plmLight(c){ return ['#ffd400','#ffffff','#E0B400','#e0b400'].indexOf(c) >= 0; }
 function plmDrawOp(ctx, o){
   ctx.save();
@@ -20429,16 +20524,27 @@ function plmDrawOp(ctx, o){
   }
   ctx.restore();
 }
-function plmRebuildBase(){
+function plmRebuildBase(skip){
   const ctx = PLM.base.getContext('2d');
   ctx.fillStyle = '#fff'; ctx.fillRect(0,0,PLM.W,PLM.H);
   ctx.drawImage(PLM.img, 0, 0, PLM.W, PLM.H);
-  PLM.ops.forEach(o=>plmDrawOp(ctx, o));
+  PLM.ops.forEach((o,i)=>{ if(i!==skip) plmDrawOp(ctx, o); });
+  PLM.baseSkip = (skip==null ? null : skip);
 }
 function plmDraw(){
   const cv = document.getElementById('plmCanvas'); if(!cv || !PLM) return;
   const ctx = cv.getContext('2d');
   ctx.drawImage(PLM.base, 0, 0);
+  if(PLM.baseSkip!=null && PLM.ops[PLM.baseSkip]){
+    const o = PLM.ops[PLM.baseSkip];
+    plmDrawOp(ctx, o);
+    // selection ring
+    ctx.save(); ctx.setLineDash([Math.max(6, (o.r||o.fs)*0.3), Math.max(4, (o.r||o.fs)*0.2)]);
+    ctx.lineWidth = Math.max(3, (o.r||o.fs)*0.12); ctx.strokeStyle = '#1e88e5';
+    if(o.t==='text'){ ctx.font = 'bold '+o.fs+'px -apple-system, Segoe UI, Roboto, Arial, sans-serif'; const w = ctx.measureText(o.s).width; ctx.strokeRect(o.x-o.fs*0.3, o.y-o.fs*0.75, w+o.fs*0.6, o.fs*1.5); }
+    else { ctx.beginPath(); ctx.arc(o.x, o.y, (o.r||20)*1.45, 0, Math.PI*2); ctx.stroke(); }
+    ctx.restore();
+  }
   if(PLM.cur) plmDrawOp(ctx, PLM.cur);
 }
 window.plmDone = async function(save){
