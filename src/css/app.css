@@ -691,3 +691,16 @@
     .pbgrid .pbitem{grid-column:1 / -1;}
     .pbgridhead .pbitem{display:none;}
   }
+/* RAMS Library: search box with the sort dropdown beside it */
+.ramslib-searchrow{display:flex;gap:8px;margin-bottom:10px;align-items:stretch;}
+.ramslib-searchrow input{flex:1 1 auto;min-width:0;box-sizing:border-box;margin:0;}
+.ramslib-searchrow select{flex:0 0 auto;max-width:46%;box-sizing:border-box;margin:0;}
+/* RAMS Library: ⋯ menu holding Edit / Copy / Delete */
+details.rlmenu{position:relative;}
+details.rlmenu > summary{list-style:none;width:36px;height:32px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);font-size:18px;line-height:28px;text-align:center;cursor:pointer;user-select:none;}
+details.rlmenu > summary::-webkit-details-marker{display:none;}
+details.rlmenu[open] > summary{background:var(--line);}
+.rlmenu-list{position:absolute;right:0;top:36px;z-index:30;min-width:140px;background:var(--card);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:4px;display:flex;flex-direction:column;gap:2px;}
+.ramsitem-tools .rlmenu-list button{width:100%;height:auto;padding:9px 10px;text-align:left;border:none;background:transparent;font-size:14px;border-radius:6px;}
+.ramsitem-tools .rlmenu-list button:hover{background:var(--line);}
+.ramsitem-tools .rlmenu-list button.danger{color:#C0392B;}

@@ -705,6 +705,19 @@
     .pbgrid .pbitem{grid-column:1 / -1;}
     .pbgridhead .pbitem{display:none;}
   }
+/* RAMS Library: search box with the sort dropdown beside it */
+.ramslib-searchrow{display:flex;gap:8px;margin-bottom:10px;align-items:stretch;}
+.ramslib-searchrow input{flex:1 1 auto;min-width:0;box-sizing:border-box;margin:0;}
+.ramslib-searchrow select{flex:0 0 auto;max-width:46%;box-sizing:border-box;margin:0;}
+/* RAMS Library: ⋯ menu holding Edit / Copy / Delete */
+details.rlmenu{position:relative;}
+details.rlmenu > summary{list-style:none;width:36px;height:32px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);font-size:18px;line-height:28px;text-align:center;cursor:pointer;user-select:none;}
+details.rlmenu > summary::-webkit-details-marker{display:none;}
+details.rlmenu[open] > summary{background:var(--line);}
+.rlmenu-list{position:absolute;right:0;top:36px;z-index:30;min-width:140px;background:var(--card);border:1.5px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:4px;display:flex;flex-direction:column;gap:2px;}
+.ramsitem-tools .rlmenu-list button{width:100%;height:auto;padding:9px 10px;text-align:left;border:none;background:transparent;font-size:14px;border-radius:6px;}
+.ramsitem-tools .rlmenu-list button:hover{background:var(--line);}
+.ramsitem-tools .rlmenu-list button.danger{color:#C0392B;}
 </style>
 </head>
 <body>
@@ -23808,7 +23821,7 @@ function ramsDefaultDetails(site){
     date: today, reviewDate: localISODate(review), author: ME.name||'',
     project: site ? site.name : '', startDate:'', duration:'', clientContact: ramsSiteClientContact(site), description:'',
     address: site ? fullSiteAddress(site) : '', notes:'', mainContractor:'', groups:[],
-    emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:true,
+    emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:false,
   };
 }
 
@@ -24492,11 +24505,38 @@ let ramsLibTab = 'hazard';
 let ramsLibPart = 'general'; // Safe Systems of Work & Method Statements tab: which of the two is shown
 let ramsLibEditId = null;
 let ramsLibQ = '';
+// Sort for the hazard / SSOW / method statement lists: 'order' (your own order, ↑ ↓), 'az' or 'used'.
+let ramsLibSort = (()=>{ try{ return localStorage.getItem('ophub_ramsLibSort') || 'order'; }catch(e){ return 'order'; } })();
+let ramsLibUsage = null; // {at, rows} from rams_library_usage(), loaded when 'Most used' is picked
+async function ramsLibLoadUsage(){
+  if(ramsLibUsage && Date.now() - ramsLibUsage.at < 60000) return ramsLibUsage.rows;
+  let rows = [];
+  try{ const res = await sbFetch('/rest/v1/rpc/rams_library_usage', {method:'POST', body:'{}'}); if(res.ok) rows = await res.json(); }catch(e){ console.error('[rams_library_usage]', e); }
+  ramsLibUsage = {at:Date.now(), rows};
+  return rows;
+}
+// How many job RAMS (and templates) use a library item: matched by library id, or by name for older copies.
+function ramsLibUseCount(it, rows){
+  const t = String(it.title||'').trim().toLowerCase(), k = it.kind;
+  let jobs = 0, tpls = 0;
+  rows.forEach(r=>{
+    if(r.kind===k && (r.lib_id ? r.lib_id===it.id : r.title===t)) jobs += +r.n;
+    else if(r.kind==='tpl-'+k && r.title===t) tpls += +r.n;
+  });
+  return {jobs, tpls};
+}
+window.ramsLibSetSort = function(v){ ramsLibSort = v; try{ localStorage.setItem('ophub_ramsLibSort', v); }catch(e){} render(); };
 async function renderRamsLibrary(){
   const __gen = RENDER_GEN;
   if(!isFullManager(ME)){ go('#/team'); return; }
   const lib = await ramsLoadLibrary();
-  const items = lib.filter(i=>i.kind===ramsLibTab);
+  let items = lib.filter(i=>i.kind===ramsLibTab);
+  const sortBy = (ramsLibTab==='template' && ramsLibSort==='used') ? 'order' : ramsLibSort;
+  const usage = sortBy==='used' ? await ramsLibLoadUsage() : null;
+  const useOf = {};
+  if(usage) items.forEach(it=>{ useOf[it.id] = ramsLibUseCount(it, usage); });
+  if(sortBy==='az') items = items.slice().sort((a,b)=>a.title.localeCompare(b.title, 'en', {sensitivity:'base'}));
+  else if(sortBy==='used') items = items.slice().sort((a,b)=>(useOf[b.id].jobs - useOf[a.id].jobs) || (useOf[b.id].tpls - useOf[a.id].tpls) || a.title.localeCompare(b.title, 'en', {sensitivity:'base'}));
   const lfq = ramsLibQ.trim().toLowerCase();
   const hideIf = it => (lfq && !it.title.toLowerCase().includes(lfq)) ? ' style="display:none;"' : '';
   const counts = k => lib.filter(i=>i.kind===k).length;
@@ -24518,19 +24558,29 @@ async function renderRamsLibrary(){
         <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="ramsLibSave('${it.id}')">Save</button><button class="ghostbtn" style="flex:1;" onclick="ramsLibEditId=null;render()">Cancel</button></div></div>`;
       return ramsLibTemplateEditHtml(it, lib);
     }
+    const u = useOf[it.id];
+    const useTxt = u ? ` · <b>used in ${u.jobs} RAMS</b>${u.tpls ? ' · '+u.tpls+' template'+(u.tpls===1?'':'s') : ''}` : '';
     const sub = it.kind==='hazard' ? `${escapeHtml(d.harm||'')} · ${(d.controls||[]).length} controls` : it.kind==='section' ? `${(d.steps||[]).length ? (d.steps||[]).length+' steps' : 'Text'}` : `${(d.hazards||[]).length} hazards · ${(d.sections||[]).length} sections`;
-    return `<div class="card ramsitem" data-lf="${lfText(it.title)}"${hideIf(it)}><div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div><div class="stub" style="margin:0;">${sub}</div></div>
+    return `<div class="card ramsitem" data-lf="${lfText(it.title)}"${hideIf(it)}><div class="ramsitem-head"><span class="ramsitem-num">${i+1}</span><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div><div class="stub" style="margin:0;">${sub}${useTxt}</div></div>
       ${it.kind==='hazard' ? `<div class="ramsrrpair">${ramsRRBadge(d.p,d.s)}<span>→</span>${ramsRRBadge(d.rp,d.rs)}</div>` : ''}</div>
       <div class="ramsitem-tools">
-        <button class="lf-mv" ${i===0?'disabled':''} onclick="ramsLibMove('${it.id}',-1)">↑</button><button class="lf-mv" ${i===n-1?'disabled':''} onclick="ramsLibMove('${it.id}',1)">↓</button>
-        <button onclick="ramsLibEditId='${it.id}';render()">✎</button><button class="danger" onclick="ramsLibDelete('${it.id}')">🗑</button></div></div>`;
+        ${sortBy==='order' ? `<button class="lf-mv" ${i===0?'disabled':''} onclick="ramsLibMove('${it.id}',-1)">↑</button><button class="lf-mv" ${i===n-1?'disabled':''} onclick="ramsLibMove('${it.id}',1)">↓</button>` : ''}
+        <details class="rlmenu" ontoggle="ramsLibMenuToggle(this)"><summary aria-label="More actions">⋯</summary>
+          <div class="rlmenu-list">
+            <button onclick="ramsLibEditId='${it.id}';render()">✎ Edit</button>
+            <button onclick="ramsLibCopy('${it.id}')">⧉ Copy</button>
+            <button class="danger" onclick="ramsLibDelete('${it.id}')">🗑 Delete</button>
+          </div></details></div></div>`;
   };
   const html = `
     <div class="card">
     <p class="stub" style="margin:0 0 12px;">The hazards, safe systems of work and templates your team picks from in the RAMS Builder. Changing the library doesn't change RAMS already written for a job.</p>
     <div class="filterrow" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${[['hazard','Hazards'],['section','Safe Systems of Work & Method Statements'],['template','Templates'],['company','Company Details']].map(([k,l])=>`<div class="filterchip ${ramsLibTab===k?'active':''}" style="margin:0;" onclick="ramsLibTab='${k}';ramsLibEditId=null;render()">${l}${k==='company'?'':' ('+counts(k)+')'}</div>`).join('')}</div>
     ${ramsLibTab==='company' ? ramsCompanyDetailsHtml() : `
-    <input type="search" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="ramsLibQ=this.value;liveFilter(this.value,'#ramsLibList')">
+    <div class="ramslib-searchrow">
+      <input type="search" id="ramsLibSearch" placeholder="Search…" value="${escapeHtml(ramsLibQ)}" autocomplete="off" oninput="ramsLibQ=this.value;liveFilter(this.value,'#ramsLibList')">
+      <select id="ramsLibSortSel" aria-label="Sort by" onchange="ramsLibSetSort(this.value)">${[['order','Sort: Your order'],['az','Sort: A–Z'],['used','Sort: Most used']].filter(([k])=>!(k==='used' && ramsLibTab==='template')).map(([k,l])=>`<option value="${k}" ${sortBy===k?'selected':''}>${l}</option>`).join('')}</select>
+    </div>
     <div id="ramsLibList" class="${lfq?'lf-on':''}">
     ${ramsLibTab==='section' ? (()=>{
         const partOf = it=>((it.data||{}).part==='method' ? 'method' : 'general');
@@ -24575,6 +24625,23 @@ window.ramsLibSave = async function(id){
   }
   const row = await dbUpdate('rams_library_items', id, {title:v('rlTitle').trim()||it.title, data, updated_at:new Date().toISOString()});
   if(row){ ramsLibEditId = null; toast('Saved'); render(); }
+};
+// Only one ⋯ menu open at a time; tapping elsewhere closes it.
+window.ramsLibMenuToggle = function(el){
+  if(!el.open) return;
+  document.querySelectorAll('details.rlmenu[open]').forEach(d=>{ if(d!==el) d.open = false; });
+  setTimeout(()=>{
+    const close = ev=>{ if(!el.contains(ev.target)){ el.open = false; document.removeEventListener('pointerdown', close, true); } };
+    document.addEventListener('pointerdown', close, true);
+  }, 0);
+};
+// Copy a hazard / safe system / method statement / template, then open the copy to rename and edit.
+window.ramsLibCopy = async function(id){
+  const it = (await dbSelect('rams_library_items', 'id=eq.'+id))[0]; if(!it) return;
+  const name = await customPrompt('Name for the copy', it.title+' (copy)');
+  if(!name || !name.trim()) return;
+  const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:it.kind, title:name.trim(), data:JSON.parse(JSON.stringify(it.data||{})), sort_order:(it.sort_order||0)+1, created_by:ME.id}]);
+  if(rows && rows[0]){ ramsLibEditId = rows[0].id; ramsLibQ = ''; if(it.kind==='section') ramsLibPart = ((it.data||{}).part==='method') ? 'method' : 'general'; toast('Copied'); render(); }
 };
 window.ramsLibDelete = async function(id){
   const it = (await dbSelect('rams_library_items', 'id=eq.'+id))[0]; if(!it) return;

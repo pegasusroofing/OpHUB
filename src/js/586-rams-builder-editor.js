@@ -38,7 +38,7 @@ function ramsDefaultDetails(site){
     date: today, reviewDate: localISODate(review), author: ME.name||'',
     project: site ? site.name : '', startDate:'', duration:'', clientContact: ramsSiteClientContact(site), description:'',
     address: site ? fullSiteAddress(site) : '', notes:'', mainContractor:'', groups:[],
-    emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:true,
+    emergencyName: ME.name||'', emergencyPhone:'', includeDynamic:false,
   };
 }
 
