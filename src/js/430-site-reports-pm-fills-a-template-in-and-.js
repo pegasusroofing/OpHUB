@@ -344,7 +344,8 @@ function reportDrawingKeys(sections, answers){
 function reportDrawingTickHtml(it){
   if(!reportFillDraft || REPORT_NO_DRAWING_TICK.indexOf(it.type) >= 0 || !reportHasDrawing(reportFillDraft.sections)) return '';
   const n = reportFillDraft.answers[it.id+'__dnum'];
-  return `<label class="rdtick ${n?'on':''}"><input type="checkbox" ${n?'checked':''} onchange="reportToggleDrawingRef('${it.id}', this.checked)"> 📍 Add to drawing${n ? ` <span class="rdnum">${n}</span>` : ''}</label>`;
+  const tl = n ? itemTrafficLevel(reportFillDraft.sections, it, reportFillDraft.answers) : null;
+  return `<label class="rdtick ${n?'on':''}"><input type="checkbox" ${n?'checked':''} onchange="reportToggleDrawingRef('${it.id}', this.checked)"> 📍 Add to drawing${n ? ` <span class="rdnum" style="${tl?'background:'+trafficHex(tl.color)+';':''}">${n}</span>` : ''}</label>`;
 }
 window.reportToggleDrawingRef = function(id, on){
   if(!reportFillDraft) return;

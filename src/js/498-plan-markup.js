@@ -11,11 +11,13 @@
  * opts.keys   [{n, label, color}] report items ticked "Add to drawing": tap
  *             one, then tap the drawing to place its number
  * Resolves to {image: JPEG data URL with the marks drawn in, ops} or null. */
+// Same colours as the report's condition (traffic-light) levels, so a number
+// placed for an item can match that item's condition exactly.
 const PLM_COLOURS = [
-  {k:'#e53935', n:'Red'}, {k:'#1e88e5', n:'Blue'}, {k:'#43a047', n:'Green'},
-  {k:'#ff8f00', n:'Orange'}, {k:'#8e24aa', n:'Purple'}, {k:'#111111', n:'Black'}, {k:'#ffd400', n:'Yellow'}
+  {k:'#D32F2F', n:'Red'}, {k:'#EF7D00', n:'Orange'}, {k:'#E0B400', n:'Yellow'}, {k:'#1F9D52', n:'Green'},
+  {k:'#2F6FD9', n:'Blue'}, {k:'#7B3FB5', n:'Purple'}, {k:'#111111', n:'Black'}
 ];
-const PLM_SIZES = {s:0.7, m:1, l:1.45};
+const PLM_SIZES = {xs:0.45, s:0.7, m:1, l:1.45};
 const PLM_MAX = 3600; // long edge in px - sharp at A3, still safe for phone memory
 let PLM = null;
 
@@ -78,7 +80,12 @@ function planMarkup(src, opts){
     const sc = Math.min(1, PLM_MAX/Math.max(img.naturalWidth, img.naturalHeight));
     const W = Math.round(img.naturalWidth*sc), H = Math.round(img.naturalHeight*sc);
     const ops = Array.isArray(opts.ops) ? JSON.parse(JSON.stringify(opts.ops)) : [];
-    PLM = {img, W, H, ops, keys: (opts.keys||[]).slice(), tool:'num', colour:'#e53935', size:'m', cur:null, resolve,
+    // Numbers placed for a report item take that item's condition colour -
+    // refreshed here in case the condition was changed since they were placed
+    // (unless a colour was picked by hand for that number).
+    const keyCol = {}; (opts.keys||[]).forEach(k=>{ if(k.color) keyCol[+k.n] = k.color; });
+    ops.forEach(o=>{ if(o.t==='num' && o.key && o.auto && keyCol[+o.n]) o.c = keyCol[+o.n]; });
+    PLM = {img, W, H, ops, keys: (opts.keys||[]).slice(), tool:'num', colour:'#D32F2F', size:'m', cur:null, resolve,
            z:1, tx:0, ty:0, fit:1, ptrs:new Map(), pinch:null, pan:null, keyPick:null, nextNum:null, base:null};
     let ov = document.getElementById('plmOverlay');
     if(!ov){ ov = document.createElement('div'); ov.id = 'plmOverlay'; ov.className = 'pm-overlay plm'; document.body.appendChild(ov); }
@@ -114,7 +121,7 @@ function planMarkup(src, opts){
 }
 window.planMarkup = planMarkup;
 
-function plmR(){ return Math.max(14, Math.round(Math.max(PLM.W, PLM.H)/95 * PLM_SIZES[PLM.size])); }
+function plmR(){ return Math.max(9, Math.round(Math.max(PLM.W, PLM.H)/95 * PLM_SIZES[PLM.size])); }
 function plmMaxNum(){ return PLM.ops.reduce((m,o)=>o.t==='num' ? Math.max(m, +o.n||0) : m, 0); }
 function plmKeyNums(){ return new Set(PLM.keys.map(k=>+k.n)); }
 function plmNextFree(){
@@ -157,16 +164,19 @@ function plmBar(){
   const tools = [['num','<span class="plm-keydot" style="background:'+PLM.colour+';">'+nextN+'</span> Number'],['cross','✕ Cross'],['tick','✓ Tick'],['warn','⚠ Warning'],['arrow','➚ Arrow'],['pen','✏️ Pen'],['text','T Text'],['erase','🧽 Erase'],['pan','✋ Move']];
   document.getElementById('plmTools').innerHTML = tools.map(([k,n])=>`<button class="pm-tool ${PLM.tool===k?'on':''}" onclick="plmSetTool('${k}')">${n}</button>`).join('');
   document.getElementById('plmEdit').innerHTML =
-    `<span class="pm-lbl">Size</span>` + ['s','m','l'].map(k=>`<button class="pm-tool pm-size ${PLM.size===k?'on':''}" onclick="plmSetSize('${k}')">${k.toUpperCase()}</button>`).join('') +
+    `<span class="pm-lbl">Size</span>` + ['xs','s','m','l'].map(k=>`<button class="pm-tool pm-size ${PLM.size===k?'on':''}" onclick="plmSetSize('${k}')">${k.toUpperCase()}</button>`).join('') +
     (PLM.tool==='num' ? `<button class="pm-tool" onclick="plmSetNext()">Start at…</button>` : '') +
     `<span class="pm-gap"></span><button class="pm-tool" onclick="plmUndo()" ${PLM.ops.length?'':'disabled'}>↶ Undo</button><button class="pm-tool" onclick="plmClear()" ${PLM.ops.length?'':'disabled'}>Clear</button>`;
   document.getElementById('plmColours').innerHTML = `<span class="pm-lbl">Colour</span>` +
     PLM_COLOURS.map(c=>`<button class="pm-dot ${PLM.colour===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSetColour('${c.k}')"></button>`).join('');
 }
 window.plmSetTool = function(t){ PLM.tool = t; if(t!=='key') PLM.keyPick = null; plmBar(); };
-window.plmPickKey = function(n){ PLM.tool = 'key'; PLM.keyPick = n; plmBar(); toast('Tap the drawing to place '+n); };
+// Picking an item switches the colour to that item's condition colour; tapping
+// a colour after that overrides it for the numbers you place.
+function plmKeyColour(n){ const k = PLM.keys.find(x=>+x.n===+n); return (k && k.color) || null; }
+window.plmPickKey = function(n){ PLM.tool = 'key'; PLM.keyPick = n; const c = plmKeyColour(n); if(c){ PLM.colour = c; PLM.colourPicked = false; } plmBar(); toast('Tap the drawing to place '+n); };
 window.plmSetSize = function(s){ PLM.size = s; plmBar(); };
-window.plmSetColour = function(c){ PLM.colour = c; plmBar(); };
+window.plmSetColour = function(c){ PLM.colour = c; PLM.colourPicked = true; plmBar(); };
 window.plmSetNext = async function(){
   const v = await customPrompt('Next number to place', String(PLM.nextNum || plmNextFree()));
   const n = parseInt(v, 10); if(n>0){ PLM.nextNum = n; plmBar(); }
@@ -261,12 +271,14 @@ async function plmUp(e){
   }
   let op = null;
   if(t==='key' && PLM.keyPick!=null){
-    const k = PLM.keys.find(x=>+x.n===+PLM.keyPick);
-    op = {t:'num', n:+PLM.keyPick, c:(k && k.color) || PLM.colour, r, x:p.x, y:p.y, key:true};
-    // move on to the next item that hasn't been placed yet
+    const kc = plmKeyColour(PLM.keyPick);
+    const auto = !!kc && !PLM.colourPicked;
+    op = {t:'num', n:+PLM.keyPick, c: auto ? kc : PLM.colour, r, x:p.x, y:p.y, key:true, auto};
+    // move on to the next item that hasn't been placed yet (and its colour)
     const placed = new Set(PLM.ops.filter(o=>o.t==='num').map(o=>+o.n)); placed.add(+PLM.keyPick);
     const nxt = PLM.keys.find(x=>!placed.has(+x.n));
     PLM.keyPick = nxt ? +nxt.n : null; if(!nxt) PLM.tool = 'num';
+    if(nxt){ const c2 = plmKeyColour(nxt.n); if(c2 && !PLM.colourPicked) PLM.colour = c2; }
   } else if(t==='num'){
     const n = PLM.nextNum || plmNextFree();
     op = {t:'num', n, c:PLM.colour, r, x:p.x, y:p.y};
@@ -281,7 +293,7 @@ async function plmUp(e){
   }
   if(op){ PLM.ops.push(op); plmDrawOp(PLM.base.getContext('2d'), op); plmDraw(); plmBar(); }
 }
-function plmLight(c){ return ['#ffd400','#ffffff'].indexOf(c) >= 0; }
+function plmLight(c){ return ['#ffd400','#ffffff','#E0B400','#e0b400'].indexOf(c) >= 0; }
 function plmDrawOp(ctx, o){
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
