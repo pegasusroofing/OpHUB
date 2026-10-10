@@ -200,9 +200,14 @@ function fixStandaloneHeight(){
   const full = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
   const gap = full - window.innerHeight;
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  root.classList.toggle('app-gap', !!(standalone && ios && gap > 10 && gap < 140));
+  // Only when the page is drawn under the status bar (old "black-translucent"
+  // home-screen installs); with the normal status bar the window already
+  // reaches the bottom of the screen and nothing needs changing.
+  let safeTop = 0;
+  try{ const p = document.createElement('div'); p.style.cssText = 'position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); safeTop = parseFloat(getComputedStyle(p).paddingTop)||0; p.remove(); }catch(e){}
+  root.classList.toggle('app-gap', !!(standalone && ios && safeTop > 0 && gap > 10 && gap < 140));
 }
-fixStandaloneHeight();
+if(document.body) fixStandaloneHeight(); else document.addEventListener('DOMContentLoaded', fixStandaloneHeight);
 window.addEventListener('resize', ()=>setTimeout(fixStandaloneHeight, 50));
 window.addEventListener('orientationchange', ()=>setTimeout(fixStandaloneHeight, 300));
 // #(tabbar-snap-back) Phones (iOS especially) can leave the fixed bottom bar
