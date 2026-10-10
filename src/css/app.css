@@ -103,7 +103,7 @@
      continuous sleek surface — the org's brand colour still shows via the
      .stripe-edge accent line above this, plus every button/badge/tile icon
      that uses --brand1 elsewhere. */
-  .appbar{background:var(--card);color:var(--ink);padding:17.955px 20.52px 13.86px;padding-top:calc(17.955px + env(safe-area-inset-top) + 10px);flex:0 0 auto;border-bottom:2px solid var(--brand1);}
+  .appbar{background:var(--card);color:var(--ink);padding:17.955px 20.52px 10px;padding-top:max(12px, calc(4px + env(safe-area-inset-top)));flex:0 0 auto;border-bottom:2px solid var(--brand1);}
   .appbar .row{display:flex;align-items:center;gap:12.825px;}
   .badge{background:var(--brand1);color:#fff;font-weight:800;font-size:11px;letter-spacing:.1em;padding:3px 7px;border-radius:4px;}
   .brandmark{width:61.56px;height:61.56px;border-radius:0;object-fit:contain;background:#fff;flex:0 0 61.56px;padding:3.42px;}
@@ -714,7 +714,10 @@ details.rlmenu[open] > summary{background:var(--line);}
    instead of drifting or hiding behind the browser toolbar. Pages without
    the normal layout (sign-in, PDF viewer) scroll as before. */
 html:has(#app > .appshell), html:has(#app > .appshell) body{height:100%;overflow:hidden;}
-#app:has(> .appshell){height:100vh;height:100dvh;min-height:0;}
+/* Pinned to all four screen edges rather than using a vh height: on an
+   iPhone home-screen app 100vh / 100dvh comes out shorter than the screen
+   (by about the status bar), which left a gap under the bottom bar. */
+#app:has(> .appshell){position:fixed;top:0;bottom:0;left:0;right:0;height:auto;min-height:0;}
 #app > .appshell{height:100%;min-height:0 !important;}
 #app > .appshell > .scrollarea{min-height:0;padding-bottom:24px;}
 #app > .appshell > .tabbar{position:relative;left:auto;right:auto;bottom:auto;max-width:none;margin:0;transform:none;-webkit-transform:none;will-change:auto;}
