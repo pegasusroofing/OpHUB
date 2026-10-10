@@ -729,3 +729,22 @@ html.app-gap #app > .appshell > .tabbar{padding-bottom:6px;border-bottom:0;}
 #app > .appshell{height:100%;min-height:0 !important;}
 #app > .appshell > .scrollarea{min-height:0;padding-bottom:24px;}
 #app > .appshell > .tabbar{position:relative;left:auto;right:auto;bottom:auto;max-width:none;margin:0;transform:none;-webkit-transform:none;will-change:auto;}
+/* Drawing mark-up editor (498) */
+.plm-stage{flex:1;min-height:0;position:relative;overflow:hidden;touch-action:none;background:#2a2c31;}
+.plm-zoombox{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;}
+.plm-zoombox canvas{display:block;touch-action:none;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.4);}
+.plm-zoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;z-index:2;}
+.plm-zoom button{width:42px;height:38px;border-radius:10px;border:1px solid #3a3d44;background:rgba(20,21,24,.85);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
+.plm-keydot{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 4px;border-radius:999px;color:#fff;font-weight:800;font-size:12px;border:2px solid #fff;margin-right:4px;vertical-align:middle;}
+.pm-tool.plm-key{padding:5px 8px;}
+.pm-tool.plm-key.done{opacity:.55;}
+#plmKeys{max-height:84px;overflow-y:auto;}
+/* Report: drawings, "Add to drawing" tick and the key */
+.rdraw{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:8px;background:#fff;}
+.rdraw img{width:100%;display:block;border-radius:6px;cursor:zoom-in;}
+.rdtick{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--slate);margin:-6px 0 12px;cursor:pointer;}
+.rdtick.on{color:var(--ink);font-weight:700;}
+.rdnum{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#e53935;color:#fff;font-weight:800;font-size:12px;flex:0 0 auto;}
+.rdkey{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:4px 0 12px;background:var(--paper);}
+.rdkeyrow{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line);}
+.rdkeyrow:first-of-type{border-top:0;}

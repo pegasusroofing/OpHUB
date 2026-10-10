@@ -93,6 +93,7 @@ const REPORT_FIELD_TYPES = [
   {k:'multichoice', lbl:'Multiple Choice (tick many)'},
   {k:'checkbox', lbl:'Yes / No'},
   {k:'photo', lbl:'Photo(s)'},
+  {k:'drawing', lbl:'Drawing / plan mark-up (PDF or photo)'},
   {k:'operatives', lbl:'Operatives On Site'},
   {k:'date', lbl:'Date'},
   {k:'signature', lbl:'Signature'},
@@ -158,7 +159,7 @@ function trafficLevels(sections){
 }
 function itemHasTraffic(sections, it){
   if(!it || it.traffic===false) return false;
-  if(['instruction','photo','signature','operatives'].includes(it.type)) return false;
+  if(['instruction','photo','signature','operatives','drawing'].includes(it.type)) return false;
   return !!trafficLevels(sections);
 }
 function itemTrafficLevel(sections, it, answers){
@@ -248,7 +249,7 @@ function scoreLabel(sc){
 // admin can still switch it off per-question in the template builder.
 function itemAllowsMedia(it){
   if(!it) return false;
-  if(it.type==='photo' || it.type==='signature' || it.type==='instruction' || it.type==='operatives') return false;
+  if(it.type==='photo' || it.type==='signature' || it.type==='instruction' || it.type==='operatives' || it.type==='drawing') return false;
   if(it.autofill) return false;
   if(it.allowMedia===false) return false;
   return true;

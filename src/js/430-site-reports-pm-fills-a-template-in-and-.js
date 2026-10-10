@@ -301,7 +301,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>`<div data-rid="${it.id}">` + renderReportFillItem(it) + `</div>` + (it.addedOnSite ? `<div style="text-align:right;margin:-4px 0 8px;"><span class="viewlink" style="cursor:pointer;font-size:12px;color:var(--slate);" onclick="removeReportExtraItem('${s.id}','${it.id}')">✕ Remove ${escapeHtml(it.label)}</span></div>` : '')).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>`<div data-rid="${it.id}">` + renderReportFillItem(it) + reportDrawingTickHtml(it) + `</div>` + (it.addedOnSite ? `<div style="text-align:right;margin:-4px 0 8px;"><span class="viewlink" style="cursor:pointer;font-size:12px;color:var(--slate);" onclick="removeReportExtraItem('${s.id}','${it.id}')">✕ Remove ${escapeHtml(it.label)}</span></div>` : '')).join('')}
         ${reportCanAddItem(s) ? `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="addReportExtraItem('${s.id}')">+ Add another item</button>` : ''}
       </div>
     `).join('')}
@@ -311,6 +311,120 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
     </div>
     <p class="stub" id="reportProgressNote" style="text-align:center;margin:10px 0 0;font-weight:700;color:var(--ink);display:none;"></p>
   `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Inspection', listPath, reportFillDraft.generalLabel)); }
+}
+// ---- Drawings / plan mark-up --------------------------------------------
+// A "Drawing" question holds one or more uploaded drawings (photo or PDF -
+// each PDF page becomes its own drawing), each marked up in planMarkup().
+// Stored as three lists kept in step:
+//   <id>          the marked-up image (what the report and PDF show)
+//   <id>__orig    the clean upload, so marks can be changed later
+//   <id>__ops     the marks themselves
+// Any other question can be ticked "Add to drawing": it gets the next number
+// (<question id>__dnum), and in the mark-up screen those numbers are listed
+// to tap and place, so the drawing and its key cross-reference the report.
+const REPORT_NO_DRAWING_TICK = ['drawing','instruction','signature','operatives','photo','date'];
+function reportHasDrawing(sections){
+  return (sections||[]).some(s=>(s.items||[]).some(it=>it.type==='drawing'));
+}
+function reportDrawingKeys(sections, answers){
+  const out = [];
+  (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+    const n = answers && answers[it.id+'__dnum'];
+    if(!n) return;
+    const v = answers[it.id];
+    let ans = '';
+    if(typeof v === 'string') ans = v;
+    else if(Array.isArray(v)) ans = v.filter(x=>typeof x==='string' && !/^(data:|https?:)/.test(x)).join(', ');
+    else if(v===true) ans = 'Yes'; else if(v===false) ans = 'No'; else if(v!=null) ans = String(v);
+    const tl = (typeof itemTrafficLevel==='function') ? itemTrafficLevel(sections, it, answers) : null;
+    out.push({n:+n, label: (s.title ? s.title+' - ' : '') + (it.label||''), answer: ans.trim(), color: tl ? trafficHex(tl.color) : null, tl: tl ? tl.label : ''});
+  }));
+  return out.sort((a,b)=>a.n-b.n);
+}
+function reportDrawingTickHtml(it){
+  if(!reportFillDraft || REPORT_NO_DRAWING_TICK.indexOf(it.type) >= 0 || !reportHasDrawing(reportFillDraft.sections)) return '';
+  const n = reportFillDraft.answers[it.id+'__dnum'];
+  return `<label class="rdtick ${n?'on':''}"><input type="checkbox" ${n?'checked':''} onchange="reportToggleDrawingRef('${it.id}', this.checked)"> 📍 Add to drawing${n ? ` <span class="rdnum">${n}</span>` : ''}</label>`;
+}
+window.reportToggleDrawingRef = function(id, on){
+  if(!reportFillDraft) return;
+  const a = reportFillDraft.answers;
+  if(on){
+    let max = 0; Object.keys(a).forEach(k=>{ if(/__dnum$/.test(k)) max = Math.max(max, +a[k]||0); });
+    a[id+'__dnum'] = max + 1;
+  } else delete a[id+'__dnum'];
+  render();
+};
+function renderReportDrawingFill(it, reqStar){
+  const a = reportFillDraft.answers;
+  const arr = Array.isArray(a[it.id]) ? a[it.id] : [];
+  const keys = reportDrawingKeys(reportFillDraft.sections, a);
+  return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar||''}</label>
+    ${arr.map((u,i)=>`<div class="rdraw">
+      <img src="${u}" onclick="viewImageEl(this)" alt="Drawing ${i+1}">
+      <div class="row-gap" style="margin-top:6px;">
+        <button class="darkbtn" style="flex:2;" onclick="reportDrawingEdit('${it.id}',${i})">✏️ Mark up${arr.length>1?' drawing '+(i+1):''}</button>
+        <button class="ghostbtn" style="flex:1;" onclick="reportDrawingRemove('${it.id}',${i})">🗑 Remove</button>
+      </div></div>`).join('')}
+    <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;margin:8px 0 0;">📄 Upload drawing (PDF or photo)<input type="file" accept="application/pdf,image/*" style="display:none;" onchange="reportDrawingUpload('${it.id}', this)"></label>
+    <p class="stub" style="margin:6px 0 0;">Tick <b>📍 Add to drawing</b> on any question below to give it a number, then tap <b>Mark up</b> to place the numbers.${keys.length ? ' '+keys.length+' item'+(keys.length===1?'':'s')+' ticked so far.' : ''}</p>
+  </div>`;
+}
+window.reportDrawingUpload = async function(id, input){
+  const files = Array.from((input && input.files) || []); if(input) input.value = '';
+  if(!files.length || !reportFillDraft) return;
+  const a = reportFillDraft.answers;
+  if(!Array.isArray(a[id])) a[id] = [];
+  if(!Array.isArray(a[id+'__orig'])) a[id+'__orig'] = [];
+  if(!Array.isArray(a[id+'__ops'])) a[id+'__ops'] = [];
+  let added = 0;
+  for(const f of files){
+    try{
+      toast('Loading '+(f.name||'drawing')+'…');
+      const imgs = (f.type==='application/pdf' || /\.pdf$/i.test(f.name||'')) ? await planPdfToImages(f) : [await planImageFileToDataUrl(f)];
+      imgs.forEach(d=>{ a[id].push(d); a[id+'__orig'].push(d); a[id+'__ops'].push([]); added++; });
+    }catch(e){ console.error(e); toast('Could not read '+(f.name||'that file')+'.'); }
+  }
+  render();
+  if(added){ toast(added===1 ? 'Drawing added - tap Mark up' : added+' drawings added - tap Mark up'); reportBackgroundSave(); }
+};
+window.reportDrawingEdit = async function(id, idx){
+  if(!reportFillDraft) return;
+  const a = reportFillDraft.answers;
+  const orig = (Array.isArray(a[id+'__orig']) && a[id+'__orig'][idx]) || (a[id]||[])[idx];
+  const ops = (Array.isArray(a[id+'__ops']) && a[id+'__ops'][idx]) || [];
+  if(!orig) return;
+  const keys = reportDrawingKeys(reportFillDraft.sections, a).map(k=>({n:k.n, label:k.label+(k.answer?': '+k.answer:''), color:k.color}));
+  const res = await planMarkup(orig, {ops, keys});
+  if(!res || !reportFillDraft) return;
+  a[id][idx] = res.image;
+  if(!Array.isArray(a[id+'__ops'])) a[id+'__ops'] = [];
+  a[id+'__ops'][idx] = res.ops;
+  if(!Array.isArray(a[id+'__orig'])) a[id+'__orig'] = [];
+  if(!a[id+'__orig'][idx]) a[id+'__orig'][idx] = orig;
+  render();
+  reportBackgroundSave();
+};
+window.reportDrawingRemove = async function(id, idx){
+  if(!reportFillDraft) return;
+  if(!(await customConfirm('Remove this drawing and its marks?'))) return;
+  const a = reportFillDraft.answers;
+  [id, id+'__orig', id+'__ops'].forEach(k=>{ if(Array.isArray(a[k])) a[k].splice(idx, 1); });
+  render();
+};
+// Before saving to the server, a drawing whose image or clean copy hasn't
+// uploaded yet is left out of all three lists together, so they stay in step.
+function reportDrawingSafeCopy(out, sections){
+  (sections||[]).forEach(s=>(s.items||[]).forEach(it=>{
+    if(it.type!=='drawing') return;
+    const src = reportFillDraft.answers;
+    const img = src[it.id], org = src[it.id+'__orig'], ops = src[it.id+'__ops'];
+    if(!Array.isArray(img)) return;
+    const keep = img.map((v,i)=>!(typeof v==='string' && v.startsWith('data:')) && !(Array.isArray(org) && typeof org[i]==='string' && org[i].startsWith('data:')));
+    out[it.id] = img.filter((v,i)=>keep[i]);
+    if(Array.isArray(org)) out[it.id+'__orig'] = org.filter((v,i)=>keep[i]);
+    if(Array.isArray(ops)) out[it.id+'__ops'] = ops.filter((v,i)=>keep[i]);
+  }));
 }
 // ---- Add more items while filling in ----------------------------------
 // A section can need more entries than the template has (a roof condition
@@ -432,6 +546,7 @@ async function saveReportAnswersToServer(extra){
     const v = reportFillDraft.answers[k];
     out[k] = Array.isArray(v) ? v.filter(val=>!(typeof val==='string' && val.startsWith('data:'))) : v;
   });
+  reportDrawingSafeCopy(out, reportFillDraft.sections);
   try{
     const res = await sbFetch('/rest/v1/report_submissions?id=eq.'+reportFillDraft.submissionId, {method:'PATCH', timeoutMs:60000, headers:{'Prefer':'return=representation'}, body: JSON.stringify(Object.assign({answers: out}, reportHasExtraItems() ? {sections: reportFillDraft.sections} : {}, extra||{}))});
     if(!res.ok){ console.error(await safeErr(res)); return false; }
@@ -644,6 +759,7 @@ function renderReportFillItem(it){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
     return `<div class="formfield"><label class="field-label">${escapeHtml(it.label)}${reqStar}</label>${renderPhotoArrayWidget(it.id, arr)}</div>`;
   }
+  if(it.type==='drawing') return renderReportDrawingFill(it, reqStar);
   if(it.type==='operatives'){
     const list = Array.isArray(val) ? val : [];
     const draft = reportOperativeManualDraft[it.id] || {open:false, name:''};
@@ -727,7 +843,7 @@ window.submitReport = async function(siteId){
       if(!itemVisible(it, reportFillDraft.answers)) continue;
       if(it.required){
         const v = reportFillDraft.answers[it.id];
-        if(it.type==='photo' || it.type==='multichoice'){
+        if(it.type==='photo' || it.type==='multichoice' || it.type==='drawing'){
           if(!Array.isArray(v) || !v.length){ toast(`"${it.label}" is required.`); return; }
         } else if(it.type==='operatives'){
           if(!Array.isArray(v) || !v.some(r=>r.included)){ toast(`"${it.label}" needs at least one operative on site.`); return; }
@@ -867,6 +983,10 @@ async function renderReportView(siteId, submissionId, fromBriefing){
     </div>
   `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Report', listPath, sub.general_label)); }
 }
+function reportDrawingKeyHtml(keys){
+  if(!keys.length) return '';
+  return `<div class="rdkey"><p class="stub" style="margin:0 0 6px;font-weight:800;color:var(--ink);">Drawing key</p>${keys.map(k=>`<div class="rdkeyrow"><span class="rdnum" style="${k.color?'background:'+k.color+';':''}">${k.n}</span><div><b>${escapeHtml(k.label)}</b>${k.tl?` <span class="stub" style="font-style:normal;">(${escapeHtml(k.tl)})</span>`:''}${k.answer?`<div style="font-size:13px;color:var(--slate);white-space:pre-wrap;">${escapeHtml(k.answer)}</div>`:''}</div></div>`).join('')}</div>`;
+}
 let reportViewSections = null; // the report on screen, so each answer can show its traffic-light colour
 function renderReportViewItem(it, val, answers){
   const tlv = itemTrafficLevel(reportViewSections, it, answers);
@@ -874,6 +994,12 @@ function renderReportViewItem(it, val, answers){
   if(it.type==='instruction') return `<p class="stub" style="font-weight:800;color:var(--ink);">${escapeHtml(it.label)}</p>`;
   const mediaArr = (answers && itemAllowsMedia(it) && Array.isArray(answers[it.id+'__media'])) ? answers[it.id+'__media'] : [];
   const extraMediaHtml = mediaArr.length ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px;">${mediaArr.map(u=>`<img src="${u}" onclick="viewImageEl(this)" style="cursor:pointer;width:90px;height:90px;object-fit:cover;border-radius:8px;border:1px solid var(--line);">`).join('')}</div>` : '';
+  if(it.type==='drawing'){
+    const arr = Array.isArray(val) ? val : [];
+    if(!arr.length) return '';
+    const keys = reportDrawingKeys(reportViewSections, answers);
+    return `<p class="stub" style="margin-bottom:4px;">${escapeHtml(it.label)}</p>${arr.map(u=>`<img src="${u}" onclick="viewImageEl(this)" style="cursor:zoom-in;width:100%;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;display:block;">`).join('')}${reportDrawingKeyHtml(keys)}`;
+  }
   if(it.type==='photo'){
     const arr = Array.isArray(val) ? val : (val ? [val] : []);
     if(!arr.length) return '';
@@ -1108,7 +1234,9 @@ async function buildReportPdf(submissionId, opts){
         else if(Array.isArray(v)) v.forEach(scan);
         else if(v && typeof v==='object') Object.values(v).forEach(scan);
       };
-      scan(sub.answers);
+      const drawingIds = new Set();
+      (sub.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{ if(it.type==='drawing') drawingIds.add(it.id); }));
+      Object.keys(sub.answers||{}).forEach(k=>{ const base = k.replace(/__(orig|ops)$/,''); if(drawingIds.has(base)) return; scan(sub.answers[k]); });
       const list = Array.from(found);
       if(list.length > 4){
         let next = 0, done = 0;
@@ -1261,6 +1389,57 @@ async function buildReportPdf(submissionId, opts){
           y -= 6; continue;
         }
 
+        if(it.type==='drawing'){
+          const arr = Array.isArray(val) ? val : [];
+          if(!arr.length) continue;
+          for(let di=0; di<arr.length; di++){
+            // Each drawing gets its own A3 page, turned to suit the drawing,
+            // so the numbers stay readable when printed.
+            try{
+              const bytes = await pdfFetchImageBytesScaled(arr[di], 3600, 0.86) || (String(arr[di]).startsWith('data:') ? Uint8Array.from(atob(String(arr[di]).split(',')[1]), c=>c.charCodeAt(0)) : null);
+              if(!bytes) throw new Error('no bytes');
+              let img; try{ img = await pdfDoc.embedJpg(bytes); }catch(e){ img = await pdfDoc.embedPng(bytes); }
+              const dim = img.scale(1);
+              const land = dim.width >= dim.height;
+              const PW = land ? 1190.55 : 841.89, PH = land ? 841.89 : 1190.55, M = 28;
+              const dp = pdfDoc.addPage([PW, PH]);
+              const title = (it.label||'Drawing') + (arr.length>1 ? ' ('+(di+1)+' of '+arr.length+')' : '') + ' - ' + (sub.general_label || sub.template_name || '');
+              dp.drawText(title.slice(0,140), {x:M, y:PH-M-12, size:12, font:bold, color:INK});
+              const availW = PW-2*M, availH = PH-2*M-28;
+              const s2 = Math.min(availW/dim.width, availH/dim.height);
+              const w = dim.width*s2, h = dim.height*s2;
+              dp.drawImage(img, {x:M+(availW-w)/2, y:M+(availH-h)/2, width:w, height:h});
+              dp.drawText('Generated via OpHUB', {x:M, y:12, size:8, font:reg, color:SLATE});
+            }catch(e){
+              photoEmbedFailures++;
+              ensureSpace(24);
+              page.drawText((it.label||'Drawing')+' '+(di+1)+' - could not be loaded', {x:MARGIN, y:y-12, size:10, font:reg, color:SLATE}); y -= 20;
+            }
+          }
+          // carry on, with the key, on a fresh normal page
+          y = 0;
+          const keys = reportDrawingKeys(sub.sections, sub.answers);
+          if(keys.length){
+            ensureSpace(40);
+            page.drawText('Drawing key', {x:MARGIN, y:y-14, size:12, font:bold, color:INK}); y -= 24;
+            for(const k of keys){
+              const lines = wrapText(k.label + (k.tl ? ' ('+k.tl+')' : ''), bold, 10, CONTENT_W-34);
+              const aLines = k.answer ? wrapText(k.answer, reg, 9.5, CONTENT_W-34) : [];
+              ensureSpace(16 + lines.length*13 + aLines.length*12);
+              const cr = 9;
+              const rgbc = (hex)=>{ const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex||''); return m ? PDFLib.rgb(parseInt(m[1],16)/255, parseInt(m[2],16)/255, parseInt(m[3],16)/255) : PDFLib.rgb(0.9,0.22,0.21); };
+              page.drawCircle({x:MARGIN+cr, y:y-cr-1, size:cr, color:rgbc(k.color)});
+              const ns = String(k.n), nfs = ns.length>2 ? 7 : 9;
+              page.drawText(ns, {x:MARGIN+cr-bold.widthOfTextAtSize(ns,nfs)/2, y:y-cr-1-nfs*0.35, size:nfs, font:bold, color:PDFLib.rgb(1,1,1)});
+              let ly = y;
+              lines.forEach(l=>{ page.drawText(l, {x:MARGIN+28, y:ly-10, size:10, font:bold, color:INK}); ly -= 13; });
+              aLines.forEach(l=>{ page.drawText(l, {x:MARGIN+28, y:ly-10, size:9.5, font:reg, color:SLATE}); ly -= 12; });
+              y = Math.min(ly, y-22) - 6;
+            }
+            y -= 6;
+          }
+          continue;
+        }
         if(it.type==='photo'){
           const arr = Array.isArray(val) ? val : (val ? [val] : []);
           if(!arr.length) continue;

@@ -174,7 +174,7 @@ window.toggleTemplateItemOpen = function(id){ if(templateItemOpen.has(id)) templ
 // filled in. On unless the template has it switched off for that question.
 function itemAllowsNote(it){
   if(!it || it.allowNote===false) return false;
-  return !['instruction','photo','signature','operatives'].includes(it.type);
+  return !['instruction','photo','signature','operatives','drawing'].includes(it.type);
 }
 // One question in the template editor. Kept to the three things that matter
 // (the question, the kind of answer, and its order) — everything else sits
@@ -240,10 +240,10 @@ function renderTemplateItemEditor(si, ii, it){
       ${open ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
         <label class="stub" style="display:flex;align-items:center;gap:6px;"><input type="checkbox" style="width:auto;" ${it.required?'checked':''} onchange="${P}.required=this.checked">Must be answered</label>
-        ${(trafficLevels(editingTemplate.sections) && !['instruction','photo','signature','operatives'].includes(it.type)) ? `
+        ${(trafficLevels(editingTemplate.sections) && !['instruction','photo','signature','operatives','drawing'].includes(it.type)) ? `
           <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.traffic!==false?'checked':''} onchange="${P}.traffic=this.checked">Show the traffic light on this question</label>
         ` : ''}
-      ${!['instruction','photo','signature','operatives'].includes(it.type) ? `
+      ${!['instruction','photo','signature','operatives','drawing'].includes(it.type) ? `
         <label class="stub" style="display:flex;align-items:center;gap:6px;margin-top:6px;"><input type="checkbox" style="width:auto;" ${it.allowNote!==false?'checked':''} onchange="${P}.allowNote=this.checked">Allow a note</label>
       ` : ''}
         ${(it.type!=='photo' && it.type!=='signature' && !it.autofill) ? `
