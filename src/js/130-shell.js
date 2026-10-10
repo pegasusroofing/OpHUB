@@ -189,6 +189,28 @@ function appScrollTo(y, smooth){
 }
 function appScrollBy(dy){ const s = appScroller(); if(s) s.scrollTop += dy; else window.scrollBy(0, dy); }
 window.appScrollTo = appScrollTo;
+// iPhone home-screen app (standalone, status bar drawn over the page): iOS
+// gives window.innerHeight as the screen height minus the status bar, but the
+// page starts at the very top of the screen, so a column sized to the window
+// stops short and leaves a gap under the bottom bar. Size it from the screen.
+function fixStandaloneHeight(){
+  const root = document.documentElement;
+  const standalone = window.navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  const landscape = window.matchMedia && matchMedia('(orientation: landscape)').matches;
+  const full = landscape ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const gap = full - window.innerHeight;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if(standalone && ios && gap > 10 && gap < 140){
+    root.style.setProperty('--app-h', full + 'px');
+    root.classList.add('app-hfix');
+  } else {
+    root.classList.remove('app-hfix');
+    root.style.removeProperty('--app-h');
+  }
+}
+fixStandaloneHeight();
+window.addEventListener('resize', ()=>setTimeout(fixStandaloneHeight, 50));
+window.addEventListener('orientationchange', ()=>setTimeout(fixStandaloneHeight, 300));
 // #(tabbar-snap-back) Phones (iOS especially) can leave the fixed bottom bar
 // floating out of place after the keyboard closes, a pop-up closes, or the
 // browser bars show/hide while a long page (e.g. Schedule of Works with lots
