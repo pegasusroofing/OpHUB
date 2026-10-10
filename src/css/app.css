@@ -718,10 +718,14 @@ html:has(#app > .appshell), html:has(#app > .appshell) body{height:100%;overflow
    iPhone home-screen app 100vh / 100dvh comes out shorter than the screen
    (by about the status bar), which left a gap under the bottom bar. */
 #app:has(> .appshell){position:fixed;top:0;bottom:0;left:0;right:0;height:auto;min-height:0;}
-/* iPhone home-screen app: iOS reports the screen as shorter than it is (by
-   the status bar), so the column is sized from the real screen height (set
-   in JS as --app-h, see fixStandaloneHeight). */
-html.app-hfix #app:has(> .appshell){bottom:auto;height:var(--app-h);}
+/* iPhone home-screen app: iOS gives the page a window that stops short of
+   the bottom of the screen (by about the status bar height) and nothing can
+   be drawn below it - only the page background shows there. So in that case
+   the background is made white like the bottom bar, the strip just reads as
+   the bottom of the bar, and the bar drops its own home-indicator padding
+   (the strip already gives that room). See fixStandaloneHeight. */
+html.app-gap, html.app-gap body{background:#fff;}
+html.app-gap #app > .appshell > .tabbar{padding-bottom:6px;border-bottom:0;}
 #app > .appshell{height:100%;min-height:0 !important;}
 #app > .appshell > .scrollarea{min-height:0;padding-bottom:24px;}
 #app > .appshell > .tabbar{position:relative;left:auto;right:auto;bottom:auto;max-width:none;margin:0;transform:none;-webkit-transform:none;will-change:auto;}
