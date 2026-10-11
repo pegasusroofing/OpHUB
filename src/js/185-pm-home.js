@@ -328,6 +328,7 @@ async function renderOpHome(){
   const live = mine.filter(s=>siteStatusKey(s)==='live');
   const upcoming = mine.filter(s=>siteStatusKey(s)==='upcoming');
   const outstanding = homeExtras.count || 0;
+  let unreadN = 0; try{ unreadN = await opUnreadCount(); }catch(e){}
   const onboarding = homeExtras.onboarding;
   const now = new Date();
   const hr = now.getHours();
@@ -354,7 +355,7 @@ async function renderOpHome(){
     <div class="pmstats" style="grid-template-columns:repeat(3,minmax(0,1fr));">
       ${stat(live.length, 'Live jobs', "go('#/sites')")}
       ${stat(upcoming.length, 'Upcoming', "go('#/sites')")}
-      ${stat(outstanding, 'To sign / do', "go('#/outstanding')", outstanding>0)}
+      ${stat(outstanding+unreadN, 'Messages & tasks', "go('#/inbox')", (outstanding+unreadN)>0)}
     </div>
     <button type="button" class="pmhero" onclick="go('#/sites')">
       <span class="pmhero-top"><span class="pmhero-ic">${ophIcon('projects', 22)}</span>${ophIcon('chevron', 22, 2.4)}</span>
@@ -362,8 +363,7 @@ async function renderOpHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
-      ${tile('list', 'orange', 'Outstanding', outstanding ? outstanding+' to sign or do' : 'All up to date', "go('#/outstanding')", outstanding)}
-      ${tile('chat', 'blue', 'Inbox', 'Messages from the team', "go('#/my-messages')")}
+      <div style="grid-column:1 / -1;display:grid;">${tile('chat', 'blue', 'Messages &amp; tasks', [outstanding ? outstanding+' to sign or do' : 'Nothing to sign', unreadN ? unreadN+' new message'+(unreadN===1?'':'s') : 'no new messages'].join(' · '), "go('#/inbox')", outstanding+unreadN)}</div>
       ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
       ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}
     </div>
@@ -376,4 +376,44 @@ async function renderOpHome(){
     </div>
   `, {tabs:false, centerHeader:true, showRefresh:true});
   refreshHomeExtras();
+}
+
+// #(op-inbox) Operatives: messages and things to sign/do in one place.
+let opUnreadCache = {at:0, n:0};
+async function opUnreadCount(){
+  if(Date.now()-opUnreadCache.at < 30000) return opUnreadCache.n;
+  const ids = SITES.map(s=>s.id);
+  const rows = ids.length
+    ? await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&or=(site_id.in.(${ids.join(',')}),site_id.is.null)&select=id,sender_id&order=created_at.desc&limit=100`)
+    : await dbSelect('messages', `audience=eq.operatives&parent_id=is.null&site_id=is.null&select=id,sender_id&order=created_at.desc&limit=100`);
+  let n = 0;
+  if(rows.length){
+    const reads = await dbSelect('message_reads', `user_id=eq.${ME.id}&message_id=in.(${rows.map(m=>m.id).join(',')})&select=message_id`);
+    const readSet = new Set(reads.map(r=>r.message_id));
+    n = rows.filter(m=>m.sender_id!==ME.id && !readSet.has(m.id)).length;
+  }
+  opUnreadCache = {at:Date.now(), n};
+  return n;
+}
+let opInboxTab = null;
+window.setOpInboxTab = function(t){ opInboxTab = t; render(); };
+async function renderOpInbox(){
+  const __gen = RENDER_GEN;
+  if(!opInboxTab) opInboxTab = (homeExtras.count||0) > 0 ? 'todo' : 'msgs';
+  const tab = opInboxTab;
+  const outstanding = homeExtras.count || 0;
+  let unreadN = 0; try{ unreadN = await opUnreadCount(); }catch(e){}
+  if(tab==='msgs'){ opUnreadCache = {at:Date.now(), n:0}; await renderMyMessages(); }
+  else await renderOutstandingTasks();
+  if(__gen !== RENDER_GEN) return;
+  const area = document.querySelector('.appshell > .scrollarea');
+  const h2 = document.querySelector('.appbar h2');
+  if(h2) h2.textContent = 'Messages & tasks';
+  if(area){
+    const bar = document.createElement('div');
+    bar.className = 'pmchips';
+    bar.style.cssText = 'margin:0 0 12px;flex-wrap:nowrap;';
+    bar.innerHTML = `<button type="button" class="pmchip ${tab==='todo'?'on':''}" onclick="setOpInboxTab('todo')">To sign / do${outstanding?' ('+outstanding+')':''}</button><button type="button" class="pmchip ${tab==='msgs'?'on':''}" onclick="setOpInboxTab('msgs')">Messages${unreadN&&tab!=='msgs'?' ('+unreadN+' new)':''}</button>`;
+    area.insertBefore(bar, area.firstChild);
+  }
 }
