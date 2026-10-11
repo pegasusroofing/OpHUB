@@ -261,17 +261,25 @@ async function renderDeliverySchedulePM(){
     </div>
     <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="addDeliveryFrom('${iso}')">+ Add Delivery</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
-    <div class="row-gap" style="margin-bottom:4px;">
-      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
-      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
-    </div>
-    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
       ${deliveryContinuations(tasks, slot.key).map(deliveryContinuedHtml).join('')}
       <div class="dlvslot" data-slot="${slot.key}">${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (deliveryContinuations(tasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
+    <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->
+    <div class="dlv-foot">
+      <button type="button" class="admrow" style="border:1px solid #ECEEF2;border-radius:16px;background:#fff;margin:18px 0 12px;" onclick="vehicleChecksBackHash='#/delivery';go('#/vehicle-checklists')">
+        <span class="pmtile-ic pmtint-orange" style="width:38px;height:38px;border-radius:12px;flex:none;">${ophIcon('truck', 19)}</span>
+        <span class="admrow-txt"><span class="admrow-t">Vehicle health checks</span><span class="admrow-s">Weekly driver checklists, mileage and 10,000-mile checks</span></span>
+        ${ophIcon('chevron', 18, 2.2)}
+      </button>
+    <div class="row-gap" style="margin-bottom:4px;">
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
+    </div>
+    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
+    </div>
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
 let deliveryFormBusy = false, deliveryFormDraft = null, deliveryFormSiteOperatives = [], deliveryFormPhotoBusy = false, deliveryFormDrivers = [];

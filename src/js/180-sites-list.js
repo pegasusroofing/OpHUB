@@ -218,7 +218,7 @@ async function renderSites(){
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
-    ${canAdd ? `
+    ${(canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? `
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
@@ -289,7 +289,10 @@ async function renderSites(){
         <div class="empty lf-empty" style="display:none;">No projects match.</div>
       </div>
     ` : `
-      ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
+      <div id="siteListBox">
+      ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No active sites.</div>`}
+        <div class="empty lf-empty" style="display:none;">No projects match.</div>
+      </div>
     `}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
@@ -299,7 +302,7 @@ async function renderSites(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, (canAdd ? {title:'Projects', subtitle:(ORG&&ORG.name)||'', back:'#/home', homeBar:true, homeBarCanAdd:true, homeBarOutstanding:myOutstandingCount} : {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}));
+  `, ((canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? {title:'Projects', subtitle:(ORG&&ORG.name)||'', back:'#/home', homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount} : {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}));
     if(appSearchOpen) appSearchRender(); }
   refreshHomeExtras();
   if(pendingSiteScrollSection){

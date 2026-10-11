@@ -913,6 +913,51 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .calh-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
 .calh-close{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 12px;}
 .calh-title:focus-visible,.calh-item:focus-visible,.calh-close:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
+/* project Settings & Admin: grouped sections */
+.grphdr{margin-top:14px !important;}
+.grphdr:first-child{margin-top:0 !important;}
+.grpbody{margin:6px 0 4px 10px;padding-left:10px;border-left:2px solid var(--line);}
+.grpbody > .ddrow:first-child{margin-top:4px !important;}
+.grpbody > .ddrow{margin-top:8px !important;}
+/* ---- #(admin-modern) ---- */
+.admgroup-h{font-size:11.5px;font-weight:800;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin:16px 4px 8px;}
+.admgroup-h:first-child{margin-top:4px;}
+.admgroup{background:#fff;border:1px solid #ECEEF2;border-radius:18px;overflow:hidden;}
+.admrow{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:62px;color:var(--slate-light);}
+.admrow + .admrow{border-top:1px solid #F0F1F4;}
+.admrow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.admrow-t{font-size:14px;font-weight:700;color:var(--ink);}
+.admrow-s{font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.admrow:focus-visible{outline:2px solid var(--brand1);outline-offset:-2px;}
+.integ{border:1px solid #ECEEF2;border-radius:14px;margin-bottom:8px;overflow:hidden;background:#fff;}
+.integ.open{border-color:var(--line);}
+.integ-h{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:8px;padding:11px 12px;}
+.integ-name{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.integ-count{font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--line);color:var(--slate);}
+.integ-count.on{background:var(--ok-bg);color:var(--ok);}
+.integ-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid #F0F1F4;}
+.integ-dot{width:9px;height:9px;border-radius:50%;background:#C9CCD3;flex:none;}
+.integ-dot.on{background:var(--ok);}
+.integ-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--slate);}
+.integ-txt b{font-size:13px;color:var(--ink);}
+.integ-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Reports page: selectable rows + selection bar */
+.pmrep{display:flex;align-items:stretch;background:#fff;border:1px solid #ECEEF2;border-radius:16px;margin-bottom:8px;overflow:hidden;}
+.pmrep.sel{border-color:var(--brand1);box-shadow:0 0 0 1px var(--brand1) inset;}
+.pmrep-chk{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:46px;display:flex;align-items:center;justify-content:center;border-right:1px solid #F0F1F4;}
+.pmrep-box{width:20px;height:20px;border-radius:6px;border:2px solid #C9CCD3;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;line-height:1;}
+.pmrep.sel .pmrep-box{background:var(--brand1);border-color:var(--brand1);}
+.pmrep-chk:focus-visible .pmrep-box{outline:2px solid var(--brand1);outline-offset:2px;}
+.pmrep-body{all:unset;box-sizing:border-box;cursor:pointer;flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:12px 14px 12px 12px;}
+.pmselbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border-radius:14px;padding:8px 8px 8px 14px;margin-bottom:10px;}
+.pmselbar span{flex:1;font-size:13px;}
+.pmselbar .ghostbtn,.pmselbar .darkbtn{width:auto;margin:0;padding:7px 12px;font-size:12.5px;}
+.pmselbar .ghostbtn{background:#fff;color:var(--ink);}
+.pmselbar-x{all:unset;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;}
+/* Projects page: search, chips and project cards share exactly one width */
+.pmsearch,.projfilterrow,#siteListBox,#siteListBox > div,.projcard{width:100%;max-width:100%;box-sizing:border-box;margin-left:0 !important;margin-right:0 !important;}
+.pmsearch input[type=search]{-webkit-appearance:none;appearance:none;width:auto;}
+#app > .appshell > .scrollarea{overflow-x:hidden;}
 </style>
 </head>
 <body>
@@ -3812,8 +3857,29 @@ window.copyHeaderSubtitle = async function(text){
   try{ await navigator.clipboard.writeText(text); toast('Copied'); }
   catch(e){ toast('Could not copy — try again.'); }
 };
+// #(back-to-origin) A page opened straight from Home (or the Dashboard
+// chooser) goes back there, wherever its normal back arrow points. Coming
+// back up from one of its own sub-pages keeps that; arriving from anywhere
+// else uses the page's normal back.
+const NAV_ORIGIN_PAGES = ['#/home', '#/dashboards'];
+const NAV_CAME_FROM = {};
+function navNoteArrival(prevHash, newHash){
+  if(!newHash || prevHash===newHash) return;
+  const base = h => String(h||'').split('?')[0];
+  const p = base(prevHash), n = base(newHash);
+  if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
+  else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
+  else delete NAV_CAME_FROM[n];
+}
+function navBackFor(defaultBack){
+  const n = String(location.hash||'').split('?')[0];
+  const o = NAV_CAME_FROM[n];
+  if(o && defaultBack && o!==n && !/^#\/site\//.test(n)) return o;
+  return defaultBack;
+}
 function shell(innerHtml, opts){
   opts = opts||{};
+  if(opts.back) opts.back = navBackFor(opts.back);
   CURRENT_BACK_HASH = opts.back || null;
   return `
     <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
@@ -3870,7 +3936,9 @@ function tabbar(siteId, active){
   // any other tab/subfolder it still takes you to this site's home page.
   const tabs = [
     {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
-    {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    // PMs/admins/site managers: Deliveries in this slot (Andy, 11 Oct);
+    // operatives can't open the delivery schedule, so they keep SOW.
+    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='#/site/${siteId}/home';`} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
     {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
@@ -3880,7 +3948,7 @@ function tabbar(siteId, active){
     {k:'more', ic:ophIcon('gear'), lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="${t.pre||''}go('${t.href}')" style="position:relative;">
       <span class="tabicon">${t.ic}</span>${t.lbl}
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;
@@ -4816,7 +4884,7 @@ async function renderSites(){
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
-    ${canAdd ? `
+    ${(canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? `
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
@@ -4887,7 +4955,10 @@ async function renderSites(){
         <div class="empty lf-empty" style="display:none;">No projects match.</div>
       </div>
     ` : `
-      ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
+      <div id="siteListBox">
+      ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No active sites.</div>`}
+        <div class="empty lf-empty" style="display:none;">No projects match.</div>
+      </div>
     `}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
@@ -4897,7 +4968,7 @@ async function renderSites(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, (canAdd ? {title:'Projects', subtitle:(ORG&&ORG.name)||'', back:'#/home', homeBar:true, homeBarCanAdd:true, homeBarOutstanding:myOutstandingCount} : {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}));
+  `, ((canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? {title:'Projects', subtitle:(ORG&&ORG.name)||'', back:'#/home', homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount} : {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}));
     if(appSearchOpen) appSearchRender(); }
   refreshHomeExtras();
   if(pendingSiteScrollSection){
@@ -5078,6 +5149,19 @@ window.deleteSite = async function(siteId, name){
 // replacing the old emoji.
 const OPH_ICONS = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  brush: '<path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 9-1 1-1.5 1-3 1-3"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  cloud: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  pound: '<path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/>',
+  store: '<path d="M4 9l2-5h12l2 5"/><path d="M4 9v11h16V9"/><path d="M4 9h16M10 20v-6h4v6"/>',
+  book: '<path d="M4 4h9a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4v16"/>',
+  flask: '<path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/>',
+  phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   projects: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   reports: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
   admin: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
@@ -5107,7 +5191,9 @@ function ophIcon(name, size, sw){
   return `<svg class="ophic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 }
 function usesPmHome(u){ return !!u && isFullManager(u); }
-function homeHash(){ return usesPmHome(ME) ? '#/home' : '#/sites'; }
+// #(op-home) Operatives get the same style of home page, with only what they can already see.
+function usesOpHome(u){ return !!u && u.role==='operative'; }
+function homeHash(){ return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/sites'; }
 // The bold header line / logo goes to the project list (Andy, 11 Oct) -
 // the Home page is reached from the Home button on the Projects bottom bar.
 window.goHome = function(){ go('#/sites'); };
@@ -5201,7 +5287,7 @@ async function renderPmHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
-      ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
+      ${tile('chart', 'teal', 'Dashboard', 'Company &amp; operative overview', "go('#/dashboards')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
       ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
@@ -5238,16 +5324,32 @@ window.pmStartReportAt = function(siteId){
   if(!siteId){ generalReportsBackHash = '#/reports'; go('#/general-reports'); return; }
   go(`#/site/${siteId}/snagging/reports`);
 };
+// Reports page: search + filters (template, surveyor) + tick to select,
+// then Export / Email the selected ones (shares selectedReportIds and the
+// bulk export/email actions with a project's own Reports list).
+let pmReportsTpl = '', pmReportsBy = '', pmReportsFilterOpen = false;
+window.setPmReportsFilter = function(k, v){ if(k==='tpl') pmReportsTpl = v; else pmReportsBy = v; render(); };
+window.togglePmReportSel = function(id, ev){ if(ev) ev.stopPropagation(); if(selectedReportIds.has(id)) selectedReportIds.delete(id); else selectedReportIds.add(id); render(); };
+window.pmReportsSelectAll = function(){
+  const box = document.getElementById('pmReportList'); if(!box) return;
+  box.querySelectorAll('[data-rid]').forEach(el=>{ if(el.style.display!=='none') selectedReportIds.add(el.getAttribute('data-rid')); });
+  render();
+};
 async function renderAllReports(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   let rows = [];
   try{ rows = await loadPmReports(true); }catch(e){}
   await loadAllProfiles();
-  const counts = {open: rows.filter(r=>r.status==='in_progress').length, done: rows.filter(r=>r.status!=='in_progress').length, all: rows.length};
-  const shown = rows.filter(r=>pmReportsTab==='all' || (pmReportsTab==='open') === (r.status==='in_progress'));
+  const byFilter = rows.filter(r=>(!pmReportsTpl || r.template_name===pmReportsTpl) && (!pmReportsBy || r.submitted_by===pmReportsBy));
+  const counts = {open: byFilter.filter(r=>r.status==='in_progress').length, done: byFilter.filter(r=>r.status!=='in_progress').length, all: byFilter.length};
+  const shown = byFilter.filter(r=>pmReportsTab==='all' || (pmReportsTab==='open') === (r.status==='in_progress'));
   const live = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const tplNames = Array.from(new Set(rows.map(r=>r.template_name).filter(Boolean))).sort();
+  const surveyors = Array.from(new Set(rows.map(r=>r.submitted_by).filter(Boolean))).map(id=>({id, name:nameOf(id)||'Unknown'})).sort((a,b)=>a.name.localeCompare(b.name));
+  const nFilters = (pmReportsTpl?1:0) + (pmReportsBy?1:0);
   const chip = (k, lbl) => `<button type="button" class="pmchip ${pmReportsTab===k?'on':''}" onclick="setPmReportsTab('${k}')">${lbl} (${counts[k]})</button>`;
+  const selN = selectedReportIds.size;
   if(__gen !== RENDER_GEN) return;
   app.innerHTML = shell(`
     <button type="button" class="pmprimary" onclick="togglePmReportsStart()">${ophIcon('plus', 20, 2.4)} Start a report</button>
@@ -5257,18 +5359,44 @@ async function renderAllReports(){
         <button type="button" class="pmrow" onclick="pmStartReportAt(null)"><span class="pmrow-txt"><span class="pmrow-t">General survey</span><span class="pmrow-s">Not linked to a project</span></span>${ophIcon('chevron', 18, 2.2)}</button>
         ${live.map(s=>`<button type="button" class="pmrow" onclick="pmStartReportAt('${s.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(fullSiteAddress(s)||'')}</span></span>${ophIcon('chevron', 18, 2.2)}</button>`).join('')}
       </div>` : ''}
-    <div class="pmtiles" style="margin-top:12px;">
+    <div class="pmtiles" style="margin:12px 0;">
       <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
-      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
+      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries/reporttemplates')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
     </div>
-    <div class="pmchips">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
+    <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search reports, projects, people" aria-label="Search reports" oninput="liveFilter(this.value,'#pmReportList')"></label>
+    <div class="projfilterrow" style="display:flex;align-items:center;gap:10px;margin-bottom:${pmReportsFilterOpen?'8px':'12px'};">
+      <div class="pmchips pmchips-tight" style="margin:0;">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
+      <button type="button" class="pmchip ${nFilters?'on':''}" style="flex:none;margin-left:auto;" onclick="pmReportsFilterOpen=!pmReportsFilterOpen;render()">Filter${nFilters?' ('+nFilters+')':''} ▾</button>
+    </div>
+    ${pmReportsFilterOpen ? `
+      <div class="card" style="padding:12px;">
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Template</label>
+          <select onchange="setPmReportsFilter('tpl', this.value)"><option value="">All templates</option>${tplNames.map(n=>`<option value="${escapeHtml(n)}" ${pmReportsTpl===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+        <div class="formfield"><label class="field-label">Surveyor</label>
+          <select onchange="setPmReportsFilter('by', this.value)"><option value="">Everyone</option>${surveyors.map(p=>`<option value="${p.id}" ${pmReportsBy===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
+        ${nFilters ? `<button type="button" class="ghostbtn" style="margin:4px 0 0;" onclick="pmReportsTpl='';pmReportsBy='';render()">Clear filters</button>` : ''}
+      </div>` : ''}
+    ${selN ? `
+      <div class="pmselbar">
+        <span><b>${selN}</b> selected</span>
+        <button type="button" class="ghostbtn" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('')">${bulkExportBusy?'Building…':'Export PDF'}</button>
+        <button type="button" class="darkbtn" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':'Email'}</button>
+        <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="selectedReportIds=new Set();render()">✕</button>
+      </div>` : (shown.length ? `<div style="text-align:right;margin:-4px 2px 8px;"><span class="stub" style="margin:0;cursor:pointer;text-decoration:underline;" onclick="pmReportsSelectAll()">Select all</span></div>` : '')}
+    <div id="pmReportList">
     ${shown.length ? shown.map(r=>{
       const isOpen = r.status==='in_progress';
-      return `<button type="button" class="pmrow pmrow-card" onclick="openPmReport('${r.id}')">
-        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span>
-        <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
-        <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
-      </button>`; }).join('') : `<div class="empty">No reports here yet.</div>`}
+      const sel = selectedReportIds.has(r.id);
+      return `<div class="pmrep ${sel?'sel':''}" data-rid="${r.id}" data-lf="${lfText([r.template_name, pmReportWhere(r), nameOf(r.submitted_by), r.general_label].filter(Boolean).join(' '))}">
+        <button type="button" class="pmrep-chk" aria-label="${sel?'Unselect':'Select'} report" onclick="togglePmReportSel('${r.id}', event)"><span class="pmrep-box">${sel?'✓':''}</span></button>
+        <button type="button" class="pmrep-body" onclick="openPmReport('${r.id}')">
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span>
+          <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
+          <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
+        </button>
+      </div>`; }).join('') : `<div class="empty">No reports here${nFilters?' for these filters':''}.</div>`}
+      <div class="empty lf-empty" style="display:none;">No reports match.</div>
+    </div>
   `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', tabs:false});
 }
 
@@ -5318,6 +5446,75 @@ async function renderPmTodos(){
         </button>`; }).join('')}
     `).join('') : `<div class="empty">Nothing to do — all clear.</div>`}
   `, {title:'To do', subtitle:'All your projects', back:'#/home', tabs:false});
+}
+
+// #(dashboards-chooser) Home › Dashboard: pick the company or operative view.
+function renderDashboardsChooser(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="admgroup">
+      ${admRow('#/dashboard', 'chart', 'teal', 'Company dashboard', 'Projects, people, H&S and activity across the company')}
+      ${admRow('#/operatives', 'users', 'blue', 'Operative dashboard', 'Every operative: certifications, training matrix, tools')}
+    </div>
+  `, {title:'Dashboard', subtitle:'Company & operative overview', back:'#/home', tabs:false});
+}
+
+async function renderOpHome(){
+  const __gen = RENDER_GEN;
+  const app = document.getElementById('app');
+  if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
+  if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
+  const mine = SITES.filter(s=>siteStatusKey(s)!=='closed');
+  const live = mine.filter(s=>siteStatusKey(s)==='live');
+  const upcoming = mine.filter(s=>siteStatusKey(s)==='upcoming');
+  const outstanding = homeExtras.count || 0;
+  const onboarding = homeExtras.onboarding;
+  const now = new Date();
+  const hr = now.getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const first = String(ME.name||'').trim().split(/\s+/)[0] || '';
+  const dateTxt = now.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+  const stat = (n, lbl, onclick, hot) => `<button type="button" class="pmstat" onclick="${onclick}"><b${hot?' class="hot"':''}>${n}</b><span>${lbl}</span></button>`;
+  const tile = (icon, tint, title, sub, onclick, badge) => `
+    <button type="button" class="pmtile" onclick="${onclick}">
+      <span class="pmtile-ic pmtint-${tint}">${ophIcon(icon, 21)}${badge?`<span class="badge-count pmtile-badge">${badge}</span>`:''}</span>
+      <span class="pmtile-txt"><span class="pmtile-t">${title}</span><span class="pmtile-s">${sub}</span></span>
+    </button>`;
+  if(__gen !== RENDER_GEN) return;
+  app.innerHTML = shell(`
+    <div class="pmgreet">
+      <div class="pmgreet-date">${escapeHtml(dateTxt)}</div>
+      <div class="pmgreet-hi">${greet}${first ? ', '+escapeHtml(first) : ''}</div>
+    </div>
+    ${onboarding && !onboarding.allDone ? `
+      <div class="card" style="margin-bottom:14px;cursor:pointer;border-color:var(--warn);background:var(--warn-bg);" onclick="go('#/onboarding-checklist')">
+        <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
+        <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
+      </div>` : ''}
+    <div class="pmstats" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      ${stat(live.length, 'Live jobs', "go('#/sites')")}
+      ${stat(upcoming.length, 'Upcoming', "go('#/sites')")}
+      ${stat(outstanding, 'To sign / do', "go('#/outstanding')", outstanding>0)}
+    </div>
+    <button type="button" class="pmhero" onclick="go('#/sites')">
+      <span class="pmhero-top"><span class="pmhero-ic">${ophIcon('projects', 22)}</span>${ophIcon('chevron', 22, 2.4)}</span>
+      <span class="pmhero-t">My projects</span>
+      <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
+    </button>
+    <div class="pmtiles pmtiles-home">
+      ${tile('list', 'orange', 'Outstanding', outstanding ? outstanding+' to sign or do' : 'All up to date', "go('#/outstanding')", outstanding)}
+      ${tile('chat', 'blue', 'Inbox', 'Messages from the team', "go('#/my-messages')")}
+      ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
+      ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:22px;">
+      <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
+      <span class="stub" style="margin:0;text-align:right;">${escapeHtml(personRoleLabel(ME))}</span>
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+    </div>
+  `, {tabs:false, centerHeader:true, showRefresh:true});
+  refreshHomeExtras();
 }
 
 /* ================= OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ================= */
@@ -6298,25 +6495,23 @@ const ADMIN_ITEMS = {
   drivercheckins: {page:'people',      group:'Logs',                    icon:'🚚', label:'Driver Check-In Log',  sub:'Shifts, breaks, hours',            flags:['drivercheckins'],               kw:'driver check in shift break hours', show:()=>isFullManager(ME)},
 };
 function adminItemHash(key){ const it = ADMIN_ITEMS[key]; return it ? (it.href || '#/team/'+it.page+'/'+key) : '#/team'; }
+// #(admin-modern) Admin Centre rows in the modern look: grouped white cards,
+// a tinted line-icon square, label + description and a chevron.
+const ADMIN_ICON = {branding:'brush', expensesemail:'mail', onedrive:'cloud', reporttemplates:'reports', signtemplates:'pen', sowlibrary:'layers', pricebuilder:'pound', suppliers:'store', maincontractor:'building', hspolicy:'book', havstools:'wrench', ramslibrary:'shield', coshhbuilder:'flask', coshhlibrary:'flask', tbt:'chat', ppelog:'shield', invites:'mail', users:'users', devicelocks:'phone', checkinlogs:'pin', drivercheckins:'truck'};
+const ADMIN_TINT = {company:'grey', libraries:'green', people:'blue'};
+function admRow(href, icon, tint, label, sub){
+  return `<button type="button" class="admrow" onclick="go('${href}')"><span class="pmtile-ic pmtint-${tint}" style="width:38px;height:38px;border-radius:12px;flex:none;">${ophIcon(icon, 19)}</span><span class="admrow-txt"><span class="admrow-t">${escapeHtml(label)}</span>${sub ? `<span class="admrow-s">${escapeHtml(sub)}</span>` : ''}</span>${ophIcon('chevron', 18, 2.2)}</button>`;
+}
 function adminRowHtml(key, extraSub){
   const it = ADMIN_ITEMS[key];
   const sub = extraSub || (typeof it.sub==='function' ? it.sub() : it.sub);
-  return `<div class="sitecard" style="cursor:pointer;" onclick="go('${adminItemHash(key)}')">
-    <div style="font-size:20px;flex:0 0 auto;width:26px;text-align:center;">${it.icon}</div>
-    <div class="info"><div class="name">${escapeHtml(it.label)}</div>${sub ? `<div class="addr">${escapeHtml(sub)}</div>` : ''}</div>
-    <div style="color:var(--slate);font-size:20px;flex:0 0 auto;">›</div>
-  </div>`;
+  return admRow(adminItemHash(key), ADMIN_ICON[key]||'list', ADMIN_TINT[it.page]||'grey', it.label, sub);
 }
 function adminPageListHtml(page, counts){
   const keys = Object.keys(ADMIN_ITEMS).filter(k=>ADMIN_ITEMS[k].page===page && ADMIN_ITEMS[k].show());
-  let lastGroup = null, out = '';
-  keys.forEach(k=>{
-    const g = ADMIN_ITEMS[k].group;
-    if(g && g!==lastGroup){ out += `<p class="sectiontitle" style="margin-top:${lastGroup===null?'0':'18px'};">${escapeHtml(g)}</p>`; }
-    lastGroup = g;
-    out += adminRowHtml(k, counts && counts[k]);
-  });
-  return out || `<div class="empty">Nothing here for your role.</div>`;
+  const groups = [];
+  keys.forEach(k=>{ const g = ADMIN_ITEMS[k].group || ''; let grp = groups.find(x=>x.name===g); if(!grp){ grp = {name:g, keys:[]}; groups.push(grp); } grp.keys.push(k); });
+  return groups.map((g,i)=>`${g.name ? `<p class="admgroup-h" style="margin-top:${i?'18px':'0'};">${escapeHtml(g.name)}</p>` : ''}<div class="admgroup">${g.keys.map(k=>adminRowHtml(k, counts && counts[k])).join('')}</div>`).join('') || `<div class="empty">Nothing here for your role.</div>`;
 }
 let adminSearch = '', adminSearchOpen = false;
 // Search box on the Admin Centre front page: filters every section the
@@ -6329,7 +6524,7 @@ window.adminSearchRender = function(){
   if(!q){ res.innerHTML = ''; tiles.style.display = ''; return; }
   const hits = Object.keys(ADMIN_ITEMS).filter(k=>{ const it = ADMIN_ITEMS[k]; return it.show() && ADMIN_PAGES[it.page].show() && (it.label+' '+it.kw+' '+it.group+' '+ADMIN_PAGES[it.page].label).toLowerCase().includes(q); });
   tiles.style.display = 'none';
-  res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
+  res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.length ? '<div class="admgroup">' : '')+(hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
 };
 async function renderTeam(adminPage, adminItemKey){
   const __gen = RENDER_GEN;
@@ -6465,37 +6660,19 @@ async function renderTeam(adminPage, adminItemKey){
       <div style="display:flex;justify-content:flex-end;margin:-4px 0 2px;"><span class="homebtn" style="flex:none;" title="Search" onclick="adminSearchOpen=true;render().then(()=>{const e=document.getElementById('adminSearchInput'); if(e) e.focus();})">🔍</span></div>`}
     <div id="adminSearchResults"></div>
     <div id="adminHubTiles">
-    <p class="sectiontitle" style="margin-top:6px;">Day to day</p>
-    <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
-      <div class="tile" onclick="go('#/dashboard')">
-        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
-        <div class="lbl">Company Dashboard</div>
-      </div>
-      ${iAmAdmin ? `<div class="tile" onclick="go('#/operatives')">
-        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">👷</div>
-        <div class="lbl">Operatives</div>
-      </div>` : ''}
-      <div class="tile" onclick="generalReportsBackHash='#/team';go('#/general-reports')">
-        <div class="icon" style="background:#EDE7F6;color:#5E35B1;">📋</div>
-        <div class="lbl">Reports &amp; Inspections</div>
-      </div>
-      <div class="tile" onclick="go('#/vehicle-checklists')">
-        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚐</div>
-        <div class="lbl">Vehicle Checks</div>
-      </div>
-    </div>
-    <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
-    <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
-      ${Object.keys(ADMIN_PAGES).filter(k=>ADMIN_PAGES[k].show()).map(k=>`
-      <div class="tile" onclick="go('#/team/${k}')">
-        <div class="icon" style="background:${ADMIN_PAGES[k].bg};color:${ADMIN_PAGES[k].fg};">${ADMIN_PAGES[k].icon}</div>
-        <div class="lbl">${escapeHtml(ADMIN_PAGES[k].label)}</div><div class="sub">${escapeHtml(ADMIN_PAGES[k].sub)}</div>
-      </div>`).join('')}
-      ${isManager(ME) ? `<div class="tile" onclick="go('#/team/libraries/maincontractor')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
-        <div class="lbl">Main Contractor</div><div class="sub">Subcontractors · Inspections</div>
-      </div>` : ''}
-    </div>
+      ${(()=>{
+        const grp = (name, rows)=>rows.filter(Boolean).length ? `<p class="admgroup-h">${name}</p><div class="admgroup">${rows.filter(Boolean).join('')}</div>` : '';
+        const P = k => ADMIN_PAGES[k];
+        return grp('People', [
+          P('people').show() ? admRow('#/team/people', 'admin', 'blue', 'Users & invites', 'Invites, roles, device locks, check-in logs') : '',
+        ]) + grp('Libraries', [
+          P('libraries').show() ? admRow('#/team/libraries', 'book', 'green', 'Libraries', 'Report templates, RAMS, COSHH, SOW, rates, suppliers') : '',
+          isManager(ME) ? admRow('#/team/libraries/maincontractor', 'building', 'green', 'Main Contractor', 'Subcontractors and inspection templates') : '',
+        ]) + grp('Company', [
+          P('company').show() ? admRow('#/team/company', 'brush', 'grey', 'Company', 'Logo, theme, integrations') : '',
+          P('company').show() ? admRow('#/team/company/onedrive', 'cloud', 'grey', 'Integrations by project', 'What each project can sync, and set it up') : '',
+        ]);
+      })()}
     </div>
     ` : ''}
     ${adminItem ? `<div class="adminitem adminitem-${adminItemKey}">
@@ -6583,26 +6760,34 @@ async function renderTeam(adminPage, adminItemKey){
       <button class="darkbtn" style="margin-top:10px;" onclick="startQuickLinkPicker()">+ Add Quick Link</button>
     </div>
     <div class="card" style="margin-top:10px;">
-      <p class="sectiontitle" style="margin-top:0;">Synced per site</p>
-      <p class="stub" style="margin:0 0 10px;">Every site with a OneDrive folder linked — for photos/Drawings import, or for Material PO's auto-sync.</p>
+      <p class="sectiontitle" style="margin-top:0;">Integrations by project</p>
+      <p class="stub" style="margin:0 0 10px;">Tap a project to see everything it can sync to OneDrive, and link or change a folder there.</p>
       ${(()=>{
-        const syncedSites = SITES.filter(s=>s.onedrive_folder_id || s.material_orders_folder_id);
-        if(!syncedSites.length) return `<div class="empty">No sites have a OneDrive folder linked yet.</div>`;
-        return syncedSites.map(s=>{
-          const tags = [s.onedrive_folder_id ? '📁 Photos/Drawings' : '', s.material_orders_folder_id ? '📦 Material POs' : ''].filter(Boolean).join(' · ');
-          return `
-          <div class="sitecard" style="padding:6px 10px;">
-            <div class="info" style="min-width:0;">
-              <div class="name" style="font-size:13px;">${escapeHtml(s.name)}</div>
-              <div class="meta" style="font-size:11px;">${tags}</div>
-            </div>
-            <select style="width:auto;flex:none;padding:5px 8px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onchange="syncedSiteAction('${s.id}', this.value); this.selectedIndex=0;">
-              <option value="" selected disabled>${siteOdSyncBusy===s.id?'Syncing…':'Actions ▾'}</option>
-              <option value="admin">Open Site Admin</option>
-              ${s.onedrive_folder_id ? `<option value="sync">Manual Sync</option>` : ''}
-            </select>
-          </div>
-        `;
+        // #(site-integrations) every open project, expandable: each sync
+        // point it supports with its linked folder (or not) and a button.
+        const list = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+        if(!list.length) return `<div class="empty">No projects yet.</div>`;
+        return list.map(s=>{
+          const pts = [
+            {k:'progress', label:'Photos, drawings & exports', id:s.onedrive_folder_id, name:s.onedrive_folder_name},
+            {k:'materials', label:"Material PO's", id:s.material_orders_folder_id, name:s.material_orders_folder_name},
+            ...(s.acting_as_main_contractor ? [{k:'siteinductions', label:'Signed site inductions', id:s.site_inductions_folder_id, name:s.site_inductions_folder_name}] : []),
+          ];
+          const linked = pts.filter(p=>p.id).length;
+          const open = siteIntegOpenId===s.id;
+          return `<div class="integ ${open?'open':''}">
+            <button type="button" class="integ-h" onclick="siteIntegOpenId=${open?'null':`'${s.id}'`};render()">
+              <span class="integ-name">${escapeHtml(s.name)}</span>
+              <span class="integ-count ${linked?'on':''}">${linked}/${pts.length} linked</span>
+              <span style="color:var(--slate-light);">${open?'▲':'▼'}</span>
+            </button>
+            ${open ? pts.map(p=>`
+              <div class="integ-row">
+                <span class="integ-dot ${p.id?'on':''}"></span>
+                <span class="integ-txt"><b>${p.label}</b><span>${p.id ? '📁 '+escapeHtml(p.name||'Linked folder') : 'Not linked'}</span></span>
+                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="odPickerReturnHash='#/team/company/onedrive';startOneDriveFolderPicker('${s.id}','${p.k}')">${p.id?'Change':'Link'}</button>
+              </div>`).join('') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
+          </div>`;
         }).join('');
       })()}
     </div>
@@ -7827,6 +8012,8 @@ let odPickerError = null;
 // 'materials' (Material Orders auto-sync). The target decides which columns
 // get written and which page "Use this folder" sends you back to.
 let odPickerTarget = 'progress';
+let odPickerReturnHash = null; // set when the picker is opened from Admin › Integrations by project
+let siteIntegOpenId = null;
 // Admin Centre > Integrations > "Synced per site" row action dropdown —
 // same compact select-driven pattern as the per-site Sync Folder section,
 // just with an extra "Open Site Admin" option since this list spans sites.
@@ -8090,6 +8277,7 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
     odPickerStack = null;
+    if(odPickerReturnHash){ const h = odPickerReturnHash; odPickerReturnHash = null; toast('Folder linked'); go(h); return; }
     if(odPickerTarget==='materials'){
       toast("Folder linked — Material PO's will sync from there daily");
       go(`#/site/${siteId}/materialorders`);
@@ -12215,6 +12403,8 @@ async function renderAssignTeam(siteId){
   const activityLog = await __pActivity;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="ddrow ddrow-hdr grphdr" onclick="toggleSiteTeamSection('grpsetup')"><span class="icon" style="background:var(--paper);">${ophIcon('gear', 18)}</span><span class="lbl">Site set up<span class="stub" style="display:block;margin:0;font-weight:500;font-size:11.5px;">Name &amp; address, main contractor, subcontractor, multi-site, sync folder</span></span><span class="arrow">${siteTeamSectionOpen.grpsetup?'▼':'▶'}</span></p>
+    ${siteTeamSectionOpen.grpsetup ? `<div class="grpbody">
     ${isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
@@ -12319,6 +12509,9 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
+    </div>` : ''}
+    <p class="ddrow ddrow-hdr grphdr" onclick="toggleSiteTeamSection('grpteam')"><span class="icon" style="background:var(--paper);">${ophIcon('admin', 18)}</span><span class="lbl">Team<span class="stub" style="display:block;margin:0;font-weight:500;font-size:11.5px;">Operatives, site managers &amp; clients</span></span><span class="arrow">${siteTeamSectionOpen.grpteam?'▼':'▶'}</span></p>
+    ${siteTeamSectionOpen.grpteam ? `<div class="grpbody">
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives to RTB</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers and Admins can always see every site; Site Managers need to be assigned like anyone else.</p>
@@ -12382,6 +12575,7 @@ async function renderAssignTeam(siteId){
       </div>
     `).join('') || `<div class="empty">No clients yet — invite one from Invites &amp; Users.</div>`}
     ` : ''}
+    </div>` : ''}
 
     <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
 
@@ -12409,7 +12603,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
+let siteTeamSectionOpen = {grpsetup:false, grpteam:false, address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 // Per-subcontractor-company "Assign Operatives to X" dropdowns on Settings &
 // Admin — keyed by subcontractor_companies.id, separate from siteTeamSectionOpen
@@ -16661,6 +16855,10 @@ window.exportSelectedReports = async function(siteId){
 };
 window.emailSelectedReports = async function(){
   if(!selectedReportIds.size) return;
+  const to = await customPrompt('Email the selected reports to:', ME.email||'');
+  if(to==null) return;
+  const recipient = String(to).trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)){ toast('Enter a valid email address.'); return; }
   bulkEmailBusy = true; render();
   toast('Building PDFs…');
   // Each PDF is uploaded to Storage and emailed as a link (same pattern as
@@ -16678,15 +16876,15 @@ window.emailSelectedReports = async function(){
       if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
       totalPhotoFailures += built.photoEmbedFailures||0;
       const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
-      const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+      const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       })});
       if(res && res.ok) sent++; else failed++;
     }catch(e){ failed++; }
   }
-  if(sent) toast(`${sent} report(s) emailed to ${ME.email}${failed?`, ${failed} failed`:''}${totalPhotoFailures>0?` (${totalPhotoFailures} photo(s) could not be included)`:''}`);
+  if(sent) toast(`${sent} report(s) emailed to ${recipient}${failed?`, ${failed} failed`:''}${totalPhotoFailures>0?` (${totalPhotoFailures} photo(s) could not be included)`:''}`);
   else toast('Could not email the selected reports — check your connection and try again.');
   if(sent) selectedReportIds = new Set();
   bulkEmailBusy = false; render();
@@ -37269,6 +37467,20 @@ async function renderDriverHome(){
 }
 window.doDriverCheckAction = async function(type){
   if(driverCheckinBusy) return;
+  // #(monday-vehicle-check) Mondays: this week's vehicle check must be
+  // submitted before the driver can check in.
+  if(type==='in' && new Date().getDay()===1){
+    try{
+      const wk = vehicleChecklistWeekStart();
+      const done = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+wk+'&status=eq.submitted&select=id&limit=1');
+      if(!done.length){
+        vehicleChecklistMondayGate = true;
+        await customAlert("It's Monday — please complete this week's vehicle check before checking in.");
+        go('#/driver/vehicle-checklist');
+        return;
+      }
+    }catch(e){ /* no signal: don't block the check-in */ }
+  }
   driverCheckinError = null; driverCheckinBusy = true; render();
   // 2026-10-05: drivers no longer need location to check in or out — a
   // blocked or refused location permission was stopping them checking in at
@@ -37885,9 +38097,9 @@ async function loadOrStartVehicleChecklist(){
   if(rows[0]){
     const itemsMap = {};
     (rows[0].items||[]).forEach(it=>{ itemsMap[it.key] = it; });
-    vehicleChecklistDraft = {id:rows[0].id, vehicle_reg:rows[0].vehicle_reg||'', week_start:weekStart, items:itemsMap, status:rows[0].status};
+    vehicleChecklistDraft = {id:rows[0].id, vehicle_reg:rows[0].vehicle_reg||'', mileage:rows[0].mileage||'', week_start:weekStart, items:itemsMap, status:rows[0].status};
   } else {
-    vehicleChecklistDraft = {id:null, vehicle_reg:'', week_start:weekStart, items:{}, status:'in_progress'};
+    vehicleChecklistDraft = {id:null, vehicle_reg:'', mileage:'', week_start:weekStart, items:{}, status:'in_progress'};
   }
 }
 async function renderDriverVehicleChecklist(){
@@ -37903,11 +38115,15 @@ async function renderDriverVehicleChecklist(){
   const answeredCount = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key] && d.items[i.key].result).length;
   const weekLabel = new Date(d.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
   document.getElementById('app').innerHTML = shell(`
+    ${vehicleChecklistMondayGate && !submitted ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:12px;"><p style="margin:0;font-weight:800;color:var(--warn);">Monday vehicle check</p><p class="stub" style="margin:4px 0 0;">Complete and submit this before you can check in today.</p></div>` : ''}
     <div class="card" style="margin-bottom:14px;">
       <p style="margin:0 0 4px;font-weight:700;">Week commencing ${weekLabel}</p>
       ${submitted ? `<p class="stub" style="color:var(--ok);margin:0;">✓ Submitted</p>` : `<p class="stub" style="margin:0;">${answeredCount} of ${VEHICLE_CHECKLIST_ITEMS.length} checked</p>`}
       <label style="display:block;margin-top:10px;">Vehicle registration
         <input type="text" value="${jsAttr(d.vehicle_reg)}" ${submitted?'disabled':''} placeholder="e.g. AB12 CDE" oninput="vehicleChecklistDraft.vehicle_reg=this.value" onblur="saveVehicleChecklistDraft()">
+      </label>
+      <label style="display:block;margin-top:10px;">Current mileage
+        <input type="number" inputmode="numeric" min="0" value="${escapeHtml(String(d.mileage||''))}" ${submitted?'disabled':''} placeholder="e.g. 48250" oninput="vehicleChecklistDraft.mileage=this.value" onblur="saveVehicleChecklistDraft()">
       </label>
     </div>
     ${vehiclePhotosHtml(d.items, !submitted)}
@@ -37988,24 +38204,29 @@ async function saveVehicleChecklistDraftNow(){
   const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
   const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   if(d.id){
-    await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+    await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), items:itemsArr, has_fails:hasFails});
   } else {
     // If this week's row already exists (started on another phone, say),
     // carry on with that one rather than trying to create a second.
     const existing = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+d.week_start+'&select=id&limit=1');
     if(existing[0]){
       d.id = existing[0].id;
-      await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+      await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), items:itemsArr, has_fails:hasFails});
     } else {
-      const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
+      const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
       if(rows && rows[0]) d.id = rows[0].id;
     }
   }
 }
+let vehicleChecklistMondayGate = false;
 window.submitVehicleChecklist = async function(){
   const d = vehicleChecklistDraft;
   const missing = VEHICLE_CHECKLIST_ITEMS.find(i=>!d.items[i.key] || !d.items[i.key].result);
   if(missing){ toast('Every item needs a Pass or Fail before you can submit.'); return; }
+  const miles = parseInt(String(d.mileage==null?'':d.mileage).replace(/[^0-9]/g,''),10);
+  if(!d.vehicle_reg || !String(d.vehicle_reg).trim()){ toast('Enter the vehicle registration first.'); return; }
+  if(!(miles>0)){ toast('Enter the current mileage before you can submit.'); return; }
+  d.mileage = miles;
   const missingPhoto = VEHICLE_CHECKLIST_PHOTOS.find(ph=>!d.items[ph.key] || !d.items[ph.key].photo_path);
   if(missingPhoto){ toast('All 4 vehicle photos are needed before you can submit — missing: '+missingPhoto.label+'.'); return; }
   const badFail = VEHICLE_CHECKLIST_ITEMS.find(i=>{
@@ -38018,15 +38239,18 @@ window.submitVehicleChecklist = async function(){
   const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   let row;
   if(d.id){
-    row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+    row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:d.mileage, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
   } else {
-    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, mileage:d.mileage, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
     row = rows && rows[0];
   }
   vehicleChecklistBusy = false;
   if(!row){ toast('Could not save — try again.'); render(); return; }
   d.id = row.id; d.status = 'submitted';
   toast('Checklist submitted');
+  // 10,000-mile health check count (server emails PMs/admins when due).
+  try{ sbFetch('/functions/v1/vehicle-mileage-check', {method:'POST', body:'{}'}).catch(()=>{}); }catch(e){}
+  if(vehicleChecklistMondayGate){ vehicleChecklistMondayGate = false; render(); setTimeout(()=>go('#/driver/checkin'), 600); return; }
   if(hasFails){
     const failedLabels = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key].result==='fail').map(i=>i.label);
     postSystemMessage(null, 'vehicle_checklist_fail', `${ME.name}'s weekly vehicle checklist (${d.vehicle_reg||'no reg given'}) has ${failedLabels.length} failed item${failedLabels.length===1?'':'s'}: ${failedLabels.join('; ')}.`).catch(()=>{});
@@ -38335,17 +38559,25 @@ async function renderDeliverySchedulePM(){
     </div>
     <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="addDeliveryFrom('${iso}')">+ Add Delivery</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
-    <div class="row-gap" style="margin-bottom:4px;">
-      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
-      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
-    </div>
-    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
       ${deliveryContinuations(tasks, slot.key).map(deliveryContinuedHtml).join('')}
       <div class="dlvslot" data-slot="${slot.key}">${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (deliveryContinuations(tasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
+    <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->
+    <div class="dlv-foot">
+      <button type="button" class="admrow" style="border:1px solid #ECEEF2;border-radius:16px;background:#fff;margin:18px 0 12px;" onclick="vehicleChecksBackHash='#/delivery';go('#/vehicle-checklists')">
+        <span class="pmtile-ic pmtint-orange" style="width:38px;height:38px;border-radius:12px;flex:none;">${ophIcon('truck', 19)}</span>
+        <span class="admrow-txt"><span class="admrow-t">Vehicle health checks</span><span class="admrow-s">Weekly driver checklists, mileage and 10,000-mile checks</span></span>
+        ${ophIcon('chevron', 18, 2.2)}
+      </button>
+    <div class="row-gap" style="margin-bottom:4px;">
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
+      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
+    </div>
+    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
+    </div>
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }
 let deliveryFormBusy = false, deliveryFormDraft = null, deliveryFormSiteOperatives = [], deliveryFormPhotoBusy = false, deliveryFormDrivers = [];
@@ -38834,13 +39066,41 @@ document.addEventListener('contextmenu', e=>{ if(dlvDrag.active || (dlvDrag.card
 // list of submissions, newest first, with a filter for failed-item ones,
 // and a detail view that shows every item plus fail photos/notes.
 let vehicleChecklistsAdminFilter = 'all'; // 'all' | 'fails'
+let vehicleChecksBackHash = '#/delivery';
+// #(vehicle-health) Marking a vehicle's health check done restarts its
+// 10,000-mile count from the latest mileage reported for it.
+window.markVehicleHealthDone = async function(reg){
+  if(!(await customConfirm('Mark the vehicle health check for '+reg+' as done? This restarts its 10,000-mile count.'))) return;
+  const rows = await dbSelect('vehicle_service_status', 'org_id=eq.'+ME.org_id+'&vehicle_reg=eq.'+encodeURIComponent(reg)+'&limit=1');
+  const r = rows[0]; if(!r) return;
+  const ok = await sbFetch('/rest/v1/vehicle_service_status?org_id=eq.'+ME.org_id+'&vehicle_reg=eq.'+encodeURIComponent(reg), {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({baseline_miles: r.last_miles, last_reminder_miles: null, health_check_done_at: new Date().toISOString(), health_check_done_by: ME.id, updated_at: new Date().toISOString()})});
+  if(ok && ok.ok){ toast('Health check recorded for '+reg); render(); } else toast('Could not save — try again.');
+};
 async function renderVehicleChecklistsAdmin(){
   const __gen = RENDER_GEN;
-  const rows = await dbSelect('vehicle_checklists', 'org_id=eq.'+ME.org_id+'&status=eq.submitted&order=submitted_at.desc&limit=200');
+  const [rows, vstat] = await Promise.all([
+    dbSelect('vehicle_checklists', 'org_id=eq.'+ME.org_id+'&status=eq.submitted&order=submitted_at.desc&limit=200'),
+    dbSelect('vehicle_service_status', 'org_id=eq.'+ME.org_id+'&order=vehicle_reg.asc'),
+  ]);
   await loadAllProfiles();
   const filtered = vehicleChecklistsAdminFilter==='fails' ? rows.filter(r=>r.has_fails) : rows;
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
+    <p class="sectiontitle" style="margin-top:0;">Vehicles · 10,000-mile health checks</p>
+    ${vstat.length ? `<div class="admgroup" style="margin-bottom:16px;">${vstat.map(v=>{
+      const since = (v.last_miles!=null && v.baseline_miles!=null) ? v.last_miles - v.baseline_miles : 0;
+      const due = since >= 10000;
+      const pct = Math.max(0, Math.min(100, Math.round(since/100)));
+      return `<div style="padding:12px 14px;${''}border-top:1px solid #F0F1F4;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="flex:1;min-width:0;"><div style="font-weight:800;font-size:14px;">${escapeHtml(v.vehicle_reg)}</div>
+            <div class="stub" style="margin:2px 0 0;">${v.last_miles!=null?Number(v.last_miles).toLocaleString('en-GB')+' miles':''} · ${Number(since).toLocaleString('en-GB')} since last health check${v.health_check_done_at?' ('+new Date(v.health_check_done_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+')':''}</div></div>
+          ${due ? `<span class="pmbadge open">Due</span>` : ''}
+        </div>
+        <div style="height:6px;border-radius:99px;background:#ECEEF2;margin:8px 0;overflow:hidden;"><div style="height:6px;width:${pct}%;background:${due?'var(--red)':'var(--ok)'};"></div></div>
+        <button class="ghostbtn" style="width:auto;margin:0;padding:6px 12px;font-size:12px;" onclick="markVehicleHealthDone('${jsAttr(v.vehicle_reg)}')">✓ Health check done</button>
+      </div>`; }).join('')}</div>` : `<p class="stub" style="margin:0 0 16px;">Mileage starts being tracked from each vehicle's next weekly check.</p>`}
+    <p class="sectiontitle">Weekly checklists</p>
     <div class="row" style="gap:8px;margin-bottom:14px;">
       <button class="ghostbtn" style="flex:1;${vehicleChecklistsAdminFilter==='all'?'background:var(--blue-bg);color:var(--blue);border-color:var(--blue);':''}" onclick="vehicleChecklistsAdminFilter='all';render()">All</button>
       <button class="ghostbtn" style="flex:1;${vehicleChecklistsAdminFilter==='fails'?'background:var(--warn-bg);color:var(--warn);border-color:var(--warn);':''}" onclick="vehicleChecklistsAdminFilter='fails';render()">⚠ Had Fails</button>
@@ -38849,11 +39109,11 @@ async function renderVehicleChecklistsAdmin(){
       <div class="sitecard" onclick="go('#/vehicle-checklists/${r.id}')" style="cursor:pointer;">
         <div class="info">
           <div class="name">${escapeHtml((PROFILES[r.driver_id]||{}).name || 'Unknown driver')}${r.vehicle_reg?' · '+escapeHtml(r.vehicle_reg):''}</div>
-          <div class="addr">Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} · ${r.has_fails?'⚠ Had failed items':'All passed'}</div>
+          <div class="addr">Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}${r.mileage?' · '+Number(r.mileage).toLocaleString('en-GB')+' miles':''} · ${r.has_fails?'⚠ Had failed items':'All passed'}</div>
         </div>
       </div>
     `).join('') : `<div class="empty">No submitted checklists${vehicleChecklistsAdminFilter==='fails'?' with failed items':''} yet.</div>`}
-  `, {title:'Vehicle Checklists', back:'#/team'});
+  `, {title:'Vehicle health checks', back: vehicleChecksBackHash || '#/delivery'});
 }
 async function renderVehicleChecklistDetail(id){
   const __gen = RENDER_GEN;
@@ -38867,7 +39127,7 @@ async function renderVehicleChecklistDetail(id){
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="margin-bottom:14px;">
       <p style="margin:0 0 4px;font-weight:700;">${escapeHtml((PROFILES[r.driver_id]||{}).name || 'Unknown driver')}</p>
-      <p class="stub" style="margin:0;">${r.vehicle_reg?escapeHtml(r.vehicle_reg)+' · ':''}Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</p>
+      <p class="stub" style="margin:0;">${r.vehicle_reg?escapeHtml(r.vehicle_reg)+' · ':''}${r.mileage?Number(r.mileage).toLocaleString('en-GB')+' miles · ':''}Week of ${new Date(r.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</p>
       <p class="stub" style="margin:4px 0 0;">Submitted ${r.submitted_at?new Date(r.submitted_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):''}</p>
     </div>
     ${vehiclePhotosHtml(itemsMap, false)}
@@ -38909,6 +39169,7 @@ async function render(){
   // A redraw of the same page keeps your place: the scrolling list is
   // replaced on every render, so put it back where it was.
   const sameHash = (RENDERED_HASH === location.hash) && uiRenderDepth === 0;
+  if(!sameHash && uiRenderDepth === 0) navNoteArrival(RENDERED_HASH, location.hash);
   const keepY = sameHash ? appScrollY() : 0;
   uiRenderDepth++;
   try{
@@ -38962,8 +39223,13 @@ async function renderRoute(){
     return renderDriverHome();
   }
   if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
-  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : renderSites(); }
+  if(!parts.length && usesOpHome(ME)){ return renderOpHome(); }
+  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : usesOpHome(ME) ? renderOpHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='dashboards'){
+    if(!usesPmHome(ME)){ go('#/sites'); return; }
+    return renderDashboardsChooser();
+  }
   if(parts[0]==='todos'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);

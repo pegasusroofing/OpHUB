@@ -18,6 +18,7 @@ async function render(){
   // A redraw of the same page keeps your place: the scrolling list is
   // replaced on every render, so put it back where it was.
   const sameHash = (RENDERED_HASH === location.hash) && uiRenderDepth === 0;
+  if(!sameHash && uiRenderDepth === 0) navNoteArrival(RENDERED_HASH, location.hash);
   const keepY = sameHash ? appScrollY() : 0;
   uiRenderDepth++;
   try{
@@ -71,8 +72,13 @@ async function renderRoute(){
     return renderDriverHome();
   }
   if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
-  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : renderSites(); }
+  if(!parts.length && usesOpHome(ME)){ return renderOpHome(); }
+  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : usesOpHome(ME) ? renderOpHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='dashboards'){
+    if(!usesPmHome(ME)){ go('#/sites'); return; }
+    return renderDashboardsChooser();
+  }
   if(parts[0]==='todos'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);

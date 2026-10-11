@@ -117,6 +117,20 @@ async function renderDriverHome(){
 }
 window.doDriverCheckAction = async function(type){
   if(driverCheckinBusy) return;
+  // #(monday-vehicle-check) Mondays: this week's vehicle check must be
+  // submitted before the driver can check in.
+  if(type==='in' && new Date().getDay()===1){
+    try{
+      const wk = vehicleChecklistWeekStart();
+      const done = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+wk+'&status=eq.submitted&select=id&limit=1');
+      if(!done.length){
+        vehicleChecklistMondayGate = true;
+        await customAlert("It's Monday — please complete this week's vehicle check before checking in.");
+        go('#/driver/vehicle-checklist');
+        return;
+      }
+    }catch(e){ /* no signal: don't block the check-in */ }
+  }
   driverCheckinError = null; driverCheckinBusy = true; render();
   // 2026-10-05: drivers no longer need location to check in or out — a
   // blocked or refused location permission was stopping them checking in at
@@ -733,9 +747,9 @@ async function loadOrStartVehicleChecklist(){
   if(rows[0]){
     const itemsMap = {};
     (rows[0].items||[]).forEach(it=>{ itemsMap[it.key] = it; });
-    vehicleChecklistDraft = {id:rows[0].id, vehicle_reg:rows[0].vehicle_reg||'', week_start:weekStart, items:itemsMap, status:rows[0].status};
+    vehicleChecklistDraft = {id:rows[0].id, vehicle_reg:rows[0].vehicle_reg||'', mileage:rows[0].mileage||'', week_start:weekStart, items:itemsMap, status:rows[0].status};
   } else {
-    vehicleChecklistDraft = {id:null, vehicle_reg:'', week_start:weekStart, items:{}, status:'in_progress'};
+    vehicleChecklistDraft = {id:null, vehicle_reg:'', mileage:'', week_start:weekStart, items:{}, status:'in_progress'};
   }
 }
 async function renderDriverVehicleChecklist(){
@@ -751,11 +765,15 @@ async function renderDriverVehicleChecklist(){
   const answeredCount = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key] && d.items[i.key].result).length;
   const weekLabel = new Date(d.week_start+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
   document.getElementById('app').innerHTML = shell(`
+    ${vehicleChecklistMondayGate && !submitted ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:12px;"><p style="margin:0;font-weight:800;color:var(--warn);">Monday vehicle check</p><p class="stub" style="margin:4px 0 0;">Complete and submit this before you can check in today.</p></div>` : ''}
     <div class="card" style="margin-bottom:14px;">
       <p style="margin:0 0 4px;font-weight:700;">Week commencing ${weekLabel}</p>
       ${submitted ? `<p class="stub" style="color:var(--ok);margin:0;">✓ Submitted</p>` : `<p class="stub" style="margin:0;">${answeredCount} of ${VEHICLE_CHECKLIST_ITEMS.length} checked</p>`}
       <label style="display:block;margin-top:10px;">Vehicle registration
         <input type="text" value="${jsAttr(d.vehicle_reg)}" ${submitted?'disabled':''} placeholder="e.g. AB12 CDE" oninput="vehicleChecklistDraft.vehicle_reg=this.value" onblur="saveVehicleChecklistDraft()">
+      </label>
+      <label style="display:block;margin-top:10px;">Current mileage
+        <input type="number" inputmode="numeric" min="0" value="${escapeHtml(String(d.mileage||''))}" ${submitted?'disabled':''} placeholder="e.g. 48250" oninput="vehicleChecklistDraft.mileage=this.value" onblur="saveVehicleChecklistDraft()">
       </label>
     </div>
     ${vehiclePhotosHtml(d.items, !submitted)}
@@ -836,24 +854,29 @@ async function saveVehicleChecklistDraftNow(){
   const itemsArr = Object.keys(d.items).map(k=>d.items[k]);
   const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   if(d.id){
-    await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+    await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), items:itemsArr, has_fails:hasFails});
   } else {
     // If this week's row already exists (started on another phone, say),
     // carry on with that one rather than trying to create a second.
     const existing = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+d.week_start+'&select=id&limit=1');
     if(existing[0]){
       d.id = existing[0].id;
-      await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails});
+      await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), items:itemsArr, has_fails:hasFails});
     } else {
-      const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
+      const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, mileage:(parseInt(d.mileage,10)||null), week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'in_progress'});
       if(rows && rows[0]) d.id = rows[0].id;
     }
   }
 }
+let vehicleChecklistMondayGate = false;
 window.submitVehicleChecklist = async function(){
   const d = vehicleChecklistDraft;
   const missing = VEHICLE_CHECKLIST_ITEMS.find(i=>!d.items[i.key] || !d.items[i.key].result);
   if(missing){ toast('Every item needs a Pass or Fail before you can submit.'); return; }
+  const miles = parseInt(String(d.mileage==null?'':d.mileage).replace(/[^0-9]/g,''),10);
+  if(!d.vehicle_reg || !String(d.vehicle_reg).trim()){ toast('Enter the vehicle registration first.'); return; }
+  if(!(miles>0)){ toast('Enter the current mileage before you can submit.'); return; }
+  d.mileage = miles;
   const missingPhoto = VEHICLE_CHECKLIST_PHOTOS.find(ph=>!d.items[ph.key] || !d.items[ph.key].photo_path);
   if(missingPhoto){ toast('All 4 vehicle photos are needed before you can submit — missing: '+missingPhoto.label+'.'); return; }
   const badFail = VEHICLE_CHECKLIST_ITEMS.find(i=>{
@@ -866,15 +889,18 @@ window.submitVehicleChecklist = async function(){
   const hasFails = VEHICLE_CHECKLIST_ITEMS.some(i=>d.items[i.key] && d.items[i.key].result==='fail'); // only items still on the checklist count
   let row;
   if(d.id){
-    row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+    row = await dbUpdate('vehicle_checklists', d.id, {vehicle_reg:d.vehicle_reg||null, mileage:d.mileage, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
   } else {
-    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
+    const rows = await dbInsert('vehicle_checklists', {org_id:ME.org_id, driver_id:ME.id, vehicle_reg:d.vehicle_reg||null, mileage:d.mileage, week_start:d.week_start, items:itemsArr, has_fails:hasFails, status:'submitted', submitted_at:new Date().toISOString()});
     row = rows && rows[0];
   }
   vehicleChecklistBusy = false;
   if(!row){ toast('Could not save — try again.'); render(); return; }
   d.id = row.id; d.status = 'submitted';
   toast('Checklist submitted');
+  // 10,000-mile health check count (server emails PMs/admins when due).
+  try{ sbFetch('/functions/v1/vehicle-mileage-check', {method:'POST', body:'{}'}).catch(()=>{}); }catch(e){}
+  if(vehicleChecklistMondayGate){ vehicleChecklistMondayGate = false; render(); setTimeout(()=>go('#/driver/checkin'), 600); return; }
   if(hasFails){
     const failedLabels = VEHICLE_CHECKLIST_ITEMS.filter(i=>d.items[i.key].result==='fail').map(i=>i.label);
     postSystemMessage(null, 'vehicle_checklist_fail', `${ME.name}'s weekly vehicle checklist (${d.vehicle_reg||'no reg given'}) has ${failedLabels.length} failed item${failedLabels.length===1?'':'s'}: ${failedLabels.join('; ')}.`).catch(()=>{});

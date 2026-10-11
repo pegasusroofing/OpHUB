@@ -37,25 +37,23 @@ const ADMIN_ITEMS = {
   drivercheckins: {page:'people',      group:'Logs',                    icon:'🚚', label:'Driver Check-In Log',  sub:'Shifts, breaks, hours',            flags:['drivercheckins'],               kw:'driver check in shift break hours', show:()=>isFullManager(ME)},
 };
 function adminItemHash(key){ const it = ADMIN_ITEMS[key]; return it ? (it.href || '#/team/'+it.page+'/'+key) : '#/team'; }
+// #(admin-modern) Admin Centre rows in the modern look: grouped white cards,
+// a tinted line-icon square, label + description and a chevron.
+const ADMIN_ICON = {branding:'brush', expensesemail:'mail', onedrive:'cloud', reporttemplates:'reports', signtemplates:'pen', sowlibrary:'layers', pricebuilder:'pound', suppliers:'store', maincontractor:'building', hspolicy:'book', havstools:'wrench', ramslibrary:'shield', coshhbuilder:'flask', coshhlibrary:'flask', tbt:'chat', ppelog:'shield', invites:'mail', users:'users', devicelocks:'phone', checkinlogs:'pin', drivercheckins:'truck'};
+const ADMIN_TINT = {company:'grey', libraries:'green', people:'blue'};
+function admRow(href, icon, tint, label, sub){
+  return `<button type="button" class="admrow" onclick="go('${href}')"><span class="pmtile-ic pmtint-${tint}" style="width:38px;height:38px;border-radius:12px;flex:none;">${ophIcon(icon, 19)}</span><span class="admrow-txt"><span class="admrow-t">${escapeHtml(label)}</span>${sub ? `<span class="admrow-s">${escapeHtml(sub)}</span>` : ''}</span>${ophIcon('chevron', 18, 2.2)}</button>`;
+}
 function adminRowHtml(key, extraSub){
   const it = ADMIN_ITEMS[key];
   const sub = extraSub || (typeof it.sub==='function' ? it.sub() : it.sub);
-  return `<div class="sitecard" style="cursor:pointer;" onclick="go('${adminItemHash(key)}')">
-    <div style="font-size:20px;flex:0 0 auto;width:26px;text-align:center;">${it.icon}</div>
-    <div class="info"><div class="name">${escapeHtml(it.label)}</div>${sub ? `<div class="addr">${escapeHtml(sub)}</div>` : ''}</div>
-    <div style="color:var(--slate);font-size:20px;flex:0 0 auto;">›</div>
-  </div>`;
+  return admRow(adminItemHash(key), ADMIN_ICON[key]||'list', ADMIN_TINT[it.page]||'grey', it.label, sub);
 }
 function adminPageListHtml(page, counts){
   const keys = Object.keys(ADMIN_ITEMS).filter(k=>ADMIN_ITEMS[k].page===page && ADMIN_ITEMS[k].show());
-  let lastGroup = null, out = '';
-  keys.forEach(k=>{
-    const g = ADMIN_ITEMS[k].group;
-    if(g && g!==lastGroup){ out += `<p class="sectiontitle" style="margin-top:${lastGroup===null?'0':'18px'};">${escapeHtml(g)}</p>`; }
-    lastGroup = g;
-    out += adminRowHtml(k, counts && counts[k]);
-  });
-  return out || `<div class="empty">Nothing here for your role.</div>`;
+  const groups = [];
+  keys.forEach(k=>{ const g = ADMIN_ITEMS[k].group || ''; let grp = groups.find(x=>x.name===g); if(!grp){ grp = {name:g, keys:[]}; groups.push(grp); } grp.keys.push(k); });
+  return groups.map((g,i)=>`${g.name ? `<p class="admgroup-h" style="margin-top:${i?'18px':'0'};">${escapeHtml(g.name)}</p>` : ''}<div class="admgroup">${g.keys.map(k=>adminRowHtml(k, counts && counts[k])).join('')}</div>`).join('') || `<div class="empty">Nothing here for your role.</div>`;
 }
 let adminSearch = '', adminSearchOpen = false;
 // Search box on the Admin Centre front page: filters every section the
@@ -68,7 +66,7 @@ window.adminSearchRender = function(){
   if(!q){ res.innerHTML = ''; tiles.style.display = ''; return; }
   const hits = Object.keys(ADMIN_ITEMS).filter(k=>{ const it = ADMIN_ITEMS[k]; return it.show() && ADMIN_PAGES[it.page].show() && (it.label+' '+it.kw+' '+it.group+' '+ADMIN_PAGES[it.page].label).toLowerCase().includes(q); });
   tiles.style.display = 'none';
-  res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
+  res.innerHTML = `<p class="stub" style="margin:0 0 8px;">${hits.length} result${hits.length===1?'':'s'}</p>` + (hits.length ? '<div class="admgroup">' : '')+(hits.map(k=>adminRowHtml(k, ADMIN_PAGES[ADMIN_ITEMS[k].page].label+(ADMIN_ITEMS[k].group ? ' › '+ADMIN_ITEMS[k].group : ''))).join('') || `<div class="empty">Nothing matches "${escapeHtml(adminSearch.trim())}".</div>`);
 };
 async function renderTeam(adminPage, adminItemKey){
   const __gen = RENDER_GEN;
@@ -204,37 +202,19 @@ async function renderTeam(adminPage, adminItemKey){
       <div style="display:flex;justify-content:flex-end;margin:-4px 0 2px;"><span class="homebtn" style="flex:none;" title="Search" onclick="adminSearchOpen=true;render().then(()=>{const e=document.getElementById('adminSearchInput'); if(e) e.focus();})">🔍</span></div>`}
     <div id="adminSearchResults"></div>
     <div id="adminHubTiles">
-    <p class="sectiontitle" style="margin-top:6px;">Day to day</p>
-    <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
-      <div class="tile" onclick="go('#/dashboard')">
-        <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📊</div>
-        <div class="lbl">Company Dashboard</div>
-      </div>
-      ${iAmAdmin ? `<div class="tile" onclick="go('#/operatives')">
-        <div class="icon" style="background:var(--ok-bg);color:var(--ok);">👷</div>
-        <div class="lbl">Operatives</div>
-      </div>` : ''}
-      <div class="tile" onclick="generalReportsBackHash='#/team';go('#/general-reports')">
-        <div class="icon" style="background:#EDE7F6;color:#5E35B1;">📋</div>
-        <div class="lbl">Reports &amp; Inspections</div>
-      </div>
-      <div class="tile" onclick="go('#/vehicle-checklists')">
-        <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚐</div>
-        <div class="lbl">Vehicle Checks</div>
-      </div>
-    </div>
-    <p class="sectiontitle" style="margin-top:18px;">Set-up</p>
-    <div class="tilegrid admintiles" style="grid-auto-rows:1fr;margin-top:0;">
-      ${Object.keys(ADMIN_PAGES).filter(k=>ADMIN_PAGES[k].show()).map(k=>`
-      <div class="tile" onclick="go('#/team/${k}')">
-        <div class="icon" style="background:${ADMIN_PAGES[k].bg};color:${ADMIN_PAGES[k].fg};">${ADMIN_PAGES[k].icon}</div>
-        <div class="lbl">${escapeHtml(ADMIN_PAGES[k].label)}</div><div class="sub">${escapeHtml(ADMIN_PAGES[k].sub)}</div>
-      </div>`).join('')}
-      ${isManager(ME) ? `<div class="tile" onclick="go('#/team/libraries/maincontractor')">
-        <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏢</div>
-        <div class="lbl">Main Contractor</div><div class="sub">Subcontractors · Inspections</div>
-      </div>` : ''}
-    </div>
+      ${(()=>{
+        const grp = (name, rows)=>rows.filter(Boolean).length ? `<p class="admgroup-h">${name}</p><div class="admgroup">${rows.filter(Boolean).join('')}</div>` : '';
+        const P = k => ADMIN_PAGES[k];
+        return grp('People', [
+          P('people').show() ? admRow('#/team/people', 'admin', 'blue', 'Users & invites', 'Invites, roles, device locks, check-in logs') : '',
+        ]) + grp('Libraries', [
+          P('libraries').show() ? admRow('#/team/libraries', 'book', 'green', 'Libraries', 'Report templates, RAMS, COSHH, SOW, rates, suppliers') : '',
+          isManager(ME) ? admRow('#/team/libraries/maincontractor', 'building', 'green', 'Main Contractor', 'Subcontractors and inspection templates') : '',
+        ]) + grp('Company', [
+          P('company').show() ? admRow('#/team/company', 'brush', 'grey', 'Company', 'Logo, theme, integrations') : '',
+          P('company').show() ? admRow('#/team/company/onedrive', 'cloud', 'grey', 'Integrations by project', 'What each project can sync, and set it up') : '',
+        ]);
+      })()}
     </div>
     ` : ''}
     ${adminItem ? `<div class="adminitem adminitem-${adminItemKey}">
@@ -322,26 +302,34 @@ async function renderTeam(adminPage, adminItemKey){
       <button class="darkbtn" style="margin-top:10px;" onclick="startQuickLinkPicker()">+ Add Quick Link</button>
     </div>
     <div class="card" style="margin-top:10px;">
-      <p class="sectiontitle" style="margin-top:0;">Synced per site</p>
-      <p class="stub" style="margin:0 0 10px;">Every site with a OneDrive folder linked — for photos/Drawings import, or for Material PO's auto-sync.</p>
+      <p class="sectiontitle" style="margin-top:0;">Integrations by project</p>
+      <p class="stub" style="margin:0 0 10px;">Tap a project to see everything it can sync to OneDrive, and link or change a folder there.</p>
       ${(()=>{
-        const syncedSites = SITES.filter(s=>s.onedrive_folder_id || s.material_orders_folder_id);
-        if(!syncedSites.length) return `<div class="empty">No sites have a OneDrive folder linked yet.</div>`;
-        return syncedSites.map(s=>{
-          const tags = [s.onedrive_folder_id ? '📁 Photos/Drawings' : '', s.material_orders_folder_id ? '📦 Material POs' : ''].filter(Boolean).join(' · ');
-          return `
-          <div class="sitecard" style="padding:6px 10px;">
-            <div class="info" style="min-width:0;">
-              <div class="name" style="font-size:13px;">${escapeHtml(s.name)}</div>
-              <div class="meta" style="font-size:11px;">${tags}</div>
-            </div>
-            <select style="width:auto;flex:none;padding:5px 8px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onchange="syncedSiteAction('${s.id}', this.value); this.selectedIndex=0;">
-              <option value="" selected disabled>${siteOdSyncBusy===s.id?'Syncing…':'Actions ▾'}</option>
-              <option value="admin">Open Site Admin</option>
-              ${s.onedrive_folder_id ? `<option value="sync">Manual Sync</option>` : ''}
-            </select>
-          </div>
-        `;
+        // #(site-integrations) every open project, expandable: each sync
+        // point it supports with its linked folder (or not) and a button.
+        const list = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+        if(!list.length) return `<div class="empty">No projects yet.</div>`;
+        return list.map(s=>{
+          const pts = [
+            {k:'progress', label:'Photos, drawings & exports', id:s.onedrive_folder_id, name:s.onedrive_folder_name},
+            {k:'materials', label:"Material PO's", id:s.material_orders_folder_id, name:s.material_orders_folder_name},
+            ...(s.acting_as_main_contractor ? [{k:'siteinductions', label:'Signed site inductions', id:s.site_inductions_folder_id, name:s.site_inductions_folder_name}] : []),
+          ];
+          const linked = pts.filter(p=>p.id).length;
+          const open = siteIntegOpenId===s.id;
+          return `<div class="integ ${open?'open':''}">
+            <button type="button" class="integ-h" onclick="siteIntegOpenId=${open?'null':`'${s.id}'`};render()">
+              <span class="integ-name">${escapeHtml(s.name)}</span>
+              <span class="integ-count ${linked?'on':''}">${linked}/${pts.length} linked</span>
+              <span style="color:var(--slate-light);">${open?'▲':'▼'}</span>
+            </button>
+            ${open ? pts.map(p=>`
+              <div class="integ-row">
+                <span class="integ-dot ${p.id?'on':''}"></span>
+                <span class="integ-txt"><b>${p.label}</b><span>${p.id ? '📁 '+escapeHtml(p.name||'Linked folder') : 'Not linked'}</span></span>
+                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="odPickerReturnHash='#/team/company/onedrive';startOneDriveFolderPicker('${s.id}','${p.k}')">${p.id?'Change':'Link'}</button>
+              </div>`).join('') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
+          </div>`;
         }).join('');
       })()}
     </div>

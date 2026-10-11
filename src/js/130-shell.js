@@ -7,8 +7,29 @@ window.copyHeaderSubtitle = async function(text){
   try{ await navigator.clipboard.writeText(text); toast('Copied'); }
   catch(e){ toast('Could not copy — try again.'); }
 };
+// #(back-to-origin) A page opened straight from Home (or the Dashboard
+// chooser) goes back there, wherever its normal back arrow points. Coming
+// back up from one of its own sub-pages keeps that; arriving from anywhere
+// else uses the page's normal back.
+const NAV_ORIGIN_PAGES = ['#/home', '#/dashboards'];
+const NAV_CAME_FROM = {};
+function navNoteArrival(prevHash, newHash){
+  if(!newHash || prevHash===newHash) return;
+  const base = h => String(h||'').split('?')[0];
+  const p = base(prevHash), n = base(newHash);
+  if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
+  else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
+  else delete NAV_CAME_FROM[n];
+}
+function navBackFor(defaultBack){
+  const n = String(location.hash||'').split('?')[0];
+  const o = NAV_CAME_FROM[n];
+  if(o && defaultBack && o!==n && !/^#\/site\//.test(n)) return o;
+  return defaultBack;
+}
 function shell(innerHtml, opts){
   opts = opts||{};
+  if(opts.back) opts.back = navBackFor(opts.back);
   CURRENT_BACK_HASH = opts.back || null;
   return `
     <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
@@ -65,7 +86,9 @@ function tabbar(siteId, active){
   // any other tab/subfolder it still takes you to this site's home page.
   const tabs = [
     {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
-    {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    // PMs/admins/site managers: Deliveries in this slot (Andy, 11 Oct);
+    // operatives can't open the delivery schedule, so they keep SOW.
+    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='#/site/${siteId}/home';`} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
     {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
@@ -75,7 +98,7 @@ function tabbar(siteId, active){
     {k:'more', ic:ophIcon('gear'), lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="${t.pre||''}go('${t.href}')" style="position:relative;">
       <span class="tabicon">${t.ic}</span>${t.lbl}
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;

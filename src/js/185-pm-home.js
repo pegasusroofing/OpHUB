@@ -10,6 +10,19 @@
 // replacing the old emoji.
 const OPH_ICONS = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  brush: '<path d="M18 3l3 3-9 9-3-3z"/><path d="M9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 9-1 1-1.5 1-3 1-3"/>',
+  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+  cloud: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1-1 8z"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  pound: '<path d="M17 20H7c2-2 2-4 2-7V8a3 3 0 0 1 6-1"/><path d="M6 13h8"/>',
+  store: '<path d="M4 9l2-5h12l2 5"/><path d="M4 9v11h16V9"/><path d="M4 9h16M10 20v-6h4v6"/>',
+  book: '<path d="M4 4h9a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-4v16"/>',
+  flask: '<path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/>',
+  phone: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>',
+  wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   projects: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   reports: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
   admin: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
@@ -39,7 +52,9 @@ function ophIcon(name, size, sw){
   return `<svg class="ophic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 }
 function usesPmHome(u){ return !!u && isFullManager(u); }
-function homeHash(){ return usesPmHome(ME) ? '#/home' : '#/sites'; }
+// #(op-home) Operatives get the same style of home page, with only what they can already see.
+function usesOpHome(u){ return !!u && u.role==='operative'; }
+function homeHash(){ return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/sites'; }
 // The bold header line / logo goes to the project list (Andy, 11 Oct) -
 // the Home page is reached from the Home button on the Projects bottom bar.
 window.goHome = function(){ go('#/sites'); };
@@ -133,7 +148,7 @@ async function renderPmHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
-      ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
+      ${tile('chart', 'teal', 'Dashboard', 'Company &amp; operative overview', "go('#/dashboards')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
       ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
@@ -170,16 +185,32 @@ window.pmStartReportAt = function(siteId){
   if(!siteId){ generalReportsBackHash = '#/reports'; go('#/general-reports'); return; }
   go(`#/site/${siteId}/snagging/reports`);
 };
+// Reports page: search + filters (template, surveyor) + tick to select,
+// then Export / Email the selected ones (shares selectedReportIds and the
+// bulk export/email actions with a project's own Reports list).
+let pmReportsTpl = '', pmReportsBy = '', pmReportsFilterOpen = false;
+window.setPmReportsFilter = function(k, v){ if(k==='tpl') pmReportsTpl = v; else pmReportsBy = v; render(); };
+window.togglePmReportSel = function(id, ev){ if(ev) ev.stopPropagation(); if(selectedReportIds.has(id)) selectedReportIds.delete(id); else selectedReportIds.add(id); render(); };
+window.pmReportsSelectAll = function(){
+  const box = document.getElementById('pmReportList'); if(!box) return;
+  box.querySelectorAll('[data-rid]').forEach(el=>{ if(el.style.display!=='none') selectedReportIds.add(el.getAttribute('data-rid')); });
+  render();
+};
 async function renderAllReports(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   let rows = [];
   try{ rows = await loadPmReports(true); }catch(e){}
   await loadAllProfiles();
-  const counts = {open: rows.filter(r=>r.status==='in_progress').length, done: rows.filter(r=>r.status!=='in_progress').length, all: rows.length};
-  const shown = rows.filter(r=>pmReportsTab==='all' || (pmReportsTab==='open') === (r.status==='in_progress'));
+  const byFilter = rows.filter(r=>(!pmReportsTpl || r.template_name===pmReportsTpl) && (!pmReportsBy || r.submitted_by===pmReportsBy));
+  const counts = {open: byFilter.filter(r=>r.status==='in_progress').length, done: byFilter.filter(r=>r.status!=='in_progress').length, all: byFilter.length};
+  const shown = byFilter.filter(r=>pmReportsTab==='all' || (pmReportsTab==='open') === (r.status==='in_progress'));
   const live = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const tplNames = Array.from(new Set(rows.map(r=>r.template_name).filter(Boolean))).sort();
+  const surveyors = Array.from(new Set(rows.map(r=>r.submitted_by).filter(Boolean))).map(id=>({id, name:nameOf(id)||'Unknown'})).sort((a,b)=>a.name.localeCompare(b.name));
+  const nFilters = (pmReportsTpl?1:0) + (pmReportsBy?1:0);
   const chip = (k, lbl) => `<button type="button" class="pmchip ${pmReportsTab===k?'on':''}" onclick="setPmReportsTab('${k}')">${lbl} (${counts[k]})</button>`;
+  const selN = selectedReportIds.size;
   if(__gen !== RENDER_GEN) return;
   app.innerHTML = shell(`
     <button type="button" class="pmprimary" onclick="togglePmReportsStart()">${ophIcon('plus', 20, 2.4)} Start a report</button>
@@ -189,18 +220,44 @@ async function renderAllReports(){
         <button type="button" class="pmrow" onclick="pmStartReportAt(null)"><span class="pmrow-txt"><span class="pmrow-t">General survey</span><span class="pmrow-s">Not linked to a project</span></span>${ophIcon('chevron', 18, 2.2)}</button>
         ${live.map(s=>`<button type="button" class="pmrow" onclick="pmStartReportAt('${s.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(fullSiteAddress(s)||'')}</span></span>${ophIcon('chevron', 18, 2.2)}</button>`).join('')}
       </div>` : ''}
-    <div class="pmtiles" style="margin-top:12px;">
+    <div class="pmtiles" style="margin:12px 0;">
       <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
-      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
+      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries/reporttemplates')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
     </div>
-    <div class="pmchips">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
+    <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search reports, projects, people" aria-label="Search reports" oninput="liveFilter(this.value,'#pmReportList')"></label>
+    <div class="projfilterrow" style="display:flex;align-items:center;gap:10px;margin-bottom:${pmReportsFilterOpen?'8px':'12px'};">
+      <div class="pmchips pmchips-tight" style="margin:0;">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
+      <button type="button" class="pmchip ${nFilters?'on':''}" style="flex:none;margin-left:auto;" onclick="pmReportsFilterOpen=!pmReportsFilterOpen;render()">Filter${nFilters?' ('+nFilters+')':''} ▾</button>
+    </div>
+    ${pmReportsFilterOpen ? `
+      <div class="card" style="padding:12px;">
+        <div class="formfield" style="margin-top:0;"><label class="field-label">Template</label>
+          <select onchange="setPmReportsFilter('tpl', this.value)"><option value="">All templates</option>${tplNames.map(n=>`<option value="${escapeHtml(n)}" ${pmReportsTpl===n?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
+        <div class="formfield"><label class="field-label">Surveyor</label>
+          <select onchange="setPmReportsFilter('by', this.value)"><option value="">Everyone</option>${surveyors.map(p=>`<option value="${p.id}" ${pmReportsBy===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>
+        ${nFilters ? `<button type="button" class="ghostbtn" style="margin:4px 0 0;" onclick="pmReportsTpl='';pmReportsBy='';render()">Clear filters</button>` : ''}
+      </div>` : ''}
+    ${selN ? `
+      <div class="pmselbar">
+        <span><b>${selN}</b> selected</span>
+        <button type="button" class="ghostbtn" ${bulkExportBusy?'disabled':''} onclick="exportSelectedReports('')">${bulkExportBusy?'Building…':'Export PDF'}</button>
+        <button type="button" class="darkbtn" ${bulkEmailBusy?'disabled':''} onclick="emailSelectedReports()">${bulkEmailBusy?'Emailing…':'Email'}</button>
+        <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="selectedReportIds=new Set();render()">✕</button>
+      </div>` : (shown.length ? `<div style="text-align:right;margin:-4px 2px 8px;"><span class="stub" style="margin:0;cursor:pointer;text-decoration:underline;" onclick="pmReportsSelectAll()">Select all</span></div>` : '')}
+    <div id="pmReportList">
     ${shown.length ? shown.map(r=>{
       const isOpen = r.status==='in_progress';
-      return `<button type="button" class="pmrow pmrow-card" onclick="openPmReport('${r.id}')">
-        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span>
-        <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
-        <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
-      </button>`; }).join('') : `<div class="empty">No reports here yet.</div>`}
+      const sel = selectedReportIds.has(r.id);
+      return `<div class="pmrep ${sel?'sel':''}" data-rid="${r.id}" data-lf="${lfText([r.template_name, pmReportWhere(r), nameOf(r.submitted_by), r.general_label].filter(Boolean).join(' '))}">
+        <button type="button" class="pmrep-chk" aria-label="${sel?'Unselect':'Select'} report" onclick="togglePmReportSel('${r.id}', event)"><span class="pmrep-box">${sel?'✓':''}</span></button>
+        <button type="button" class="pmrep-body" onclick="openPmReport('${r.id}')">
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span>
+          <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
+          <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
+        </button>
+      </div>`; }).join('') : `<div class="empty">No reports here${nFilters?' for these filters':''}.</div>`}
+      <div class="empty lf-empty" style="display:none;">No reports match.</div>
+    </div>
   `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', tabs:false});
 }
 
@@ -250,4 +307,73 @@ async function renderPmTodos(){
         </button>`; }).join('')}
     `).join('') : `<div class="empty">Nothing to do — all clear.</div>`}
   `, {title:'To do', subtitle:'All your projects', back:'#/home', tabs:false});
+}
+
+// #(dashboards-chooser) Home › Dashboard: pick the company or operative view.
+function renderDashboardsChooser(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="admgroup">
+      ${admRow('#/dashboard', 'chart', 'teal', 'Company dashboard', 'Projects, people, H&S and activity across the company')}
+      ${admRow('#/operatives', 'users', 'blue', 'Operative dashboard', 'Every operative: certifications, training matrix, tools')}
+    </div>
+  `, {title:'Dashboard', subtitle:'Company & operative overview', back:'#/home', tabs:false});
+}
+
+async function renderOpHome(){
+  const __gen = RENDER_GEN;
+  const app = document.getElementById('app');
+  if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
+  if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
+  const mine = SITES.filter(s=>siteStatusKey(s)!=='closed');
+  const live = mine.filter(s=>siteStatusKey(s)==='live');
+  const upcoming = mine.filter(s=>siteStatusKey(s)==='upcoming');
+  const outstanding = homeExtras.count || 0;
+  const onboarding = homeExtras.onboarding;
+  const now = new Date();
+  const hr = now.getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const first = String(ME.name||'').trim().split(/\s+/)[0] || '';
+  const dateTxt = now.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+  const stat = (n, lbl, onclick, hot) => `<button type="button" class="pmstat" onclick="${onclick}"><b${hot?' class="hot"':''}>${n}</b><span>${lbl}</span></button>`;
+  const tile = (icon, tint, title, sub, onclick, badge) => `
+    <button type="button" class="pmtile" onclick="${onclick}">
+      <span class="pmtile-ic pmtint-${tint}">${ophIcon(icon, 21)}${badge?`<span class="badge-count pmtile-badge">${badge}</span>`:''}</span>
+      <span class="pmtile-txt"><span class="pmtile-t">${title}</span><span class="pmtile-s">${sub}</span></span>
+    </button>`;
+  if(__gen !== RENDER_GEN) return;
+  app.innerHTML = shell(`
+    <div class="pmgreet">
+      <div class="pmgreet-date">${escapeHtml(dateTxt)}</div>
+      <div class="pmgreet-hi">${greet}${first ? ', '+escapeHtml(first) : ''}</div>
+    </div>
+    ${onboarding && !onboarding.allDone ? `
+      <div class="card" style="margin-bottom:14px;cursor:pointer;border-color:var(--warn);background:var(--warn-bg);" onclick="go('#/onboarding-checklist')">
+        <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
+        <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
+      </div>` : ''}
+    <div class="pmstats" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      ${stat(live.length, 'Live jobs', "go('#/sites')")}
+      ${stat(upcoming.length, 'Upcoming', "go('#/sites')")}
+      ${stat(outstanding, 'To sign / do', "go('#/outstanding')", outstanding>0)}
+    </div>
+    <button type="button" class="pmhero" onclick="go('#/sites')">
+      <span class="pmhero-top"><span class="pmhero-ic">${ophIcon('projects', 22)}</span>${ophIcon('chevron', 22, 2.4)}</span>
+      <span class="pmhero-t">My projects</span>
+      <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
+    </button>
+    <div class="pmtiles pmtiles-home">
+      ${tile('list', 'orange', 'Outstanding', outstanding ? outstanding+' to sign or do' : 'All up to date', "go('#/outstanding')", outstanding)}
+      ${tile('chat', 'blue', 'Inbox', 'Messages from the team', "go('#/my-messages')")}
+      ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
+      ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:22px;">
+      <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
+      <span class="stub" style="margin:0;text-align:right;">${escapeHtml(personRoleLabel(ME))}</span>
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+    </div>
+  `, {tabs:false, centerHeader:true, showRefresh:true});
+  refreshHomeExtras();
 }

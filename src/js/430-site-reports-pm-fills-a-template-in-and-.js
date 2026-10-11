@@ -203,6 +203,10 @@ window.exportSelectedReports = async function(siteId){
 };
 window.emailSelectedReports = async function(){
   if(!selectedReportIds.size) return;
+  const to = await customPrompt('Email the selected reports to:', ME.email||'');
+  if(to==null) return;
+  const recipient = String(to).trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)){ toast('Enter a valid email address.'); return; }
   bulkEmailBusy = true; render();
   toast('Building PDFs…');
   // Each PDF is uploaded to Storage and emailed as a link (same pattern as
@@ -220,15 +224,15 @@ window.emailSelectedReports = async function(){
       if(!built || !built.bytes || !built.bytes.length){ failed++; continue; }
       totalPhotoFailures += built.photoEmbedFailures||0;
       const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
-      const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+      const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
       if(!stored){ failed++; continue; }
       const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({
-        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: ME.email, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
+        site_id: built.sub.site_id, general_label: built.sub.site_id ? undefined : (built.sub.general_label||'General survey'), recipient_email: recipient, cc_email: recipient!==ME.email ? ME.email : undefined, doc_title: built.sub.template_name, file_url: publicUrl('mc-documents', stored),
       })});
       if(res && res.ok) sent++; else failed++;
     }catch(e){ failed++; }
   }
-  if(sent) toast(`${sent} report(s) emailed to ${ME.email}${failed?`, ${failed} failed`:''}${totalPhotoFailures>0?` (${totalPhotoFailures} photo(s) could not be included)`:''}`);
+  if(sent) toast(`${sent} report(s) emailed to ${recipient}${failed?`, ${failed} failed`:''}${totalPhotoFailures>0?` (${totalPhotoFailures} photo(s) could not be included)`:''}`);
   else toast('Could not email the selected reports — check your connection and try again.');
   if(sent) selectedReportIds = new Set();
   bulkEmailBusy = false; render();

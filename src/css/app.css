@@ -899,3 +899,48 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .calh-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
 .calh-close{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 12px;}
 .calh-title:focus-visible,.calh-item:focus-visible,.calh-close:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
+/* project Settings & Admin: grouped sections */
+.grphdr{margin-top:14px !important;}
+.grphdr:first-child{margin-top:0 !important;}
+.grpbody{margin:6px 0 4px 10px;padding-left:10px;border-left:2px solid var(--line);}
+.grpbody > .ddrow:first-child{margin-top:4px !important;}
+.grpbody > .ddrow{margin-top:8px !important;}
+/* ---- #(admin-modern) ---- */
+.admgroup-h{font-size:11.5px;font-weight:800;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin:16px 4px 8px;}
+.admgroup-h:first-child{margin-top:4px;}
+.admgroup{background:#fff;border:1px solid #ECEEF2;border-radius:18px;overflow:hidden;}
+.admrow{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;min-height:62px;color:var(--slate-light);}
+.admrow + .admrow{border-top:1px solid #F0F1F4;}
+.admrow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.admrow-t{font-size:14px;font-weight:700;color:var(--ink);}
+.admrow-s{font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.admrow:focus-visible{outline:2px solid var(--brand1);outline-offset:-2px;}
+.integ{border:1px solid #ECEEF2;border-radius:14px;margin-bottom:8px;overflow:hidden;background:#fff;}
+.integ.open{border-color:var(--line);}
+.integ-h{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:8px;padding:11px 12px;}
+.integ-name{flex:1;min-width:0;font-size:13.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.integ-count{font-size:11px;font-weight:700;padding:3px 8px;border-radius:8px;background:var(--line);color:var(--slate);}
+.integ-count.on{background:var(--ok-bg);color:var(--ok);}
+.integ-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid #F0F1F4;}
+.integ-dot{width:9px;height:9px;border-radius:50%;background:#C9CCD3;flex:none;}
+.integ-dot.on{background:var(--ok);}
+.integ-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:12px;color:var(--slate);}
+.integ-txt b{font-size:13px;color:var(--ink);}
+.integ-txt span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Reports page: selectable rows + selection bar */
+.pmrep{display:flex;align-items:stretch;background:#fff;border:1px solid #ECEEF2;border-radius:16px;margin-bottom:8px;overflow:hidden;}
+.pmrep.sel{border-color:var(--brand1);box-shadow:0 0 0 1px var(--brand1) inset;}
+.pmrep-chk{all:unset;box-sizing:border-box;cursor:pointer;flex:none;width:46px;display:flex;align-items:center;justify-content:center;border-right:1px solid #F0F1F4;}
+.pmrep-box{width:20px;height:20px;border-radius:6px;border:2px solid #C9CCD3;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;line-height:1;}
+.pmrep.sel .pmrep-box{background:var(--brand1);border-color:var(--brand1);}
+.pmrep-chk:focus-visible .pmrep-box{outline:2px solid var(--brand1);outline-offset:2px;}
+.pmrep-body{all:unset;box-sizing:border-box;cursor:pointer;flex:1;min-width:0;display:flex;align-items:center;gap:10px;padding:12px 14px 12px 12px;}
+.pmselbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border-radius:14px;padding:8px 8px 8px 14px;margin-bottom:10px;}
+.pmselbar span{flex:1;font-size:13px;}
+.pmselbar .ghostbtn,.pmselbar .darkbtn{width:auto;margin:0;padding:7px 12px;font-size:12.5px;}
+.pmselbar .ghostbtn{background:#fff;color:var(--ink);}
+.pmselbar-x{all:unset;cursor:pointer;width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;}
+/* Projects page: search, chips and project cards share exactly one width */
+.pmsearch,.projfilterrow,#siteListBox,#siteListBox > div,.projcard{width:100%;max-width:100%;box-sizing:border-box;margin-left:0 !important;margin-right:0 !important;}
+.pmsearch input[type=search]{-webkit-appearance:none;appearance:none;width:auto;}
+#app > .appshell > .scrollarea{overflow-x:hidden;}

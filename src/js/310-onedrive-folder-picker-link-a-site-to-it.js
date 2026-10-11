@@ -25,6 +25,8 @@ let odPickerError = null;
 // 'materials' (Material Orders auto-sync). The target decides which columns
 // get written and which page "Use this folder" sends you back to.
 let odPickerTarget = 'progress';
+let odPickerReturnHash = null; // set when the picker is opened from Admin › Integrations by project
+let siteIntegOpenId = null;
 // Admin Centre > Integrations > "Synced per site" row action dropdown —
 // same compact select-driven pattern as the per-site Sync Folder section,
 // just with an extra "Open Site Admin" option since this list spans sites.
@@ -288,6 +290,7 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
     const idx = SITES.findIndex(s=>s.id===siteId);
     if(idx>-1) SITES[idx] = row;
     odPickerStack = null;
+    if(odPickerReturnHash){ const h = odPickerReturnHash; odPickerReturnHash = null; toast('Folder linked'); go(h); return; }
     if(odPickerTarget==='materials'){
       toast("Folder linked — Material PO's will sync from there daily");
       go(`#/site/${siteId}/materialorders`);

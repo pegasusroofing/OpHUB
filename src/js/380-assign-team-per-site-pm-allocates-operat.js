@@ -38,6 +38,8 @@ async function renderAssignTeam(siteId){
   const activityLog = await __pActivity;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    <p class="ddrow ddrow-hdr grphdr" onclick="toggleSiteTeamSection('grpsetup')"><span class="icon" style="background:var(--paper);">${ophIcon('gear', 18)}</span><span class="lbl">Site set up<span class="stub" style="display:block;margin:0;font-weight:500;font-size:11.5px;">Name &amp; address, main contractor, subcontractor, multi-site, sync folder</span></span><span class="arrow">${siteTeamSectionOpen.grpsetup?'▼':'▶'}</span></p>
+    ${siteTeamSectionOpen.grpsetup ? `<div class="grpbody">
     ${isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:0;" onclick="toggleSiteTeamSection('address')"><span class="arrow">${siteTeamSectionOpen.address?'▼':'▶'}</span> Amend Site Name, Address &amp; Job Number</p>
     ${siteTeamSectionOpen.address ? `
@@ -142,6 +144,9 @@ async function renderAssignTeam(siteId){
     </div>
     ` : ''}
     ` : ''}
+    </div>` : ''}
+    <p class="ddrow ddrow-hdr grphdr" onclick="toggleSiteTeamSection('grpteam')"><span class="icon" style="background:var(--paper);">${ophIcon('admin', 18)}</span><span class="lbl">Team<span class="stub" style="display:block;margin:0;font-weight:500;font-size:11.5px;">Operatives, site managers &amp; clients</span></span><span class="arrow">${siteTeamSectionOpen.grpteam?'▼':'▶'}</span></p>
+    ${siteTeamSectionOpen.grpteam ? `<div class="grpbody">
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives to RTB</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers and Admins can always see every site; Site Managers need to be assigned like anyone else.</p>
@@ -205,6 +210,7 @@ async function renderAssignTeam(siteId){
       </div>
     `).join('') || `<div class="empty">No clients yet — invite one from Invites &amp; Users.</div>`}
     ` : ''}
+    </div>` : ''}
 
     <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
 
@@ -232,7 +238,7 @@ async function renderAssignTeam(siteId){
     </div>
   `, {title:'Settings & Admin', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, tabs:false}); }
 }
-let siteTeamSectionOpen = {address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
+let siteTeamSectionOpen = {grpsetup:false, grpteam:false, address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 // Per-subcontractor-company "Assign Operatives to X" dropdowns on Settings &
 // Admin — keyed by subcontractor_companies.id, separate from siteTeamSectionOpen
