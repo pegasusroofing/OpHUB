@@ -225,40 +225,7 @@ async function renderTodoList(siteId){
     comments.forEach(c=>{ (commentsByTodo[c.todo_id]=commentsByTodo[c.todo_id]||[]).push(c); });
     attachments.forEach(a=>{ (attachmentsByTodo[a.todo_id]=attachmentsByTodo[a.todo_id]||[]).push(a); });
   }
-  const addForm = `
-      <div class="formfield">
-        <input type="text" id="newTodoText" placeholder="What needs doing?" value="${escapeHtml(newTodoDraft)}" oninput="newTodoDraft=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo('${siteId}');}">
-      </div>
-      <div class="formfield">
-        <label class="field-label">Comments (optional)</label>
-        <textarea id="newTodoComment" placeholder="Add any notes…" oninput="newTodoCommentDraft=this.value">${escapeHtml(newTodoCommentDraft)}</textarea>
-      </div>
-      <div class="row-gap" style="align-items:flex-start;">
-        <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1 1 0;min-width:0;">
-          <label class="field-label" style="min-height:27px;">Date required by (optional)</label>
-          <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value" style="width:100%;box-sizing:border-box;">
-        </div>
-        <div class="formfield" style="flex:1 1 0;min-width:0;">
-          <label class="field-label" style="min-height:27px;">Assign to a PM (optional)</label>
-          <div class="ddrow" style="margin:0;padding-top:10px;padding-bottom:10px;box-sizing:border-box;min-height:41px;" onclick="toggleTodoAssigneePicker('new')">
-            <span class="arrow">${todoAssigneePickerOpenId==='new'?'▼':'▶'}</span> ${newTodoAssigneeDraft ? escapeHtml(nameOf(newTodoAssigneeDraft)) : 'Unassigned'}
-          </div>
-          ${todoAssigneePickerOpenId==='new' ? todoAssigneePickerListHtml('new', pmList, newTodoAssigneeDraft) : ''}
-        </div>
-      </div>
-      <div class="formfield">
-        <label class="field-label">Photos / documents (optional)</label>
-        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('newTodoFilesInput').click()">Choose file(s)</div>
-        <input type="file" id="newTodoFilesInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addNewTodoFiles(this)">
-        ${newTodoFilesDraft.length ? newTodoFilesDraft.map((f,i)=>`
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
-            <span class="stub" style="margin:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</span>
-            <span style="cursor:pointer;color:var(--warn);font-size:11.5px;font-weight:700;" onclick="removeNewTodoFile(${i})">Remove</span>
-          </div>
-        `).join('') : ''}
-      </div>
-      <button class="darkbtn" onclick="addTodo('${siteId}')">Add To Do</button>
-  `;
+  const addForm = todoAddFormHtml(`addTodo('${siteId}')`, pmList);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${todoFilter==='live'?'active':''}" onclick="todoFilter='live';render()">Live</div>
@@ -397,6 +364,45 @@ async function uploadTodoAttachment(todoId, file){
   if(!stored) return false;
   const rows = await dbInsert('todo_attachments', {todo_id:todoId, name:file.name, storage_path:stored, size:file.size||null, uploaded_by:ME.id});
   return !!rows;
+}
+// The Add To Do form - used on a project's To Do List and (with a project
+// picker on top) on the all-projects To do page from Home.
+function todoAddFormHtml(onAdd, pmList, extraTop){
+  return `
+    ${extraTop||''}
+      <div class="formfield">
+        <input type="text" id="newTodoText" placeholder="What needs doing?" value="${escapeHtml(newTodoDraft)}" oninput="newTodoDraft=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();${onAdd};}">
+      </div>
+      <div class="formfield">
+        <label class="field-label">Comments (optional)</label>
+        <textarea id="newTodoComment" placeholder="Add any notes…" oninput="newTodoCommentDraft=this.value">${escapeHtml(newTodoCommentDraft)}</textarea>
+      </div>
+      <div class="row-gap" style="align-items:flex-start;">
+        <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1 1 0;min-width:0;">
+          <label class="field-label" style="min-height:27px;">Date required by (optional)</label>
+          <input type="date" id="newTodoDate" value="${escapeHtml(newTodoDateDraft)}" oninput="newTodoDateDraft=this.value" style="width:100%;box-sizing:border-box;">
+        </div>
+        <div class="formfield" style="flex:1 1 0;min-width:0;">
+          <label class="field-label" style="min-height:27px;">Assign to a PM (optional)</label>
+          <div class="ddrow" style="margin:0;padding-top:10px;padding-bottom:10px;box-sizing:border-box;min-height:41px;" onclick="toggleTodoAssigneePicker('new')">
+            <span class="arrow">${todoAssigneePickerOpenId==='new'?'▼':'▶'}</span> ${newTodoAssigneeDraft ? escapeHtml(nameOf(newTodoAssigneeDraft)) : 'Unassigned'}
+          </div>
+          ${todoAssigneePickerOpenId==='new' ? todoAssigneePickerListHtml('new', pmList, newTodoAssigneeDraft) : ''}
+        </div>
+      </div>
+      <div class="formfield">
+        <label class="field-label">Photos / documents (optional)</label>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('newTodoFilesInput').click()">Choose file(s)</div>
+        <input type="file" id="newTodoFilesInput" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="addNewTodoFiles(this)">
+        ${newTodoFilesDraft.length ? newTodoFilesDraft.map((f,i)=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
+            <span class="stub" style="margin:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.name)}</span>
+            <span style="cursor:pointer;color:var(--warn);font-size:11.5px;font-weight:700;" onclick="removeNewTodoFile(${i})">Remove</span>
+          </div>
+        `).join('') : ''}
+      </div>
+      <button class="darkbtn" onclick="${onAdd}">Add To Do</button>
+  `;
 }
 window.addTodo = async function(siteId){
   const text = (newTodoDraft||'').trim();
