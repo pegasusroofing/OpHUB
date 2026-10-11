@@ -73,6 +73,10 @@ async function renderRoute(){
   if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
   if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='todos'){
+    if(!usesPmHome(ME)){ go('#/sites'); return; }
+    return renderPmTodos();
+  }
   if(parts[0]==='reports'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     addSiteFormOpen = false;

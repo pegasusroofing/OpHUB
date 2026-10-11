@@ -59,6 +59,17 @@ async function loadPmReports(force){
   pmReportsCache = {at:Date.now(), uid:ME.id, rows};
   return rows;
 }
+// #(pm-todos) Open to-dos for this PM across every project: on projects
+// they're the responsible PM for, plus any assigned to them elsewhere.
+let pmTodosCache = {at:0, uid:null, rows:[]};
+async function loadPmTodos(force){
+  if(!force && pmTodosCache.uid===ME.id && (Date.now()-pmTodosCache.at) < 30000) return pmTodosCache.rows;
+  const mySites = new Set(SITES.filter(x=>x.responsible_pm_id===ME.id).map(x=>x.id));
+  const all = await dbSelect('todos', 'done=eq.false&select=id,site_id,text,assigned_to,date_required_by,created_at&order=date_required_by.asc.nullslast,created_at.asc&limit=500');
+  const rows = (all||[]).filter(t=>SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id));
+  pmTodosCache = {at:Date.now(), uid:ME.id, rows};
+  return rows;
+}
 function pmReportHref(r){
   const mode = r.status==='in_progress' ? 'fill' : 'view';
   return r.site_id ? `#/site/${r.site_id}/snagging/reports/${mode}/${r.id}` : `#/general-reports/${mode}/${r.id}`;
@@ -80,6 +91,8 @@ async function renderPmHome(){
   if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
   let reports = pmReportsCache.uid===ME.id ? pmReportsCache.rows : [];
   try{ reports = await loadPmReports(); }catch(e){}
+  let todos = pmTodosCache.uid===ME.id ? pmTodosCache.rows : [];
+  try{ todos = await loadPmTodos(); }catch(e){}
   const live = SITES.filter(s=>siteStatusKey(s)==='live');
   const upcoming = SITES.filter(s=>siteStatusKey(s)==='upcoming');
   const open = reports.filter(r=>r.status==='in_progress');
@@ -110,9 +123,9 @@ async function renderPmHome(){
       </div>` : ''}
     <div class="pmstats">
       ${stat(live.length, 'Live jobs', "go('#/sites')")}
-      ${stat(open.length, 'Reports open', "go('#/reports')")}
-      ${stat(hubCount, 'In HUB', "go('#/hub')", hubCount>0)}
       ${stat(upcoming.length, 'Upcoming', "goSitesSection('upcoming')")}
+      ${stat(todos.length, 'To do', "go('#/todos')")}
+      ${stat(hubCount, 'Notifications', "go('#/hub')", hubCount>0)}
     </div>
     <button type="button" class="pmhero" onclick="go('#/sites')">
       <span class="pmhero-top"><span class="pmhero-ic">${ophIcon('projects', 22)}</span>${ophIcon('chevron', 22, 2.4)}</span>
@@ -122,7 +135,7 @@ async function renderPmHome(){
     <div class="pmtiles pmtiles-home">
       ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
-      ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}
+      ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
       ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
       ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
       ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
@@ -189,4 +202,30 @@ async function renderAllReports(){
         <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
       </button>`; }).join('') : `<div class="empty">No reports here yet.</div>`}
   `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', tabs:false});
+}
+
+async function renderPmTodos(){
+  const __gen = RENDER_GEN;
+  const app = document.getElementById('app');
+  let rows = [];
+  try{ rows = await loadPmTodos(true); }catch(e){}
+  await loadAllProfiles();
+  const today = localISODate(new Date());
+  const bySite = {};
+  rows.forEach(t=>{ (bySite[t.site_id] = bySite[t.site_id] || []).push(t); });
+  const sites = Object.keys(bySite).map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(__gen !== RENDER_GEN) return;
+  app.innerHTML = shell(`
+    ${sites.length ? sites.map(site=>`
+      <p class="sectiontitle" style="margin:14px 0 8px;">${escapeHtml(site.name)} (${bySite[site.id].length})</p>
+      ${bySite[site.id].map(t=>{
+        const over = t.date_required_by && t.date_required_by < today;
+        const due = t.date_required_by ? new Date(t.date_required_by+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
+        return `<button type="button" class="pmrow pmrow-card" onclick="go('#/site/${site.id}/todos')">
+          <span class="pmrow-txt"><span class="pmrow-t" style="white-space:normal;">${escapeHtml(t.text||'')}</span>
+          <span class="pmrow-s">${t.assigned_to ? 'Assigned to '+escapeHtml(nameOf(t.assigned_to)||'') : 'Unassigned'}</span></span>
+          ${due ? `<span class="pmbadge ${over?'open':'done'}" style="${over?'':'background:var(--line);color:var(--slate);'}">${over?'Overdue · ':''}${due}</span>` : ''}
+        </button>`; }).join('')}
+    `).join('') : `<div class="empty">Nothing to do — all clear.</div>`}
+  `, {title:'To do', subtitle:'All your projects', back:'#/home', tabs:false});
 }
