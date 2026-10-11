@@ -40,7 +40,9 @@ function ophIcon(name, size, sw){
 }
 function usesPmHome(u){ return !!u && isFullManager(u); }
 function homeHash(){ return usesPmHome(ME) ? '#/home' : '#/sites'; }
-window.goHome = function(){ go(homeHash()); };
+// The bold header line / logo goes to the project list (Andy, 11 Oct) -
+// the Home page is reached from the Home button on the Projects bottom bar.
+window.goHome = function(){ go('#/sites'); };
 
 // Report data for the home counts and the Reports page (one query, kept for
 // 30s so moving between Home and Reports doesn't re-ask the server).
