@@ -902,6 +902,17 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .calm-dots i{width:6px;height:6px;border-radius:50%;display:block;}
 .calm-day:focus-visible .calm-num{outline:2px solid var(--brand1);outline-offset:1px;}
 .calm-selhead{font-size:13px;font-weight:800;color:var(--ink);margin:4px 2px 0;}
+/* all-projects calendar: tap to expand an item */
+.calh-item{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:10px 12px;margin-bottom:6px;}
+.calh-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+.calh-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.calh-card{background:#fff;border:1.5px solid var(--brand1);border-radius:16px;padding:12px 14px;margin-bottom:8px;}
+.calh-title{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:'Sora',-apple-system,sans-serif;font-size:16px;font-weight:800;color:var(--brand1);padding-bottom:8px;margin-bottom:6px;border-bottom:1px solid #F0F1F4;text-decoration:underline;text-underline-offset:3px;}
+.calh-row{display:flex;gap:10px;font-size:13px;padding:4px 0;color:var(--ink);}
+.calh-row b{flex:0 0 80px;color:var(--slate);font-weight:700;font-size:12px;}
+.calh-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;}
+.calh-close{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 12px;}
+.calh-title:focus-visible,.calh-item:focus-visible,.calh-close:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
 </style>
 </head>
 <body>
@@ -35479,6 +35490,18 @@ let calHomePmFilterIds = [];
 let calHomeSiteFilterIds = [];
 let calHomePmFilterOpen = false;
 let calHomeSiteFilterOpen = false;
+// #(cal-home-expand) Tapping an item on the all-projects calendar opens it
+// up in place (details); tapping its title then goes to that day in the
+// project's own calendar.
+let calHomeOpenId = null;
+window.toggleCalHomeItem = function(id){ calHomeOpenId = calHomeOpenId===id ? null : id; render(); };
+window.openCalEntryOnSite = function(siteId, dStr){
+  const d = new Date(dStr+'T00:00:00');
+  calMonthCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+  calSelDate = dStr; calInlineDate = null; calEditId = null;
+  calHomeOpenId = null;
+  go('#/site/'+siteId+'/calendar');
+};
 window.toggleCalHomePmFilterId = function(id){
   calHomePmFilterIds = calHomePmFilterIds.includes(id) ? calHomePmFilterIds.filter(x=>x!==id) : [...calHomePmFilterIds, id];
   render();
@@ -35566,10 +35589,28 @@ async function renderUnifiedCalendar(){
             ${dayEvents.length ? dayEvents.map(e=>{
               const site = siteById[e.site_id];
               return `
-              <div style="cursor:pointer;margin-bottom:6px;" onclick="go('#/site/${e.site_id}/calendar')">
-                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
-                <span class="stub" style="margin:0 0 0 6px;font-size:11px;">— ${escapeHtml(site?site.name:'Unknown site')}</span>
-              </div>
+              ${calHomeOpenId===e.id ? `
+                <div class="calh-card">
+                  <button type="button" class="calh-title" onclick="openCalEntryOnSite('${e.site_id}','${e.event_date}')">
+                    <span>${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>${ophIcon('chevron', 18, 2.4)}
+                  </button>
+                  <div class="calh-row"><b>Project</b><span>${escapeHtml(site?site.name:'Unknown site')}</span></div>
+                  ${site && fullSiteAddress(site) ? `<div class="calh-row"><b>Address</b><span>${escapeHtml(fullSiteAddress(site))}</span></div>` : ''}
+                  <div class="calh-row"><b>Date</b><span>${new Date(e.event_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span></div>
+                  ${e.is_private ? `<div class="calh-row"><b>Visibility</b><span>Private — PMs/admins only</span></div>` : ''}
+                  ${e.recurrence_group_id ? `<div class="calh-row"><b>Repeats</b><span>Yes</span></div>` : ''}
+                  ${(e.reminder_recipient_ids||[]).length ? `<div class="calh-row"><b>Reminder</b><span>${e.reminder_timing==='day_of'?'Day of':e.reminder_timing==='custom'&&e.reminder_date?new Date(e.reminder_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'Day before'} → ${escapeHtml((e.reminder_recipient_ids||[]).map(id=>nameOf(id)).filter(Boolean).join(', '))}</span></div>` : ''}
+                  ${e.created_by ? `<div class="calh-row"><b>Added by</b><span>${escapeHtml(nameOf(e.created_by)||'')}</span></div>` : ''}
+                  <div class="calh-foot"><span class="stub" style="margin:0;font-size:11.5px;">Tap the title to open it in the project calendar</span><button type="button" class="calh-close" onclick="toggleCalHomeItem('${e.id}')">Close</button></div>
+                </div>
+              ` : `
+                <button type="button" class="calh-item" onclick="toggleCalHomeItem('${e.id}')">
+                  <span class="calh-dot" style="background:${e.is_private?'var(--slate-light)':'var(--brand1)'};"></span>
+                  <span class="calh-txt"><span style="font-size:13.5px;font-weight:600;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
+                  <span class="stub" style="margin:0;font-size:11.5px;">${escapeHtml(site?site.name:'Unknown site')}</span></span>
+                  <span style="color:var(--slate-light);font-size:16px;">▾</span>
+                </button>
+              `}
             `;}).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
           </div>
         </div>

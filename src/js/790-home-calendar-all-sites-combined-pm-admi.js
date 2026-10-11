@@ -9,6 +9,18 @@ let calHomePmFilterIds = [];
 let calHomeSiteFilterIds = [];
 let calHomePmFilterOpen = false;
 let calHomeSiteFilterOpen = false;
+// #(cal-home-expand) Tapping an item on the all-projects calendar opens it
+// up in place (details); tapping its title then goes to that day in the
+// project's own calendar.
+let calHomeOpenId = null;
+window.toggleCalHomeItem = function(id){ calHomeOpenId = calHomeOpenId===id ? null : id; render(); };
+window.openCalEntryOnSite = function(siteId, dStr){
+  const d = new Date(dStr+'T00:00:00');
+  calMonthCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+  calSelDate = dStr; calInlineDate = null; calEditId = null;
+  calHomeOpenId = null;
+  go('#/site/'+siteId+'/calendar');
+};
 window.toggleCalHomePmFilterId = function(id){
   calHomePmFilterIds = calHomePmFilterIds.includes(id) ? calHomePmFilterIds.filter(x=>x!==id) : [...calHomePmFilterIds, id];
   render();
@@ -96,10 +108,28 @@ async function renderUnifiedCalendar(){
             ${dayEvents.length ? dayEvents.map(e=>{
               const site = siteById[e.site_id];
               return `
-              <div style="cursor:pointer;margin-bottom:6px;" onclick="go('#/site/${e.site_id}/calendar')">
-                <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
-                <span class="stub" style="margin:0 0 0 6px;font-size:11px;">— ${escapeHtml(site?site.name:'Unknown site')}</span>
-              </div>
+              ${calHomeOpenId===e.id ? `
+                <div class="calh-card">
+                  <button type="button" class="calh-title" onclick="openCalEntryOnSite('${e.site_id}','${e.event_date}')">
+                    <span>${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>${ophIcon('chevron', 18, 2.4)}
+                  </button>
+                  <div class="calh-row"><b>Project</b><span>${escapeHtml(site?site.name:'Unknown site')}</span></div>
+                  ${site && fullSiteAddress(site) ? `<div class="calh-row"><b>Address</b><span>${escapeHtml(fullSiteAddress(site))}</span></div>` : ''}
+                  <div class="calh-row"><b>Date</b><span>${new Date(e.event_date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span></div>
+                  ${e.is_private ? `<div class="calh-row"><b>Visibility</b><span>Private — PMs/admins only</span></div>` : ''}
+                  ${e.recurrence_group_id ? `<div class="calh-row"><b>Repeats</b><span>Yes</span></div>` : ''}
+                  ${(e.reminder_recipient_ids||[]).length ? `<div class="calh-row"><b>Reminder</b><span>${e.reminder_timing==='day_of'?'Day of':e.reminder_timing==='custom'&&e.reminder_date?new Date(e.reminder_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'Day before'} → ${escapeHtml((e.reminder_recipient_ids||[]).map(id=>nameOf(id)).filter(Boolean).join(', '))}</span></div>` : ''}
+                  ${e.created_by ? `<div class="calh-row"><b>Added by</b><span>${escapeHtml(nameOf(e.created_by)||'')}</span></div>` : ''}
+                  <div class="calh-foot"><span class="stub" style="margin:0;font-size:11.5px;">Tap the title to open it in the project calendar</span><button type="button" class="calh-close" onclick="toggleCalHomeItem('${e.id}')">Close</button></div>
+                </div>
+              ` : `
+                <button type="button" class="calh-item" onclick="toggleCalHomeItem('${e.id}')">
+                  <span class="calh-dot" style="background:${e.is_private?'var(--slate-light)':'var(--brand1)'};"></span>
+                  <span class="calh-txt"><span style="font-size:13.5px;font-weight:600;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${escapeHtml(e.title)}</span>
+                  <span class="stub" style="margin:0;font-size:11.5px;">${escapeHtml(site?site.name:'Unknown site')}</span></span>
+                  <span style="color:var(--slate-light);font-size:16px;">▾</span>
+                </button>
+              `}
             `;}).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
           </div>
         </div>
