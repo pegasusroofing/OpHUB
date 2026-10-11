@@ -60,7 +60,7 @@ async function renderRamsNew(siteId){
   const copySites = Object.keys(bySite).map(id=>({id, name: siteName(id), n: bySite[id].length})).sort((x,y)=>x.name.localeCompare(y.name));
   window.RAMS_COPY_SRC = {bySite, sites: copySites};
   const html = `
-    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🦺</span><div><b>Create RAMS</b> — builds a <b>Risk Assessment</b> and a <b>Method Statement</b> as two separate documents for this job. Everything stays editable until you issue it. <span class="stub" style="display:inline;">(Trial)</span></div></div>
+    <div class="matbanner" style="background:#E7EEF9;color:#1F3B66;"><span>🦺</span><div><b>Create RAMS</b> — builds a <b>Risk Assessment</b> and a <b>Method Statement</b> as two separate documents for this job. Everything stays editable until you issue it.</div></div>
     <div class="formfield"><label class="field-label">RAMS name</label><input type="text" id="ramsNewTitle" value="${escapeHtml((site?site.name+' — ':'')+'Roof Renewal')}"></div>
     <p class="opmat-h">Start from — tick one or more</p>
     <div class="card" style="padding:4px 14px;">
@@ -452,7 +452,7 @@ async function ramsBuilderCardHtml(siteId){
   if(!isFullManager(ME)) return '';
   const builds = await dbSelect('rams_builds', 'site_id=eq.'+siteId+'&select=id,title,status,revision,updated_at&order=updated_at.desc');
   return `<div style="margin-bottom:6px;">
-    <p class="stub" style="margin:0 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents. <span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">Trial</span></p>
+    <p class="stub" style="margin:0 0 12px;">Write a Risk Assessment and Method Statement from your library, issue them as two documents.</p>
     ${(builds||[]).map(b=>`<div class="ramsbuildrow" onclick="ramsEd=null;go('#/site/${siteId}/hs/rams/build/${b.id}')"><b>${escapeHtml(b.title)}</b><span class="opmat-pill" style="${b.status==='issued'?'background:#DDF3E3;color:#1E7A3C;':'background:#EEE;color:#555;'}">${b.status==='issued'?'Issued rev '+b.revision:'Draft'}</span><span class="taskicon danger" title="Delete" style="margin-left:auto;" onclick="event.stopPropagation();ramsDeleteBuildRow('${siteId}','${b.id}')">🗑</span><span class="arrow">›</span></div>`).join('')}
     <button class="darkbtn" style="margin-top:10px;" onclick="go('#/site/${siteId}/hs/rams/new')">+ Start new RAMS</button>
   </div>`;

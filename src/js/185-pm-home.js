@@ -57,7 +57,12 @@ function usesOpHome(u){ return !!u && u.role==='operative'; }
 function homeHash(){ return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/sites'; }
 // The bold header line / logo goes to the project list (Andy, 11 Oct) -
 // the Home page is reached from the Home button on the Projects bottom bar.
-window.goHome = function(){ go('#/sites'); };
+window.goHome = function(){
+  // On the Projects list itself the header takes you up to Home instead.
+  const p = String(location.hash||'').split('?')[0];
+  if((p==='#/sites' || p==='' || p==='#') && (usesPmHome(ME) || usesOpHome(ME))){ go('#/home'); return; }
+  go('#/sites');
+};
 
 // Report data for the home counts and the Reports page (one query, kept for
 // 30s so moving between Home and Reports doesn't re-ask the server).
