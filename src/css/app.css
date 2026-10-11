@@ -861,3 +861,4 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .sitecard.projcard{height:76px;box-sizing:border-box;}
 .projcard .info .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .projcard .info .addr{white-space:nowrap !important;display:block !important;overflow:hidden;text-overflow:ellipsis;}
+.sitestart{display:inline-flex;align-items:center;gap:3px;flex:none;margin:0 !important;padding:1px 6px;border-radius:7px;background:var(--warn-bg);color:#8A4500 !important;font-size:10.5px !important;font-weight:700;white-space:nowrap;}
