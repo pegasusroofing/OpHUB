@@ -408,6 +408,45 @@ window.reportDrawingEdit = async function(id, idx){
   render();
   reportBackgroundSave();
 };
+// Re-colour numbers on the drawing to match their items' current condition
+// (see #(drawing-follows-condition) in 498). Runs shortly after a condition
+// is tapped, and again before the report is saved / completed.
+let reportDrawingColourTimer = null, reportDrawingColourRunning = null;
+function reportDrawingColoursSoon(){
+  clearTimeout(reportDrawingColourTimer);
+  reportDrawingColourTimer = setTimeout(()=>{ reportRefreshDrawingColours(true); }, 900);
+}
+async function reportRefreshDrawingColours(saveAfter){
+  if(reportDrawingColourRunning) { await reportDrawingColourRunning; }
+  const d = reportFillDraft;
+  if(!d || !reportHasDrawing(d.sections)) return false;
+  reportDrawingColourRunning = (async ()=>{
+    const a = d.answers;
+    const keys = reportDrawingKeys(d.sections, a);
+    let changed = false;
+    for(const s of (d.sections||[])) for(const it of (s.items||[])){
+      if(it.type!=='drawing' || !Array.isArray(a[it.id+'__ops'])) continue;
+      for(let i=0;i<a[it.id+'__ops'].length;i++){
+        const ops = a[it.id+'__ops'][i];
+        const orig = Array.isArray(a[it.id+'__orig']) && a[it.id+'__orig'][i];
+        if(!ops || !orig || !Array.isArray(a[it.id])) continue;
+        const copy = JSON.parse(JSON.stringify(ops));
+        if(!planRefreshKeyColours(copy, keys)) continue;
+        try{
+          const img = await planRenderOps(orig, copy);
+          if(reportFillDraft !== d) return false;
+          a[it.id][i] = img; a[it.id+'__ops'][i] = copy; changed = true;
+        }catch(e){ console.error('[drawing colours]', e); }
+      }
+    }
+    return changed;
+  })();
+  let changed = false;
+  try{ changed = await reportDrawingColourRunning; }finally{ reportDrawingColourRunning = null; }
+  if(changed && saveAfter && reportFillDraft === d){ render(); reportBackgroundSave(); }
+  return changed;
+}
+window.reportRefreshDrawingColours = reportRefreshDrawingColours;
 window.reportDrawingRemove = async function(id, idx){
   if(!reportFillDraft) return;
   if(!(await customConfirm('Remove this drawing and its marks?'))) return;
@@ -654,6 +693,7 @@ async function reportBackgroundSave(){
 }
 window.saveReportProgress = async function(siteId){
   if(reportSaveBusy || reportSubmitBusy) return;
+  clearTimeout(reportDrawingColourTimer); try{ await reportRefreshDrawingColours(false); }catch(e){}
   // No signal (or a report that only exists on this phone so far): keep it
   // here and send it later.
   if(navigator.onLine === false || ((await reportOfflineGet(reportFillDraft.submissionId))||{}).create){ if(await reportOfflineQueue('save')) return; }
@@ -740,7 +780,7 @@ function renderItemTrafficWidget(it, answers){
   const secs = reportFillDraft && reportFillDraft.sections;
   if(!itemHasTraffic(secs, it)) return '';
   const cur = answers[it.id+'__tl'] || '';
-  return `<div class="rftlrow">${trafficLevels(secs).map(l=>{ const on = cur===l.id; const hex = trafficHex(l.color); return `<button type="button" title="${escapeHtml(l.label||'')}" onclick="reportFillDraft.answers['${it.id}__tl']=${on?"''":`'${l.id}'`};render()" class="rftl" style="border-color:${hex};background:${on?hex:'transparent'};color:${on?'#fff':'var(--ink)'};"><span style="background:${on?'#fff':hex};"></span>${escapeHtml(l.label||'')}</button>`; }).join('')}</div>`;
+  return `<div class="rftlrow">${trafficLevels(secs).map(l=>{ const on = cur===l.id; const hex = trafficHex(l.color); return `<button type="button" title="${escapeHtml(l.label||'')}" onclick="reportFillDraft.answers['${it.id}__tl']=${on?"''":`'${l.id}'`};render();reportDrawingColoursSoon()" class="rftl" style="border-color:${hex};background:${on?hex:'transparent'};color:${on?'#fff':'var(--ink)'};"><span style="background:${on?'#fff':hex};"></span>${escapeHtml(l.label||'')}</button>`; }).join('')}</div>`;
 }
 let reportNoteOpen = new Set();
 window.openReportNote = function(id){ reportNoteOpen.add(id); render().then(()=>{ const el = document.getElementById('rnote_'+id); if(el) el.focus(); }); };
@@ -931,6 +971,7 @@ window.submitReport = async function(siteId){
     }
   }
   if(reportSubmitBusy || reportSaveBusy) return;
+  clearTimeout(reportDrawingColourTimer); try{ await reportRefreshDrawingColours(false); }catch(e){}
   // No signal (or a report that only exists on this phone so far): it is
   // complete as far as the person is concerned — park it and send it later.
   if(navigator.onLine === false || ((await reportOfflineGet(reportFillDraft.submissionId))||{}).create){ if(await reportOfflineQueue('complete')) return; }

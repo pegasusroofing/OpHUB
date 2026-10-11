@@ -84,7 +84,7 @@ function planMarkup(src, opts){
     // refreshed here in case the condition was changed since they were placed
     // (unless a colour was picked by hand for that number).
     const keyCol = {}; (opts.keys||[]).forEach(k=>{ if(k.color) keyCol[+k.n] = k.color; });
-    ops.forEach(o=>{ if(o.t==='num' && o.key && o.auto && keyCol[+o.n]) o.c = keyCol[+o.n]; });
+    ops.forEach(o=>{ if(o.t==='num' && o.key && o.auto!==false && keyCol[+o.n]) o.c = keyCol[+o.n]; });
     PLM = {img, W, H, ops, keys: (opts.keys||[]).slice(), tool:'num', colour:'#D32F2F', size:'m', cur:null, resolve,
            z:1, tx:0, ty:0, fit:1, ptrs:new Map(), pinch:null, pan:null, keyPick:null, nextNum:null, base:null};
     let ov = document.getElementById('plmOverlay');
@@ -120,6 +120,31 @@ function planMarkup(src, opts){
   });
 }
 window.planMarkup = planMarkup;
+// #(drawing-follows-condition) When an item's condition is changed on the
+// report, its number on the drawing changes colour too, without having to
+// open the mark-up: the numbers' colours are updated and the drawing is
+// redrawn from the clean copy. Numbers given a colour by hand are left alone.
+function planRefreshKeyColours(ops, keys){
+  const keyCol = {}; (keys||[]).forEach(k=>{ if(k.color) keyCol[+k.n] = k.color; });
+  let changed = false;
+  (ops||[]).forEach(o=>{ if(o.t==='num' && o.key && o.auto!==false && keyCol[+o.n] && o.c !== keyCol[+o.n]){ o.c = keyCol[+o.n]; changed = true; } });
+  return changed;
+}
+async function planRenderOps(src, ops){
+  const img = await plmLoadImage(src);
+  const sc = Math.min(1, PLM_MAX/Math.max(img.naturalWidth, img.naturalHeight));
+  const W = Math.round(img.naturalWidth*sc), H = Math.round(img.naturalHeight*sc);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H);
+  ctx.drawImage(img, 0, 0, W, H);
+  (ops||[]).forEach(o=>plmDrawOp(ctx, o));
+  const out = cv.toDataURL('image/jpeg', 0.86);
+  cv.width = cv.height = 0;
+  return out;
+}
+window.planRefreshKeyColours = planRefreshKeyColours;
+window.planRenderOps = planRenderOps;
 
 function plmR(){ return Math.max(9, Math.round(Math.max(PLM.W, PLM.H)/95 * PLM_SIZES[PLM.size])); }
 function plmMaxNum(){ return PLM.ops.reduce((m,o)=>o.t==='num' ? Math.max(m, +o.n||0) : m, 0); }
@@ -354,7 +379,7 @@ async function plmUp(e){
   let op = null;
   if(t==='key' && PLM.keyPick!=null){
     const kc = plmKeyColour(PLM.keyPick);
-    const auto = !!kc && !PLM.colourPicked;
+    const auto = !PLM.colourPicked; // follows the item's condition colour, now and if it changes later
     op = {t:'num', n:+PLM.keyPick, c: auto ? kc : PLM.colour, r, x:p.x, y:p.y, key:true, auto};
     // move on to the next item that hasn't been placed yet (and its colour)
     const placed = new Set(PLM.ops.filter(o=>o.t==='num').map(o=>+o.n)); placed.add(+PLM.keyPick);
