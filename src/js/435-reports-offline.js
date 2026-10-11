@@ -90,7 +90,8 @@ function reportDraftSignature(d){
     else n += JSON.stringify(v===undefined?null:v).length;
   }
   const items = (d.sections||[]).reduce((t,s)=>t+((s.items||[]).length), 0);
-  return d.submissionId+':'+k+':'+n+':'+items;
+  const lvls = (d.sections && d.sections[0] && d.sections[0].traffic && d.sections[0].traffic.levels) || [];
+  return d.submissionId+':'+k+':'+n+':'+items+':'+lvls.length;
 }
 let reportOfflineLastSig = '';
 setInterval(async ()=>{

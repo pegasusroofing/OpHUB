@@ -295,7 +295,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
   const sc = scoreSections(reportFillDraft.sections, reportFillDraft.answers);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="sectiontitle" style="margin-top:0;">${escapeHtml(reportFillDraft.template_name)}</p>
-    ${trafficKeyHtml(reportFillDraft.sections)}
+    ${trafficKeyHtml(reportFillDraft.sections, true)}
     ${sc.overall.possible>0 ? `<p class="stub" style="text-align:right;font-weight:800;color:var(--ink);">Score: ${scoreLabel(sc.overall)}</p>` : ''}
     ${(reportFillDraft.sections||[]).map(s=>`
       <div class="card">
@@ -437,8 +437,77 @@ function reportDrawingSafeCopy(out, sections){
 // on this report only (its own copy of the sections), not on the template.
 function reportHasExtraItems(d){
   d = d || reportFillDraft;
-  return !!(d && (d.sections||[]).some(s=>(s.items||[]).some(it=>it.addedOnSite)));
+  if(!d) return false;
+  const lv = (d.sections && d.sections[0] && d.sections[0].traffic && d.sections[0].traffic.levels) || [];
+  return !!(d.sectionsDirty || (d.sections||[]).some(s=>(s.items||[]).some(it=>it.addedOnSite)) || lv.some(l=>l.addedOnSite));
 }
+// #(report-add-condition) "+ Add condition" under the Condition key while
+// filling a report: pick the wording and the colour. It's added to this
+// report, and can also be added to the template for future reports.
+function reportConditionDialog(){
+  return new Promise(resolve=>{
+    const used = new Set((trafficLevels(reportFillDraft.sections)||[]).map(l=>l.color));
+    let pick = (TRAFFIC_COLOURS.find(c=>!used.has(c.k)) || TRAFFIC_COLOURS[0]).k;
+    const ov = document.createElement('div');
+    ov.id = 'rcondOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const draw = ()=>{
+      ov.innerHTML = `<div class="card" style="width:100%;max-width:380px;margin:0;">
+        <p class="sectiontitle" style="margin-top:0;">New condition</p>
+        <label class="field-label">What it means</label>
+        <input type="text" id="rcondText" placeholder="e.g. Monitor / Re-inspect in 12 months" style="margin:0 0 12px;">
+        <label class="field-label">Colour</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">${TRAFFIC_COLOURS.map(c=>`<button type="button" data-c="${c.k}" title="${c.lbl}" aria-label="${c.lbl}" style="width:34px;height:34px;border-radius:50%;padding:0;margin:0;background:${c.hex};border:3px solid ${pick===c.k?'var(--ink)':'transparent'};box-shadow:0 0 0 2px #fff inset;${used.has(c.k)?'opacity:.45;':''}"></button>`).join('')}</div>
+        <div style="display:flex;gap:8px;"><button type="button" class="ghostbtn" id="rcondCancel" style="flex:1;margin:0;">Cancel</button><button type="button" class="darkbtn" id="rcondOk" style="flex:1;margin:0;">Add</button></div>
+      </div>`;
+    };
+    const keep = ()=>{ const t = document.getElementById('rcondText'); return t ? t.value : ''; };
+    const wire = (txt)=>{
+      const t = document.getElementById('rcondText'); if(t){ t.value = txt||''; }
+      ov.querySelectorAll('button[data-c]').forEach(b=>b.onclick = ()=>{ const v = keep(); pick = b.getAttribute('data-c'); draw(); wire(v); });
+      document.getElementById('rcondCancel').onclick = ()=>{ ov.remove(); resolve(null); };
+      document.getElementById('rcondOk').onclick = ()=>{
+        const label = keep().trim();
+        if(!label){ toast('Type what this condition means.'); return; }
+        ov.remove(); resolve({label, color:pick});
+      };
+    };
+    draw(); document.body.appendChild(ov); wire('');
+    setTimeout(()=>{ const t = document.getElementById('rcondText'); if(t) t.focus(); }, 50);
+  });
+}
+window.reportAddCondition = async function(){
+  if(!reportFillDraft || !trafficLevels(reportFillDraft.sections)) return;
+  const r = await reportConditionDialog();
+  if(!r || !reportFillDraft) return;
+  const lvl = {id:'tl_'+uid(), color:r.color, label:r.label, addedOnSite:true};
+  reportFillDraft.sections[0].traffic.levels.push(lvl); reportFillDraft.sectionsDirty = true;
+  render();
+  try{ await saveReportAnswersToServer(); }catch(e){}
+  const subRow = reportFillDraft.submissionId ? await dbSelect('report_submissions', 'id=eq.'+reportFillDraft.submissionId+'&select=template_id&limit=1') : [];
+  const tplId = subRow[0] && subRow[0].template_id;
+  if(tplId && await customConfirm('Also add "'+r.label+'" to the template, so future reports have it too?')){
+    try{
+      const rows = await dbSelectNet('report_templates', 'id=eq.'+tplId+'&select=sections&limit=1');
+      const secs = rows[0] && rows[0].sections;
+      if(secs && secs[0] && secs[0].traffic && Array.isArray(secs[0].traffic.levels)){
+        secs[0].traffic.levels.push({id:lvl.id, color:lvl.color, label:lvl.label});
+        const ok = await dbUpdate('report_templates', tplId, {sections: secs});
+        if(ok) toast('Added to the template too');
+      }
+    }catch(e){ toast('Could not update the template — it is still on this report.'); }
+  }
+};
+window.reportRemoveCondition = async function(id){
+  if(!reportFillDraft) return;
+  const lv = reportFillDraft.sections[0].traffic.levels;
+  const l = lv.find(x=>x.id===id); if(!l) return;
+  const usedBy = Object.keys(reportFillDraft.answers||{}).filter(k=>/__tl$/.test(k) && reportFillDraft.answers[k]===id).length;
+  if(!(await customConfirm('Remove "'+(l.label||'')+'"?'+(usedBy ? ' '+usedBy+' item'+(usedBy>1?'s are':' is')+' set to it and will be cleared.' : '')))) return;
+  Object.keys(reportFillDraft.answers||{}).forEach(k=>{ if(/__tl$/.test(k) && reportFillDraft.answers[k]===id) reportFillDraft.answers[k] = ''; });
+  reportFillDraft.sections[0].traffic.levels = lv.filter(x=>x.id!==id); reportFillDraft.sectionsDirty = true;
+  render();
+};
 function reportCanAddItem(s){
   const items = (s && s.items) || [];
   const last = items[items.length-1];

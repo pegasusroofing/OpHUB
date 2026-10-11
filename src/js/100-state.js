@@ -145,6 +145,7 @@ function autofillValue(kind, site){
 const TRAFFIC_COLOURS = [
   {k:'red', lbl:'Red', hex:'#D32F2F'}, {k:'orange', lbl:'Orange', hex:'#EF7D00'}, {k:'yellow', lbl:'Yellow', hex:'#E0B400'},
   {k:'purple', lbl:'Purple', hex:'#7B3FB5'}, {k:'blue', lbl:'Blue', hex:'#2F6FD9'}, {k:'green', lbl:'Green', hex:'#1F9D52'}, {k:'grey', lbl:'Grey', hex:'#76767A'},
+  {k:'pink', lbl:'Pink', hex:'#D63384'}, {k:'teal', lbl:'Teal', hex:'#0F9D9A'}, {k:'brown', lbl:'Brown', hex:'#8D5524'}, {k:'black', lbl:'Black', hex:'#111111'},
 ];
 function trafficHex(k){ const c = TRAFFIC_COLOURS.find(c=>c.k===k); return c ? c.hex : '#76767A'; }
 function trafficDefaultLevels(){ return [
@@ -167,9 +168,9 @@ function itemTrafficLevel(sections, it, answers){
   const id = answers && answers[it.id+'__tl'];
   return id ? (trafficLevels(sections).find(l=>l.id===id) || null) : null;
 }
-function trafficKeyHtml(sections){
+function trafficKeyHtml(sections, canAdd){
   const lv = trafficLevels(sections); if(!lv) return '';
-  return `<div class="card" style="margin-bottom:12px;"><p class="sectiontitle" style="margin-top:0;">Condition key</p>${lv.map(l=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><span style="width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:${trafficHex(l.color)};"></span><span style="font-size:13px;">${escapeHtml(l.label||'')}</span></div>`).join('')}</div>`;
+  return `<div class="card" style="margin-bottom:12px;"><p class="sectiontitle" style="margin-top:0;">Condition key</p>${lv.map(l=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><span style="width:16px;height:16px;border-radius:50%;flex:0 0 16px;background:${trafficHex(l.color)};"></span><span style="font-size:13px;flex:1;">${escapeHtml(l.label||'')}</span>${canAdd && l.addedOnSite ? `<span onclick="reportRemoveCondition('${l.id}')" title="Remove" style="cursor:pointer;color:var(--warn);font-size:13px;padding:2px 6px;">✕</span>` : ''}</div>`).join('')}${canAdd ? `<button type="button" class="ghostbtn" style="margin:8px 0 0;padding:7px 10px;font-size:12px;" onclick="reportAddCondition()">+ Add condition</button>` : ''}</div>`;
 }
 function reportListsSection(sections, sec, answers){
   if(templateShowsUnanswered(sections)) return true;
