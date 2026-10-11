@@ -119,7 +119,7 @@ async function renderPmHome(){
       <span class="pmhero-t">Live projects</span>
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
-    <div class="pmtiles">
+    <div class="pmtiles pmtiles-home">
       ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}

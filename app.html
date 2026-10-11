@@ -861,6 +861,13 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .pmsearch input{border:0 !important;outline:none;flex:1;min-width:0;font-family:inherit;font-size:14px;background:transparent !important;padding:0 !important;margin:0 !important;height:44px;box-shadow:none !important;}
 #siteListBox > div > .sitecard{margin-bottom:10px;}
 .pmchips-tight{flex-wrap:nowrap;gap:6px;min-width:0;}.pmchips-tight .pmchip{height:32px;padding:0 10px;font-size:12px;white-space:nowrap;}
+/* Home tiles at 0.9x (Andy, 11 Oct) */
+.pmtiles-home{gap:9px;}
+.pmtiles-home .pmtile{padding:13.5px;gap:16px;border-radius:18px;}
+.pmtiles-home .pmtile-ic{width:38px;height:38px;border-radius:12px;}
+.pmtiles-home .pmtile-ic .ophic{width:19px;height:19px;}
+.pmtiles-home .pmtile-t{font-size:13px;}
+.pmtiles-home .pmtile-s{font-size:10.5px;}
 </style>
 </head>
 <body>
@@ -5135,7 +5142,7 @@ async function renderPmHome(){
       <span class="pmhero-t">Live projects</span>
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
-    <div class="pmtiles">
+    <div class="pmtiles pmtiles-home">
       ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}
