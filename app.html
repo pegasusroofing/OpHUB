@@ -5502,7 +5502,7 @@ async function renderOpHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
-      <div style="grid-column:1 / -1;display:grid;">${tile('chat', 'blue', 'Messages &amp; tasks', [outstanding ? outstanding+' to sign or do' : 'Nothing to sign', unreadN ? unreadN+' new message'+(unreadN===1?'':'s') : 'no new messages'].join(' · '), "go('#/inbox')", outstanding+unreadN)}</div>
+      ${tile('chat', 'blue', 'Messages &amp; tasks', [outstanding ? outstanding+' to sign or do' : 'Nothing to sign', unreadN ? unreadN+' new message'+(unreadN===1?'':'s') : 'no new messages'].join(' · '), "go('#/inbox')", outstanding+unreadN)}
       ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
       ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}
     </div>
