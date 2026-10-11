@@ -778,6 +778,85 @@ html.app-gap #app > .appshell > .tabbar{padding-bottom:6px;border-bottom:0;}
 /* note / photo buttons under a question: smaller */
 .rfitem .row-gap > .ghostbtn{padding:6px 6px !important;font-size:11px !important;}
 .rfitem .rdtick{margin:-2px 0 4px;}
+
+/* ================= #(modern-look) 2026-10-11 =================
+   A lighter, cleaner finish across the app: softer grey background, rounder
+   cards and tiles with hairline borders instead of heavy outlines, line
+   icons in the bottom bars, and the new PM home / Reports pages. Only looks
+   change here - nothing about where things are or how they work. */
+:root{
+  --paper:#F3F4F6;
+  --line:#E6E8EC;
+  --shadow-card:0 1px 2px rgba(20,24,29,.04);
+}
+.appbar{border-bottom:1px solid var(--line);}
+.card{border-radius:18px;border-color:#ECEEF2;}
+.sitecard{border-radius:18px;border-color:#ECEEF2;padding:12px 14px;box-shadow:var(--shadow-card);}
+.sitecard .swatch{border-radius:14px;}
+.sitecard .info .name{font-size:14.5px;}
+.sitecard .info .addr{font-size:11.5px;}
+.tile{border-radius:18px;border-width:1px;border-color:#ECEEF2;}
+.tilegrid .tile{border-color:#ECEEF2;}
+.ddrow{border-radius:14px;border-color:#ECEEF2;padding:12px 14px;font-size:13.5px;font-weight:600;box-shadow:none;}
+.ddrow-hdr .icon{border-radius:11px;}
+input[type=text],input[type=email],input[type=tel],input[type=number],input[type=date],input[type=password],select,textarea{border-radius:12px;}
+.ghostbtn{border-width:1px;border-radius:12px;}
+.primarybtn,.darkbtn{border-radius:12px;}
+/* bottom bars: line icons, clearer labels */
+.tabbar{border-top:1px solid #ECEEF2;align-items:center;padding-top:6px;}
+.tb{font-size:10px;font-weight:600;color:#6B7080;gap:3px;padding:4px 6px;}
+.tb.active{color:var(--brand1);font-weight:700;}
+.tabicon{display:flex;align-items:center;justify-content:center;height:22px;font-size:13.5px;}
+.tabicon .ophic{display:block;}
+.tb.tb-emph{min-width:50px;height:50px;padding:0 10px;margin:-2px 0 0;border-radius:16px;justify-content:center;background:var(--ink);border-color:var(--ink);color:#fff;font-size:9px;}
+.tb.tb-emph .tabicon{font-size:17px;height:auto;}
+.tb.tb-emph.active{border-color:var(--brand1);}
+/* ---- PM home ---- */
+.pmgreet{margin:2px 2px 14px;}
+.pmgreet-date{font-size:12.5px;color:var(--slate);font-weight:600;}
+.pmgreet-hi{font-family:'Sora',-apple-system,sans-serif;font-size:21px;font-weight:800;letter-spacing:-.2px;color:var(--ink);}
+.pmstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px;}
+.pmstat{all:unset;box-sizing:border-box;cursor:pointer;background:#fff;border:1px solid #ECEEF2;border-radius:16px;padding:11px 10px;display:flex;flex-direction:column;gap:2px;min-width:0;}
+.pmstat b{font-family:'Sora',-apple-system,sans-serif;font-size:21px;font-weight:800;color:var(--ink);line-height:1.15;}
+.pmstat b.hot{color:var(--red);}
+.pmstat span{font-size:10.5px;color:var(--slate);font-weight:600;line-height:1.25;}
+.pmhero{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;flex-direction:column;gap:4px;background:var(--brand1);color:var(--brand1-text);border-radius:22px;padding:18px 20px;margin-bottom:12px;}
+.pmhero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.pmhero-ic{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+.pmhero-t{font-family:'Sora',-apple-system,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.2px;}
+.pmhero-s{font-size:13px;font-weight:500;opacity:.92;}
+.pmtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.pmtile{all:unset;box-sizing:border-box;cursor:pointer;background:#fff;border:1px solid #ECEEF2;border-radius:20px;padding:15px;display:flex;flex-direction:column;gap:18px;min-width:0;}
+.pmtile-sm{gap:0;padding:13px 14px;border-radius:16px;}
+.pmtile-ic{position:relative;width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;}
+.pmtile-badge{position:absolute;top:-6px;right:-8px;}
+.pmtile-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.pmtile-t{font-size:14.5px;font-weight:800;color:var(--ink);}
+.pmtile-s{font-size:11.5px;color:var(--slate);font-weight:500;}
+.pmtint-blue{background:#EEF3FD;color:#2457C5;}
+.pmtint-orange{background:#FDF1E6;color:#B35A00;}
+.pmtint-green{background:#EAF6EF;color:#17804A;}
+.pmtint-purple{background:#F3EEFA;color:#6B3FA8;}
+.pmtint-grey{background:#F1F2F4;color:var(--ink);}
+.pmtint-teal{background:#E7F5F5;color:#0E7F7C;}
+.pmrow{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid #F0F1F4;color:var(--slate-light);}
+.card .pmrow:first-of-type{border-top:0;}
+.pmrow-card,.pmgreet ~ .pmrow{background:#fff;border:1px solid #ECEEF2;border-radius:16px;padding:13px 14px;margin-bottom:8px;}
+.pmrow-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.pmrow-t{font-size:14px;font-weight:700;color:var(--ink);}
+.pmrow-s{font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pmdot{width:10px;height:10px;border-radius:50%;flex:none;}
+.pmchips{display:flex;gap:8px;margin:16px 0 10px;flex-wrap:wrap;}
+.pmchip{all:unset;box-sizing:border-box;cursor:pointer;height:34px;padding:0 13px;border-radius:999px;font-size:12.5px;font-weight:700;background:#fff;color:var(--ink);border:1px solid var(--line);display:inline-flex;align-items:center;}
+.pmchip.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.pmprimary{all:unset;box-sizing:border-box;cursor:pointer;width:100%;height:50px;border-radius:16px;background:var(--brand1);color:var(--brand1-text);font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.pmbadge{flex:none;font-size:10.5px;font-weight:700;padding:5px 8px;border-radius:8px;}
+.pmbadge.open{background:var(--warn-bg);color:#8A4500;}
+.pmbadge.done{background:var(--ok-bg);color:#146B3E;}
+.pmstat:focus-visible,.pmhero:focus-visible,.pmtile:focus-visible,.pmrow:focus-visible,.pmchip:focus-visible,.pmprimary:focus-visible{outline:2px solid var(--brand1);outline-offset:2px;}
+.tile .icon{width:38px;height:38px;border-radius:12px;}
+.hstiles .tile .icon,.admintiles .tile .icon{width:34px;height:34px;border-radius:11px;}
+.tile .icon .ophic{width:20px;height:20px;}
 </style>
 </head>
 <body>
@@ -3687,14 +3766,14 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;cursor:pointer;" onclick="go('#/sites')"><span style="color:var(--brand1);">Op</span><span style="color:var(--ink);">HUB</span>${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
+            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;cursor:pointer;" onclick="goHome()"><span style="color:var(--brand1);">Op</span><span style="color:var(--ink);">HUB</span>${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <div style="flex:0 0 72px;display:flex;align-items:center;justify-content:center;">
-              <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:72px;height:72px;flex:none;cursor:pointer;" onclick="go('#/sites')">
+              <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:72px;height:72px;flex:none;cursor:pointer;" onclick="goHome()">
             </div>
-            <div style="flex:1;text-align:center;cursor:pointer;" onclick="go('#/sites')">
+            <div style="flex:1;text-align:center;cursor:pointer;" onclick="goHome()">
               ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:'Sora',-apple-system,sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
               <div style="width:28px;height:2.5px;background:var(--line);margin:3px auto;"></div>` : ''}
               <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
@@ -3708,10 +3787,10 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="go('#/sites')">`}
+          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
-            ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="go('#/sites')">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
-            <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="go('#/sites')">${escapeHtml(opts.title||'')}</h2>
+            ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
+            <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
@@ -3721,7 +3800,7 @@ function shell(innerHtml, opts){
         `}
       </div>
       <div class="scrollarea"${opts.tightBottom ? ' style="padding-bottom:24px;"' : ''}>${innerHtml}</div>
-      ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd, opts.homeBarOutstanding) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
+      ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd, opts.homeBarOutstanding, opts.homeBarActive) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
 }
@@ -3734,15 +3813,15 @@ function tabbar(siteId, active){
   // out to the overall Your Projects home instead of doing nothing — from
   // any other tab/subfolder it still takes you to this site's home page.
   const tabs = [
-    {k:'home', ic:'🏠', lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
-    {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
-    {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
-    {k:'messages', ic:'💬', lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
+    {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
+    {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
+    {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
     // personal Account settings (operatives — Settings & Admin is gated to
     // managers/admins anyway) instead of opening a separate pop-out/page of
     // links first.
-    {k:'more', ic:'⚙️', lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
+    {k:'more', ic:ophIcon('gear'), lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
@@ -3769,7 +3848,7 @@ function tabbar(siteId, active){
 // for "me" specifically, so the badge count and the page contents can never
 // drift apart again.
 let homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
-function isSitesRoute(){ const p = parseRoute(); return !p.length || p[0]==='sites'; }
+function isSitesRoute(){ const p = parseRoute(); return !p.length || p[0]==='sites' || p[0]==='home'; }
 function refreshHomeExtras(){
   if(!ME || !SESSION || navigator.onLine === false) return;
   if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
@@ -3802,29 +3881,28 @@ async function computeMyOutstandingCount(){
   const {rows} = await computeOutstandingRows(ME.id);
   return rows.reduce((sum,r)=>sum+r.items.length, 0);
 }
-function homeBottomBar(canAdd, outstandingCount){
-  const items = [
-    {ic:'📝', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
+function homeBottomBar(canAdd, outstandingCount, active){
+  // #(pm-home) PMs/admins: Home · Projects · + Add · Reports · Admin. HUB,
+  // Calendar and Deliveries now live as tiles on the Home page; the HUB count
+  // shows on the Home button so it's never missed.
+  const items = canAdd ? [
+    {k:'home', ic:ophIcon('home'), lbl:'Home', onclick:"go('#/home')", badge: outstandingCount||0},
+    {k:'projects', ic:ophIcon('projects'), lbl:'Projects', onclick:"go('#/sites')"},
+    {k:'add', ic:ophIcon('plus', 22, 2.4), lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"},
+    {k:'reports', ic:ophIcon('reports'), lbl:'Reports', onclick:"go('#/reports')"},
+    {k:'admin', ic:ophIcon('admin'), lbl:'Admin', onclick:"go('#/team')"},
+  ] : [
+    {k:'outstanding', ic:ophIcon('list'), lbl:'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
     // Inbox is the operative team's messages feed — a client shouldn't see
-    // it at all (they're not part of that audience), so it's excluded here
-    // even though clients otherwise fall into the same !canAdd bucket as
-    // operatives. The route itself is gated the same way below.
-    ...(!canAdd && !isClient(ME) ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
-    ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
-    // Company Dashboard now lives in Settings; this slot is the Delivery Schedule.
-    ...(canAdd ? [{ic:'🚚', lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')"}] : []),
-    // Styled in the company's theme colour (brand1) rather than the plain
-    // paper/border look the other tabs use, so it reads as the primary
-    // action in the row.
-    ...(canAdd ? [{ic:'+', lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"}] : []),
-    ...(canAdd ? [{ic:'📅', lbl:'Calendar', onclick:"go('#/calendar')"}] : []),
-    // Managers land straight in the Admin Centre — no intermediate page.
-    // Operatives (no Admin Centre) go to the lighter Account page instead.
-    {ic:'⚙️', lbl: canAdd ? 'Admin' : 'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
+    // it at all (they're not part of that audience). The route itself is
+    // gated the same way.
+    ...(!isClient(ME) ? [{k:'inbox', ic:ophIcon('chat'), lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
+    {k:'mydash', ic:ophIcon('tools'), lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"},
+    {k:'settings', ic:ophIcon('gear'), lbl:'Settings', onclick:"go('#/account')"},
   ];
   return `<div class="tabbar">${items.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''}" style="position:relative;${t.branded?'background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);':''}" onclick="${t.onclick}">
-      <span class="tabicon">${t.ic}</span>${t.lbl}
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" style="position:relative;${t.branded?'background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);':''}" onclick="${t.onclick}">
+      <span class="tabicon">${t.ic}</span>${t.emph?'':t.lbl}
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;
 }
@@ -3836,6 +3914,8 @@ window.openInvitesFromHome = function(){
 };
 window.openHomeAddProject = function(){
   addSiteFormOpen = true;
+  const p = parseRoute();
+  if(p.length && p[0]!=='sites'){ go('#/sites'); return; }
   render();
   requestAnimationFrame(()=>appScrollTo(0));
 };
@@ -4081,7 +4161,7 @@ window.doSignIn = async function(){
     SITES = sites;
     registerPushNotifications();
     saveBootSnapshot(); warmUpLibs();
-    go('#/sites');
+    go(homeHash());
   }catch(e){
     authError = 'Something went wrong signing you in — check your connection and try again.';
   }finally{
@@ -4181,7 +4261,7 @@ window.doJoin = async function(inviteId){
         }
       }
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
-      go('#/sites');
+      go(homeHash());
     } else {
       joinInfo = undefined;
       location.hash = '';
@@ -4263,7 +4343,7 @@ window.saveCompanySetup = async function(){
     if(!row){ setupError='Could not save — try again.'; renderCompanySetup(); return; }
     await loadOrg();
     toast('Company set up');
-    go('#/sites');
+    go(homeHash());
   }catch(err){
     // A network hiccup mid-upload used to leave this stuck on "Saving…"
     // forever with no way to retry short of reloading the whole app.
@@ -4743,13 +4823,6 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
-    ${canAdd ? `
-      <div class="sitecard" style="cursor:pointer;margin-top:16px;" onclick="generalReportsBackHash='#/sites';go('#/general-reports')">
-        <div style="font-size:22px;flex:0 0 auto;">📋</div>
-        <div class="info"><div class="name">Inspections &amp; Reports</div></div>
-        <div style="color:var(--slate);font-size:20px;">›</div>
-      </div>
-    ` : ''}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
@@ -4758,7 +4831,7 @@ async function renderSites(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true});
+  `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, homeBarActive:'projects', centerHeader:true, showRefresh:true});
     if(appSearchOpen) appSearchRender(); }
   refreshHomeExtras();
   if(pendingSiteScrollSection){
@@ -4926,6 +4999,196 @@ window.deleteSite = async function(siteId, name){
   // already succeeded. Call render() directly instead of relying on go().
   render();
 };
+
+/* ================= #(pm-home) PM / admin home + all-reports page ================= */
+// Project managers and admins land on a home page of tiles (Live projects,
+// Reports & surveys, HUB, Calendar, Deliveries, Admin, Dashboard) instead of
+// straight on the project list, so the day's three jobs - running projects,
+// paperwork, running the company - are kept apart. The project list is
+// still #/sites; the home is #/home (and the default route for PMs/admins).
+// Operatives, site managers and clients keep the project list as home.
+
+// Line icons (stroke = currentColor) used by the bottom bars and the tiles,
+// replacing the old emoji.
+const OPH_ICONS = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  projects: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  reports: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
+  admin: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+  truck: '<path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>',
+  tools: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+  list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
+  chevron: '<path d="M9 6l6 6-6 6"/>',
+  shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
+  box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+  building: '<rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 21v-3h4v3"/>',
+  check: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M10 2h4"/>',
+};
+function ophIcon(name, size, sw){
+  const p = OPH_ICONS[name] || OPH_ICONS.list;
+  const s = size || 22;
+  return `<svg class="ophic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+}
+function usesPmHome(u){ return !!u && isFullManager(u); }
+function homeHash(){ return usesPmHome(ME) ? '#/home' : '#/sites'; }
+window.goHome = function(){ go(homeHash()); };
+
+// Report data for the home counts and the Reports page (one query, kept for
+// 30s so moving between Home and Reports doesn't re-ask the server).
+let pmReportsCache = {at:0, uid:null, rows:[]};
+async function loadPmReports(force){
+  if(!force && pmReportsCache.uid===ME.id && (Date.now()-pmReportsCache.at) < 30000) return pmReportsCache.rows;
+  const [subs, tpls] = await Promise.all([
+    dbSelect('report_submissions', 'org_id=eq.'+ME.org_id+'&select=id,site_id,template_id,template_name,general_label,status,submitted_at,submitted_by&order=submitted_at.desc&limit=300'),
+    dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&select=id,is_daily_briefing,is_loler_inspection'),
+  ]);
+  // Daily briefings and LOLER inspections have their own homes (H&S) - leave them out here.
+  const skip = new Set((tpls||[]).filter(t=>t.is_daily_briefing || t.is_loler_inspection).map(t=>t.id));
+  const rows = (subs||[]).filter(s=>!skip.has(s.template_id));
+  pmReportsCache = {at:Date.now(), uid:ME.id, rows};
+  return rows;
+}
+function pmReportHref(r){
+  const mode = r.status==='in_progress' ? 'fill' : 'view';
+  return r.site_id ? `#/site/${r.site_id}/snagging/reports/${mode}/${r.id}` : `#/general-reports/${mode}/${r.id}`;
+}
+function pmReportWhere(r){
+  if(r.site_id){ const s = SITES.find(x=>x.id===r.site_id); return s ? s.name : 'Project'; }
+  return r.general_label || 'General survey';
+}
+window.openPmReport = function(id){
+  const r = pmReportsCache.rows.find(x=>x.id===id); if(!r) return;
+  if(!r.site_id) generalReportsBackHash = '#/reports';
+  go(pmReportHref(r));
+};
+
+async function renderPmHome(){
+  const __gen = RENDER_GEN;
+  const app = document.getElementById('app');
+  if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
+  if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
+  let reports = pmReportsCache.uid===ME.id ? pmReportsCache.rows : [];
+  try{ reports = await loadPmReports(); }catch(e){}
+  const live = SITES.filter(s=>siteStatusKey(s)==='live');
+  const upcoming = SITES.filter(s=>siteStatusKey(s)==='upcoming');
+  const open = reports.filter(r=>r.status==='in_progress');
+  const mine = open.filter(r=>r.submitted_by===ME.id).slice(0,2);
+  const hubCount = homeExtras.count || 0;
+  const onboarding = homeExtras.onboarding;
+  const now = new Date();
+  const hr = now.getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const first = String(ME.name||'').trim().split(/\s+/)[0] || '';
+  const dateTxt = now.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'});
+  const stat = (n, lbl, onclick, hot) => `<button type="button" class="pmstat" onclick="${onclick}"><b${hot?' class="hot"':''}>${n}</b><span>${lbl}</span></button>`;
+  const tile = (icon, tint, title, sub, onclick, badge) => `
+    <button type="button" class="pmtile" onclick="${onclick}">
+      <span class="pmtile-ic pmtint-${tint}">${ophIcon(icon, 21)}${badge?`<span class="badge-count pmtile-badge">${badge}</span>`:''}</span>
+      <span class="pmtile-txt"><span class="pmtile-t">${title}</span><span class="pmtile-s">${sub}</span></span>
+    </button>`;
+  if(__gen !== RENDER_GEN) return;
+  app.innerHTML = shell(`
+    <div class="pmgreet">
+      <div class="pmgreet-date">${escapeHtml(dateTxt)}</div>
+      <div class="pmgreet-hi">${greet}${first ? ', '+escapeHtml(first) : ''}</div>
+    </div>
+    ${onboarding && !onboarding.allDone ? `
+      <div class="card" style="margin-bottom:14px;cursor:pointer;border-color:var(--warn);background:var(--warn-bg);" onclick="go('#/onboarding-checklist')">
+        <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
+        <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
+      </div>` : ''}
+    <div class="pmstats">
+      ${stat(live.length, 'Live jobs', "go('#/sites')")}
+      ${stat(open.length, 'Reports open', "go('#/reports')")}
+      ${stat(hubCount, 'In HUB', "go('#/hub')", hubCount>0)}
+      ${stat(upcoming.length, 'Upcoming', "goSitesSection('upcoming')")}
+    </div>
+    <button type="button" class="pmhero" onclick="go('#/sites')">
+      <span class="pmhero-top"><span class="pmhero-ic">${ophIcon('projects', 22)}</span>${ophIcon('chevron', 22, 2.4)}</span>
+      <span class="pmhero-t">Live projects</span>
+      <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
+    </button>
+    <div class="pmtiles">
+      ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
+      ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}
+      ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
+      ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
+      ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
+      ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
+    </div>
+    ${mine.length ? `
+      <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>
+      ${mine.map(r=>`
+        <button type="button" class="pmrow" onclick="openPmReport('${r.id}')">
+          <span class="pmdot" style="background:var(--warn);"></span>
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span><span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · in progress</span></span>
+          ${ophIcon('chevron', 18, 2.2)}
+        </button>`).join('')}
+    ` : ''}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:22px;">
+      <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
+      <span class="stub" style="margin:0;text-align:right;">${escapeHtml(personRoleLabel(ME))}</span>
+    </div>
+    <div style="text-align:center;margin-top:8px;">
+      <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
+    </div>
+  `, {homeBar:true, homeBarCanAdd:true, homeBarOutstanding:hubCount, homeBarActive:'home', centerHeader:true, showRefresh:true});
+  if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
+  refreshHomeExtras();
+}
+
+let pmReportsTab = 'open';
+let pmReportsStartOpen = false;
+window.setPmReportsTab = function(t){ pmReportsTab = t; render(); };
+window.togglePmReportsStart = function(){ pmReportsStartOpen = !pmReportsStartOpen; render(); };
+window.pmStartReportAt = function(siteId){
+  pmReportsStartOpen = false;
+  if(!siteId){ generalReportsBackHash = '#/reports'; go('#/general-reports'); return; }
+  go(`#/site/${siteId}/snagging/reports`);
+};
+async function renderAllReports(){
+  const __gen = RENDER_GEN;
+  const app = document.getElementById('app');
+  let rows = [];
+  try{ rows = await loadPmReports(true); }catch(e){}
+  await loadAllProfiles();
+  const counts = {open: rows.filter(r=>r.status==='in_progress').length, done: rows.filter(r=>r.status!=='in_progress').length, all: rows.length};
+  const shown = rows.filter(r=>pmReportsTab==='all' || (pmReportsTab==='open') === (r.status==='in_progress'));
+  const live = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const chip = (k, lbl) => `<button type="button" class="pmchip ${pmReportsTab===k?'on':''}" onclick="setPmReportsTab('${k}')">${lbl} (${counts[k]})</button>`;
+  if(__gen !== RENDER_GEN) return;
+  app.innerHTML = shell(`
+    <button type="button" class="pmprimary" onclick="togglePmReportsStart()">${ophIcon('plus', 20, 2.4)} Start a report</button>
+    ${pmReportsStartOpen ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="sectiontitle" style="margin-top:0;">Which project is it for?</p>
+        <button type="button" class="pmrow" onclick="pmStartReportAt(null)"><span class="pmrow-txt"><span class="pmrow-t">General survey</span><span class="pmrow-s">Not linked to a project</span></span>${ophIcon('chevron', 18, 2.2)}</button>
+        ${live.map(s=>`<button type="button" class="pmrow" onclick="pmStartReportAt('${s.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(fullSiteAddress(s)||'')}</span></span>${ophIcon('chevron', 18, 2.2)}</button>`).join('')}
+      </div>` : ''}
+    <div class="pmtiles" style="margin-top:12px;">
+      <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
+      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
+    </div>
+    <div class="pmchips">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
+    ${shown.length ? shown.map(r=>{
+      const isOpen = r.status==='in_progress';
+      return `<button type="button" class="pmrow pmrow-card" onclick="openPmReport('${r.id}')">
+        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(r.template_name||'Report')}</span>
+        <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
+        <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
+      </button>`; }).join('') : `<div class="empty">No reports here yet.</div>`}
+  `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', homeBar:true, homeBarCanAdd:true, homeBarOutstanding:homeExtras.count||0, homeBarActive:'reports'});
+}
 
 /* ================= OUTSTANDING TASKS (Home bottom bar — everyone, scoped to their own sites) ================= */
 // A lighter, personal, site-by-site version of the admin Dashboard's
@@ -8709,11 +8972,11 @@ async function renderSiteHome(siteId){
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="tilegrid" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/schedule')">
-          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
           <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/hs')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/snagging/list')">
@@ -8865,24 +9128,24 @@ async function renderSiteHome(siteId){
       // end with for this viewer).
       const regularTiles = [
         `<div class="tile" onclick="go('#/site/${siteId}/schedule')">
-          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
           <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
           ${isManager(ME) ? (hsOperativeGap?`<span class="badge-count" title="An operative still needs to sign RAMS/COSHH">!</span>`:'') : (pendingRams?`<span class="badge-count">${pendingRams}</span>`:'')}
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
-          <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
+          <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">${ophIcon('pencil', 20)}</div>
           <div class="lbl">Drawings, Spec's &amp; Programme</div><div class="sub">View &amp; upload</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/materials')">
-          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">${ophIcon('box', 20)}</div>
           <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/snagging')">
-          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">${ophIcon('reports', 20)}</div>
           <div class="lbl">${escapeHtml(snaggingFolderLabel())}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
@@ -8892,7 +9155,7 @@ async function renderSiteHome(siteId){
       // unshifted in front of it, bumping it to third whenever a site was
       // switched on as main contractor. It slots in straight after instead.
       if(site.acting_as_main_contractor) regularTiles.splice(1, 0, `<div class="tile" onclick="go('#/site/${siteId}/mc')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('building', 20)}</div>
           <div class="lbl">Main Contractor</div><div class="sub">${mcAreaCount} area${mcAreaCount===1?'':'s'}</div>
         </div>`);
       // Messages/Inbox is reached via the bottom bar only now — no separate
@@ -8903,7 +9166,7 @@ async function renderSiteHome(siteId){
           ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
         </div>`);
       if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
-          <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+          <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">${ophIcon('check', 20)}</div>
           <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
         </div>`);
       // Operatives no longer gets its own Home tile — it's reached via the
@@ -8912,7 +9175,7 @@ async function renderSiteHome(siteId){
       // Calendar lands 2nd-to-last, computed off the real final tile count
       // (Price/To Do List are conditional above) rather than a fixed index.
       regularTiles.splice(Math.max(0, regularTiles.length-1), 0, `<div class="tile" onclick="go('#/site/${siteId}/calendar')">
-          <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+          <div class="icon" style="background:#E4EEFB;color:var(--blue);">${ophIcon('calendar', 20)}</div>
           <div class="lbl">Calendar</div><div class="sub">Key dates</div>
         </div>`);
       if(regularTiles.length % 2 === 1){
@@ -8928,7 +9191,7 @@ async function renderSiteHome(siteId){
       return `
     <div class="tilegrid hometiles" style="margin-bottom:-16px;">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
-        <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
+        <div class="icon" style="background:var(--red);color:#fff;">${ophIcon('clock', 20)}</div>
         <div><div class="lbl">Check In / Out</div><div class="sub">Tap to log time</div></div>
       </div>
       ${regularTiles.join('')}
@@ -38449,7 +38712,14 @@ async function renderRoute(){
     if(parts[1]==='vehicle-checklist') return renderDriverVehicleChecklist();
     return renderDriverHome();
   }
+  if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
+  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='reports'){
+    if(!usesPmHome(ME)){ go('#/sites'); return; }
+    addSiteFormOpen = false;
+    return renderAllReports();
+  }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){

@@ -67,7 +67,7 @@ window.saveCompanySetup = async function(){
     if(!row){ setupError='Could not save — try again.'; renderCompanySetup(); return; }
     await loadOrg();
     toast('Company set up');
-    go('#/sites');
+    go(homeHash());
   }catch(err){
     // A network hiccup mid-upload used to leave this stuck on "Saving…"
     // forever with no way to retry short of reloading the whole app.

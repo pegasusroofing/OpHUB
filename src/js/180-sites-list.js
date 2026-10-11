@@ -284,13 +284,6 @@ async function renderSites(){
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
-    ${canAdd ? `
-      <div class="sitecard" style="cursor:pointer;margin-top:16px;" onclick="generalReportsBackHash='#/sites';go('#/general-reports')">
-        <div style="font-size:22px;flex:0 0 auto;">📋</div>
-        <div class="info"><div class="name">Inspections &amp; Reports</div></div>
-        <div style="color:var(--slate);font-size:20px;">›</div>
-      </div>
-    ` : ''}
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:20px;">
       <span class="stub" style="margin:0;text-align:left;">${escapeHtml(ME.name)}</span>
       <span class="stub" style="margin:0;text-align:center;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(ME.email)}</span>
@@ -299,7 +292,7 @@ async function renderSites(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true});
+  `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, homeBarActive:'projects', centerHeader:true, showRefresh:true});
     if(appSearchOpen) appSearchRender(); }
   refreshHomeExtras();
   if(pendingSiteScrollSection){

@@ -98,7 +98,7 @@ window.doSignIn = async function(){
     SITES = sites;
     registerPushNotifications();
     saveBootSnapshot(); warmUpLibs();
-    go('#/sites');
+    go(homeHash());
   }catch(e){
     authError = 'Something went wrong signing you in — check your connection and try again.';
   }finally{

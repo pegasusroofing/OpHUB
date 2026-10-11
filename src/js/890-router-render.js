@@ -70,7 +70,14 @@ async function renderRoute(){
     if(parts[1]==='vehicle-checklist') return renderDriverVehicleChecklist();
     return renderDriverHome();
   }
+  if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
+  if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='reports'){
+    if(!usesPmHome(ME)){ go('#/sites'); return; }
+    addSiteFormOpen = false;
+    return renderAllReports();
+  }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
   pmFilterOpen = false; // and closes the PM filter dropdown back up
   if(parts[0]==='team'){

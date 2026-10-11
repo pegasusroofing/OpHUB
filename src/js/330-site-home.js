@@ -20,11 +20,11 @@ async function renderSiteHome(siteId){
     if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
       <div class="tilegrid" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/schedule')">
-          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
           <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/hs')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">RAMS · COSHH · TBT</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/snagging/list')">
@@ -176,24 +176,24 @@ async function renderSiteHome(siteId){
       // end with for this viewer).
       const regularTiles = [
         `<div class="tile" onclick="go('#/site/${siteId}/schedule')">
-          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📋</div>
+          <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
           <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">📄</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
           <div class="lbl">Health &amp; Safety</div><div class="sub">${pendingRams} to sign</div>
           ${isManager(ME) ? (hsOperativeGap?`<span class="badge-count" title="An operative still needs to sign RAMS/COSHH">!</span>`:'') : (pendingRams?`<span class="badge-count">${pendingRams}</span>`:'')}
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/drawings')">
-          <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">✏️</div>
+          <div class="icon" style="background:#E7EFEA;color:#2F6B4A;">${ophIcon('pencil', 20)}</div>
           <div class="lbl">Drawings, Spec's &amp; Programme</div><div class="sub">View &amp; upload</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/materials')">
-          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">🧱</div>
+          <div class="icon" style="background:var(--ok-bg);color:var(--ok);">${ophIcon('box', 20)}</div>
           <div class="lbl">${materialsTileLabel()}</div><div class="sub">${pendingMat.length} pending</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/snagging')">
-          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🏷</div>
+          <div class="icon" style="background:var(--warn-bg);color:var(--warn);">${ophIcon('reports', 20)}</div>
           <div class="lbl">${escapeHtml(snaggingFolderLabel())}</div><div class="sub">${openSnags.length} open</div>
           ${openSnags.length?`<span class="badge-count">${openSnags.length}</span>`:''}
         </div>`,
@@ -203,7 +203,7 @@ async function renderSiteHome(siteId){
       // unshifted in front of it, bumping it to third whenever a site was
       // switched on as main contractor. It slots in straight after instead.
       if(site.acting_as_main_contractor) regularTiles.splice(1, 0, `<div class="tile" onclick="go('#/site/${siteId}/mc')">
-          <div class="icon" style="background:#E7E9EE;color:var(--ink);">🏗</div>
+          <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('building', 20)}</div>
           <div class="lbl">Main Contractor</div><div class="sub">${mcAreaCount} area${mcAreaCount===1?'':'s'}</div>
         </div>`);
       // Messages/Inbox is reached via the bottom bar only now — no separate
@@ -214,7 +214,7 @@ async function renderSiteHome(siteId){
           ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
         </div>`);
       if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
-          <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">✅</div>
+          <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">${ophIcon('check', 20)}</div>
           <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
         </div>`);
       // Operatives no longer gets its own Home tile — it's reached via the
@@ -223,7 +223,7 @@ async function renderSiteHome(siteId){
       // Calendar lands 2nd-to-last, computed off the real final tile count
       // (Price/To Do List are conditional above) rather than a fixed index.
       regularTiles.splice(Math.max(0, regularTiles.length-1), 0, `<div class="tile" onclick="go('#/site/${siteId}/calendar')">
-          <div class="icon" style="background:#E4EEFB;color:var(--blue);">📅</div>
+          <div class="icon" style="background:#E4EEFB;color:var(--blue);">${ophIcon('calendar', 20)}</div>
           <div class="lbl">Calendar</div><div class="sub">Key dates</div>
         </div>`);
       if(regularTiles.length % 2 === 1){
@@ -239,7 +239,7 @@ async function renderSiteHome(siteId){
       return `
     <div class="tilegrid hometiles" style="margin-bottom:-16px;">
       <div class="tile tile-wide" onclick="go('#/site/${siteId}/checkin')">
-        <div class="icon" style="background:var(--red);color:#fff;">⏱</div>
+        <div class="icon" style="background:var(--red);color:#fff;">${ophIcon('clock', 20)}</div>
         <div><div class="lbl">Check In / Out</div><div class="sub">Tap to log time</div></div>
       </div>
       ${regularTiles.join('')}

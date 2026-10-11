@@ -90,7 +90,7 @@ window.doJoin = async function(inviteId){
         }
       }
       try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){ /* best-effort, silent */ }
-      go('#/sites');
+      go(homeHash());
     } else {
       joinInfo = undefined;
       location.hash = '';

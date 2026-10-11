@@ -17,14 +17,14 @@ function shell(innerHtml, opts){
       <div class="appbar">
         ${opts.centerTitle ? `
           <div class="row" style="justify-content:center;text-align:center;">
-            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;cursor:pointer;" onclick="go('#/sites')"><span style="color:var(--brand1);">Op</span><span style="color:var(--ink);">HUB</span>${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
+            <h2 style="white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;max-width:92%;cursor:pointer;" onclick="goHome()"><span style="color:var(--brand1);">Op</span><span style="color:var(--ink);">HUB</span>${ORG && ORG.name ? ` - <span style="color:var(--brand1);">${escapeHtml(ORG.name)}</span>` : ' - Welcome to your Operative Hub'}</h2>
           </div>
         ` : opts.centerHeader ? `
           <div class="row" style="flex-direction:row;align-items:center;justify-content:space-between;gap:12px;">
             <div style="flex:0 0 72px;display:flex;align-items:center;justify-content:center;">
-              <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:72px;height:72px;flex:none;cursor:pointer;" onclick="go('#/sites')">
+              <img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:72px;height:72px;flex:none;cursor:pointer;" onclick="goHome()">
             </div>
-            <div style="flex:1;text-align:center;cursor:pointer;" onclick="go('#/sites')">
+            <div style="flex:1;text-align:center;cursor:pointer;" onclick="goHome()">
               ${ORG && ORG.name ? `<div class="brandline lg" style="font-family:'Sora',-apple-system,sans-serif;font-weight:700;text-transform:none;color:var(--brand1);">${escapeHtml(ORG.name)}</div>
               <div style="width:28px;height:2.5px;background:var(--line);margin:3px auto;"></div>` : ''}
               <div class="brandline orgname" style="font-family:'Sora',Calibri,sans-serif;font-weight:800;text-transform:none;color:var(--ink);">OpHUB</div>
@@ -38,10 +38,10 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="go('#/sites')">`}
+          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
-            ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="go('#/sites')">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
-            <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="go('#/sites')">${escapeHtml(opts.title||'')}</h2>
+            ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
+            <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
@@ -51,7 +51,7 @@ function shell(innerHtml, opts){
         `}
       </div>
       <div class="scrollarea"${opts.tightBottom ? ' style="padding-bottom:24px;"' : ''}>${innerHtml}</div>
-      ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd, opts.homeBarOutstanding) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
+      ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd, opts.homeBarOutstanding, opts.homeBarActive) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;
 }
@@ -64,15 +64,15 @@ function tabbar(siteId, active){
   // out to the overall Your Projects home instead of doing nothing — from
   // any other tab/subfolder it still takes you to this site's home page.
   const tabs = [
-    {k:'home', ic:'🏠', lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
-    {k:'schedule', ic:'📋', lbl:'SOW', href:`#/site/${siteId}/schedule`},
-    {k:'checkin', ic:'📍', lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
-    {k:'messages', ic:'💬', lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
+    {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
+    {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
+    {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
     // personal Account settings (operatives — Settings & Admin is gated to
     // managers/admins anyway) instead of opening a separate pop-out/page of
     // links first.
-    {k:'more', ic:'⚙️', lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
+    {k:'more', ic:ophIcon('gear'), lbl:'Settings', href: isManager(ME) ? `#/site/${siteId}/team` : '#/account'},
   ];
   return `<div class="tabbar">${tabs.map(t=>`
     <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" onclick="go('${t.href}')" style="position:relative;">
@@ -99,7 +99,7 @@ function tabbar(siteId, active){
 // for "me" specifically, so the badge count and the page contents can never
 // drift apart again.
 let homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
-function isSitesRoute(){ const p = parseRoute(); return !p.length || p[0]==='sites'; }
+function isSitesRoute(){ const p = parseRoute(); return !p.length || p[0]==='sites' || p[0]==='home'; }
 function refreshHomeExtras(){
   if(!ME || !SESSION || navigator.onLine === false) return;
   if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
@@ -132,29 +132,28 @@ async function computeMyOutstandingCount(){
   const {rows} = await computeOutstandingRows(ME.id);
   return rows.reduce((sum,r)=>sum+r.items.length, 0);
 }
-function homeBottomBar(canAdd, outstandingCount){
-  const items = [
-    {ic:'📝', lbl: canAdd ? 'HUB' : 'Outstanding', onclick: canAdd ? "go('#/hub')" : "go('#/outstanding')", badge: outstandingCount||0},
+function homeBottomBar(canAdd, outstandingCount, active){
+  // #(pm-home) PMs/admins: Home · Projects · + Add · Reports · Admin. HUB,
+  // Calendar and Deliveries now live as tiles on the Home page; the HUB count
+  // shows on the Home button so it's never missed.
+  const items = canAdd ? [
+    {k:'home', ic:ophIcon('home'), lbl:'Home', onclick:"go('#/home')", badge: outstandingCount||0},
+    {k:'projects', ic:ophIcon('projects'), lbl:'Projects', onclick:"go('#/sites')"},
+    {k:'add', ic:ophIcon('plus', 22, 2.4), lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"},
+    {k:'reports', ic:ophIcon('reports'), lbl:'Reports', onclick:"go('#/reports')"},
+    {k:'admin', ic:ophIcon('admin'), lbl:'Admin', onclick:"go('#/team')"},
+  ] : [
+    {k:'outstanding', ic:ophIcon('list'), lbl:'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
     // Inbox is the operative team's messages feed — a client shouldn't see
-    // it at all (they're not part of that audience), so it's excluded here
-    // even though clients otherwise fall into the same !canAdd bucket as
-    // operatives. The route itself is gated the same way below.
-    ...(!canAdd && !isClient(ME) ? [{ic:'💬', lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
-    ...(!canAdd ? [{ic:'🧰', lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"}] : []),
-    // Company Dashboard now lives in Settings; this slot is the Delivery Schedule.
-    ...(canAdd ? [{ic:'🚚', lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')"}] : []),
-    // Styled in the company's theme colour (brand1) rather than the plain
-    // paper/border look the other tabs use, so it reads as the primary
-    // action in the row.
-    ...(canAdd ? [{ic:'+', lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"}] : []),
-    ...(canAdd ? [{ic:'📅', lbl:'Calendar', onclick:"go('#/calendar')"}] : []),
-    // Managers land straight in the Admin Centre — no intermediate page.
-    // Operatives (no Admin Centre) go to the lighter Account page instead.
-    {ic:'⚙️', lbl: canAdd ? 'Admin' : 'Settings', onclick: canAdd ? "go('#/team')" : "go('#/account')"},
+    // it at all (they're not part of that audience). The route itself is
+    // gated the same way.
+    ...(!isClient(ME) ? [{k:'inbox', ic:ophIcon('chat'), lbl:'Inbox', onclick:"go('#/my-messages')"}] : []),
+    {k:'mydash', ic:ophIcon('tools'), lbl:'My Dashboard', onclick:"go('#/operative-dashboard')"},
+    {k:'settings', ic:ophIcon('gear'), lbl:'Settings', onclick:"go('#/account')"},
   ];
   return `<div class="tabbar">${items.map(t=>`
-    <div class="tb ${t.emph?'tb-emph':''}" style="position:relative;${t.branded?'background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);':''}" onclick="${t.onclick}">
-      <span class="tabicon">${t.ic}</span>${t.lbl}
+    <div class="tb ${t.emph?'tb-emph':''} ${active===t.k?'active':''}" style="position:relative;${t.branded?'background:var(--brand1);border-color:var(--brand1);color:var(--brand1-text);':''}" onclick="${t.onclick}">
+      <span class="tabicon">${t.ic}</span>${t.emph?'':t.lbl}
       ${t.badge?`<span class="badge-count" style="position:absolute;top:2px;right:calc(50% - 22px);">${t.badge}</span>`:''}
     </div>`).join('')}</div>`;
 }
@@ -166,6 +165,8 @@ window.openInvitesFromHome = function(){
 };
 window.openHomeAddProject = function(){
   addSiteFormOpen = true;
+  const p = parseRoute();
+  if(p.length && p[0]!=='sites'){ go('#/sites'); return; }
   render();
   requestAnimationFrame(()=>appScrollTo(0));
 };
