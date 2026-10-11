@@ -588,26 +588,24 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   // Operatives only in the signature grid — the PM/admin who conducted the
   // talk gets their own standalone "Conducted by" row instead (mirrors the
   // in-app "Carried out by" card / roster-exclusion logic).
-  const signers = sigs.filter(s=>PROFILES[s.user_id] && PROFILES[s.user_id].role==='operative').map(s=>({
-    name: nameOf(s.user_id),
-    when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-    imagePath: s.signature_image_path,
-  }));
-  // Whoever actually tapped "sign" as the PM/manager running this talk is
-  // the one whose signature should show here — that's captured live in
-  // toolbox_talk_signatures (signature_image_path), same as an operative's.
-  // Falls back to the talk's creator (using their generally-adopted profile
-  // signature) only if no manager has signed it yet, e.g. an export pulled
-  // before anyone in charge has actually signed.
+  // #(tbt-sig-record) The PM/manager who ran the talk sits in the first,
+  // shaded row of the table ("CONDUCTED / ISSUED BY") with their signature in
+  // the Signature box and the date the talk was issued in the Date box;
+  // everyone else who signed follows, then blank boxes for signing by hand.
+  const fmtWhen = d => new Date(d).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const managerSig = sigs.find(s=>PROFILES[s.user_id] && isManager(PROFILES[s.user_id]));
-  let conductedBy = null;
-  if(managerSig){
-    conductedBy = {name: nameOf(managerSig.user_id), signaturePath: managerSig.signature_image_path};
-  } else {
-    const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
-    conductedBy = conductorProfile ? {name: conductorProfile.name, signaturePath: conductorProfile.signature_path} : null;
-  }
-  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, conductedBy});
+  const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
+  const issuedDate = 'Issued ' + new Date(talk.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+  const conductRow = managerSig
+    ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: nameOf(managerSig.user_id), imagePath: managerSig.signature_image_path, when: issuedDate}
+    : (conductorProfile ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: conductorProfile.name, imagePath: conductorProfile.signature_path, when: issuedDate} : null);
+  const signers = [
+    ...(conductRow ? [conductRow] : []),
+    ...sigs.filter(s=>!managerSig || s.user_id!==managerSig.user_id).filter(s=>PROFILES[s.user_id] && !isManager(PROFILES[s.user_id])).map(s=>({
+      name: nameOf(s.user_id), when: fmtWhen(s.signed_at), imagePath: s.signature_image_path,
+    })),
+  ];
+  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, minBlank: 6});
 
   const tbtSite = SITES.find(s=>s.id===talk.site_id);
   const filename = exportFilename(tbtSite?tbtSite.name:'', talk.title+' (Signed)', 'pdf');

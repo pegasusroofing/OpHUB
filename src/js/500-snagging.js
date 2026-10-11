@@ -394,6 +394,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
   const INK = PDFLib.rgb(0.06,0.06,0.07);
   const SLATE = PDFLib.rgb(0.36,0.37,0.41);
   const LINE = PDFLib.rgb(0.85,0.85,0.85);
+  const BOXLINE = PDFLib.rgb(0.62,0.63,0.66);
   const HEADBG = PDFLib.rgb(0.95,0.94,0.91);
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 50;
@@ -420,9 +421,10 @@ async function drawSignatureTablePages(pdfDoc, opts){
     page.drawText('Name', {x:MARGIN+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
     page.drawText('Signature', {x:MARGIN+COL_NAME+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
     page.drawText('Date', {x:MARGIN+COL_NAME+COL_SIG+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, borderColor:BOXLINE, borderWidth:0.6});
     page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
-    page.drawLine({start:{x:MARGIN+COL_NAME,y:y}, end:{x:MARGIN+COL_NAME,y:y-HEADER_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:y}, end:{x:MARGIN+COL_NAME,y:y-HEADER_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.6, color:BOXLINE});
     y -= HEADER_H;
   }
   async function newPage(continued){
@@ -468,16 +470,31 @@ async function drawSignatureTablePages(pdfDoc, opts){
     y -= boxH + 14;
   }
   await newPage(false);
-  for(const s of opts.signers){
+  const rowsOut = opts.signers.slice();
+  // Blank boxes to the end of the page (at least opts.minBlank) so a printed
+  // copy can be signed by hand on site.
+  if(opts.minBlank){
+    const used = rowsOut.filter(r=>!r.blank).length;
+    const fit = Math.max(0, Math.floor((y - 110) / ROW_H) - used);
+    for(let i=0;i<Math.max(opts.minBlank, fit);i++) rowsOut.push({blank:true});
+  }
+  for(const s of rowsOut){
     if(y - ROW_H < 70) await newPage(true);
     const rowTop = y;
-    page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     if(s.issued){
-      // Issued-by row (COSHH): shaded, labelled, sits above everyone else.
+      // Issued-by row (COSHH / TBT): shaded, labelled, sits above everyone else.
       page.drawRectangle({x:MARGIN, y:rowTop-ROW_H, width:TABLE_W, height:ROW_H, color:HEADBG});
-      page.drawText('ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
+      page.drawLine({start:{x:MARGIN,y:rowTop}, end:{x:MARGIN+TABLE_W,y:rowTop}, thickness:1, color:INK});
+    }
+    // #(sig-table-boxes) every row is a full box: outer edges + column lines.
+    page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN,y:rowTop}, end:{x:MARGIN,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+TABLE_W,y:rowTop}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    if(s.blank){ y = rowTop - ROW_H; continue; }
+    if(s.issued){
+      page.drawText(s.label || 'ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
       page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-8, size:10, font:bold, color:INK});
     } else page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
     if(s.imagePath){

@@ -21829,6 +21829,7 @@ async function drawSignatureTablePages(pdfDoc, opts){
   const INK = PDFLib.rgb(0.06,0.06,0.07);
   const SLATE = PDFLib.rgb(0.36,0.37,0.41);
   const LINE = PDFLib.rgb(0.85,0.85,0.85);
+  const BOXLINE = PDFLib.rgb(0.62,0.63,0.66);
   const HEADBG = PDFLib.rgb(0.95,0.94,0.91);
   const PAGE_W = 595.28, PAGE_H = 841.89;
   const MARGIN = 50;
@@ -21855,9 +21856,10 @@ async function drawSignatureTablePages(pdfDoc, opts){
     page.drawText('Name', {x:MARGIN+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
     page.drawText('Signature', {x:MARGIN+COL_NAME+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
     page.drawText('Date', {x:MARGIN+COL_NAME+COL_SIG+10, y:y-HEADER_H+7, size:9.5, font:bold, color:INK});
+    page.drawRectangle({x:MARGIN, y:y-HEADER_H, width:TABLE_W, height:HEADER_H, borderColor:BOXLINE, borderWidth:0.6});
     page.drawLine({start:{x:MARGIN,y:y-HEADER_H}, end:{x:MARGIN+TABLE_W,y:y-HEADER_H}, thickness:1, color:INK});
-    page.drawLine({start:{x:MARGIN+COL_NAME,y:y}, end:{x:MARGIN+COL_NAME,y:y-HEADER_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.5, color:LINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:y}, end:{x:MARGIN+COL_NAME,y:y-HEADER_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:y}, end:{x:MARGIN+COL_NAME+COL_SIG,y:y-HEADER_H}, thickness:0.6, color:BOXLINE});
     y -= HEADER_H;
   }
   async function newPage(continued){
@@ -21903,16 +21905,31 @@ async function drawSignatureTablePages(pdfDoc, opts){
     y -= boxH + 14;
   }
   await newPage(false);
-  for(const s of opts.signers){
+  const rowsOut = opts.signers.slice();
+  // Blank boxes to the end of the page (at least opts.minBlank) so a printed
+  // copy can be signed by hand on site.
+  if(opts.minBlank){
+    const used = rowsOut.filter(r=>!r.blank).length;
+    const fit = Math.max(0, Math.floor((y - 110) / ROW_H) - used);
+    for(let i=0;i<Math.max(opts.minBlank, fit);i++) rowsOut.push({blank:true});
+  }
+  for(const s of rowsOut){
     if(y - ROW_H < 70) await newPage(true);
     const rowTop = y;
-    page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
-    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.5, color:LINE});
     if(s.issued){
-      // Issued-by row (COSHH): shaded, labelled, sits above everyone else.
+      // Issued-by row (COSHH / TBT): shaded, labelled, sits above everyone else.
       page.drawRectangle({x:MARGIN, y:rowTop-ROW_H, width:TABLE_W, height:ROW_H, color:HEADBG});
-      page.drawText('ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
+      page.drawLine({start:{x:MARGIN,y:rowTop}, end:{x:MARGIN+TABLE_W,y:rowTop}, thickness:1, color:INK});
+    }
+    // #(sig-table-boxes) every row is a full box: outer edges + column lines.
+    page.drawLine({start:{x:MARGIN,y:rowTop-ROW_H}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN,y:rowTop}, end:{x:MARGIN,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+TABLE_W,y:rowTop}, end:{x:MARGIN+TABLE_W,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME,y:rowTop}, end:{x:MARGIN+COL_NAME,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    page.drawLine({start:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop}, end:{x:MARGIN+COL_NAME+COL_SIG,y:rowTop-ROW_H}, thickness:0.6, color:BOXLINE});
+    if(s.blank){ y = rowTop - ROW_H; continue; }
+    if(s.issued){
+      page.drawText(s.label || 'ISSUED BY:', {x:MARGIN+10, y:rowTop-ROW_H/2+5, size:8, font:bold, color:SLATE});
       page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-8, size:10, font:bold, color:INK});
     } else page.drawText(s.name, {x:MARGIN+10, y:rowTop-ROW_H/2-4, size:10, font:reg, color:INK});
     if(s.imagePath){
@@ -32082,26 +32099,24 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   // Operatives only in the signature grid — the PM/admin who conducted the
   // talk gets their own standalone "Conducted by" row instead (mirrors the
   // in-app "Carried out by" card / roster-exclusion logic).
-  const signers = sigs.filter(s=>PROFILES[s.user_id] && PROFILES[s.user_id].role==='operative').map(s=>({
-    name: nameOf(s.user_id),
-    when: new Date(s.signed_at).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
-    imagePath: s.signature_image_path,
-  }));
-  // Whoever actually tapped "sign" as the PM/manager running this talk is
-  // the one whose signature should show here — that's captured live in
-  // toolbox_talk_signatures (signature_image_path), same as an operative's.
-  // Falls back to the talk's creator (using their generally-adopted profile
-  // signature) only if no manager has signed it yet, e.g. an export pulled
-  // before anyone in charge has actually signed.
+  // #(tbt-sig-record) The PM/manager who ran the talk sits in the first,
+  // shaded row of the table ("CONDUCTED / ISSUED BY") with their signature in
+  // the Signature box and the date the talk was issued in the Date box;
+  // everyone else who signed follows, then blank boxes for signing by hand.
+  const fmtWhen = d => new Date(d).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const managerSig = sigs.find(s=>PROFILES[s.user_id] && isManager(PROFILES[s.user_id]));
-  let conductedBy = null;
-  if(managerSig){
-    conductedBy = {name: nameOf(managerSig.user_id), signaturePath: managerSig.signature_image_path};
-  } else {
-    const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
-    conductedBy = conductorProfile ? {name: conductorProfile.name, signaturePath: conductorProfile.signature_path} : null;
-  }
-  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, conductedBy});
+  const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
+  const issuedDate = 'Issued ' + new Date(talk.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+  const conductRow = managerSig
+    ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: nameOf(managerSig.user_id), imagePath: managerSig.signature_image_path, when: issuedDate}
+    : (conductorProfile ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: conductorProfile.name, imagePath: conductorProfile.signature_path, when: issuedDate} : null);
+  const signers = [
+    ...(conductRow ? [conductRow] : []),
+    ...sigs.filter(s=>!managerSig || s.user_id!==managerSig.user_id).filter(s=>PROFILES[s.user_id] && !isManager(PROFILES[s.user_id])).map(s=>({
+      name: nameOf(s.user_id), when: fmtWhen(s.signed_at), imagePath: s.signature_image_path,
+    })),
+  ];
+  await drawSignatureTablePages(pdfDoc, {title: talk.title, disclaimer, signers, minBlank: 6});
 
   const tbtSite = SITES.find(s=>s.id===talk.site_id);
   const filename = exportFilename(tbtSite?tbtSite.name:'', talk.title+' (Signed)', 'pdf');
