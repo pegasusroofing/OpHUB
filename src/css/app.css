@@ -944,3 +944,7 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .pmsearch,.projfilterrow,#siteListBox,#siteListBox > div,.projcard{width:100%;max-width:100%;box-sizing:border-box;margin-left:0 !important;margin-right:0 !important;}
 .pmsearch input[type=search]{-webkit-appearance:none;appearance:none;width:auto;}
 #app > .appshell > .scrollarea{overflow-x:hidden;}
+/* site home check-in strip at 0.9x (Andy, 11 Oct) */
+.status-strip{padding:10.8px 12.6px;font-size:12.6px;border-radius:16px;margin-bottom:12.6px;}
+.status-strip .pill{font-size:9.9px;padding:4.5px 8px;gap:5px;}
+.status-strip .dot{width:5.4px;height:5.4px;}
