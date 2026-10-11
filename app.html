@@ -876,6 +876,32 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .projcard .info .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .projcard .info .addr{white-space:nowrap !important;display:block !important;overflow:hidden;text-overflow:ellipsis;}
 .sitestart{display:inline-flex;align-items:center;gap:3px;flex:none;margin:0 !important;padding:1px 6px;border-radius:7px;background:var(--warn-bg);color:#8A4500 !important;font-size:10.5px !important;font-weight:700;white-space:nowrap;}
+/* Projects: chips row lines up exactly with the search box and the project
+   cards on every phone - chips can't push or squeeze the row, and if the
+   phone is narrow they scroll sideways instead of spilling. */
+.projfilterrow{justify-content:flex-start !important;width:100%;box-sizing:border-box;padding:0;margin-left:0;margin-right:0;}
+.projfilterrow .pmchips-tight{flex:1 1 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0;margin:0 !important;}
+.projfilterrow .pmchips-tight::-webkit-scrollbar{display:none;}
+.projfilterrow .pmchip{margin:0 !important;flex:none;}
+.projfilterrow [data-pmfilter-root]{flex:none;margin-left:auto;}
+/* ---- #(cal-month-grid) iPhone-style month view ---- */
+.calm{background:#fff;border:1px solid #ECEEF2;border-radius:18px;padding:12px 10px 8px;margin-bottom:12px;}
+.calm-head{display:flex;align-items:center;gap:6px;margin:0 2px 8px;}
+.calm-title{flex:1;font-family:'Sora',-apple-system,sans-serif;font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.2px;}
+.calm-nav{all:unset;cursor:pointer;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;color:var(--brand1);}
+.calm-today{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--brand1);padding:6px 8px;border-radius:10px;}
+.calm-wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;font-size:11px;font-weight:700;color:var(--slate);padding-bottom:6px;border-bottom:1px solid #F0F1F4;}
+.calm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;padding-top:4px;}
+.calm-day{all:unset;box-sizing:border-box;cursor:pointer;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;padding-top:4px;}
+.calm-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink);}
+.calm-day.out .calm-num{color:#B4B8C2;}
+.calm-day.today .calm-num{color:var(--brand1);font-weight:800;}
+.calm-day.sel .calm-num{background:var(--ink);color:#fff;font-weight:800;}
+.calm-day.today.sel .calm-num{background:var(--brand1);color:var(--brand1-text);}
+.calm-dots{display:flex;gap:3px;height:6px;}
+.calm-dots i{width:6px;height:6px;border-radius:50%;display:block;}
+.calm-day:focus-visible .calm-num{outline:2px solid var(--brand1);outline-offset:1px;}
+.calm-selhead{font-size:13px;font-weight:800;color:var(--ink);margin:4px 2px 0;}
 </style>
 </head>
 <body>
@@ -4782,7 +4808,7 @@ async function renderSites(){
     ${canAdd ? `
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
+    <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
       ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `
@@ -35025,6 +35051,62 @@ let calEditId = null;
 let calInlineDate = null;
 let calViewMode = null; // 'week' | 'twoweek' | 'month' — set on first render, role-based default (#287)
 let calViewModePickerOpen = false;
+// #(cal-month-grid) Month view looks like the iPhone calendar: a month grid
+// (Mon-Sun) with a dot under days that have something on; tap a day to see
+// its key dates underneath. ‹ › move between months.
+let calMonthCursor = null; // first day of the month on show
+let calSelDate = null;     // 'YYYY-MM-DD' picked in the grid
+function calMonthStart(){
+  if(!calMonthCursor){ const t = new Date(); calMonthCursor = new Date(t.getFullYear(), t.getMonth(), 1); }
+  return calMonthCursor;
+}
+function calMonthRange(){
+  const m = calMonthStart();
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const last = new Date(m.getFullYear(), m.getMonth()+1, 0);
+  const lead = (first.getDay()+6)%7; // Monday first
+  const gridStart = new Date(first); gridStart.setDate(first.getDate()-lead);
+  const cells = Math.ceil((lead + last.getDate())/7)*7;
+  const gridEnd = new Date(gridStart); gridEnd.setDate(gridStart.getDate()+cells-1);
+  return {first, last, gridStart, gridEnd, cells};
+}
+window.calMonthShift = function(n){
+  const m = calMonthStart();
+  calMonthCursor = new Date(m.getFullYear(), m.getMonth()+n, 1);
+  const t = new Date();
+  calSelDate = (calMonthCursor.getFullYear()===t.getFullYear() && calMonthCursor.getMonth()===t.getMonth()) ? localISODate(t) : localISODate(calMonthCursor);
+  calInlineDate = null; calEditId = null;
+  render();
+};
+window.calMonthToday = function(){ calMonthCursor = null; calSelDate = localISODate(new Date()); calInlineDate = null; render(); };
+window.calSelectDate = function(dStr){ calSelDate = dStr; if(calInlineDate && calInlineDate!==dStr){ calInlineDate = null; calEditId = null; } render(); };
+function calMonthGridHtml(eventsByDate){
+  const {first, gridStart, cells} = calMonthRange();
+  const todayStr = localISODate(new Date());
+  if(!calSelDate) calSelDate = todayStr;
+  let cellsHtml = '';
+  for(let i=0;i<cells;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const dStr = localISODate(d);
+    const inMonth = d.getMonth()===first.getMonth();
+    const evs = eventsByDate[dStr]||[];
+    const isToday = dStr===todayStr, isSel = dStr===calSelDate;
+    const dots = evs.slice(0,3).map(e=>`<i style="background:${e.is_private?'var(--slate-light)':'var(--brand1)'};"></i>`).join('');
+    cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span><span class="calm-dots">${dots}</span></button>`;
+  }
+  return `
+    <div class="calm">
+      <div class="calm-head">
+        <button type="button" class="calm-nav" aria-label="Previous month" onclick="calMonthShift(-1)">‹</button>
+        <div class="calm-title">${first.toLocaleDateString('en-GB',{month:'long', year:'numeric'})}</div>
+        <button type="button" class="calm-today" onclick="calMonthToday()">Today</button>
+        <button type="button" class="calm-nav" aria-label="Next month" onclick="calMonthShift(1)">›</button>
+      </div>
+      <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="calm-grid">${cellsHtml}</div>
+    </div>
+    <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}</p>`;
+}
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
 const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
 // #287: default view is monthly for PM/admin, two-weekly for operatives —
@@ -35132,9 +35214,12 @@ async function renderSiteCalendar(siteId){
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
   const startStr = localISODate(days[0]);
-  const endStr = localISODate(days[days.length-1]);
+  const monthMode = calViewMode==='month';
+  const mr = monthMode ? calMonthRange() : null;
+  const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
+  const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
   const [events, assignments] = await Promise.all([
-    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
   ]);
   const pmOptions = mgr ? await loadPMList() : [];
@@ -35196,7 +35281,7 @@ async function renderSiteCalendar(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${calViewModeDropdownHtml()}
     <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
-      <p class="stub" style="margin:0;flex:1;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+      <p class="stub" style="margin:0;flex:1;">${monthMode ? 'Tap a day to see what’s on' : 'Next '+numDays+' days'}${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
       <div class="ghostbtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex:0 0 auto;" onclick="exportSiteCalendarIcs('${siteId}')">📅 Add to Phone Calendar</div>
     </div>
     <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
@@ -35204,7 +35289,8 @@ async function renderSiteCalendar(siteId){
       <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
     </div>
     ${calAddOpen ? calFormHtml() : ''}
-    ${days.map(d=>{
+    ${monthMode ? calMonthGridHtml(eventsByDate) : ''}
+    ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
@@ -35377,9 +35463,12 @@ async function renderUnifiedCalendar(){
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
   const startStr = localISODate(days[0]);
-  const endStr = localISODate(days[days.length-1]);
+  const monthMode = calViewMode==='month';
+  const mr = monthMode ? calMonthRange() : null;
+  const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
+  const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
   const [events, pmOptions] = await Promise.all([
-    dbSelect('site_calendar_events', 'event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    dbSelect('site_calendar_events', 'event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     loadPMList(),
   ]);
   const siteById = {}; SITES.forEach(s=>{ siteById[s.id] = s; });
@@ -35428,8 +35517,8 @@ async function renderUnifiedCalendar(){
         ` : ''}
       </div>
     </div>
-    <p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>
-    ${days.map(d=>{
+    ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>`}
+    ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
@@ -35453,7 +35542,7 @@ async function renderUnifiedCalendar(){
         </div>
       `;
     }).join('')}
-  `, {title:'Calendar', subtitle:'All sites', back:'#/sites', tabs:false}); }
+  `, {title:'Calendar', subtitle:'All sites', back: usesPmHome(ME) ? '#/home' : '#/sites', tabs:false}); }
 }
 
 /* ================= VARIATIONS ================= */

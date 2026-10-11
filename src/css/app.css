@@ -862,3 +862,29 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .projcard .info .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .projcard .info .addr{white-space:nowrap !important;display:block !important;overflow:hidden;text-overflow:ellipsis;}
 .sitestart{display:inline-flex;align-items:center;gap:3px;flex:none;margin:0 !important;padding:1px 6px;border-radius:7px;background:var(--warn-bg);color:#8A4500 !important;font-size:10.5px !important;font-weight:700;white-space:nowrap;}
+/* Projects: chips row lines up exactly with the search box and the project
+   cards on every phone - chips can't push or squeeze the row, and if the
+   phone is narrow they scroll sideways instead of spilling. */
+.projfilterrow{justify-content:flex-start !important;width:100%;box-sizing:border-box;padding:0;margin-left:0;margin-right:0;}
+.projfilterrow .pmchips-tight{flex:1 1 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0;margin:0 !important;}
+.projfilterrow .pmchips-tight::-webkit-scrollbar{display:none;}
+.projfilterrow .pmchip{margin:0 !important;flex:none;}
+.projfilterrow [data-pmfilter-root]{flex:none;margin-left:auto;}
+/* ---- #(cal-month-grid) iPhone-style month view ---- */
+.calm{background:#fff;border:1px solid #ECEEF2;border-radius:18px;padding:12px 10px 8px;margin-bottom:12px;}
+.calm-head{display:flex;align-items:center;gap:6px;margin:0 2px 8px;}
+.calm-title{flex:1;font-family:'Sora',-apple-system,sans-serif;font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.2px;}
+.calm-nav{all:unset;cursor:pointer;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;color:var(--brand1);}
+.calm-today{all:unset;cursor:pointer;font-size:12.5px;font-weight:700;color:var(--brand1);padding:6px 8px;border-radius:10px;}
+.calm-wk{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;font-size:11px;font-weight:700;color:var(--slate);padding-bottom:6px;border-bottom:1px solid #F0F1F4;}
+.calm-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;padding-top:4px;}
+.calm-day{all:unset;box-sizing:border-box;cursor:pointer;height:48px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;padding-top:4px;}
+.calm-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--ink);}
+.calm-day.out .calm-num{color:#B4B8C2;}
+.calm-day.today .calm-num{color:var(--brand1);font-weight:800;}
+.calm-day.sel .calm-num{background:var(--ink);color:#fff;font-weight:800;}
+.calm-day.today.sel .calm-num{background:var(--brand1);color:var(--brand1-text);}
+.calm-dots{display:flex;gap:3px;height:6px;}
+.calm-dots i{width:6px;height:6px;border-radius:50%;display:block;}
+.calm-day:focus-visible .calm-num{outline:2px solid var(--brand1);outline-offset:1px;}
+.calm-selhead{font-size:13px;font-weight:800;color:var(--ink);margin:4px 2px 0;}

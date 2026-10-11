@@ -13,6 +13,62 @@ let calEditId = null;
 let calInlineDate = null;
 let calViewMode = null; // 'week' | 'twoweek' | 'month' — set on first render, role-based default (#287)
 let calViewModePickerOpen = false;
+// #(cal-month-grid) Month view looks like the iPhone calendar: a month grid
+// (Mon-Sun) with a dot under days that have something on; tap a day to see
+// its key dates underneath. ‹ › move between months.
+let calMonthCursor = null; // first day of the month on show
+let calSelDate = null;     // 'YYYY-MM-DD' picked in the grid
+function calMonthStart(){
+  if(!calMonthCursor){ const t = new Date(); calMonthCursor = new Date(t.getFullYear(), t.getMonth(), 1); }
+  return calMonthCursor;
+}
+function calMonthRange(){
+  const m = calMonthStart();
+  const first = new Date(m.getFullYear(), m.getMonth(), 1);
+  const last = new Date(m.getFullYear(), m.getMonth()+1, 0);
+  const lead = (first.getDay()+6)%7; // Monday first
+  const gridStart = new Date(first); gridStart.setDate(first.getDate()-lead);
+  const cells = Math.ceil((lead + last.getDate())/7)*7;
+  const gridEnd = new Date(gridStart); gridEnd.setDate(gridStart.getDate()+cells-1);
+  return {first, last, gridStart, gridEnd, cells};
+}
+window.calMonthShift = function(n){
+  const m = calMonthStart();
+  calMonthCursor = new Date(m.getFullYear(), m.getMonth()+n, 1);
+  const t = new Date();
+  calSelDate = (calMonthCursor.getFullYear()===t.getFullYear() && calMonthCursor.getMonth()===t.getMonth()) ? localISODate(t) : localISODate(calMonthCursor);
+  calInlineDate = null; calEditId = null;
+  render();
+};
+window.calMonthToday = function(){ calMonthCursor = null; calSelDate = localISODate(new Date()); calInlineDate = null; render(); };
+window.calSelectDate = function(dStr){ calSelDate = dStr; if(calInlineDate && calInlineDate!==dStr){ calInlineDate = null; calEditId = null; } render(); };
+function calMonthGridHtml(eventsByDate){
+  const {first, gridStart, cells} = calMonthRange();
+  const todayStr = localISODate(new Date());
+  if(!calSelDate) calSelDate = todayStr;
+  let cellsHtml = '';
+  for(let i=0;i<cells;i++){
+    const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const dStr = localISODate(d);
+    const inMonth = d.getMonth()===first.getMonth();
+    const evs = eventsByDate[dStr]||[];
+    const isToday = dStr===todayStr, isSel = dStr===calSelDate;
+    const dots = evs.slice(0,3).map(e=>`<i style="background:${e.is_private?'var(--slate-light)':'var(--brand1)'};"></i>`).join('');
+    cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span><span class="calm-dots">${dots}</span></button>`;
+  }
+  return `
+    <div class="calm">
+      <div class="calm-head">
+        <button type="button" class="calm-nav" aria-label="Previous month" onclick="calMonthShift(-1)">‹</button>
+        <div class="calm-title">${first.toLocaleDateString('en-GB',{month:'long', year:'numeric'})}</div>
+        <button type="button" class="calm-today" onclick="calMonthToday()">Today</button>
+        <button type="button" class="calm-nav" aria-label="Next month" onclick="calMonthShift(1)">›</button>
+      </div>
+      <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="calm-grid">${cellsHtml}</div>
+    </div>
+    <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}</p>`;
+}
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
 const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
 // #287: default view is monthly for PM/admin, two-weekly for operatives —
@@ -120,9 +176,12 @@ async function renderSiteCalendar(siteId){
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
   const startStr = localISODate(days[0]);
-  const endStr = localISODate(days[days.length-1]);
+  const monthMode = calViewMode==='month';
+  const mr = monthMode ? calMonthRange() : null;
+  const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
+  const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
   const [events, assignments] = await Promise.all([
-    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
   ]);
   const pmOptions = mgr ? await loadPMList() : [];
@@ -184,7 +243,7 @@ async function renderSiteCalendar(siteId){
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${calViewModeDropdownHtml()}
     <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
-      <p class="stub" style="margin:0;flex:1;">Next ${numDays} days${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
+      <p class="stub" style="margin:0;flex:1;">${monthMode ? 'Tap a day to see what’s on' : 'Next '+numDays+' days'}${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
       <div class="ghostbtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex:0 0 auto;" onclick="exportSiteCalendarIcs('${siteId}')">📅 Add to Phone Calendar</div>
     </div>
     <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
@@ -192,7 +251,8 @@ async function renderSiteCalendar(siteId){
       <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
     </div>
     ${calAddOpen ? calFormHtml() : ''}
-    ${days.map(d=>{
+    ${monthMode ? calMonthGridHtml(eventsByDate) : ''}
+    ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];

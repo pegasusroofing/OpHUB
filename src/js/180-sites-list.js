@@ -221,7 +221,7 @@ async function renderSites(){
     ${canAdd ? `
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
+    <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
       ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `

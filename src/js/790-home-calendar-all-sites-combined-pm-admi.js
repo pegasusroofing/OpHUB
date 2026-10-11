@@ -26,9 +26,12 @@ async function renderUnifiedCalendar(){
   const days = [];
   for(let i=0;i<numDays;i++){ const d = new Date(today); d.setDate(d.getDate()+i); days.push(d); }
   const startStr = localISODate(days[0]);
-  const endStr = localISODate(days[days.length-1]);
+  const monthMode = calViewMode==='month';
+  const mr = monthMode ? calMonthRange() : null;
+  const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
+  const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
   const [events, pmOptions] = await Promise.all([
-    dbSelect('site_calendar_events', 'event_date=gte.'+startStr+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
+    dbSelect('site_calendar_events', 'event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     loadPMList(),
   ]);
   const siteById = {}; SITES.forEach(s=>{ siteById[s.id] = s; });
@@ -77,8 +80,8 @@ async function renderUnifiedCalendar(){
         ` : ''}
       </div>
     </div>
-    <p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>
-    ${days.map(d=>{
+    ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>`}
+    ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
       const dayEvents = eventsByDate[dStr]||[];
@@ -102,5 +105,5 @@ async function renderUnifiedCalendar(){
         </div>
       `;
     }).join('')}
-  `, {title:'Calendar', subtitle:'All sites', back:'#/sites', tabs:false}); }
+  `, {title:'Calendar', subtitle:'All sites', back: usesPmHome(ME) ? '#/home' : '#/sites', tabs:false}); }
 }
