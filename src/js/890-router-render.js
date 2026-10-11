@@ -75,6 +75,7 @@ async function renderRoute(){
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   if(parts[0]==='todos'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
+    if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);
     return renderPmTodos();
   }
   if(parts[0]==='reports'){

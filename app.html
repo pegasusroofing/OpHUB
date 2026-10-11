@@ -5123,7 +5123,7 @@ async function loadPmTodos(force){
   if(!force && pmTodosCache.uid===ME.id && (Date.now()-pmTodosCache.at) < 30000) return pmTodosCache.rows;
   const mySites = new Set(SITES.filter(x=>x.responsible_pm_id===ME.id).map(x=>x.id));
   const all = await dbSelect('todos', 'done=eq.false&select=id,site_id,text,assigned_to,created_by,date_required_by,created_at&order=date_required_by.asc.nullslast,created_at.asc&limit=500');
-  const rows = (all||[]).filter(t=>SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id || t.created_by===ME.id));
+  const rows = (all||[]).filter(t=>!t.site_id || (SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id || t.created_by===ME.id)));
   pmTodosCache = {at:Date.now(), uid:ME.id, rows};
   return rows;
 }
@@ -5263,8 +5263,9 @@ async function renderAllReports(){
 
 let pmTodoAddOpen = false;
 let pmTodoSiteDraft = '';
+window.setPmTodoSite = function(v){ const wasGen = pmTodoSiteDraft==='general'; pmTodoSiteDraft = v; if(wasGen !== (v==='general')) render(); };
 window.addTodoFromHome = function(){
-  if(!pmTodoSiteDraft){ toast('Choose which project it is for.'); return; }
+  if(!pmTodoSiteDraft){ toast('Choose which project it is for, or General.'); return; }
   pmTodosCache.at = 0;
   addTodo(pmTodoSiteDraft);
 };
@@ -5276,28 +5277,30 @@ async function renderPmTodos(){
   await loadAllProfiles();
   const today = localISODate(new Date());
   const bySite = {};
-  rows.forEach(t=>{ (bySite[t.site_id] = bySite[t.site_id] || []).push(t); });
-  const sites = Object.keys(bySite).map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  rows.forEach(t=>{ const k = t.site_id || 'general'; (bySite[k] = bySite[k] || []).push(t); });
+  const sites = Object.keys(bySite).filter(id=>id!=='general').map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(bySite.general) sites.unshift({id:'general', name:'General (not a project)', _general:true});
   const pmList = await loadPMList();
   const pickSites = SITES.filter(x=>siteStatusKey(x)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const sitePicker = `
     <div class="formfield">
       <label class="field-label">Project</label>
-      <select id="newTodoSite" onchange="pmTodoSiteDraft=this.value">
+      <select id="newTodoSite" onchange="setPmTodoSite(this.value)">
         <option value="">Choose a project…</option>
+        <option value="general" ${pmTodoSiteDraft==='general'?'selected':''}>General — not a project</option>
         ${pickSites.map(x=>`<option value="${x.id}" ${pmTodoSiteDraft===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
       </select>
     </div>`;
   if(__gen !== RENDER_GEN) return;
   app.innerHTML = shell(`
     <div class="ddrow" style="margin:0 0 ${pmTodoAddOpen?'10px':'4px'};" onclick="pmTodoAddOpen=!pmTodoAddOpen;render()"><span class="arrow">${pmTodoAddOpen?'▼':'▶'}</span> Add a to-do</div>
-    ${pmTodoAddOpen ? `<div class="card">${todoAddFormHtml('addTodoFromHome()', pmList, sitePicker)}</div>` : ''}
+    ${pmTodoAddOpen ? `<div class="card">${todoAddFormHtml('addTodoFromHome()', pmList, sitePicker, pmTodoSiteDraft==='general')}</div>` : ''}
     ${sites.length ? sites.map(site=>`
       <p class="sectiontitle" style="margin:14px 0 8px;">${escapeHtml(site.name)} (${bySite[site.id].length})</p>
       ${bySite[site.id].map(t=>{
         const over = t.date_required_by && t.date_required_by < today;
         const due = t.date_required_by ? new Date(t.date_required_by+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
-        return `<button type="button" class="pmrow pmrow-card" onclick="go('#/site/${site.id}/todos')">
+        return `<button type="button" class="pmrow pmrow-card" onclick="go('${site._general ? '#/todos/general' : '#/site/'+site.id+'/todos'}')">
           <span class="pmrow-txt"><span class="pmrow-t" style="white-space:normal;">${escapeHtml(t.text||'')}</span>
           <span class="pmrow-s">${t.assigned_to ? 'Assigned to '+escapeHtml(nameOf(t.assigned_to)||'') : 'Unassigned'}</span></span>
           ${due ? `<span class="pmbadge ${over?'open':'done'}" style="${over?'':'background:var(--line);color:var(--slate);'}">${over?'Overdue · ':''}${due}</span>` : ''}
@@ -11522,6 +11525,8 @@ window.confirmEmailTodoList = async function(siteId){
   }catch(e){ console.error(e); toast('Could not send email.'); if(btn){ btn.disabled=false; btn.textContent='Send'; } }
 };
 let todoListLastSiteId; // undefined initially so the very first render always "changes"
+// #(general-todos) 'general' = to-dos not tied to a project (site_id null, org_id set).
+const GENERAL_TODOS = 'general';
 async function renderTodoList(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
@@ -11543,7 +11548,7 @@ async function renderTodoList(siteId){
     todoSelectedIds = new Set(); todoAssigneePickerOpenId = null; todoAssigneePickerFilter = '';
   }
   const [allTodos, pmList] = await Promise.all([
-    dbSelect('todos', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+    dbSelect('todos', (siteId===GENERAL_TODOS ? 'site_id=is.null&org_id=eq.'+ME.org_id : 'site_id=eq.'+siteId)+'&order=created_at.asc'),
     loadPMList(),
   ]);
   const todos = allTodos.filter(t => todoFilter==='live' ? !t.done : t.done);
@@ -11557,14 +11562,14 @@ async function renderTodoList(siteId){
     comments.forEach(c=>{ (commentsByTodo[c.todo_id]=commentsByTodo[c.todo_id]||[]).push(c); });
     attachments.forEach(a=>{ (attachmentsByTodo[a.todo_id]=attachmentsByTodo[a.todo_id]||[]).push(a); });
   }
-  const addForm = todoAddFormHtml(`addTodo('${siteId}')`, pmList);
+  const addForm = todoAddFormHtml(`addTodo('${siteId}')`, pmList, '', siteId===GENERAL_TODOS);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       <div class="filterchip ${todoFilter==='live'?'active':''}" onclick="todoFilter='live';render()">Live</div>
       <div class="filterchip ${todoFilter==='closed'?'active':''}" onclick="todoFilter='closed';render()">Closed</div>
     </div>
 
-    ${todoSelectionBarHtml(todos, siteId)}
+    ${siteId===GENERAL_TODOS ? '' : todoSelectionBarHtml(todos, siteId)}
     ${todos.length ? todos.map(t=>`
       <div class="card" style="padding:12.6px;margin-bottom:10.8px;">
         <div style="display:flex;align-items:flex-start;gap:9px;">
@@ -11628,7 +11633,7 @@ async function renderTodoList(siteId){
               <span style="cursor:pointer;color:var(--warn);font-size:11px;" onclick="deleteTodoAttachment('${a.id}','${jsAttr(a.storage_path)}')">🗑</span>
             </div>
           `).join('')}
-          ${todoAttachUploadOpenId===t.id ? `
+          ${siteId===GENERAL_TODOS ? '' : todoAttachUploadOpenId===t.id ? `
             <div style="margin-bottom:6px;">
               <div class="ghostbtn" style="cursor:pointer;text-align:center;padding:6px;font-size:11.5px;" onclick="document.getElementById('todoAttachInput_${t.id}').click()">Choose file(s)</div>
               <input type="file" id="todoAttachInput_${t.id}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadTodoAttachmentNow(this,'${siteId}','${t.id}')">
@@ -11668,10 +11673,10 @@ async function renderTodoList(siteId){
       `;
     })() : ''}
 
-    ${todoFilter==='live' && todos.length ? `
+    ${todoFilter==='live' && todos.length && siteId!==GENERAL_TODOS ? `
       <button class="ghostbtn exportbtn" style="margin-top:14px;" onclick="openTodoEmailPicker('${siteId}')">Email To Do List</button>
     ` : ''}
-  `, {title:'To Do List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
+  `, siteId===GENERAL_TODOS ? {title:'General to-dos', subtitle:'Not linked to a project', back:'#/todos', tabs:false} : {title:'To Do List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/home`, siteId, activeTab:'todos'}); }
 }
 // Clicking the "Required by" date text on a to-do row (#293) drops straight
 // into edit mode with the date picker already open, rather than requiring
@@ -11699,7 +11704,7 @@ async function uploadTodoAttachment(todoId, file){
 }
 // The Add To Do form - used on a project's To Do List and (with a project
 // picker on top) on the all-projects To do page from Home.
-function todoAddFormHtml(onAdd, pmList, extraTop){
+function todoAddFormHtml(onAdd, pmList, extraTop, noFiles){
   return `
     ${extraTop||''}
       <div class="formfield">
@@ -11722,6 +11727,7 @@ function todoAddFormHtml(onAdd, pmList, extraTop){
           ${todoAssigneePickerOpenId==='new' ? todoAssigneePickerListHtml('new', pmList, newTodoAssigneeDraft) : ''}
         </div>
       </div>
+      ${noFiles ? '' : `
       <div class="formfield">
         <label class="field-label">Photos / documents (optional)</label>
         <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('newTodoFilesInput').click()">Choose file(s)</div>
@@ -11733,6 +11739,7 @@ function todoAddFormHtml(onAdd, pmList, extraTop){
           </div>
         `).join('') : ''}
       </div>
+      `}
       <button class="darkbtn" onclick="${onAdd}">Add To Do</button>
   `;
 }
@@ -11742,15 +11749,16 @@ window.addTodo = async function(siteId){
   // dbInsert returns an ARRAY of inserted rows — this used to treat it as
   // the row itself, so row.id was undefined and the first comment, the
   // attachments and the assignee notification all went out with no to-do id.
-  const todoRows = await dbInsert('todos', {site_id:siteId, text, assigned_to: newTodoAssigneeDraft||null, date_required_by: newTodoDateDraft||null, created_by:ME.id});
+  const general = siteId===GENERAL_TODOS;
+  const todoRows = await dbInsert('todos', {site_id: general ? null : siteId, org_id: ME.org_id, text, assigned_to: newTodoAssigneeDraft||null, date_required_by: newTodoDateDraft||null, created_by:ME.id});
   const row = todoRows && todoRows[0];
   if(row){
     const comment = (newTodoCommentDraft||'').trim();
     if(comment) await dbInsert('todo_comments', {todo_id:row.id, body:comment, created_by:ME.id});
-    if(newTodoFilesDraft.length){
+    if(newTodoFilesDraft.length && !general){
       for(const f of newTodoFilesDraft){ await uploadTodoAttachment(row.id, f); }
     }
-    if(newTodoAssigneeDraft){
+    if(newTodoAssigneeDraft && !general){
       const site = SITES.find(s=>s.id===siteId);
       postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'New to-do assigned to '+nameOf(newTodoAssigneeDraft)+': '+text);
       notifyTodoAssigned(siteId, row.id, newTodoAssigneeDraft);
@@ -11814,7 +11822,7 @@ window.changeTodoAssignee = async function(siteId, id, pmId){
   if(row){
     todoAssigneeEditId = null;
     toast(pmId ? 'Project manager updated' : 'Project manager removed');
-    if(pmId){
+    if(pmId && siteId!==GENERAL_TODOS){
       const site = SITES.find(s=>s.id===siteId);
       postSystemMessage(siteId, 'todo_assigned', (site?site.name+': ':'')+'To-do assigned to '+nameOf(pmId)+': '+row.text);
     }
@@ -11835,7 +11843,7 @@ window.deleteTodo = async function(siteId, id){
   const rows = await dbSelect('todos', 'id=eq.'+id+'&select=text');
   const text = rows[0] && rows[0].text;
   const ok = await dbDelete('todos', id);
-  if(ok){ toast('To-do deleted'); logSiteActivity(siteId, 'todo_deleted', `Deleted to-do "${text||''}"`); render(); }
+  if(ok){ toast('To-do deleted'); if(siteId!==GENERAL_TODOS) logSiteActivity(siteId, 'todo_deleted', `Deleted to-do "${text||''}"`); render(); }
 };
 window.setGeofenceRadius = async function(siteId, radius){
   const row = await dbUpdate('sites', siteId, {geofence_radius_m: radius});
@@ -38902,6 +38910,7 @@ async function renderRoute(){
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   if(parts[0]==='todos'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
+    if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);
     return renderPmTodos();
   }
   if(parts[0]==='reports'){

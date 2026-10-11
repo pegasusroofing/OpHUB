@@ -66,7 +66,7 @@ async function loadPmTodos(force){
   if(!force && pmTodosCache.uid===ME.id && (Date.now()-pmTodosCache.at) < 30000) return pmTodosCache.rows;
   const mySites = new Set(SITES.filter(x=>x.responsible_pm_id===ME.id).map(x=>x.id));
   const all = await dbSelect('todos', 'done=eq.false&select=id,site_id,text,assigned_to,created_by,date_required_by,created_at&order=date_required_by.asc.nullslast,created_at.asc&limit=500');
-  const rows = (all||[]).filter(t=>SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id || t.created_by===ME.id));
+  const rows = (all||[]).filter(t=>!t.site_id || (SITES.some(x=>x.id===t.site_id) && (mySites.has(t.site_id) || t.assigned_to===ME.id || t.created_by===ME.id)));
   pmTodosCache = {at:Date.now(), uid:ME.id, rows};
   return rows;
 }
@@ -206,8 +206,9 @@ async function renderAllReports(){
 
 let pmTodoAddOpen = false;
 let pmTodoSiteDraft = '';
+window.setPmTodoSite = function(v){ const wasGen = pmTodoSiteDraft==='general'; pmTodoSiteDraft = v; if(wasGen !== (v==='general')) render(); };
 window.addTodoFromHome = function(){
-  if(!pmTodoSiteDraft){ toast('Choose which project it is for.'); return; }
+  if(!pmTodoSiteDraft){ toast('Choose which project it is for, or General.'); return; }
   pmTodosCache.at = 0;
   addTodo(pmTodoSiteDraft);
 };
@@ -219,28 +220,30 @@ async function renderPmTodos(){
   await loadAllProfiles();
   const today = localISODate(new Date());
   const bySite = {};
-  rows.forEach(t=>{ (bySite[t.site_id] = bySite[t.site_id] || []).push(t); });
-  const sites = Object.keys(bySite).map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  rows.forEach(t=>{ const k = t.site_id || 'general'; (bySite[k] = bySite[k] || []).push(t); });
+  const sites = Object.keys(bySite).filter(id=>id!=='general').map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(bySite.general) sites.unshift({id:'general', name:'General (not a project)', _general:true});
   const pmList = await loadPMList();
   const pickSites = SITES.filter(x=>siteStatusKey(x)!=='closed').sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const sitePicker = `
     <div class="formfield">
       <label class="field-label">Project</label>
-      <select id="newTodoSite" onchange="pmTodoSiteDraft=this.value">
+      <select id="newTodoSite" onchange="setPmTodoSite(this.value)">
         <option value="">Choose a project…</option>
+        <option value="general" ${pmTodoSiteDraft==='general'?'selected':''}>General — not a project</option>
         ${pickSites.map(x=>`<option value="${x.id}" ${pmTodoSiteDraft===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
       </select>
     </div>`;
   if(__gen !== RENDER_GEN) return;
   app.innerHTML = shell(`
     <div class="ddrow" style="margin:0 0 ${pmTodoAddOpen?'10px':'4px'};" onclick="pmTodoAddOpen=!pmTodoAddOpen;render()"><span class="arrow">${pmTodoAddOpen?'▼':'▶'}</span> Add a to-do</div>
-    ${pmTodoAddOpen ? `<div class="card">${todoAddFormHtml('addTodoFromHome()', pmList, sitePicker)}</div>` : ''}
+    ${pmTodoAddOpen ? `<div class="card">${todoAddFormHtml('addTodoFromHome()', pmList, sitePicker, pmTodoSiteDraft==='general')}</div>` : ''}
     ${sites.length ? sites.map(site=>`
       <p class="sectiontitle" style="margin:14px 0 8px;">${escapeHtml(site.name)} (${bySite[site.id].length})</p>
       ${bySite[site.id].map(t=>{
         const over = t.date_required_by && t.date_required_by < today;
         const due = t.date_required_by ? new Date(t.date_required_by+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : '';
-        return `<button type="button" class="pmrow pmrow-card" onclick="go('#/site/${site.id}/todos')">
+        return `<button type="button" class="pmrow pmrow-card" onclick="go('${site._general ? '#/todos/general' : '#/site/'+site.id+'/todos'}')">
           <span class="pmrow-txt"><span class="pmrow-t" style="white-space:normal;">${escapeHtml(t.text||'')}</span>
           <span class="pmrow-s">${t.assigned_to ? 'Assigned to '+escapeHtml(nameOf(t.assigned_to)||'') : 'Unassigned'}</span></span>
           ${due ? `<span class="pmbadge ${over?'open':'done'}" style="${over?'':'background:var(--line);color:var(--slate);'}">${over?'Overdue · ':''}${due}</span>` : ''}
