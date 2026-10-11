@@ -137,11 +137,14 @@ function homeBottomBar(canAdd, outstandingCount, active){
   // Calendar and Deliveries now live as tiles on the Home page; the HUB count
   // shows on the Home button so it's never missed.
   const items = canAdd ? [
-    {k:'home', ic:ophIcon('home'), lbl:'Home', onclick:"go('#/home')", badge: outstandingCount||0},
-    {k:'projects', ic:ophIcon('projects'), lbl:'Projects', onclick:"go('#/sites')"},
+    // #(pm-home) PMs/admins: the Projects page keeps the original buttons
+    // (HUB · Deliveries · + Add · Calendar · Admin) in the new style. The
+    // new Home page has no bottom bar.
+    {k:'hub', ic:ophIcon('bell'), lbl:'HUB', onclick:"go('#/hub')", badge: outstandingCount||0},
+    {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')"},
     {k:'add', ic:ophIcon('plus', 22, 2.4), lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"},
-    {k:'reports', ic:ophIcon('reports'), lbl:'Reports', onclick:"go('#/reports')"},
-    {k:'admin', ic:ophIcon('admin'), lbl:'Admin', onclick:"go('#/team')"},
+    {k:'calendar', ic:ophIcon('calendar'), lbl:'Calendar', onclick:"go('#/calendar')"},
+    {k:'admin', ic:ophIcon('gear'), lbl:'Admin', onclick:"go('#/team')"},
   ] : [
     {k:'outstanding', ic:ophIcon('list'), lbl:'Outstanding', onclick:"go('#/outstanding')", badge: outstandingCount||0},
     // Inbox is the operative team's messages feed — a client shouldn't see

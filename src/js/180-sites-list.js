@@ -132,6 +132,9 @@ let sitePmPickerOpenId = null;
 // first time it's computed, then leaves it alone so the user's own
 // toggling takes over from there.
 let siteSectionOpen = {live:true, upcoming:null, closed:false};
+// #(projects-tabs) PM/admin project list: Live / Upcoming / Closed chips + search instead of drop-down sections.
+let siteTab = 'live';
+window.setSiteTab = function(k){ siteTab = k; render(); };
 window.toggleSiteStatusMenu = function(siteId){
   siteStatusMenuOpenId = siteStatusMenuOpenId===siteId ? null : siteId;
   sitePmPickerOpenId = null;
@@ -173,7 +176,7 @@ window.setSiteStatus = async function(siteId, status){
   render();
 };
 window.toggleSiteSection = function(key){ siteSectionOpen[key] = !siteSectionOpen[key]; render(); };
-window.goSitesSection = function(key){ siteSectionOpen[key] = true; go('#/sites'); };
+window.goSitesSection = function(key){ siteSectionOpen[key] = true; siteTab = key; go('#/sites'); };
 async function renderSites(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
@@ -215,13 +218,16 @@ async function renderSites(){
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>
+    ${canAdd ? `
+      <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
+    ` : ''}
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
+      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `
-        <div style="position:relative;margin-top:-9px;" data-pmfilter-root>
-          <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:96px;padding:4px 10px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
-            ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'Select PM'} ${pmFilterOpen?'▲':'▼'}
+        <div style="position:relative;" data-pmfilter-root>
+          <button type="button" onclick="event.stopPropagation();togglePmFilterOpen()" title="Filter by project manager" style="width:auto;flex:none;min-width:${canAdd?'0':'96px'};padding:${canAdd?'8px 10px':'4px 10px'};font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${siteFilterPmIds.length?'var(--brand1)':'#fff'};color:${siteFilterPmIds.length?'#fff':'var(--slate)'};cursor:pointer;">
+            ${siteFilterPmIds.length ? (siteFilterPmIds.length===1 ? escapeHtml((nameOf(siteFilterPmIds[0])||'1 selected')) : siteFilterPmIds.length+' selected') : 'PM'} ${pmFilterOpen?'▲':'▼'}
           </button>
           ${pmFilterOpen ? `
             <div style="position:absolute;right:0;top:calc(100% + 6px);z-index:50;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:8px;min-width:170px;">
@@ -278,9 +284,10 @@ async function renderSites(){
       </div>
     ` : ''}
     ${canAdd ? `
-      ${siteSection('live','Live Projects',liveSites,true)}
-      ${siteSection('upcoming','Upcoming Projects',upcomingSites)}
-      ${siteSection('closed','Closed Projects',closedSites)}
+      <div id="siteListBox">
+        ${(siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab} projects.</div>`}
+        <div class="empty lf-empty" style="display:none;">No projects match.</div>
+      </div>
     ` : `
       ${filtered.filter(s=>statusOf(s)!=='closed').map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No active sites.</div>`}
     `}
@@ -292,7 +299,7 @@ async function renderSites(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, homeBarActive:'projects', centerHeader:true, showRefresh:true});
+  `, (canAdd ? {title:'Projects', subtitle:(ORG&&ORG.name)||'', back:'#/home', homeBar:true, homeBarCanAdd:true, homeBarOutstanding:myOutstandingCount} : {homeBar:true, homeBarCanAdd:canAdd, homeBarOutstanding:myOutstandingCount, centerHeader:true, showRefresh:true}));
     if(appSearchOpen) appSearchRender(); }
   refreshHomeExtras();
   if(pendingSiteScrollSection){

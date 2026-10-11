@@ -25,6 +25,7 @@ const OPH_ICONS = {
   tools: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
   list: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   shield: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/>',
   box: '<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
@@ -140,7 +141,7 @@ async function renderPmHome(){
     <div style="text-align:center;margin-top:8px;">
       <span class="stub" style="margin:0;color:var(--warn);cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </div>
-  `, {homeBar:true, homeBarCanAdd:true, homeBarOutstanding:hubCount, homeBarActive:'home', centerHeader:true, showRefresh:true});
+  `, {tabs:false, centerHeader:true, showRefresh:true});
   if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
   refreshHomeExtras();
 }
@@ -185,5 +186,5 @@ async function renderAllReports(){
         <span class="pmrow-s">${escapeHtml(pmReportWhere(r))} · ${escapeHtml(nameOf(r.submitted_by)||'')}${isOpen ? '' : ' · '+new Date(r.submitted_at).toLocaleDateString('en-GB')}</span></span>
         <span class="pmbadge ${isOpen?'open':'done'}">${isOpen?'In progress':'Completed'}</span>
       </button>`; }).join('') : `<div class="empty">No reports here yet.</div>`}
-  `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', homeBar:true, homeBarCanAdd:true, homeBarOutstanding:homeExtras.count||0, homeBarActive:'reports'});
+  `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', tabs:false});
 }
