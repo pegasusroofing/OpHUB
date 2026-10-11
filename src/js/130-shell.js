@@ -176,7 +176,7 @@ window.openHomeAddProject = function(){
 // scroll position of whichever element is actually scrolling.
 function appScroller(){
   const s = document.querySelector('.appshell > .scrollarea');
-  if(s && getComputedStyle(document.documentElement).overflowY === 'hidden') return s;
+  if(s && (document.documentElement.classList.contains('tap-top') || getComputedStyle(document.documentElement).overflowY === 'hidden')) return s;
   return null;
 }
 function appScrollY(){ const s = appScroller(); return s ? s.scrollTop : (window.scrollY || 0); }
@@ -206,7 +206,29 @@ function fixStandaloneHeight(){
   let safeTop = 0;
   try{ const p = document.createElement('div'); p.style.cssText = 'position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); safeTop = parseFloat(getComputedStyle(p).paddingTop)||0; p.remove(); }catch(e){}
   root.classList.toggle('app-gap', !!(standalone && ios && safeTop > 0 && gap > 10 && gap < 140));
+  root.classList.toggle('tap-top', !!(standalone && ios));
+  tapTopArm();
 }
+// #(tap-top) iPhone "tap the status bar to go to the top" only scrolls the
+// page itself, and our page never scrolls (the list scrolls inside it). On
+// the home-screen app the page is made 2px taller and parked 1px down; when
+// iOS scrolls it back to 0 on a status-bar tap, scroll the list to the top
+// and park the page again.
+let TAP_TOP_BUSY = false;
+function tapTopArm(){
+  if(!document.documentElement.classList.contains('tap-top') || TAP_TOP_BUSY) return;
+  if((window.scrollY||0) < 1) try{ window.scrollTo(0, 1); }catch(e){}
+}
+window.addEventListener('scroll', ()=>{
+  if(!document.documentElement.classList.contains('tap-top') || TAP_TOP_BUSY) return;
+  if((window.scrollY||0) <= 0){
+    TAP_TOP_BUSY = true;
+    const s = appScroller();
+    if(s && s.scrollTop > 0) appScrollTo(0, true);
+    setTimeout(()=>{ TAP_TOP_BUSY = false; tapTopArm(); }, 450);
+  }
+}, {passive:true});
+window.addEventListener('hashchange', ()=>setTimeout(tapTopArm, 60));
 if(document.body) fixStandaloneHeight(); else document.addEventListener('DOMContentLoaded', fixStandaloneHeight);
 window.addEventListener('resize', ()=>setTimeout(fixStandaloneHeight, 50));
 window.addEventListener('orientationchange', ()=>setTimeout(fixStandaloneHeight, 300));

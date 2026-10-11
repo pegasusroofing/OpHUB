@@ -24,9 +24,11 @@ function reportListPath(siteId, fromBriefing){
   if(isGeneralReports(siteId)) return '#/general-reports';
   return fromBriefing ? `#/site/${siteId}/hs/briefings` : `#/site/${siteId}/snagging/reports`;
 }
+// Report pages: the bold top line is where the job is (site address, still
+// taps home) and the line under it says which report it is.
 function reportShellOpts(siteId, site, title, back, label){
-  if(isGeneralReports(siteId)) return {title, subtitle: label || 'Not linked to a project', back, tabs:false};
-  return {title, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back, siteId, activeTab:'more'};
+  if(isGeneralReports(siteId)) return {title: label || 'Not linked to a project', subtitle: title, titleTwoLine:true, back, tabs:false};
+  return {title: fullSiteAddress(site) || (site && site.name) || title, subtitle: title, titleTwoLine:true, back, siteId, activeTab:'more'};
 }
 async function renderSiteReportTemplates(siteId){
   const __gen = RENDER_GEN;
@@ -301,7 +303,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
           <span>${escapeHtml(s.title)}</span>
           ${sc.bySection[s.id] ? `<span style="font-weight:700;font-size:12px;color:var(--slate);">${scoreLabel(sc.bySection[s.id])}</span>` : ''}
         </p>
-        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>`<div data-rid="${it.id}">` + renderReportFillItem(it) + reportDrawingTickHtml(it) + `</div>` + (it.addedOnSite ? `<div style="text-align:right;margin:-4px 0 8px;"><span class="viewlink" style="cursor:pointer;font-size:12px;color:var(--slate);" onclick="removeReportExtraItem('${s.id}','${it.id}')">✕ Remove ${escapeHtml(it.label)}</span></div>` : '')).join('')}
+        ${(s.items||[]).filter(it=>itemVisible(it, reportFillDraft.answers)).map(it=>`<div data-rid="${it.id}" class="rfitem rfitem-${it.type||'text'}">` + renderReportFillItem(it) + reportDrawingTickHtml(it) + `</div>` + (it.addedOnSite ? `<div style="text-align:right;margin:-4px 0 8px;"><span class="viewlink" style="cursor:pointer;font-size:12px;color:var(--slate);" onclick="removeReportExtraItem('${s.id}','${it.id}')">✕ Remove ${escapeHtml(it.label)}</span></div>` : '')).join('')}
         ${reportCanAddItem(s) ? `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="addReportExtraItem('${s.id}')">+ Add another item</button>` : ''}
       </div>
     `).join('')}
@@ -310,7 +312,7 @@ async function renderReportFill(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" ${reportSubmitBusy||reportSaveBusy?'disabled':''} onclick="submitReport('${siteId}')">${reportSubmitBusy?'Completing…':fromBriefing?'Complete Briefing':'Complete Inspection'}</button>
     </div>
     <p class="stub" id="reportProgressNote" style="text-align:center;margin:10px 0 0;font-weight:700;color:var(--ink);display:none;"></p>
-  `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Inspection', listPath, reportFillDraft.generalLabel)); }
+  `, reportShellOpts(siteId, site, reportFillDraft.template_name || (fromBriefing?'Daily Briefing':'Inspection'), listPath, reportFillDraft.generalLabel)); }
 }
 // ---- Drawings / plan mark-up --------------------------------------------
 // A "Drawing" question holds one or more uploaded drawings (photo or PDF -
@@ -669,7 +671,7 @@ function renderItemTrafficWidget(it, answers){
   const secs = reportFillDraft && reportFillDraft.sections;
   if(!itemHasTraffic(secs, it)) return '';
   const cur = answers[it.id+'__tl'] || '';
-  return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 10px;">${trafficLevels(secs).map(l=>{ const on = cur===l.id; const hex = trafficHex(l.color); return `<button type="button" title="${escapeHtml(l.label||'')}" onclick="reportFillDraft.answers['${it.id}__tl']=${on?"''":`'${l.id}'`};render()" style="display:flex;align-items:center;gap:6px;margin:0;width:auto;padding:6px 10px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;border:2px solid ${hex};background:${on?hex:'transparent'};color:${on?'#fff':'var(--ink)'};"><span style="width:10px;height:10px;border-radius:50%;background:${on?'#fff':hex};flex:0 0 10px;"></span>${escapeHtml(l.label||'')}</button>`; }).join('')}</div>`;
+  return `<div class="rftlrow">${trafficLevels(secs).map(l=>{ const on = cur===l.id; const hex = trafficHex(l.color); return `<button type="button" title="${escapeHtml(l.label||'')}" onclick="reportFillDraft.answers['${it.id}__tl']=${on?"''":`'${l.id}'`};render()" class="rftl" style="border-color:${hex};background:${on?hex:'transparent'};color:${on?'#fff':'var(--ink)'};"><span style="background:${on?'#fff':hex};"></span>${escapeHtml(l.label||'')}</button>`; }).join('')}</div>`;
 }
 let reportNoteOpen = new Set();
 window.openReportNote = function(id){ reportNoteOpen.add(id); render().then(()=>{ const el = document.getElementById('rnote_'+id); if(el) el.focus(); }); };
@@ -982,7 +984,7 @@ async function renderReportView(siteId, submissionId, fromBriefing){
       <button class="darkbtn" style="flex:1;" onclick="${fromBriefing?`exportDailyBriefingPDF('${sub.id}')`:`exportReportPDF('${sub.id}')`}">Export PDF</button>
       ${isManager(ME) ? `<button class="ghostbtn" style="flex:1;" ${reportEmailBusy===sub.id?'disabled':''} onclick="emailReportPDF('${sub.id}',${fromBriefing?'true':'false'})">${reportEmailBusy===sub.id?'Sending…':'Email Report'}</button>` : ''}
     </div>
-  `, reportShellOpts(siteId, site, fromBriefing?'Daily Briefing':'Report', listPath, sub.general_label)); }
+  `, reportShellOpts(siteId, site, sub.template_name || (fromBriefing?'Daily Briefing':'Report'), listPath, sub.general_label)); }
 }
 function reportDrawingKeyHtml(keys){
   if(!keys.length) return '';
@@ -1032,12 +1034,57 @@ const TITLE_SECTION_TYPES = ['text','date','number','textarea'];
 function isTitleSection(s){
   return !!(s && s.items && s.items.length && s.items.every(it=>TITLE_SECTION_TYPES.includes(it.type)));
 }
+// #(report-pdf-cache) A report's PDF is saved to Storage the first time it's
+// built, and re-used next time as long as nothing in the report has changed
+// (answers, photos, items, status, company logo/colour). Rebuilding a big
+// survey (fetching and shrinking 100+ photos) took minutes each time.
+// Bump REPORT_PDF_LAYOUT whenever the PDF layout code changes, so old saved
+// copies are rebuilt in the new layout.
+const REPORT_PDF_LAYOUT = '2026-10-11';
+async function reportPdfCacheKey(sub, opts){
+  try{
+    const site = SITES.find(s=>s.id===sub.site_id);
+    const src = JSON.stringify([REPORT_PDF_LAYOUT, !!(opts && opts.fromBriefing), sub.template_name, sub.sections, sub.answers, sub.status, sub.issued_at, sub.general_label, sub.submitted_at,
+      site ? [site.name, site.address, site.postcode] : null, ORG ? [ORG.name, ORG.logo_path, ORG.color_primary] : null]);
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(src));
+    return Array.from(new Uint8Array(buf)).slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return null; }
+}
 async function buildReportPdf(submissionId, opts){
+  const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
+  const sub0 = rows[0]; if(!sub0) return null;
+  await applyLiveShowUnanswered(sub0);
+  const key = await reportPdfCacheKey(sub0, opts);
+  const cachePath = key ? 'report-pdfs/'+submissionId+'/'+key+'.pdf' : null;
+  if(cachePath && sub0.pdf_path === cachePath){
+    try{
+      const res = await fetchWithTimeout(publicUrl('mc-documents', cachePath), {}, 120000);
+      if(res.ok){
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        if(bytes.length > 1000 && bytes[0]===0x25 && bytes[1]===0x50 && bytes[2]===0x44 && bytes[3]===0x46){ // starts %PDF
+          const site = SITES.find(s=>s.id===sub0.site_id);
+          const filename = exportFilename(site?site.name:(sub0.general_label||''), sub0.template_name, 'pdf');
+          return {bytes, filename, sub: sub0, photoEmbedFailures:0, storedPath: cachePath, cached:true};
+        }
+      }
+    }catch(e){ /* fall through and rebuild */ }
+  }
+  const built = await buildReportPdfFresh(sub0, opts);
+  if(built && cachePath && built.bytes && built.bytes.length && !built.photoEmbedFailures && built.bytes.length < 49*1024*1024){
+    // Save a copy for next time - in the background, never holds up the export.
+    built.savePromise = (async ()=>{
+      try{
+        const stored = await uploadToStorage('mc-documents', cachePath, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+        if(stored){ await dbUpdate('report_submissions', submissionId, {pdf_path: stored}); built.storedPath = stored; return stored; }
+      }catch(e){}
+      return null;
+    })();
+  }
+  return built;
+}
+async function buildReportPdfFresh(sub, opts){
   const suppressSignatureTimestamp = !!(opts && opts.fromBriefing);
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
-  const rows = await dbSelect('report_submissions', 'id=eq.'+submissionId+'&limit=1');
-  const sub = rows[0]; if(!sub) return null;
-  await applyLiveShowUnanswered(sub);
   const site = SITES.find(s=>s.id===sub.site_id);
   const generalLabel = !sub.site_id ? (sub.general_label||'') : '';
   await loadAllProfiles();
@@ -1178,6 +1225,10 @@ async function buildReportPdf(submissionId, opts){
     // attachment and very slow to build and upload). Photos are also sized
     // down to 1500px for the PDF, which is sharp even at a full-width photo.
     const embeddedImages = new Map();
+    // Photo size in the PDF shrinks as the photo count grows, so a big
+    // survey (170+ photos) stays well under the 50MB upload limit for
+    // emailing. Photos sit in a half-page grid, so 1000px is still sharp.
+    let photoDim = 1500, photoQ = 0.82;
     function embedFromDataUrl(urlOrDataUrl){
       const key = String(urlOrDataUrl);
       if(embeddedImages.has(key)) return embeddedImages.get(key);
@@ -1187,7 +1238,7 @@ async function buildReportPdf(submissionId, opts){
           const b64 = key.split(',')[1];
           bytes = Uint8Array.from(atob(b64), c=>c.charCodeAt(0));
         } else {
-          bytes = await pdfFetchImageBytesScaled(urlOrDataUrl, 1500, 0.82);
+          bytes = await pdfFetchImageBytesScaled(urlOrDataUrl, photoDim, photoQ);
           if(!bytes) throw new Error('Could not fetch photo');
         }
         try{ return await pdfDoc.embedJpg(bytes); }catch(e){ return await pdfDoc.embedPng(bytes); }
@@ -1239,6 +1290,9 @@ async function buildReportPdf(submissionId, opts){
       (sub.sections||[]).forEach(s=>(s.items||[]).forEach(it=>{ if(it.type==='drawing') drawingIds.add(it.id); }));
       Object.keys(sub.answers||{}).forEach(k=>{ const base = k.replace(/__(orig|ops)$/,''); if(drawingIds.has(base)) return; scan(sub.answers[k]); });
       const list = Array.from(found);
+      if(list.length > 300){ photoDim = 850; photoQ = 0.72; }
+      else if(list.length > 150){ photoDim = 1000; photoQ = 0.74; }
+      else if(list.length > 60){ photoDim = 1200; photoQ = 0.78; }
       if(list.length > 4){
         let next = 0, done = 0;
         const worker = async ()=>{
@@ -1552,10 +1606,7 @@ async function buildReportPdf(submissionId, opts){
     const filename = exportFilename(site?site.name:generalLabel, sub.template_name, 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
-    let binary=''; const chunk=0x8000;
-    for(let i=0;i<outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, outBytes.subarray(i,i+chunk));
-    const base64 = btoa(binary);
-    return {bytes: outBytes, base64, filename, sub, photoEmbedFailures};
+    return {bytes: outBytes, filename, sub, photoEmbedFailures};
   }catch(e){
     console.error(e);
     toast('Could not build the PDF.');
@@ -1572,7 +1623,7 @@ window.exportReportPDF = async function(submissionId){
 
   // Best-effort OneDrive sync — same silent-fail pattern as photo sync.
   try{
-    if(built.sub.site_id) await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename: built.filename, content_base64: built.base64, site_id: built.sub.site_id})});
+    if(built.sub.site_id) await oneDriveUploadBytes(built.bytes, built.filename, {site_id: built.sub.site_id});
   }catch(e){ /* silent — OneDrive sync is opportunistic */ }
 };
 // Emails a link to the report PDF (uploaded to storage first) rather than
@@ -1602,7 +1653,12 @@ window.emailReportPDF = async function(submissionId, fromBriefing){
     if(!built){ reportEmailBusy = null; render(); return; }
     if(!built.bytes || !built.bytes.length){ toast('Something went wrong building this PDF — it came out empty. Please try again.'); reportEmailBusy = null; render(); return; }
     const path = (built.sub.site_id||'general')+'/report-exports/'+crypto.randomUUID()+'-'+built.filename.replace(/[^a-z0-9.\-]+/gi,'_');
-    const stored = await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
+    if(built.bytes.length > 49*1024*1024){
+      reportEmailBusy = null; render();
+      customAlert('This PDF is '+Math.round(built.bytes.length/1048576)+'MB — too big to email (50MB max). Use Export PDF to save it instead, or split the photos across two reports.');
+      return;
+    }
+    const stored = (built.storedPath || (built.savePromise && await built.savePromise)) || await uploadToStorage('mc-documents', path, new Blob([built.bytes], {type:'application/pdf'}), 'application/pdf');
     if(!stored){ toast('Could not upload the PDF — try again.'); reportEmailBusy = null; render(); return; }
     toast('Sending…');
     const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:90000, body: JSON.stringify({

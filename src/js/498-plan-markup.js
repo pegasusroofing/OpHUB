@@ -155,41 +155,67 @@ window.plmZoomBy = function(f){
   const st = document.getElementById('plmStage'); if(!st || !PLM) return;
   plmZoomAt(f, st.clientWidth/2, st.clientHeight/2);
 };
+// Bottom bar: one tidy row of buttons (Tool, Size, Colour, Items, Undo);
+// tapping one opens its options just above the row, picking one closes it.
+const PLM_TOOLS = [['num','Number'],['cross','✕ Cross'],['tick','✓ Tick'],['warn','⚠ Warning'],['arrow','➚ Arrow'],['pen','✏️ Pen'],['text','T Text'],['erase','🧽 Erase'],['pan','✋ Move drawing']];
+window.plmToggle = function(which){ PLM.open = PLM.open===which ? null : which; plmBar(); };
 function plmBar(){
-  const keysEl = document.getElementById('plmKeys');
+  const panel = document.getElementById('plmKeys');
+  const row = document.getElementById('plmTools');
+  const edit = document.getElementById('plmEdit');
+  const cols = document.getElementById('plmColours');
   const placed = new Set(PLM.ops.filter(o=>o.t==='num').map(o=>+o.n));
-  keysEl.innerHTML = PLM.keys.length ? `<span class="pm-lbl">Items to place</span>` + PLM.keys.map(k=>`<button class="pm-tool plm-key ${PLM.tool==='key' && PLM.keyPick===k.n?'on':''} ${placed.has(+k.n)?'done':''}" title="${escapeHtml(k.label)}" onclick="plmPickKey(${+k.n})"><span class="plm-keydot" style="background:${k.color||PLM.colour};">${+k.n}</span>${placed.has(+k.n)?'✓':''}</button>`).join('') : '';
-  keysEl.style.display = PLM.keys.length ? '' : 'none';
   const nextN = PLM.nextNum || plmNextFree();
-  const tools = [['num','<span class="plm-keydot" style="background:'+PLM.colour+';">'+nextN+'</span> Number'],['cross','✕ Cross'],['tick','✓ Tick'],['warn','⚠ Warning'],['arrow','➚ Arrow'],['pen','✏️ Pen'],['text','T Text'],['erase','🧽 Erase'],['pan','✋ Move']];
-  document.getElementById('plmTools').innerHTML = tools.map(([k,n])=>`<button class="pm-tool ${PLM.tool===k?'on':''}" onclick="plmSetTool('${k}')">${n}</button>`).join('');
   const selOp = PLM.sel!=null ? PLM.ops[PLM.sel] : null;
   if(selOp){
-    document.getElementById('plmEdit').innerHTML = `<span class="pm-lbl">Selected ${selOp.t==='num'?selOp.n:selOp.t==='text'?'text':selOp.t}</span>` +
-      `<button class="pm-tool" onclick="plmSelSmaller()">－ Smaller</button><button class="pm-tool" onclick="plmSelBigger()">＋ Bigger</button>` +
+    // a mark is selected: only its controls
+    panel.style.display = 'none'; panel.innerHTML = '';
+    row.innerHTML = `<span class="pm-lbl">Selected ${selOp.t==='num'?selOp.n:selOp.t==='text'?'text':selOp.t}</span>` +
+      `<button class="pm-tool" onclick="plmSelSmaller()">－</button><button class="pm-tool" onclick="plmSelBigger()">＋</button>` +
       (selOp.t==='text' ? `<button class="pm-tool" onclick="plmSelEditText()">✎ Edit</button>` : '') +
       `<button class="pm-tool" onclick="plmSelDelete()">🗑</button><button class="pm-tool on" onclick="plmSelDone()">Done</button>`;
-    document.getElementById('plmColours').innerHTML = `<span class="pm-lbl">Colour</span>` +
-      PLM_COLOURS.map(c=>`<button class="pm-dot ${selOp.c===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSelColour('${c.k}')"></button>`).join('');
+    edit.innerHTML = '';
+    cols.innerHTML = PLM_COLOURS.map(c=>`<button class="pm-dot ${selOp.c===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSelColour('${c.k}')"></button>`).join('');
+    cols.style.display = '';
     return;
   }
-  document.getElementById('plmEdit').innerHTML =
-    `<span class="pm-lbl">Size</span>` + ['xs','s','m','l'].map(k=>`<button class="pm-tool pm-size ${PLM.size===k?'on':''}" onclick="plmSetSize('${k}')">${k.toUpperCase()}</button>`).join('') +
-    (PLM.tool==='num' ? `<button class="pm-tool" onclick="plmSetNext()">Start at…</button>` : '') +
-    `<span class="pm-gap"></span><button class="pm-tool" onclick="plmUndo()" ${PLM.ops.length?'':'disabled'}>↶ Undo</button><button class="pm-tool" onclick="plmClear()" ${PLM.ops.length?'':'disabled'}>Clear</button>`;
-  document.getElementById('plmColours').innerHTML = `<span class="pm-lbl">Colour</span>` +
-    PLM_COLOURS.map(c=>`<button class="pm-dot ${PLM.colour===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSetColour('${c.k}')"></button>`).join('');
+  cols.innerHTML = ''; cols.style.display = 'none'; edit.innerHTML = ''; edit.style.display = 'none';
+  const dot = (c,n)=>`<span class="plm-keydot" style="background:${c};">${n}</span>`;
+  const toolLbl = PLM.tool==='key' && PLM.keyPick!=null ? dot(plmKeyColour(PLM.keyPick)||PLM.colour, PLM.keyPick)+'Place'
+    : PLM.tool==='num' ? dot(PLM.colour, nextN)+'Number'
+    : (PLM_TOOLS.find(t=>t[0]===PLM.tool)||['',''])[1];
+  const keysLeft = PLM.keys.filter(k=>!placed.has(+k.n)).length;
+  row.innerHTML =
+    `<button class="pm-tool plm-chip ${PLM.open==='tools'?'on':''}" onclick="plmToggle('tools')">${toolLbl} ▾</button>` +
+    `<button class="pm-tool plm-chip ${PLM.open==='size'?'on':''}" onclick="plmToggle('size')">Size ${PLM.size.toUpperCase()} ▾</button>` +
+    `<button class="pm-tool plm-chip ${PLM.open==='colour'?'on':''}" onclick="plmToggle('colour')"><span class="plm-swatch" style="background:${PLM.colour};"></span>▾</button>` +
+    (PLM.keys.length ? `<button class="pm-tool plm-chip ${PLM.open==='items'?'on':''}" onclick="plmToggle('items')">📍 ${keysLeft ? keysLeft+' to place' : 'All placed'} ▾</button>` : '') +
+    `<button class="pm-tool plm-chip" onclick="plmUndo()" ${PLM.ops.length?'':'disabled'}>↶</button>`;
+  let html = '';
+  if(PLM.open==='tools'){
+    html = PLM_TOOLS.map(([k,n])=>`<button class="pm-tool ${PLM.tool===k?'on':''}" onclick="plmSetTool('${k}')">${k==='num' ? dot(PLM.colour, nextN)+n : n}</button>`).join('') +
+      `<button class="pm-tool" onclick="plmSetNext()">Number from…</button><button class="pm-tool" onclick="plmClear()" ${PLM.ops.length?'':'disabled'}>Clear all</button>`;
+  } else if(PLM.open==='size'){
+    html = [['xs','Extra small'],['s','Small'],['m','Medium'],['l','Large']].map(([k,n])=>`<button class="pm-tool ${PLM.size===k?'on':''}" onclick="plmSetSize('${k}')">${n}</button>`).join('');
+  } else if(PLM.open==='colour'){
+    html = PLM_COLOURS.map(c=>`<button class="pm-dot ${PLM.colour===c.k?'on':''}" style="background:${c.k};" title="${c.n}" aria-label="${c.n}" onclick="plmSetColour('${c.k}')"></button>`).join('');
+  } else if(PLM.open==='items'){
+    html = PLM.keys.map(k=>`<button class="pm-tool plm-key ${PLM.tool==='key' && PLM.keyPick===k.n?'on':''} ${placed.has(+k.n)?'done':''}" title="${escapeHtml(k.label)}" onclick="plmPickKey(${+k.n})">${dot(k.color||PLM.colour, +k.n)}${placed.has(+k.n)?'✓':''}</button>`).join('');
+  }
+  panel.innerHTML = html;
+  panel.style.display = html ? '' : 'none';
+  panel.className = 'pm-row plm-panel' + (PLM.open==='items' ? ' plm-items' : '');
 }
-window.plmSetTool = function(t){ if(PLM.sel!=null){ PLM.sel = null; plmRebuildBase(); plmDraw(); } PLM.tool = t; if(t!=='key') PLM.keyPick = null; plmBar(); };
+window.plmSetTool = function(t){ PLM.open = null; if(PLM.sel!=null){ PLM.sel = null; plmRebuildBase(); plmDraw(); } PLM.tool = t; if(t!=='key') PLM.keyPick = null; plmBar(); };
 // Picking an item switches the colour to that item's condition colour; tapping
 // a colour after that overrides it for the numbers you place.
 function plmKeyColour(n){ const k = PLM.keys.find(x=>+x.n===+n); return (k && k.color) || null; }
-window.plmPickKey = function(n){ PLM.tool = 'key'; PLM.keyPick = n; const c = plmKeyColour(n); if(c){ PLM.colour = c; PLM.colourPicked = false; } plmBar(); toast('Tap the drawing to place '+n); };
-window.plmSetSize = function(s){ PLM.size = s; plmBar(); };
-window.plmSetColour = function(c){ PLM.colour = c; PLM.colourPicked = true; plmBar(); };
+window.plmPickKey = function(n){ PLM.open = null; PLM.tool = 'key'; PLM.keyPick = n; const c = plmKeyColour(n); if(c){ PLM.colour = c; PLM.colourPicked = false; } plmBar(); toast('Tap the drawing to place '+n); };
+window.plmSetSize = function(s){ PLM.size = s; PLM.open = null; plmBar(); };
+window.plmSetColour = function(c){ PLM.colour = c; PLM.colourPicked = true; PLM.open = null; plmBar(); };
 window.plmSetNext = async function(){
   const v = await customPrompt('Next number to place', String(PLM.nextNum || plmNextFree()));
-  const n = parseInt(v, 10); if(n>0){ PLM.nextNum = n; plmBar(); }
+  const n = parseInt(v, 10); if(n>0){ PLM.nextNum = n; PLM.tool = 'num'; PLM.open = null; plmBar(); }
 };
 window.plmUndo = function(){ PLM.sel = null; PLM.ops.pop(); plmRebuildBase(); plmDraw(); plmBar(); };
 window.plmClear = async function(){
@@ -217,6 +243,7 @@ function plmDown(e){
     plmDraw(); return;
   }
   if(PLM.ptrs.size > 2) return;
+  if(PLM.open){ PLM.open = null; plmBar(); PLM.ptrs.delete(e.pointerId); return; } // a tap on the drawing closes the options
   const sp = plmStagePt(e);
   if(PLM.tool==='pan'){ PLM.pan = {x:sp.x, y:sp.y, tx:PLM.tx, ty:PLM.ty}; return; }
   const p = plmPt(e);

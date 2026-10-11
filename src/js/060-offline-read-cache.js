@@ -369,6 +369,23 @@ async function shareFile(blob, filename, mimeType){
 // already have straight to our own in-app viewer — no upload, no network
 // round trip, no platform guessing, and the name is always right because
 // it's our own header bar showing it, on every platform, every time.
+// Sends a file to OneDrive. Small files go straight in the request; bigger
+// ones (a report PDF with lots of photos) are uploaded to Storage first and
+// the server picks them up from there - turning a 30-50MB PDF into base64
+// text on a phone was what froze the ☁️ button. Returns the fetch Response.
+async function oneDriveUploadBytes(bytes, filename, extra){
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], {type:'application/pdf'});
+  const payload = Object.assign({filename}, extra||{});
+  if(blob.size > 3*1024*1024 && ORG && ORG.id){
+    const path = 'onedrive-tmp/'+ORG.id+'/'+crypto.randomUUID()+'-'+String(filename).replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, blob, blob.type || 'application/octet-stream');
+    if(!stored) throw new Error('could not upload the file');
+    payload.storage_path = stored;
+  } else {
+    payload.content_base64 = await blobToBase64(blob);
+  }
+  return sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', timeoutMs:180000, body: JSON.stringify(payload)});
+}
 async function deliverPdf(bytes, filename, opts){
   await viewPdfInApp(bytes, filename, Object.assign({canSync:true}, opts||{}));
 }
@@ -389,10 +406,7 @@ window.syncPdfViewerDoc = async function(){
   if(btn){ btn.textContent = '⏳'; btn.style.opacity = '.6'; }
   toast('Saving to OneDrive…');
   try{
-    const base64 = await blobToBase64(new Blob([st.bytes], {type:'application/pdf'}));
-    const payload = {filename: st.filename, content_base64: base64};
-    if(site) payload.site_id = site.id; else payload.subfolder = 'Company Exports';
-    const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(payload)});
+    const res = await oneDriveUploadBytes(st.bytes, st.filename, site ? {site_id: site.id} : {subfolder: 'Company Exports'});
     let out = null; try{ out = await res.json(); }catch(e){}
     if(res.ok && out && out.ok){
       toast('Saved to OneDrive — '+(site ? site.name : 'Company Exports')+' folder');
