@@ -20,6 +20,7 @@ async function computeOnboardingChecklist(){
   ]);
   const hsSigned = hsPolicyData.doc ? hsPolicyData.sigs.some(s=>s.user_id===ME.id && hsPolicySigStillValid(hsPolicyData.doc, s)) : false;
   const items = [
+    {key:'phone', label:'Add your phone number', desc:'So the office, your PM and delivery drivers can reach you on site.', done: !!(ME.phone && String(ME.phone).trim()), href:'#/account'},
     {key:'signature', label:'Create your signature', desc:'Draw your signature once — it\'s reused everywhere you need to sign (RAMS, COSHH, sign-offs) so you never have to redraw it.', done: !!ME.signature_path, href:'#/signature'},
     {key:'hspolicy', label:'Sign the H&S Policy', desc:'Our company Health & Safety Policy — a one-off sign-off confirming you\'ve read and understood it.', done: hsSigned, href:`#/site/${firstSiteId}/hs/rams`},
     {key:'rams', label:'Sign RAMS', desc:'Risk Assessment & Method Statements for your site — read through them and sign to confirm you understand the risks and how to work safely.', done: ramsSigs.length>0, href:`#/site/${firstSiteId}/hs/rams`},
@@ -43,6 +44,14 @@ window.setOnboardingHomeScreenDone = function(key){
   render();
 };
 let onboardingStepIndex = 0;
+window.saveOnboardPhone = async function(){
+  const el = document.getElementById('onboardPhone');
+  const phone = el ? el.value.trim() : '';
+  if(phone.replace(/[^0-9]/g,'').length < 10){ toast('Enter a full phone number.'); return; }
+  const row = await dbUpdate('profiles', ME.id, {phone});
+  if(row){ ME.phone = row.phone; if(PROFILES[ME.id]) PROFILES[ME.id].phone = row.phone; homeExtras.at = 0; toast('Phone number saved'); onboardingStepIndex++; render(); }
+  else toast('Could not save — try again.');
+};
 window.onboardingGoStep = function(i){ onboardingStepIndex = i; render(); };
 async function renderOnboardingChecklist(){
   const __gen = RENDER_GEN;
@@ -51,7 +60,14 @@ async function renderOnboardingChecklist(){
   // item (with a plain-English explanation of why it matters and a button
   // straight to it), then the two home-screen install guides, then a finish
   // step — one step shown at a time rather than a flat checklist, per #332.
-  const functionalSteps = (data ? data.items : []).map(it=>({
+  const functionalSteps = (data ? data.items : []).map(it=>it.key==='phone' ? ({
+    // #(onboard-phone) typed straight in here, no need to go elsewhere
+    key:it.key, title:it.label, done:it.done,
+    body:`<p class="stub" style="margin:0 0 12px;font-size:13.5px;">${escapeHtml(it.desc||'')}</p>
+      <div class="formfield" style="margin-top:0;"><input type="tel" id="onboardPhone" inputmode="tel" autocomplete="tel" placeholder="e.g. 07123 456789" value="${escapeHtml(ME.phone||'')}"></div>
+      <button class="darkbtn" style="margin-bottom:10px;" onclick="saveOnboardPhone()">${it.done?'Update number':'Save number'}</button>`,
+    cta: null,
+  }) : ({
     key:it.key, title:it.label, done:it.done,
     body:`<p class="stub" style="margin:0 0 14px;font-size:13.5px;">${escapeHtml(it.desc||'')}</p>`,
     cta: it.done ? null : {label:'Go do this now', href:it.href},
