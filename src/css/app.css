@@ -857,3 +857,7 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .hometiles .tile:not(.tile-wide){height:106px;min-height:0;box-sizing:border-box;overflow:hidden;}
 .hometiles .tile:not(.tile-wide) .lbl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .pmtiles-home{grid-auto-rows:1fr;}
+/* Project tiles all one height (Andy, 11 Oct): one line each for name, address and client */
+.sitecard.projcard{height:76px;box-sizing:border-box;}
+.projcard .info .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.projcard .info .addr{white-space:nowrap !important;display:block !important;overflow:hidden;text-overflow:ellipsis;}

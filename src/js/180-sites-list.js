@@ -76,7 +76,7 @@ function siteCardHtml(s, canAdd, pmOptions){
   // never affects normal layout/stacking anywhere else in the list.
   const menuOpenHere = canAdd && (siteStatusMenuOpenId===s.id || sitePmPickerOpenId===s.id);
   return `
-    <div class="sitecard" style="${menuOpenHere?'position:relative;z-index:70;':''}" onclick="go('#/site/${s.id}/home')">
+    <div class="sitecard projcard" style="${menuOpenHere?'position:relative;z-index:70;':''}" onclick="go('#/site/${s.id}/home')">
       <div class="swatch" style="font-size:${swatchFontSize}px;">${escapeHtml(swatchText)}</div>
       <div class="info">
         <div class="name">${escapeHtml(s.name)}</div>
