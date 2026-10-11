@@ -120,12 +120,12 @@ async function renderPmHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles">
-      ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
-      ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}
-      ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
-      ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
-      ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
       ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
+      ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
+      ${tile('bell', 'orange', 'HUB', 'Notifications &amp; messages', "go('#/hub')", hubCount)}
+      ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
+      ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
+      ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
     </div>
     ${mine.length ? `
       <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>
