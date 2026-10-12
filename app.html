@@ -5839,7 +5839,7 @@ async function renderHrHolidays(){
   for(let i=0;i<cells;i++){
     const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
     const ds = localISODate(d);
-    const offs = hrOffOn(ds);
+    const offs = hrOffOn(ds).filter(l=>!l.bank_holiday);
     const bh = HR_BANK_HOLS.has(ds), we = d.getDay()===0 || d.getDay()===6;
     grid += `<button type="button" class="hrday ${d.getMonth()!==first.getMonth()?'out':''} ${ds===today?'today':''} ${ds===hrSel?'sel':''} ${bh||we?'off':''}" onclick="hrSelect('${ds}')">
       <span class="hrday-n">${d.getDate()}</span>${bh?'<span class="hrbh">BH</span>':''}
@@ -5848,9 +5848,9 @@ async function renderHrHolidays(){
   }
   const y = new Date().getFullYear();
   const myUsed = hrUsed(ME.id, y, ['approved']), myPend = hrUsed(ME.id, y, ['pending']), myAllow = hrAllowance(ME.id);
-  const selOffs = hrOffOn(hrSel);
+  const selOffs = hrOffOn(hrSel).filter(l=>!l.bank_holiday);
   const pending = HR.allLeave.filter(l=>l.status==='pending').sort((a,b)=>a.start_date.localeCompare(b.start_date));
-  const myUpcoming = HR.allLeave.filter(l=>l.user_id===ME.id && l.end_date>=today && (l.status==='approved'||l.status==='pending'));
+  const myUpcoming = HR.allLeave.filter(l=>l.user_id===ME.id && !l.bank_holiday && l.end_date>=today && (l.status==='approved'||l.status==='pending'));
   const fmt = s => new Date(s+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
   const range = l => l.start_date===l.end_date ? fmt(l.start_date)+(l.half?(l.half==='am'?' (morning)':' (afternoon)'):'') : fmt(l.start_date)+' – '+fmt(l.end_date);
   const d = hrDraft;
@@ -5861,6 +5861,7 @@ async function renderHrHolidays(){
       <div class="pmstat" style="cursor:default;"><b>${myUsed}</b><span>Taken / booked</span></div>
       <div class="pmstat" style="cursor:default;"><b${myPend?' class="hot"':''}>${myPend}</b><span>Awaiting approval</span></div>
     </div>
+    <p class="stub" style="margin:-4px 2px 10px;font-size:11.5px;">${hrBhCount(ME.id, y) ? 'Includes 1 day for each bank holiday ('+hrBhCount(ME.id, y)+' this year), allocated automatically.' : 'PMs and site managers get 1 day for each bank holiday allocated automatically.'}</p>
     <button type="button" class="pmprimary" style="margin-bottom:12px;" onclick="hrOpenBook()">${ophIcon('plus', 20, 2.4)} Book time off</button>
     ${isAdmin ? `<div class="pmchips" style="margin:0 0 12px;"><button type="button" class="pmchip ${hrView==='cal'?'on':''}" onclick="hrSetView('cal')">Calendar</button><button type="button" class="pmchip ${hrView==='req'?'on':''}" onclick="hrSetView('req')">Requests${pending.length?' ('+pending.length+')':''}</button><button type="button" class="pmchip ${hrView==='set'?'on':''}" onclick="hrSetView('set')">Settings</button></div>` : ''}
     ${hrBookOpen && d ? `
@@ -5892,9 +5893,9 @@ async function renderHrHolidays(){
         <div class="hrkey">${HR.people.map(p=>`<span><i style="background:${hrColour(p.id)};"></i>${escapeHtml(p.name)}</span>`).join('')}<span class="stub" style="margin:0;">${Object.keys(HR_TYPES).map(k=>hrCode(k)+' '+HR_TYPES[k].toLowerCase()).join(' · ')} · BH bank holiday (booked for PMs automatically) · outlined = waiting approval</span></div>
       </div>
       ${isAdmin ? `<p class="sectiontitle">Days left ${y}</p>
-      <div class="card" style="padding:6px 14px;margin-bottom:12px;">${HR.people.map(p=>{ const al = hrAllowance(p.id), used = hrUsed(p.id, y, ['approved']), pend = hrUsed(p.id, y, ['pending']), bh = hrBhCount(p.id, y); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);"><i style="width:10px;height:10px;border-radius:50%;background:${hrColour(p.id)};flex:none;"></i><span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;">${escapeHtml(p.name)}</span><span class="stub" style="margin:0;font-size:11.5px;text-align:right;">${bh} bank hol · ${used-bh} booked${pend?' · '+pend+' waiting':''}</span><b style="min-width:44px;text-align:right;">${al-used-pend}<span class="stub" style="margin:0;font-size:11px;">/${al}</span></b></div>`; }).join('')}</div>` : ''}
+      <div class="card" style="padding:6px 14px;margin-bottom:12px;">${HR.people.map(p=>{ const al = hrAllowance(p.id), used = hrUsed(p.id, y, ['approved']), pend = hrUsed(p.id, y, ['pending']), bh = hrBhCount(p.id, y); return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);"><i style="width:10px;height:10px;border-radius:50%;background:${hrColour(p.id)};flex:none;"></i><span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;">${escapeHtml(p.name)}</span><span class="stub" style="margin:0;font-size:11.5px;text-align:right;">${used} used${pend?' · '+pend+' waiting':''}</span><b style="min-width:44px;text-align:right;">${al-used-pend}<span class="stub" style="margin:0;font-size:11px;">/${al}</span></b></div>`; }).join('')}</div>` : ''}
       <p class="calm-selhead">${fmt(hrSel)}${HR_BANK_HOLS.has(hrSel)?' · Bank holiday':''}</p>
-      ${selOffs.length ? selOffs.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;">${hrChip(l)}<span class="pmrow-txt"><span class="pmrow-t">${hrTypeLabel(l)}${l.half?(l.half==='am'?' · morning':' · afternoon'):''}</span><span class="pmrow-s">${range(l)}${l.bank_holiday?' · booked automatically':''}${l.status==='pending'?' · waiting approval':''}${l.note?' · '+escapeHtml(l.note):''}</span></span></div>`).join('') : `<p class="stub" style="margin:4px 2px 12px;">Everyone's in.</p>`}
+      ${selOffs.length ? selOffs.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;">${hrChip(l)}<span class="pmrow-txt"><span class="pmrow-t">${hrTypeLabel(l)}${l.half?(l.half==='am'?' · morning':' · afternoon'):''}</span><span class="pmrow-s">${range(l)}${l.bank_holiday?' · booked automatically':''}${l.status==='pending'?' · waiting approval':''}${l.note?' · '+escapeHtml(l.note):''}</span></span></div>`).join('') : `<p class="stub" style="margin:4px 2px 12px;">${HR_BANK_HOLS.has(hrSel) ? 'Bank holiday — 1 day allocated to each PM automatically.' : 'Everyone\'s in.'}</p>`}
       <button type="button" class="ghostbtn" style="margin:4px 0 14px;" onclick="hrOpenBook('${hrSel}')">+ Book this day</button>
       ${myUpcoming.length ? `<p class="sectiontitle">My upcoming time off</p>${myUpcoming.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;"><span class="pmrow-txt"><span class="pmrow-t">${hrTypeLabel(l)} · ${l.days} day${l.days==1?'':'s'}</span><span class="pmrow-s">${range(l)}${l.status==='pending'?' · waiting approval':''}${l.link_projects?' · on project calendars':''}</span></span><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="hrCancel('${l.id}')">Cancel</button></div>`).join('')}` : ''}
     ` : ''}
