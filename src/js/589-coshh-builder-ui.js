@@ -73,14 +73,14 @@ let coshhLibTab = 'assess';
 let coshhPresetFolder; // folder chosen before the product was made (Assessments tab upload)
 // #(coshh-assess-folders) Product → COSHH assessment PDF (data sheet on the
 // back) saved into a folder of the COSHH Library; jobs add it from there.
-function coshhPickFolder(folders){
+function coshhPickFolder(folders, title){
   const byParent = {}; folders.forEach(f=>{ (byParent[f.parent_id||'']=byParent[f.parent_id||'']||[]).push(f); });
-  const rows = []; const walk = (pid, depth)=>{ (byParent[pid]||[]).sort((a,b)=>(a.position||0)-(b.position||0) || a.name.localeCompare(b.name)).forEach(f=>{ rows.push({f, depth}); walk(f.id, depth+1); }); }; walk('', 0);
+  const rows = []; const walk = (pid, depth)=>{ (byParent[pid]||[]).sort((a,b)=>a.name.localeCompare(b.name, undefined, {sensitivity:'base', numeric:true})).forEach(f=>{ rows.push({f, depth}); walk(f.id, depth+1); }); }; walk('', 0);
   return new Promise(resolve=>{
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;';
     ov.innerHTML = `<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:75vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));">
-      <p class="sectiontitle" style="margin-top:0;">Save the assessment in which folder?</p>
+      <p class="sectiontitle" style="margin-top:0;">${escapeHtml(title || 'Save the assessment in which folder?')}</p>
       <button type="button" class="ghostbtn" data-id="" style="display:block;width:100%;text-align:left;margin:0 0 6px;text-transform:none;font-weight:700;">📂 Top level</button>
       ${rows.map(r=>`<button type="button" class="ghostbtn" data-id="${r.f.id}" style="display:block;width:100%;text-align:left;margin:0 0 6px;text-transform:none;font-weight:700;padding-left:${12+r.depth*18}px;">📁 ${escapeHtml(r.f.name)}</button>`).join('')}
       <button type="button" class="ghostbtn" data-new="1" style="margin-top:6px;">+ New folder</button>

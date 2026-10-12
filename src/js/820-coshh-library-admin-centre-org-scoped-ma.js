@@ -19,10 +19,12 @@ async function coshhLibraryBrowserHtml(){
     if(!currentFolder) coshhLibFolderId = null;
   }
   const [subfolders, files, topFolders] = await Promise.all([
-    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhLibFolderId?'parent_id=eq.'+coshhLibFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhLibFolderId?'parent_id=eq.'+coshhLibFolderId:'parent_id=is.null')+'&order=name.asc'),
     dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&'+(coshhLibFolderId?'folder_id=eq.'+coshhLibFolderId:'folder_id=is.null')+'&order=name.asc'),
-    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&parent_id=is.null&order=position.asc.nullslast,name.asc'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&parent_id=is.null&order=name.asc'),
   ]);
+  const az = (a,b)=>String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base', numeric:true});
+  subfolders.sort(az); topFolders.sort(az); files.sort(az);
   const parentArg = coshhLibFolderId ? `'${coshhLibFolderId}'` : 'null';
   const isEmpty = subfolders.length===0 && files.length===0;
   // Upload is the default action now — the folder-create form only shows once
@@ -32,7 +34,7 @@ async function coshhLibraryBrowserHtml(){
   const showUploadForm = coshhLibUploadOpen || (isEmpty && !coshhLibNewFolderOpen);
   const pdfFiles = files.filter(f=>/\.pdf$/i.test(f.name||''));
   return `
-    ${coshhLibSel.size ? `<div class="pmselbar"><span>${coshhLibSel.size} selected</span><button type="button" class="ghostbtn" onclick="coshhLibExport()">Export PDF</button><button type="button" class="ghostbtn" onclick="coshhLibEmail()">Email</button><button type="button" class="pmselbar-x" aria-label="Clear" onclick="coshhLibSel=new Set();render()">✕</button></div>` : (pdfFiles.length ? `<p class="stub" style="margin:0 0 8px;">Tick assessments to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="${pdfFiles.map(f=>`coshhLibSel.add('${f.id}');`).join('')}render()">Select all here</span></p>` : '')}
+    ${coshhLibSel.size ? `<div class="pmselbar"><span>${coshhLibSel.size} selected</span><button type="button" class="ghostbtn" onclick="coshhLibMove()">Move</button><button type="button" class="ghostbtn" onclick="coshhLibExport()">Export PDF</button><button type="button" class="ghostbtn" onclick="coshhLibEmail()">Email</button><button type="button" class="pmselbar-x" aria-label="Clear" onclick="coshhLibSel=new Set();render()">✕</button></div>` : (pdfFiles.length ? `<p class="stub" style="margin:0 0 8px;">Tick assessments to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="${pdfFiles.map(f=>`coshhLibSel.add('${f.id}');`).join('')}render()">Select all here</span></p>` : '')}
     ${coshhBulk ? `<div class="card" style="text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
     <label class="darkbtn" style="display:block;text-align:center;margin:0 0 6px;cursor:pointer;">📄 Upload data sheets → make the COSHH assessments
       <input type="file" accept="application/pdf" multiple style="display:none;" onchange="coshhSdsIntoFolder(this, ${parentArg})"></label>
@@ -114,6 +116,16 @@ async function coshhLibPack(){
   const label = files.length===1 ? files[0].name.replace(/\.pdf$/i,'') : 'COSHH assessments ('+files.length+')';
   return {bytes: await out.save(), filename: label.replace(/[\\/:*?"<>|]+/g,'-')+'.pdf', label};
 }
+window.coshhLibMove = async function(){
+  const ids = [...coshhLibSel]; if(!ids.length) return;
+  const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position');
+  const dest = await coshhPickFolder(folders, 'Move '+ids.length+' assessment'+(ids.length===1?'':'s')+' to which folder?');
+  if(dest === undefined) return;
+  let moved = 0;
+  for(const id of ids){ if(await dbUpdate('coshh_library_files', id, {folder_id: dest || null})) moved++; }
+  coshhLibSel = new Set(); coshhLibFolderId = dest || null;
+  toast(moved+' moved'); render();
+};
 window.coshhLibExport = async function(){ const p = await coshhLibPack(); if(p) await deliverPdf(p.bytes, p.filename); };
 window.coshhLibEmail = async function(){
   const email = await customPrompt('Email the selected COSHH assessments ('+coshhLibSel.size+') as one PDF to:', '');
@@ -188,7 +200,7 @@ window.renameCoshhLibraryFolder = async function(folderId, currentName){
   if(row){ toast('Folder renamed'); render(); }
 };
 window.moveCoshhLibraryFolder = async function(parentFolderId, folderId, dir){
-  const siblings = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  const siblings = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(parentFolderId?'parent_id=eq.'+parentFolderId:'parent_id=is.null')+'&order=name.asc');
   await Promise.all(siblings.map((f,idx)=> f.position!==idx ? dbUpdate('coshh_library_folders', f.id, {position:idx}) : null));
   const idx = siblings.findIndex(f=>f.id===folderId);
   const swapIdx = idx + dir;
@@ -299,7 +311,7 @@ async function renderCoshhLibraryPick(siteId){
     if(!currentFolder) coshhPickFolderId = null;
   }
   const [subfolders, files] = await Promise.all([
-    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhPickFolderId?'parent_id=eq.'+coshhPickFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhPickFolderId?'parent_id=eq.'+coshhPickFolderId:'parent_id=is.null')+'&order=name.asc'),
     dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&'+(coshhPickFolderId?'folder_id=eq.'+coshhPickFolderId:'folder_id=is.null')+'&order=name.asc'),
   ]);
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
@@ -399,7 +411,7 @@ async function renderCoshhSaveToLibrary(siteId){
     currentFolder = rows[0] || null;
     if(!currentFolder) coshhSaveFolderId = null;
   }
-  const subfolders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhSaveFolderId?'parent_id=eq.'+coshhSaveFolderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc');
+  const subfolders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&'+(coshhSaveFolderId?'parent_id=eq.'+coshhSaveFolderId:'parent_id=is.null')+'&order=name.asc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 10px;">Choose where to save "${escapeHtml(coshhSaveDocName)}" in the Admin Centre COSHH Library.</p>
     <div class="stub" style="margin:0 0 10px;font-weight:600;">${currentFolder ? escapeHtml(currentFolder.name) : 'Element of Works'}</div>
