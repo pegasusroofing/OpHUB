@@ -213,7 +213,13 @@ async function renderSiteHome(siteId){
           <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
           ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
         </div>`);
-      if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
+      // A closed job swaps the To Do List for Handover (O&M manual, data
+      // sheets, guarantees) — the To Do List page is still reachable by link.
+      if(isManager(ME) && typeof siteStatusKey==='function' && siteStatusKey(site)==='closed') regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/handover')">
+          <div class="icon" style="background:#E3F4EA;color:#1E7A46;">📘</div>
+          <div class="lbl">Handover</div><div class="sub">O&amp;M manual · data sheets · guarantees</div>
+        </div>`);
+      else if(isManager(ME)) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/todos')">
           <div class="icon" style="background:#EFEAFB;color:#5B3FA6;">${ophIcon('check', 20)}</div>
           <div class="lbl">To Do List</div><div class="sub">${openTodos.length ? openTodos.length+' open' : 'Nothing outstanding'}</div>
         </div>`);

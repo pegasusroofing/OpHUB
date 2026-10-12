@@ -997,3 +997,19 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .pmselbar{flex-wrap:wrap;row-gap:6px;}
 .coshhassessed{margin-top:8px;font-size:12px;font-weight:700;color:var(--ok);background:var(--ok-bg);border-radius:8px;padding:5px 9px;display:inline-block;}
 .coshhassessed.due{color:var(--warn);background:var(--warn-bg);}
+
+/* Handover / O&M manual */
+.hosec textarea{width:100%;box-sizing:border-box;}
+.hotable{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0;}
+.hotable table{border-collapse:collapse;width:100%;min-width:420px;}
+.hotable th,.hotable td{border:1px solid var(--line,#E2E2DC);padding:2px;vertical-align:top;}
+.hotable th{background:#F5F4EF;}
+.hotable th input{width:calc(100% - 26px);font-weight:700;font-size:12px;margin:0;border:0;background:transparent;padding:4px;}
+.hotable td textarea{border:0;margin:0;padding:4px;font-size:13px;min-height:30px;resize:vertical;background:transparent;}
+.hox{width:auto!important;flex:0 0 auto!important;margin:0!important;text-transform:none;letter-spacing:0;color:var(--ink,#101114);border:0;background:#F0EFEA;border-radius:6px;min-width:28px;height:28px;padding:0 6px;font-size:13px;cursor:pointer;line-height:1;}
+.hoexport{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:10px;background:var(--bg,#fff);border-top:1px solid var(--line,#E2E2DC);z-index:5;}
+.hoexport button{flex:1;margin:0;}
+.hosec .row-gap > input{min-width:0;}
+.hotable th{white-space:nowrap;min-width:110px;}
+.hotable th > input{display:inline-block;vertical-align:middle;width:calc(100% - 34px)!important;min-width:0;}
+.hotable th > .hox{vertical-align:middle;min-width:26px;height:26px;}

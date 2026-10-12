@@ -228,6 +228,7 @@ async function renderRoute(){
     if(page==='repairjobs') return parts[3] ? renderRepairJobsListPage(siteId, parts[3]) : renderRepairJobsCategoryHub(siteId);
     if(page==='checkin') return renderCheckin(siteId, parts[3]);
     if(page==='schedule') return renderSchedule(siteId);
+    if(page==='handover') return renderHandover(siteId);
     if(page==='snagging'){
       const sub = parts[3];
       if(isClient(ME) && sub && sub!=='list'){ go(`#/site/${siteId}/snagging/list`); return; }
