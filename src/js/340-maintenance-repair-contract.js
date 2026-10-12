@@ -1147,9 +1147,11 @@ async function renderRepairJobDetail(siteId, jobId){
         ${approved ? `
           <p class="stub" style="margin:0 0 10px;">✅ Approved${job.quote_approved_at?' on '+fmtDate(job.quote_approved_at):''}${job.self_authorized ? ' — self-authorised by '+(profileName(job.approved_by)?escapeHtml(profileName(job.approved_by)):'the operative') : (profileName(job.approved_by) ? ' — approved by '+escapeHtml(profileName(job.approved_by)) : '')}</p>
           <button class="ghostbtn" style="color:var(--red);border-color:var(--red);" onclick="rejectRepairJob('${jobId}')">Reject instead</button>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="undoRepairJobDecision('${jobId}')">↺ Undo — back to awaiting approval</button>
         ` : rejected ? `
           <p class="stub" style="margin:0 0 10px;color:var(--red);">❌ Rejected</p>
           <button class="ghostbtn" style="color:var(--ok);border-color:var(--ok);" onclick="approveRepairJob('${jobId}')">Approve instead</button>
+          <button class="ghostbtn" style="margin-top:8px;" onclick="undoRepairJobDecision('${jobId}')">↺ Undo — back to awaiting approval</button>
         ` : `
           <p class="field-label" style="margin-bottom:4px;">Variation works (£)</p>
           <div class="formfield"><input type="number" step="0.01" id="repairVariationCost" placeholder="0.00" value="${job.variation_cost!=null?job.variation_cost:''}"></div>
@@ -1925,6 +1927,13 @@ window.approveRepairJob = async function(jobId){
   };
   if(job && !job.quote_approved_at) patch.quote_approved_at = new Date().toISOString();
   saveRepairJobField(jobId, patch);
+};
+// Approve/Reject tapped by mistake: put the job back to awaiting approval.
+window.undoRepairJobDecision = async function(jobId){
+  const job = repairJobDetailCurrent;
+  if(!(await customConfirm('Put this job back to awaiting approval?'))) return;
+  saveRepairJobField(jobId, {quote_approved:null, quote_approved_at:null, approved_by:null, self_authorized:false,
+    job_status: (job && job.variation_issued_at) ? 'Surveyed - Variation Issued' : 'Surveyed - Awaiting Cost'});
 };
 window.rejectRepairJob = async function(jobId){
   const yes = await customConfirm('Reject this job? The operative/PM will need to review it again.');
