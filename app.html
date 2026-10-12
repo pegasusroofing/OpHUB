@@ -27418,6 +27418,7 @@ async function renderCoshhLibrary(editId){
     <div class="coshhsteps"><div><b>1</b><span>Open a folder and <b>upload the data sheet</b> — the reader fills in the details.</span></div><div><b>2</b><span>Check it and tap <b>Create COSHH assessment</b> — it's saved in that folder.</span></div><div><b>3</b><span>Tick assessments to <b>export or email</b>, or add them to a job (COSHH › Add from COSHH Library).</span></div></div>
     <div class="pmchips" style="margin:0 0 12px;"><button type="button" class="pmchip ${coshhLibTab==='assess'?'on':''}" onclick="coshhLibTab='assess';render()">Assessments (folders)</button><button type="button" class="pmchip ${coshhLibTab==='products'?'on':''}" onclick="coshhLibTab='products';render()">Products (data sheets)</button></div>
     ${coshhLibTab==='assess' ? await coshhLibraryBrowserHtml() : `
+    ${(()=>{ const c = {}; lib.forEach(i=>{ const k = coshhTitleKey(i.title); c[k] = (c[k]||0)+1; }); const d = Object.values(c).reduce((t,v)=>t+(v>1?v-1:0),0); return d ? `<div class="card" style="border:1.5px solid var(--warn);background:var(--warn-bg);padding:10px 12px;"><b>${d} duplicate product${d===1?'':'s'}</b> — the same data sheet was added more than once. <button type="button" class="darkbtn" style="margin-top:8px;" onclick="coshhRemoveDuplicates()">Remove duplicates</button></div>` : ''; })()}
     <input type="search" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="coshhLibQ=this.value;liveFilter(this.value,'#coshhLibList')">
     <div id="coshhLibList">
     ${lib.map(it=>{ const d = it.data; return `<div class="card ramsitem" data-lf="${lfText(lfOf(it))}" style="cursor:pointer;${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
@@ -27442,6 +27443,23 @@ async function renderCoshhLibrary(editId){
 // #(coshh-merge) One COSHH library: data sheets go in, the reader builds the
 // product, and the data sheet is attached when an assessment is issued.
 let coshhBulk = '';
+// "Company designation Bauder Ltd." / "Supplier Bauder Ltd" → "Bauder Ltd"
+function coshhCleanMaker(m){
+  return String(m||'').replace(/^\s*(company\s*designation|company\s*name|company|supplier(\s*name)?|manufacturer(\s*name)?|name)\s*[:\-]?\s*/i,'').replace(/\.\s*$/,'').trim();
+}
+function coshhTitleKey(t){ return String(t||'').toLowerCase().replace(/[–—-]/g,'-').replace(/\s+/g,' ').trim(); }
+// #(coshh-dupes) Same product uploaded twice: remove the extra copies (the
+// first one made is kept) and tidy the manufacturer names.
+window.coshhRemoveDuplicates = async function(){
+  const lib = await coshhLoadLibrary();
+  const seen = {}, extra = [];
+  lib.slice().sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0)).forEach(it=>{ const k = coshhTitleKey(it.title); if(seen[k]) extra.push(it); else seen[k] = it; });
+  if(!extra.length){ toast('No duplicates'); return; }
+  if(!(await customConfirm(`Remove ${extra.length} duplicate product${extra.length===1?'':'s'}? The first copy of each is kept. Assessments already in folders aren't touched.`))) return;
+  let n = 0; for(const it of extra){ if(await dbDelete('rams_library_items', it.id)) n++; }
+  for(const it of Object.values(seen)){ const m = coshhCleanMaker(it.data && it.data.manufacturer); if(it.data && m !== it.data.manufacturer){ await dbUpdate('rams_library_items', it.id, {data:Object.assign({}, it.data, {manufacturer:m})}); } }
+  toast(n+' duplicate'+(n===1?'':'s')+' removed'); render();
+};
 let coshhLibTab = 'assess';
 let coshhPresetFolder; // folder chosen before the product was made (Assessments tab upload)
 // #(coshh-assess-folders) Product → COSHH assessment PDF (data sheet on the
@@ -27512,6 +27530,9 @@ async function coshhProductFromSds(blob, fileName, opts){
   if(!e.data.manufacturer && opts.folderName) e.data.manufacturer = opts.folderName;
   if(opts.importedFrom) e.data.importedFrom = opts.importedFrom;
   e.data.needsCheck = true;
+  // Same product already in the library (e.g. the sheet uploaded again): update it rather than adding a second copy.
+  const existing = (await coshhLoadLibrary()).find(i=>coshhTitleKey(i.title)===coshhTitleKey(e.title));
+  if(existing){ const row = await dbUpdate('rams_library_items', existing.id, {title:e.title.slice(0,140), data:e.data, updated_at:new Date().toISOString()}); return row ? {id:existing.id, n, updated:true} : null; }
   const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:'coshh', title:e.title.slice(0,140), data:e.data, sort_order:0, created_by:ME.id}]);
   return rows && rows[0] ? {id:rows[0].id, n} : null;
 }
@@ -27811,6 +27832,7 @@ async function coshhReadSds(file){
   res.product = pick(/(?:Product\s*name|Trade\s*name)[ \t]*[:\-]?[ \t]*([^\n]{3,90})/i) || pick(/Product\s*identifier[ \t]*[:\-][ \t]*([^\n]{3,90})/i);
   res.use = pick(/(?:Intended\s*use|Identified\s*uses?|Recommended\s*use|Use\s*of\s*the\s*(?:substance|mixture))[ \t]*[:\-][ \t]*([^\n]{3,90})/i);
   res.manufacturer = pick(/(?:Company\s*name|Supplier|Manufacturer)[ \t]*(?:name)?[ \t]*[:\-][ \t]*([^\n]{3,120})/i) || (()=>{ const m = /1\.3[^\n]*\n\s*([^\n]{3,120})/.exec(s1); return m ? m[1].replace(/\s+/g,' ').trim() : ''; })();
+  res.manufacturer = coshhCleanMaker(res.manufacturer);
   if(/^(name|address|details|of the)/i.test(res.manufacturer)) res.manufacturer = '';
   res.firstAid = coshhSdsTidy(coshhSdsSub(S[4], 4, 1) || S[4], 900);
   res.fire = coshhSdsTidy(S[5], 600);
