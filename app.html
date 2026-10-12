@@ -10981,6 +10981,7 @@ async function renderRepairJobDetail(siteId, jobId){
   if(!job){ go('#/site/'+siteId+'/home'); return; }
   if(__gen !== RENDER_GEN) return;
   repairJobDetailCurrent = job;
+  if(photos.some(p=>!p.deleted_at && !p.onedrive_synced_at)) setTimeout(()=>repairSyncPending(jobId), 1200);
   if(!repairJobUnsavedNotes || repairJobUnsavedNotes.jobId !== jobId) repairJobUnsavedNotes = {jobId, survey:false, progress:false, completion:false, pricedSchedule:false};
   // Anything typed into a notes box but not saved yet has to survive this
   // redraw — adding a photo, saving access details, etc. all re-render the
@@ -11369,16 +11370,14 @@ window.addRepairJobPhoto = async function(input, jobId, category){
       // resolution/quality copy than the in-app one — the app copy stays
       // small so galleries load fast on-site, but the OneDrive copy is
       // meant to be the one anyone actually opens/prints/zooms into later.
-      if(stored && job){
-        const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+pid+'.jpg';
-        if(jobLinked) syncPhotoToOneDriveFolder(hiResDataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
-        else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(hiResDataUrl, jobFolder+'/'+filename, job.site_id);
-      }
+      // (OneDrive copy: sent by repairSyncPending below, one at a time, and
+      // retried next time the job is opened if the phone drops it.)
     }catch(e){ toast('One photo failed to upload — try again.'); }
   }
   repairJobPhotoBusy[category] = false;
   toast('Photo(s) added');
   render();
+  repairSyncPending(jobId);
   // Keep the survey report PDF (if this job's already been surveyed) in
   // sync with whatever photos are actually on the job — see
   // exportRepairJobSurveyPdf below.
@@ -11403,45 +11402,75 @@ async function repairUrlToDataUrl(url){
   const blob = await (await fetch(url)).blob();
   return await new Promise((res, rej)=>{ const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
 }
-window.resyncRepairJobToOneDrive = async function(jobId, quiet){
-  const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
-  const job = rows[0]; if(!job) return;
-  const site = SITES.find(s=>s.id===job.site_id);
-  const jobLinked = !!job.onedrive_folder_id;
-  if(!jobLinked && !(site && site.onedrive_folder_id)){ if(!quiet) toast('Link a OneDrive folder first.'); return; }
-  const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&order=created_at.asc');
-  const jobFolder = jobLinked ? null : repairJobOneDriveFolder(job);
-  let done = 0, failed = 0;
-  repairResyncBusy[jobId] = '0 of '+photos.length; render();
-  for(const p of photos){
-    try{
-      const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', p.hires_path || p.storage_path));
-      const pidName = String(p.storage_path||'').split('/').pop() || (p.id+'.jpg');
-      const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[p.category]||p.category)+'/'+pidName;
-      const base64 = dataUrl.split(',')[1];
-      const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
-        ? {filename, content_base64: base64, folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
-        : {filename: jobFolder+'/'+filename, content_base64: base64, site_id: job.site_id})});
-      if(res && res.ok) done++; else failed++;
-    }catch(e){ failed++; }
-    repairResyncBusy[jobId] = (done+failed)+' of '+photos.length;
-    if(document.querySelector('[onclick^="resyncRepairJobToOneDrive"]')) render();
+// #(repair-onedrive-queue) 2026-10-12: photos used to be pushed to OneDrive
+// "fire and forget" — on a phone, taking the next photo (camera opens, app
+// goes to the background) killed the previous upload, so only a couple ever
+// arrived. Now every photo is marked once OneDrive has it; anything not yet
+// marked is sent one at a time, and retried whenever the job is opened again
+// or the app comes back to the front.
+let repairSyncRunning = {}, repairSyncAgain = {};
+async function repairSyncPending(jobId, opts){
+  opts = opts || {};
+  if(repairSyncRunning[jobId]){ repairSyncAgain[jobId] = true; return; }
+  repairSyncRunning[jobId] = true;
+  let done = 0, failed = 0, total = 0;
+  try{
+    const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
+    const job = rows[0]; if(!job) return;
+    const site = SITES.find(s=>s.id===job.site_id);
+    const jobLinked = !!job.onedrive_folder_id;
+    if(!jobLinked && !(site && site.onedrive_folder_id)){ if(opts.force) toast('Link a OneDrive folder first.'); return; }
+    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null'+(opts.force?'':'&onedrive_synced_at=is.null')+'&order=created_at.asc');
+    total = photos.length;
+    if(opts.force){ repairResyncBusy[jobId] = '0 of '+total; render(); }
+    const jobFolder = jobLinked ? null : repairJobOneDriveFolder(job);
+    for(const p of photos){
+      try{
+        const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', p.hires_path || p.storage_path));
+        const pidName = String(p.storage_path||'').split('/').pop() || (p.id+'.jpg');
+        const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[p.category]||p.category)+'/'+pidName;
+        const base64 = dataUrl.split(',')[1];
+        const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
+          ? {filename, content_base64: base64, folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
+          : {filename: jobFolder+'/'+filename, content_base64: base64, site_id: job.site_id})});
+        if(res && res.ok){
+          done++;
+          try{ await sbFetch('/rest/v1/rpc/mark_repair_photos_synced', {method:'POST', body: JSON.stringify({p_ids:[p.id]})}); }catch(e){ /* retried later; same file name so no duplicate */ }
+        } else failed++;
+      }catch(e){ failed++; }
+      if(opts.force){ repairResyncBusy[jobId] = (done+failed)+' of '+total; if(document.querySelector('[onclick^="resyncRepairJobToOneDrive"]')) render(); }
+    }
+    if(opts.force){
+      if(job.work_order_path){
+        try{
+          const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', job.work_order_path));
+          const cleanName = String(job.work_order_name || job.work_order_path.split('/').pop()).replace(/[\\/:*?"<>|]/g,'-');
+          await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
+            ? {filename:'Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
+            : {filename: repairJobOneDriveFolder(job)+'/Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], site_id: job.site_id})});
+        }catch(e){ /* keep going */ }
+      }
+      if(job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
+      if(job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
+    }
+  } finally {
+    repairSyncRunning[jobId] = false;
+    if(opts.force){
+      delete repairResyncBusy[jobId]; render();
+      toast(failed ? `${done} photo${done===1?'':'s'} sent to OneDrive, ${failed} didn't go — they'll retry next time the job is opened` : `Sent ${done} photo${done===1?'':'s'} to OneDrive`);
+    } else if(failed && total) {
+      toast(`${failed} photo${failed===1?'':'s'} still to go to OneDrive — will retry`);
+    }
+    if(repairSyncAgain[jobId]){ repairSyncAgain[jobId] = false; setTimeout(()=>repairSyncPending(jobId), 500); }
   }
-  // Work order + reports
-  if(job.work_order_path){
-    try{
-      const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', job.work_order_path));
-      const cleanName = String(job.work_order_name || job.work_order_path.split('/').pop()).replace(/[\\/:*?"<>|]/g,'-');
-      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
-        ? {filename:'Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
-        : {filename: repairJobOneDriveFolder(job)+'/Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], site_id: job.site_id})});
-    }catch(e){ /* keep going */ }
-  }
-  if(job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
-  if(job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
-  delete repairResyncBusy[jobId]; render();
-  if(!quiet || failed) toast(failed ? `${done} photo${done===1?'':'s'} synced, ${failed} failed — try again` : `Synced ${done} photo${done===1?'':'s'} to OneDrive`);
-};
+}
+window.resyncRepairJobToOneDrive = function(jobId){ return repairSyncPending(jobId, {force:true}); };
+// Coming back to the app (e.g. after the camera): carry on with anything unsent.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden) return;
+  const m = /^#\/site\/[^/]+\/repairjob\/([^/?]+)/.exec(location.hash||'');
+  if(m) setTimeout(()=>repairSyncPending(m[1]), 1500);
+});
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
   const yes = await customConfirm('Remove this photo? It stays saved on the job under "Deleted photos" so you can restore it.');
   if(!yes) return;
