@@ -1013,3 +1013,15 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .hotable th{white-space:nowrap;min-width:110px;}
 .hotable th > input{display:inline-block;vertical-align:middle;width:calc(100% - 34px)!important;min-width:0;}
 .hotable th > .hox{vertical-align:middle;min-width:26px;height:26px;}
+.hotable td.hofiles{min-width:112px;max-width:150px;padding:4px;}
+.hotable th.hofilescol{min-width:112px;font-size:12px;text-align:left;padding:4px 6px;}
+.holink{display:flex;align-items:center;gap:4px;margin:0 0 4px;}
+.holinkname{flex:1;min-width:0;font-size:11.5px;color:var(--blue,#2F6FB5);cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.holink .hox{min-width:22px;height:22px;font-size:11px;}
+.hoattach{display:inline-flex;align-items:center;font-size:11.5px;}
+.horequired{border-color:var(--warn,#C0392B)!important;background:#FFF6F5!important;}
+.horeqtag{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--warn,#C0392B);border-radius:6px;padding:4px 6px;}
+.homaint{border:1px solid var(--line,#E2E2DC);border-radius:10px;padding:8px;margin:0 0 8px;}
+.homaint textarea{margin:0;}
+.hocoverbtns{display:flex;gap:6px;flex-wrap:wrap;}
+.hocoverbtns > *{flex:1 1 100px;margin:0!important;text-align:center;cursor:pointer;font-size:12px;padding:10px 6px;}

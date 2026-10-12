@@ -113,7 +113,7 @@ async function hoBuildDefault(siteId){
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc&select=id,name,status,section_id'),
     hoLoadDocs(siteId),
-    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.asc&select=id,name'),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&order=uploaded_at.asc&select=id,name,storage_path'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&order=uploaded_at.asc&select=id,name,uploaded_at,status'),
     hoJobPhotos(siteId),
   ]);
@@ -126,16 +126,17 @@ async function hoBuildDefault(siteId){
   sections.forEach(sec=>{ const ts = bySec[sec.id]; if(!ts || !ts.length) return; scope += `The following works were carried out to ${sec.name}:\n` + ts.map((t,i)=>`${letters[i%26]}.  ${t.name}`).join('\n') + '\n\n'; });
   if(bySec['']) scope += (scope ? 'Other works:\n' : '') + bySec[''].map((t,i)=>`${letters[i%26]}.  ${t.name}`).join('\n');
   const sheets = docs.filter(d=>d.kind==='datasheet'), guars = docs.filter(d=>d.kind==='guarantee');
-  const matRows = []; let n = 1;
-  sheets.forEach(d=>{ matRows.push([String(n++), '', d.name.replace(/\.pdf$/i,''), d.provider||'']); });
-  coshh.forEach(c=>{ const nm = c.name.replace(/^COSHH\s*[—-]\s*/i,'').replace(/^COSHH Assessment\s*-\s*/i,'').replace(/\.pdf$/i,''); if(!matRows.some(r=>r[2].toLowerCase()===nm.toLowerCase())) matRows.push([String(n++), 'COSHH', nm, '']); });
+  const matRows = [], matLinks = []; let n = 1;
+  sheets.forEach(d=>{ matRows.push([String(n++), '', d.name.replace(/\.pdf$/i,''), d.provider||'']); matLinks.push([{docId:d.id, name:d.name}]); });
+  coshh.forEach(c=>{ const nm = c.name.replace(/^COSHH\s*[—-]\s*/i,'').replace(/^COSHH Assessment\s*-\s*/i,'').replace(/\.pdf$/i,''); const lk = c.storage_path ? {bucket:'coshh-docs', path:c.storage_path, name:c.name} : null; const at = matRows.findIndex(r=>r[2].toLowerCase()===nm.toLowerCase()); if(at>=0){ if(lk) matLinks[at].push(lk); } else { matRows.push([String(n++), 'COSHH', nm, '']); matLinks.push(lk ? [lk] : []); } });
   const sysText = [scope, sheets.map(d=>d.name+' '+(d.provider||'')).join(' '), coshh.map(c=>c.name).join(' ')].join(' ');
   const systems = hoDetectSystems(sysText);
-  const maint = systems.map(k=>`${HO_MAINT[k].label}\n${HO_MAINT[k].text}`).join('\n\n');
+  const maintItems = systems.map(k=>({id:hoUid(), key:k, title:HO_MAINT[k].label, text:HO_MAINT[k].text}));
   const addr = fullSiteAddress(site) || '';
   return {
     cover: {title:'O&M MANUAL', project:site.name||'', address:addr, subtitle:'Operation and Maintenance Manual and As Built Information — Construction (Design and Management) Regulations 2015', revision:'1', date:localISODate(new Date()), coverPhoto: photos[0] ? {bucket:photos[0].bucket, path:photos[0].path} : null},
     attach: {datasheets:true, guarantees:true, coshh:true, drawings:false},
+    appendix: [],
     sections: [
       {id:hoUid(), type:'table', title:'Contractor Details', columns:['',''], rows:[
         ['Name', company], ['Address', String(st.address||'').replace(/\n/g, ', ')], ['Telephone', st.phone||''], ['Email', (pm && pm.email) || ME.email || ''],
@@ -145,10 +146,10 @@ async function hoBuildDefault(siteId){
 `This document confirms the formal handover of the completed roofing works at ${site.name||'the site'}${addr?', '+addr:''} — on behalf of ${company}${site.client_name?' to '+site.client_name:''}.
 
 This document records the scope of works carried out, materials and systems installed, guarantee and maintenance provisions, health and safety information, and the parties' formal sign-off.`},
-      {id:hoUid(), type:'text', title:'2. Scope of Works Completed', body: scope.trim() || 'Describe the works carried out.'},
-      {id:hoUid(), type:'table', title:'3. Materials Log – Data & COSHH', columns:['Log No.','Element','Product','Manufacturer'], rows: matRows.length ? matRows : [['1','','','']]},
-      {id:hoUid(), type:'table', title:'4. Guarantees & Warranties', columns:['Manufacturer / Item','Ref','Expiry','Maintenance'], rows: guars.length ? guars.map(g=>[g.provider ? g.provider+' – '+g.name.replace(/\.pdf$/i,'') : g.name.replace(/\.pdf$/i,''), g.ref||'', g.expiry_date ? hoFmtDate(g.expiry_date) : '', g.maintenance||'']) : [['','','','']]},
-      {id:hoUid(), type:'text', title:'5. Maintenance Procedures', body: maint},
+      {id:hoUid(), key:'scope', type:'text', title:'2. Scope of Works Completed', body: scope.trim()},
+      {id:hoUid(), type:'materials', title:'3. Materials Log – Data & COSHH', columns:['Log No.','Element','Product','Manufacturer'], rows: matRows.length ? matRows : [['1','','','']], links: matRows.length ? matLinks : [[]]},
+      {id:hoUid(), type:'table', title:'4. Guarantees & Warranties', columns:['Manufacturer / Item','Ref','Expiry','Maintenance'], rows: guars.length ? guars.map(g=>[g.provider ? g.provider+' – '+g.name.replace(/\.pdf$/i,'') : g.name.replace(/\.pdf$/i,''), g.ref||'', g.expiry_date ? hoFmtDate(g.expiry_date) : '', g.maintenance||'']) : [['','','','']], links: guars.length ? guars.map(g=>[{docId:g.id, name:g.name}]) : [[]]},
+      {id:hoUid(), type:'maint', title:'5. Maintenance Procedures', items: maintItems},
       {id:hoUid(), type:'table', title:'6. Specifications & Drawings', columns:['File Name','Ref','Date','Provider'], rows: drawings.filter(d=>d.status!=='superseded').map(d=>[d.name.replace(/\.[a-z0-9]+$/i,''), '', hoFmtDate((d.uploaded_at||'').slice(0,10)), '']).concat([['O&M Documentation', 'O&M '+(site.name||''), hoFmtDate(localISODate(new Date())), company]])},
       {id:hoUid(), type:'text', title:'7. Health & Safety Information', body:
 `Residual risks for anyone working on or maintaining the roof:
@@ -171,8 +172,9 @@ async function hoLoadManual(siteId){
   let data = rows[0] && rows[0].data && rows[0].data.sections ? rows[0].data : null;
   const isNew = !data;
   if(!data) data = await hoBuildDefault(siteId);
-  hoState = {siteId, data, dirty:isNew};
-  if(isNew) hoSaveNow();
+  const changed = hoNormalize(data);
+  hoState = {siteId, data, dirty:isNew || changed};
+  if(hoState.dirty) hoSaveNow();
   return hoState;
 }
 function hoTouch(){ if(!hoState) return; hoState.dirty = true; clearTimeout(hoSaveTimer); hoSaveTimer = setTimeout(hoSaveNow, 900); }
@@ -193,31 +195,27 @@ window.hoCover = function(key, val){ hoState.data.cover[key] = val; hoTouch(); }
 window.hoAttach = function(key, on){ hoState.data.attach[key] = !!on; hoTouch(); };
 window.hoCell = function(id, r, c, val){ const s = hoSec(id); if(s && s.rows[r]){ s.rows[r][c] = val; hoTouch(); } };
 window.hoHead = function(id, c, val){ const s = hoSec(id); if(s){ s.columns[c] = val; hoTouch(); } };
-window.hoAddRow = function(id){ const s = hoSec(id); s.rows.push(s.columns.map(()=>'')); hoTouch(); render(); };
-window.hoDelRow = function(id, r){ const s = hoSec(id); s.rows.splice(r,1); hoTouch(); render(); };
+window.hoAddRow = function(id){ const s = hoSec(id); s.rows.push(s.columns.map(()=>'')); (s.links = s.links||[]).push([]); hoTouch(); render(); };
+window.hoDelRow = function(id, r){ const s = hoSec(id); s.rows.splice(r,1); if(s.links) s.links.splice(r,1); hoTouch(); render(); };
 window.hoAddCol = function(id){ const s = hoSec(id); s.columns.push('New column'); s.rows.forEach(r=>r.push('')); hoTouch(); render(); };
 window.hoDelCol = function(id, c){ const s = hoSec(id); if(s.columns.length<=1) return; s.columns.splice(c,1); s.rows.forEach(r=>r.splice(c,1)); hoTouch(); render(); };
 window.hoMove = function(id, dir){ const a = hoState.data.sections, i = a.findIndex(s=>s.id===id), j = i+dir; if(i<0 || j<0 || j>=a.length) return; [a[i],a[j]] = [a[j],a[i]]; hoTouch(); render(); };
-window.hoDelSection = async function(id){ const s = hoSec(id); if(!(await customConfirm(`Delete the section "${s.title||'Untitled'}"?`))) return; hoState.data.sections = hoState.data.sections.filter(x=>x.id!==id); hoTouch(); render(); };
+window.hoDelSection = async function(id){ const s = hoSec(id); if(s.key==='scope'){ toast('The Scope of Works has to stay in the manual'); return; } if(!(await customConfirm(`Delete the section "${s.title||'Untitled'}"?`))) return; hoState.data.sections = hoState.data.sections.filter(x=>x.id!==id); hoTouch(); render(); };
 window.hoAddSection = function(type){
   const s = {id:hoUid(), type, title:type==='table' ? 'New table' : type==='photos' ? 'Photographs' : 'New section'};
   if(type==='text') s.body = '';
   if(type==='table'){ s.columns = ['Item','Details']; s.rows = [['','']]; }
   if(type==='photos') s.photos = [];
+  if(type==='table'){ s.links = [[]]; }
+  if(type==='maint'){ s.title = 'Maintenance Procedures'; s.items = []; }
   hoState.data.sections.push(s); hoTouch(); render();
   setTimeout(()=>{ const el = document.getElementById('hosec-'+s.id); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 80);
-};
-window.hoAddMaint = function(key){
-  const k = key; if(!HO_MAINT[k]) return;
-  let s = hoState.data.sections.find(x=>/maintenance/i.test(x.title||'') && x.type==='text');
-  if(!s){ s = {id:hoUid(), type:'text', title:'Maintenance Procedures', body:''}; hoState.data.sections.push(s); }
-  s.body = (s.body ? s.body.trim()+'\n\n' : '') + HO_MAINT[k].label+'\n'+HO_MAINT[k].text;
-  hoTouch(); render(); toast(HO_MAINT[k].label+' wording added');
 };
 window.hoRebuild = async function(){
   if(!(await customConfirm('Rebuild the manual from the job? This replaces every section with fresh ones from the Schedule of Works, data sheets, guarantees, COSHH, drawings and photos — your edits will be lost.'))) return;
   hoBusy = 'Rebuilding…'; render();
-  hoState.data = await hoBuildDefault(hoState.siteId); hoState.dirty = true; await hoSaveNow();
+  const keepApp = hoState.data.appendix || [];
+  hoState.data = await hoBuildDefault(hoState.siteId); hoState.data.appendix = keepApp; hoNormalize(hoState.data); hoState.dirty = true; await hoSaveNow();
   hoBusy = ''; toast('Rebuilt from the job'); render();
 };
 window.hoRemovePhoto = function(id, i){ const s = hoSec(id); s.photos.splice(i,1); hoTouch(); render(); };
@@ -286,6 +284,212 @@ window.hoAttachToDoc = async function(input, id){
   hoBusy = ''; render();
 };
 
+// Older saved manuals: Materials Log table → semi-automatic materials
+// section, maintenance text → pick-list section, Scope of Works flagged as
+// the required section, every table gets per-row attachments.
+function hoNormalize(d){
+  let ch = false;
+  if(!Array.isArray(d.appendix)){ d.appendix = []; ch = true; }
+  d.sections.forEach(s=>{
+    if(s.type==='table' && /materials?\s+log/i.test(s.title||'')){ s.type = 'materials'; ch = true; }
+    if(s.type==='table' || s.type==='materials'){
+      if(!Array.isArray(s.links)){ s.links = []; ch = true; }
+      while(s.links.length < s.rows.length){ s.links.push([]); ch = true; }
+      if(s.links.length > s.rows.length){ s.links.length = s.rows.length; ch = true; }
+    }
+    if(s.type==='text' && !s.key && /scope of works/i.test(s.title||'')){ s.key = 'scope'; ch = true; }
+  });
+  const mt = d.sections.find(s=>s.type==='text' && /maintenance/i.test(s.title||''));
+  if(mt && !d.sections.some(s=>s.type==='maint')){
+    const items = [];
+    String(mt.body||'').split(/\n\s*\n/).forEach(b=>{
+      if(!b.trim()) return;
+      const lines = b.split('\n'); const first = lines[0].trim();
+      const k = Object.keys(HO_MAINT).find(k=>HO_MAINT[k].label===first);
+      if(k) items.push({id:hoUid(), key:k, title:first, text:lines.slice(1).join('\n')});
+      else items.push({id:hoUid(), key:null, title:'Maintenance', text:b.trim()});
+    });
+    mt.type = 'maint'; mt.items = items; delete mt.body; ch = true;
+  }
+  if(!d.sections.some(s=>s.key==='scope')){
+    d.sections.splice(Math.min(2, d.sections.length), 0, {id:hoUid(), key:'scope', type:'text', title:'Scope of Works Completed', body:''}); ch = true;
+  }
+  return ch;
+}
+function hoScopeEmpty(){ const s = hoState && hoState.data.sections.find(x=>x.key==='scope'); return !s || !String(s.body||'').trim() || /^describe the works carried out\.?$/i.test(String(s.body||'').trim()); }
+function hoCheckRequired(){
+  if(!hoScopeEmpty()) return true;
+  toast('Describe the Scope of Works first — it has to be filled in');
+  hoTab = 'manual'; render();
+  setTimeout(()=>{ const s = hoState.data.sections.find(x=>x.key==='scope'); const el = s && document.getElementById('hosec-'+s.id); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); const ta = el.querySelector('textarea'); if(ta) ta.focus(); } }, 120);
+  return false;
+}
+
+// ---- maintenance pick-list ----
+window.hoMaintToggle = function(id, key){
+  const s = hoSec(id); if(!s || !HO_MAINT[key]) return;
+  const at = s.items.findIndex(x=>x.key===key);
+  if(at>=0) s.items.splice(at,1); else s.items.push({id:hoUid(), key, title:HO_MAINT[key].label, text:HO_MAINT[key].text});
+  hoTouch(); render();
+};
+window.hoMaintCustom = function(id){ const s = hoSec(id); const it = {id:hoUid(), key:null, title:'', text:''}; s.items.push(it); hoTouch(); render(); setTimeout(()=>{ const el = document.getElementById('hoit-'+it.id); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); const i = el.querySelector('input'); if(i) i.focus(); } }, 100); };
+window.hoMaintSet = function(id, itemId, key, val){ const s = hoSec(id); const it = s && s.items.find(x=>x.id===itemId); if(it){ it[key] = val; hoTouch(); } };
+window.hoMaintDel = function(id, itemId){ const s = hoSec(id); s.items = s.items.filter(x=>x.id!==itemId); hoTouch(); render(); };
+window.hoMaintMove = function(id, itemId, dir){ const a = hoSec(id).items, i = a.findIndex(x=>x.id===itemId), j = i+dir; if(i<0 || j<0 || j>=a.length) return; [a[i],a[j]] = [a[j],a[i]]; hoTouch(); render(); };
+
+// ---- files attached to a table row ----
+async function hoUploadFile(f, folder){
+  const site = SITES.find(s=>s.id===hoState.siteId);
+  const path = ((site&&site.org_id)||ME.org_id)+'/handover/'+hoState.siteId+'/'+(folder?folder+'/':'')+uid()+'-'+f.name.replace(/[^a-z0-9.\-]+/gi,'_');
+  return await uploadToStorage('mc-documents', path, f, f.type || 'application/pdf');
+}
+window.hoRowUpload = async function(input, id, r){
+  const files = Array.from(input.files||[]); input.value = ''; if(!files.length) return;
+  const s = hoSec(id); s.links = s.links||[]; s.links[r] = s.links[r]||[];
+  for(let i=0;i<files.length;i++){
+    hoBusy = `Uploading ${i+1} of ${files.length}…`; render();
+    const stored = await hoUploadFile(files[i], 'rows');
+    if(stored) s.links[r].push({bucket:'mc-documents', path:stored, name:files[i].name});
+  }
+  hoBusy = ''; hoTouch(); render(); toast('Attached');
+};
+window.hoUnlink = async function(id, r, li){
+  const s = hoSec(id); const l = s.links[r][li]; if(!l) return;
+  if(!(await customConfirm(`Remove "${l.name}" from this row?`))) return;
+  s.links[r].splice(li,1); hoTouch(); render();
+};
+function hoLinkView(l, docs){
+  const d = l.docId ? (docs||[]).find(x=>x.id===l.docId) : null;
+  const bucket = d ? 'mc-documents' : l.bucket, path = d ? d.storage_path : l.path;
+  if(!path) return '';
+  return `viewDrawing('${publicUrl(bucket, path)}', ${/\.(jpe?g|png)$/i.test(path)}, '${jsAttr(l.name||'')}')`;
+}
+
+// ---- cover photo from the phone ----
+window.hoCoverFile = async function(input){
+  const f = input.files && input.files[0]; input.value = ''; if(!f) return;
+  hoBusy = 'Uploading the cover photo…'; render();
+  let blob = f;
+  try{ const du = await compressImage(f, {maxW:2000, quality:0.88}); blob = await (await fetch(du)).blob(); }catch(e){}
+  const stored = await hoUploadFile(new File([blob], (f.name||'cover').replace(/\.[a-z0-9]+$/i,'')+'.jpg', {type:'image/jpeg'}), 'cover');
+  hoBusy = '';
+  if(stored){ hoState.data.cover.coverPhoto = {bucket:'mc-documents', path:stored}; hoTouch(); toast('Cover photo set'); } else toast('Upload failed — check signal');
+  render();
+};
+
+// ---- bottom sheet chooser ----
+function hoSheet(title, inner, onClick){
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;';
+  ov.innerHTML = `<div class="hosheet" style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:640px;max-height:82vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));"><p class="sectiontitle" style="margin-top:0;">${escapeHtml(title)}</p>${inner}<button type="button" class="ghostbtn" data-cancel="1" style="margin-top:10px;">Cancel</button></div>`;
+  ov.addEventListener('click', ev=>{ const b = ev.target.closest('[data-cancel]'); if(ev.target===ov || b){ ov.remove(); return; } onClick(ev, ov); });
+  document.body.appendChild(ov);
+  return ov;
+}
+
+// ---- Materials Log: choose data sheets from the COSHH library ----
+window.hoPickDatasheets = async function(id){
+  hoBusy = 'Loading the library…'; render();
+  let lib = [], amap = {};
+  try{ lib = await coshhLoadLibrary(); amap = await coshhAssessMap(lib); }catch(e){}
+  hoBusy = ''; render();
+  if(!lib.length){ toast('No products in the COSHH library yet — add data sheets in Admin › COSHH Library'); return; }
+  const s0 = hoSec(id);
+  const have = new Set(s0.rows.map(r=>String(r[2]||'').trim().toLowerCase()));
+  const row = (it, i) => { const a = amap[it.id]; const inLog = have.has(String(it.title||'').trim().toLowerCase());
+    return `<label class="hopick" data-t="${escapeHtml(String(it.title+' '+(it.data.manufacturer||'')).toLowerCase())}" style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid #EEE;cursor:pointer;">
+      <input type="checkbox" data-i="${i}" style="width:auto;margin:3px 0 0;" ${inLog?'disabled':''}>
+      <span style="flex:1;"><b>${escapeHtml(it.title)}</b><br><span class="stub" style="margin:0;font-size:12px;">${escapeHtml(it.data.manufacturer||'')}${it.data.manufacturer?' · ':''}${it.data.sdsPath?'📄 data sheet':'no data sheet'} · ${a?'✓ COSHH assessment':'no COSHH yet'}${inLog?' · already in the log':''}</span></span></label>`; };
+  const ov = hoSheet('Choose data sheets from the library', `
+    <input type="search" placeholder="Search products" style="margin:0 0 6px;" oninput="const q=this.value.toLowerCase();this.closest('.hosheet').querySelectorAll('.hopick').forEach(el=>{el.style.display=el.dataset.t.includes(q)?'':'none';})">
+    <p class="stub" style="margin:0 0 6px;font-size:12px;">Each product goes into the log with its data sheet, and its COSHH assessment is added straight after.</p>
+    ${lib.map(row).join('')}
+    <button type="button" class="darkbtn" data-done="1" style="margin-top:12px;">Add ticked products</button>`, async (ev, ov)=>{
+      if(!ev.target.closest('[data-done]')) return;
+      const picked = [...ov.querySelectorAll('input[data-i]:checked')].map(x=>lib[Number(x.dataset.i)]);
+      ov.remove(); if(!picked.length) return;
+      const s = hoSec(id); s.links = s.links||[];
+      const numbered = () => s.rows.filter(r=>r.some((v,i)=>i>0 && v)).length;
+      picked.forEach(it=>{
+        const r = s.columns.map(()=>''); r[0] = String(numbered()+1); if(r.length>1) r[1] = ''; if(r.length>2) r[2] = it.title; if(r.length>3) r[3] = it.data.manufacturer||'';
+        const links = [];
+        if(it.data.sdsPath) links.push({bucket:'coshh-library', path:it.data.sdsPath, name:'Data sheet – '+it.title});
+        const a = amap[it.id]; if(a && a.file) links.push({bucket:'coshh-library', path:a.file.storage_path, name:'COSHH – '+it.title});
+        const blank = s.rows.findIndex(x=>x.every((v,i)=>!v || i===0));
+        if(blank>=0){ s.rows[blank] = r; s.links[blank] = links; } else { s.rows.push(r); s.links.push(links); }
+      });
+      hoTouch(); render(); toast(picked.length+' added to the Materials Log');
+    });
+};
+
+// ---- appendices: Schedule of Works / handover report at the back ----
+window.hoAddAppendix = async function(cat){
+  const siteId = hoState.siteId;
+  const opts = [];
+  if(cat==='sow'){
+    opts.push({v:'app', label:"📋 This job's Schedule of Works (from the app)", sub:'Built fresh when you export — every item, with its photos'});
+    try{ (await dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.desc')).filter(x=>/\.(pdf|jpe?g|png)$/i.test(x.storage_path||x.name||'')).forEach(x=>opts.push({v:'doc', label:'📄 '+x.name, sub:'Uploaded to the Schedule of Works', bucket:'schedule-docs', path:x.storage_path, name:x.name})); }catch(e){}
+  } else {
+    try{
+      const subs = (await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=100&select=id,template_name,submitted_at,status,general_label')).filter(x=>x.status!=='in_progress');
+      subs.sort((a,b)=>(/handover|completion|practical/i.test(b.template_name||'')?1:0)-(/handover|completion|practical/i.test(a.template_name||'')?1:0));
+      subs.forEach(x=>opts.push({v:'report', label:'📝 '+(x.template_name||'Report'), sub:'Submitted '+hoFmtDate((x.submitted_at||'').slice(0,10)), reportId:x.id, name:(x.template_name||'Report')+' – '+hoFmtDate((x.submitted_at||'').slice(0,10))}));
+    }catch(e){}
+  }
+  hoSheet(cat==='sow' ? 'Add a Schedule of Works to the back' : 'Add a handover report to the back', `
+    ${opts.map((o,i)=>`<button type="button" class="ghostbtn" data-o="${i}" style="text-align:left;margin:0 0 8px;text-transform:none;letter-spacing:0;"><b>${escapeHtml(o.label)}</b><br><span class="stub" style="margin:0;font-size:12px;">${escapeHtml(o.sub||'')}</span></button>`).join('') || `<p class="stub">No ${cat==='sow'?'schedule documents':'submitted reports'} on this job yet.</p>`}
+    <label class="darkbtn" style="display:block;text-align:center;cursor:pointer;margin-top:4px;">⬆️ Upload a file (PDF or photo)<input type="file" accept="application/pdf,image/*" multiple style="display:none;" data-up="1"></label>`, (ev, ov)=>{
+      const b = ev.target.closest('[data-o]'); if(!b) return;
+      const o = opts[Number(b.dataset.o)]; ov.remove();
+      const e = {id:hoUid(), cat};
+      if(o.v==='doc'){ (async ()=>{
+        // Schedule documents live in a private bucket — copy the file into
+        // the handover folder so the export can read it.
+        hoBusy = 'Copying '+o.name+'…'; render();
+        let stored = null;
+        try{ const res = await sbFetch('/storage/v1/object/authenticated/schedule-docs/'+o.path.split('/').map(encodeURIComponent).join('/'), {timeoutMs:60000}); if(res && res.ok){ const blob = await res.blob(); stored = await hoUploadFile(new File([blob], o.name, {type:blob.type||'application/pdf'}), 'appendix'); } }catch(err){}
+        hoBusy = '';
+        if(stored){ hoState.data.appendix.push({id:e.id, cat, kind:'file', bucket:'mc-documents', path:stored, label:o.name.replace(/\.pdf$/i,'')}); hoTouch(); toast('Added to the back of the manual'); } else toast('Could not copy that file — try uploading it instead');
+        render();
+      })(); return; }
+      if(o.v==='app'){ e.kind = 'sow-app'; e.label = 'Schedule of Works'; }
+      else if(o.v==='report'){ e.kind = 'report'; e.reportId = o.reportId; e.label = o.name; }
+      else { e.kind = 'file'; e.bucket = o.bucket; e.path = o.path; e.label = o.name; }
+      hoState.data.appendix.push(e); hoTouch(); render(); toast('Added to the back of the manual');
+    });
+  setTimeout(()=>{ const inp = document.querySelector('.hosheet input[data-up]'); if(inp) inp.addEventListener('change', async ()=>{
+    const files = Array.from(inp.files||[]); const ov = inp.closest('.hosheet').parentNode; ov.remove();
+    for(let i=0;i<files.length;i++){
+      hoBusy = `Uploading ${i+1} of ${files.length}…`; render();
+      const stored = await hoUploadFile(files[i], 'appendix');
+      if(stored) hoState.data.appendix.push({id:hoUid(), cat, kind:'file', bucket:'mc-documents', path:stored, label:files[i].name.replace(/\.pdf$/i,'')});
+    }
+    hoBusy = ''; hoTouch(); render();
+  }); }, 30);
+};
+window.hoAppLabel = function(i, v){ const e = hoState.data.appendix[i]; if(e){ e.label = v; hoTouch(); } };
+window.hoAppMove = function(i, dir){ const a = hoState.data.appendix, j = i+dir; if(j<0 || j>=a.length) return; [a[i],a[j]] = [a[j],a[i]]; hoTouch(); render(); };
+window.hoAppDel = async function(i){ const e = hoState.data.appendix[i]; if(!e || !(await customConfirm(`Remove "${e.label}" from the back of the manual?`))) return; hoState.data.appendix.splice(i,1); hoTouch(); render(); };
+
+// Every document that goes behind the manual, in order: files on table rows
+// (data sheets, COSHH, guarantees…), then the ticked job documents not
+// already included, then the Schedule of Works / reports at the very end.
+async function hoCollectAttachments(){
+  const d = hoState.data, docs = await hoLoadDocs(hoState.siteId);
+  const out = [], seen = new Set();
+  const add = a => { if(a.path){ const k = a.bucket+'|'+a.path; if(seen.has(k)) return; seen.add(k); } out.push(a); };
+  d.sections.forEach(s=>{ (s.links||[]).forEach(ls=>(ls||[]).forEach(l=>{
+    if(l.docId){ const x = docs.find(y=>y.id===l.docId); if(x && x.storage_path) add({bucket:'mc-documents', path:x.storage_path, name:x.name}); }
+    else if(l.path) add({bucket:l.bucket, path:l.path, name:l.name});
+  })); });
+  if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
+  if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
+  if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path')).forEach(x=>add({bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
+  if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>add({bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
+  (d.appendix||[]).forEach(e=>{ if(e.kind==='file') add({bucket:e.bucket, path:e.path, name:e.label}); else out.push({gen:e, name:e.label}); });
+  return out;
+}
+
 // Data sheets / guarantees added after the manual was first built get a row
 // in the Materials Log / Guarantees table automatically (once each — a row
 // the user deletes stays deleted). A blank placeholder row is filled first.
@@ -296,15 +500,16 @@ function hoSyncDocs(docs){
   docs.forEach(x=>{
     if(d.synced[x.id]) return;
     const isSheet = x.kind==='datasheet';
-    const t = d.sections.find(s=>s.type==='table' && (isSheet ? /material/i.test(s.title||'') : /guarantee|warrant/i.test(s.title||'')));
+    const t = isSheet ? d.sections.find(s=>s.type==='materials') : d.sections.find(s=>s.type==='table' && /guarantee|warrant/i.test(s.title||''));
     d.synced[x.id] = 1; changed = true;
     if(!t) return;
     const nm = String(x.name||'').replace(/\.pdf$/i,'');
     const row = t.columns.map(()=>'');
     if(isSheet){ row[0] = String(t.rows.filter(r=>r.some((v,i)=>i>0 && v)).length+1); if(row.length>2) row[2] = nm; if(row.length>3) row[3] = x.provider||''; }
     else { row[0] = x.provider ? x.provider+' – '+nm : nm; if(row.length>1) row[1] = x.ref||''; if(row.length>2) row[2] = x.expiry_date ? hoFmtDate(x.expiry_date) : ''; if(row.length>3) row[3] = x.maintenance||''; }
+    t.links = t.links || [];
     const blank = t.rows.findIndex(r=>r.every((v,i)=>!v || (isSheet && i===0)));
-    if(blank>=0) t.rows[blank] = row; else t.rows.push(row);
+    if(blank>=0){ t.rows[blank] = row; t.links[blank] = [{docId:x.id, name:x.name}]; } else { t.rows.push(row); t.links[t.rows.length-1] = [{docId:x.id, name:x.name}]; }
   });
   if(changed) hoTouch();
 }
@@ -347,19 +552,39 @@ async function renderHandover(siteId){
       <div class="row-gap" style="margin-top:6px;align-items:center;">${x.storage_path ? docView(x) : `<label class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:11.5px;cursor:pointer;">Attach certificate<input type="file" accept="application/pdf,image/*" style="display:none;" onchange="hoAttachToDoc(this,'${x.id}')"></label>`}<span style="flex:1;"></span><button type="button" class="taskicon danger" onclick="hoDeleteDoc('${x.id}','${jsAttr(x.storage_path||'')}')">🗑</button></div>
     </div>`).join('') || `<div class="empty">No guarantees yet.</div>`}`;
   } else {
+    const tableHtml = s => {
+      const links = s.links || [];
+      return `<div class="hotable"><table><thead><tr><th class="hofilescol">Files</th>${s.columns.map((h,ci)=>`<th><input value="${escapeHtml(h)}" oninput="hoHead('${s.id}',${ci},this.value)">${s.columns.length>1?`<button type="button" class="hox" title="Delete column" onclick="hoDelCol('${s.id}',${ci})">✕</button>`:''}</th>`).join('')}<th></th></tr></thead>
+        <tbody>${s.rows.map((r,ri)=>`<tr><td class="hofiles">${(links[ri]||[]).map((l,li)=>{ const v = hoLinkView(l, docs); return `<span class="holink"><span class="holinkname" ${v?`onclick="${v}"`:''}>📄 ${escapeHtml(l.name||'File')}</span><button type="button" class="hox" title="Remove" onclick="hoUnlink('${s.id}',${ri},${li})">✕</button></span>`; }).join('')}<label class="hox hoattach" title="Attach a file to this row">📎 Attach<input type="file" accept="application/pdf,image/*" multiple style="display:none;" onchange="hoRowUpload(this,'${s.id}',${ri})"></label></td>
+          ${r.map((v,ci)=>`<td><textarea rows="2" oninput="hoCell('${s.id}',${ri},${ci},this.value)">${escapeHtml(v||'')}</textarea></td>`).join('')}
+          <td><button type="button" class="hox" title="Delete row" onclick="hoDelRow('${s.id}',${ri})">🗑</button></td></tr>`).join('')}</tbody></table></div>
+        <div class="row-gap" style="margin-top:6px;"><button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px;font-size:12px;" onclick="hoAddRow('${s.id}')">+ Row</button><button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px;font-size:12px;" onclick="hoAddCol('${s.id}')">+ Column</button></div>`;
+    };
     const secHtml = s => {
       let inner = '';
-      if(s.type==='text') inner = `<textarea rows="${Math.min(18, Math.max(4, String(s.body||'').split('\n').length+1))}" oninput="hoSet('${s.id}','body',this.value)">${escapeHtml(s.body||'')}</textarea>`;
-      if(s.type==='table') inner = `<div class="hotable"><table><thead><tr>${s.columns.map((h,ci)=>`<th><input value="${escapeHtml(h)}" oninput="hoHead('${s.id}',${ci},this.value)">${s.columns.length>1?`<button type="button" class="hox" title="Delete column" onclick="hoDelCol('${s.id}',${ci})">✕</button>`:''}</th>`).join('')}<th></th></tr></thead>
-        <tbody>${s.rows.map((r,ri)=>`<tr>${r.map((v,ci)=>`<td><textarea rows="2" oninput="hoCell('${s.id}',${ri},${ci},this.value)">${escapeHtml(v||'')}</textarea></td>`).join('')}<td><button type="button" class="hox" title="Delete row" onclick="hoDelRow('${s.id}',${ri})">🗑</button></td></tr>`).join('')}</tbody></table></div>
-        <div class="row-gap" style="margin-top:6px;"><button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px;font-size:12px;" onclick="hoAddRow('${s.id}')">+ Row</button><button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px;font-size:12px;" onclick="hoAddCol('${s.id}')">+ Column</button></div>`;
+      const req = s.key==='scope';
+      if(s.type==='text') inner = `<textarea rows="${Math.min(18, Math.max(4, String(s.body||'').split('\n').length+1))}" ${req?`placeholder="Describe the works carried out (required)" class="${hoScopeEmpty()?'horequired':''}"`:''} oninput="hoSet('${s.id}','body',this.value);${req?`this.classList.toggle('horequired', !this.value.trim())`:''}">${escapeHtml(s.body||'')}</textarea>${req?`<p class="stub" style="margin:4px 0 0;font-size:12px;">Required — the manual can't be exported until this is filled in.</p>`:''}`;
+      if(s.type==='table') inner = tableHtml(s);
+      if(s.type==='materials') inner = `<button type="button" class="darkbtn" style="margin:0 0 8px;" onclick="hoPickDatasheets('${s.id}')">📚 Choose data sheets from the library</button>
+        <p class="stub" style="margin:0 0 6px;font-size:12px;">Each product's data sheet and COSHH assessment are attached to its row and go in the back of the PDF. Data sheets uploaded on the Data sheets tab are added too.</p>` + tableHtml(s);
+      if(s.type==='maint'){
+        const on = new Set(s.items.map(x=>x.key).filter(Boolean));
+        inner = `<p class="field-label" style="margin:0 0 6px;">Tap to add or remove standard wording</p>
+          <div class="pmchips" style="margin:0 0 10px;flex-wrap:wrap;">${Object.keys(HO_MAINT).map(k=>`<button type="button" class="pmchip ${on.has(k)?'on':''}" onclick="hoMaintToggle('${s.id}','${k}')">${on.has(k)?'✓ ':'+ '}${escapeHtml(HO_MAINT[k].label)}</button>`).join('')}</div>
+          ${s.items.map((it,ii)=>`<div class="homaint" id="hoit-${it.id}">
+            <div class="row-gap" style="align-items:center;margin-bottom:6px;"><input type="text" value="${escapeHtml(it.title||'')}" placeholder="Heading (e.g. Green roof)" style="flex:1;margin:0;font-weight:700;" oninput="hoMaintSet('${s.id}','${it.id}','title',this.value)">
+              <button type="button" class="hox" onclick="hoMaintMove('${s.id}','${it.id}',-1)">↑</button><button type="button" class="hox" onclick="hoMaintMove('${s.id}','${it.id}',1)">↓</button><button type="button" class="hox" style="color:var(--warn);" onclick="hoMaintDel('${s.id}','${it.id}')">🗑</button></div>
+            <textarea rows="${Math.min(14, Math.max(3, String(it.text||'').split('\n').length+1))}" placeholder="Maintenance wording" oninput="hoMaintSet('${s.id}','${it.id}','text',this.value)">${escapeHtml(it.text||'')}</textarea></div>`).join('') || '<p class="stub" style="margin:0 0 8px;">Nothing chosen yet.</p>'}
+          <button type="button" class="ghostbtn" style="margin:4px 0 0;" onclick="hoMaintCustom('${s.id}')">+ Add custom maintenance</button>`;
+      }
       if(s.type==='photos') inner = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">${s.photos.map((p,i)=>`<div><div style="position:relative;"><img src="${publicUrl(p.bucket, p.path)}" style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block;"><button type="button" class="hox" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;" onclick="hoRemovePhoto('${s.id}',${i})">✕</button></div><input type="text" value="${escapeHtml(p.caption||'')}" placeholder="Caption" style="margin:4px 0 0;font-size:12px;" oninput="hoPhotoCaption('${s.id}',${i},this.value)"></div>`).join('')}</div>
         <button type="button" class="ghostbtn" style="margin-top:8px;" onclick="hoPickPhotos('${s.id}')">+ Add photos from the job</button>`;
       return `<div class="card hosec" id="hosec-${s.id}">
-        <div class="row-gap" style="align-items:center;margin-bottom:8px;"><input type="text" value="${escapeHtml(s.title||'')}" style="flex:1;margin:0;font-weight:800;" oninput="hoSet('${s.id}','title',this.value)">
-          <button type="button" class="hox" title="Move up" onclick="hoMove('${s.id}',-1)">↑</button><button type="button" class="hox" title="Move down" onclick="hoMove('${s.id}',1)">↓</button><button type="button" class="hox" title="Delete section" style="color:var(--warn);" onclick="hoDelSection('${s.id}')">🗑</button></div>
+        <div class="row-gap" style="align-items:center;margin-bottom:8px;"><input type="text" value="${escapeHtml(s.title||'')}" style="flex:1;margin:0;font-weight:800;" oninput="hoSet('${s.id}','title',this.value)">${req?'<span class="horeqtag">Required</span>':''}
+          <button type="button" class="hox" title="Move up" onclick="hoMove('${s.id}',-1)">↑</button><button type="button" class="hox" title="Move down" onclick="hoMove('${s.id}',1)">↓</button>${req?'':`<button type="button" class="hox" title="Delete section" style="color:var(--warn);" onclick="hoDelSection('${s.id}')">🗑</button>`}</div>
         ${inner}</div>`;
     };
+    const app = d.appendix || [];
     body = `
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Cover</p>
@@ -368,18 +593,28 @@ async function renderHandover(siteId){
       <div class="formfield"><label class="field-label">Address</label><input type="text" value="${escapeHtml(c.address||'')}" oninput="hoCover('address',this.value)"></div>
       <div class="formfield"><label class="field-label">Sub-title</label><textarea rows="2" oninput="hoCover('subtitle',this.value)">${escapeHtml(c.subtitle||'')}</textarea></div>
       <div class="row-gap"><div class="formfield" style="flex:1;"><label class="field-label">Revision</label><input type="text" value="${escapeHtml(c.revision||'')}" oninput="hoCover('revision',this.value)"></div><div class="formfield" style="flex:1;"><label class="field-label">Date</label><input type="date" value="${escapeHtml(c.date||'')}" onchange="hoCover('date',this.value)"></div></div>
-      <div class="row-gap" style="align-items:center;">${c.coverPhoto ? `<img src="${publicUrl(c.coverPhoto.bucket, c.coverPhoto.path)}" style="width:96px;height:72px;object-fit:cover;border-radius:8px;">` : '<span class="stub" style="margin:0;">No cover photo</span>'}<button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoPickPhotos(null,true)">${c.coverPhoto?'Change':'Pick'} cover photo</button>${c.coverPhoto?`<button type="button" class="hox" onclick="hoCover('coverPhoto',null);render()">✕</button>`:''}</div>
+      <label class="field-label" style="display:block;margin:4px 0 6px;">Cover photo</label>
+      ${c.coverPhoto ? `<div style="position:relative;margin-bottom:8px;"><img src="${publicUrl(c.coverPhoto.bucket, c.coverPhoto.path)}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block;"><button type="button" class="hox" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.6);color:#fff;" onclick="hoCover('coverPhoto',null);render()">✕</button></div>` : '<p class="stub" style="margin:0 0 8px;">No cover photo yet.</p>'}
+      <div class="hocoverbtns">
+        <label class="ghostbtn">📷 Take photo<input type="file" accept="image/*" capture="environment" style="display:none;" onchange="hoCoverFile(this)"></label>
+        <label class="ghostbtn">🖼 From library<input type="file" accept="image/*" style="display:none;" onchange="hoCoverFile(this)"></label>
+        <button type="button" class="ghostbtn" onclick="hoPickPhotos(null,true)">🏗 Job photos</button>
+      </div>
     </div>
     ${d.sections.map(secHtml).join('')}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add</p>
-      <div class="row-gap" style="flex-wrap:wrap;"><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('text')">+ Text section</button><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('table')">+ Table</button><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('photos')">+ Photos</button></div>
-      <p class="field-label" style="margin:12px 0 6px;">Standard maintenance wording</p>
-      <div class="pmchips" style="margin:0;flex-wrap:wrap;">${Object.keys(HO_MAINT).map(k=>`<button type="button" class="pmchip" onclick="hoAddMaint('${k}')">+ ${escapeHtml(HO_MAINT[k].label)}</button>`).join('')}</div>
+      <p class="sectiontitle" style="margin-top:0;">Add a section</p>
+      <div class="row-gap" style="flex-wrap:wrap;"><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('text')">+ Text</button><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('table')">+ Table</button><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('photos')">+ Photos</button>${d.sections.some(x=>x.type==='maint')?'':`<button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddSection('maint')">+ Maintenance</button>`}</div>
     </div>
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Attach to the back of the PDF</p>
-      ${[['datasheets','Data sheets ('+sheets.length+')'],['guarantees','Guarantee certificates ('+guars.filter(g=>g.storage_path).length+')'],['coshh','COSHH assessments on this job'],['drawings','Drawings & specifications']].map(([k,l])=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.attach[k]?'checked':''} onchange="hoAttach('${k}',this.checked)">${l}</label>`).join('')}
+      <p class="sectiontitle" style="margin-top:0;">At the back of the manual</p>
+      <p class="stub" style="margin:0 0 8px;">Add as many as you need — they go at the very end of the PDF, in this order.</p>
+      ${app.map((e,i)=>`<div class="row-gap" style="align-items:center;margin-bottom:6px;"><span style="font-size:18px;flex:0 0 auto;width:auto;">${e.cat==='sow'?'📋':'📝'}</span><input type="text" value="${escapeHtml(e.label||'')}" style="flex:1;margin:0;min-width:0;" oninput="hoAppLabel(${i},this.value)"><button type="button" class="hox" onclick="hoAppMove(${i},-1)">↑</button><button type="button" class="hox" onclick="hoAppMove(${i},1)">↓</button><button type="button" class="hox" style="color:var(--warn);" onclick="hoAppDel(${i})">🗑</button></div>`).join('')}
+      <div class="row-gap" style="flex-wrap:wrap;"><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddAppendix('sow')">+ Schedule of Works</button><button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoAddAppendix('report')">+ Handover report</button></div>
+    </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Also attach to the back of the PDF</p>
+      ${[['datasheets','Data sheets tab ('+sheets.length+')'],['guarantees','Guarantee certificates ('+guars.filter(g=>g.storage_path).length+')'],['coshh','COSHH assessments on this job'],['drawings','Drawings & specifications']].map(([k,l])=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.attach[k]?'checked':''} onchange="hoAttach('${k}',this.checked)">${l}</label>`).join('')}
     </div>
     <button type="button" class="ghostbtn" style="color:var(--warn);border-color:var(--warn);" onclick="hoRebuild()">⟳ Rebuild from the job</button>`;
   }
@@ -416,6 +651,7 @@ async function hoLogo(){
 
 // ---------- PDF ----------
 window.hoExportPdf = async function(){
+  if(!hoCheckRequired()) return;
   await hoSaveNow();
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
   hoBusy = 'Building the PDF…'; render();
@@ -460,7 +696,12 @@ async function hoBuildPdf(){
     tl.forEach((l,i)=>txt(l, M+6, y-14-i*15, 13, bold, WHITE)); y -= 26+(tl.length-1)*15;
     if(s.type==='text'){
       wrap(s.body||'', reg, 10, CW).forEach(l=>{ ensure(14); txt(l, M, y-10, 10); y -= 13.5; }); y -= 10;
-    } else if(s.type==='table'){
+    } else if(s.type==='maint'){
+      (s.items||[]).forEach(it=>{
+        if(it.title){ ensure(30); wrap(it.title, bold, 11, CW).forEach(l=>{ txt(l, M, y-11, 11, bold); y -= 15; }); y -= 2; }
+        wrap(it.text||'', reg, 10, CW).forEach(l=>{ ensure(14); txt(l, M, y-10, 10); y -= 13.5; }); y -= 10;
+      });
+    } else if(s.type==='table' || s.type==='materials'){
       const cols = s.columns.length; const colW = CW/cols; const hasHead = s.columns.some(h=>String(h||'').trim());
       const rowsAll = (hasHead ? [s.columns] : []).concat(s.rows);
       rowsAll.forEach((r, ri)=>{
@@ -490,27 +731,35 @@ async function hoBuildPdf(){
     }
   }
   // attachments
-  const docs = await hoLoadDocs(hoState.siteId);
-  const att = [];
-  if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>att.push({bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>att.push({bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.coshh){ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path')).forEach(x=>att.push({bucket:'coshh-docs', path:x.storage_path, name:x.name})); }
-  if(d.attach.drawings){ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>att.push({bucket:'drawings', path:x.storage_path, name:x.name})); }
+  const att = await hoCollectAttachments();
+  let nOwn = pdf.getPageCount();
   if(att.length){
     newPage(); txt('Appendices', M, y-20, 18, bold); y -= 44;
-    att.forEach((a,i)=>{ ensure(14); txt((i+1)+'.  '+a.name, M, y, 10); y -= 14; });
+    att.forEach((a,i)=>{ wrap((i+1)+'.  '+a.name, reg, 10, CW).forEach(l=>{ ensure(14); txt(l, M, y, 10); y -= 14; }); });
+    nOwn = pdf.getPageCount();
     for(let i=0;i<att.length;i++){
       const a = att[i]; hoBusy = `Attaching ${i+1} of ${att.length}…`; render();
       try{
-        if(/\.(jpe?g|png)$/i.test(a.path)){ const im = await hoImage(a.bucket, a.path, 1800); if(im){ newPage(); const img = await pdf.embedJpg(im.bytes); let w = CW, h = w*im.h/im.w; if(h > H-2*M){ h = H-2*M; w = h*im.w/im.h; } page.drawImage(img, {x:M, y:H-M-h, width:w, height:h}); } continue; }
-        const res = await fetchWithTimeout(publicUrl(a.bucket, a.path), {}, 60000);
-        const src = await PDFLib.PDFDocument.load(await res.arrayBuffer(), {ignoreEncryption:true});
-        (await pdf.copyPages(src, src.getPageIndices())).forEach(pg=>pdf.addPage(pg));
+        let src = null;
+        if(a.gen){
+          if(a.gen.kind==='sow-app'){
+            const keep = scheduleFilter; scheduleFilter = 'all';
+            let r = null; try{ r = await buildSchedulePdfBytes(hoState.siteId); } finally { scheduleFilter = keep; }
+            if(r && r.outBytes) src = await PDFLib.PDFDocument.load(r.outBytes, {ignoreEncryption:true});
+          } else if(a.gen.kind==='report'){
+            const r = await buildReportPdf(a.gen.reportId);
+            if(r && r.bytes) src = await PDFLib.PDFDocument.load(r.bytes, {ignoreEncryption:true});
+          }
+        } else if(/\.(jpe?g|png)$/i.test(a.path)){ const im = await hoImage(a.bucket, a.path, 1800); if(im){ newPage(); const img = await pdf.embedJpg(im.bytes); let w = CW, h = w*im.h/im.w; if(h > H-2*M){ h = H-2*M; w = h*im.w/im.h; } page.drawImage(img, {x:M, y:H-M-h, width:w, height:h}); } continue; }
+        else { const res = await fetchWithTimeout(publicUrl(a.bucket, a.path), {}, 60000); src = await PDFLib.PDFDocument.load(await res.arrayBuffer(), {ignoreEncryption:true}); }
+        if(src) (await pdf.copyPages(src, src.getPageIndices())).forEach(pg=>pdf.addPage(pg));
       }catch(e){ console.warn('[ho attach]', a.name, e); }
     }
   }
   // page numbers
-  const pages = pdf.getPages(); const nMain = pages.length;
+  // Only the manual's own pages get its footer — attached documents keep
+  // their own (stamping over them clashed with their footers).
+  const pages = pdf.getPages().slice(0, nOwn); const nMain = pdf.getPageCount();
   pages.forEach((pg, i)=>{ if(i===0) return; pg.drawText(safe(`${c.project||''} — O&M Manual   ·   Page ${i+1} of ${nMain}`), {x:M, y:20, size:7.5, font:reg, color:SLATE}); });
   return await pdf.save();
 }
@@ -520,6 +769,7 @@ function hoX(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,
 function hoRun(t, o){ o = o||{}; const pr = (o.b?'<w:b/>':'')+(o.color?`<w:color w:val="${o.color}"/>`:'')+(o.sz?`<w:sz w:val="${o.sz}"/>`:''); const lines = String(t==null?'':t).split('\n'); return lines.map((l,i)=>`<w:r>${pr?`<w:rPr>${pr}</w:rPr>`:''}${i?'<w:br/>':''}<w:t xml:space="preserve">${hoX(l)}</w:t></w:r>`).join(''); }
 function hoPara(t, o){ o = o||{}; return `<w:p>${o.style?`<w:pPr><w:pStyle w:val="${o.style}"/></w:pPr>`:''}${hoRun(t, o)}</w:p>`; }
 window.hoExportWord = async function(){
+  if(!hoCheckRequired()) return;
   await hoSaveNow();
   if(!(await loadLib('JSZip'))){ toast('Word library failed to load — check connection.'); return; }
   hoBusy = 'Building the Word file…'; render();
@@ -540,7 +790,8 @@ window.hoExportWord = async function(){
     for(const s of d.sections){
       body += hoPara(s.title||'', {style:'Heading1'});
       if(s.type==='text') String(s.body||'').split('\n').forEach(l=>{ body += hoPara(l); });
-      if(s.type==='table'){
+      if(s.type==='maint') (s.items||[]).forEach(it=>{ if(it.title) body += hoPara(it.title, {b:true}); String(it.text||'').split('\n').forEach(l=>{ body += hoPara(l); }); body += hoPara(''); });
+      if(s.type==='table' || s.type==='materials'){
         const hasHead = s.columns.some(h=>String(h||'').trim());
         const n = s.columns.length; const gw = Math.floor(9638/n);
         const cell = (t, head) => `<w:tc><w:tcPr><w:tcW w:w="${gw}" w:type="dxa"/>${head?'<w:shd w:val="clear" w:color="auto" w:fill="EDEDEF"/>':''}</w:tcPr><w:p>${hoRun(t, {b:head})}</w:p></w:tc>`;
@@ -552,11 +803,7 @@ window.hoExportWord = async function(){
         for(const p of s.photos){ const im = await hoImage(p.bucket, p.path, 1200); if(im){ body += `<w:p>${imgXml(im, 12)}</w:p>`; } if(p.caption) body += hoPara(p.caption, {color:'5B6070', sz:18}); }
       }
     }
-    const docs = await hoLoadDocs(hoState.siteId);
-    const names = [];
-    if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet').forEach(x=>names.push(x.name));
-    if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>names.push(x.name));
-    if(d.attach.coshh) (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&select=name')).forEach(x=>names.push(x.name));
+    const names = (await hoCollectAttachments()).map(a=>a.name);
     if(names.length){ body += hoPara('Appendices', {style:'Heading1'}) + hoPara('The following documents accompany this manual (attached in the PDF version):'); names.forEach((n,i)=>{ body += hoPara((i+1)+'.  '+n); }); }
     const docXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
     const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="21"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="80"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style><w:style w:type="paragraph" w:styleId="Title"><w:name w:val="Title"/><w:basedOn w:val="Normal"/><w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr><w:rPr><w:b/><w:sz w:val="56"/></w:rPr></w:style><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/><w:pPr><w:keepNext/><w:spacing w:before="240" w:after="100"/><w:outlineLvl w:val="0"/></w:pPr><w:rPr><w:b/><w:color w:val="${brand}"/><w:sz w:val="30"/></w:rPr></w:style></w:styles>`;
