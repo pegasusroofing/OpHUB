@@ -990,3 +990,7 @@ html.ios-pwa #app > .appshell > .tabbar{position:fixed;left:0;right:0;bottom:0;z
 html.ios-pwa #app > .appshell > .appbar{position:sticky;top:0;z-index:55;}
 html.ios-pwa #app > .appshell > .stripe-edge{position:sticky;top:0;z-index:56;}
 html.ios-pwa #app:has(> .appshell){overflow:visible;}
+.coshhsteps{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;}
+.coshhsteps > div{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.35;}
+.coshhsteps > div > b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--brand1);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;}
+.coshhlink{border:1.5px solid var(--brand1);}

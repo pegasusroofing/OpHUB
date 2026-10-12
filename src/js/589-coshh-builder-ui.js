@@ -40,13 +40,14 @@ async function renderCoshhLibrary(editId){
   const lfq = coshhLibQ.trim().toLowerCase(), lfOf = i => (i.title+' '+(i.data.manufacturer||'')).toLowerCase();
   const hits = lib.filter(i=>!lfq || lfOf(i).includes(lfq)).length;
   const html = `<div class="card">
-    <p class="stub" style="margin:0 0 12px;">One entry per product. Add its Safety Data Sheet and the app reads the hazard codes and symbols off it. These are picked from when you create a COSHH assessment on a job.</p>
+    <div class="coshhsteps"><div><b>1</b><span><b>Product</b> — add it here once, with its data sheet.</span></div><div><b>2</b><span><b>Assessment</b> — pick the product on a job and the COSHH assessment is made for the team to sign.</span></div></div>
     <input type="search" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="coshhLibQ=this.value;liveFilter(this.value,'#coshhLibList')">
     <div id="coshhLibList">
     ${lib.map(it=>{ const d = it.data; return `<div class="card ramsitem" data-lf="${lfText(lfOf(it))}" style="cursor:pointer;${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
       <div class="ramsitem-head"><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div>
         <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}</div></div>
-        <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div></div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div>
+        <button type="button" class="ghostbtn" style="margin:8px 0 0;padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();coshhAssessFrom('${it.id}')">📋 Create assessment on a job ›</button></div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
     </div>
     <button class="darkbtn" style="margin-top:6px;" onclick="coshhNewSubstance()">+ New product</button>
   </div>`;
@@ -61,6 +62,46 @@ window.coshhNewSubstance = async function(){
 
 // ---------- Library entry editor ----------
 let coshhEd = null; // {id, title, data, busy}
+let coshhReturnSite = null; // set when a product is added from a job's Create COSHH page
+// #(coshh-link) Product → assessment: pick the job, land on Create COSHH with it ticked.
+window.coshhAssessFrom = async function(productId, saveFirst){
+  if(saveFirst && coshhEd && coshhEd.id===productId){
+    if(!coshhEd.title.trim()){ toast('Give the product a name first'); return; }
+    const ok = await dbUpdate('rams_library_items', coshhEd.id, {title:coshhEd.title.trim(), data:coshhEd.data});
+    if(!ok){ toast('Could not save — try again'); return; }
+  }
+  const sites = SITES.filter(s=>{ const k = siteStatusKey(s); return k==='live' || k==='upcoming'; }).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!sites.length){ toast('No live or upcoming jobs'); return; }
+  const picked = await coshhPickSite(sites);
+  if(!picked) return;
+  coshhEd = null;
+  go('#/site/'+picked+'/hs/coshh/new?pick='+productId);
+};
+function coshhPickSite(sites){
+  return new Promise(resolve=>{
+    const ov = document.createElement('div');
+    ov.className = 'pdfoverlay'; ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;';
+    ov.innerHTML = `<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:75vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));">
+      <p class="sectiontitle" style="margin-top:0;">Which job is it for?</p>
+      <input type="search" placeholder="Search jobs…" style="width:100%;box-sizing:border-box;margin-bottom:8px;" oninput="const q=this.value.toLowerCase();this.parentNode.querySelectorAll('[data-sn]').forEach(b=>b.style.display=b.dataset.sn.includes(q)?'':'none')">
+      ${sites.map(s=>`<button type="button" class="ghostbtn" data-sn="${escapeHtml((s.name+' '+(s.address||'')).toLowerCase())}" data-id="${s.id}" style="display:block;width:100%;text-align:left;margin:0 0 6px;text-transform:none;font-weight:700;">${escapeHtml(s.name)}<span class="stub" style="display:block;margin:0;font-weight:400;">${escapeHtml(fullSiteAddress(s)||'')}</span></button>`).join('')}
+      <button type="button" class="ghostbtn" data-cancel="1" style="margin-top:6px;">Cancel</button></div>`;
+    ov.addEventListener('click', ev=>{ const b = ev.target.closest('button'); if(ev.target===ov || (b && b.dataset.cancel)){ ov.remove(); resolve(null); return; } if(b && b.dataset.id){ ov.remove(); resolve(b.dataset.id); } });
+    document.body.appendChild(ov);
+  });
+}
+window.coshhPreviewAssessment = async function(){
+  const e = coshhEd; if(!e) return;
+  toast('Building preview…');
+  const bytes = await buildCoshhPdf({id:e.id, title:e.title, data:e.data}, null, {where:'', note:''});
+  if(bytes) await deliverPdf(bytes, 'COSHH preview - '+(e.title||'product').replace(/[\\/:*?"<>|]+/g,'-')+'.pdf');
+};
+window.coshhNewProductForSite = async function(siteId){
+  const name = await customPrompt('New product name', '');
+  if(!name || !name.trim()) return;
+  const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:'coshh', title:name.trim(), data:coshhBlank(), sort_order:0, created_by:ME.id}]);
+  if(rows && rows[0]){ coshhReturnSite = siteId; go('#/coshh-substances/'+rows[0].id); }
+};
 async function renderCoshhSubstanceEdit(id){
   const __gen = RENDER_GEN;
   if(!coshhEd || coshhEd.id!==id){
@@ -71,6 +112,11 @@ async function renderCoshhSubstanceEdit(id){
   const e = coshhEd, d = e.data;
   const area = (k, label, rows) => `<div class="formfield"><label class="field-label">${label}</label><textarea rows="${rows||3}" oninput="coshhEd.data['${k}']=this.value">${escapeHtml(d[k]||'')}</textarea></div>`;
   const html = `
+    <div class="card coshhlink">
+      <p class="sectiontitle" style="margin-top:0;">COSHH assessment from this product</p>
+      <p class="stub" style="margin:0 0 8px;">Save the product, then pick the job — the assessment is made from these details${d.sdsPath?' with the data sheet attached':''}.</p>
+      <div class="row-gap"><button type="button" class="darkbtn" style="flex:1;" onclick="coshhAssessFrom('${e.id}', true)">📋 Create assessment on a job</button><button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="coshhPreviewAssessment()">👁 Preview</button></div>
+    </div>
     <div class="card">
       <div class="formfield"><label class="field-label">Product name <span style="color:#C0392B;">*</span></label><input type="text" value="${escapeHtml(e.title)}" oninput="coshhEd.title=this.value"></div>
       <div class="formfield"><label class="field-label">Manufacturer / supplier</label><input type="text" value="${escapeHtml(d.manufacturer)}" oninput="coshhEd.data.manufacturer=this.value"></div>
@@ -132,7 +178,7 @@ window.coshhSaveSubstance = async function(){
   const e = coshhEd; if(!e) return;
   if(!String(e.title||'').trim()){ toast('Give the product a name'); return; }
   const row = await dbUpdate('rams_library_items', e.id, {title:e.title.trim(), data:e.data, updated_at:new Date().toISOString()});
-  if(row){ toast('Saved'); coshhEd = null; go('#/coshh-substances'); }
+  if(row){ toast('Saved'); coshhEd = null; if(coshhReturnSite){ const sid = coshhReturnSite; coshhReturnSite = null; go('#/site/'+sid+'/hs/coshh/new?pick='+e.id); } else go('#/coshh-substances'); }
 };
 window.coshhDeleteSubstance = async function(){
   const e = coshhEd; if(!e) return;
@@ -305,13 +351,15 @@ async function renderCoshhNew(siteId){
   if(!isManager(ME)){ go('#/site/'+siteId+'/hs/coshh'); return; }
   const site = SITES.find(s=>s.id===siteId);
   const lib = await coshhLoadLibrary();
+  const pick = routeQuery().get('pick') || '';
   const html = `
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Tick the products being used on this job. Each one becomes its own COSHH assessment in the job's COSHH list for the team to sign, with its data sheet attached.</p>
       ${lib.length ? `<input type="text" id="coshhNewSearch" placeholder="Search products…" style="width:100%;box-sizing:border-box;margin-bottom:6px;" oninput="const q=this.value.toLowerCase();document.querySelectorAll('.coshhNewRow').forEach(r=>r.style.display=r.dataset.n.includes(q)?'':'none')">` : ''}
-      <div id="coshhSelAllWrap" style="display:none;"><label class="ramsstart"><input type="checkbox" id="coshhSelAll" onchange="document.querySelectorAll('.coshhPick').forEach(c=>{ if(c.closest('.coshhNewRow').style.display!=='none') c.checked=this.checked; })"> <div><b>Select all</b></div></label></div>
-      ${lib.map(it=>`<label class="ramsstart coshhNewRow" data-n="${escapeHtml((it.title+' '+(it.data.manufacturer||'')).toLowerCase())}"><input type="checkbox" class="coshhPick" value="${it.id}" onchange="document.getElementById('coshhSelAllWrap').style.display=document.querySelector('.coshhPick:checked')?'':'none'"> <div style="flex:1;min-width:0;"><b>${escapeHtml(it.title)}</b><div class="stub" style="margin:0;">${escapeHtml(it.data.manufacturer||'')}${it.data.sdsPath?(it.data.manufacturer?' · ':'')+'📄 data sheet':''}</div></div><div style="display:flex;gap:2px;">${it.data.pictos.slice(0,4).map(k=>coshhPictoImgHtml(k,22)).join('')}</div></label>`).join('') || `<div class="empty">No products in the COSHH library yet.${isFullManager(ME) ? ` <span class="viewlink" style="cursor:pointer;" onclick="go('#/coshh-substances')">Add them here</span>` : ''}</div>`}
+      <div id="coshhSelAllWrap" style="${pick?'':'display:none;'}"><label class="ramsstart"><input type="checkbox" id="coshhSelAll" onchange="document.querySelectorAll('.coshhPick').forEach(c=>{ if(c.closest('.coshhNewRow').style.display!=='none') c.checked=this.checked; })"> <div><b>Select all</b></div></label></div>
+      ${lib.map(it=>`<label class="ramsstart coshhNewRow" data-n="${escapeHtml((it.title+' '+(it.data.manufacturer||'')).toLowerCase())}"><input type="checkbox" class="coshhPick" value="${it.id}" ${it.id===pick?'checked':''} onchange="document.getElementById('coshhSelAllWrap').style.display=document.querySelector('.coshhPick:checked')?'':'none'"> <div style="flex:1;min-width:0;"><b>${escapeHtml(it.title)}</b><div class="stub" style="margin:0;">${escapeHtml(it.data.manufacturer||'')}${it.data.sdsPath?(it.data.manufacturer?' · ':'')+'📄 data sheet':''}</div></div><div style="display:flex;gap:2px;">${it.data.pictos.slice(0,4).map(k=>coshhPictoImgHtml(k,22)).join('')}</div></label>`).join('') || `<div class="empty">No products in the COSHH library yet.${isFullManager(ME) ? ` <span class="viewlink" style="cursor:pointer;" onclick="go('#/coshh-substances')">Add them here</span>` : ''}</div>`}
     </div>
+    ${isFullManager(ME) ? `<button type="button" class="ghostbtn" style="margin:-4px 0 12px;" onclick="coshhNewProductForSite('${siteId}')">+ Product not listed? Add it to the library</button>` : ''}
     ${lib.length ? `<div class="card">
       <div class="formfield" style="margin-top:0;"><label class="field-label">Where is it used on this job? <span class="stub" style="display:inline;">(optional)</span></label><input type="text" id="coshhWhere" placeholder="e.g. Flat roof to rear, applied by roller"></div>
       <div class="formfield"><label class="field-label">Anything else to note <span class="stub" style="display:inline;">(optional)</span></label><input type="text" id="coshhNote" placeholder="e.g. Residents' windows to be closed while in use"></div>
