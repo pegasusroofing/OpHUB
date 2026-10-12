@@ -30,7 +30,12 @@ function navNoteArrival(prevHash, newHash){
   // last one (a redirect) replaces the top rather than adding a step.
   const full = String(newHash);
   const at = NAV_STACK.lastIndexOf(full);
+  const topBase = NAV_STACK.length ? base(NAV_STACK[NAV_STACK.length-1]) : '';
   if(at >= 0) NAV_STACK.length = at+1;
+  // Going UP a level (e.g. a report → that project's report list) is a step
+  // back, not forward: it replaces the page you were on, so the next back
+  // doesn't bounce you down into it again.
+  else if(NAV_STACK.length && topBase.startsWith(n+'/')) NAV_STACK[NAV_STACK.length-1] = full;
   else if(NAV_STACK.length && NAV_LAST_TAP < NAV_LAST_ARRIVAL) NAV_STACK[NAV_STACK.length-1] = full;
   else { NAV_STACK.push(full); if(NAV_STACK.length > 60) NAV_STACK.shift(); }
   NAV_LAST_ARRIVAL = Date.now();
@@ -41,9 +46,13 @@ function navNoteArrival(prevHash, newHash){
 function navBackFor(defaultBack){
   const cur = String(location.hash||'');
   if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur);
+  // A page that sent you straight on to its parent (e.g. a report that's
+  // gone → the report list) without the trail noticing: fix the trail.
+  if(NAV_STACK.length && NAV_STACK[NAV_STACK.length-1] !== cur && String(NAV_STACK[NAV_STACK.length-1]).split('?')[0].startsWith(cur.split('?')[0]+'/')) NAV_STACK[NAV_STACK.length-1] = cur;
   if(defaultBack && NAV_STACK.length >= 2 && NAV_STACK[NAV_STACK.length-1] === cur){
     const prev = NAV_STACK[NAV_STACK.length-2];
-    if(prev && prev !== cur && prev !== '#' && prev !== '') return prev;
+    // never "back" down into a page inside this one
+    if(prev && prev !== cur && prev !== '#' && prev !== '' && !String(prev).split('?')[0].startsWith(cur.split('?')[0]+'/')) return prev;
   }
   const n = cur.split('?')[0];
   const o = NAV_CAME_FROM[n];
