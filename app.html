@@ -1156,7 +1156,14 @@ function getDeviceId(){
   let cached = null;
   try{ cached = localStorage.getItem('ophub_device_id'); }catch(e){ /* private browsing etc — non-fatal */ }
   // Anything already saved on this phone is kept, so nobody's existing lock changes.
-  if(cached && /^(fp_|dv_)/.test(cached)) return cached;
+  if(cached && /^dv_/.test(cached)) return cached;
+  // 2026-10-12: old "fp_" ids were worked out from the phone model, so two
+  // people with the same phone shared one and locked each other out. Swap
+  // to a proper random id (falls back to the old one if storage is blocked).
+  if(cached && /^fp_/.test(cached)){
+    try{ const nid = 'dv_'+crypto.randomUUID(); localStorage.setItem('ophub_device_id', nid); if(localStorage.getItem('ophub_device_id')===nid) return nid; }catch(e){}
+    return cached;
+  }
   // New installs get an id that is unique to this browser/app on this phone,
   // so two people with the same model of phone can never be mistaken for the
   // same device. Recognising "the same handset opened another way" (Safari
