@@ -46,6 +46,39 @@ const SITE_STATUS_ICON = {live:'✓', upcoming:'🕐'};
 // dropped every 'live'-status site from every dashboard figure (RAMS/COSHH
 // outstanding, snags, schedule %, live project count) — this shared helper
 // fixes that by being the one place status is interpreted.
+// #(client-portfolio) Clients already used on projects become a saved list:
+// pick one from the dropdown (or start typing — the name box suggests them)
+// and the contact details fill in. Built from the projects themselves, so
+// every new client typed in joins the list automatically.
+function clientPortfolio(){
+  const by = {};
+  (SITES||[]).slice().sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0)).forEach(s=>{
+    const n = String(s.client_name||'').trim(); if(!n) return;
+    const k = n.toLowerCase(); const c = by[k] || (by[k] = {name:n, contact:'', phone:'', email:'', count:0});
+    c.name = n; c.count++;
+    if(s.client_contact_name) c.contact = s.client_contact_name;
+    if(s.client_phone) c.phone = s.client_phone;
+    if(s.client_email) c.email = s.client_email;
+  });
+  return Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
+}
+// ids: {name, contact?, phone, email}
+function clientPickerHtml(ids){
+  const list = clientPortfolio();
+  if(!list.length) return '';
+  return `<div class="formfield"><select onchange="pickSavedClient(this.value, ${escapeHtml(JSON.stringify(ids))});this.value=''">
+      <option value="">📇 Choose a saved client (${list.length})…</option>
+      ${list.map(c=>`<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}${c.contact?' — '+escapeHtml(c.contact):''}</option>`).join('')}
+    </select></div>
+    <datalist id="clientPortfolioList">${list.map(c=>`<option value="${escapeHtml(c.name)}"></option>`).join('')}</datalist>`;
+}
+window.pickSavedClient = function(name, ids, onlyEmpty){
+  const c = clientPortfolio().find(x=>x.name.toLowerCase()===String(name||'').trim().toLowerCase());
+  if(!c) return;
+  const set = (id, v)=>{ const el = id && document.getElementById(id); if(!el || !v) return; if(onlyEmpty && el.value.trim()) return; el.value = v; el.dispatchEvent(new Event('input')); };
+  set(ids.name, c.name); set(ids.contact, c.contact); set(ids.phone, c.phone); set(ids.email, c.email);
+  if(!onlyEmpty) toast('Client details filled in');
+};
 function siteStatusKey(s){ return (s.status==='active' || s.status==='live') ? 'live' : (SITE_STATUS_LABEL[s.status] ? s.status : 'upcoming'); }
 function siteCardHtml(s, canAdd, pmOptions){
   const statusKey = siteStatusKey(s);
@@ -264,7 +297,8 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
         <p class="field-label" style="margin-bottom:6px;">Client (optional)</p>
-        <div class="formfield"><input type="text" id="newSiteClientName" placeholder="Client name" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value"></div>
+        ${clientPickerHtml({name:'newSiteClientName', phone:'newSiteClientPhone', email:'newSiteClientEmail'})}
+        <div class="formfield"><input type="text" id="newSiteClientName" list="clientPortfolioList" autocomplete="off" placeholder="Client name — type or pick" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value" onchange="pickSavedClient(this.value,{name:'newSiteClientName',phone:'newSiteClientPhone',email:'newSiteClientEmail'},true)"></div>
         <div class="formfield"><input type="tel" id="newSiteClientPhone" placeholder="Client contact number" value="${escapeHtml(newSiteClientPhoneDraft)}" oninput="newSiteClientPhoneDraft=this.value"></div>
         <div class="formfield"><input type="email" id="newSiteClientEmail" placeholder="Client contact email" value="${escapeHtml(newSiteClientEmailDraft)}" oninput="newSiteClientEmailDraft=this.value"></div>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 10px;"><input type="checkbox" id="newSiteMultiSite" style="width:auto;" ${newSiteMultiSiteDraft?'checked':''} ${newSiteRepairContractDraft?'disabled':''} onchange="newSiteMultiSiteDraft=this.checked">Multi-site (several separate addresses under one job — addresses are added once the project's created)</label>

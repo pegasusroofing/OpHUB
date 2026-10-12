@@ -300,7 +300,8 @@ async function renderClientInfo(siteId){
   if(!site) return;
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
-      <div class="formfield"><label class="field-label">Client Name</label><input type="text" id="editClientName" placeholder="Optional" value="${escapeHtml(site.client_name||'')}" oninput="applyTitleCase(this)"></div>
+      ${clientPickerHtml({name:'editClientName',contact:'editClientContactName',phone:'editClientPhone',email:'editClientEmail'})}
+      <div class="formfield"><label class="field-label">Client Name</label><input type="text" id="editClientName" list="clientPortfolioList" autocomplete="off" placeholder="Type or pick a saved client" value="${escapeHtml(site.client_name||'')}" oninput="applyTitleCase(this)" onchange="pickSavedClient(this.value,{name:'editClientName',contact:'editClientContactName',phone:'editClientPhone',email:'editClientEmail'},true)"></div>
       <div class="formfield"><label class="field-label">Client Contact Name</label><input type="text" id="editClientContactName" placeholder="Optional" value="${escapeHtml(site.client_contact_name||'')}" oninput="applyTitleCase(this)"></div>
       <div class="formfield"><label class="field-label">Client Contact Number</label><input type="tel" id="editClientPhone" placeholder="Optional" value="${escapeHtml(site.client_phone||'')}"></div>
       <div class="formfield"><label class="field-label">Client Contact Email</label><input type="email" id="editClientEmail" placeholder="Optional" value="${escapeHtml(site.client_email||'')}"></div>
