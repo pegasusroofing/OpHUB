@@ -39,6 +39,8 @@ async function renderCoshhLibrary(editId){
   const lib = await coshhLoadLibrary();
   let oldLeft = 0;
   if(false) try{ const done = new Set(lib.map(i=>i.data && i.data.importedFrom).filter(Boolean)); const old = await dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&select=id,name'); oldLeft = old.filter(f=>/\.pdf$/i.test(f.name||'') && !/^COSHH Assessment/i.test(f.name||'') && !done.has(f.id)).length; }catch(e){}
+  const amap = coshhLibTab==='products' ? await coshhAssessMap(lib) : {};
+  const fmtD = t => t ? new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
   const lfq = coshhLibQ.trim().toLowerCase(), lfOf = i => (i.title+' '+(i.data.manufacturer||'')).toLowerCase();
   const hits = lib.filter(i=>!lfq || lfOf(i).includes(lfq)).length;
   const html = `<div class="card">
@@ -52,7 +54,12 @@ async function renderCoshhLibrary(editId){
       <div class="ramsitem-head"><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div>
         <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}${d.needsCheck?' · <b style="color:var(--warn);">check me</b>':''}</div></div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div>
-        <button type="button" class="ghostbtn" style="margin:8px 0 0;padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();coshhMakeAssessment('${it.id}')">📋 Create COSHH assessment ›</button></div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
+        ${amap[it.id] ? `<div class="coshhassessed ${amap[it.id].due?'due':''}">${amap[it.id].due ? '⚠ Review due' : '✅ Assessed'} ${fmtD(amap[it.id].at)} · ${escapeHtml(amap[it.id].folder)}</div>
+        <div class="row-gap" style="margin-top:8px;gap:6px;" onclick="event.stopPropagation()">
+          <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px 8px;font-size:12px;" onclick="go('#/coshh-substances/${it.id}')">✏️ Edit</button>
+          <button type="button" class="${amap[it.id].due?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;padding:6px 8px;font-size:12px;" onclick="coshhUpdateAssessment('${it.id}')">⟳ Update</button>
+          <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px 8px;font-size:12px;color:var(--warn);border-color:var(--warn);" onclick="coshhDeleteProductFull('${it.id}')">🗑 Delete</button>
+        </div>` : `<button type="button" class="ghostbtn" style="margin:8px 0 0;padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();coshhMakeAssessment('${it.id}')">📋 Create COSHH assessment ›</button>`}</div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
     </div>
     ${coshhBulk ? `<div class="card" style="margin:6px 0 0;text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
     <label class="darkbtn" style="display:block;text-align:center;margin-top:6px;cursor:pointer;">📄 Add products from data sheets (PDF)
@@ -112,16 +119,72 @@ function coshhPickFolder(folders, title){
     document.body.appendChild(ov);
   });
 }
-async function coshhSaveAssessment(it, folderId){
+function coshhAssessName(title){ return 'COSHH Assessment - '+String(title||'').replace(/[\\/:*?"<>|]+/g,'-')+'.pdf'; }
+// Builds the assessment and saves it in the folder — or, given the existing
+// file, replaces that one in place (yearly review / after an edit). Remembers
+// which file belongs to the product and when it was assessed.
+async function coshhSaveAssessment(it, folderId, existing){
   const bytes = await buildCoshhPdf(it, null, {where:'', note:''});
   if(!bytes) return false;
-  const fileName = 'COSHH Assessment - '+it.title.replace(/[\\/:*?"<>|]+/g,'-')+'.pdf';
-  const path = ME.org_id+'/'+(folderId||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
+  const fileName = coshhAssessName(it.title);
+  const fid = existing ? existing.folder_id : (folderId||null);
+  const path = ME.org_id+'/'+(fid||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('coshh-library', path, new Blob([bytes], {type:'application/pdf'}), 'application/pdf');
   if(!stored) return false;
-  const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:fileName, storage_path:stored, uploaded_by:ME.id});
-  return !!rows;
+  let fileId = null;
+  if(existing){
+    const row = await dbUpdate('coshh_library_files', existing.id, {name:fileName, storage_path:stored, uploaded_by:ME.id, uploaded_at:new Date().toISOString()});
+    if(!row) return false;
+    fileId = existing.id;
+    if(existing.storage_path && existing.storage_path !== stored) sbFetch('/storage/v1/object/coshh-library/'+existing.storage_path, {method:'DELETE'}).catch(()=>{});
+  } else {
+    const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:fid, name:fileName, storage_path:stored, uploaded_by:ME.id});
+    if(!rows || !rows[0]) return false;
+    fileId = rows[0].id;
+  }
+  if(it.id){ const data = Object.assign({}, it.data, {assessmentFileId:fileId, assessedAt:new Date().toISOString()}); delete data.needsCheck; await dbUpdate('rams_library_items', it.id, {data}); }
+  return fileId;
 }
+// #(coshh-assessed) Which assessment file belongs to each product.
+async function coshhAssessMap(lib){
+  const [files, folders] = await Promise.all([
+    dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&select=id,name,folder_id,storage_path,uploaded_at'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id'),
+  ]);
+  const fpath = id => { const out = []; let f = folders.find(x=>x.id===id), g = 0; while(f && g++<10){ out.unshift(f.name); f = folders.find(x=>x.id===f.parent_id); } return out.join(' › ') || 'Top level'; };
+  const map = {};
+  lib.forEach(it=>{
+    const d = it.data || {};
+    let file = d.assessmentFileId ? files.find(f=>f.id===d.assessmentFileId) : null;
+    if(!file) file = files.find(f=>f.name===coshhAssessName(it.title));
+    if(file){ const at = d.assessedAt || file.uploaded_at; map[it.id] = {file, folder:fpath(file.folder_id), at, due: at && (Date.now()-new Date(at).getTime()) > 365*86400000}; }
+  });
+  return map;
+}
+window.coshhUpdateAssessment = async function(productId, saveFirst){
+  if(saveFirst && coshhEd && coshhEd.id===productId){
+    if(!coshhEd.title.trim()){ toast('Give the product a name first'); return; }
+    const ok = await dbUpdate('rams_library_items', coshhEd.id, {title:coshhEd.title.trim(), data:coshhEd.data});
+    if(!ok){ toast('Could not save — try again'); return; }
+  }
+  const it = (await dbSelect('rams_library_items', 'id=eq.'+productId))[0]; if(!it) return;
+  it.data = Object.assign(coshhBlank(), it.data||{});
+  const a = (await coshhAssessMap([it]))[it.id];
+  if(!a){ return coshhMakeAssessment(productId); }
+  if(!(await customConfirm(`Update the COSHH assessment for "${it.title}"? It's rebuilt from the product details and dated today, replacing the old one in ${a.folder}. Jobs keep the copy they already have.`))) return;
+  toast('Updating…');
+  const ok = await coshhSaveAssessment(it, null, a.file);
+  if(!ok){ toast('Could not update — try again'); return; }
+  coshhEd = null; toast('Assessment updated — dated today'); render();
+};
+window.coshhDeleteProductFull = async function(productId){
+  const it = (await dbSelect('rams_library_items', 'id=eq.'+productId))[0]; if(!it) return;
+  const a = (await coshhAssessMap([Object.assign(it, {data:Object.assign(coshhBlank(), it.data||{})})]))[it.id];
+  if(!(await customConfirm(`Delete "${it.title}"${a ? ' and its COSHH assessment' : ''}? Jobs keep any COSHH already added to them. This can't be undone.`))) return;
+  if(a){ await dbDelete('coshh_library_files', a.file.id); sbFetch('/storage/v1/object/coshh-library/'+a.file.storage_path, {method:'DELETE'}).catch(()=>{}); }
+  await dbDelete('rams_library_items', it.id);
+  coshhEd = null; toast('Deleted'); if(location.hash.indexOf('#/coshh-substances/')===0) go('#/coshh-substances'); else render();
+};
 window.coshhMakeAssessment = async function(productId, saveFirst){
   if(saveFirst && coshhEd && coshhEd.id===productId){
     if(!coshhEd.title.trim()){ toast('Give the product a name first'); return; }
@@ -131,6 +194,7 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
   const it = (await dbSelect('rams_library_items', 'id=eq.'+productId))[0];
   if(!it){ toast('Product not found'); return; }
   it.data = Object.assign(coshhBlank(), it.data||{});
+  if((await coshhAssessMap([it]))[it.id]){ coshhPresetFolder = undefined; return coshhUpdateAssessment(productId); }
   let folderId;
   if(coshhPresetFolder !== undefined){ folderId = coshhPresetFolder; coshhPresetFolder = undefined; }
   else { const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position'); folderId = await coshhPickFolder(folders); }
@@ -258,11 +322,13 @@ async function renderCoshhSubstanceEdit(id){
   }
   const e = coshhEd, d = e.data;
   const area = (k, label, rows) => `<div class="formfield"><label class="field-label">${label}</label><textarea rows="${rows||3}" oninput="coshhEd.data['${k}']=this.value">${escapeHtml(d[k]||'')}</textarea></div>`;
+  const asx = (await coshhAssessMap([{id:e.id, title:e.title, data:d}]))[e.id];
   const html = `
     <div class="card coshhlink">
-      <p class="sectiontitle" style="margin-top:0;">COSHH assessment from this product</p>
-      <p class="stub" style="margin:0 0 8px;">Makes the COSHH assessment from these details${d.sdsPath?' with the data sheet on the back':''} and saves it into a folder of the COSHH Library, ready to add to jobs.</p>
-      <div class="row-gap"><button type="button" class="darkbtn" style="flex:1;" onclick="coshhMakeAssessment('${e.id}', true)">📋 Create COSHH assessment</button><button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="coshhPreviewAssessment()">👁 Preview</button></div>
+      <p class="sectiontitle" style="margin-top:0;">COSHH assessment</p>
+      ${asx ? `<div class="coshhassessed ${asx.due?'due':''}" style="margin:0 0 8px;">${asx.due ? '⚠ Review due — assessed' : '✅ Assessed'} ${new Date(asx.at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} · ${escapeHtml(asx.folder)}</div>
+      <p class="stub" style="margin:0 0 8px;">Changed something, or doing the yearly review? Update rebuilds it from these details and dates it today, replacing the old one in its folder.</p>` : `<p class="stub" style="margin:0 0 8px;">Makes the COSHH assessment from these details${d.sdsPath?' with the data sheet on the back':''} and saves it into a folder of the COSHH Library, ready to add to jobs.</p>`}
+      <div class="row-gap">${asx ? `<button type="button" class="darkbtn" style="flex:1;" onclick="coshhUpdateAssessment('${e.id}', true)">⟳ Update assessment</button><button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="viewDrawing('${publicUrl('coshh-library', asx.file.storage_path)}', false, '${jsAttr(asx.file.name)}')">View</button>` : `<button type="button" class="darkbtn" style="flex:1;" onclick="coshhMakeAssessment('${e.id}', true)">📋 Create COSHH assessment</button>`}<button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="coshhPreviewAssessment()">👁 Preview</button></div>
     </div>
     <div class="card">
       <div class="formfield"><label class="field-label">Product name <span style="color:#C0392B;">*</span></label><input type="text" value="${escapeHtml(e.title)}" oninput="coshhEd.title=this.value"></div>
@@ -330,8 +396,7 @@ window.coshhSaveSubstance = async function(){
 };
 window.coshhDeleteSubstance = async function(){
   const e = coshhEd; if(!e) return;
-  if(!(await customConfirm(`Delete "${e.title}" from the COSHH library?\n\nCOSHH assessments already issued on jobs are not affected.`))) return;
-  await dbDelete('rams_library_items', e.id); coshhEd = null; go('#/coshh-substances');
+  return coshhDeleteProductFull(e.id);
 };
 // Upload the data sheet, then read the codes off it.
 window.coshhAddSds = async function(input){
