@@ -37985,20 +37985,7 @@ async function renderDriverHome(){
 }
 window.doDriverCheckAction = async function(type){
   if(driverCheckinBusy) return;
-  // #(monday-vehicle-check) Mondays: this week's vehicle check must be
-  // submitted before the driver can check in.
-  if(type==='in' && new Date().getDay()===1){
-    try{
-      const wk = vehicleChecklistWeekStart();
-      const done = await dbSelect('vehicle_checklists', 'driver_id=eq.'+ME.id+'&week_start=eq.'+wk+'&status=eq.submitted&select=id&limit=1');
-      if(!done.length){
-        vehicleChecklistMondayGate = true;
-        await customAlert("It's Monday — please complete this week's vehicle check before checking in.");
-        go('#/driver/vehicle-checklist');
-        return;
-      }
-    }catch(e){ /* no signal: don't block the check-in */ }
-  }
+  // 2026-10-12: Monday vehicle check no longer blocks check-in (Andy).
   driverCheckinError = null; driverCheckinBusy = true; render();
   // 2026-10-05: drivers no longer need location to check in or out — a
   // blocked or refused location permission was stopping them checking in at
