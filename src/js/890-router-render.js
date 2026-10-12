@@ -49,6 +49,7 @@ async function renderRoute(){
   if(siteLayoutPollTimer){ clearInterval(siteLayoutPollTimer); siteLayoutPollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
+  if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
   if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
