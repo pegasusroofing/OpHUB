@@ -392,8 +392,9 @@ async function renderHrPolicies(){
     const sb = signedBy(p.id), mine = sb.get(ME.id), open = hrPolOpenId===p.id;
     return `<div class="hrpol ${open?'open':''}">
       <div class="hrpol-h">
-        <button type="button" class="hrpol-t" onclick="hrViewPolicy('${p.id}')"><b>${escapeHtml(p.title)}</b><span>${/\.pdf$/i.test(p.file_name||'')?'PDF':'Word'} · tap to read</span></button>
+        <button type="button" class="hrpol-t" onclick="hrViewPolicy('${p.id}')"><b>${escapeHtml(p.title)}</b><span>${/\.pdf$/i.test(p.file_name||'')?'PDF':'Word'}</span></button>
         ${mine ? `<span class="pmbadge done">Signed ${fmt(mine.signed_at)}</span>` : (isHb ? `<button type="button" class="darkbtn" style="width:auto;margin:0;padding:7px 12px;font-size:12px;" onclick="hrSignHandbook('${p.id}')">Read &amp; sign</button>` : `<span class="pmbadge open">To sign</span>`)}
+        <button type="button" class="hrpol-view" onclick="hrViewPolicy('${p.id}')">View</button>
         ${isAdmin ? `<button type="button" class="hrpol-x" aria-label="Who has signed" onclick="hrPolOpenId=${open?'null':`'${p.id}'`};render()">${open?'▲':'▼'}</button>` : ''}
       </div>
       ${isAdmin && open ? `<div class="hrpol-b">

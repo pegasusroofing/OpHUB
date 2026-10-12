@@ -994,6 +994,7 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .rjdeleted summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--slate);padding:4px 0;}
 .rjstrip{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scroll-snap-type:x proximity;}
 .rjstrip img{flex:0 0 auto;width:86px;height:86px;object-fit:cover;border-radius:10px;cursor:pointer;scroll-snap-align:start;border:1px solid var(--line);}
+.hrpol-view{all:unset;cursor:pointer;flex:none;font-size:12px;font-weight:800;padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);}
 </style>
 </head>
 <body>
@@ -6035,8 +6036,9 @@ async function renderHrPolicies(){
     const sb = signedBy(p.id), mine = sb.get(ME.id), open = hrPolOpenId===p.id;
     return `<div class="hrpol ${open?'open':''}">
       <div class="hrpol-h">
-        <button type="button" class="hrpol-t" onclick="hrViewPolicy('${p.id}')"><b>${escapeHtml(p.title)}</b><span>${/\.pdf$/i.test(p.file_name||'')?'PDF':'Word'} · tap to read</span></button>
+        <button type="button" class="hrpol-t" onclick="hrViewPolicy('${p.id}')"><b>${escapeHtml(p.title)}</b><span>${/\.pdf$/i.test(p.file_name||'')?'PDF':'Word'}</span></button>
         ${mine ? `<span class="pmbadge done">Signed ${fmt(mine.signed_at)}</span>` : (isHb ? `<button type="button" class="darkbtn" style="width:auto;margin:0;padding:7px 12px;font-size:12px;" onclick="hrSignHandbook('${p.id}')">Read &amp; sign</button>` : `<span class="pmbadge open">To sign</span>`)}
+        <button type="button" class="hrpol-view" onclick="hrViewPolicy('${p.id}')">View</button>
         ${isAdmin ? `<button type="button" class="hrpol-x" aria-label="Who has signed" onclick="hrPolOpenId=${open?'null':`'${p.id}'`};render()">${open?'▲':'▼'}</button>` : ''}
       </div>
       ${isAdmin && open ? `<div class="hrpol-b">
