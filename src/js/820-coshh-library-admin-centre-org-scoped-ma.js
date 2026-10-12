@@ -34,9 +34,9 @@ async function coshhLibraryBrowserHtml(){
   return `
     ${coshhLibSel.size ? `<div class="pmselbar"><span>${coshhLibSel.size} selected</span><button type="button" class="ghostbtn" onclick="coshhLibExport()">Export PDF</button><button type="button" class="ghostbtn" onclick="coshhLibEmail()">Email</button><button type="button" class="pmselbar-x" aria-label="Clear" onclick="coshhLibSel=new Set();render()">✕</button></div>` : (pdfFiles.length ? `<p class="stub" style="margin:0 0 8px;">Tick assessments to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="${pdfFiles.map(f=>`coshhLibSel.add('${f.id}');`).join('')}render()">Select all here</span></p>` : '')}
     ${coshhBulk ? `<div class="card" style="text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
-    <label class="darkbtn" style="display:block;text-align:center;margin:0 0 6px;cursor:pointer;">📄 Upload a data sheet → make the COSHH assessment
-      <input type="file" accept="application/pdf" style="display:none;" onchange="coshhSdsIntoFolder(this, ${parentArg})"></label>
-    <p class="stub" style="margin:0 0 12px;font-size:11.5px;">The reader fills it in, you check it, then tap Create COSHH assessment — it's saved ${currentFolder ? 'into "'+escapeHtml(currentFolder.name)+'"' : 'here'}.</p>`}
+    <label class="darkbtn" style="display:block;text-align:center;margin:0 0 6px;cursor:pointer;">📄 Upload data sheets → make the COSHH assessments
+      <input type="file" accept="application/pdf" multiple style="display:none;" onchange="coshhSdsIntoFolder(this, ${parentArg})"></label>
+    <p class="stub" style="margin:0 0 12px;font-size:11.5px;">One sheet: the reader fills it in and you check it before the assessment is made. Several at once: each is read and its assessment saved ${currentFolder ? 'into "'+escapeHtml(currentFolder.name)+'"' : 'here'} straight away — check the products afterwards (marked "check me").</p>`}
     <div class="drawheaderrow">
       <span>${currentFolder ? escapeHtml(currentFolder.name) : 'Folders'}</span>
       <div style="display:flex;align-items:center;gap:6px;">
@@ -131,8 +131,24 @@ window.coshhLibEmail = async function(){
   }catch(e){ toast('Could not send the email.'); }
 };
 window.coshhSdsIntoFolder = async function(input, folderId){
-  const file = input.files && input.files[0]; input.value = '';
-  if(!file) return;
+  const all = Array.from(input.files||[]).filter(f=>/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)); input.value = '';
+  if(!all.length) return;
+  if(all.length > 1){
+    let made = 0, failed = [];
+    for(let i=0;i<all.length;i++){
+      coshhBulk = `Data sheet ${i+1} of ${all.length}: reading and making the assessment…`; render();
+      try{
+        const r = await coshhProductFromSds(all[i], all[i].name);
+        const it = r && (await dbSelect('rams_library_items', 'id=eq.'+r.id))[0];
+        if(it){ it.data = Object.assign(coshhBlank(), it.data||{}); if(await coshhSaveAssessment(it, folderId||null)){ made++; continue; } }
+        failed.push(all[i].name);
+      }catch(e){ failed.push(all[i].name); }
+    }
+    coshhBulk = ''; render();
+    customAlert(`✓ ${made} COSHH assessment${made===1?'':'s'} made${failed.length ? ' — '+failed.length+' could not be done: '+failed.join(', ') : ''}. Check each product in the Products tab (marked "check me") — if you change one, tap Create COSHH assessment again and delete the old version from the folder.`);
+    return;
+  }
+  const file = all[0];
   coshhBulk = 'Reading the data sheet…'; render();
   let r = null;
   try{ r = await coshhProductFromSds(file, file.name); }catch(e){}

@@ -94,6 +94,16 @@ function coshhPickFolder(folders){
     document.body.appendChild(ov);
   });
 }
+async function coshhSaveAssessment(it, folderId){
+  const bytes = await buildCoshhPdf(it, null, {where:'', note:''});
+  if(!bytes) return false;
+  const fileName = 'COSHH Assessment - '+it.title.replace(/[\\/:*?"<>|]+/g,'-')+'.pdf';
+  const path = ME.org_id+'/'+(folderId||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('coshh-library', path, new Blob([bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored) return false;
+  const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:fileName, storage_path:stored, uploaded_by:ME.id});
+  return !!rows;
+}
 window.coshhMakeAssessment = async function(productId, saveFirst){
   if(saveFirst && coshhEd && coshhEd.id===productId){
     if(!coshhEd.title.trim()){ toast('Give the product a name first'); return; }
@@ -108,14 +118,8 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
   else { const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position'); folderId = await coshhPickFolder(folders); }
   if(folderId === undefined) return;
   toast('Building the COSHH assessment…');
-  const bytes = await buildCoshhPdf(it, null, {where:'', note:''});
-  if(!bytes){ toast('Could not build it — try again'); return; }
-  const fileName = 'COSHH Assessment - '+it.title.replace(/[\\/:*?"<>|]+/g,'-')+'.pdf';
-  const path = ME.org_id+'/'+(folderId||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
-  const stored = await uploadToStorage('coshh-library', path, new Blob([bytes], {type:'application/pdf'}), 'application/pdf');
-  if(!stored){ toast('Upload failed — try again'); return; }
-  const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:folderId||null, name:fileName, storage_path:stored, uploaded_by:ME.id});
-  if(!rows){ toast('Could not save — try again'); return; }
+  const ok = await coshhSaveAssessment(it, folderId);
+  if(!ok){ toast('Could not build or save it — try again'); return; }
   coshhEd = null; coshhLibTab = 'assess'; coshhLibFolderId = folderId || null;
   toast('Saved to the COSHH Library — add it to jobs from there');
   go('#/coshh-substances');
