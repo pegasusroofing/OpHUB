@@ -49,7 +49,7 @@ async function renderRoute(){
   if(siteLayoutPollTimer){ clearInterval(siteLayoutPollTimer); siteLayoutPollTimer = null; }
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
-  if(!SESSION || !ME){ return renderLogin(); }
+  if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role
@@ -75,6 +75,12 @@ async function renderRoute(){
   if(!parts.length && usesOpHome(ME)){ return renderOpHome(); }
   if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : usesOpHome(ME) ? renderOpHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
+  if(parts[0]==='hr'){
+    if(!hrCanUse(ME)){ go('#/sites'); return; }
+    if(parts[1]==='holidays') return renderHrHolidays();
+    if(parts[1]==='policies') return renderHrPolicies();
+    return renderHrHub();
+  }
   if(parts[0]==='inbox'){
     if(!usesOpHome(ME)){ go('#/sites'); return; }
     return renderOpInbox();

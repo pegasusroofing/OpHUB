@@ -31,7 +31,9 @@ function deliveryContinuedHtml(t){
   const prev = (DELIVERY_TIME_SLOTS.find(s=>s.key===t.time_slot)||{}).label || '';
   return `<div class="dlvcont">⤷ <b>${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||'Site'))}</b> continues from the ${escapeHtml(prev)} <span class="stub" style="margin:0;">(2-drop booking)</span></div>`;
 }
-function deliveryDoublePill(t){ return t.double_slot ? '<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;margin-left:4px;">⏱ 2 drops</span>' : ''; }
+// #(dlv-double) A 2-drop booking now shows as a double-height card (no
+// "2 drops" label, no "continues" line in the next drop).
+function deliveryDoublePill(t){ return ''; }
 
 let driverCheckinBusy = false, driverCheckinError = null;
 // Admin Centre › Driver Check-In Log: every driver check-in and check-out
@@ -373,9 +375,8 @@ async function renderDriverSchedule(preview){
     ${!showDone && !todoTasks.length && doneTasks.length ? `<div class="card" style="text-align:center;margin-bottom:8px;"><p style="margin:0;font-weight:700;color:var(--ok);">✓ All done for ${driverScheduleDateOffset===0?'today':'this day'}</p><p class="stub" style="margin:4px 0 0;">${doneTasks.length} completed — see the Completed tab.</p></div>` : ''}
     ${shownSlots.map(slot=>`
       <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
-      ${deliveryContinuations(showDone ? doneTasks : todoTasks, slot.key).map(deliveryContinuedHtml).join('')}
       ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
-        <div class="card" style="margin-bottom:8px;">
+        <div class="card ${t.double_slot?'dlv-double':''}" style="margin-bottom:8px;">
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>

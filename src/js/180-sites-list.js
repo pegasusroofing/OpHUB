@@ -218,6 +218,7 @@ async function renderSites(){
       ${siteSectionOpen[key] ? `<div style="margin-top:10px;">${list.map(s=>siteCardHtml(s,canAdd,pmOptions)).join('') || `<div class="empty">No ${label.toLowerCase()}.</div>`}</div>` : ''}
     ` : '';
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
+    ${(!canAdd && isManager(ME) && !isClient(ME)) ? `<div class="admgroup" style="margin-bottom:12px;">${admRow('#/hr', 'users', 'purple', 'HR', 'Holidays, policies & handbook')}</div>` : ''}
     ${(canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? `
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}

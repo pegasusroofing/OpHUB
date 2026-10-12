@@ -159,6 +159,7 @@ async function renderPmHome(){
       ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
       ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
       ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
+      ${tile('users', 'purple', 'HR', 'Holidays, policies & handbook', "go('#/hr')")}
     </div>
     ${mine.length ? `
       <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>

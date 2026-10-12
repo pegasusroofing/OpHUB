@@ -53,7 +53,7 @@ function calMonthGridHtml(eventsByDate){
     const inMonth = d.getMonth()===first.getMonth();
     const evs = eventsByDate[dStr]||[];
     const isToday = dStr===todayStr, isSel = dStr===calSelDate;
-    const dots = evs.slice(0,3).map(e=>`<i style="background:${e.is_private?'var(--slate-light)':'var(--brand1)'};"></i>`).join('');
+    const dots = evs.slice(0,3).map(e=>`<i style="background:${e._leave?'#7B3FB5':e.is_private?'var(--slate-light)':'var(--brand1)'};"></i>`).join('');
     cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span><span class="calm-dots">${dots}</span></button>`;
   }
   return `
@@ -189,6 +189,9 @@ async function renderSiteCalendar(siteId){
   const recipientOptions = [...pmOptions, ...operativeOptions];
   const eventsByDate = {};
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
+  // #(hr) the project PM's approved time off, when they've linked it to project calendars
+  const pmLeave = await hrSiteLeave(siteId, qStart, endStr);
+  pmLeave.forEach(l=>{ hrEachDay(l.start_date, l.end_date, ds=>{ if(!hrIsWorkingDay(ds)) return; (eventsByDate[ds]=eventsByDate[ds]||[]).push({_leave:true, id:'lv'+ds+l.user_id, title:`${l.name} off (${(l.code||'').toUpperCase()}${l.half?' ½ day':''})`, event_date:ds, is_private:false}); }); });
 
   // Shared Add/Edit form markup, reused both at the top of the page (opened
   // via the "Add a key date" header +) and inline within a specific day's
@@ -268,8 +271,8 @@ async function renderSiteCalendar(siteId){
             <div style="flex:1;min-width:0;">
               ${dayEvents.length ? dayEvents.map(e=>`
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-                  <span style="font-size:13.5px;${e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
-                  ${mgr ? `
+                  <span style="font-size:13.5px;${e._leave?'color:var(--slate);font-style:italic;':e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e._leave?'🏖 ':''}${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
+                  ${mgr && !e._leave ? `
                     <span style="display:flex;gap:6px;flex:0 0 auto;">
                       <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
                       <span class="taskicon danger" style="width:22px;height:22px;font-size:11px;" onclick="deleteCalEvent('${siteId}','${e.id}','${e.recurrence_group_id||''}','${e.event_date}')">🗑</span>

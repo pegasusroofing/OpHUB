@@ -62,7 +62,7 @@ window.moveDeliveryTask = async function(taskId, dir){
 function deliveryTaskCardHtml(t, opts){
   const showOrder = opts.slotCount>1;
   return `
-    <div class="sitecard dlvcard" data-tid="${t.id}" data-slot="${t.time_slot}" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
+    <div class="sitecard dlvcard ${t.double_slot?'dlv-double':''}" data-tid="${t.id}" data-slot="${t.time_slot}" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="if(dlvDrag.justDropped)return;deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
         <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}${deliveryDoublePill(t)}</div>
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
@@ -264,7 +264,6 @@ async function renderDeliverySchedulePM(){
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
       <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
-      ${deliveryContinuations(tasks, slot.key).map(deliveryContinuedHtml).join('')}
       <div class="dlvslot" data-slot="${slot.key}">${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (deliveryContinuations(tasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
     <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->

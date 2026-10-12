@@ -1,5 +1,18 @@
 /* ================= JOIN (invite-only account creation) ================= */
 let joinBusy = false;
+// #(join-done) After signing up, a clear "you're done — now log in" page
+// instead of dropping back to the sign-in form with a small note.
+let joinDoneMsg = null;
+function renderJoinDone(){
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="text-align:center;padding:28px 18px;">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:34px;font-weight:800;">✓</div>
+      <p style="font-family:'Sora',-apple-system,sans-serif;font-size:20px;font-weight:800;margin:0 0 8px;color:var(--ink);">You're signed up</p>
+      <p class="stub" style="margin:0 0 20px;font-size:14px;line-height:1.5;">${escapeHtml(joinDoneMsg||'')}</p>
+      <button class="pmprimary" onclick="joinDoneMsg=null;authError=null;location.hash='';render();">Go to log in</button>
+    </div>
+  `, {title:'Account created', tabs:false});
+}
 let joinBusyLabel = null;
 let joinError = null;
 let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
@@ -84,7 +97,7 @@ window.doJoin = async function(inviteId){
         if(lock && (lock.error==='device_locked' || lock.error==='pending_approval')){
           try{ sbFetch('/functions/v1/notify-admin-signup', {method:'POST', body: JSON.stringify({})}); }catch(e){}
           await doSignOut();
-          authError = 'Your account has been created. '+deviceLockMessage(lock);
+          joinDoneMsg = 'Your account has been created. '+deviceLockMessage(lock);
           joinInfo = undefined; location.hash = ''; render();
           return;
         }
@@ -94,7 +107,7 @@ window.doJoin = async function(inviteId){
     } else {
       joinInfo = undefined;
       location.hash = '';
-      authError = 'Account created — check your email to confirm it, then sign in.';
+      joinDoneMsg = 'Check your email and tap the link to confirm your account, then come back here and log in.';
     }
   }catch(e){
     joinError = 'Something went wrong creating your account — check your connection and try again.';
