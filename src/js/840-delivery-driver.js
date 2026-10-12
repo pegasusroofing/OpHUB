@@ -337,7 +337,12 @@ async function renderDriverSchedule(preview){
   const showDone = driverScheduleTab==='done';
   const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
   (showDone ? doneTasks : todoTasks).forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
-  const shownSlots = showDone ? DELIVERY_TIME_SLOTS.filter(sl=>bySlot[sl.key].length) : DELIVERY_TIME_SLOTS;
+  // #(driver-list-tidy) 2026-10-12: one clean running-order list — only the
+  // drops that actually have something in them, priority jobs first — rather
+  // than every drop heading with "Nothing in this drop" under most of them.
+  const slotIdx = {}; DELIVERY_TIME_SLOTS.forEach((sl,i)=>{ slotIdx[sl.key]=i; });
+  const ordered = showDone ? doneTasks.slice() : todoTasks.slice().sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || ((slotIdx[a.time_slot]??99)-(slotIdx[b.time_slot]??99)) || ((a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
+  const slotName = k => (DELIVERY_TIME_SLOTS.find(x=>x.key===k)||{}).label || k || '';
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${preview ? `
@@ -360,22 +365,23 @@ async function renderDriverSchedule(preview){
     ${showDone ? '' : deliveryCollectionSummaryHtml(todoTasks)}
     ${showDone && !doneTasks.length ? `<div class="empty">No completed deliveries ${driverScheduleDateOffset===0?'yet today':'on this day'}.</div>` : ''}
     ${!showDone && !todoTasks.length && doneTasks.length ? `<div class="card" style="text-align:center;margin-bottom:8px;"><p style="margin:0;font-weight:700;color:var(--ok);">✓ All done for ${driverScheduleDateOffset===0?'today':'this day'}</p><p class="stub" style="margin:4px 0 0;">${doneTasks.length} completed — see the Completed tab.</p></div>` : ''}
-    ${shownSlots.map(slot=>`
-      <p class="sectiontitle" style="margin-top:16px;">${slot.label}</p>
-      ${bySlot[slot.key].length ? bySlot[slot.key].map(t=>`
-        <div class="card ${t.double_slot?'dlv-double':''}" style="margin-bottom:8px;">
-          ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
-          <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
-          <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
-          <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
-          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
+    ${ordered.map((t,i)=>`
+        <div class="card dlvcard ${t.double_slot?'dlv-double':''} ${t.high_priority&&!showDone?'dlvprio':''}">
+          <div class="dlvcard-top">
+            <span class="dlvnum">${i+1}</span>
+            <span class="dlvchip">${escapeHtml(slotName(t.time_slot))}${t.double_slot?' + next':''}</span>
+            ${t.high_priority && !showDone ? `<span class="dlvchip prio">⚡ Do first</span>` : ''}
+          </div>
+          <p class="dlvcard-site">${deliverySiteHeadingHtml(t)}</p>
+          ${t.description ? `<p class="dlvcard-desc">${escapeHtml(t.description)}</p>` : ''}
+          ${deliveryCollectionLine(t) ? `<p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>` : ''}
+          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · <a href="tel:'+escapeHtml(PROFILES[t.site_contact_id].phone)+'">'+escapeHtml(PROFILES[t.site_contact_id].phone)+'</a>':''}</p>` : ''}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
-          ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order within this drop: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
           ` : `
-            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
+            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, j=>`removeDeliveryCompletionPhoto('${t.id}',${j})`)}` : ''}
             <div class="row-gap" style="margin-top:8px;">
               <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;${deliveryCompletionBusyId?'opacity:.6;pointer-events:none;':''}">
                 ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '📷 Take photo'}
@@ -390,8 +396,8 @@ async function renderDriverSchedule(preview){
             <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
           `}
         </div>
-      `).join('') : (deliveryContinuations(showDone ? doneTasks : todoTasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}
     `).join('')}
+    ${!showDone && !todoTasks.length && !doneTasks.length ? `<div class="empty">No deliveries booked ${driverScheduleDateOffset===0?'for today':'on this day'}.</div>` : ''}
     </div>
   `, preview ? {title:'Driver View', back:'#/delivery', tabs:false} : {title:'Delivery Schedule', back:'#/driver'});
 }
