@@ -74,8 +74,9 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const anyIssued = issuedBy.length > 0;
     const multi = ramsMultiOn(r);
     return `
-    <div class="ramsdoc" style="padding:10px 12px;">
+    <div class="ramsdoc ${canAdd && ramsSelIds.has(r.id)?'ramssel':''}" style="padding:10px 12px;">
       <div class="taskrowtop">
+        ${canAdd ? `<button type="button" class="ramschk" aria-label="Select ${escapeHtml(r.name)}" onclick="toggleRamsSel('${r.id}')"><span class="pmrep-box">${ramsSelIds.has(r.id)?'✓':''}</span></button>` : ''}
         <div class="name" style="font-size:16.5px;font-weight:800;flex:1;min-width:0;">${escapeHtml(r.name)}</div>
         ${canAdd ? `<div class="taskicons" style="flex:0 0 auto;white-space:nowrap;">${rowActionsMenuHtml('ramsdoc-'+r.id, `
           ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
@@ -92,7 +93,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
             ${mine ? (mine.signature_image_path ? `<img src="${publicUrl('signatures', mine.signature_image_path)}" style="height:24px;max-width:100px;object-fit:contain;">` : `<span class="name">${escapeHtml(ME.name)}</span>`) + `<span>Signed ${new Date(mine.signed_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}</span>` : (iAmManager ? 'Tap to mark as issued' : 'Tap to sign')}
           </div>`}
         `}
-        ${(sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>` : ''}
+        ${(sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at)) && (canAdd||isClientView) ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="exportSignedRams('${r.id}')">Export Signed PDF</button>${canAdd ? `<button class="ghostbtn exportbtn" style="flex:1;margin-top:0;" onclick="emailSignedRams('${siteId}','${r.id}')">✉️ Email</button>` : ''}` : ''}
       </div>
       ${issuedHtml}
       ${outstandingHtml}
@@ -282,6 +283,57 @@ window.toggleRamsSub = function(companyId){
   render();
 };
 // Create / Upload RAMS: two buttons first; the chosen one opens its own part.
+// #(rams-multi) Tick several RAMS, then export or email them as one PDF.
+let ramsSelIds = new Set(), ramsSelSite = null;
+window.toggleRamsSel = function(id){ if(ramsSelIds.has(id)) ramsSelIds.delete(id); else ramsSelIds.add(id); render(); };
+window.ramsSelectAll = function(){ document.querySelectorAll('#ramsDocsList .ramschk').forEach(b=>{ const m = /toggleRamsSel\('([^']+)'\)/.exec(b.getAttribute('onclick')||''); if(m) ramsSelIds.add(m[1]); }); render(); };
+async function ramsBuildPack(siteId){
+  const ids = [...ramsSelIds]; if(!ids.length) return null;
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
+  toast('Building PDF…');
+  const docs = await dbSelect('rams_docs', 'id=in.('+ids.join(',')+')&select=id,name,storage_path');
+  const order = ids.map(id=>docs.find(d=>d.id===id)).filter(Boolean);
+  const out = await PDFLib.PDFDocument.create();
+  for(const d of order){
+    try{
+      const sigN = await dbSelect('rams_signatures', 'rams_id=eq.'+d.id+'&select=id&limit=1');
+      let bytes = null;
+      if(sigN.length){ const b = await buildSignedRamsPdfBytes(d.id); if(b) bytes = b.bytes; }
+      if(!bytes) bytes = await (await fetch(publicUrl('rams-docs', d.storage_path))).arrayBuffer();
+      const src = await PDFLib.PDFDocument.load(bytes, {ignoreEncryption:true});
+      const pages = await out.copyPages(src, src.getPageIndices());
+      pages.forEach(pg=>out.addPage(pg));
+    }catch(e){ toast('Could not add "'+d.name+'" — skipped.'); }
+  }
+  if(!out.getPageCount()){ toast('Nothing to export.'); return null; }
+  const site = SITES.find(s=>s.id===siteId);
+  const label = order.length===1 ? order[0].name : 'RAMS pack ('+order.length+' documents)';
+  return {bytes: await out.save(), filename: (label+(site?' - '+site.name:'')).replace(/[\\/:*?"<>|]+/g,'-')+'.pdf', label};
+}
+window.exportSelectedRams = async function(siteId){
+  const pack = await ramsBuildPack(siteId); if(!pack) return;
+  await deliverPdf(pack.bytes, pack.filename);
+};
+window.emailSelectedRams = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId);
+  const answer = await customPromptWithCc('Email the selected RAMS ('+ramsSelIds.size+') as one PDF to:', '', site);
+  if(!answer) return;
+  const typedTrim = (answer.value||'').trim();
+  if(typedTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typedTrim)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return;
+  const pack = await ramsBuildPack(siteId); if(!pack) return;
+  const path = siteId+'/rams-exports/'+uid()+'-'+pack.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+  const stored = await uploadToStorage('mc-documents', path, new Blob([pack.bytes], {type:'application/pdf'}), 'application/pdf');
+  if(!stored){ toast('Could not upload the PDF — try again.'); return; }
+  toast('Sending…');
+  try{
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', body: JSON.stringify({
+      site_id: siteId, recipient_email: emailTo.to, cc_email: emailTo.cc, client_cc_email: ccClientEmailFromPromptAnswer(answer, site), doc_title: pack.label+' (Signed RAMS)', file_url: publicUrl('mc-documents', stored),
+    })});
+    if(res && res.ok){ toast('Emailed'); ramsSelIds = new Set(); render(); } else toast('Could not send the email — please try again.');
+  }catch(e){ toast('Could not send the email — please try again.'); }
+};
 let ramsAddMode = null; // null | 'create' | 'upload'
 function ramsAddChooserHtml(builderHtml, uploadForm){
   if(!builderHtml) return uploadForm; // can't use the builder: just the upload form
@@ -294,6 +346,7 @@ async function renderRams(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
+  if(ramsSelSite !== siteId){ ramsSelIds = new Set(); ramsSelSite = siteId; }
   await loadAllProfiles();
   const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
   // Signing templates (Settings → Signing Templates) offered on the upload form.
@@ -343,6 +396,13 @@ async function renderRams(siteId){
   const unsignedRamsCount = docs.filter(r=> canAdd ? !(sigsByDoc[r.id]||[]).some(s=>s.issued || s.user_id===ME.id) : !(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${canAdd && docs.length ? (ramsSelIds.size ? `
+      <div class="pmselbar">
+        <span>${ramsSelIds.size} selected</span>
+        <button type="button" class="ghostbtn" onclick="exportSelectedRams('${siteId}')">Export PDF</button>
+        <button type="button" class="ghostbtn" onclick="emailSelectedRams('${siteId}')">Email</button>
+        <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="ramsSelIds=new Set();render()">✕</button>
+      </div>` : `<p class="stub" style="margin:12px 2px 0;">Tick documents to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="ramsSelectAll()">Select all</span></p>`) : ''}
     <div id="ramsDocsList" style="margin-top:12px;">${ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView, nameById)}</div>
 
     ${docs.length && !isClientView && !(canAdd && !unsignedRamsCount) ? `
