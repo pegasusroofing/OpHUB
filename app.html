@@ -4144,7 +4144,11 @@ function fixStandaloneHeight(){
   let safeTop = 0;
   try{ const p = document.createElement('div'); p.style.cssText = 'position:absolute;visibility:hidden;padding-top:env(safe-area-inset-top)'; document.body.appendChild(p); safeTop = parseFloat(getComputedStyle(p).paddingTop)||0; p.remove(); }catch(e){}
   root.classList.toggle('app-gap', !!(standalone && ios && safeTop > 0 && gap > 10 && gap < 140));
-  root.classList.toggle('tap-top', !!(standalone && ios));
+  // 2026-10-12: switched off. Making the page 2px scrollable for "tap the
+  // status bar to go to the top" let iPhone home-screen apps grab the swipe
+  // for the page instead of the list, so lists (e.g. the driver's Delivery
+  // Schedule) wouldn't scroll, and a scroll up could snap the list to the top.
+  root.classList.remove('tap-top');
   tapTopArm();
 }
 // #(tap-top) iPhone "tap the status bar to go to the top" only scrolls the
