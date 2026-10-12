@@ -995,6 +995,15 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .rjstrip{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scroll-snap-type:x proximity;}
 .rjstrip img{flex:0 0 auto;width:86px;height:86px;object-fit:cover;border-radius:10px;cursor:pointer;scroll-snap-align:start;border:1px solid var(--line);}
 .hrpol-view{all:unset;cursor:pointer;flex:none;font-size:12px;font-weight:800;padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);}
+/* #(ios-pwa-scroll) iPhone home-screen app: normal page scrolling, bottom bar fixed. */
+html.ios-pwa:has(#app > .appshell), html.ios-pwa:has(#app > .appshell) body{height:auto;overflow:visible;}
+html.ios-pwa #app:has(> .appshell){position:static;height:auto;min-height:100%;}
+html.ios-pwa #app > .appshell{height:auto;min-height:100vh !important;}
+html.ios-pwa #app > .appshell > .scrollarea{flex:none;overflow:visible;padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+html.ios-pwa #app > .appshell > .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:60;}
+html.ios-pwa #app > .appshell > .appbar{position:sticky;top:0;z-index:55;}
+html.ios-pwa #app > .appshell > .stripe-edge{position:sticky;top:0;z-index:56;}
+html.ios-pwa #app:has(> .appshell){overflow:visible;}
 </style>
 </head>
 <body>
@@ -2911,6 +2920,8 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // can open. send-invite-email (server-side) already builds its link this
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
+// Bump when a release needs confirming on someone's phone (shown small on the driver home page).
+const OPHUB_BUILD_LABEL = '12 Oct 2026 · iPhone scroll fix';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -4149,6 +4160,10 @@ function fixStandaloneHeight(){
   // for the page instead of the list, so lists (e.g. the driver's Delivery
   // Schedule) wouldn't scroll, and a scroll up could snap the list to the top.
   root.classList.remove('tap-top');
+  // #(ios-pwa-scroll) iPhone home-screen app: scroll the page itself (the
+  // way iOS likes it) instead of a list inside a fixed box, which iOS can
+  // fight with — swipes snapping back / the list jumping to the top.
+  root.classList.toggle('ios-pwa', !!(standalone && ios));
   tapTopArm();
 }
 // #(tap-top) iPhone "tap the status bar to go to the top" only scrolls the
@@ -38332,6 +38347,7 @@ async function renderDriverHome(){
       </div>
     </div>
     <p class="stub" style="text-align:center;margin-top:22px;"><a href="#/account" onclick="event.preventDefault();go('#/account')" style="color:var(--blue);">Account &amp; Settings</a></p>
+    <p class="stub" style="text-align:center;margin-top:6px;font-size:10.5px;color:var(--slate-light);">App version: ${escapeHtml(OPHUB_BUILD_LABEL)}</p>
   `, {title:ME.name, subtitle:'Delivery Driver', tabs:false});
 }
 window.doDriverCheckAction = async function(type){

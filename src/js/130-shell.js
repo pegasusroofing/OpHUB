@@ -262,6 +262,10 @@ function fixStandaloneHeight(){
   // for the page instead of the list, so lists (e.g. the driver's Delivery
   // Schedule) wouldn't scroll, and a scroll up could snap the list to the top.
   root.classList.remove('tap-top');
+  // #(ios-pwa-scroll) iPhone home-screen app: scroll the page itself (the
+  // way iOS likes it) instead of a list inside a fixed box, which iOS can
+  // fight with — swipes snapping back / the list jumping to the top.
+  root.classList.toggle('ios-pwa', !!(standalone && ios));
   tapTopArm();
 }
 // #(tap-top) iPhone "tap the status bar to go to the top" only scrolls the

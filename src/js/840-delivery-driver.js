@@ -115,6 +115,7 @@ async function renderDriverHome(){
       </div>
     </div>
     <p class="stub" style="text-align:center;margin-top:22px;"><a href="#/account" onclick="event.preventDefault();go('#/account')" style="color:var(--blue);">Account &amp; Settings</a></p>
+    <p class="stub" style="text-align:center;margin-top:6px;font-size:10.5px;color:var(--slate-light);">App version: ${escapeHtml(OPHUB_BUILD_LABEL)}</p>
   `, {title:ME.name, subtitle:'Delivery Driver', tabs:false});
 }
 window.doDriverCheckAction = async function(type){
