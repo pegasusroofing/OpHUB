@@ -26,7 +26,7 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isCli
         ${canAdd ? `<div class="taskicons">
           <input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">
           <div class="taskicon" title="Replace this file (resets signatures)" onclick="document.getElementById('coshhReplaceInput-${r.id}').click()">🔁</div>
-
+          <div class="taskicon" title="Save to Admin Centre COSHH" onclick="startCoshhSaveToLibrary('${siteId}','${r.id}','${jsAttr(r.name)}','${jsAttr(r.storage_path)}')">⬆️</div>
           <div class="taskicon danger" onclick="deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑</div>
         </div>` : ''}
       </div>
@@ -101,8 +101,9 @@ async function renderCoshh(siteId){
   }
   // Two buttons first (Create COSHH / Upload COSHH); the chosen one opens its own part.
   const coshhCreatePart = `
-        <p class="stub" style="margin:0 0 10px;">Pick products from your COSHH library — each becomes an assessment with its data sheet attached.</p>
-        <button class="darkbtn" onclick="go('#/site/${siteId}/hs/coshh/new')">+ Start new COSHH</button>`;
+        <button class="darkbtn" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from COSHH Library</button>
+        <p class="stub" style="margin:8px 0 10px;">Assessments made in Admin Centre › COSHH Library, sorted in folders.</p>
+        <button class="ghostbtn" style="padding:8px 6px;font-size:11.5px;" onclick="go('#/site/${siteId}/hs/coshh/new')">Or build one now from a product</button>`;
   const coshhUploadPart = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="coshhName" placeholder="Document name, e.g. Solvent-Based Adhesive"></div>
         <div class="row-gap" style="margin-bottom:6px;">
@@ -112,7 +113,7 @@ async function renderCoshh(siteId){
         <input type="file" accept="application/pdf" id="coshhFile" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="const f=this.files[0]; const el=document.getElementById('coshhFileName'); el.innerHTML = f ? ('✓ <b>'+escapeHtml(f.name)+'</b> selected') : '';">
         <p class="stub" id="coshhFileName" style="margin:-4px 0 10px;font-size:12.5px;"></p>
         <p class="stub">Original PDF is stored untouched. Each signature is recorded separately, so multiple operatives can sign without corrupting the file.</p>
-`;
+        <button class="ghostbtn" style="margin-top:6px;padding:8px 6px;font-size:11.5px;" onclick="startCoshhLibraryPick('${siteId}')">📚 Add from COSHH Library</button>`;
   const coshhBtn = (k, label) => `<button class="${coshhAddMode===k?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;" onclick="coshhAddMode=coshhAddMode==='${k}'?null:'${k}';render()">${label}</button>`;
   const uploadForm = `<div class="row-gap" style="margin:0 0 ${coshhAddMode?'14px':'0'};">${coshhBtn('create','🧪 Create COSHH')}${coshhBtn('upload','📄 Upload COSHH')}</div>
         ${coshhAddMode==='create' ? coshhCreatePart : coshhAddMode==='upload' ? coshhUploadPart : ''}`;
