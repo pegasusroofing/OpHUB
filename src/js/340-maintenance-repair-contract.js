@@ -40,9 +40,12 @@ const REPAIR_CATEGORY_DEFS = {
   in_progress:       {label:'In Progress',                 match:j=>!j.closed && j.job_status==='In Progress'},
   awaiting_signoff:  {label:'Awaiting Sign-off',            match:j=>!j.closed && j.job_status==='Awaiting Sign-off'},
   rejected:          {label:'Rejected',                    match:j=>!j.closed && j.job_status==='Rejected'},
+  // #(repair-close-subject-to-invoice) Signing off a job closes it SUBJECT TO
+  // INVOICE; it only becomes fully Closed once it's marked invoiced.
+  to_invoice:        {label:'Closed — Subject to Invoice',  match:j=>!!j.closed && !j.invoiced},
   completed:         {label:'Completed Jobs',               match:j=>!!j.works_completed},
   open:              {label:'Open Jobs',                    match:j=>!j.closed},
-  closed:            {label:'Closed Jobs',                   match:j=>!!j.closed},
+  closed:            {label:'Closed Jobs (Invoiced)',        match:j=>!!j.closed && !!j.invoiced},
   all:               {label:'All Jobs',                      match:()=>true},
 };
 // Colour for the status pill at the top of the job detail page — separate
@@ -242,7 +245,7 @@ async function renderRepairJobsCategoryHub(siteId){
   // at — this page just counts jobs into tiles, it doesn't display their
   // notes/description, so there's no reason to pull those (sometimes
   // sizeable) text fields over the wire just to throw them away.
-  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed,survey_required,access_requirement,scaffold_erection_date,quote_approved,works_completed,job_status&order=created_at.desc');
+  const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,closed,invoiced,survey_required,access_requirement,scaffold_erection_date,quote_approved,works_completed,job_status&order=created_at.desc');
   if(__gen !== RENDER_GEN) return;
   const tileDefs = [
     {key:'survey', icon:'🔍', bg:'#FFF3D9', color:'#8A6300'},
@@ -253,6 +256,7 @@ async function renderRepairJobsCategoryHub(siteId){
     {key:'in_progress', icon:'🔧', bg:'var(--ok-bg)', color:'var(--ok)'},
     {key:'awaiting_signoff', icon:'🖊️', bg:'var(--warn-bg)', color:'var(--warn)'},
     {key:'rejected', icon:'✕', bg:'#FBE4E4', color:'var(--red)'},
+    ...(canManage ? [{key:'to_invoice', icon:'🧾', bg:'#EEF3FD', color:'var(--blue)'}] : []),
   ];
   // PM/Admin can hide whole tiles from operatives (e.g. Awaiting Approval,
   // Rejected — things an operative doesn't need to see at all), org-wide,
@@ -580,8 +584,8 @@ async function renderRepairJobsListPage(siteId, category){
   if(!canManage) repairJobSelectMode = false;
 
   function jobCardHtml(j){
-    const statusLabel = j.closed ? 'Closed' : (j.job_status || 'To Survey');
-    const badgeColor = j.closed ? 'var(--ok)' : (REPAIR_JOB_STATUS_COLOR[j.job_status] || 'var(--brand1)');
+    const statusLabel = j.closed ? (j.invoiced ? 'Closed' : 'Closed — subject to invoice') : (j.job_status || 'To Survey');
+    const badgeColor = j.closed ? (j.invoiced ? 'var(--ok)' : 'var(--blue)') : (REPAIR_JOB_STATUS_COLOR[j.job_status] || 'var(--brand1)');
     const checked = repairJobSelectedIds.has(j.id);
     // #(repair-job-row-cleanup) 2026-09-27 — the row used to show the full
     // description plus a permanent Survey/Completed/Invoiced strip (ticks
@@ -1054,6 +1058,8 @@ async function renderRepairJobDetail(siteId, jobId){
       ${canManage ? `
         <p class="field-label" style="margin:14px 0 4px;">OneDrive Folder</p>
         <p class="stub" style="margin:0 0 8px;${job.onedrive_folder_id?'color:var(--ok);':''}text-decoration:underline;cursor:pointer;" onclick="startRepairJobFolderPicker('${siteId}','${jobId}')">${job.onedrive_folder_id?'📁 "'+escapeHtml(job.onedrive_folder_name||'')+'"':'Not linked yet — tap to choose a folder'} ›</p>
+        ${(job.onedrive_folder_id || site.onedrive_folder_id) ? `<button class="ghostbtn" style="width:100%;margin:0 0 4px;" ${repairResyncBusy[jobId]?'disabled':''} onclick="resyncRepairJobToOneDrive('${jobId}')">${repairResyncBusy[jobId] ? 'Re-syncing… '+escapeHtml(repairResyncBusy[jobId]) : '⟳ Re-sync photos, work order &amp; reports to OneDrive'}</button>
+        <p class="stub" style="margin:0 0 8px;font-size:11.5px;">Use this if the folder was linked after photos were added — it copies everything on the job into the folder.</p>` : ''}
       ` : ''}
       ${canManage ? `
         <button class="ghostbtn" style="width:100%;margin-top:16px;color:var(--warn);border-color:var(--warn);" onclick="deleteRepairJob('${jobId}','${siteId}')">Delete Job</button>
@@ -1189,24 +1195,27 @@ async function renderRepairJobDetail(siteId, jobId){
       ${canManage ? `
       <div class="card" style="margin-bottom:16px;">
         <p class="sectiontitle" style="margin-top:0;">Admin</p>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>
+        ${job.closed ? '' : `<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${job.invoiced?'checked':''} onchange="saveRepairJobField('${jobId}',{invoiced:this.checked})">Invoiced</label>`}
         ${/* #(pm-signoff-button) 2026-09-30 — the only way to actually sign a
           job off used to be a small checkbox buried under "Admin", easy to
           miss entirely. Once works are completed this is now a proper full-
           width button, same treatment as Mark Works as Completed above it. */ ''}
         ${job.closed ? `
-          <p class="stub" style="margin:0 0 10px;">✅ Signed off &amp; closed${job.closed_at?' '+fmtDate(job.closed_at):''}${job.closed_by && profileName(job.closed_by) ? ' by '+escapeHtml(profileName(job.closed_by)) : ''}</p>
+          <p class="stub" style="margin:0 0 10px;">✅ Signed off${job.closed_at?' '+fmtDate(job.closed_at):''}${job.closed_by && profileName(job.closed_by) ? ' by '+escapeHtml(profileName(job.closed_by)) : ''} — ${job.invoiced ? '<b>invoiced, fully closed</b>' : '<b>closed subject to invoice</b>'}</p>
+          ${job.invoiced
+            ? `<button class="ghostbtn" style="width:100%;margin-bottom:8px;" onclick="setRepairJobInvoiced('${jobId}', false)">Undo invoiced (back to subject to invoice)</button>`
+            : `<button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="setRepairJobInvoiced('${jobId}', true)">🧾 Mark as Invoiced — fully close</button>`}
           <button class="ghostbtn" style="width:100%;" onclick="setRepairJobClosed('${jobId}', false)">Reopen Job</button>
         ` : job.works_completed ? `
           <button class="darkbtn" style="width:100%;color:var(--ink);background:var(--ok);border-color:var(--ok);" onclick="setRepairJobClosed('${jobId}', true)">✅ Sign Off &amp; Close Job</button>
-          <p class="stub" style="margin:8px 0 0;">The operative has marked the works completed — this closes it off and removes it from their list.</p>
+          <p class="stub" style="margin:8px 0 0;">The operative has marked the works completed — this closes it <b>subject to invoice</b> and removes it from their list. Mark it invoiced afterwards to fully close it.</p>
         ` : `
           <p class="stub" style="margin:0;">Sign-off becomes available once the operative marks the works completed.</p>
         `}
       </div>
       ` : ''}
     ` : `<p class="stub" style="text-align:center;margin:0 0 16px;">Complete the survey to unlock the rest of this job.</p>`}
-  `, {title:job.address||'Repair Job', titleTwoLine:true, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs/'+(job.closed ? 'closed' : (JOB_STATUS_TO_CATEGORY[job.job_status] || 'survey')), siteId, activeTab:'home'});
+  `, {title:job.address||'Repair Job', titleTwoLine:true, subtitle:site.name, back:'#/site/'+siteId+'/repairjobs/'+(job.closed ? (job.invoiced ? 'closed' : 'to_invoice') : (JOB_STATUS_TO_CATEGORY[job.job_status] || 'survey')), siteId, activeTab:'home'});
   Object.keys(typedRepairNotes).forEach(kind=>{
     const el = document.getElementById(REPAIR_NOTE_BOXES[kind]);
     if(el) el.value = typedRepairNotes[kind];
@@ -1263,7 +1272,7 @@ window.addRepairJobPhoto = async function(input, jobId, category){
       // small so galleries load fast on-site, but the OneDrive copy is
       // meant to be the one anyone actually opens/prints/zooms into later.
       if(stored && job){
-        const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg';
+        const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+pid+'.jpg';
         if(jobLinked) syncPhotoToOneDriveFolder(hiResDataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
         else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(hiResDataUrl, jobFolder+'/'+filename, job.site_id);
       }
@@ -1288,6 +1297,53 @@ function repairPhotoReportRefresh(jobId, category){
   if((category==='survey'||category==='access') && job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
   if(category==='completion' && job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
 }
+// #(repair-onedrive-resync) Push everything already on a job to its OneDrive
+// folder — for when the folder is linked after photos went on. Same file
+// names as the live sync (photo id), so running it twice just overwrites.
+let repairResyncBusy = {};
+async function repairUrlToDataUrl(url){
+  const blob = await (await fetch(url)).blob();
+  return await new Promise((res, rej)=>{ const r = new FileReader(); r.onload = ()=>res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+}
+window.resyncRepairJobToOneDrive = async function(jobId, quiet){
+  const rows = await dbSelect('repair_jobs', 'id=eq.'+jobId);
+  const job = rows[0]; if(!job) return;
+  const site = SITES.find(s=>s.id===job.site_id);
+  const jobLinked = !!job.onedrive_folder_id;
+  if(!jobLinked && !(site && site.onedrive_folder_id)){ if(!quiet) toast('Link a OneDrive folder first.'); return; }
+  const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&order=created_at.asc');
+  const jobFolder = jobLinked ? null : repairJobOneDriveFolder(job);
+  let done = 0, failed = 0;
+  repairResyncBusy[jobId] = '0 of '+photos.length; render();
+  for(const p of photos){
+    try{
+      const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', p.hires_path || p.storage_path));
+      const pidName = String(p.storage_path||'').split('/').pop() || (p.id+'.jpg');
+      const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[p.category]||p.category)+'/'+pidName;
+      const base64 = dataUrl.split(',')[1];
+      const res = await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
+        ? {filename, content_base64: base64, folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
+        : {filename: jobFolder+'/'+filename, content_base64: base64, site_id: job.site_id})});
+      if(res && res.ok) done++; else failed++;
+    }catch(e){ failed++; }
+    repairResyncBusy[jobId] = (done+failed)+' of '+photos.length;
+    if(document.querySelector('[onclick^="resyncRepairJobToOneDrive"]')) render();
+  }
+  // Work order + reports
+  if(job.work_order_path){
+    try{
+      const dataUrl = await repairUrlToDataUrl(publicUrl('site-photos', job.work_order_path));
+      const cleanName = String(job.work_order_name || job.work_order_path.split('/').pop()).replace(/[\\/:*?"<>|]/g,'-');
+      await sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify(jobLinked
+        ? {filename:'Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], folder_id: job.onedrive_folder_id, drive_id: job.onedrive_drive_id||undefined}
+        : {filename: repairJobOneDriveFolder(job)+'/Work Order/'+cleanName, content_base64: dataUrl.split(',')[1], site_id: job.site_id})});
+    }catch(e){ /* keep going */ }
+  }
+  if(job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
+  if(job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
+  delete repairResyncBusy[jobId]; render();
+  if(!quiet || failed) toast(failed ? `${done} photo${done===1?'':'s'} synced, ${failed} failed — try again` : `Synced ${done} photo${done===1?'':'s'} to OneDrive`);
+};
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
   const yes = await customConfirm('Remove this photo? It stays saved on the job under "Deleted photos" so you can restore it.');
   if(!yes) return;
@@ -1944,9 +2000,14 @@ window.saveRepairJobPricedSchedule = function(jobId){
   const v = document.getElementById('repairPricedSchedule').value.trim();
   saveRepairJobField(jobId, {priced_schedule_of_works: v||null});
 };
+window.setRepairJobInvoiced = async function(jobId, yes){
+  if(yes && !(await customConfirm('Mark this job as invoiced? It will be fully closed.'))) return;
+  const row = await dbUpdate('repair_jobs', jobId, {invoiced: !!yes});
+  if(row){ toast(yes ? 'Invoiced — job fully closed' : 'Back to closed subject to invoice'); render(); }
+};
 window.setRepairJobClosed = async function(jobId, checked){
   if(checked){
-    const yes = await customConfirm("Confirm sign-off and close this job? It will drop off the operative's list.");
+    const yes = await customConfirm("Sign off and close this job, subject to invoice? It will drop off the operative's list.");
     if(!yes){ render(); return; }
   }
   saveRepairJobField(jobId, checked

@@ -261,8 +261,10 @@ window.selectOneDriveFolder = async function(siteId, folderId, folderName, drive
       if(repairJobDetailCurrent && repairJobDetailCurrent.id===jobId) repairJobDetailCurrent = row;
       odPickerStack = null;
       odPickerJobId = null;
-      toast('Folder linked — photos, the work order and notes for this job will push there from now on');
+      toast('Folder linked — copying this job\'s existing photos into it…');
       go(`#/site/${siteId}/repairjob/${jobId}`);
+      // Folder linked after the event: push what's already on the job.
+      setTimeout(()=>{ if(window.resyncRepairJobToOneDrive) resyncRepairJobToOneDrive(jobId); }, 800);
     } else {
       toast('Could not link that folder — please try again.');
     }
