@@ -37,6 +37,8 @@ async function renderCoshhLibrary(editId){
   if(!isFullManager(ME)){ go('#/team'); return; }
   if(editId) return renderCoshhSubstanceEdit(editId);
   const lib = await coshhLoadLibrary();
+  let oldLeft = 0;
+  try{ const done = new Set(lib.map(i=>i.data && i.data.importedFrom).filter(Boolean)); const old = await dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&select=id,name'); oldLeft = old.filter(f=>/\.pdf$/i.test(f.name||'') && !done.has(f.id)).length; }catch(e){}
   const lfq = coshhLibQ.trim().toLowerCase(), lfOf = i => (i.title+' '+(i.data.manufacturer||'')).toLowerCase();
   const hits = lib.filter(i=>!lfq || lfOf(i).includes(lfq)).length;
   const html = `<div class="card">
@@ -45,14 +47,81 @@ async function renderCoshhLibrary(editId){
     <div id="coshhLibList">
     ${lib.map(it=>{ const d = it.data; return `<div class="card ramsitem" data-lf="${lfText(lfOf(it))}" style="cursor:pointer;${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
       <div class="ramsitem-head"><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div>
-        <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}</div></div>
+        <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}${d.needsCheck?' · <b style="color:var(--warn);">check me</b>':''}</div></div>
         <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div>
         <button type="button" class="ghostbtn" style="margin:8px 0 0;padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();coshhAssessFrom('${it.id}')">📋 Create assessment on a job ›</button></div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
     </div>
-    <button class="darkbtn" style="margin-top:6px;" onclick="coshhNewSubstance()">+ New product</button>
-  </div>`;
-  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'COSHH Substances', back:'#/team/libraries'});
+    ${coshhBulk ? `<div class="card" style="margin:6px 0 0;text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
+    <label class="darkbtn" style="display:block;text-align:center;margin-top:6px;cursor:pointer;">📄 Add products from data sheets (PDF)
+      <input type="file" accept="application/pdf" multiple style="display:none;" onchange="coshhBulkFromSds(this)"></label>
+    <p class="stub" style="margin:6px 0 0;font-size:11.5px;">Pick one or several data sheets — the reader fills in each product for you to check.</p>
+    <button class="ghostbtn" style="margin-top:8px;" onclick="coshhNewSubstance()">+ Add a product without a data sheet</button>`}
+  </div>
+  ${oldLeft ? `<div class="card" style="border:1.5px solid var(--brand1);">
+    <p class="sectiontitle" style="margin-top:0;">Bring in your old COSHH library</p>
+    <p class="stub" style="margin:0 0 10px;">${oldLeft} data sheet${oldLeft===1?'':'s'} from the old COSHH Library ${oldLeft===1?'hasn\'t':'haven\'t'} been turned into products yet. The reader will go through each one and set it up as a product — check each one afterwards.</p>
+    <button class="darkbtn" ${coshhBulk?'disabled':''} onclick="coshhImportOld()">Bring in ${oldLeft} data sheet${oldLeft===1?'':'s'}</button>
+  </div>` : ''}`;
+  if(__gen === RENDER_GEN) document.getElementById('app').innerHTML = shell(html, {title:'COSHH Library', back:'#/team/libraries'});
 }
+// #(coshh-merge) One COSHH library: data sheets go in, the reader builds the
+// product, and the data sheet is attached when an assessment is issued.
+let coshhBulk = '';
+async function coshhProductFromSds(blob, fileName, opts){
+  opts = opts || {};
+  const e = {title:'', data:coshhBlank()};
+  let stored = opts.sdsPath || null;
+  if(!stored){
+    const path = ME.org_id+'/sds/'+uid()+'-'+String(fileName||'data-sheet.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+    stored = await uploadToStorage('coshh-library', path, blob, 'application/pdf');
+  }
+  if(stored){ e.data.sdsPath = stored; e.data.sdsName = fileName; }
+  let n = 0;
+  try{ n = coshhApplySds(e, await coshhReadSds(blob)); }catch(err){ console.warn('[sds]', err); }
+  if(!e.title) e.title = String(fileName||'Product').replace(/\.pdf$/i,'').replace(/[_-]+/g,' ').trim();
+  if(!e.data.manufacturer && opts.folderName) e.data.manufacturer = opts.folderName;
+  if(opts.importedFrom) e.data.importedFrom = opts.importedFrom;
+  e.data.needsCheck = true;
+  const rows = await dbInsert('rams_library_items', [{org_id:ME.org_id, kind:'coshh', title:e.title.slice(0,140), data:e.data, sort_order:0, created_by:ME.id}]);
+  return rows && rows[0] ? {id:rows[0].id, n} : null;
+}
+window.coshhBulkFromSds = async function(input){
+  const files = Array.from(input.files||[]).filter(f=>/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)); input.value = '';
+  if(!files.length) return;
+  let made = 0, firstId = null;
+  for(let i=0;i<files.length;i++){
+    coshhBulk = `Reading data sheet ${i+1} of ${files.length}…`; render();
+    try{ const r = await coshhProductFromSds(files[i], files[i].name); if(r){ made++; firstId = firstId || r.id; } }catch(e){}
+  }
+  coshhBulk = ''; 
+  if(made===1 && firstId){ toast('Product set up from the data sheet — please check it'); go('#/coshh-substances/'+firstId); return; }
+  toast(made ? made+' products set up — open each to check' : 'Could not read those files — try again'); render();
+};
+window.coshhImportOld = async function(){
+  const lib = await coshhLoadLibrary();
+  const done = new Set(lib.map(i=>i.data && i.data.importedFrom).filter(Boolean));
+  const [files, folders] = await Promise.all([
+    dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&select=*&order=name.asc'),
+    dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id'),
+  ]);
+  const fname = id => { const f = folders.find(x=>x.id===id); return f ? f.name : ''; };
+  const todo = files.filter(f=>/\.pdf$/i.test(f.name||'') && !done.has(f.id));
+  if(!todo.length){ toast('Nothing left to bring in'); return; }
+  if(!(await customConfirm(`Bring in ${todo.length} data sheet${todo.length===1?'':'s'}? Each becomes a product — it can take a minute.`))) return;
+  let made = 0;
+  for(let i=0;i<todo.length;i++){
+    const f = todo[i];
+    coshhBulk = `Reading ${i+1} of ${todo.length}: ${f.name}`; render();
+    try{
+      const res = await fetchWithTimeout(publicUrl('coshh-library', f.storage_path), {}, 60000);
+      if(!res.ok) continue;
+      const blob = await res.blob();
+      const r = await coshhProductFromSds(blob, f.name, {sdsPath:f.storage_path, folderName:fname(f.folder_id), importedFrom:f.id});
+      if(r) made++;
+    }catch(e){}
+  }
+  coshhBulk = ''; toast(made+' product'+(made===1?'':'s')+' brought in — tap each to check'); render();
+};
 window.coshhNewSubstance = async function(){
   const name = await customPrompt('Product name', '');
   if(!name || !name.trim()) return;
@@ -177,6 +246,7 @@ window.coshhUseSuggested = function(){ const d = coshhEd.data; d.pictos = coshhS
 window.coshhSaveSubstance = async function(){
   const e = coshhEd; if(!e) return;
   if(!String(e.title||'').trim()){ toast('Give the product a name'); return; }
+  delete e.data.needsCheck;
   const row = await dbUpdate('rams_library_items', e.id, {title:e.title.trim(), data:e.data, updated_at:new Date().toISOString()});
   if(row){ toast('Saved'); coshhEd = null; if(coshhReturnSite){ const sid = coshhReturnSite; coshhReturnSite = null; go('#/site/'+sid+'/hs/coshh/new?pick='+e.id); } else go('#/coshh-substances'); }
 };
