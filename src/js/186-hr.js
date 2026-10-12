@@ -14,9 +14,11 @@
      then sign) and never included in "Sign all". */
 
 const HR_TYPES = {annual:'Annual leave', training:'Training course', sick:'Sick'};
-const HR_DEFAULT_CODES = {annual:'AL', sick:'SK', training:'TC'};
+const HR_DEFAULT_CODES = {annual:'AL', sick:'SK', training:'TC', bank:'BH'};
+const HR_DEFAULT_ALLOWANCE = 28; // 2026-10-12: 28 days a year INCLUDING bank holidays
 const HR_COLOURS = ['#D32F2F','#2457C5','#17804A','#B35A00','#7B3FB5','#0E7F7C','#C2185B','#5D4037','#455A64','#E0B400'];
-// England & Wales bank holidays (gov.uk). Not counted against allowance.
+// England & Wales bank holidays (gov.uk). Auto-booked for PMs / site managers
+// (not admins) and taken out of their 28-day allowance.
 const HR_BANK_HOLS = new Set([
   '2026-01-01','2026-04-03','2026-04-06','2026-05-04','2026-05-25','2026-08-31','2026-12-25','2026-12-28',
   '2027-01-01','2027-03-26','2027-03-29','2027-05-03','2027-05-31','2027-08-30','2027-12-27','2027-12-28',
@@ -53,14 +55,24 @@ function hrColour(uid){
   const i = HR ? HR.people.findIndex(p=>p.id===uid) : 0;
   return HR_COLOURS[(i<0?0:i) % HR_COLOURS.length];
 }
-function hrAllowance(uid){ const r = HR && HR.hp[uid]; return r && r.allowance_days!=null ? Number(r.allowance_days) : 20; }
+function hrAllowance(uid){ const r = HR && HR.hp[uid]; return r && r.allowance_days!=null ? Number(r.allowance_days) : HR_DEFAULT_ALLOWANCE; }
+// #(hr-bank-hols) Bank holidays are booked automatically for everyone on the
+// holiday calendar except admins.
+function hrGetsBankHols(uid){ const p = PROFILES && PROFILES[uid]; return !!p && p.role!=='admin'; }
+function hrBankHolCount(year){ let n = 0; HR_BANK_HOLS.forEach(d=>{ if(d.slice(0,4)===String(year)) n++; }); return n; }
 function hrCode(type){ return ((HR && HR.settings.type_codes[type]) || HR_DEFAULT_CODES[type] || '??').toUpperCase().slice(0,2); }
 function hrInitials(uid){ return (nameOf(uid)||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function hrUsed(uid, year, statuses){
   return (HR ? HR.leave : []).filter(l=>l.user_id===uid && l.type==='annual' && statuses.includes(l.status))
-    .reduce((t,l)=>t + hrDaysBetween(l.start_date, l.end_date, l.half, year), 0);
+    .reduce((t,l)=>t + hrDaysBetween(l.start_date, l.end_date, l.half, year), 0)
+    + (statuses.includes('approved') && hrGetsBankHols(uid) ? hrBankHolCount(year) : 0);
 }
-function hrOffOn(dStr){ return (HR ? HR.leave : []).filter(l=>l.start_date<=dStr && l.end_date>=dStr && (l.status==='approved' || l.status==='pending')); }
+function hrOffOn(dStr){
+  const real = (HR ? HR.leave : []).filter(l=>l.start_date<=dStr && l.end_date>=dStr && (l.status==='approved' || l.status==='pending'));
+  if(!HR || !HR_BANK_HOLS.has(dStr)) return real;
+  const bh = HR.people.filter(p=>hrGetsBankHols(p.id)).map(p=>({id:'bh-'+p.id+'-'+dStr, user_id:p.id, type:'bank', start_date:dStr, end_date:dStr, half:null, days:1, status:'approved', _bh:true}));
+  return bh.concat(real);
+}
 
 // ---------- HR hub ----------
 async function renderHrHub(){
@@ -216,7 +228,7 @@ async function renderHrHolidays(){
           <div class="formfield" style="flex:1;min-width:0;" onclick="openDatePickerRow(this)"><label class="field-label">To</label><input type="date" value="${d.end}" onchange="hrDraft.end=this.value;render()"></div>
         </div>
         ${d.start===d.end ? `<div class="formfield"><label class="field-label">Day</label><div class="pmchips" style="margin:0;">${[['full','Full day'],['am','Morning'],['pm','Afternoon']].map(([k,l])=>`<button type="button" class="pmchip ${d.part===k?'on':''}" onclick="hrDraft.part='${k}';render()">${l}</button>`).join('')}</div></div>` : ''}
-        <p class="stub" style="margin:0 0 10px;">${(()=>{ const n = hrDaysBetween(d.start, d.end, d.start===d.end && d.part!=='full' ? d.part : null); return n+' working day'+(n===1?'':'s')+(d.type==='annual'?' of annual leave':'')+' — weekends and bank holidays don’t count.'; })()}</p>
+        <p class="stub" style="margin:0 0 10px;">${(()=>{ const n = hrDaysBetween(d.start, d.end, d.start===d.end && d.part!=='full' ? d.part : null); return n+' working day'+(n===1?'':'s')+(d.type==='annual'?' of annual leave':'')+' — weekends and bank holidays (already booked) don’t count.'; })()}</p>
         <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" value="${escapeHtml(d.note||'')}" oninput="hrDraft.note=this.value" placeholder="e.g. Family holiday"></div>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${d.link?'checked':''} onchange="hrDraft.link=this.checked">Link with project calendars — operatives on jobs I run can see I'm off</label>
         <div class="row-gap"><button class="darkbtn" style="flex:1;" onclick="hrSaveBooking()">${(isAdmin || d.type==='sick' || !HR.settings.approval_required) ? 'Book it' : 'Send for approval'}</button><button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="hrBookOpen=false;render()">Cancel</button></div>
@@ -231,10 +243,10 @@ async function renderHrHolidays(){
         </div>
         <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
         <div class="hrgrid">${grid}</div>
-        <div class="hrkey">${HR.people.map(p=>`<span><i style="background:${hrColour(p.id)};"></i>${escapeHtml(p.name)}</span>`).join('')}<span class="stub" style="margin:0;">${Object.keys(HR_TYPES).map(k=>hrCode(k)+' '+HR_TYPES[k].toLowerCase()).join(' · ')} · outlined = waiting approval</span></div>
+        <div class="hrkey">${HR.people.map(p=>`<span><i style="background:${hrColour(p.id)};"></i>${escapeHtml(p.name)}</span>`).join('')}<span class="stub" style="margin:0;">${Object.keys(HR_TYPES).map(k=>hrCode(k)+' '+HR_TYPES[k].toLowerCase()).join(' · ')} · BH bank holiday (booked for PMs automatically) · outlined = waiting approval</span></div>
       </div>
       <p class="calm-selhead">${fmt(hrSel)}${HR_BANK_HOLS.has(hrSel)?' · Bank holiday':''}</p>
-      ${selOffs.length ? selOffs.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;">${hrChip(l)}<span class="pmrow-txt"><span class="pmrow-t">${HR_TYPES[l.type]}${l.half?(l.half==='am'?' · morning':' · afternoon'):''}</span><span class="pmrow-s">${range(l)}${l.status==='pending'?' · waiting approval':''}${l.note?' · '+escapeHtml(l.note):''}</span></span></div>`).join('') : `<p class="stub" style="margin:4px 2px 12px;">Everyone's in.</p>`}
+      ${selOffs.length ? selOffs.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;">${hrChip(l)}<span class="pmrow-txt"><span class="pmrow-t">${(HR_TYPES[l.type]||'Bank holiday')}${l.half?(l.half==='am'?' · morning':' · afternoon'):''}</span><span class="pmrow-s">${range(l)}${l._bh?' · booked automatically':''}${l.status==='pending'?' · waiting approval':''}${l.note?' · '+escapeHtml(l.note):''}</span></span></div>`).join('') : `<p class="stub" style="margin:4px 2px 12px;">Everyone's in.</p>`}
       <button type="button" class="ghostbtn" style="margin:4px 0 14px;" onclick="hrOpenBook('${hrSel}')">+ Book this day</button>
       ${myUpcoming.length ? `<p class="sectiontitle">My upcoming time off</p>${myUpcoming.map(l=>`<div class="pmrow pmrow-card" style="cursor:default;"><span class="pmrow-txt"><span class="pmrow-t">${HR_TYPES[l.type]} · ${l.days} day${l.days==1?'':'s'}</span><span class="pmrow-s">${range(l)}${l.status==='pending'?' · waiting approval':''}${l.link_projects?' · on project calendars':''}</span></span><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="hrCancel('${l.id}')">Cancel</button></div>`).join('')}` : ''}
     ` : ''}
@@ -256,7 +268,8 @@ async function renderHrHolidays(){
         ${Object.keys(HR_TYPES).map(k=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><input type="text" id="hrCode_${k}" maxlength="2" value="${escapeHtml(hrCode(k))}" style="width:60px;margin:0;text-transform:uppercase;text-align:center;font-weight:800;"><span>${HR_TYPES[k]}</span></div>`).join('')}
       </div>
       <div class="card">
-        <p class="sectiontitle" style="margin-top:0;">People — allowance (days a year) &amp; colour</p>
+        <p class="sectiontitle" style="margin-top:0;">People — allowance &amp; colour</p>
+        <p class="stub" style="margin:-4px 0 10px;">Days a year <b>including bank holidays</b>. Bank holidays are booked automatically for PMs and site managers (not admins) and come out of this.</p>
         ${HR.people.map(p=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>
           <input type="number" id="hrAllow_${p.id}" min="0" step="0.5" value="${hrAllowance(p.id)}" style="width:72px;margin:0;">

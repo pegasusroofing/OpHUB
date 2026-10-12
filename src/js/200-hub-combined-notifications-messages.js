@@ -93,7 +93,8 @@ async function computeHubItems(forcedPmId){
     const talks = talksBySite[s.id]||[];
     const issuedThisMonth = talks.some(t=>(t.status==='live'||t.status==='completed') && new Date(t.created_at)>=monthStart);
     const everCompleted = talks.some(t=>t.status==='completed');
-    if(!issuedThisMonth || !everCompleted){
+    // 2026-10-12: no TBT needed until the site is actually live.
+    if(siteStatusKey(s)==='live' && (!issuedThisMonth || !everCompleted)){
       items.push({type:'tbt', typeLbl:'Toolbox Talk', label: !everCompleted ? 'Toolbox Talk — none ever completed at this site' : 'Toolbox Talk due for this month', siteId:s.id, siteName:s.name, pmId:s.responsible_pm_id, dueDate:dueTbt, href:`#/site/${s.id}/hs/tbt`});
     }
     (snagsBySite[s.id]||[]).forEach(sn=>{

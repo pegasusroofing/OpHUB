@@ -13,10 +13,14 @@ window.copyHeaderSubtitle = async function(text){
 // else uses the page's normal back.
 const NAV_ORIGIN_PAGES = ['#/home', '#/dashboards'];
 const NAV_CAME_FROM = {};
+let NAV_ROOT = 'home';
 function navNoteArrival(prevHash, newHash){
   if(!newHash || prevHash===newHash) return;
   const base = h => String(h||'').split('?')[0];
   const p = base(prevHash), n = base(newHash);
+  // #(nav-root) Remember whether the user is working from the Home tiles or
+  // inside Live Projects, so the header tap returns them to the right place.
+  if(n==='#/home') NAV_ROOT = 'home'; else if(n==='#/sites' || n.startsWith('#/site/')) NAV_ROOT = 'sites';
   if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
   else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
   else delete NAV_CAME_FROM[n];

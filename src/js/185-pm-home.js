@@ -60,7 +60,11 @@ function homeHash(){ return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/s
 window.goHome = function(){
   // On the Projects list itself the header takes you up to Home instead.
   const p = String(location.hash||'').split('?')[0];
-  if((p==='#/sites' || p==='' || p==='#') && (usesPmHome(ME) || usesOpHome(ME))){ go('#/home'); return; }
+  const homeUser = usesPmHome(ME) || usesOpHome(ME);
+  if((p==='#/sites' || p==='' || p==='#') && homeUser){ go('#/home'); return; }
+  // Opened from a Home tile (Hub, Calendar, HR...) → back to Home; from inside
+  // Live Projects → back to the projects list.
+  if(homeUser && NAV_ROOT==='home' && !p.startsWith('#/site/')){ go('#/home'); return; }
   go('#/sites');
 };
 

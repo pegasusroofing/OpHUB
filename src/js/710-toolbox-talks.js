@@ -78,7 +78,9 @@ async function renderToolboxTalks(siteId){
   // forever. If this site has never had a single TBT actually COMPLETED,
   // the monthly prompt must still show regardless of what's merely live.
   const everCompleted = talks.some(t=>t.status==='completed');
-  const tbtStillDue = !issuedThisMonth || !everCompleted;
+  // 2026-10-12: sites that aren't live yet don't need a TBT.
+  const siteRowTbt = SITES.find(x=>x.id===siteId);
+  const tbtStillDue = (!siteRowTbt || siteStatusKey(siteRowTbt)==='live') && (!issuedThisMonth || !everCompleted);
   const dayOfMonth = now.getDate();
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     ${isPM && tbtStillDue ? `
