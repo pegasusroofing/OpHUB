@@ -990,6 +990,8 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .ramschk{all:unset;box-sizing:border-box;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:6px;}
 .ramsdoc.ramssel{border-color:var(--brand1);box-shadow:0 0 0 1px var(--brand1) inset;}
 .ramsdoc.ramssel .pmrep-box{background:var(--brand1);border-color:var(--brand1);}
+.rjdeleted{margin:0 0 10px;}
+.rjdeleted summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--slate);padding:4px 0;}
 </style>
 </head>
 <body>
@@ -10962,6 +10964,11 @@ async function renderRepairJobDetail(siteId, jobId){
     dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&order=created_at.asc'),
     siteAssignedOperatives(siteId),
   ]);
+  // #(repair-photos-kept) Removed photos stay on the job (restorable), and
+  // every photo keeps a full-size copy in the app as well as OneDrive.
+  const allPhotos = photos.slice();
+  photos.length = 0; allPhotos.forEach(p=>{ if(!p.deleted_at) photos.push(p); });
+  const deletedPhotos = allPhotos.filter(p=>p.deleted_at);
   const job = jobRows[0];
   if(!job){ go('#/site/'+siteId+'/home'); return; }
   if(__gen !== RENDER_GEN) return;
@@ -10981,15 +10988,24 @@ async function renderRepairJobDetail(siteId, jobId){
 
   function photoGalleryHtml(category){
     const cat = photos.filter(p=>p.category===category);
-    if(!cat.length) return `<div class="empty" style="margin:8px 0;">No photos yet.</div>`;
+    const gone = canManage ? deletedPhotos.filter(p=>p.category===category) : [];
+    const goneHtml = gone.length ? `<details class="rjdeleted"><summary>Deleted photos (${gone.length}) — tap to restore</summary>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;margin:8px 0;">
+        ${gone.map(p=>`<div style="position:relative;opacity:.75;">
+          <img src="${publicUrl('site-photos', p.storage_path)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', p.hires_path||p.storage_path)}')">
+          <button type="button" class="ghostbtn" style="margin:4px 0 0;padding:4px 2px;font-size:11px;" onclick="restoreRepairJobPhoto('${p.id}','${jobId}')">Restore</button>
+        </div>`).join('')}
+      </div></details>` : '';
+    if(!cat.length) return `<div class="empty" style="margin:8px 0;">No photos yet.</div>${goneHtml}`;
     return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin:8px 0;">
       ${cat.map(p=>`
         <div style="position:relative;">
-          <img src="${publicUrl('site-photos', p.storage_path)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', p.storage_path)}')">
-          <span onclick="deleteRepairJobPhoto('${p.id}','${jsAttr(p.storage_path)}','${jobId}')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:12px;cursor:pointer;">✕</span>
+          <img src="${publicUrl('site-photos', p.storage_path)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', p.hires_path||p.storage_path)}')">
+          ${canManage ? `<span onclick="deleteRepairJobPhoto('${p.id}','${jsAttr(p.storage_path)}','${jobId}')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border-radius:50%;width:20px;height:20px;line-height:20px;text-align:center;font-size:12px;cursor:pointer;">✕</span>` : ''}
         </div>
       `).join('')}
-    </div>`;
+    </div>
+    <p class="stub" style="margin:0 0 8px;font-size:11.5px;">Full-size copies are kept on this job in the app — tap a photo to open or save it.</p>${goneHtml}`;
   }
   function photoUploadRow(category, label){
     const busy = !!repairJobPhotoBusy[category];
@@ -11317,9 +11333,15 @@ window.addRepairJobPhoto = async function(input, jobId, category){
   for(const file of files){
     try{
       const dataUrl = await compressImage(file);
-      const path = ME.org_id+'/repairjobs/'+jobId+'/'+category+'/'+crypto.randomUUID()+'.jpg';
+      const pid = crypto.randomUUID();
+      const path = ME.org_id+'/repairjobs/'+jobId+'/'+category+'/'+pid+'.jpg';
       const stored = await uploadDataUrl('site-photos', path, dataUrl);
-      if(stored) await dbInsert('repair_job_photos', {repair_job_id:jobId, category, storage_path:stored, uploaded_by:ME.id});
+      // Full-size copy kept in the app too, so it's never only on OneDrive.
+      let hiResDataUrl = dataUrl;
+      try{ hiResDataUrl = await compressImage(file, {maxW:3000, quality:0.95}); }catch(e){ /* fall back to the app copy */ }
+      let hires = null;
+      if(stored && hiResDataUrl !== dataUrl){ try{ hires = await uploadDataUrl('site-photos', ME.org_id+'/repairjobs/'+jobId+'/'+category+'/full/'+pid+'.jpg', hiResDataUrl); }catch(e){ hires = null; } }
+      if(stored) await dbInsert('repair_job_photos', {repair_job_id:jobId, category, storage_path:stored, uploaded_by:ME.id, ...(hires?{hires_path:hires}:{})});
       // Best-effort, live push to OneDrive — never blocks the in-app save
       // above, which is what actually matters if this fails or nothing's
       // linked at all. Prefer the job's own linked folder if it has one;
@@ -11330,8 +11352,6 @@ window.addRepairJobPhoto = async function(input, jobId, category){
       // meant to be the one anyone actually opens/prints/zooms into later.
       if(stored && job){
         const filename = (REPAIR_PHOTO_CATEGORY_FOLDER[category]||category)+'/'+crypto.randomUUID()+'.jpg';
-        let hiResDataUrl = dataUrl;
-        try{ hiResDataUrl = await compressImage(file, {maxW:3000, quality:0.95}); }catch(e){ /* fall back to the app copy if this fails */ }
         if(jobLinked) syncPhotoToOneDriveFolder(hiResDataUrl, filename, job.onedrive_folder_id, job.onedrive_drive_id);
         else if(site && site.onedrive_folder_id && jobFolder) syncPhotoToOneDrive(hiResDataUrl, jobFolder+'/'+filename, job.site_id);
       }
@@ -11347,15 +11367,26 @@ window.addRepairJobPhoto = async function(input, jobId, category){
   // Same idea for the Completed Works Report, once works are marked complete.
   if(category==='completion' && job && job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
 };
+// Removing a photo hides it but keeps it on the job, so it can always be
+// got back ("Deleted photos" under the gallery). Only deleting the whole
+// job removes photos for good.
+function repairPhotoReportRefresh(jobId, category){
+  const job = repairJobDetailCurrent;
+  if(!job || job.id!==jobId) return;
+  if((category==='survey'||category==='access') && job.survey_required==='Y') scheduleRepairJobReportExport(jobId,'survey');
+  if(category==='completion' && job.works_completed) scheduleRepairJobReportExport(jobId,'completion');
+}
 window.deleteRepairJobPhoto = async function(photoId, storagePath, jobId){
-  const yes = await customConfirm('Delete this photo?');
+  const yes = await customConfirm('Remove this photo? It stays saved on the job under "Deleted photos" so you can restore it.');
   if(!yes) return;
-  const done = await dbDelete('repair_job_photos', photoId);
-  if(done){
-    sbFetch('/storage/v1/object/site-photos/'+storagePath, {method:'DELETE'}).catch(()=>{});
-    toast('Photo deleted');
-    render();
-  }
+  const row = await dbUpdate('repair_job_photos', photoId, {deleted_at:new Date().toISOString(), deleted_by:ME.id});
+  if(row){ toast('Photo removed'); render(); repairPhotoReportRefresh(jobId, (Array.isArray(row)?row[0]:row).category); }
+  else toast('Could not remove — try again.');
+};
+window.restoreRepairJobPhoto = async function(photoId, jobId){
+  const row = await dbUpdate('repair_job_photos', photoId, {deleted_at:null, deleted_by:null});
+  if(row){ toast('Photo restored'); render(); repairPhotoReportRefresh(jobId, (Array.isArray(row)?row[0]:row).category); }
+  else toast('Could not restore — try again.');
 };
 // Shared by addRepairJob (attaching a work order at creation time) and
 // addRepairJobWorkOrder (adding/replacing one later from the job detail
@@ -11431,7 +11462,7 @@ window.setRepairJobSurveyStatus = async function(jobId, value){
     const notesInput = document.getElementById('repairSurveyNotes');
     const notesText = (notesInput ? notesInput.value : (job && job.survey_notes) || '').trim();
     if(!notesText){ toast('Add survey notes before marking the survey complete.'); return; }
-    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.survey&select=id&limit=1');
+    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&category=eq.survey&select=id&limit=1');
     if(!photoRows.length){ toast('Add at least one survey photo before marking the survey complete.'); return; }
     patch.survey_notes = notesText;
     // Whoever completes the survey is the surveyor if nobody is recorded
@@ -11608,7 +11639,7 @@ async function buildRepairJobSurveyPdf(jobId){
     if(job.access_notes) drawField('Access Notes', job.access_notes);
     drawField('Survey Notes', job.survey_notes || '(no notes recorded)');
 
-    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=in.(survey,access)&order=created_at.asc');
+    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&category=in.(survey,access)&order=created_at.asc');
     await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})), {maxDim:900, quality:0.72});
 
     const total = pdfDoc.getPageCount();
@@ -11763,7 +11794,7 @@ async function buildRepairJobCompletionPdf(jobId){
     drawField('Works Completed', job.works_completed_date ? new Date(job.works_completed_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'Not yet marked complete');
     drawField('Completion Notes', job.works_notes || '(no notes recorded)');
 
-    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.completion&order=created_at.asc');
+    const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&category=eq.completion&order=created_at.asc');
     await appendMediaSummaryPages(pdfDoc, photos.map(p=>({path:p.storage_path, bucket:'site-photos'})), {maxDim:900, quality:0.72});
 
     const total = pdfDoc.getPageCount();
@@ -11969,7 +12000,7 @@ window.setRepairJobWorksCompleted = async function(jobId, checked){
     const notesInput = document.getElementById('repairWorksNotes');
     const notesText = (notesInput ? notesInput.value : (job && job.works_notes) || '').trim();
     if(!notesText){ toast('Add completion notes before marking the works complete.'); render(); return; }
-    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&category=eq.completion&select=id&limit=1');
+    const photoRows = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&deleted_at=is.null&category=eq.completion&select=id&limit=1');
     if(!photoRows.length){ toast('Add at least one completion photo before marking the works complete.'); render(); return; }
     patch.works_notes = notesText;
   }
@@ -12020,10 +12051,10 @@ window.deleteRepairJob = async function(jobId, siteId){
   const yes = await customConfirm('Permanently delete this job and all its photos? This cannot be undone.');
   if(!yes) return;
   const job = repairJobDetailCurrent;
-  const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&select=storage_path');
+  const photos = await dbSelect('repair_job_photos', 'repair_job_id=eq.'+jobId+'&select=storage_path,hires_path');
   const done = await dbDelete('repair_jobs', jobId);
   if(!done){ toast('Could not delete — try again.'); return; }
-  (photos||[]).forEach(p=>{ if(p.storage_path) sbFetch('/storage/v1/object/site-photos/'+p.storage_path, {method:'DELETE'}).catch(()=>{}); });
+  (photos||[]).forEach(p=>{ [p.storage_path, p.hires_path].forEach(x=>{ if(x) sbFetch('/storage/v1/object/site-photos/'+x, {method:'DELETE'}).catch(()=>{}); }); });
   if(job && job.work_order_path) sbFetch('/storage/v1/object/site-photos/'+job.work_order_path, {method:'DELETE'}).catch(()=>{});
   toast('Job deleted');
   go('#/site/'+siteId+'/repairjobs');

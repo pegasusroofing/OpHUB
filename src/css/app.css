@@ -976,3 +976,5 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .ramschk{all:unset;box-sizing:border-box;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:6px;}
 .ramsdoc.ramssel{border-color:var(--brand1);box-shadow:0 0 0 1px var(--brand1) inset;}
 .ramsdoc.ramssel .pmrep-box{background:var(--brand1);border-color:var(--brand1);}
+.rjdeleted{margin:0 0 10px;}
+.rjdeleted summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--slate);padding:4px 0;}
