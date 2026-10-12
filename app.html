@@ -27473,7 +27473,7 @@ let coshhLibTab = 'assess';
 let coshhPresetFolder; // folder chosen before the product was made (Assessments tab upload)
 // #(coshh-assess-folders) Product → COSHH assessment PDF (data sheet on the
 // back) saved into a folder of the COSHH Library; jobs add it from there.
-function coshhPickFolder(folders, title){
+function coshhPickFolder(folders, title, multi){
   const byParent = {}; folders.forEach(f=>{ (byParent[f.parent_id||'']=byParent[f.parent_id||'']||[]).push(f); });
   const rows = []; const walk = (pid, depth)=>{ (byParent[pid]||[]).sort((a,b)=>a.name.localeCompare(b.name, undefined, {sensitivity:'base', numeric:true})).forEach(f=>{ rows.push({f, depth}); walk(f.id, depth+1); }); }; walk('', 0);
   return new Promise(resolve=>{
@@ -27484,12 +27484,18 @@ function coshhPickFolder(folders, title){
       <button type="button" class="ghostbtn" data-id="" style="display:block;width:100%;text-align:left;margin:0 0 6px;text-transform:none;font-weight:700;">📂 Top level</button>
       ${rows.map(r=>`<button type="button" class="ghostbtn" data-id="${r.f.id}" style="display:block;width:100%;text-align:left;margin:0 0 6px;text-transform:none;font-weight:700;padding-left:${12+r.depth*18}px;">📁 ${escapeHtml(r.f.name)}</button>`).join('')}
       <button type="button" class="ghostbtn" data-new="1" style="margin-top:6px;">+ New folder</button>
+      ${multi ? `<button type="button" class="darkbtn" data-done="1" style="margin-top:6px;">Save to the ticked folders</button>` : ''}
       <button type="button" class="ghostbtn" data-cancel="1" style="margin-top:6px;">Cancel</button></div>`;
+    const picked = new Set();
     ov.addEventListener('click', async ev=>{
       const b = ev.target.closest('button');
       if(ev.target===ov || (b && b.dataset.cancel)){ ov.remove(); resolve(undefined); return; }
-      if(b && b.dataset.new){ ov.remove(); const name = await customPrompt('New folder name (e.g. Bauder, or Flat Roofing)', ''); if(!name || !name.trim()){ resolve(undefined); return; } const r = await dbInsert('coshh_library_folders', {org_id:ME.org_id, name:name.trim(), parent_id:null}); resolve(r && r[0] ? r[0].id : undefined); return; }
-      if(b && b.dataset.id !== undefined){ ov.remove(); resolve(b.dataset.id || null); }
+      if(b && b.dataset.new){ ov.remove(); const name = await customPrompt('New folder name (e.g. Bauder, or Flat Roofing)', ''); if(!name || !name.trim()){ resolve(undefined); return; } const r = await dbInsert('coshh_library_folders', {org_id:ME.org_id, name:name.trim(), parent_id:null}); const nid = r && r[0] ? r[0].id : undefined; resolve(multi ? (nid ? [nid, ...picked].map(x=>x||null) : undefined) : nid); return; }
+      if(b && b.dataset.done){ if(!picked.size){ toast('Tick at least one folder'); return; } ov.remove(); resolve([...picked].map(x=>x||null)); return; }
+      if(b && b.dataset.id !== undefined){
+        if(multi){ const k = b.dataset.id; if(picked.has(k)){ picked.delete(k); b.classList.remove('darkbtn'); b.classList.add('ghostbtn'); b.textContent = b.textContent.replace(/^✓ /,''); } else { picked.add(k); b.classList.remove('ghostbtn'); b.classList.add('darkbtn'); b.textContent = '✓ '+b.textContent; } return; }
+        ov.remove(); resolve(b.dataset.id || null);
+      }
     });
     document.body.appendChild(ov);
   });
@@ -27498,27 +27504,29 @@ function coshhAssessName(title){ return 'COSHH Assessment - '+String(title||'').
 // Builds the assessment and saves it in the folder — or, given the existing
 // file, replaces that one in place (yearly review / after an edit). Remembers
 // which file belongs to the product and when it was assessed.
-async function coshhSaveAssessment(it, folderId, existing){
+// folderIds: one folder id/null or an array (an assessment can sit in
+// several folders — one stored PDF, a library entry in each folder).
+// existing: the product's current file rows → all replaced in place.
+async function coshhSaveAssessment(it, folderIds, existing){
   const bytes = await buildCoshhPdf(it, null, {where:'', note:''});
   if(!bytes) return false;
   const fileName = coshhAssessName(it.title);
-  const fid = existing ? existing.folder_id : (folderId||null);
-  const path = ME.org_id+'/'+(fid||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
+  const olds = existing ? (Array.isArray(existing) ? existing : [existing]) : [];
+  const fids = olds.length ? [] : (Array.isArray(folderIds) ? folderIds : [folderIds||null]);
+  const path = ME.org_id+'/'+((olds[0] ? olds[0].folder_id : fids[0])||'root')+'/'+uid()+'-'+fileName.replace(/[^a-z0-9.\-]+/gi,'_');
   const stored = await uploadToStorage('coshh-library', path, new Blob([bytes], {type:'application/pdf'}), 'application/pdf');
   if(!stored) return false;
-  let fileId = null;
-  if(existing){
-    const row = await dbUpdate('coshh_library_files', existing.id, {name:fileName, storage_path:stored, uploaded_by:ME.id, uploaded_at:new Date().toISOString()});
-    if(!row) return false;
-    fileId = existing.id;
-    if(existing.storage_path && existing.storage_path !== stored) sbFetch('/storage/v1/object/coshh-library/'+existing.storage_path, {method:'DELETE'}).catch(()=>{});
+  const ids = [];
+  if(olds.length){
+    for(const o of olds){ const row = await dbUpdate('coshh_library_files', o.id, {name:fileName, storage_path:stored, uploaded_by:ME.id, uploaded_at:new Date().toISOString()}); if(row) ids.push(o.id); }
+    if(!ids.length) return false;
+    [...new Set(olds.map(o=>o.storage_path).filter(x=>x && x!==stored))].forEach(sp=>sbFetch('/storage/v1/object/coshh-library/'+sp, {method:'DELETE'}).catch(()=>{}));
   } else {
-    const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:fid, name:fileName, storage_path:stored, uploaded_by:ME.id});
-    if(!rows || !rows[0]) return false;
-    fileId = rows[0].id;
+    for(const fid of fids){ const rows = await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:fid||null, name:fileName, storage_path:stored, uploaded_by:ME.id}); if(rows && rows[0]) ids.push(rows[0].id); }
+    if(!ids.length) return false;
   }
-  if(it.id){ const data = Object.assign({}, it.data, {assessmentFileId:fileId, assessedAt:new Date().toISOString()}); delete data.needsCheck; await dbUpdate('rams_library_items', it.id, {data}); }
-  return fileId;
+  if(it.id){ const data = Object.assign({}, it.data, {assessmentFileId:ids[0], assessmentFileIds:ids, assessedAt:new Date().toISOString()}); delete data.needsCheck; await dbUpdate('rams_library_items', it.id, {data}); }
+  return ids[0];
 }
 // #(coshh-assessed) Which assessment file belongs to each product.
 async function coshhAssessMap(lib){
@@ -27530,9 +27538,9 @@ async function coshhAssessMap(lib){
   const map = {};
   lib.forEach(it=>{
     const d = it.data || {};
-    let file = d.assessmentFileId ? files.find(f=>f.id===d.assessmentFileId) : null;
-    if(!file) file = files.find(f=>f.name===coshhAssessName(it.title));
-    if(file){ const at = d.assessedAt || file.uploaded_at; map[it.id] = {file, folder:fpath(file.folder_id), at, due: at && (Date.now()-new Date(at).getTime()) > 365*86400000}; }
+    const want = new Set([].concat(d.assessmentFileIds||[], d.assessmentFileId ? [d.assessmentFileId] : []));
+    const mine = files.filter(f=>want.has(f.id) || f.name===coshhAssessName(it.title));
+    if(mine.length){ const file = mine[0]; const at = d.assessedAt || file.uploaded_at; map[it.id] = {file, files:mine, folder:[...new Set(mine.map(f=>fpath(f.folder_id)))].join(' + '), at, due: at && (Date.now()-new Date(at).getTime()) > 365*86400000}; }
   });
   return map;
 }
@@ -27548,7 +27556,7 @@ window.coshhUpdateAssessment = async function(productId, saveFirst){
   if(!a){ return coshhMakeAssessment(productId); }
   if(!(await customConfirm(`Update the COSHH assessment for "${it.title}"? It's rebuilt from the product details and dated today, replacing the old one in ${a.folder}. Jobs keep the copy they already have.`))) return;
   toast('Updating…');
-  const ok = await coshhSaveAssessment(it, null, a.file);
+  const ok = await coshhSaveAssessment(it, null, a.files);
   if(!ok){ toast('Could not update — try again'); return; }
   coshhEd = null; toast('Assessment updated — dated today'); render();
 };
@@ -27556,7 +27564,7 @@ window.coshhDeleteProductFull = async function(productId){
   const it = (await dbSelect('rams_library_items', 'id=eq.'+productId))[0]; if(!it) return;
   const a = (await coshhAssessMap([Object.assign(it, {data:Object.assign(coshhBlank(), it.data||{})})]))[it.id];
   if(!(await customConfirm(`Delete "${it.title}"${a ? ' and its COSHH assessment' : ''}? Jobs keep any COSHH already added to them. This can't be undone.`))) return;
-  if(a){ await dbDelete('coshh_library_files', a.file.id); sbFetch('/storage/v1/object/coshh-library/'+a.file.storage_path, {method:'DELETE'}).catch(()=>{}); }
+  if(a){ for(const f of a.files){ await dbDelete('coshh_library_files', f.id); } [...new Set(a.files.map(f=>f.storage_path))].forEach(sp=>sbFetch('/storage/v1/object/coshh-library/'+sp, {method:'DELETE'}).catch(()=>{})); }
   await dbDelete('rams_library_items', it.id);
   coshhEd = null; toast('Deleted'); if(location.hash.indexOf('#/coshh-substances/')===0) go('#/coshh-substances'); else render();
 };
@@ -27572,7 +27580,7 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
   if((await coshhAssessMap([it]))[it.id]){ coshhPresetFolder = undefined; return coshhUpdateAssessment(productId); }
   let folderId;
   if(coshhPresetFolder !== undefined){ folderId = coshhPresetFolder; coshhPresetFolder = undefined; }
-  else { const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position'); folderId = await coshhPickFolder(folders); }
+  else { const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position'); folderId = await coshhPickFolder(folders, 'Save the assessment in which folder(s)? Tick one or more.', true); }
   if(folderId === undefined) return;
   toast('Building the COSHH assessment…');
   const ok = await coshhSaveAssessment(it, folderId);
@@ -37875,7 +37883,7 @@ async function coshhLibraryBrowserHtml(){
   const showUploadForm = coshhLibUploadOpen || (isEmpty && !coshhLibNewFolderOpen);
   const pdfFiles = files.filter(f=>/\.pdf$/i.test(f.name||''));
   return `
-    ${coshhLibSel.size ? `<div class="pmselbar"><span>${coshhLibSel.size} selected</span><button type="button" class="ghostbtn" onclick="coshhLibMove()">Move</button><button type="button" class="ghostbtn" onclick="coshhLibExport()">Export PDF</button><button type="button" class="ghostbtn" onclick="coshhLibEmail()">Email</button><button type="button" class="pmselbar-x" aria-label="Clear" onclick="coshhLibSel=new Set();render()">✕</button></div>` : (pdfFiles.length ? `<p class="stub" style="margin:0 0 8px;">Tick assessments to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="${pdfFiles.map(f=>`coshhLibSel.add('${f.id}');`).join('')}render()">Select all here</span></p>` : '')}
+    ${coshhLibSel.size ? `<div class="pmselbar"><span>${coshhLibSel.size} selected</span><button type="button" class="ghostbtn" onclick="coshhLibMove()">Move</button><button type="button" class="ghostbtn" onclick="coshhLibAddTo()">+ Also in…</button><button type="button" class="ghostbtn" onclick="coshhLibExport()">Export PDF</button><button type="button" class="ghostbtn" onclick="coshhLibEmail()">Email</button><button type="button" class="pmselbar-x" aria-label="Clear" onclick="coshhLibSel=new Set();render()">✕</button></div>` : (pdfFiles.length ? `<p class="stub" style="margin:0 0 8px;">Tick assessments to export or email several at once · <span class="viewlink" style="cursor:pointer;" onclick="${pdfFiles.map(f=>`coshhLibSel.add('${f.id}');`).join('')}render()">Select all here</span></p>` : '')}
     ${coshhBulk ? `<div class="card" style="text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
     <label class="darkbtn" style="display:block;text-align:center;margin:0 0 6px;cursor:pointer;">📄 Upload data sheets → make the COSHH assessments
       <input type="file" accept="application/pdf" multiple style="display:none;" onchange="coshhSdsIntoFolder(this, ${parentArg})"></label>
@@ -37966,6 +37974,21 @@ window.coshhLibMove = async function(){
   for(const id of ids){ if(await dbUpdate('coshh_library_files', id, {folder_id: dest || null})) moved++; }
   coshhLibSel = new Set(); coshhLibFolderId = dest || null;
   toast(moved+' moved'); render();
+};
+// Put the ticked assessments in more folders as well (same PDF, listed in each).
+window.coshhLibAddTo = async function(){
+  const ids = [...coshhLibSel]; if(!ids.length) return;
+  const folders = await dbSelect('coshh_library_folders', 'org_id=eq.'+ME.org_id+'&select=id,name,parent_id,position');
+  const dests = await coshhPickFolder(folders, 'Also put '+ids.length+' assessment'+(ids.length===1?'':'s')+' in which folder(s)?', true);
+  if(!dests) return;
+  const files = await dbSelect('coshh_library_files', 'id=in.('+ids.join(',')+')&select=*');
+  const all = await dbSelect('coshh_library_files', 'org_id=eq.'+ME.org_id+'&select=id,folder_id,storage_path');
+  let added = 0;
+  for(const f of files){ for(const d of dests){
+    if(all.some(x=>x.storage_path===f.storage_path && (x.folder_id||null)===(d||null))) continue;
+    if(await dbInsert('coshh_library_files', {org_id:ME.org_id, folder_id:d||null, name:f.name, storage_path:f.storage_path, uploaded_by:ME.id})) added++;
+  } }
+  coshhLibSel = new Set(); toast(added ? 'Added to '+added+' more folder place'+(added===1?'':'s') : 'Already in those folders'); render();
 };
 window.coshhLibExport = async function(){ const p = await coshhLibPack(); if(p) await deliverPdf(p.bytes, p.filename); };
 window.coshhLibEmail = async function(){
@@ -38094,7 +38117,8 @@ window.deleteCoshhLibraryFile = async function(fileId, storagePath){
   if(!await customConfirm('Delete this document from the library? This can\'t be undone.')) return;
   const ok = await dbDelete('coshh_library_files', fileId);
   if(ok){
-    try{ await sbFetch('/storage/v1/object/coshh-library/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
+    // The same assessment can be listed in more than one folder — only delete the PDF once nothing uses it.
+    try{ const still = await dbSelect('coshh_library_files', 'storage_path=eq.'+encodeURIComponent(storagePath)+'&select=id&limit=1'); if(!still.length) await sbFetch('/storage/v1/object/coshh-library/'+storagePath, {method:'DELETE'}); }catch(e){ /* non-fatal */ }
     toast('Document deleted');
     render();
   }
