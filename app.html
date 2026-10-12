@@ -3896,6 +3896,9 @@ window.copyHeaderSubtitle = async function(text){
 const NAV_ORIGIN_PAGES = ['#/home', '#/dashboards'];
 const NAV_CAME_FROM = {};
 let NAV_ROOT = 'home';
+const NAV_STACK = [];
+let NAV_LAST_TAP = 0, NAV_LAST_ARRIVAL = 0;
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev, ()=>{ NAV_LAST_TAP = Date.now(); }, true));
 function navNoteArrival(prevHash, newHash){
   if(!newHash || prevHash===newHash) return;
   const base = h => String(h||'').split('?')[0];
@@ -3903,18 +3906,35 @@ function navNoteArrival(prevHash, newHash){
   // #(nav-root) Remember whether the user is working from the Home tiles or
   // inside Live Projects, so the header tap returns them to the right place.
   if(n==='#/home') NAV_ROOT = 'home'; else if(n==='#/sites' || n.startsWith('#/site/')) NAV_ROOT = 'sites';
+  // #(nav-stack) 2026-10-12: the back arrow goes to the page you actually
+  // came from. A page you've already been on earlier in the trail is
+  // stepped back to (trail trimmed); a page reached with no tap since the
+  // last one (a redirect) replaces the top rather than adding a step.
+  const full = String(newHash);
+  const at = NAV_STACK.lastIndexOf(full);
+  if(at >= 0) NAV_STACK.length = at+1;
+  else if(NAV_STACK.length && NAV_LAST_TAP < NAV_LAST_ARRIVAL) NAV_STACK[NAV_STACK.length-1] = full;
+  else { NAV_STACK.push(full); if(NAV_STACK.length > 60) NAV_STACK.shift(); }
+  NAV_LAST_ARRIVAL = Date.now();
   if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
   else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
   else delete NAV_CAME_FROM[n];
 }
 function navBackFor(defaultBack){
-  const n = String(location.hash||'').split('?')[0];
+  const cur = String(location.hash||'');
+  if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur);
+  if(defaultBack && NAV_STACK.length >= 2 && NAV_STACK[NAV_STACK.length-1] === cur){
+    const prev = NAV_STACK[NAV_STACK.length-2];
+    if(prev && prev !== cur && prev !== '#' && prev !== '') return prev;
+  }
+  const n = cur.split('?')[0];
   const o = NAV_CAME_FROM[n];
   if(o && defaultBack && o!==n && !/^#\/site\//.test(n)) return o;
   return defaultBack;
 }
 function shell(innerHtml, opts){
   opts = opts||{};
+  { const cur = String(location.hash||''); if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur); }
   if(opts.back) opts.back = navBackFor(opts.back);
   CURRENT_BACK_HASH = opts.back || null;
   return `
