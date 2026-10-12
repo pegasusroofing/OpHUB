@@ -978,3 +978,5 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .ramsdoc.ramssel .pmrep-box{background:var(--brand1);border-color:var(--brand1);}
 .rjdeleted{margin:0 0 10px;}
 .rjdeleted summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--slate);padding:4px 0;}
+.rjstrip{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;scroll-snap-type:x proximity;}
+.rjstrip img{flex:0 0 auto;width:86px;height:86px;object-fit:cover;border-radius:10px;cursor:pointer;scroll-snap-align:start;border:1px solid var(--line);}

@@ -1053,7 +1053,7 @@ async function renderRepairJobDetail(siteId, jobId){
       ` : '')}
       ${job.survey_date ? `
         <p class="field-label" style="margin:14px 0 4px;">Survey Date</p>
-        <p class="stub" style="margin:0;">${new Date(job.survey_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? ' — '+escapeHtml(PROFILES[job.surveyed_by].name) : ''}</p>
+        <p style="margin:0;font-size:17px;font-weight:800;color:var(--ink);">${new Date(job.survey_date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}${job.surveyed_by && PROFILES[job.surveyed_by] ? `<span style="font-size:13px;font-weight:600;color:var(--slate);"> — ${escapeHtml(PROFILES[job.surveyed_by].name)}</span>` : ''}</p>
       ` : ''}
       ${canManage ? `
         <p class="field-label" style="margin:14px 0 4px;">OneDrive Folder</p>
@@ -1082,6 +1082,7 @@ async function renderRepairJobDetail(siteId, jobId){
           pushes people toward opening rather than re-reading raw notes in
           the app. A pencil unlocks editing again for whoever surveyed it,
           or any manager, in case something genuinely needs correcting. */ ''}
+        ${job.survey_date ? `<p style="margin:10px 0 0;font-size:18px;font-weight:800;color:var(--ink);">📅 Surveyed ${new Date(job.survey_date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'})}</p>` : ''}
         <p class="stub" style="margin:8px 0 2px;">${job.surveyed_by && profileName(job.surveyed_by) ? 'Surveyed by '+escapeHtml(profileName(job.surveyed_by)) : ''}${job.access_requirement && job.access_requirement!=='none' ? (job.surveyed_by && profileName(job.surveyed_by)?' — ':'')+'Access: '+escapeHtml(REPAIR_ACCESS_LABEL[job.access_requirement]) : ''}</p>
         ${/* #(repair-survey-locked-view-shows-notes) 2026-09-30 — the locked
           summary used to hide the actual survey notes behind the PDF, so
@@ -1089,6 +1090,9 @@ async function renderRepairJobDetail(siteId, jobId){
           without opening a separate file. Shown inline here now, read-only —
           the PDF is still the one to open for photos/access notes/print. */ ''}
         ${job.survey_notes ? `<p style="margin:8px 0 0;font-size:13.5px;line-height:1.45;white-space:pre-wrap;">${escapeHtml(job.survey_notes)}</p>` : ''}
+        ${(()=>{ const sp = photos.filter(p=>p.category==='survey'||p.category==='access'); return sp.length ? `
+          <p class="field-label" style="margin:12px 0 6px;">Survey photos (${sp.length})</p>
+          <div class="rjstrip">${sp.map(p=>`<img src="${publicUrl('site-photos', p.storage_path)}" alt="Survey photo" onclick="viewImage('${publicUrl('site-photos', p.hires_path||p.storage_path)}')">`).join('')}</div>` : ''; })()}
         <div class="row-gap" style="margin-top:10px;">
           <button class="darkbtn" style="flex:1;" onclick="viewRepairJobSurveyReport('${jobId}')">📄 View Survey Report</button>
           ${canEditSurvey ? `<button class="ghostbtn" style="flex:0 0 auto;width:auto;padding:10px 14px;" onclick="toggleRepairSurveyEdit('${jobId}')">✎ Edit</button>` : ''}
