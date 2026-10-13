@@ -90,7 +90,9 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
   // Per the "allow all rows in whilst they're in to do to be editable text"
   // requirement — a To Do task's name is always a live-editable input
   // (autosaves on blur) rather than needing the separate pencil-edit toggle.
-  const alwaysEditable = canAdd && t.status==='todo' && pendingCompleteTaskId!==t.id;
+  // 13 Oct (Andy): no longer always an open text box — the name is plain
+  // text, edited from ✎ Edit in the task's ▾ menu.
+  const alwaysEditable = false;
   // Multi-site address pill — moved up into the same header row as the ▾
   // actions button (top-right, immediately to its left) instead of sitting
   // on its own line underneath.
@@ -778,13 +780,9 @@ window.addSection = async function(siteId){
     toast('Section added');
     scheduleAddPanel = null;
     scheduleSectionsOpen[newSection.id] = true;
-    // Straight into "Who can see this" for the section just created, inline
-    // in its own new row — defaults to All until narrowed down.
-    const [assignments, pmList] = await Promise.all([
-      dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
-      loadPMList(),
-    ]);
-    openScheduleAssign('section', newSection.id, null, assignments.map(a=>a.user_id), pmList.map(p=>p.id));
+    // Visible to all by default; "Assign visibility" is in the section's ▾
+    // menu (no longer pops up straight after adding — Andy, 13 Oct).
+    render();
   }
 };
 // Shared by "Add to Schedule of Works" on an approved variation, and the
@@ -1070,13 +1068,9 @@ window.addTask = async function(siteId, sectionId){
     toast('Task added');
     // Only an UNGROUPED task gets its own "who can see this" — a task added
     // straight into a section always inherits that section's visibility.
-    if(!sectionId){
-      scheduleAddPanel = null;
-      const assignments = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
-      openScheduleAssign('task', newTask.id, null, assignments.map(a=>a.user_id));
-    } else {
-      render();
-    }
+    // Visible to all by default; "Assign visibility" is in the task's ▾ menu.
+    render();
+    setTimeout(()=>{ const i = document.getElementById(sectionId ? ('newTaskName-'+sectionId) : 'newTaskName'); if(i) i.focus(); }, 60);
   }
 };
 window.saveTaskEdit = async function(siteId, taskId){
