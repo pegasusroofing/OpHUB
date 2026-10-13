@@ -407,13 +407,13 @@ function renderAssignOperativesModal(siteId, operatives){
   ov.innerHTML = `
     <div class="geo-modal-card" style="max-height:78vh;overflow-y:auto;">
       <p class="sectiontitle" style="margin-top:0;">Assign Operatives</p>
-      <p class="stub" style="margin:0 0 12px;">This site is now active — tick everyone working on it. You can change this any time from Settings &amp; Admin.</p>
+      <p class="stub" style="margin:0 0 12px;">This site is now active — tap everyone working on it. You can change this any time from Settings &amp; Admin.</p>
       ${operatives.length ? operatives.map(p=>`
-        <div class="sitecard" style="padding:7px 9px;gap:8px;">
+        <label class="sitecard" style="padding:7px 9px;gap:8px;cursor:pointer;">
           <div class="swatch personswatch" style="width:34px;height:34px;flex:0 0 34px;border-radius:8px;font-size:12px;background:linear-gradient(135deg,#4B4F58,#2a2c30);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
           <div class="info"><div class="name" style="font-size:12px;">${escapeHtml(p.name)}</div></div>
-          <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${assignOpModalAssignedIds.has(p.id)?'checked':''} onchange="toggleAssignOpModal('${siteId}','${p.id}',this.checked)">
-        </div>
+          <input type="checkbox" style="width:20px;height:20px;flex:0 0 20px;" ${assignOpModalAssignedIds.has(p.id)?'checked':''} onchange="toggleAssignOpModal('${siteId}','${p.id}',this.checked);this.closest('label').classList.toggle('picked',this.checked)">
+        </label>
       `).join('') : `<div class="empty">No operatives yet — they need to sign up first.</div>`}
       <button class="darkbtn" style="width:100%;margin-top:14px;" onclick="document.getElementById('assignOpModalOverlay').style.display='none';">Done</button>
     </div>`;

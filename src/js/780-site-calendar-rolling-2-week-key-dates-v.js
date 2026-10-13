@@ -53,8 +53,11 @@ function calMonthGridHtml(eventsByDate){
     const inMonth = d.getMonth()===first.getMonth();
     const evs = eventsByDate[dStr]||[];
     const isToday = dStr===todayStr, isSel = dStr===calSelDate;
-    const dots = evs.slice(0,3).map(e=>`<i style="background:${e._leave?'#7B3FB5':e.is_private?'var(--slate-light)':'var(--brand1)'};"></i>`).join('');
-    cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span><span class="calm-dots">${dots}</span></button>`;
+    // #(cal-expand) A day with something booked shows the items themselves
+    // (short labels) rather than just dots, and its week row grows to fit.
+    const col = e => e._leave ? '#7B3FB5' : e.is_private ? 'var(--slate-light)' : 'var(--brand1)';
+    const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,2).map(e=>`<span class="calm-ev" style="--c:${col(e)};">${escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('))}</span>`).join('')}${evs.length>2?`<span class="calm-more">+${evs.length-2} more</span>`:''}</span>` : '';
+    cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''} ${evs.length?'has-ev':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span>${evHtml}</button>`;
   }
   return `
     <div class="calm">
@@ -67,7 +70,7 @@ function calMonthGridHtml(eventsByDate){
       <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
       <div class="calm-grid">${cellsHtml}</div>
     </div>
-    <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}</p>`;
+    <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}${(eventsByDate[calSelDate]||[]).length ? ` · ${(eventsByDate[calSelDate]||[]).length} booked` : ''}</p>`;
 }
 const CAL_VIEW_DAYS = {week:7, twoweek:14, month:30};
 const CAL_VIEW_LABELS = {week:'Week', twoweek:'2 Weeks', month:'Month'};
@@ -89,6 +92,24 @@ function calViewModeDropdownHtml(){
       ` : ''}
     </div>
   `;
+}
+// One menu at the top of the calendar: add a key date, add to phone
+// calendar, and the Week / 2 Weeks / Month view (Andy, 13 Oct) — so the
+// calendar itself sits at the top of the page.
+function calToolsHtml(o){
+  o = o || {};
+  const items = (o.items||[]).map(it=>`<div class="statusmenu-item" onclick="calViewModePickerOpen=false;${it.onclick}">${it.label}</div>`).join('');
+  return `
+    <div class="caltools" data-rowactions-root onclick="event.stopPropagation();">
+      <span class="caltools-view">${escapeHtml(CAL_VIEW_LABELS[calViewMode])} view</span>
+      <button type="button" class="caltools-btn" onclick="toggleCalViewModePicker()">${o.label||'Options'} ${calViewModePickerOpen?'▲':'▼'}</button>
+      ${calViewModePickerOpen ? `
+        <div class="statusmenu" style="right:0;left:auto;top:100%;min-width:210px;">
+          ${items}
+          ${items ? '<div class="caltools-sep">View</div>' : ''}
+          ${Object.keys(CAL_VIEW_DAYS).map(mode=>`<div class="statusmenu-item" style="${calViewMode===mode?'font-weight:800;color:var(--brand1);':''}" onclick="setCalViewMode('${mode}')">${calViewMode===mode?'✓ ':''}${CAL_VIEW_LABELS[mode]}</div>`).join('')}
+        </div>` : ''}
+    </div>`;
 }
 const CAL_REPEAT_LABELS = {none:'None', daily:'Daily', weekly:'Weekly', monthly:'Monthly'};
 function calResetDraft(defaultDate){
@@ -244,17 +265,12 @@ async function renderSiteCalendar(siteId){
   }
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${calViewModeDropdownHtml()}
-    <div class="row-gap" style="align-items:flex-start;margin-bottom:14px;">
-      <p class="stub" style="margin:0;flex:1;">${monthMode ? 'Tap a day to see what’s on' : 'Next '+numDays+' days'}${mgr ? ' — private items only you and other PMs/admins can see.' : '.'}</p>
-      <div class="ghostbtn" style="width:auto;padding:6px 12px;font-size:11.5px;flex:0 0 auto;" onclick="exportSiteCalendarIcs('${siteId}')">📅 Add to Phone Calendar</div>
-    </div>
-    <div class="drawheaderrow" style="margin-bottom:${calAddOpen?'10px':'14px'};">
-      <span>Add a key date</span>
-      <div class="roundplusbtn" onclick="calAddOpen=!calAddOpen; calInlineDate=null; calEditId=null; if(calAddOpen) calResetDraft('${startStr}'); render();">${calAddOpen?'−':'+'}</div>
-    </div>
-    ${calAddOpen ? calFormHtml() : ''}
-    ${monthMode ? calMonthGridHtml(eventsByDate) : ''}
+    ${calToolsHtml({label:'＋ Add', items:[
+      {label:'➕ Add a key date', onclick:`calAddOpen=true;calInlineDate=null;calEditId=null;calResetDraft('${monthMode && calSelDate>=startStr ? calSelDate : startStr}');render();`},
+      {label:'📅 Add to phone calendar', onclick:`exportSiteCalendarIcs('${siteId}')`},
+    ]})}
+    ${calAddOpen ? `<div class="caladdhead"><b>Add a key date</b><button type="button" class="calh-close" onclick="closeCalForm()">Close</button></div>${calFormHtml()}` : ''}
+    ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 8px;">Next ${numDays} days${mgr ? ' — 🔒 items are only seen by PMs/admins' : ''}.</p>`}
     ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
@@ -262,7 +278,7 @@ async function renderSiteCalendar(siteId){
       const isWeekend = d.getDay()===0 || d.getDay()===6;
       const inlineHere = calInlineDate===dStr;
       return `
-        <div style="padding:10px 0;border-bottom:1px solid var(--line);">
+        <div class="calday ${monthMode?'calday-big':''} ${dayEvents.length?'calday-has':''}">
           <div style="display:flex;gap:12px;">
             <div style="flex:0 0 64px;max-width:64px;overflow:hidden;text-align:center;">
               <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
@@ -270,8 +286,8 @@ async function renderSiteCalendar(siteId){
             </div>
             <div style="flex:1;min-width:0;">
               ${dayEvents.length ? dayEvents.map(e=>`
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
-                  <span style="font-size:13.5px;${e._leave?'color:var(--slate);font-style:italic;':e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e._leave?'🏖 ':''}${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
+                <div class="calday-ev">
+                  <span class="calday-evt" style="${e._leave?'color:var(--slate);font-style:italic;':e.is_private?'color:var(--slate);':'color:var(--ink);'}">${e._leave?'🏖 ':''}${e.is_private?'🔒 ':''}${e.recurrence_group_id?'🔁 ':''}${escapeHtml(e.title)}</span>
                   ${mgr && !e._leave ? `
                     <span style="display:flex;gap:6px;flex:0 0 auto;">
                       <span class="taskicon" style="width:22px;height:22px;font-size:11px;" onclick="openCalEditEvent('${e.id}','${jsAttr(e.title)}','${e.event_date}',${e.is_private?'true':'false'},${escapeHtml(JSON.stringify([...(e.reminder_recipient_ids||[])]))},'${e.reminder_timing||''}','${e.reminder_date||''}')">✎</span>
@@ -279,7 +295,7 @@ async function renderSiteCalendar(siteId){
                     </span>
                   ` : ''}
                 </div>
-              `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">—</div>`}
+              `).join('') : `<div class="stub" style="margin:0;font-size:12.5px;color:var(--slate-light);">${monthMode ? 'Nothing booked — tap + to add' : '—'}</div>`}
             </div>
             <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;align-self:flex-start;margin-top:2px;${inlineHere?'background:var(--brand1);color:#fff;':''}" title="Add a key date for this day" onclick="openCalAddForDate('${dStr}')">${inlineHere?'−':'+'}</div>
           </div>

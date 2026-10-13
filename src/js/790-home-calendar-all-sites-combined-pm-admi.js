@@ -57,8 +57,7 @@ async function renderUnifiedCalendar(){
   const eventsByDate = {};
   filteredEvents.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${calViewModeDropdownHtml()}
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
       <div style="position:relative;" data-calhomepmfilter-root>
         <button type="button" onclick="event.stopPropagation();calHomePmFilterOpen=!calHomePmFilterOpen;calHomeSiteFilterOpen=false;render();" style="width:auto;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:20px;border:1px solid var(--line);background:${calHomePmFilterIds.length?'var(--brand1)':'#fff'};color:${calHomePmFilterIds.length?'#fff':'var(--slate)'};cursor:pointer;">
           ${calHomePmFilterIds.length ? (calHomePmFilterIds.length===1 ? escapeHtml(nameOf(calHomePmFilterIds[0])||'1 selected') : calHomePmFilterIds.length+' PMs') : 'Filter by PM'} ${calHomePmFilterOpen?'▲':'▼'}
@@ -91,6 +90,7 @@ async function renderUnifiedCalendar(){
           </div>
         ` : ''}
       </div>
+      <div style="margin-left:auto;">${calToolsHtml({label:'View'})}</div>
     </div>
     ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>`}
     ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
@@ -99,7 +99,7 @@ async function renderUnifiedCalendar(){
       const dayEvents = eventsByDate[dStr]||[];
       const isWeekend = d.getDay()===0 || d.getDay()===6;
       return `
-        <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);">
+        <div class="calday ${monthMode?'calday-big':''} ${dayEvents.length?'calday-has':''}" style="display:flex;gap:12px;">
           <div style="flex:0 0 52px;text-align:center;">
             <div style="font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:${isWeekend?'var(--brand1)':'var(--slate)'};">${d.toLocaleDateString('en-GB',{weekday:'short'})}</div>
             <div style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;${isToday?'border:2px solid var(--brand1);':''}"><span style="font-size:18px;font-weight:800;color:${isWeekend?'var(--brand1)':'var(--ink)'};">${d.getDate()}</span></div>
