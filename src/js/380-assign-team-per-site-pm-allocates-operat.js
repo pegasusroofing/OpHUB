@@ -147,7 +147,7 @@ async function renderAssignTeam(siteId){
     </div>` : ''}
     <p class="ddrow ddrow-hdr grphdr" onclick="toggleSiteTeamSection('grpteam')"><span class="icon" style="background:var(--paper);">${ophIcon('admin', 18)}</span><span class="lbl">Team<span class="stub" style="display:block;margin:0;font-weight:500;font-size:11.5px;">Operatives, site managers &amp; clients</span></span><span class="arrow">${siteTeamSectionOpen.grpteam?'▼':'▶'}</span></p>
     ${siteTeamSectionOpen.grpteam ? `<div class="grpbody">
-    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives to RTB</p>
+    <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('operatives')"><span class="arrow">${siteTeamSectionOpen.operatives?'▼':'▶'}</span> Assign Operatives to Project</p>
     ${siteTeamSectionOpen.operatives ? `
     <p class="stub" style="margin:0 0 14px;">Only operatives assigned here can see this site. Project Managers and Admins can always see every site; Site Managers need to be assigned like anyone else.</p>
     ${operatives.map(p=>`
