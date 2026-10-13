@@ -31,7 +31,7 @@ async function refreshBootData(){
       return;
     }
     const before = JSON.stringify([ME, ORG, SITES]);
-    ME = prof.data[0];
+    ME = supportModeMe(prof.data[0]);
     const [, , sitesRes] = await Promise.all([
       loadOrg(),
       loadAllProfiles(true),
@@ -47,7 +47,7 @@ async function refreshBootData(){
 // Re-checks the compulsory H&S Policy sign-off after a snapshot start (which
 // trusts the last known answer so the first paint isn't held up by it).
 async function recheckHsPolicyGate(){
-  if(!ME || ME.role==='superadmin' || navigator.onLine === false) return;
+  if(!ME || ME.role==='superadmin' || ME._support || navigator.onLine === false) return;
   hsPolicyGateChecked = false;
   const pending = await checkHsPolicyGate();
   saveBootSnapshot();
@@ -83,13 +83,13 @@ async function init(){
   // it also works with no signal — then refresh in the background.
   const snap = SESSION ? await getJSON(K_BOOT, false, null) : null;
   if(SESSION && snap && snap.uid === SESSION.user.id && snap.me && snap.me.id === SESSION.user.id){
-    ME = snap.me; ORG = snap.org || null; SITES = Array.isArray(snap.sites) ? snap.sites : [];
+    ME = supportModeMe(snap.me); ORG = snap.org || null; SITES = Array.isArray(snap.sites) ? snap.sites : [];
     if(snap.profiles && Object.keys(snap.profiles).length){ PROFILES = snap.profiles; profilesLoadedAt = Date.now(); }
     if(snap.homeExtras && snap.homeExtras.uid === ME.id) homeExtras = {uid: ME.id, onboarding: snap.homeExtras.onboarding || null, count: snap.homeExtras.count || 0, at: 0, loading: false};
     if(snap.hsGateOk){ hsPolicyGateChecked = true; hsPolicyGatePending = false; }
     applyTheme(ORG);
     const firstPaint = render();
-    if(ME.role!=='superadmin') registerPushNotifications();
+    if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
     firstPaint.then(()=>{ warmUpLibs(); });
     refreshBootData().then(()=>{ if(snap.hsGateOk) recheckHsPolicyGate(); });
     recheckDeviceLockOnOpen();
@@ -114,7 +114,7 @@ async function init(){
       dbSelect('sites', 'select=*&order=created_at.asc'),
     ]);
     SITES = sitesRows;
-    if(ME.role!=='superadmin') registerPushNotifications();
+    if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
   } else {
     applyTheme(null);
   }

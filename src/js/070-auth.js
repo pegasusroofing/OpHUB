@@ -80,11 +80,11 @@ window.doSignOut = async function(){
 async function loadProfile(){
   const qs = 'id=eq.'+SESSION.user.id+'&select=*';
   const r = await dbSelectChecked('profiles', qs);
-  if(r.ok){ ME = r.data[0] || null; return; }
+  if(r.ok){ ME = supportModeMe(r.data[0] || null); return; }
   // The request failed (no signal, server blip) — that is not the same as
   // "this account doesn't exist". Fall back to the last copy we have rather
   // than dropping a signed-in user back to the login screen.
   const cached = await getCachedRows('profiles', qs);
-  if(cached && cached.data && cached.data[0]) ME = cached.data[0];
+  if(cached && cached.data && cached.data[0]) ME = supportModeMe(cached.data[0]);
   else if(!(ME && SESSION && ME.id===SESSION.user.id)) ME = null;
 }

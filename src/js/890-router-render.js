@@ -52,13 +52,13 @@ async function renderRoute(){
   if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
   if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
-  if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
+  if(ME.role==='admin' && !ME._support && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role
   // except superadmin until the current policy is signed (or re-signed,
   // once its expiry rolls the cycle over). The signature route itself stays
   // reachable so someone with no adopted signature yet can go set one up
   // and come straight back.
-  if(preParts[0]!=='signature' && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
+  if(preParts[0]!=='signature' && !ME._support && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
   // Delivery drivers get their own simplified home instead of the normal
   // site list — they don't work "on a site" the way operatives do, so
@@ -257,7 +257,7 @@ async function renderRoute(){
       // Clients get a cut-down H&S area — RAMS/COSHH/TBT/PUWER only, no
       // briefings/HAVS/incidents/my-tools/policy-as-its-own-page/operatives.
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
-      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub])){ go(`#/site/${siteId}/hs`); return; }
+      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub], TILE_VIS_DEFAULTS[HS_ROUTE_TILE[sub]])){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
       if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);

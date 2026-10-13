@@ -1040,6 +1040,12 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .homaint textarea{margin:0;}
 .hocoverbtns{display:flex;gap:6px;flex-wrap:wrap;}
 .hocoverbtns > *{flex:1 1 100px;margin:0!important;text-align:center;cursor:pointer;font-size:12px;padding:10px 6px;}
+
+/* super admin support mode */
+.supportbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;background:#7A1E12;color:#fff;font-size:12px;font-weight:600;padding:7px 12px;line-height:1.35;}
+.supportbar b{font-weight:800;}
+.supportbar button{all:unset;cursor:pointer;margin-left:auto;flex:0 0 auto;background:#fff;color:#7A1E12;font-weight:800;font-size:12px;padding:5px 12px;border-radius:999px;}
+select.sarole{width:auto;min-width:150px;margin:0;padding:6px 8px;font-size:12px;}
 </style>
 </head>
 <body>
@@ -2853,12 +2859,12 @@ window.doSignOut = async function(){
 async function loadProfile(){
   const qs = 'id=eq.'+SESSION.user.id+'&select=*';
   const r = await dbSelectChecked('profiles', qs);
-  if(r.ok){ ME = r.data[0] || null; return; }
+  if(r.ok){ ME = supportModeMe(r.data[0] || null); return; }
   // The request failed (no signal, server blip) — that is not the same as
   // "this account doesn't exist". Fall back to the last copy we have rather
   // than dropping a signed-in user back to the login screen.
   const cached = await getCachedRows('profiles', qs);
-  if(cached && cached.data && cached.data[0]) ME = cached.data[0];
+  if(cached && cached.data && cached.data[0]) ME = supportModeMe(cached.data[0]);
   else if(!(ME && SESSION && ME.id===SESSION.user.id)) ME = null;
 }
 
@@ -2952,6 +2958,13 @@ function registerOneDriveDeepLinkHandler(){
 
 /* ================= state ================= */
 let ME = null;
+// #(support-mode) A super admin who has opened a company from Platform Admin
+// works inside it as that company's admin (the database does the same via
+// profiles.view_as_org_id); the real role is kept on _support.
+function supportModeMe(p){
+  if(p && p.role==='superadmin' && p.view_as_org_id) return Object.assign({}, p, {role:'admin', org_id:p.view_as_org_id, _support:true, _realOrgId:p.org_id});
+  return p;
+}
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
 let SITES = [];
 let PROFILES = {}; // id -> {name,email,role}
@@ -3804,7 +3817,7 @@ async function refreshBootData(){
       return;
     }
     const before = JSON.stringify([ME, ORG, SITES]);
-    ME = prof.data[0];
+    ME = supportModeMe(prof.data[0]);
     const [, , sitesRes] = await Promise.all([
       loadOrg(),
       loadAllProfiles(true),
@@ -3820,7 +3833,7 @@ async function refreshBootData(){
 // Re-checks the compulsory H&S Policy sign-off after a snapshot start (which
 // trusts the last known answer so the first paint isn't held up by it).
 async function recheckHsPolicyGate(){
-  if(!ME || ME.role==='superadmin' || navigator.onLine === false) return;
+  if(!ME || ME.role==='superadmin' || ME._support || navigator.onLine === false) return;
   hsPolicyGateChecked = false;
   const pending = await checkHsPolicyGate();
   saveBootSnapshot();
@@ -3856,13 +3869,13 @@ async function init(){
   // it also works with no signal — then refresh in the background.
   const snap = SESSION ? await getJSON(K_BOOT, false, null) : null;
   if(SESSION && snap && snap.uid === SESSION.user.id && snap.me && snap.me.id === SESSION.user.id){
-    ME = snap.me; ORG = snap.org || null; SITES = Array.isArray(snap.sites) ? snap.sites : [];
+    ME = supportModeMe(snap.me); ORG = snap.org || null; SITES = Array.isArray(snap.sites) ? snap.sites : [];
     if(snap.profiles && Object.keys(snap.profiles).length){ PROFILES = snap.profiles; profilesLoadedAt = Date.now(); }
     if(snap.homeExtras && snap.homeExtras.uid === ME.id) homeExtras = {uid: ME.id, onboarding: snap.homeExtras.onboarding || null, count: snap.homeExtras.count || 0, at: 0, loading: false};
     if(snap.hsGateOk){ hsPolicyGateChecked = true; hsPolicyGatePending = false; }
     applyTheme(ORG);
     const firstPaint = render();
-    if(ME.role!=='superadmin') registerPushNotifications();
+    if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
     firstPaint.then(()=>{ warmUpLibs(); });
     refreshBootData().then(()=>{ if(snap.hsGateOk) recheckHsPolicyGate(); });
     recheckDeviceLockOnOpen();
@@ -3887,7 +3900,7 @@ async function init(){
       dbSelect('sites', 'select=*&order=created_at.asc'),
     ]);
     SITES = sitesRows;
-    if(ME.role!=='superadmin') registerPushNotifications();
+    if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
   } else {
     applyTheme(null);
   }
@@ -4009,6 +4022,7 @@ function shell(innerHtml, opts){
   return `
     <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
       <div class="stripe-edge"></div>
+      ${ME && ME._support ? `<div class="supportbar"><span>🛠 Support mode — you're inside <b>${escapeHtml((ORG && ORG.name) || 'this company')}</b> as their admin. Changes are real.</span><button type="button" onclick="superadminExitCompany()">Exit</button></div>` : ''}
       ${OFFLINE_CACHE_USED ? `<div style="background:var(--warn-bg);color:var(--warn);padding:6px 14px;font-size:12px;font-weight:700;text-align:center;">📡 Offline — showing saved data from earlier</div>` : ''}
       <div class="appbar">
         ${opts.centerTitle ? `
@@ -4737,7 +4751,7 @@ async function renderAdmin(){
     ${orgs.map(o=>{
       const sub = subByOrg[o.id];
       const people = (peopleByOrg[o.id]||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      const ROLES = ['operative','site_manager','pm','admin'];
+      const ROLES = ['operative','site_manager','pm','estimator','driver','client','admin'];
       const expanded = adminExpandedOrg === o.id;
       return `
       <div class="card">
@@ -4759,12 +4773,14 @@ async function renderAdmin(){
                 <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
               </select>
             </div>
+            <button class="darkbtn" style="margin:10px 0 0;" onclick="event.stopPropagation();superadminOpenCompany('${o.id}','${jsAttr(o.name)}')">🛠 Open this company's app</button>
+            <p class="stub" style="margin:4px 0 0;font-size:11.5px;">Go inside as their admin to look into issues or fix things. A bar at the top lets you exit.</p>
             <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${jsAttr(o.name)}')">Delete Company</button>
             ${people.map(p=>`
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${personRoleLabel(p)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
+                  ${p.role==='superadmin' ? '' : `<select class="sarole" title="Role" onchange="setUserRole('${p.id}', this.value, this)">${ROLES.map(r=>{ const cur = p.is_estimator ? 'estimator' : p.role; return `<option value="${r}" ${r===cur?'selected':''}>${escapeHtml(roleLabel(r))}</option>`; }).join('')}${ROLES.includes(p.is_estimator?'estimator':p.role) ? '' : `<option selected disabled>${escapeHtml(personRoleLabel(p))}</option>`}</select>`}
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:800;text-transform:none;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
                 </div>
@@ -4807,8 +4823,8 @@ window.toggleAdminOrg = function(orgId){
   adminExpandedOrg = adminExpandedOrg === orgId ? null : orgId;
   render();
 };
-window.setUserRole = async function(userId, role){
-  if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)) return;
+window.setUserRole = async function(userId, role, sel){
+  if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)){ if(sel) render(); return; }
   // 'estimator' isn't a separate role in the database: it is a Project
   // Manager with the no-notifications flag on.
   const est = role==='estimator';
@@ -4817,6 +4833,23 @@ window.setUserRole = async function(userId, role){
     if(PROFILES[userId]){ PROFILES[userId].role = est ? 'pm' : role; PROFILES[userId].is_estimator = est; } // keep the cache correct without a re-fetch
     toast(`Role changed to ${roleLabel(role)}`); render();
   }
+};
+// Support mode: open a company's app as its admin, and come back out.
+async function superadminSwitch(orgId){
+  const res = await sbFetch('/rest/v1/rpc/superadmin_view_org', {method:'POST', body: JSON.stringify({p_org_id: orgId})});
+  let d = null; try{ d = await res.json(); }catch(e){}
+  if(!res.ok || !d || !d.ok){ toast('Could not switch — '+((d && (d.error||d.message)) || res.status)); return false; }
+  // Drop everything cached for the previous company before reloading.
+  try{ await clearOfflineCache(); }catch(e){}
+  try{ await sdelete(K_BOOT, false); }catch(e){}
+  return true;
+}
+window.superadminOpenCompany = async function(orgId, name){
+  if(!await customConfirm(`Open ${name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`)) return;
+  if(await superadminSwitch(orgId)){ location.hash = '#/home'; location.reload(); }
+};
+window.superadminExitCompany = async function(){
+  if(await superadminSwitch(null)){ location.hash = ''; location.reload(); }
 };
 window.resetUserPassword = async function(email){
   const custom = await customPrompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);
@@ -29441,7 +29474,9 @@ function visTileHtml(site, key, t){
       ${t.badge || ''}
     </div>`;
 }
-const TILE_VIS_DEFAULTS = {};
+// Tiles that start hidden from some roles until a PM/admin shows them.
+// HAVS (inside Tools, HAVS & PUWER) starts hidden from operatives (Andy, 13 Oct).
+const TILE_VIS_DEFAULTS = {hs_havs:['site_manager']};
 window.setTileVisibility = async function(siteId, key, role, on){
   const site = SITES.find(s=>s.id===siteId);
   const cur = tileVisRoles(site, key, TILE_VIS_DEFAULTS[key]).slice();
@@ -29458,7 +29493,7 @@ window.setTileVisibility = async function(siteId, key, role, on){
 };
 // Health & Safety sub-pages → their tile key (used by the router to stop
 // someone opening a hidden page from an old link).
-const HS_ROUTE_TILE = {rams:'hs_rams', coshh:'hs_coshh', tbt:'hs_tbt', briefings:'hs_briefings', havspuwer:'hs_havspuwer', havs:'hs_havspuwer', puwer:'hs_havspuwer', loler:'hs_havspuwer', incidents:'hs_incidents', operatives:'hs_operatives'};
+const HS_ROUTE_TILE = {rams:'hs_rams', coshh:'hs_coshh', tbt:'hs_tbt', briefings:'hs_briefings', havspuwer:'hs_havspuwer', havs:'hs_havs', puwer:'hs_havspuwer', loler:'hs_havspuwer', incidents:'hs_incidents', operatives:'hs_operatives'};
 
 /* ================= HEALTH & SAFETY (folder: RAMS + COSHH + Toolbox Talks) ================= */
 async function renderHealthSafety(siteId){
@@ -29566,10 +29601,9 @@ async function renderHavsPuwer(siteId){
         ${myToolCount?'':'<span class="badge-count">!</span>'}
       </div>
       ` : ''}
-      <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
-        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
-        <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
-      </div>
+      ${(()=>{ const hv = tileVisRoles(site, 'hs_havs', TILE_VIS_DEFAULTS.hs_havs); const hidden = !hv.includes('operative');
+        return visTileHtml(site, 'hs_havs', {href:`#/site/${siteId}/hs/havs`, icon:'🖐', bg:'#FFF3E0', fg:'#B85C00', label:'HAVS',
+          sub: isFullManager(ME) ? (hidden ? 'Hidden from operatives · tap ▾ to show' : 'Vibration exposure · shown to operatives') : 'Vibration exposure', def:TILE_VIS_DEFAULTS.hs_havs}); })()}
       <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
@@ -41469,13 +41503,13 @@ async function renderRoute(){
   if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
   if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
   if(ME.role==='superadmin'){ return renderAdmin(); }
-  if(ME.role==='admin' && ORG && !ORG.logo_path){ return renderCompanySetup(); }
+  if(ME.role==='admin' && !ME._support && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role
   // except superadmin until the current policy is signed (or re-signed,
   // once its expiry rolls the cycle over). The signature route itself stays
   // reachable so someone with no adopted signature yet can go set one up
   // and come straight back.
-  if(preParts[0]!=='signature' && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
+  if(preParts[0]!=='signature' && !ME._support && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
   // Delivery drivers get their own simplified home instead of the normal
   // site list — they don't work "on a site" the way operatives do, so
@@ -41674,7 +41708,7 @@ async function renderRoute(){
       // Clients get a cut-down H&S area — RAMS/COSHH/TBT/PUWER only, no
       // briefings/HAVS/incidents/my-tools/policy-as-its-own-page/operatives.
       if(isClient(ME) && sub && !['rams','coshh','tbt','puwer','operatives'].includes(sub)){ go(`#/site/${siteId}/hs`); return; }
-      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub])){ go(`#/site/${siteId}/hs`); return; }
+      if(sub && HS_ROUTE_TILE[sub] && !canSeeTile(SITES.find(x=>x.id===siteId), HS_ROUTE_TILE[sub], TILE_VIS_DEFAULTS[HS_ROUTE_TILE[sub]])){ go(`#/site/${siteId}/hs`); return; }
       if(!sub) return renderHealthSafety(siteId);
       if(sub==='rams' && parts[4]==='boxes' && parts[5]) return renderRamsBoxes(siteId, parts[5]);
       if(sub==='rams' && parts[4]==='new') return renderRamsNew(siteId);

@@ -51,7 +51,7 @@ async function renderAdmin(){
     ${orgs.map(o=>{
       const sub = subByOrg[o.id];
       const people = (peopleByOrg[o.id]||[]).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-      const ROLES = ['operative','site_manager','pm','admin'];
+      const ROLES = ['operative','site_manager','pm','estimator','driver','client','admin'];
       const expanded = adminExpandedOrg === o.id;
       return `
       <div class="card">
@@ -73,12 +73,14 @@ async function renderAdmin(){
                 <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
               </select>
             </div>
+            <button class="darkbtn" style="margin:10px 0 0;" onclick="event.stopPropagation();superadminOpenCompany('${o.id}','${jsAttr(o.name)}')">🛠 Open this company's app</button>
+            <p class="stub" style="margin:4px 0 0;font-size:11.5px;">Go inside as their admin to look into issues or fix things. A bar at the top lets you exit.</p>
             <button class="ghostbtn" style="width:auto;padding:6px 10px;color:var(--warn);margin:10px 0 8px;" onclick="event.stopPropagation();deleteCompany('${o.id}','${jsAttr(o.name)}')">Delete Company</button>
             ${people.map(p=>`
               <div class="sitecard" style="padding:8px 10px;flex-wrap:wrap;">
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${personRoleLabel(p)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                  ${ROLES.filter(r=>r!==p.role).map(r=>`<button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" onclick="setUserRole('${p.id}','${r}')">Make ${roleLabel(r)}</button>`).join('')}
+                  ${p.role==='superadmin' ? '' : `<select class="sarole" title="Role" onchange="setUserRole('${p.id}', this.value, this)">${ROLES.map(r=>{ const cur = p.is_estimator ? 'estimator' : p.role; return `<option value="${r}" ${r===cur?'selected':''}>${escapeHtml(roleLabel(r))}</option>`; }).join('')}${ROLES.includes(p.is_estimator?'estimator':p.role) ? '' : `<option selected disabled>${escapeHtml(personRoleLabel(p))}</option>`}</select>`}
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:800;text-transform:none;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
                 </div>
@@ -121,8 +123,8 @@ window.toggleAdminOrg = function(orgId){
   adminExpandedOrg = adminExpandedOrg === orgId ? null : orgId;
   render();
 };
-window.setUserRole = async function(userId, role){
-  if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)) return;
+window.setUserRole = async function(userId, role, sel){
+  if(!await customConfirm(`Change this person's role to ${roleLabel(role)}?`)){ if(sel) render(); return; }
   // 'estimator' isn't a separate role in the database: it is a Project
   // Manager with the no-notifications flag on.
   const est = role==='estimator';
@@ -131,6 +133,23 @@ window.setUserRole = async function(userId, role){
     if(PROFILES[userId]){ PROFILES[userId].role = est ? 'pm' : role; PROFILES[userId].is_estimator = est; } // keep the cache correct without a re-fetch
     toast(`Role changed to ${roleLabel(role)}`); render();
   }
+};
+// Support mode: open a company's app as its admin, and come back out.
+async function superadminSwitch(orgId){
+  const res = await sbFetch('/rest/v1/rpc/superadmin_view_org', {method:'POST', body: JSON.stringify({p_org_id: orgId})});
+  let d = null; try{ d = await res.json(); }catch(e){}
+  if(!res.ok || !d || !d.ok){ toast('Could not switch — '+((d && (d.error||d.message)) || res.status)); return false; }
+  // Drop everything cached for the previous company before reloading.
+  try{ await clearOfflineCache(); }catch(e){}
+  try{ await sdelete(K_BOOT, false); }catch(e){}
+  return true;
+}
+window.superadminOpenCompany = async function(orgId, name){
+  if(!await customConfirm(`Open ${name} as their admin? You'll see and can change everything they can. Use Exit on the bar at the top to come back.`)) return;
+  if(await superadminSwitch(orgId)){ location.hash = '#/home'; location.reload(); }
+};
+window.superadminExitCompany = async function(){
+  if(await superadminSwitch(null)){ location.hash = ''; location.reload(); }
 };
 window.resetUserPassword = async function(email){
   const custom = await customPrompt(`Set a new password for ${email}.\n\nType a password (min 8 characters), or leave this blank and press OK for a random one to be generated instead.`);

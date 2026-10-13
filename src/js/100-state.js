@@ -1,5 +1,12 @@
 /* ================= state ================= */
 let ME = null;
+// #(support-mode) A super admin who has opened a company from Platform Admin
+// works inside it as that company's admin (the database does the same via
+// profiles.view_as_org_id); the real role is kept on _support.
+function supportModeMe(p){
+  if(p && p.role==='superadmin' && p.view_as_org_id) return Object.assign({}, p, {role:'admin', org_id:p.view_as_org_id, _support:true, _realOrgId:p.org_id});
+  return p;
+}
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
 let SITES = [];
 let PROFILES = {}; // id -> {name,email,role}

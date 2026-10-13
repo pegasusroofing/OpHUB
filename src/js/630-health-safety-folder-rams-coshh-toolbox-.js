@@ -104,10 +104,9 @@ async function renderHavsPuwer(siteId){
         ${myToolCount?'':'<span class="badge-count">!</span>'}
       </div>
       ` : ''}
-      <div class="tile" onclick="go('#/site/${siteId}/hs/havs')">
-        <div class="icon" style="background:#FFF3E0;color:#B85C00;">🖐</div>
-        <div class="lbl">HAVS</div><div class="sub">Vibration exposure</div>
-      </div>
+      ${(()=>{ const hv = tileVisRoles(site, 'hs_havs', TILE_VIS_DEFAULTS.hs_havs); const hidden = !hv.includes('operative');
+        return visTileHtml(site, 'hs_havs', {href:`#/site/${siteId}/hs/havs`, icon:'🖐', bg:'#FFF3E0', fg:'#B85C00', label:'HAVS',
+          sub: isFullManager(ME) ? (hidden ? 'Hidden from operatives · tap ▾ to show' : 'Vibration exposure · shown to operatives') : 'Vibration exposure', def:TILE_VIS_DEFAULTS.hs_havs}); })()}
       <div class="tile" onclick="go('#/site/${siteId}/hs/puwer')">
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>

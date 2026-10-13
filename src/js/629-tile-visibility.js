@@ -32,7 +32,9 @@ function visTileHtml(site, key, t){
       ${t.badge || ''}
     </div>`;
 }
-const TILE_VIS_DEFAULTS = {};
+// Tiles that start hidden from some roles until a PM/admin shows them.
+// HAVS (inside Tools, HAVS & PUWER) starts hidden from operatives (Andy, 13 Oct).
+const TILE_VIS_DEFAULTS = {hs_havs:['site_manager']};
 window.setTileVisibility = async function(siteId, key, role, on){
   const site = SITES.find(s=>s.id===siteId);
   const cur = tileVisRoles(site, key, TILE_VIS_DEFAULTS[key]).slice();
@@ -49,4 +51,4 @@ window.setTileVisibility = async function(siteId, key, role, on){
 };
 // Health & Safety sub-pages → their tile key (used by the router to stop
 // someone opening a hidden page from an old link).
-const HS_ROUTE_TILE = {rams:'hs_rams', coshh:'hs_coshh', tbt:'hs_tbt', briefings:'hs_briefings', havspuwer:'hs_havspuwer', havs:'hs_havspuwer', puwer:'hs_havspuwer', loler:'hs_havspuwer', incidents:'hs_incidents', operatives:'hs_operatives'};
+const HS_ROUTE_TILE = {rams:'hs_rams', coshh:'hs_coshh', tbt:'hs_tbt', briefings:'hs_briefings', havspuwer:'hs_havspuwer', havs:'hs_havs', puwer:'hs_havspuwer', loler:'hs_havspuwer', incidents:'hs_incidents', operatives:'hs_operatives'};

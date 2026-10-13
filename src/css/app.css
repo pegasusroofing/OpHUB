@@ -1026,3 +1026,9 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .homaint textarea{margin:0;}
 .hocoverbtns{display:flex;gap:6px;flex-wrap:wrap;}
 .hocoverbtns > *{flex:1 1 100px;margin:0!important;text-align:center;cursor:pointer;font-size:12px;padding:10px 6px;}
+
+/* super admin support mode */
+.supportbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:10px;background:#7A1E12;color:#fff;font-size:12px;font-weight:600;padding:7px 12px;line-height:1.35;}
+.supportbar b{font-weight:800;}
+.supportbar button{all:unset;cursor:pointer;margin-left:auto;flex:0 0 auto;background:#fff;color:#7A1E12;font-weight:800;font-size:12px;padding:5px 12px;border-radius:999px;}
+select.sarole{width:auto;min-width:150px;margin:0;padding:6px 8px;font-size:12px;}
