@@ -175,14 +175,19 @@ RAMS and COSHH assessments for this project are held on the project in the OpHUB
     ],
   };
 }
-async function hoLoadManual(siteId){
-  if(hoState && hoState.siteId===siteId) return hoState;
-  const rows = await dbSelect('handover_manuals', 'site_id=eq.'+siteId);
-  let data = rows[0] && rows[0].data && rows[0].data.sections ? rows[0].data : null;
+// #(om-multi) A job can have several O&M manuals (handover_om_manuals, one
+// row each). The Handover tile opens the list; each manual opens at
+// #/site/<site>/handover/<manual id>.
+async function hoLoadManual(siteId, manualId){
+  if(hoState && hoState.siteId===siteId && hoState.manualId===manualId) return hoState;
+  const rows = await dbSelect('handover_om_manuals', 'id=eq.'+manualId+'&site_id=eq.'+siteId);
+  const row = rows && rows[0];
+  if(!row) return null;
+  let data = row.data && row.data.sections ? row.data : null;
   const isNew = !data;
   if(!data) data = await hoBuildDefault(siteId);
   const changed = hoNormalize(data);
-  hoState = {siteId, data, dirty:isNew || changed};
+  hoState = {siteId, manualId, name: row.name || 'O&M Manual', data, dirty:isNew || changed};
   if(hoState.dirty) hoSaveNow();
   return hoState;
 }
@@ -190,8 +195,7 @@ function hoTouch(){ if(!hoState) return; hoState.dirty = true; clearTimeout(hoSa
 async function hoSaveNow(){
   if(!hoState || !hoState.dirty) return true;
   const st = hoState; st.dirty = false;
-  const site = SITES.find(s=>s.id===st.siteId);
-  const res = await sbFetch('/rest/v1/handover_manuals?on_conflict=site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({site_id:st.siteId, org_id:(site&&site.org_id)||ME.org_id, data:st.data, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  const res = await sbFetch('/rest/v1/handover_om_manuals?id=eq.'+st.manualId, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({data:st.data, name:st.name, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(!res || !res.ok){ st.dirty = true; toast('Could not save the manual — check signal'); return false; }
   return true;
 }
@@ -219,13 +223,6 @@ window.hoAddSection = function(type){
   if(type==='maint'){ s.title = 'Maintenance Procedures'; s.items = []; }
   hoState.data.sections.push(s); hoTouch(); render();
   setTimeout(()=>{ const el = document.getElementById('hosec-'+s.id); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 80);
-};
-window.hoRebuild = async function(){
-  if(!(await customConfirm('Rebuild the manual from the job? This replaces every section with fresh ones from the Schedule of Works, data sheets, guarantees, COSHH, drawings and photos — your edits will be lost.'))) return;
-  hoBusy = 'Rebuilding…'; render();
-  const keepApp = hoState.data.appendix || [];
-  hoState.data = await hoBuildDefault(hoState.siteId); hoState.data.appendix = keepApp; hoNormalize(hoState.data); hoState.dirty = true; await hoSaveNow();
-  hoBusy = ''; toast('Rebuilt from the job'); render();
 };
 window.hoRemovePhoto = function(id, i){ const s = hoSec(id); s.photos.splice(i,1); hoTouch(); render(); };
 window.hoPhotoCaption = function(id, i, v){ const s = hoSec(id); if(s.photos[i]){ s.photos[i].caption = v; hoTouch(); } };
@@ -589,8 +586,10 @@ async function renderHandover(siteId){
   if(!isManager(ME)){ go('#/site/'+siteId+'/home'); return; }
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/sites'); return; }
-  if(hoState && hoState.siteId!==siteId){ if(hoState.dirty) await hoSaveNow(); hoState = null; }
-  await hoLoadManual(siteId);
+  const manualId = (location.hash.split('?')[0].split('/')[4]) || '';
+  if(!manualId) return renderHandoverList(siteId);
+  if(hoState && (hoState.siteId!==siteId || hoState.manualId!==manualId)){ if(hoState.dirty) await hoSaveNow(); hoState = null; hoMenu = null; }
+  if(!(await hoLoadManual(siteId, manualId))){ toast('That O&M manual no longer exists'); go('#/site/'+siteId+'/handover'); return; }
   const [docs, jobCoshh] = await Promise.all([
     hoLoadDocs(siteId),
     dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&order=uploaded_at.asc&select=id,name,storage_path').catch(()=>[]),
@@ -691,12 +690,13 @@ async function renderHandover(siteId){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Also attach to the back of the PDF</p>
       ${[['datasheets','Data sheets tab ('+sheets.length+')'],['guarantees','Guarantee certificates ('+guars.filter(g=>g.storage_path).length+')'],['coshh','COSHH assessments on this job ('+(jobCoshh||[]).filter(x=>x.storage_path).length+')'],['drawings','Drawings & specifications']].map(([k,l])=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.attach[k]?'checked':''} onchange="hoAttach('${k}',this.checked)">${l}</label>`).join('')}
-    </div>
-    <button type="button" class="ghostbtn" style="color:var(--warn);border-color:var(--warn);" onclick="hoRebuild()">⟳ Rebuild from the job</button>`;
+    </div>`;
   }
   const html = `
+    <div class="formfield" style="margin-top:0;"><label class="field-label">O&amp;M name</label><input type="text" value="${escapeHtml(hoState.name||'')}" placeholder="e.g. O&amp;M Manual – Main roof" oninput="hoState.name=this.value;hoTouch()"></div>
     <div class="pmchips" style="margin:0 0 12px;">${tab('manual','O&M manual')}${tab('sheets','Data sheets', sheets.length)}${tab('guar','Guarantees', guars.length)}</div>
     ${hoBusy ? `<div class="card" style="text-align:center;"><span class="spinner"></span> ${escapeHtml(hoBusy)}</div>` : ''}
+    ${body}
     <div class="hoexport">
       <div class="hoexp-col">
         <button type="button" class="darkbtn" onclick="hoMenu=hoMenu==='export'?null:'export';render()">⬇ Export ▾</button>
@@ -707,9 +707,71 @@ async function renderHandover(siteId){
         ${hoMenu==='email' ? `<div class="hoexp-menu"><button type="button" onclick="hoMenu=null;hoEmail('pdf')">📄 PDF</button><button type="button" onclick="hoMenu=null;hoEmail('docx')">📝 Word</button></div>` : ''}
       </div>
     </div>
-    ${body}`;
-  document.getElementById('app').innerHTML = shell(html, {title:'Handover', subtitle:site.name, siteNameSubtitle:true, back:'#/site/'+siteId+'/home', siteId});
+    <button type="button" class="darkbtn" style="width:100%;margin:0 0 16px;" onclick="hoSaveClose()">💾 Save &amp; close</button>`;
+  document.getElementById('app').innerHTML = shell(html, {title:hoState.name||'O&M Manual', subtitle:site.name, siteNameSubtitle:true, back:'#/site/'+siteId+'/handover', siteId});
 }
+window.hoSaveClose = async function(){
+  if(!hoState) return;
+  const siteId = hoState.siteId;
+  hoState.dirty = true;
+  const ok = await hoSaveNow();
+  if(!ok) return;
+  toast('O&M saved');
+  hoState = null; hoMenu = null;
+  go('#/site/'+siteId+'/handover');
+};
+
+// ---------- list of O&M manuals on the job ----------
+async function renderHandoverList(siteId){
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  if(hoState){ if(hoState.dirty) await hoSaveNow(); hoState = null; }
+  const list = await dbSelect('handover_om_manuals', 'site_id=eq.'+siteId+'&order=created_at.asc&select=id,name,created_at,updated_at,updated_by');
+  if(__gen !== RENDER_GEN) return;
+  const when = t => t ? new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const rows = (list||[]).map(m=>`
+    <div class="card" style="display:flex;align-items:center;gap:10px;cursor:pointer;" onclick="go('#/site/${siteId}/handover/${m.id}')">
+      <div style="font-size:24px;">📘</div>
+      <div style="flex:1;min-width:0;"><b>${escapeHtml(m.name||'O&M Manual')}</b><div class="stub" style="margin:2px 0 0;font-size:12px;">Updated ${when(m.updated_at||m.created_at)}${m.updated_by && PROFILES[m.updated_by] ? ' by '+escapeHtml(PROFILES[m.updated_by].name) : ''}</div></div>
+      <div onclick="event.stopPropagation()">${rowActionsMenuHtml('om-'+m.id, `
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/site/${siteId}/handover/${m.id}')">✎ Edit</div>
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;hoRenameManual('${m.id}','${jsAttr(m.name||'')}')">🏷 Rename</div>
+        <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;hoDuplicateManual('${siteId}','${m.id}')">⧉ Duplicate</div>
+        <div class="statusmenu-item" style="color:var(--warn);" onclick="rowActionsMenuOpenFor=null;hoDeleteManual('${siteId}','${m.id}','${jsAttr(m.name||'')}')">🗑 Delete</div>`)}</div>
+    </div>`).join('');
+  document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 12px;">Operation &amp; Maintenance manuals for this job. Open one to edit it, or start a new one.</p>
+    ${rows || `<div class="empty">No O&amp;M manuals yet.</div>`}
+    <button type="button" class="darkbtn" style="width:100%;margin-top:6px;" onclick="hoNewManual('${siteId}')">+ New O&amp;M manual</button>
+  `, {title:'Handover – O&M manuals', subtitle:site.name, siteNameSubtitle:true, back:'#/site/'+siteId+'/home', siteId});
+}
+window.hoNewManual = async function(siteId){
+  const list = await dbSelect('handover_om_manuals', 'site_id=eq.'+siteId+'&select=id');
+  const name = await customPrompt('Name for the new O&M manual', 'O&M Manual'+((list||[]).length ? ' '+((list||[]).length+1) : ''));
+  if(name==null) return;
+  const site = SITES.find(s=>s.id===siteId);
+  toast('Building from the job…');
+  const data = await hoBuildDefault(siteId); hoNormalize(data);
+  const rows = await dbInsert('handover_om_manuals', {site_id:siteId, org_id:(site&&site.org_id)||ME.org_id, name:(name.trim()||'O&M Manual'), data, created_by:ME.id, updated_by:ME.id});
+  if(rows && rows[0]){ hoTab = 'manual'; go('#/site/'+siteId+'/handover/'+rows[0].id); }
+};
+window.hoRenameManual = async function(id, cur){
+  const name = await customPrompt('Rename this O&M manual', cur||'O&M Manual');
+  if(name==null || !name.trim()) return;
+  const r = await dbUpdate('handover_om_manuals', id, {name:name.trim()});
+  if(r){ toast('Renamed'); render(); }
+};
+window.hoDuplicateManual = async function(siteId, id){
+  const rows = await dbSelect('handover_om_manuals', 'id=eq.'+id);
+  const m = rows && rows[0]; if(!m) return;
+  const r = await dbInsert('handover_om_manuals', {site_id:siteId, org_id:m.org_id, name:(m.name||'O&M Manual')+' (copy)', data:m.data, created_by:ME.id, updated_by:ME.id});
+  if(r){ toast('Copied'); render(); }
+};
+window.hoDeleteManual = async function(siteId, id, name){
+  if(!(await customConfirm(`Delete "${name||'O&M Manual'}"? This can't be undone.`, {confirmLabel:'Yes — delete', danger:true}))) return;
+  const ok = await dbDelete('handover_om_manuals', id);
+  if(ok){ if(hoState && hoState.manualId===id) hoState = null; toast('Deleted'); render(); }
+};
 
 // ---------- images ----------
 async function hoImage(bucket, path, maxDim, aspect){
