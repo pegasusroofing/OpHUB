@@ -20855,21 +20855,16 @@ async function renderSchedule(siteId){
     return !!(scheduleAssignTarget && scheduleAssignTarget.kind==='section' && scheduleAssignTarget.id===sec.id);
   });
 
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${canAdd ? `
-      <div class="drawheaderrow">
-        <span>Schedule of Works</span>
-        <div class="row-gap" style="width:auto;">
-          ${rowActionsMenuHtml('sow-more', `
+  // The SOW ▾ menu (add section / variation / library / upload / document)
+  // sits beside "+ Add Task" on the Schedule of Works card (Andy, 13 Oct).
+  const sowMoreMenuHtml = canAdd ? rowActionsMenuHtml('sow-more', `
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='section';render()">📁 Add Section</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='variation';render()">📐 Add Variation Work</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openScheduleLibraryPanel('${siteId}')">📚 From Library</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('scheduleDocInput').click()">📎 Add Document</div>
-          `)}
-        </div>
-      </div>
-    ` : ''}
+          `) : '';
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
@@ -20987,13 +20982,13 @@ async function renderSchedule(siteId){
       // is actually open avoids that without changing the normal look.
       const somethingOpenHere = ungrouped.some(t=>rowActionsMenuOpenFor==='sowtask-'+t.id) ||
         (scheduleAssignTarget && scheduleAssignTarget.kind==='task' && ungrouped.some(t=>t.id===scheduleAssignTarget.id)) ||
-        scheduleAddPanel==='task';
+        scheduleAddPanel==='task' || rowActionsMenuOpenFor==='sow-more';
       return `
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
-        <p class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;">
+        <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;display:flex;flex-wrap:nowrap;align-items:center;">
           <span style="cursor:pointer;flex:1;min-width:0;" onclick="toggleScheduleSection('__ungrouped__')"><span class="arrow">${open?'▼':'▶'}</span> Schedule of Works</span>
-          ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';scheduleSectionsOpen['__ungrouped__']=true;render()">➕ Add Task</button>` : ''}
-        </p>
+          ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';scheduleSectionsOpen['__ungrouped__']=true;render()">➕ Add Task</button><span style="margin-left:6px;display:inline-flex;flex:0 0 auto;" onclick="event.stopPropagation()">${sowMoreMenuHtml}</span>` : ''}
+        </div>
         ${open ? `<div style="padding:0 14px 14px;">
           ${canAdd && scheduleAddPanel==='task' ? `
             <div class="card" style="background:var(--paper);">
