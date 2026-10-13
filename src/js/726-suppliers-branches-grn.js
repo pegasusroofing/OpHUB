@@ -21,7 +21,7 @@ function branchSelectHtml(selId, supplierId, selected){
   if(!brs.length) return '';
   const selId2 = selected && selected.id;
   return `<div class="formfield" style="margin-top:8px;"><label class="field-label">Branch / address</label>
-    <select id="${selId}" onchange="matBranchChoice['${selId}']=this.value">
+    <select id="${selId}" onchange="matBranchChoice['${selId}']=this.value;if(window.onBranchPicked)onBranchPicked('${selId}')">
       <option value="">— Any branch / not specified —</option>
       ${brs.map(b=>`<option value="${b.id}" ${(matBranchChoice[selId]||selId2)===b.id?'selected':''}>${escapeHtml(branchLabel(b))}</option>`).join('')}
     </select></div>`;

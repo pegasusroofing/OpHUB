@@ -3003,7 +3003,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '13 Oct 2026 · overall progress';
+const OPHUB_BUILD_LABEL = '13 Oct 2026 · order send-to';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -34284,7 +34284,7 @@ function branchSelectHtml(selId, supplierId, selected){
   if(!brs.length) return '';
   const selId2 = selected && selected.id;
   return `<div class="formfield" style="margin-top:8px;"><label class="field-label">Branch / address</label>
-    <select id="${selId}" onchange="matBranchChoice['${selId}']=this.value">
+    <select id="${selId}" onchange="matBranchChoice['${selId}']=this.value;if(window.onBranchPicked)onBranchPicked('${selId}')">
       <option value="">— Any branch / not specified —</option>
       ${brs.map(b=>`<option value="${b.id}" ${(matBranchChoice[selId]||selId2)===b.id?'selected':''}>${escapeHtml(branchLabel(b))}</option>`).join('')}
     </select></div>`;
@@ -35934,13 +35934,41 @@ function addDeliverTo(fulfil, materials){
   const labels = Array.from(new Set((materials||[]).map(m=>m.sub_site_label).filter(Boolean)));
   if(fulfil.mode==='delivery' && labels.length===1) fulfil.note = 'Deliver to: '+labels[0]+(fulfil.note ? ' — '+fulfil.note : '');
 }
+// Who the order email goes to. "Send to" drop-down: the branch's own email
+// (default when it has one), the supplier's main order email, or nobody at
+// the supplier — just the PM sending it.
+function orderRecipient(supplier, fulfil, toMe){
+  if(toMe) return (supplier && supplier.email) || '';
+  if(fulfil.sendTo==='pm') return (ME && ME.email) || '';
+  if(fulfil.sendTo==='main') return (supplier && supplier.email) || '';
+  return orderEmailFor(supplier, fulfil.branch);
+}
 // Typed CCs, plus the supplier's main order email whenever the order is
-// going to one of its branches' own emails instead.
+// going to one of its branches' own emails instead. Never copies the
+// supplier in when it's going to the PM only.
 function orderCcEmails(supplier, fulfil, toMe){
   const out = (fulfil.ccEmails||[]).slice();
-  if(!toMe && supplier && supplier.email && fulfil.branch && fulfil.branch.email && fulfil.branch.email.toLowerCase()!==String(supplier.email).toLowerCase()) out.push(supplier.email);
+  if(!toMe && fulfil.sendTo!=='pm' && fulfil.sendTo!=='main' && supplier && supplier.email && fulfil.branch && fulfil.branch.email && fulfil.branch.email.toLowerCase()!==String(supplier.email).toLowerCase()) out.push(supplier.email);
   return out;
 }
+function orderSendToOptionsHtml(key){
+  const sid = orderSupplierFor(key);
+  if(!sid || sid===SUPPLIER_EMAIL_ME) return '';
+  const sup = (window.MAT_SUPPLIERS||[]).find(x=>x.id===sid) || {};
+  const br = readBranch('reqBranch_'+key, sid);
+  const opts = [];
+  if(br && br.email) opts.push(['branch', 'Branch — '+(br.name||'branch')+' ('+br.email+')']);
+  if(sup.email) opts.push(['main', 'Supplier main email ('+sup.email+')']);
+  if(!opts.length) opts.push(['branch', 'No supplier email set — add one in Admin › Suppliers']);
+  opts.push(['pm', "Don't email the supplier — just email me"+(ME && ME.email ? ' ('+ME.email+')' : '')]);
+  return opts.map(o=>`<option value="${o[0]}">${escapeHtml(o[1])}</option>`).join('');
+}
+window.onBranchPicked = function(selId){
+  if(selId.indexOf('reqBranch_')!==0) return;
+  const key = selId.slice('reqBranch_'.length);
+  const el = document.getElementById('reqSendTo_'+key);
+  if(el){ const prev = el.value; el.innerHTML = orderSendToOptionsHtml(key); if(prev==='pm') el.value = 'pm'; }
+};
 function orderSupplierFor(key){
   if(key==='group') return groupSupplierId;
   if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
@@ -35949,6 +35977,9 @@ function orderSupplierFor(key){
 function orderFulfilmentHtml(key, drivers, siteOps){
   return `
     ${branchSelectHtml('reqBranch_'+key, orderSupplierFor(key))}
+    ${orderSupplierFor(key) && orderSupplierFor(key)!==SUPPLIER_EMAIL_ME ? `<div class="formfield"><label class="field-label">Send order email to</label>
+      <select id="reqSendTo_${key}">${orderSendToOptionsHtml(key)}</select>
+    </div>` : ''}
     <div class="formfield"><label class="field-label">Delivery or collection</label>
       <select id="reqMode_${key}" onchange="onOrderModeChange('${key}')">
         <option value="delivery">Delivery — supplier delivers to site</option>
@@ -35982,7 +36013,7 @@ function orderFulfilmentHtml(key, drivers, siteOps){
     </div>` : ''}
     <div class="formfield"><label class="field-label">CC other emails (optional)</label>
       <input type="text" id="reqCcEmails_${key}" inputmode="email" autocomplete="off" placeholder="e.g. accounts@supplier.co.uk, office@ourcompany.co.uk">
-      <p class="stub" style="margin:4px 0 0;">Separate several with commas. When the order goes to a branch's own email, the supplier's main order email (set in Admin › Suppliers) is copied in automatically.</p>
+      <p class="stub" style="margin:4px 0 0;">Separate several with commas. When the order goes to a branch's own email, the supplier's main order email (set in Admin › Suppliers) is copied in automatically. You are always copied in.</p>
     </div>`;
 }
 window.onOrderModeChange = function(key){
@@ -36003,16 +36034,17 @@ function readOrderFulfilment(key){
   const typedNote = g('reqNote') ? g('reqNote').value.trim() : '';
   // The supplier sees the branch on the order (it goes out in the note).
   const note = branch ? ('Branch: '+branchLabel(branch)+(branch.phone?' ('+branch.phone+')':'')+(typedNote ? ' — '+typedNote : '')) : typedNote;
+  const sendTo = g('reqSendTo') ? g('reqSendTo').value : 'branch';
   const ccIds = Array.from(document.querySelectorAll('.reqCc_'+key+':checked')).map(el=>el.value);
   const ccRaw = g('reqCcEmails') ? g('reqCcEmails').value : '';
   const ccEmails = ccRaw.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
   const badCc = ccEmails.filter(x=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
   if(badCc.length){ toast('Check the CC email'+(badCc.length>1?'s':'')+': '+badCc.join(', ')); return null; }
-  if(mode==='delivery') return {mode, date, note, ccIds, ccEmails, branch, collectorKind:null, collectorId:null, slot:null};
+  if(mode==='delivery') return {mode, date, note, ccIds, ccEmails, branch, sendTo, collectorKind:null, collectorId:null, slot:null};
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, note, ccIds, ccEmails, branch, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, ccEmails, branch, sendTo, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -36084,7 +36116,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const toMe = supplierId===SUPPLIER_EMAIL_ME;
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
-  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
+  if(supplier && !toMe && !orderRecipient(supplier, fulfil, toMe)){ toast(fulfil.sendTo==='pm' ? 'There is no email address on your profile.' : 'No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   if(material) addDeliverTo(fulfil, [material]);
@@ -36096,11 +36128,11 @@ window.confirmSendMaterial = async function(siteId, matId){
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, material ? [material] : []);
-  toast((toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…'));
+  toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name,
+      material_id: matId, supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
@@ -36109,7 +36141,7 @@ window.confirmSendMaterial = async function(siteId, matId){
     const d = await res.json();
     if(res.ok && !d.error){
       await dbUpdate('materials', matId, {email_sent_at:new Date().toISOString()});
-      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
+      toast((toMe ? 'Order emailed to you at '+supplier.email : fulfil.sendTo==='pm' ? 'Order emailed to you only — '+supplier.name+' was not emailed' : 'Order emailed to '+supplier.name+' at '+orderRecipient(supplier, fulfil, toMe)+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
@@ -36179,7 +36211,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   if(toMe && !ME.email){ toast('There is no email address on your profile.'); return; }
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
-  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
+  if(supplier && !toMe && !orderRecipient(supplier, fulfil, toMe)){ toast(fulfil.sendTo==='pm' ? 'There is no email address on your profile.' : 'No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*&order=created_at.desc');
@@ -36193,11 +36225,11 @@ window.confirmSendGroupedMaterial = async function(siteId){
   selectedMaterialIds = new Set();
   groupSupplierId = null;
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, materials);
-  toast(toMe ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
+  toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
+      supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
@@ -36206,7 +36238,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
     const d = await res.json();
     if(res.ok && !d.error){
       await Promise.all(matIds.map(id => dbUpdate('materials', id, {email_sent_at:new Date().toISOString()})));
-      toast((toMe ? 'Order emailed to you at '+supplier.email : 'Order emailed to '+supplier.name+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
+      toast((toMe ? 'Order emailed to you at '+supplier.email : fulfil.sendTo==='pm' ? 'Order emailed to you only — '+supplier.name+' was not emailed' : 'Order emailed to '+supplier.name+' at '+orderRecipient(supplier, fulfil, toMe)+' (you\'ve been CC\'d)')+((fulfil.ccIds||[]).length ? ' — copied to '+fulfil.ccIds.length+' operative'+(fulfil.ccIds.length>1?'s':'') : '')+collectNote);
     } else {
       console.error('send-material-order failed:', d.error || res.status);
       toast('Routed to '+supplier.name+', but the order email failed to send — '+(d.error ? String(d.error).slice(0,140) : 'check it manually.'));
