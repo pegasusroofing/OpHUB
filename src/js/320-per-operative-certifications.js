@@ -32,7 +32,25 @@ window.toggleOpFolderMenu = function(operativeId){ opFolderMenuOpenFor = opFolde
 // Drawings folders). One open at a time, closes on outside click (see the
 // document click handler's [data-rowactions-root] check).
 let rowActionsMenuOpenFor = null;
-window.toggleRowActionsMenu = function(key){ rowActionsMenuOpenFor = rowActionsMenuOpenFor===key ? null : key; render(); };
+// Opening/closing a ▾ menu redraws the page: keep the page exactly where it
+// was, and open the menu upwards when there's no room under it.
+window.toggleRowActionsMenu = async function(key){
+  const y = appScrollY();
+  rowActionsMenuOpenFor = rowActionsMenuOpenFor===key ? null : key;
+  await render();
+  if(Math.abs(appScrollY()-y) > 2) appScrollTo(y);
+  rowActionsMenuFit();
+};
+function rowActionsMenuFit(noScroll){
+  const m = document.querySelector('[data-rowactions-root] > .statusmenu'); if(!m) return;
+  const r = m.getBoundingClientRect();
+  const bar = document.querySelector('.tabbar'); const limit = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+  if(r.bottom > limit - 6){
+    const root = m.parentElement.getBoundingClientRect();
+    if(root.top - r.height - 8 > 60){ m.style.top = 'auto'; m.style.bottom = 'calc(100% + 4px)'; }
+    else if(!noScroll){ const s = appScroller(); const dy = r.bottom - limit + 12; if(s) s.scrollTop += dy; else window.scrollBy(0, dy); }
+  }
+}
 function rowActionsMenuHtml(key, itemsHtml){
   return `
     <div style="position:relative;flex:0 0 auto;" data-rowactions-root onclick="event.stopPropagation();">

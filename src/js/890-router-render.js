@@ -24,6 +24,7 @@ async function render(){
   try{
     await renderRoute();
     if(sameHash && location.hash === RENDERED_HASH && keepY > 0) appScrollTo(keepY);
+    if(typeof rowActionsMenuOpenFor!=='undefined' && rowActionsMenuOpenFor){ try{ rowActionsMenuFit(true); }catch(e){} }
     RENDERED_HASH = location.hash;
   }catch(e){
     uiReadCacheClear();

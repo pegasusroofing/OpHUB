@@ -9131,7 +9131,25 @@ window.toggleOpFolderMenu = function(operativeId){ opFolderMenuOpenFor = opFolde
 // Drawings folders). One open at a time, closes on outside click (see the
 // document click handler's [data-rowactions-root] check).
 let rowActionsMenuOpenFor = null;
-window.toggleRowActionsMenu = function(key){ rowActionsMenuOpenFor = rowActionsMenuOpenFor===key ? null : key; render(); };
+// Opening/closing a ▾ menu redraws the page: keep the page exactly where it
+// was, and open the menu upwards when there's no room under it.
+window.toggleRowActionsMenu = async function(key){
+  const y = appScrollY();
+  rowActionsMenuOpenFor = rowActionsMenuOpenFor===key ? null : key;
+  await render();
+  if(Math.abs(appScrollY()-y) > 2) appScrollTo(y);
+  rowActionsMenuFit();
+};
+function rowActionsMenuFit(noScroll){
+  const m = document.querySelector('[data-rowactions-root] > .statusmenu'); if(!m) return;
+  const r = m.getBoundingClientRect();
+  const bar = document.querySelector('.tabbar'); const limit = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+  if(r.bottom > limit - 6){
+    const root = m.parentElement.getBoundingClientRect();
+    if(root.top - r.height - 8 > 60){ m.style.top = 'auto'; m.style.bottom = 'calc(100% + 4px)'; }
+    else if(!noScroll){ const s = appScroller(); const dy = r.bottom - limit + 12; if(s) s.scrollTop += dy; else window.scrollBy(0, dy); }
+  }
+}
 function rowActionsMenuHtml(key, itemsHtml){
   return `
     <div style="position:relative;flex:0 0 auto;" data-rowactions-root onclick="event.stopPropagation();">
@@ -21677,7 +21695,7 @@ function sowPendingFind(id){
 }
 function sowPendingTileHtml(p){
   const mark = p.state==='done' ? '' : `<div class="sowpendmark ${p.state==='wait'?'wait':''}">${p.state==='wait' ? '⟳' : '<span class="sowspin"></span>'}</div>`;
-  return `<div class="taskphotowrap sowpend" data-pid="${p.id}"><img src="${p.src}" width="40" height="40" alt="">${mark}</div>`;
+  return `<div class="taskphotowrap sowpend" data-pid="${p.id}"><img src="${p.src}" width="40" height="40" alt="">${mark}<div class="taskphotodel" title="Remove this photo" onclick="event.stopPropagation();sowCancelPhoto('${p.id}')">×</div></div>`;
 }
 // Repaints just the pending tiles of one task (no full page reload).
 function sowPaintPending(taskId){
@@ -21727,16 +21745,21 @@ function sowAddPhotos(siteId, taskId, files, stage){
         // Quiet: no "Uploading… please wait" pill — nobody is waiting.
         uploadBusy.quietNext = true;
         let fullP; try{ fullP = compressImage(f, SOW_PHOTO_FULL); } finally { uploadBusy.quietNext = false; }
-        const full = await fullP;
+        // A photo the phone can't read must never hold up the rest.
+        const full = await Promise.race([fullP, new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]);
+        if(p.cancelled) return;
         let mid = null, thumb = null;
         try{ mid = await shrinkDataUrl(full, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); thumb = await shrinkDataUrl(mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e){}
+        if(p.cancelled) return;
         const kept = await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb, p.id);
         if(!kept) throw new Error('not kept');
+        if(p.cancelled){ await sowOfflineDel(p.id); return; }
         if(p.obj){ try{ URL.revokeObjectURL(p.src); }catch(e){} }
         p.src = thumb || mid || full; p.obj = false;
         sowSetState(p.id, navigator.onLine===false ? 'wait' : 'queued');
         sowPump();
       }catch(e){
+        if(p.cancelled) return;
         SOW_PENDING[taskId] = (SOW_PENDING[taskId]||[]).filter(x=>x!==p);
         sowPaintPending(taskId);
         toast('One photo could not be read — please try that one again.');
@@ -21756,6 +21779,32 @@ function sowPump(){
   try{ reportOfflinePaintStrip(); }catch(e){}
   return sowPumpP;
 }
+// × on a photo that's still going up (or stuck): take it off the task and
+// out of the phone's send queue. If it was the only photo for a Complete
+// that's waiting to save, the task stays as it was on the server.
+const sowCancelled = new Set();
+window.sowCancelPhoto = async function(id){
+  let taskId = null;
+  for(const k in SOW_PENDING){ if(SOW_PENDING[k].some(x=>x.id===id)){ taskId = k; break; } }
+  const p = sowPendingFind(id);
+  if(p && p.state==='done') return;
+  if(!(await customConfirm('Remove this photo? It hasn\'t finished uploading.'))) return;
+  sowCancelled.add(id);
+  if(p){ p.cancelled = true; if(p.obj){ try{ URL.revokeObjectURL(p.src); }catch(e){} } }
+  if(taskId){ SOW_PENDING[taskId] = SOW_PENDING[taskId].filter(x=>x.id!==id); if(!SOW_PENDING[taskId].length) delete SOW_PENDING[taskId]; }
+  await sowOfflineDel(id);
+  let reverted = false;
+  if(taskId && !(SOW_PENDING[taskId]||[]).length){
+    const left = await sowOfflineAll();
+    const patch = left.find(r=>r.kind==='patch' && r.taskId===taskId);
+    if(patch && !left.some(r=>r.kind==='photo' && r.taskId===taskId) && patch.patch && patch.patch.status==='done'){
+      await sowOfflineDel(patch.id); reverted = true;
+    }
+  }
+  try{ reportOfflineCount(); reportOfflinePaintStrip(); }catch(e){}
+  if(reverted){ try{ uiReadCacheClear(); }catch(e){} toast('Photo removed — the task wasn\'t marked complete, add a photo to finish it'); render(); }
+  else { if(taskId) sowPaintPending(taskId); toast('Photo removed'); }
+};
 async function sowTaskName(taskId){
   if(sowTaskNameCache[taskId]) return sowTaskNameCache[taskId];
   try{ const r = await dbSelectNet('schedule_tasks', 'id=eq.'+taskId+'&select=name&limit=1'); sowTaskNameCache[taskId] = ((r && r[0] && r[0].name) || 'Photo').replace(/[^a-z0-9 ]+/gi,'').trim() || 'Photo'; }
@@ -21774,6 +21823,9 @@ async function sowSendOne(r){
   const res = await sbFetch('/rest/v1/schedule_photos', {method:'POST', timeoutMs:60000, headers:{'Prefer':'return=minimal'}, body: JSON.stringify({id:r.id, task_id:r.taskId, storage_path:stored, mid_path:m, thumb_path:t, uploaded_by:ME.id, stage:r.stage})});
   if(!res.ok && res.status !== 409) return false;
   await sowOfflineDel(r.id);
+  // Removed while it was sending — take it straight back off the task.
+  const pc = sowPendingFind(r.id);
+  if(sowCancelled.has(r.id) || (pc && pc.cancelled)){ try{ await sbFetch('/rest/v1/schedule_photos?id=eq.'+r.id, {method:'DELETE'}); }catch(e){} return true; }
   sowSetState(r.id, 'done');
   try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhoto(r.full, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
   return true;
@@ -21784,7 +21836,7 @@ async function sowPumpRun(){
   const failed = new Set();
   while(true){
     if(navigator.onLine === false) break;
-    const todo = (await sowOfflineAll()).filter(r=>r.kind==='photo' && !failed.has(r.id));
+    const todo = (await sowOfflineAll()).filter(r=>r.kind==='photo' && !failed.has(r.id) && !sowCancelled.has(r.id));
     if(!todo.length) break;
     await runPool(todo, 2, async r=>{
       let ok = false;
@@ -41577,6 +41629,7 @@ async function render(){
   try{
     await renderRoute();
     if(sameHash && location.hash === RENDERED_HASH && keepY > 0) appScrollTo(keepY);
+    if(typeof rowActionsMenuOpenFor!=='undefined' && rowActionsMenuOpenFor){ try{ rowActionsMenuFit(true); }catch(e){} }
     RENDERED_HASH = location.hash;
   }catch(e){
     uiReadCacheClear();
