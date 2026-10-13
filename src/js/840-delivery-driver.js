@@ -343,7 +343,7 @@ async function renderDriverSchedule(preview){
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${preview ? `
-    <style>.driverpreview .card button,.driverpreview .card label.ghostbtn,.driverpreview .card .row-gap,.driverpreview .taskphotodel{display:none!important;}</style>
+    <style>.driverpreview .card button,.driverpreview .card label.ghostbtn,.driverpreview .card .row-gap,.driverpreview .taskphotodel,.driverpreview .taskphotoedit{display:none!important;}</style>
     <div class="card" style="margin-bottom:12px;background:var(--blue-bg);">
       <p style="margin:0 0 4px;font-weight:700;">👁 Driver view</p>
       <p class="stub" style="margin:0;">${previewDrivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</p>
@@ -378,7 +378,7 @@ async function renderDriverSchedule(preview){
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
           ` : `
-            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
+            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`, i=>`markupDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
             <div class="row-gap" style="margin-top:8px;">
               <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;${deliveryCompletionBusyId?'opacity:.6;pointer-events:none;':''}">
                 ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '📷 Take photo'}
@@ -563,13 +563,14 @@ function deliveryCompletionPhotos(t){
   const many = Array.isArray(t.completion_photo_paths) ? t.completion_photo_paths.filter(Boolean) : [];
   return many.length ? many : (t.completion_photo_path ? [t.completion_photo_path] : []);
 }
-function deliveryPhotoThumbsHtml(paths, size, removeFn){
+function deliveryPhotoThumbsHtml(paths, size, removeFn, markupFn){
   if(!paths.length) return '';
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">${paths.map((p,i)=>{
     const url = publicUrl('site-photos', p);
     return `<div style="position:relative;width:${size}px;height:${size}px;flex:0 0 ${size}px;">
       <img src="${url}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;cursor:pointer;display:block;" onclick="viewImage('${url}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">
       ${removeFn ? `<div class="taskphotodel" title="Remove photo" onclick="event.stopPropagation();${removeFn(i)}">×</div>` : ''}
+      ${markupFn ? `<div class="taskphotoedit" title="Add text or mark up" onclick="event.stopPropagation();${markupFn(i)}">✏️</div>` : ''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -597,6 +598,20 @@ window.addDeliveryCompletionPhotos = async function(input, taskId){
   if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — check your connection and try again.');
   else toast(added.length===1 ? 'Photo added' : added.length+' photos added');
   render();
+};
+// ✏️ on a completion photo: draw / add text, the marked-up copy replaces it.
+window.markupDeliveryCompletionPhoto = async function(taskId, index){
+  const t0 = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=completion_photo_paths,completion_photo_path'))[0];
+  const path = t0 && deliveryCompletionPhotos(t0)[index]; if(!path) return;
+  const out = await photoMarkup(publicUrl('site-photos', path)+'?v='+Date.now());
+  if(!out) return;
+  const newPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/'+taskId+'/'+crypto.randomUUID()+'.jpg', out);
+  if(!newPath){ toast('Could not save the marked-up photo — check your connection.'); return; }
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=completion_photo_paths,completion_photo_path'))[0] || {};
+  const all = deliveryCompletionPhotos(t); const i = all.indexOf(path);
+  if(i>=0) all[i] = newPath; else all.push(newPath);
+  await dbUpdate('delivery_tasks', taskId, {completion_photo_paths: all, completion_photo_path: all[0]});
+  toast('Photo updated'); render();
 };
 window.removeDeliveryCompletionPhoto = async function(taskId, index){
   const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=status,completion_photo_paths,completion_photo_path'))[0];

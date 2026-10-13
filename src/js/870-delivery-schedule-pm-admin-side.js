@@ -417,7 +417,7 @@ async function renderDeliveryForm(taskId){
     `}
     <div class="formfield">
       <label class="field-label">Photos (optional)</label>
-      ${deliveryPhotoThumbsHtml(draft.photo_paths||[], 80, i=>`removeDeliveryFormPhoto(${i})`)}
+      ${deliveryPhotoThumbsHtml(draft.photo_paths||[], 80, i=>`removeDeliveryFormPhoto(${i})`, i=>`markupDeliveryFormPhoto(${i})`)}
       <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;${deliveryFormPhotoBusy?'opacity:.6;pointer-events:none;':''}">
         ${deliveryFormPhotoBusy ? 'Uploading…' : ((draft.photo_paths||[]).length ? '📷 Add more photos' : '📷 Add photos')}
         <input type="file" accept="image/*" multiple style="display:none;" onchange="onDeliveryPhotoChosen(this)" ${deliveryFormPhotoBusy?'disabled':''}>
@@ -502,6 +502,19 @@ window.onDeliveryPhotoChosen = async function(input){
   deliveryFormDraft.photo_path = deliveryFormDraft.photo_paths[0] || null;
   deliveryFormPhotoBusy = false;
   if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — try again.');
+  render();
+};
+// ✏️ on a booking photo: draw / add text; the marked-up copy replaces it
+// (saved with the delivery when the form is saved).
+window.markupDeliveryFormPhoto = async function(index){
+  const d = deliveryFormDraft; const path = d && (d.photo_paths||[])[index]; if(!path) return;
+  const out = await photoMarkup(publicUrl('site-photos', path)+'?v='+Date.now());
+  if(!out) return;
+  deliveryFormPhotoBusy = true; render();
+  const newPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/drafts/'+crypto.randomUUID()+'.jpg', out);
+  deliveryFormPhotoBusy = false;
+  if(!newPath){ toast('Could not save the marked-up photo — check your connection.'); render(); return; }
+  if(deliveryFormDraft===d){ const i = d.photo_paths.indexOf(path); if(i>=0) d.photo_paths[i] = newPath; else d.photo_paths.push(newPath); d.photo_path = d.photo_paths[0] || null; }
   render();
 };
 window.removeDeliveryFormPhoto = function(index){

@@ -423,6 +423,7 @@
   .sowpendmark{position:absolute;right:2px;bottom:2px;width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.92);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--warn,#B7791F);box-shadow:0 1px 3px rgba(0,0,0,.25);}
   .sowspin{width:10px;height:10px;border-radius:50%;border:2px solid #9AA4B2;border-top-color:transparent;animation:sowspin .8s linear infinite;}
   @keyframes sowspin{to{transform:rotate(360deg);}}
+  .taskphotoedit{position:absolute;left:3px;bottom:3px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.6);font-size:12px;line-height:24px;text-align:center;cursor:pointer;}
   .taskphotodel{position:absolute;top:-6px;right:-6px;width:17px;height:17px;border-radius:50%;background:var(--danger,#C0392B);color:#fff;font-size:11px;line-height:17px;text-align:center;cursor:pointer;border:2px solid var(--paper);font-weight:700;}
   .addphotobtn{margin-top:14px;display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border:1.5px solid var(--brand1);border-radius:10px;background:var(--card);font-size:13px;font-weight:700;color:var(--brand1);}
   .taskrowtop{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px;}
@@ -2964,7 +2965,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '12 Oct 2026 · iPhone scroll fix';
+const OPHUB_BUILD_LABEL = '13 Oct 2026 · photo mark-up';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -39017,7 +39018,7 @@ async function renderDriverSchedule(preview){
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${preview ? `
-    <style>.driverpreview .card button,.driverpreview .card label.ghostbtn,.driverpreview .card .row-gap,.driverpreview .taskphotodel{display:none!important;}</style>
+    <style>.driverpreview .card button,.driverpreview .card label.ghostbtn,.driverpreview .card .row-gap,.driverpreview .taskphotodel,.driverpreview .taskphotoedit{display:none!important;}</style>
     <div class="card" style="margin-bottom:12px;background:var(--blue-bg);">
       <p style="margin:0 0 4px;font-weight:700;">👁 Driver view</p>
       <p class="stub" style="margin:0;">${previewDrivers.length ? 'This is what the driver sees: their own deliveries plus any not yet given to a driver. View only.' : 'There are no drivers set up yet, so this shows only deliveries not given to a driver.'}</p>
@@ -39052,7 +39053,7 @@ async function renderDriverSchedule(preview){
             <p class="stub" style="color:var(--ok);margin:8px 0 0;">✓ Completed ${new Date(t.completed_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
             <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="reopenDeliveryTask('${t.id}')">↩ Re-open delivery</button>
           ` : `
-            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
+            ${deliveryCompletionPhotos(t).length ? `<p class="stub" style="margin:8px 0 0;">Completion photos (${deliveryCompletionPhotos(t).length})</p>${deliveryPhotoThumbsHtml(deliveryCompletionPhotos(t), 64, i=>`removeDeliveryCompletionPhoto('${t.id}',${i})`, i=>`markupDeliveryCompletionPhoto('${t.id}',${i})`)}` : ''}
             <div class="row-gap" style="margin-top:8px;">
               <label class="ghostbtn" style="flex:1;display:block;text-align:center;cursor:pointer;${deliveryCompletionBusyId?'opacity:.6;pointer-events:none;':''}">
                 ${deliveryCompletionBusyId===t.id ? 'Uploading…' : '📷 Take photo'}
@@ -39237,13 +39238,14 @@ function deliveryCompletionPhotos(t){
   const many = Array.isArray(t.completion_photo_paths) ? t.completion_photo_paths.filter(Boolean) : [];
   return many.length ? many : (t.completion_photo_path ? [t.completion_photo_path] : []);
 }
-function deliveryPhotoThumbsHtml(paths, size, removeFn){
+function deliveryPhotoThumbsHtml(paths, size, removeFn, markupFn){
   if(!paths.length) return '';
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0;">${paths.map((p,i)=>{
     const url = publicUrl('site-photos', p);
     return `<div style="position:relative;width:${size}px;height:${size}px;flex:0 0 ${size}px;">
       <img src="${url}" style="width:${size}px;height:${size}px;object-fit:cover;border-radius:8px;cursor:pointer;display:block;" onclick="viewImage('${url}')" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}';">
       ${removeFn ? `<div class="taskphotodel" title="Remove photo" onclick="event.stopPropagation();${removeFn(i)}">×</div>` : ''}
+      ${markupFn ? `<div class="taskphotoedit" title="Add text or mark up" onclick="event.stopPropagation();${markupFn(i)}">✏️</div>` : ''}
     </div>`;
   }).join('')}</div>`;
 }
@@ -39271,6 +39273,20 @@ window.addDeliveryCompletionPhotos = async function(input, taskId){
   if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — check your connection and try again.');
   else toast(added.length===1 ? 'Photo added' : added.length+' photos added');
   render();
+};
+// ✏️ on a completion photo: draw / add text, the marked-up copy replaces it.
+window.markupDeliveryCompletionPhoto = async function(taskId, index){
+  const t0 = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=completion_photo_paths,completion_photo_path'))[0];
+  const path = t0 && deliveryCompletionPhotos(t0)[index]; if(!path) return;
+  const out = await photoMarkup(publicUrl('site-photos', path)+'?v='+Date.now());
+  if(!out) return;
+  const newPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/'+taskId+'/'+crypto.randomUUID()+'.jpg', out);
+  if(!newPath){ toast('Could not save the marked-up photo — check your connection.'); return; }
+  const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=completion_photo_paths,completion_photo_path'))[0] || {};
+  const all = deliveryCompletionPhotos(t); const i = all.indexOf(path);
+  if(i>=0) all[i] = newPath; else all.push(newPath);
+  await dbUpdate('delivery_tasks', taskId, {completion_photo_paths: all, completion_photo_path: all[0]});
+  toast('Photo updated'); render();
 };
 window.removeDeliveryCompletionPhoto = async function(taskId, index){
   const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId+'&select=status,completion_photo_paths,completion_photo_path'))[0];
@@ -40936,7 +40952,7 @@ async function renderDeliveryForm(taskId){
     `}
     <div class="formfield">
       <label class="field-label">Photos (optional)</label>
-      ${deliveryPhotoThumbsHtml(draft.photo_paths||[], 80, i=>`removeDeliveryFormPhoto(${i})`)}
+      ${deliveryPhotoThumbsHtml(draft.photo_paths||[], 80, i=>`removeDeliveryFormPhoto(${i})`, i=>`markupDeliveryFormPhoto(${i})`)}
       <label class="ghostbtn" style="display:block;text-align:center;cursor:pointer;${deliveryFormPhotoBusy?'opacity:.6;pointer-events:none;':''}">
         ${deliveryFormPhotoBusy ? 'Uploading…' : ((draft.photo_paths||[]).length ? '📷 Add more photos' : '📷 Add photos')}
         <input type="file" accept="image/*" multiple style="display:none;" onchange="onDeliveryPhotoChosen(this)" ${deliveryFormPhotoBusy?'disabled':''}>
@@ -41021,6 +41037,19 @@ window.onDeliveryPhotoChosen = async function(input){
   deliveryFormDraft.photo_path = deliveryFormDraft.photo_paths[0] || null;
   deliveryFormPhotoBusy = false;
   if(failed) toast(failed+' photo'+(failed===1?'':'s')+' could not be uploaded — try again.');
+  render();
+};
+// ✏️ on a booking photo: draw / add text; the marked-up copy replaces it
+// (saved with the delivery when the form is saved).
+window.markupDeliveryFormPhoto = async function(index){
+  const d = deliveryFormDraft; const path = d && (d.photo_paths||[])[index]; if(!path) return;
+  const out = await photoMarkup(publicUrl('site-photos', path)+'?v='+Date.now());
+  if(!out) return;
+  deliveryFormPhotoBusy = true; render();
+  const newPath = await uploadDataUrl('site-photos', ME.org_id+'/delivery/drafts/'+crypto.randomUUID()+'.jpg', out);
+  deliveryFormPhotoBusy = false;
+  if(!newPath){ toast('Could not save the marked-up photo — check your connection.'); render(); return; }
+  if(deliveryFormDraft===d){ const i = d.photo_paths.indexOf(path); if(i>=0) d.photo_paths[i] = newPath; else d.photo_paths.push(newPath); d.photo_path = d.photo_paths[0] || null; }
   render();
 };
 window.removeDeliveryFormPhoto = function(index){
