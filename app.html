@@ -39010,7 +39010,7 @@ function deliveryCollectionLine(t){
 }
 function deliveryCollectionLabel(t){
   if(t.collection_type==='yard') return 'YARD';
-  if(t.collection_type==='supplier') return t._supplierName || 'Supplier';
+  if(t.collection_type==='supplier'){ const b = t.supplier_branch; return (t._supplierName || 'Supplier') + (b && (b.name||b.address) ? ' — '+[b.name, b.address].filter(Boolean).join(', ') : ''); }
   return t.collection_address_manual || 'Collection address';
 }
 // "Collections" summary at the top of the driver's day: one row per place
@@ -40907,17 +40907,19 @@ async function loadDeliveryFormSiteOperatives(siteId){
   const rows = await dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id');
   deliveryFormSiteOperatives = rows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
 }
+let DELIVERY_FORM_SUPPLIERS = [];
 async function renderDeliveryForm(taskId){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
   const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  DELIVERY_FORM_SUPPLIERS = suppliers;
   deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
   if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
     if(taskId){
       const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
       const t = rows[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
+      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, double_slot:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
@@ -40979,6 +40981,15 @@ async function renderDeliveryForm(taskId){
         <option value="clear" ${deliveryCollectionKind(draft)==='clear'?'selected':''}>Clear site</option>
       </select>
     </div>
+    ${(()=>{ if(draft.collection_type!=='supplier' || !draft.supplier_id) return '';
+      const sup = suppliers.find(s=>s.id===draft.supplier_id); const brs = sup && Array.isArray(sup.branches) ? sup.branches : [];
+      if(!brs.length) return `<p class="stub" style="margin:-6px 0 12px;">This supplier has no branches saved — add them in Admin › Suppliers.</p>`;
+      const cur = draft.supplier_branch && draft.supplier_branch.id;
+      return `<div class="formfield"><label class="field-label">Branch</label>
+        <select onchange="onDeliveryBranchChange(this.value)">
+          <option value="">— Choose a branch —</option>
+          ${brs.map(b=>`<option value="${b.id}" ${cur===b.id?'selected':''}>${escapeHtml(branchLabel(b))}</option>`).join('')}
+        </select></div>`; })()}
     ${deliveryCollectionKind(draft)==='manual' ? `
     <div class="formfield"><label class="field-label">Collection address</label>
       <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
@@ -41102,7 +41113,15 @@ window.onDeliveryCollectionChange = function(val){
     deliveryFormDraft.collection_type='manual'; deliveryFormDraft.supplier_id='';
     deliveryFormDraft.collection_address_manual = val==='none' ? DELIVERY_NO_COLLECTION : DELIVERY_CLEAR_SITE;
   }
-  else { deliveryFormDraft.collection_type='supplier'; deliveryFormDraft.supplier_id=val.split(':')[1]; }
+  else { const sid = val.split(':')[1]; if(deliveryFormDraft.supplier_id!==sid) deliveryFormDraft.supplier_branch = null; deliveryFormDraft.collection_type='supplier'; deliveryFormDraft.supplier_id=sid; }
+  if(deliveryFormDraft.collection_type!=='supplier') deliveryFormDraft.supplier_branch = null;
+  render();
+};
+// Which branch of the chosen supplier to collect from (saved with the delivery).
+window.onDeliveryBranchChange = function(id){
+  const sup = (DELIVERY_FORM_SUPPLIERS||[]).find(s=>s.id===deliveryFormDraft.supplier_id);
+  const b = sup && Array.isArray(sup.branches) ? sup.branches.find(x=>x.id===id) : null;
+  deliveryFormDraft.supplier_branch = b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||''} : null;
   render();
 };
 window.onDeliveryPhotoChosen = async function(input){
@@ -41183,6 +41202,7 @@ window.saveDeliveryTask = async function(){
     description: d.description.trim(),
     collection_type: d.collection_type,
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
+    supplier_branch: d.collection_type==='supplier' ? (d.supplier_branch || null) : null,
     collection_address_manual: d.collection_type==='manual' ? d.collection_address_manual.trim() : null,
     site_contact_id: d.site_contact_id || null,
     photo_path: (d.photo_paths && d.photo_paths[0]) || d.photo_path || null,

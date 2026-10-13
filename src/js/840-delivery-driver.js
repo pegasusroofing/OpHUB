@@ -251,7 +251,7 @@ function deliveryCollectionLine(t){
 }
 function deliveryCollectionLabel(t){
   if(t.collection_type==='yard') return 'YARD';
-  if(t.collection_type==='supplier') return t._supplierName || 'Supplier';
+  if(t.collection_type==='supplier'){ const b = t.supplier_branch; return (t._supplierName || 'Supplier') + (b && (b.name||b.address) ? ' — '+[b.name, b.address].filter(Boolean).join(', ') : ''); }
   return t.collection_address_manual || 'Collection address';
 }
 // "Collections" summary at the top of the driver's day: one row per place
