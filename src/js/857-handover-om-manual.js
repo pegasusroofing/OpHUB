@@ -690,11 +690,17 @@ async function renderHandover(siteId){
   const html = `
     <div class="pmchips" style="margin:0 0 12px;">${tab('manual','O&M manual')}${tab('sheets','Data sheets', sheets.length)}${tab('guar','Guarantees', guars.length)}</div>
     ${hoBusy ? `<div class="card" style="text-align:center;"><span class="spinner"></span> ${escapeHtml(hoBusy)}</div>` : ''}
-    ${body}
     <div class="hoexport">
-      <button type="button" class="darkbtn" style="flex:1;margin:0;" onclick="hoExportPdf()">📄 Export PDF</button>
-      <button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="hoExportWord()">📝 Export Word</button>
-    </div>`;
+      <div class="hoexp-col">
+        <button type="button" class="darkbtn" onclick="hoMenu=hoMenu==='export'?null:'export';render()">⬇ Export ▾</button>
+        ${hoMenu==='export' ? `<div class="hoexp-menu"><button type="button" onclick="hoMenu=null;hoExportPdf()">📄 PDF</button><button type="button" onclick="hoMenu=null;hoExportWord()">📝 Word</button></div>` : ''}
+      </div>
+      <div class="hoexp-col">
+        <button type="button" class="ghostbtn" onclick="hoMenu=hoMenu==='email'?null:'email';render()">✉ Email ▾</button>
+        ${hoMenu==='email' ? `<div class="hoexp-menu"><button type="button" onclick="hoMenu=null;hoEmail('pdf')">📄 PDF</button><button type="button" onclick="hoMenu=null;hoEmail('docx')">📝 Word</button></div>` : ''}
+      </div>
+    </div>
+    ${body}`;
   document.getElementById('app').innerHTML = shell(html, {title:'Handover', subtitle:site.name, siteNameSubtitle:true, back:'#/site/'+siteId+'/home', siteId});
 }
 
@@ -722,7 +728,32 @@ async function hoLogo(){
 }
 
 // ---------- PDF ----------
-window.hoExportPdf = async function(){
+let hoMenu = null;
+// ✉ Email: builds the PDF or Word file, saves it, and emails it (attached;
+// a link instead if it's too big to attach).
+window.hoEmail = async function(kind){
+  if(!hoCheckRequired()) return;
+  const site = SITES.find(s=>s.id===hoState.siteId);
+  const to = await customPrompt('Email the O&M manual ('+(kind==='docx'?'Word':'PDF')+') to:', '');
+  if(!to) return;
+  const email = to.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  const send = async (blob, fname)=>{
+    hoBusy = 'Sending the email…'; render();
+    try{
+      const path = hoState.siteId+'/om-exports/'+uid()+'-'+fname.replace(/[^a-z0-9.\-]+/gi,'_');
+      const stored = await uploadToStorage('mc-documents', path, blob, blob.type);
+      if(!stored){ hoBusy = ''; render(); toast('Could not upload the file — try again.'); return; }
+      const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({site_id: hoState.siteId, recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'O&M Manual', file_url: publicUrl('mc-documents', stored), file_ext: kind==='docx' ? 'docx' : 'pdf'})});
+      hoBusy = ''; render();
+      const out = res ? await res.json().catch(()=>({})) : {};
+      if(res && res.ok && !out.error) toast('O&M manual emailed to '+email+(email!==ME.email?' (you\'ve been copied in)':'')+(out.attached===false?' — sent as a link (too big to attach)':''));
+      else toast('Could not send the email — '+String((out && out.error) || (res && res.status) || 'try again').slice(0,140));
+    }catch(e){ hoBusy = ''; render(); toast('Could not send the email — check your connection.'); }
+  };
+  if(kind==='docx') await hoExportWord(send); else await hoExportPdf(send);
+};
+window.hoExportPdf = async function(onBuilt){
   if(!hoCheckRequired()) return;
   await hoSaveNow();
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return; }
@@ -731,7 +762,9 @@ window.hoExportPdf = async function(){
     const bytes = await hoBuildPdf();
     const site = SITES.find(s=>s.id===hoState.siteId);
     hoBusy = ''; render();
-    if(bytes) await deliverPdf(bytes, 'O&M Manual - '+((site&&site.name)||'Project').replace(/[\\/:*?"<>|]+/g,'-')+'.pdf', {siteId:hoState.siteId});
+    const fname = 'O&M Manual - '+((site&&site.name)||'Project').replace(/[\\/:*?"<>|]+/g,'-')+'.pdf';
+    if(bytes && typeof onBuilt==='function') await onBuilt(new Blob([bytes], {type:'application/pdf'}), fname);
+    else if(bytes) await deliverPdf(bytes, fname, {siteId:hoState.siteId});
   }catch(e){ console.error('[hoPdf]', e); hoBusy = ''; render(); toast('Could not build the PDF — try again'); }
 };
 async function hoBuildPdf(){
@@ -861,7 +894,7 @@ async function hoBuildPdf(){
 function hoX(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function hoRun(t, o){ o = o||{}; const pr = (o.b?'<w:b/>':'')+(o.color?`<w:color w:val="${o.color}"/>`:'')+(o.sz?`<w:sz w:val="${o.sz}"/>`:''); const lines = String(t==null?'':t).split('\n'); return lines.map((l,i)=>`<w:r>${pr?`<w:rPr>${pr}</w:rPr>`:''}${i?'<w:br/>':''}<w:t xml:space="preserve">${hoX(l)}</w:t></w:r>`).join(''); }
 function hoPara(t, o){ o = o||{}; const pp = (o.style?`<w:pStyle w:val="${o.style}"/>`:'')+(o.jc?`<w:jc w:val="${o.jc}"/>`:''); return `<w:p>${pp?`<w:pPr>${pp}</w:pPr>`:''}${hoRun(t, o)}</w:p>`; }
-window.hoExportWord = async function(){
+window.hoExportWord = async function(onBuilt){
   if(!hoCheckRequired()) return;
   await hoSaveNow();
   if(!(await loadLib('JSZip'))){ toast('Word library failed to load — check connection.'); return; }
@@ -937,7 +970,7 @@ window.hoExportWord = async function(){
     const site = SITES.find(s=>s.id===hoState.siteId);
     const fname = 'O&M Manual - '+((site&&site.name)||'Project').replace(/[\\/:*?"<>|]+/g,'-')+'.docx';
     hoBusy = ''; render();
-    await hoDeliverBlob(blob, fname);
+    if(typeof onBuilt==='function') await onBuilt(blob, fname); else await hoDeliverBlob(blob, fname);
   }catch(e){ console.error('[hoWord]', e); hoBusy = ''; render(); toast('Could not build the Word file — try again'); }
 };
 async function hoDeliverBlob(blob, filename){

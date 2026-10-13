@@ -1009,8 +1009,12 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .hotable th input{width:calc(100% - 26px);font-weight:700;font-size:12px;margin:0;border:0;background:transparent;padding:4px;}
 .hotable td textarea{border:0;margin:0;padding:4px;font-size:13px;min-height:30px;resize:vertical;background:transparent;}
 .hox{width:auto!important;flex:0 0 auto!important;margin:0!important;text-transform:none;letter-spacing:0;color:var(--ink,#101114);border:0;background:#F0EFEA;border-radius:6px;min-width:28px;height:28px;padding:0 6px;font-size:13px;cursor:pointer;line-height:1;}
-.hoexport{position:sticky;bottom:calc(70px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;padding:10px;background:var(--bg,#fff);border-top:1px solid var(--line,#E2E2DC);z-index:5;}
-.hoexport button{flex:1;margin:0;}
+.hoexport{display:flex;gap:8px;margin:0 0 12px;align-items:flex-start;}
+.hoexp-col{flex:1;position:relative;}
+.hoexp-col>button{width:100%;margin:0;}
+.hoexp-menu{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card,#fff);border:1px solid var(--line,#E2E2DC);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);z-index:20;overflow:hidden;}
+.hoexp-menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:12px 14px;font-size:14px;font-weight:600;color:var(--ink,#111);cursor:pointer;}
+.hoexp-menu button+button{border-top:1px solid var(--line,#E2E2DC);}
 .hosec .row-gap > input{min-width:0;}
 .hotable th{white-space:nowrap;min-width:110px;}
 .hotable th > input{display:inline-block;vertical-align:middle;width:calc(100% - 34px)!important;min-width:0;}
