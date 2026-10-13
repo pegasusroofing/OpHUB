@@ -136,6 +136,33 @@
   .mocktile .t{font-weight:800;font-size:13px;line-height:1.2;}
   .mocktile .s{color:var(--mute);font-size:11.5px;margin-top:2px;line-height:1.2;}
   .mocktile .pill{margin-left:auto;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;background:#E3F5EC;color:var(--ok);white-space:nowrap;}
+  /* new-look app mock */
+  .mstatus{height:26px;background:#fff;position:relative;}
+  .mstatus:before{content:"";position:absolute;top:8px;left:50%;transform:translateX(-50%);width:82px;height:7px;border-radius:9px;background:#1b2130;}
+  .mhead{background:#fff;text-align:center;padding:2px 0 10px;border-bottom:1px solid #ECEEF2;}
+  .mhead b{display:block;font-size:15px;font-weight:800;letter-spacing:-.01em;}
+  .mhead small{display:block;font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--mute);text-transform:uppercase;}
+  .mbody{padding:11px 11px 14px;}
+  .mgreet small{display:block;font-size:9.5px;color:var(--slate);font-weight:600;}
+  .mgreet b{display:block;font-size:15.5px;font-weight:800;letter-spacing:-.01em;margin-bottom:8px;}
+  .mstats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;}
+  .mstats div{background:#fff;border:1px solid #ECEEF2;border-radius:11px;padding:6px 6px;}
+  .mstats b{display:block;font-size:15px;font-weight:800;line-height:1.1;}
+  .mstats b.hot{color:#D23B2E;}
+  .mstats span{display:block;font-size:7.5px;color:var(--slate);font-weight:600;}
+  .mhero{background:var(--brand1);color:#fff;border-radius:16px;padding:11px 13px;margin-bottom:8px;}
+  .mhero-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .mhero-ic{width:30px;height:30px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;}
+  .mhero b{display:block;font-size:14px;font-weight:800;}
+  .mhero small{display:block;font-size:9.5px;opacity:.9;}
+  .mtiles{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .mtile{background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:9px;display:flex;flex-direction:column;}
+  .mtic{width:28px;height:28px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:9px;}
+  .mtic svg{width:15px;height:15px;}
+  .mtt{font-size:11px;font-weight:800;line-height:1.2;}
+  .mts{font-size:8.5px;color:var(--slate);font-weight:500;line-height:1.25;}
+  .t-blue{background:#EEF3FD;color:#2457C5;} .t-orange{background:#FDF1E6;color:#B35A00;} .t-green{background:#EAF6EF;color:#17804A;}
+  .t-purple{background:#F3EEFA;color:#6B3FA8;} .t-grey{background:#F1F2F4;color:var(--ink);} .t-teal{background:#E7F5F5;color:#0E7F7C;}
   /* proof */
   .proof{background:#fff;border-bottom:1px solid var(--line);padding:22px 0;}
   .proofrow{display:flex;align-items:center;justify-content:center;gap:10px 26px;flex-wrap:wrap;color:var(--slate);font-weight:700;font-size:13px;letter-spacing:.02em;}
@@ -219,13 +246,13 @@
     <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
     <div class="navlinks">
       <a href="#features">Features</a>
-      <a href="#pricing">Pricing</a>
+      <a href="#pricing">Plans</a>
       <a href="#about">About</a>
       <a href="#demo">Book a Demo</a>
     </div>
     <div class="navcta">
       <a href="/app.html" class="btn btn-glass btn-sm">Sign In</a>
-      <a href="/pricing.html" class="btn btn-primary btn-sm">Get Started</a>
+      <a href="#demo" class="btn btn-primary btn-sm">Book a Demo</a>
     </div>
   </div>
 </div>
@@ -237,24 +264,23 @@
       <h1>The site hub that keeps <em>every job on track</em></h1>
       <p class="lead">Everything a job needs, in one branded app your operatives will actually use.</p>
       <div class="chips">
-        <span>Schedule of Works</span><span>Health &amp; Safety</span><span>Snagging / Variations</span><span>Drawings</span><span>Material Orders</span><span>Deliveries</span><span>Messaging</span>
+        <span>Schedule of Works</span><span>RAMS &amp; COSHH</span><span>Snagging / Variations</span><span>Drawings</span><span>Materials</span><span>Deliveries</span><span>Repairs</span><span>O&amp;M Handover</span><span>HR</span>
       </div>
       <div class="herobtns">
-        <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="#demo" class="btn btn-glass">Book a Demo</a>
+        <a href="#demo" class="btn btn-primary">Book a Demo</a>
+        <a href="#features" class="btn btn-glass">See what's inside</a>
       </div>
-      <p class="heroreassure">Set up your company in minutes · One flat price, no per-user fees</p>
+      <p class="heroreassure">iPhone, Android &amp; web · No per-user fees · Pricing tailored to your team</p>
     </div>
     <div class="phonewrap" aria-hidden="true">
       <div class="phone"><div class="screen">
-        <div class="scrtop"><small>Today on site</small><b>Richmond Road</b></div>
-        <div class="scrbody">
-          <div class="mocktile"><div class="ic" style="background:#FDECEC;">⏱</div><div><div class="t">Check In / Out</div><div class="s">GPS logged</div></div><span class="pill">On site</span></div>
-          <div class="mocktile"><div class="ic" style="background:#EAF2FB;">📋</div><div><div class="t">Schedule of Works</div><div class="s">6 of 9 tasks done</div></div></div>
-          <div class="mocktile"><div class="ic" style="background:#E3F5EC;">🧱</div><div><div class="t">Material Orders</div><div class="s">2 pending</div></div></div>
-          <div class="mocktile"><div class="ic" style="background:#FDF1DE;">🚚</div><div><div class="t">Deliveries</div><div class="s">Next drop 10am</div></div></div>
-          <div class="mocktile"><div class="ic" style="background:#EFEAFB;">✅</div><div><div class="t">To Do List</div><div class="s">3 open</div></div></div>
-          <div class="mocktile"><div class="ic" style="background:#F2E8F7;">💬</div><div><div class="t">Messages</div><div class="s">3 unread</div></div></div>
+        <div class="mstatus"></div>
+        <div class="mhead"><b>OpHUB</b><small>RTB Roofing Ltd</small></div>
+        <div class="mbody">
+          <div class="mgreet"><small>Tuesday 13 October</small><b>Good morning, Andy</b></div>
+          <div class="mstats"><div><b>12</b><span>Live jobs</span></div><div><b>4</b><span>Upcoming</span></div><div><b>7</b><span>To do</span></div><div><b class="hot">3</b><span>Alerts</span></div></div>
+          <div class="mhero"><span class="mhero-top"><span class="mhero-ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span><b>Live projects</b><small>12 live · 4 upcoming</small></div>
+          <div class="mtiles"><div class="mtile"><span class="mtic t-teal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="mtt">Dashboard</span><span class="mts">Company overview</span></div><div class="mtile"><span class="mtic t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><span class="mtt">Calendar</span><span class="mts">All projects</span></div><div class="mtile"><span class="mtic t-orange"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg></span><span class="mtt">HUB</span><span class="mts">3 notifications</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h11v10H3z"/><path d="M14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg></span><span class="mtt">Deliveries</span><span class="mts">Next drop 10am</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span><span class="mtt">Reports</span><span class="mts">2 in progress</span></div><div class="mtile"><span class="mtic t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><span class="mtt">Operatives</span><span class="mts">Certs &amp; training</span></div><div class="mtile"><span class="mtic t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2 20c1-3.5 4-5.5 7-5.5s6 2 7 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .8 3.4 2.6 4 5.5"/></svg></span><span class="mtt">HR</span><span class="mts">Holidays &amp; policies</span></div><div class="mtile"><span class="mtic t-grey"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></span><span class="mtt">Admin</span><span class="mts">Team &amp; settings</span></div></div>
         </div>
       </div></div>
     </div>
@@ -263,14 +289,15 @@
 
 <div class="proof">
   <div class="wrap proofrow">
-    <span>Multi-site scheduling</span>
-    <span>Health &amp; Safety sign-off</span>
+    <span>Schedule of Works</span>
+    <span>RAMS &amp; COSHH builders</span>
     <span>GPS check-in</span>
-    <span>Delivery scheduling</span>
+    <span>Delivery scheduling &amp; driver app</span>
     <span>Material orders</span>
-    <span>Snagging/Variations exports</span>
-    <span>Drawings &amp; Programme library</span>
-    <span>HAVS exposure tracking</span>
+    <span>Snagging &amp; variations</span>
+    <span>O&amp;M handover manuals</span>
+    <span>Repairs &amp; maintenance</span>
+    <span>HR &amp; holidays</span>
     <span>OneDrive sync</span>
     <span>Your own branding</span>
   </div>
@@ -308,24 +335,30 @@
     <div class="sectionhead">
       <span class="kicker">Everything in one place</span>
       <h2>One app for the whole site team</h2>
-      <p>Set it up once, brand it as your own, and give every operative, driver, PM and admin exactly what they need.</p>
+      <p>From check-in to handover — set it up once, brand it as your own, and give every operative, driver, PM and admin exactly what they need.</p>
     </div>
     <div class="featgrid">
-      <div class="featcard"><div class="ic" style="background:#FDECEC;">📍</div><h3>GPS Check-in</h3><p>Geofenced check-in and check-out, so you always know who's actually on site.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📋</div><h3>Schedule of Works</h3><p>Track every task to-commence, in progress or complete — with photo evidence attached.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🛡</div><h3>Health &amp; Safety</h3><p>RAMS and Toolbox Talks signed digitally by every operative before starting — a clean, searchable audit trail, so you're never scrambling when a client's dreaded Friday pack request lands.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🏷</div><h3>Snagging / Variations</h3><p>Log, photograph and close snags or variations on the spot, then export a PDF report — live, closed or both.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🚚</div><h3>Delivery Scheduler</h3><p>Plan the week's deliveries and collections slot by slot, assign them to a driver, and get notified with photos the moment each drop is completed.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🚐</div><h3>Driver App</h3><p>Drivers get their own simple view: today's runs in order, what to collect from where, site contacts, photo sign-off and a weekly vehicle checklist.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E3F5EC;">🧱</div><h3>Material Orders</h3><p>Operatives request materials from site; you approve, email the order straight to your supplier, and choose delivery or collection — it drops onto the delivery schedule automatically.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📐</div><h3>Drawings &amp; Programme</h3><p>Upload and organise drawings, specs and your construction programme — PDF, Excel, JPEG or PNG — with folder-level visibility controls and automatic "supersedes/superseded by" tracking, so the latest revision is always the one people see.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E4F6F4;">📳</div><h3>HAVS Monitoring</h3><p>Log daily hand-arm vibration exposure per operative and tool, with automatic weekly summaries and a clear warning before anyone approaches the action or exposure limit.</p></div>
-      <div class="featcard"><div class="ic" style="background:#E1F0F8;">☁️</div><h3>OneDrive Sync &amp; Exports</h3><p>Progress photos and drawings sync straight to your company's OneDrive, and Schedule of Works, Snagging/Variations and Health &amp; Safety sign-offs all export as clean, ready-to-send PDF reports you can view instantly, right inside the app.</p></div>
-      <div class="featcard"><div class="ic" style="background:#F2E8F7;">💬</div><h3>Team Messaging</h3><p>Broadcast updates to operatives or a site's project manager, with in-app notifications and unread messages that stand out.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EFEAFB;">✅</div><h3>PM To Do Lists</h3><p>A simple to-do list for every site — add a job, optionally assign it to a project manager, and tick it off once it's closed.</p></div>
-      <div class="featcard"><div class="ic" style="background:#FDECF1;">📝</div><h3>Custom Report Templates</h3><p>Build your own report templates once from a central Admin Centre, then fill, duplicate and export them for any site in seconds.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🏢</div><h3>Multi-Site Admin</h3><p>Manage every site, team member and responsible project manager from one dashboard.</p></div>
-      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🎨</div><h3>Your Branding</h3><p>Set your own logo and colour theme — it feels like your own company's app, not ours.</p></div>
+      <div class="featcard"><div class="ic" style="background:#FDECEC;">📍</div><h3>GPS Check-in</h3><p>Geofenced check-in and check-out — including multi-address jobs — so you always know who's on site.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📋</div><h3>Schedule of Works</h3><p>Sections and tasks with progress and photos, built from your own library or imported, exported as a branded PDF.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🛡</div><h3>RAMS &amp; COSHH builders</h3><p>Build RAMS from your hazard library, and turn a safety data sheet into a COSHH assessment automatically. Signed digitally by every operative.</p></div>
+      <div class="featcard"><div class="ic" style="background:#E3F5EC;">🧪</div><h3>COSHH Library</h3><p>Assessments filed in folders, shared across jobs, with yearly review reminders — tick several to export or email.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🗣</div><h3>Toolbox Talks &amp; Briefings</h3><p>Live toolbox talks and daily briefings signed on the phone, plus inductions, site rules and your H&amp;S policy.</p></div>
+      <div class="featcard"><div class="ic" style="background:#FDECEC;">⚠️</div><h3>PPE, Incidents &amp; Inspections</h3><p>PPE issue log, accident and near-miss reports, HAVS, PUWER, LOLER and permits to work.</p></div>
+      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🏷</div><h3>Snagging / Variations</h3><p>Log and photograph snags or variations, mark up the photo, close out with evidence and export a PDF.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EAF2FB;">📐</div><h3>Drawings &amp; Programme</h3><p>Drawings, specs and programmes in folders — superseded versions kept, mark-up on the plan.</p></div>
+      <div class="featcard"><div class="ic" style="background:#FDECF1;">📝</div><h3>Reports &amp; Surveys</h3><p>Your own report templates, filled on site with photos and signatures — even with no signal.</p></div>
+      <div class="featcard"><div class="ic" style="background:#E3F5EC;">🧱</div><h3>Materials &amp; Suppliers</h3><p>Operatives request materials; you approve and email the order to the right supplier branch.</p></div>
+      <div class="featcard"><div class="ic" style="background:#FDF1DE;">🚚</div><h3>Delivery Scheduler</h3><p>Plan the day's drops and collections slot by slot and assign them to drivers.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EAF2FB;">🚐</div><h3>Driver App</h3><p>Drivers see today's runs in order, take completion photos and mark them up, and do their weekly vehicle checks.</p></div>
+      <div class="featcard"><div class="ic" style="background:#E4F6F4;">🔧</div><h3>Repairs &amp; Maintenance</h3><p>Repair surveys with photos, approval, closed subject to invoice, then invoiced — photos synced to OneDrive.</p></div>
+      <div class="featcard"><div class="ic" style="background:#E3F5EC;">📘</div><h3>O&amp;M Handover</h3><p>When a job closes, build the O&amp;M manual from the job — data sheets, COSHH, guarantees, maintenance — and export to PDF or Word.</p></div>
+      <div class="featcard"><div class="ic" style="background:#F2E8F7;">🌴</div><h3>HR &amp; Holidays</h3><p>Holiday requests and approvals with bank holidays booked automatically, plus policies and the staff handbook.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EAF2FB;">👷</div><h3>Operatives &amp; Training</h3><p>Every operative's cards, certificates and expiry dates in a training matrix.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🏢</div><h3>Main Contractor Mode</h3><p>Run subcontractors, their operatives, RAMS, COSHH and inspections when you're the main contractor.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EFEAFB;">📅</div><h3>Calendars &amp; Dashboards</h3><p>Key dates per job, a company calendar, and a dashboard across every project.</p></div>
+      <div class="featcard"><div class="ic" style="background:#F2E8F7;">💬</div><h3>HUB &amp; Messaging</h3><p>One inbox for messages, sign-offs and alerts, with push notifications.</p></div>
+      <div class="featcard"><div class="ic" style="background:#E1F0F8;">☁️</div><h3>OneDrive Sync &amp; Exports</h3><p>Photos, drawings and exports sync straight to each project's OneDrive folder.</p></div>
+      <div class="featcard"><div class="ic" style="background:#EEF0F4;">🎨</div><h3>Your Branding</h3><p>Your logo and colours throughout the app and every PDF — it feels like your own app.</p></div>
     </div>
   </div>
 </section>
@@ -349,15 +382,14 @@
 <section id="pricing" style="padding-top:0;">
   <div class="wrap">
     <div class="sectionhead">
-      <span class="kicker">Pricing</span>
-      <h2>Simple plans that grow with your team</h2>
-      <p>One flat monthly price per company — no per-user fees. Cancel any time.</p>
+      <span class="kicker">Plans</span>
+      <h2>Plans that grow with your team</h2>
+      <p>One plan per company — no per-user fees. Every company is different, so we'll tailor the price to your team after a quick demo.</p>
     </div>
     <div class="pricegrid">
       <div class="pricecard">
         <h3>OpHUB Basic</h3>
-        <div class="amt">£150<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £250 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
         <ul>
           <li>Up to 25 members of staff</li>
@@ -367,13 +399,12 @@
           <li>PM to-do lists &amp; custom report templates</li>
           <li>Custom company branding &amp; theme</li>
         </ul>
-        <a href="/pricing.html?tier=starter" class="btn btn-ghost btn-block">Get Started</a>
+        <a href="#demo" class="btn btn-ghost btn-block" onclick="pickPlan('OpHUB Basic')">Get a Quote</a>
       </div>
       <div class="pricecard featured">
         <span class="tag">Most popular</span>
         <h3>OpHUB Pro</h3>
-        <div class="amt">£275<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £200 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For growing contractors running multiple sites at once.</p>
         <ul>
           <li>Up to 50 employees</li>
@@ -382,12 +413,11 @@
           <li>GPS check-in &amp; geofencing</li>
           <li>OneDrive photo sync</li>
         </ul>
-        <a href="/pricing.html?tier=growth" class="btn btn-primary btn-block">Get Started</a>
+        <a href="#demo" class="btn btn-primary btn-block" onclick="pickPlan('OpHUB Pro')">Get a Quote</a>
       </div>
       <div class="pricecard">
         <h3>OpHUB Enterprise</h3>
-        <div class="amt">£450<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £100 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For larger operations that need full oversight.</p>
         <ul>
           <li>Up to 150 employees</li>
@@ -396,7 +426,7 @@
           <li>Priority support</li>
           <li>Dedicated onboarding &amp; training</li>
         </ul>
-        <a href="/pricing.html?tier=enterprise" class="btn btn-ghost btn-block">Get Started</a>
+        <a href="#demo" class="btn btn-ghost btn-block" onclick="pickPlan('OpHUB Enterprise')">Get a Quote</a>
       </div>
     </div>
   </div>
@@ -447,10 +477,10 @@
   <div class="wrap">
     <div class="finalcta">
       <h2>Ready to run every site from one place?</h2>
-      <p>Set up your company today — you'll be inviting your team within minutes.</p>
+      <p>Book a demo and we'll show you OpHUB with your own jobs in mind.</p>
       <div class="herobtns">
-        <a href="/pricing.html" class="btn btn-primary">Get Started</a>
-        <a href="#demo" class="btn btn-glass">Book a Demo</a>
+        <a href="#demo" class="btn btn-primary">Book a Demo</a>
+        <a href="/app.html" class="btn btn-glass">Sign In</a>
       </div>
     </div>
   </div>
@@ -462,7 +492,7 @@
       <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
       <div class="footlinks">
         <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#pricing">Plans</a>
         <a href="#demo">Book a Demo</a>
         <a href="/app.html">Sign In</a>
         <a href="/privacy.html">Privacy</a>
@@ -503,6 +533,10 @@
     demoBusy = false; btn.disabled = false; btn.textContent = 'Request a Demo';
     return false;
   }
+</script>
+<script>
+  // "Get a Quote" on a plan: note the plan in the demo request message.
+  function pickPlan(name){ const m = document.getElementById('dMsg'); if(m && !m.value.trim()) m.value = 'Interested in '+name+'. '; }
 </script>
 </body>
 </html>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpHUB — Pricing</title>
-<meta name="description" content="Simple monthly plans for OpHUB — the site hub for trade & specialist contractors.">
+<title>OpHUB — Plans</title>
+<meta name="description" content="Plans for OpHUB — the site hub for trade & specialist contractors.">
 <meta name="theme-color" content="#0B0E14">
 <link rel="apple-touch-icon" href="assets/ophub-logo.png?v=2">
 <link rel="icon" href="assets/ophub-logo.png?v=2">
@@ -136,7 +136,7 @@
     <a href="/" class="navlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
     <div class="navlinks">
       <a href="/#features">Features</a>
-      <a href="/pricing.html">Pricing</a>
+      <a href="/pricing.html">Plans</a>
       <a href="/#about">About</a>
       <a href="/#demo">Book a Demo</a>
     </div>
@@ -150,9 +150,9 @@
 <div class="pagehead">
   <div class="wrap">
     <div class="sectionhead">
-      <span class="kicker">Pricing</span>
-      <h1>Simple plans that grow with your team</h1>
-      <p>One flat monthly price per company — no per-user fees. Pick a plan below, then pay securely through Stripe.</p>
+      <span class="kicker">Plans</span>
+      <h1>Plans that grow with your team</h1>
+      <p>One plan per company — no per-user fees. Pricing is tailored to your team: <a href="/#demo" style="color:var(--brand-deep);font-weight:700;">book a demo</a> for a quote. Already agreed your plan with us? Pick it below and set up your account.</p>
     </div>
   </div>
 </div>
@@ -162,8 +162,7 @@
     <div class="pricegrid">
       <div class="pricecard" data-tier="starter" onclick="selectPlan('starter')">
         <h3>OpHUB Basic</h3>
-        <div class="amt">£150<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £250 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For smaller teams getting off paper and spreadsheets.</p>
         <ul>
           <li>Up to 25 members of staff</li>
@@ -178,8 +177,7 @@
       <div class="pricecard featured" data-tier="growth" onclick="selectPlan('growth')">
         <span class="tag">Most popular</span>
         <h3>OpHUB Pro</h3>
-        <div class="amt">£275<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £200 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For growing contractors running multiple sites at once.</p>
         <ul>
           <li>Up to 50 employees</li>
@@ -192,8 +190,7 @@
       </div>
       <div class="pricecard" data-tier="enterprise" onclick="selectPlan('enterprise')">
         <h3>OpHUB Enterprise</h3>
-        <div class="amt">£450<span>/month</span><span class="vat"> + VAT</span></div>
-        <p class="setupfee">+ £100 one-off setup fee</p>
+        <p class="setupfee">Pricing tailored to your team</p>
         <p class="desc">For larger operations that need full oversight.</p>
         <ul>
           <li>Up to 150 employees</li>
@@ -211,8 +208,8 @@
 <section id="checkoutSection" style="padding-top:0;">
   <div class="wrap">
     <div class="checkout">
-      <h2>Continue to payment</h2>
-      <p class="sub">You'll pay securely through Stripe, then set up your Project Manager account.</p>
+      <h2>Set up your account</h2>
+      <p class="sub">For companies who've agreed a plan with us. You'll pay securely through Stripe, then set up your Project Manager account.</p>
       <div class="picked" id="pickedRow" style="display:none;">
         <span id="pickedName"></span>
         <span class="price" id="pickedPrice"></span>
@@ -228,7 +225,7 @@
       </div>
       <div id="errHost"></div>
       <button id="subscribeBtn" class="btn btn-primary btn-block" style="margin-top:20px;" onclick="subscribe()">Continue to Payment</button>
-      <p class="reassure">One-off setup fee applies · Cancel any time</p>
+      <p class="reassure">Secure payment through Stripe</p>
     </div>
     <p style="text-align:center;margin-top:22px;color:var(--slate);font-size:15px;">Not sure yet? <a href="/#demo" style="color:var(--brand-deep);font-weight:700;">Book a demo</a> and we'll walk you through it.</p>
   </div>
@@ -240,7 +237,7 @@
       <a href="/" class="footlogo"><img src="assets/ophub-logo.png?v=2" alt="OpHUB" onerror="this.style.display='none'">OpHUB</a>
       <div class="footlinks">
         <a href="/#features">Features</a>
-        <a href="/pricing.html">Pricing</a>
+        <a href="/pricing.html">Plans</a>
         <a href="/#demo">Book a Demo</a>
         <a href="/app.html">Sign In</a>
         <a href="/privacy.html">Privacy</a>
@@ -256,9 +253,9 @@
   const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
   const PLAN_INFO = {
-    starter: { name: 'OpHUB Basic', price: '£150/month + VAT', setupFee: '£250 + VAT' },
-    growth: { name: 'OpHUB Pro', price: '£275/month + VAT', setupFee: '£200 + VAT' },
-    enterprise: { name: 'OpHUB Enterprise', price: '£450/month + VAT', setupFee: '£100 + VAT' },
+    starter: { name: 'OpHUB Basic' },
+    growth: { name: 'OpHUB Pro' },
+    enterprise: { name: 'OpHUB Enterprise' },
   };
   let tier = null;
   function selectPlan(t){
@@ -266,11 +263,8 @@
     document.querySelectorAll('.pricecard').forEach(el=>el.classList.toggle('selected', el.dataset.tier===t));
     const info = PLAN_INFO[t];
     document.getElementById('pickedName').textContent = info.name;
-    document.getElementById('pickedPrice').textContent = info.price;
+    document.getElementById('pickedPrice').textContent = '';
     document.getElementById('pickedRow').style.display = 'flex';
-    const note = document.getElementById('pickedSetupNote');
-    note.textContent = `Plus a ${info.setupFee} one-off setup fee, charged with your first payment.`;
-    note.style.display = 'block';
   }
   // Lets the homepage's pricing cards (or anyone) deep-link straight to a
   // plan, e.g. pricing.html?tier=growth, instead of landing with nothing chosen.
