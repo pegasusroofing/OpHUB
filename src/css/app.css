@@ -661,6 +661,7 @@
   .pm-save{background:#2e7d32;}
   .pm-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;}
   .pm-stage canvas{touch-action:none;display:block;border-radius:4px;background:#000;}
+  .pm-hint{font-size:12px;color:#bbb;text-align:center;padding:4px 12px 0;min-height:16px;}
   .pm-bar{padding:8px 10px 12px;display:flex;flex-direction:column;gap:8px;}
   .pm-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;}
   .pm-tool{background:#2a2c31;color:#fff;border:1px solid #3a3d44;border-radius:9px;padding:7px 10px;font-size:13px;cursor:pointer;}
