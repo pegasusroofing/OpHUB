@@ -66,13 +66,20 @@ function sowAddPhotos(siteId, taskId, files, stage){
     sowPrepChain = sowPrepChain.then(async ()=>{
       try{
         // Quiet: no "Uploading… please wait" pill — nobody is waiting.
-        uploadBusy.quietNext = true;
-        let fullP; try{ fullP = compressImage(f, SOW_PHOTO_FULL); } finally { uploadBusy.quietNext = false; }
-        // A photo the phone can't read must never hold up the rest.
-        const full = await Promise.race([fullP, new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]);
+        // All three sizes from one decode. A photo the phone can't read must never hold up the rest.
+        let sizes;
+        try{ sizes = await Promise.race([sowMakeSizes(f), new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]); }
+        catch(e){
+          if(e && e.message==='timeout') throw e;
+          // Fallback: the older one-size-at-a-time path.
+          uploadBusy.quietNext = true;
+          let fullP; try{ fullP = compressImage(f, SOW_PHOTO_FULL); } finally { uploadBusy.quietNext = false; }
+          const fb = await Promise.race([fullP, new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]);
+          sizes = {full: fb, mid: null, thumb: null};
+          try{ sizes.mid = await shrinkDataUrl(fb, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); sizes.thumb = await shrinkDataUrl(sizes.mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e2){}
+        }
+        const full = sizes.full, mid = sizes.mid, thumb = sizes.thumb;
         if(p.cancelled) return;
-        let mid = null, thumb = null;
-        try{ mid = await shrinkDataUrl(full, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); thumb = await shrinkDataUrl(mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e){}
         if(p.cancelled) return;
         const kept = await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb, p.id);
         if(!kept) throw new Error('not kept');
@@ -139,9 +146,11 @@ async function sowSendOne(r){
   const base = r.siteId+'/schedule/'+r.taskId+'/'+r.id;
   const stored = await reportOfflineUpload(base+'.jpg', r.full);
   if(!stored) return false;
-  let m = null, t = null;
-  try{ if(r.thumb) t = await reportOfflineUpload(base+'_t.jpg', r.thumb); }catch(e){}
-  try{ if(r.mid) m = await reportOfflineUpload(base+'_m.jpg', r.mid); }catch(e){}
+  // The two small versions are tiny — send them side by side.
+  const [t, m] = await Promise.all([
+    r.thumb ? reportOfflineUpload(base+'_t.jpg', r.thumb, 30000).catch(()=>null) : null,
+    r.mid ? reportOfflineUpload(base+'_m.jpg', r.mid, 45000).catch(()=>null) : null,
+  ]);
   // The photo's id is fixed when it is taken, so a repeat send can never make a duplicate.
   const res = await sbFetch('/rest/v1/schedule_photos', {method:'POST', timeoutMs:60000, headers:{'Prefer':'return=minimal'}, body: JSON.stringify({id:r.id, task_id:r.taskId, storage_path:stored, mid_path:m, thumb_path:t, uploaded_by:ME.id, stage:r.stage})});
   if(!res.ok && res.status !== 409) return false;
@@ -150,7 +159,7 @@ async function sowSendOne(r){
   const pc = sowPendingFind(r.id);
   if(sowCancelled.has(r.id) || (pc && pc.cancelled)){ try{ await sbFetch('/rest/v1/schedule_photos?id=eq.'+r.id, {method:'DELETE'}); }catch(e){} return true; }
   sowSetState(r.id, 'done');
-  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhoto(r.full, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
+  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhotoPath(stored, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
   return true;
 }
 async function sowPumpRun(){

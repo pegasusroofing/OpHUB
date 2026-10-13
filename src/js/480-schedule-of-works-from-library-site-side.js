@@ -916,7 +916,7 @@ window.beginTaskComplete = function(taskId){
 // The page and the exports only ever touch the small ones. Photos uploaded
 // before this get their small versions made quietly in the background the
 // next time someone opens the job (see backfillSchedulePhotoRenditions).
-const SOW_PHOTO_FULL = {maxW:1400, quality:0.78}, SOW_PHOTO_MID = {max:800, quality:0.62}, SOW_PHOTO_THUMB = {max:200, quality:0.7};
+const SOW_PHOTO_FULL = {maxW:1280, quality:0.72}, SOW_PHOTO_MID = {max:800, quality:0.62}, SOW_PHOTO_THUMB = {max:200, quality:0.7};
 function shrinkDataUrl(dataUrl, maxDim, quality){
   return new Promise((resolve, reject)=>{
     const im = new Image();
@@ -971,6 +971,39 @@ async function uploadSchedulePhoto(siteId, taskId, file, stage){
 let oneDriveSyncChain = Promise.resolve();
 function queueOneDrivePhoto(dataUrl, filename, siteId){
   oneDriveSyncChain = oneDriveSyncChain.then(()=>syncPhotoToOneDrive(dataUrl, filename, siteId)).catch(()=>{});
+}
+// The photo is already in Storage: the server copies it to OneDrive from
+// there, so the phone doesn't have to send it a second time.
+function queueOneDrivePhotoPath(photoPath, filename, siteId){
+  oneDriveSyncChain = oneDriveSyncChain.then(()=>sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, photo_path: photoPath, site_id: siteId})})).catch(()=>{});
+}
+// Makes all three sizes from ONE decode of the camera photo (was: decode
+// the original, then decode the result twice more for the small ones).
+function sowMakeSizes(file){
+  const nameLower = (file && file.name || '').toLowerCase(), typeLower = (file && file.type || '').toLowerCase();
+  if(typeLower==='image/heic' || typeLower==='image/heif' || /\.(heic|heif)$/.test(nameLower)) return Promise.reject(new Error('heic-unsupported'));
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('image decode failed')); };
+    img.onload = ()=>{
+      try{
+        const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+        const draw = (src, w, h, q)=>{ const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(src, 0, 0, c.width, c.height); return {c, data: c.toDataURL('image/jpeg', q)}; };
+        const fs = Math.min(1, SOW_PHOTO_FULL.maxW / W);
+        const full = draw(img, Math.round(W*fs), Math.round(H*fs), SOW_PHOTO_FULL.quality);
+        URL.revokeObjectURL(url);
+        // Small sizes come from the already-shrunk canvas — far less work.
+        const longest = Math.max(full.c.width, full.c.height);
+        const ms = Math.min(1, SOW_PHOTO_MID.max / longest);
+        const mid = draw(full.c, Math.round(full.c.width*ms), Math.round(full.c.height*ms), SOW_PHOTO_MID.quality);
+        const ts = Math.min(1, SOW_PHOTO_THUMB.max / Math.max(mid.c.width, mid.c.height));
+        const thumb = draw(mid.c, Math.round(mid.c.width*ts), Math.round(mid.c.height*ts), SOW_PHOTO_THUMB.quality);
+        resolve({full: full.data, mid: mid.data, thumb: thumb.data});
+      }catch(e){ URL.revokeObjectURL(url); reject(e); }
+    };
+    img.src = url;
+  });
 }
 // Makes the small versions for photos uploaded before they existed. Quiet,
 // a few at a time, capped per visit; anything left is picked up next time.

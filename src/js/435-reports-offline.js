@@ -137,14 +137,14 @@ async function reportOfflineStart(siteId, t, answers, generalLabel){
   go(`${reportListPath(siteId)}/fill/${id}`);
   return true;
 }
-async function reportOfflineUpload(path, dataUrl){
+async function reportOfflineUpload(path, dataUrl, timeoutMs){
   // Quiet version of the normal upload: no pop-ups from a background send.
   const blob = await (await fetch(dataUrl)).blob();
   try{ await ensureFreshToken(); }catch(e){}
   if(!SESSION || !SESSION.access_token) return null;
   for(let tryNo=0; tryNo<3; tryNo++){
     try{
-      const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, 120000);
+      const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, timeoutMs || 90000);
       if(res.ok) return path;
       if(![408,429,500,502,503,504,520,522,524,544].includes(res.status)) return null;
     }catch(e){ if(navigator.onLine === false) return null; }

@@ -3003,7 +3003,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '13 Oct 2026 · order send-to';
+const OPHUB_BUILD_LABEL = '13 Oct 2026 · faster SOW photos';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -19558,14 +19558,14 @@ async function reportOfflineStart(siteId, t, answers, generalLabel){
   go(`${reportListPath(siteId)}/fill/${id}`);
   return true;
 }
-async function reportOfflineUpload(path, dataUrl){
+async function reportOfflineUpload(path, dataUrl, timeoutMs){
   // Quiet version of the normal upload: no pop-ups from a background send.
   const blob = await (await fetch(dataUrl)).blob();
   try{ await ensureFreshToken(); }catch(e){}
   if(!SESSION || !SESSION.access_token) return null;
   for(let tryNo=0; tryNo<3; tryNo++){
     try{
-      const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, 120000);
+      const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/site-photos/'+path, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+SESSION.access_token, 'Content-Type': blob.type || 'image/jpeg', 'x-upsert':'true'}, body: blob}, timeoutMs || 90000);
       if(res.ok) return path;
       if(![408,429,500,502,503,504,520,522,524,544].includes(res.status)) return null;
     }catch(e){ if(navigator.onLine === false) return null; }
@@ -21266,7 +21266,7 @@ window.beginTaskComplete = function(taskId){
 // The page and the exports only ever touch the small ones. Photos uploaded
 // before this get their small versions made quietly in the background the
 // next time someone opens the job (see backfillSchedulePhotoRenditions).
-const SOW_PHOTO_FULL = {maxW:1400, quality:0.78}, SOW_PHOTO_MID = {max:800, quality:0.62}, SOW_PHOTO_THUMB = {max:200, quality:0.7};
+const SOW_PHOTO_FULL = {maxW:1280, quality:0.72}, SOW_PHOTO_MID = {max:800, quality:0.62}, SOW_PHOTO_THUMB = {max:200, quality:0.7};
 function shrinkDataUrl(dataUrl, maxDim, quality){
   return new Promise((resolve, reject)=>{
     const im = new Image();
@@ -21321,6 +21321,39 @@ async function uploadSchedulePhoto(siteId, taskId, file, stage){
 let oneDriveSyncChain = Promise.resolve();
 function queueOneDrivePhoto(dataUrl, filename, siteId){
   oneDriveSyncChain = oneDriveSyncChain.then(()=>syncPhotoToOneDrive(dataUrl, filename, siteId)).catch(()=>{});
+}
+// The photo is already in Storage: the server copies it to OneDrive from
+// there, so the phone doesn't have to send it a second time.
+function queueOneDrivePhotoPath(photoPath, filename, siteId){
+  oneDriveSyncChain = oneDriveSyncChain.then(()=>sbFetchOD('/functions/v1/onedrive-upload', {method:'POST', body: JSON.stringify({filename, photo_path: photoPath, site_id: siteId})})).catch(()=>{});
+}
+// Makes all three sizes from ONE decode of the camera photo (was: decode
+// the original, then decode the result twice more for the small ones).
+function sowMakeSizes(file){
+  const nameLower = (file && file.name || '').toLowerCase(), typeLower = (file && file.type || '').toLowerCase();
+  if(typeLower==='image/heic' || typeLower==='image/heif' || /\.(heic|heif)$/.test(nameLower)) return Promise.reject(new Error('heic-unsupported'));
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('image decode failed')); };
+    img.onload = ()=>{
+      try{
+        const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+        const draw = (src, w, h, q)=>{ const c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h); const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(src, 0, 0, c.width, c.height); return {c, data: c.toDataURL('image/jpeg', q)}; };
+        const fs = Math.min(1, SOW_PHOTO_FULL.maxW / W);
+        const full = draw(img, Math.round(W*fs), Math.round(H*fs), SOW_PHOTO_FULL.quality);
+        URL.revokeObjectURL(url);
+        // Small sizes come from the already-shrunk canvas — far less work.
+        const longest = Math.max(full.c.width, full.c.height);
+        const ms = Math.min(1, SOW_PHOTO_MID.max / longest);
+        const mid = draw(full.c, Math.round(full.c.width*ms), Math.round(full.c.height*ms), SOW_PHOTO_MID.quality);
+        const ts = Math.min(1, SOW_PHOTO_THUMB.max / Math.max(mid.c.width, mid.c.height));
+        const thumb = draw(mid.c, Math.round(mid.c.width*ts), Math.round(mid.c.height*ts), SOW_PHOTO_THUMB.quality);
+        resolve({full: full.data, mid: mid.data, thumb: thumb.data});
+      }catch(e){ URL.revokeObjectURL(url); reject(e); }
+    };
+    img.src = url;
+  });
 }
 // Makes the small versions for photos uploaded before they existed. Quiet,
 // a few at a time, capped per visit; anything left is picked up next time.
@@ -21755,13 +21788,20 @@ function sowAddPhotos(siteId, taskId, files, stage){
     sowPrepChain = sowPrepChain.then(async ()=>{
       try{
         // Quiet: no "Uploading… please wait" pill — nobody is waiting.
-        uploadBusy.quietNext = true;
-        let fullP; try{ fullP = compressImage(f, SOW_PHOTO_FULL); } finally { uploadBusy.quietNext = false; }
-        // A photo the phone can't read must never hold up the rest.
-        const full = await Promise.race([fullP, new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]);
+        // All three sizes from one decode. A photo the phone can't read must never hold up the rest.
+        let sizes;
+        try{ sizes = await Promise.race([sowMakeSizes(f), new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]); }
+        catch(e){
+          if(e && e.message==='timeout') throw e;
+          // Fallback: the older one-size-at-a-time path.
+          uploadBusy.quietNext = true;
+          let fullP; try{ fullP = compressImage(f, SOW_PHOTO_FULL); } finally { uploadBusy.quietNext = false; }
+          const fb = await Promise.race([fullP, new Promise((_, rej)=>setTimeout(()=>rej(new Error('timeout')), 45000))]);
+          sizes = {full: fb, mid: null, thumb: null};
+          try{ sizes.mid = await shrinkDataUrl(fb, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); sizes.thumb = await shrinkDataUrl(sizes.mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e2){}
+        }
+        const full = sizes.full, mid = sizes.mid, thumb = sizes.thumb;
         if(p.cancelled) return;
-        let mid = null, thumb = null;
-        try{ mid = await shrinkDataUrl(full, SOW_PHOTO_MID.max, SOW_PHOTO_MID.quality); thumb = await shrinkDataUrl(mid, SOW_PHOTO_THUMB.max, SOW_PHOTO_THUMB.quality); }catch(e){}
         if(p.cancelled) return;
         const kept = await sowOfflineKeepPhoto(siteId, taskId, stage, full, mid, thumb, p.id);
         if(!kept) throw new Error('not kept');
@@ -21828,9 +21868,11 @@ async function sowSendOne(r){
   const base = r.siteId+'/schedule/'+r.taskId+'/'+r.id;
   const stored = await reportOfflineUpload(base+'.jpg', r.full);
   if(!stored) return false;
-  let m = null, t = null;
-  try{ if(r.thumb) t = await reportOfflineUpload(base+'_t.jpg', r.thumb); }catch(e){}
-  try{ if(r.mid) m = await reportOfflineUpload(base+'_m.jpg', r.mid); }catch(e){}
+  // The two small versions are tiny — send them side by side.
+  const [t, m] = await Promise.all([
+    r.thumb ? reportOfflineUpload(base+'_t.jpg', r.thumb, 30000).catch(()=>null) : null,
+    r.mid ? reportOfflineUpload(base+'_m.jpg', r.mid, 45000).catch(()=>null) : null,
+  ]);
   // The photo's id is fixed when it is taken, so a repeat send can never make a duplicate.
   const res = await sbFetch('/rest/v1/schedule_photos', {method:'POST', timeoutMs:60000, headers:{'Prefer':'return=minimal'}, body: JSON.stringify({id:r.id, task_id:r.taskId, storage_path:stored, mid_path:m, thumb_path:t, uploaded_by:ME.id, stage:r.stage})});
   if(!res.ok && res.status !== 409) return false;
@@ -21839,7 +21881,7 @@ async function sowSendOne(r){
   const pc = sowPendingFind(r.id);
   if(sowCancelled.has(r.id) || (pc && pc.cancelled)){ try{ await sbFetch('/rest/v1/schedule_photos?id=eq.'+r.id, {method:'DELETE'}); }catch(e){} return true; }
   sowSetState(r.id, 'done');
-  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhoto(r.full, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
+  try{ const nm = await sowTaskName(r.taskId); queueOneDrivePhotoPath(stored, nm+' '+new Date(r.at).toISOString().slice(0,16).replace(/[:T]/g,'-')+' '+r.id.slice(0,4)+'.jpg', r.siteId); }catch(e){}
   return true;
 }
 async function sowPumpRun(){
