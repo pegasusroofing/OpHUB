@@ -3003,7 +3003,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '13 Oct 2026 · photo mark-up';
+const OPHUB_BUILD_LABEL = '13 Oct 2026 · overall progress';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -3443,6 +3443,16 @@ function logSiteActivity(siteId, action, description){
 }
 
 const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
+
+// Overall Schedule of Works progress as a %: done tasks count 100, in-progress
+// tasks count their percent_complete, to-do counts 0. Averaged across tasks so
+// part-done work moves the overall figure (it used to only count Done).
+function sowOverallPct(tasks){
+  if(!tasks || !tasks.length) return 0;
+  let sum = 0;
+  tasks.forEach(t=>{ sum += t.status==='done' ? 100 : t.status==='progress' ? Math.max(0, Math.min(100, Number(t.percent_complete)||0)) : 0; });
+  return Math.round(sum / tasks.length);
+}
 
 /* ================= routing ================= */
 // SELF_NAV guards against a WebView quirk (seen on this Android build) where
@@ -6999,7 +7009,7 @@ async function renderDashboard(){
     liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
-    liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status') : [],
+    liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status,percent_complete') : [],
     dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
     liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id') : [],
   ]);
@@ -7069,7 +7079,7 @@ async function renderDashboard(){
   const totalRamsOutstanding = Object.values(ramsOutstandingBySite).reduce((a,b)=>a+b,0);
   const totalCoshhOutstanding = Object.values(coshhOutstandingBySite).reduce((a,b)=>a+b,0);
   const scheduleTotals = Object.values(scheduleBySite).reduce((acc,b)=>{ acc.total+=b.total; acc.complete+=b.complete; acc.in_progress+=b.in_progress; acc.todo+=b.todo; return acc; }, {total:0, complete:0, in_progress:0, todo:0});
-  const completionPct = scheduleTotals.total ? Math.round(scheduleTotals.complete/scheduleTotals.total*100) : 0;
+  const completionPct = sowOverallPct(scheduleTasks);
 
   const topSites = (bySiteMap, count) => liveSites
     .map(s=>({site:s, count: bySiteMap[s.id]||0}))
@@ -10098,7 +10108,7 @@ async function renderSiteHome(siteId){
   // no tab bar (Check-in/Inbox/Settings don't apply to them either).
   if(isClient(ME)){
     const [tasks, openSnags] = await Promise.all([
-      dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+      dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
       dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     ]);
     const scheduleDone = tasks.filter(t=>t.status==='done').length;
@@ -10106,7 +10116,7 @@ async function renderSiteHome(siteId){
       <div class="tilegrid" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/schedule')">
           <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
-          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done${tasks.length?' · '+sowOverallPct(tasks)+'%':''}</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/hs')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
@@ -10172,7 +10182,7 @@ async function renderSiteHome(siteId){
   const mcTilesPromise = site.acting_as_main_contractor ? getMcTiles(siteId, site) : Promise.resolve(null);
   const todayISO = localISODate(new Date());
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
-    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
@@ -10262,7 +10272,7 @@ async function renderSiteHome(siteId){
       const regularTiles = [
         `<div class="tile" onclick="go('#/site/${siteId}/schedule')">
           <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
-          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done${tasks.length?' · '+sowOverallPct(tasks)+'%':''}</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
@@ -20864,7 +20874,14 @@ async function renderSchedule(siteId){
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('scheduleDocInput').click()">📎 Add Document</div>
           `) : '';
+  const overallPct = sowOverallPct(allTasks);
+  const overallHtml = allTasks.length ? `<div class="sowoverall" style="display:flex;align-items:center;gap:10px;margin:0 0 10px;">
+      <span style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;">Overall progress</span>
+      <div style="flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;"><div style="height:100%;width:${overallPct}%;background:#2E9E5B;"></div></div>
+      <b style="font-size:13px;color:var(--ink);">${overallPct}%</b>
+    </div>` : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${overallHtml}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>
@@ -23472,7 +23489,7 @@ async function buildSchedulePdfBytes(siteId){
     // Worked out across every task on the job, not the tab being exported —
     // it used to read 0% on a To Do / In Progress export and 100% on a
     // Complete one, whatever the real figure was.
-    const pct = allTasksUnfiltered.length ? Math.round((allTasksUnfiltered.filter(t=>t.status==='done').length/allTasksUnfiltered.length)*100) : 0;
+    const pct = sowOverallPct(allTasksUnfiltered);
     const barW = PAGE_W - 2*MARGIN;
     page.drawText('Overall progress: ' + pct + '%', {x:MARGIN, y, size:9, font:bold, color:INK});
     y -= 10;

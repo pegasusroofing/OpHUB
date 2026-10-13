@@ -846,7 +846,7 @@ async function buildSchedulePdfBytes(siteId){
     // Worked out across every task on the job, not the tab being exported —
     // it used to read 0% on a To Do / In Progress export and 100% on a
     // Complete one, whatever the real figure was.
-    const pct = allTasksUnfiltered.length ? Math.round((allTasksUnfiltered.filter(t=>t.status==='done').length/allTasksUnfiltered.length)*100) : 0;
+    const pct = sowOverallPct(allTasksUnfiltered);
     const barW = PAGE_W - 2*MARGIN;
     page.drawText('Overall progress: ' + pct + '%', {x:MARGIN, y, size:9, font:bold, color:INK});
     y -= 10;

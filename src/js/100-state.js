@@ -20,7 +20,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '13 Oct 2026 · photo mark-up';
+const OPHUB_BUILD_LABEL = '13 Oct 2026 · overall progress';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -460,3 +460,13 @@ function logSiteActivity(siteId, action, description){
 }
 
 const MERCHANTS = ['SIG Roofing','Roofers Merchant','CCF'];
+
+// Overall Schedule of Works progress as a %: done tasks count 100, in-progress
+// tasks count their percent_complete, to-do counts 0. Averaged across tasks so
+// part-done work moves the overall figure (it used to only count Done).
+function sowOverallPct(tasks){
+  if(!tasks || !tasks.length) return 0;
+  let sum = 0;
+  tasks.forEach(t=>{ sum += t.status==='done' ? 100 : t.status==='progress' ? Math.max(0, Math.min(100, Number(t.percent_complete)||0)) : 0; });
+  return Math.round(sum / tasks.length);
+}

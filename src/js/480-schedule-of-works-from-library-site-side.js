@@ -524,7 +524,14 @@ async function renderSchedule(siteId){
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;scheduleAddPanel='upload';render()">📤 Upload Schedule</div>
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('scheduleDocInput').click()">📎 Add Document</div>
           `) : '';
+  const overallPct = sowOverallPct(allTasks);
+  const overallHtml = allTasks.length ? `<div class="sowoverall" style="display:flex;align-items:center;gap:10px;margin:0 0 10px;">
+      <span style="font-size:12px;font-weight:700;color:var(--ink);white-space:nowrap;">Overall progress</span>
+      <div style="flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;"><div style="height:100%;width:${overallPct}%;background:#2E9E5B;"></div></div>
+      <b style="font-size:13px;color:var(--ink);">${overallPct}%</b>
+    </div>` : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${overallHtml}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
     </div>

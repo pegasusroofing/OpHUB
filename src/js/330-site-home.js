@@ -13,7 +13,7 @@ async function renderSiteHome(siteId){
   // no tab bar (Check-in/Inbox/Settings don't apply to them either).
   if(isClient(ME)){
     const [tasks, openSnags] = await Promise.all([
-      dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+      dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
       dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     ]);
     const scheduleDone = tasks.filter(t=>t.status==='done').length;
@@ -21,7 +21,7 @@ async function renderSiteHome(siteId){
       <div class="tilegrid" style="grid-auto-rows:1fr;">
         <div class="tile" onclick="go('#/site/${siteId}/schedule')">
           <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
-          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done${tasks.length?' · '+sowOverallPct(tasks)+'%':''}</div>
         </div>
         <div class="tile" onclick="go('#/site/${siteId}/hs')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>
@@ -87,7 +87,7 @@ async function renderSiteHome(siteId){
   const mcTilesPromise = site.acting_as_main_contractor ? getMcTiles(siteId, site) : Promise.resolve(null);
   const todayISO = localISODate(new Date());
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
-    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status'),
+    dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
     dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
     dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
@@ -177,7 +177,7 @@ async function renderSiteHome(siteId){
       const regularTiles = [
         `<div class="tile" onclick="go('#/site/${siteId}/schedule')">
           <div class="icon" style="background:var(--blue-bg);color:var(--blue);">${ophIcon('clipboard', 20)}</div>
-          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done</div>
+          <div class="lbl">Schedule of Works</div><div class="sub">${scheduleDone} of ${tasks.length} done${tasks.length?' · '+sowOverallPct(tasks)+'%':''}</div>
         </div>`,
         `<div class="tile" onclick="go('#/site/${siteId}/hs')">
           <div class="icon" style="background:#E7E9EE;color:var(--ink);">${ophIcon('shield', 20)}</div>

@@ -16,7 +16,7 @@ async function renderDashboard(){
     liveIds.length ? dbSelect('rams_docs', 'status=eq.current&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('coshh_docs', 'site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id,uploaded_at,resign_cycle_start') : [],
     liveIds.length ? dbSelect('site_assignments', 'site_id=in.('+liveIdsCsv+')&select=site_id,user_id') : [],
-    liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status') : [],
+    liveIds.length ? dbSelect('schedule_tasks', 'site_id=in.('+liveIdsCsv+')&select=site_id,status,percent_complete') : [],
     dbSelect('incident_reports', 'order=created_at.desc&limit=500&select=id,site_id,created_at,riddor_reportable,location,injury_occurred,damage_occurred'),
     liveIds.length ? dbSelect('toolbox_talks', 'status=eq.live&site_id=in.('+liveIdsCsv+')&subcontractor_company_id=is.null&select=id,site_id') : [],
   ]);
@@ -86,7 +86,7 @@ async function renderDashboard(){
   const totalRamsOutstanding = Object.values(ramsOutstandingBySite).reduce((a,b)=>a+b,0);
   const totalCoshhOutstanding = Object.values(coshhOutstandingBySite).reduce((a,b)=>a+b,0);
   const scheduleTotals = Object.values(scheduleBySite).reduce((acc,b)=>{ acc.total+=b.total; acc.complete+=b.complete; acc.in_progress+=b.in_progress; acc.todo+=b.todo; return acc; }, {total:0, complete:0, in_progress:0, todo:0});
-  const completionPct = scheduleTotals.total ? Math.round(scheduleTotals.complete/scheduleTotals.total*100) : 0;
+  const completionPct = sowOverallPct(scheduleTasks);
 
   const topSites = (bySiteMap, count) => liveSites
     .map(s=>({site:s, count: bySiteMap[s.id]||0}))
