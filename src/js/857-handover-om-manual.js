@@ -490,27 +490,34 @@ window.hoAppDel = async function(i){ const e = hoState.data.appendix[i]; if(!e |
 // Every document that goes behind the manual, in order: files on table rows
 // (data sheets, COSHH, guarantees…), then the ticked job documents not
 // already included, then the Schedule of Works / reports at the very end.
+// Order in the back of the PDF (Andy, 13 Oct 2026):
+//   1. Schedule of Works / completed reports / handover / other added files
+//   2. Guarantees & warranties
+//   3. Drawings & specifications
+//   4. COSHH assessments and data sheets (always last) — in Materials Log
+//      order, each product's data sheet then its COSHH.
 async function hoCollectAttachments(){
   const d = hoState.data, docs = await hoLoadDocs(hoState.siteId);
-  const out = [], seen = new Set();
+  const G = {app:[], guar:[], draw:[], coshh:[]}, seen = new Set();
   // The same COSHH assessment can be on the job (copied from the library) and
   // linked from the library itself — only attach it once.
   const coshhSeen = new Set();
-  const add = a => {
+  const add = (g, a) => {
     if(a.path){ const k = a.bucket+'|'+a.path; if(seen.has(k)) return; seen.add(k); }
     if(/coshh/i.test(a.name||'') && !/^data sheet/i.test(a.name||'')){ const n = hoCoshhName(a.name); if(n){ if(coshhSeen.has(n)) return; coshhSeen.add(n); } }
-    out.push(a);
+    G[g].push(a);
   };
-  d.sections.forEach(s=>{ (s.links||[]).forEach(ls=>(ls||[]).forEach(l=>{
-    if(l.docId){ const x = docs.find(y=>y.id===l.docId); if(x && x.storage_path) add({bucket:'mc-documents', path:x.storage_path, name:x.name}); }
-    else if(l.path) add({bucket:l.bucket, path:l.path, name:l.name});
+  const groupOf = s => s.type==='materials' ? 'coshh' : /guarantee|warrant/i.test(s.title||'') ? 'guar' : /drawing|specification/i.test(s.title||'') ? 'draw' : 'app';
+  (d.appendix||[]).forEach(e=>{ if(e.kind==='file') add('app', {bucket:e.bucket, path:e.path, name:e.label}); else G.app.push({gen:e, name:e.label}); });
+  d.sections.forEach(s=>{ const g = groupOf(s); (s.links||[]).forEach(ls=>(ls||[]).forEach(l=>{
+    if(l.docId){ const x = docs.find(y=>y.id===l.docId); if(x && x.storage_path) add(x.kind==='datasheet' ? 'coshh' : x.kind==='guarantee' ? 'guar' : g, {bucket:'mc-documents', path:x.storage_path, name:x.name}); }
+    else if(l.path) add(g, {bucket:l.bucket, path:l.path, name:l.name});
   })); });
-  if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&subcontractor_company_id=is.null&select=name,storage_path')).forEach(x=>add({bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
-  if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>add({bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
-  (d.appendix||[]).forEach(e=>{ if(e.kind==='file') add({bucket:e.bucket, path:e.path, name:e.label}); else out.push({gen:e, name:e.label}); });
-  return out;
+  if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>add('guar', {bucket:'mc-documents', path:x.storage_path, name:x.name}));
+  if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>add('draw', {bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
+  if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&subcontractor_company_id=is.null&select=name,storage_path')).forEach(x=>add('coshh', {bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
+  if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>add('coshh', {bucket:'mc-documents', path:x.storage_path, name:x.name}));
+  return [].concat(G.app, G.guar, G.draw, G.coshh);
 }
 
 // Data sheets / guarantees added after the manual was first built get a row
@@ -863,8 +870,10 @@ async function hoBuildPdf(){
     newPage(); txt('Appendices', M, y-20, 18, bold); y -= 44;
     att.forEach((a,i)=>{ wrap((i+1)+'.  '+a.name, reg, 10, CW).forEach(l=>{ ensure(14); txt(l, M, y, 10); y -= 14; }); });
     nOwn = pdf.getPageCount();
+    const notAttached = [];
     for(let i=0;i<att.length;i++){
       const a = att[i]; hoBusy = `Attaching ${i+1} of ${att.length}…`; render();
+      let placed = false;
       try{
         let src = null;
         if(a.gen){
@@ -876,11 +885,13 @@ async function hoBuildPdf(){
             const r = await buildReportPdf(a.gen.reportId);
             if(r && r.bytes) src = await PDFLib.PDFDocument.load(r.bytes, {ignoreEncryption:true});
           }
-        } else if(/\.(jpe?g|png)$/i.test(a.path)){ const im = await hoImage(a.bucket, a.path, 1800); if(im){ newPage(); const img = await pdf.embedJpg(im.bytes); let w = CW, h = w*im.h/im.w; if(h > H-2*M){ h = H-2*M; w = h*im.w/im.h; } page.drawImage(img, {x:M, y:H-M-h, width:w, height:h}); } continue; }
-        else { const res = await fetchWithTimeout(publicUrl(a.bucket, a.path), {}, 60000); src = await PDFLib.PDFDocument.load(await res.arrayBuffer(), {ignoreEncryption:true}); }
-        if(src) (await pdf.copyPages(src, src.getPageIndices())).forEach(pg=>pdf.addPage(pg));
+        } else if(/\.(jpe?g|png)$/i.test(a.path)){ const im = await hoImage(a.bucket, a.path, 1800); if(im){ newPage(); const img = await pdf.embedJpg(im.bytes); let w = CW, h = w*im.h/im.w; if(h > H-2*M){ h = H-2*M; w = h*im.w/im.h; } page.drawImage(img, {x:M, y:H-M-h, width:w, height:h}); placed = true; } }
+        else { const res = await fetchWithTimeout(publicUrl(a.bucket, a.path), {}, 60000); if(res.ok) src = await PDFLib.PDFDocument.load(await res.arrayBuffer(), {ignoreEncryption:true}); }
+        if(src){ (await pdf.copyPages(src, src.getPageIndices())).forEach(pg=>pdf.addPage(pg)); placed = true; }
       }catch(e){ console.warn('[ho attach]', a.name, e); }
+      if(!placed) notAttached.push(a.name + (a.gen && a.gen.kind==='sow-app' ? ' (no tasks on this job yet)' : ''));
     }
+    if(notAttached.length) setTimeout(()=>customAlert('These could not be added to the back of the manual: '+notAttached.join('; ')), 400);
   }
   // page numbers
   // Only the manual's own pages get its footer — attached documents keep

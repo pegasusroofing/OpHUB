@@ -187,6 +187,18 @@ window.notifyOutstandingTbt = async function(siteId, tbtId){
 // issue logic: any other live talk at that site is closed first), so
 // signatures, auto-completion and per-site emailing all work exactly the
 // same as issuing one site at a time.
+// #(tbt-issuer-autosign) Same as RAMS: the PM/admin who issues a talk signs
+// it there and then (their adopted signature, dated when they tapped Issue),
+// instead of issuing and then having to go back in and sign it.
+async function tbtAutoSignIssuer(tbtId){
+  if(!isManager(ME) || !ME.signature_path || !tbtId) return false;
+  try{
+    const have = await dbSelect('toolbox_talk_signatures', 'tbt_id=eq.'+tbtId+'&user_id=eq.'+ME.id+'&select=user_id');
+    if(have && have.length) return true;
+    const rows = await dbInsert('toolbox_talk_signatures', {tbt_id:tbtId, user_id:ME.id, signature_image_path:ME.signature_path});
+    return !!rows;
+  }catch(e){ return false; }
+}
 window.issueToolboxTalkCompanyWide = async function(tbtId, title){
   if(!await customConfirm(`Issue "${title}" for signing at every live site company-wide?`)) return;
   tbtCompanyWideBusy = tbtId; render();
@@ -201,7 +213,7 @@ window.issueToolboxTalkCompanyWide = async function(tbtId, title){
         const others = await dbSelect('toolbox_talks', 'site_id=eq.'+site.id+'&status=eq.live&subcontractor_company_id=is.null&select=id');
         for(const o of others){ await dbUpdate('toolbox_talks', o.id, {status:'completed'}); }
         const created = await dbInsert('toolbox_talks', {site_id:site.id, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
-        if(created && created[0]){ issued++; notifyDocNeedsSigning(site.id, 'TBT', source.title); }
+        if(created && created[0]){ issued++; notifyDocNeedsSigning(site.id, 'TBT', source.title); await tbtAutoSignIssuer(created[0].id); }
       }catch(e){ /* keep going for other sites */ }
     }
     tbtCompanyWideBusy = null;
@@ -532,7 +544,8 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
       const created = await dbInsert('toolbox_talks', {site_id:siteId, org_id:source.org_id, title:source.title, storage_path:source.storage_path, status:'live', created_by:ME.id});
       if(created && created[0]){
         tbtFilter = 'live';
-        toast('Issued for signing — original kept in Bank TBT for reuse');
+        const signed = await tbtAutoSignIssuer(created[0].id);
+        toast('Issued for signing'+(signed ? ' and signed by you' : '')+' — original kept in Bank TBT for reuse'+(isManager(ME) && !ME.signature_path ? '. Adopt your signature to have it signed automatically next time.' : ''));
         notifyDocNeedsSigning(siteId, 'TBT', source.title);
         go(`#/site/${siteId}/hs/tbt/${created[0].id}`);
       }
@@ -542,7 +555,8 @@ window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
   const row = await dbUpdate('toolbox_talks', tbtId, {status:newStatus});
   if(row){
     tbtFilter = newStatus;
-    toast(newStatus==='live' ? 'Issued for signing' : 'Marked as completed');
+    const signed = newStatus==='live' ? await tbtAutoSignIssuer(tbtId) : false;
+    toast(newStatus==='live' ? 'Issued for signing'+(signed?' and signed by you':'') : 'Marked as completed');
     if(newStatus==='live') notifyDocNeedsSigning(siteId, 'TBT', row.title);
     render();
   }
@@ -597,7 +611,8 @@ async function buildSignedToolboxTalkPdfBytes(tbtId){
   const fmtWhen = d => new Date(d).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const managerSig = sigs.find(s=>PROFILES[s.user_id] && isManager(PROFILES[s.user_id]));
   const conductorProfile = talk.created_by && PROFILES[talk.created_by] ? PROFILES[talk.created_by] : null;
-  const issuedDate = 'Issued ' + new Date(talk.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+  // Date it was issued — the manager's signature is made the moment they tap Issue.
+  const issuedDate = 'Issued ' + new Date((managerSig && managerSig.signed_at) || talk.created_at).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
   const conductRow = managerSig
     ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: nameOf(managerSig.user_id), imagePath: managerSig.signature_image_path, when: issuedDate}
     : (conductorProfile ? {issued:true, label:'CONDUCTED / ISSUED BY:', name: conductorProfile.name, imagePath: conductorProfile.signature_path, when: issuedDate} : null);
