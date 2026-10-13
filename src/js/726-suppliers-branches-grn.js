@@ -11,6 +11,9 @@ function supplierBranches(supplierId){
   const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId);
   return s && Array.isArray(s.branches) ? s.branches : [];
 }
+// Orders go to the chosen branch's own email when it has one, otherwise the
+// supplier's main order email.
+function orderEmailFor(supplier, branch){ return (branch && branch.email) || (supplier && supplier.email) || ''; }
 function branchLabel(b){ return b ? [b.name, b.address].filter(Boolean).join(' — ') : ''; }
 // A <select> of the chosen supplier's branches (nothing if it has none).
 function branchSelectHtml(selId, supplierId, selected){
@@ -29,7 +32,7 @@ function readBranch(selId, supplierId){
   const id = el ? el.value : (matBranchChoice[selId]||'');
   if(!id) return null;
   const b = supplierBranches(supplierId).find(x=>x.id===id);
-  return b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||''} : null;
+  return b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||'', email:b.email||''} : null;
 }
 
 // ---------- Admin Centre → Suppliers ----------
@@ -55,6 +58,7 @@ async function renderSuppliersAdmin(){
           ${brs.map(b=>`<div class="supbranch">
             <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
             <input type="text" placeholder="Address" value="${escapeHtml(b.address||'')}" onblur="saveBranchField('${s.id}','${b.id}','address',this.value)">
+            <input type="email" placeholder="Branch order email (optional — used instead of the main one)" value="${escapeHtml(b.email||'')}" onblur="saveBranchField('${s.id}','${b.id}','email',this.value)">
             <div style="display:flex;gap:6px;"><input type="tel" placeholder="Phone (optional)" style="flex:1;" value="${escapeHtml(b.phone||'')}" onblur="saveBranchField('${s.id}','${b.id}','phone',this.value)"><button class="ghostbtn" style="width:auto;color:var(--warn);" onclick="deleteBranch('${s.id}','${b.id}')">🗑</button></div>
           </div>`).join('') || `<p class="stub" style="margin:0 0 8px;">No branches yet.</p>`}
           <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="addBranch('${s.id}')">+ Add branch</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSupplier(null,'${s.id}')">Delete supplier</button></div>
@@ -75,7 +79,7 @@ async function updateSupplierBranches(supplierId, fn){
   return await dbUpdate('suppliers', supplierId, {branches: brs});
 }
 window.addBranch = async function(supplierId){
-  const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:''}]));
+  const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:'', email:''}]));
   if(row) render();
 };
 window.saveBranchField = async function(supplierId, branchId, field, value){

@@ -426,6 +426,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const toMe = supplierId===SUPPLIER_EMAIL_ME;
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
+  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   if(material) addDeliverTo(fulfil, [material]);
@@ -441,7 +442,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name,
+      material_id: matId, supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
@@ -520,6 +521,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   if(toMe && !ME.email){ toast('There is no email address on your profile.'); return; }
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
+  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*&order=created_at.desc');
@@ -537,7 +539,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
+      supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
@@ -592,7 +594,7 @@ window.openReemailPrompt = async function(siteId, matId){
     <div class="geo-modal-card">
       <h3>Re-email order</h3>
       <p class="stub">This order was originally emailed to the address below — edit it if you need to send it somewhere else this time.</p>
-      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="reemailAddressInput" value="${escapeHtml(supplier.email)}"></div>
+      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="reemailAddressInput" value="${escapeHtml(orderEmailFor(supplier, material.supplier_branch))}"></div>
       <button class="darkbtn" id="reemailConfirmBtn" style="width:100%;" onclick="confirmReemail('${siteId}','${matId}','${jsAttr(supplier.name)}')">Confirm &amp; Send</button>
       <button class="geo-modal-cancel" onclick="closeReemailPrompt()">Cancel</button>
     </div>`;

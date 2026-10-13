@@ -568,10 +568,16 @@ window.openMatReqSupplierEmailPrompt = async function(siteId, supplierId){
   const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
-  if(!supplier.email){ toast('This supplier has no email on file.'); return; }
   const statusQS = matReqFilter==='live' ? 'status=in.(open,assigned,collected)' : 'status=eq.closed';
-  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty');
+  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty,supplier_branch');
   if(!rows.length){ toast('No items in this section.'); return; }
+  // All items for one branch that has its own email → send it there.
+  const brIds = new Set(rows.map(r=>(r.supplier_branch && r.supplier_branch.id) || ''));
+  const oneBranch = brIds.size===1 && rows[0].supplier_branch ? rows[0].supplier_branch : null;
+  const liveBr = oneBranch ? (Array.isArray(supplier.branches) ? supplier.branches.find(b=>b.id===oneBranch.id) : null) || oneBranch : null;
+  const sendTo = orderEmailFor(supplier, liveBr);
+  if(!sendTo){ toast('This supplier has no email on file.'); return; }
+  supplier.email = sendTo;
   let ov = document.getElementById('matReqSupplierEmailModalOverlay');
   if(!ov){
     ov = document.createElement('div');

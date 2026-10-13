@@ -34262,6 +34262,9 @@ function supplierBranches(supplierId){
   const s = (window.MAT_SUPPLIERS||[]).find(x=>x.id===supplierId);
   return s && Array.isArray(s.branches) ? s.branches : [];
 }
+// Orders go to the chosen branch's own email when it has one, otherwise the
+// supplier's main order email.
+function orderEmailFor(supplier, branch){ return (branch && branch.email) || (supplier && supplier.email) || ''; }
 function branchLabel(b){ return b ? [b.name, b.address].filter(Boolean).join(' — ') : ''; }
 // A <select> of the chosen supplier's branches (nothing if it has none).
 function branchSelectHtml(selId, supplierId, selected){
@@ -34280,7 +34283,7 @@ function readBranch(selId, supplierId){
   const id = el ? el.value : (matBranchChoice[selId]||'');
   if(!id) return null;
   const b = supplierBranches(supplierId).find(x=>x.id===id);
-  return b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||''} : null;
+  return b ? {id:b.id, name:b.name||'', address:b.address||'', phone:b.phone||'', email:b.email||''} : null;
 }
 
 // ---------- Admin Centre → Suppliers ----------
@@ -34306,6 +34309,7 @@ async function renderSuppliersAdmin(){
           ${brs.map(b=>`<div class="supbranch">
             <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
             <input type="text" placeholder="Address" value="${escapeHtml(b.address||'')}" onblur="saveBranchField('${s.id}','${b.id}','address',this.value)">
+            <input type="email" placeholder="Branch order email (optional — used instead of the main one)" value="${escapeHtml(b.email||'')}" onblur="saveBranchField('${s.id}','${b.id}','email',this.value)">
             <div style="display:flex;gap:6px;"><input type="tel" placeholder="Phone (optional)" style="flex:1;" value="${escapeHtml(b.phone||'')}" onblur="saveBranchField('${s.id}','${b.id}','phone',this.value)"><button class="ghostbtn" style="width:auto;color:var(--warn);" onclick="deleteBranch('${s.id}','${b.id}')">🗑</button></div>
           </div>`).join('') || `<p class="stub" style="margin:0 0 8px;">No branches yet.</p>`}
           <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="addBranch('${s.id}')">+ Add branch</button><button class="ghostbtn" style="flex:1;color:var(--warn);" onclick="deleteSupplier(null,'${s.id}')">Delete supplier</button></div>
@@ -34326,7 +34330,7 @@ async function updateSupplierBranches(supplierId, fn){
   return await dbUpdate('suppliers', supplierId, {branches: brs});
 }
 window.addBranch = async function(supplierId){
-  const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:''}]));
+  const row = await updateSupplierBranches(supplierId, brs=>brs.concat([{id:'b'+Math.random().toString(36).slice(2,9), name:'', address:'', phone:'', email:''}]));
   if(row) render();
 };
 window.saveBranchField = async function(supplierId, branchId, field, value){
@@ -35005,10 +35009,16 @@ window.openMatReqSupplierEmailPrompt = async function(siteId, supplierId){
   const suppliers = await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
   if(!supplier){ toast('Could not find that supplier.'); return; }
-  if(!supplier.email){ toast('This supplier has no email on file.'); return; }
   const statusQS = matReqFilter==='live' ? 'status=in.(open,assigned,collected)' : 'status=eq.closed';
-  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty');
+  const rows = await dbSelect('material_required_items', 'site_id=eq.'+siteId+'&supplier_id=eq.'+supplierId+'&'+statusQS+'&select=item,qty,supplier_branch');
   if(!rows.length){ toast('No items in this section.'); return; }
+  // All items for one branch that has its own email → send it there.
+  const brIds = new Set(rows.map(r=>(r.supplier_branch && r.supplier_branch.id) || ''));
+  const oneBranch = brIds.size===1 && rows[0].supplier_branch ? rows[0].supplier_branch : null;
+  const liveBr = oneBranch ? (Array.isArray(supplier.branches) ? supplier.branches.find(b=>b.id===oneBranch.id) : null) || oneBranch : null;
+  const sendTo = orderEmailFor(supplier, liveBr);
+  if(!sendTo){ toast('This supplier has no email on file.'); return; }
+  supplier.email = sendTo;
   let ov = document.getElementById('matReqSupplierEmailModalOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -36047,6 +36057,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   const toMe = supplierId===SUPPLIER_EMAIL_ME;
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+supplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
+  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const material = (await dbSelect('materials', 'id=eq.'+matId+'&select=*'))[0];
   if(material) addDeliverTo(fulfil, [material]);
@@ -36062,7 +36073,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name,
+      material_id: matId, supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
@@ -36141,6 +36152,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   if(toMe && !ME.email){ toast('There is no email address on your profile.'); return; }
   const suppliers = toMe ? [emailMeSupplier()] : await dbSelect('suppliers', 'id=eq.'+groupSupplierId+'&select=*');
   const supplier = suppliers && suppliers[0];
+  if(supplier && !toMe && !orderEmailFor(supplier, fulfil.branch)){ toast('No order email for '+supplier.name+(fulfil.branch?' ('+fulfil.branch.name+')':'')+' — add one in Admin › Suppliers.'); return; }
   if(!supplier){ toast('Could not find that supplier.'); return; }
   const matIds = Array.from(selectedMaterialIds);
   const materials = await dbSelect('materials', 'id=in.('+matIds.join(',')+')&select=*&order=created_at.desc');
@@ -36158,7 +36170,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      supplier_email: supplier.email, supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
+      supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
@@ -36213,7 +36225,7 @@ window.openReemailPrompt = async function(siteId, matId){
     <div class="geo-modal-card">
       <h3>Re-email order</h3>
       <p class="stub">This order was originally emailed to the address below — edit it if you need to send it somewhere else this time.</p>
-      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="reemailAddressInput" value="${escapeHtml(supplier.email)}"></div>
+      <div class="formfield"><label class="field-label">Send to</label><input type="email" id="reemailAddressInput" value="${escapeHtml(orderEmailFor(supplier, material.supplier_branch))}"></div>
       <button class="darkbtn" id="reemailConfirmBtn" style="width:100%;" onclick="confirmReemail('${siteId}','${matId}','${jsAttr(supplier.name)}')">Confirm &amp; Send</button>
       <button class="geo-modal-cancel" onclick="closeReemailPrompt()">Cancel</button>
     </div>`;
