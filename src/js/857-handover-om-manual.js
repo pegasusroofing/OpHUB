@@ -299,6 +299,9 @@ window.hoAttachToDoc = async function(input, id){
 function hoNormalize(d){
   let ch = false;
   if(!Array.isArray(d.appendix)){ d.appendix = []; ch = true; }
+  // Older manuals: data sheets, guarantees and the job's COSHH go in the back by default.
+  if(!d.attach){ d.attach = {}; ch = true; }
+  ['datasheets','guarantees','coshh'].forEach(k=>{ if(d.attach[k]==null){ d.attach[k] = true; ch = true; } });
   d.cover = d.cover || {};
   if(d.cover.header==null){ d.cover.header = HO_COVER_HEADER; ch = true; }
   if(d.cover.volume==null){ d.cover.volume = HO_COVER_VOLUME; ch = true; }
@@ -490,14 +493,21 @@ window.hoAppDel = async function(i){ const e = hoState.data.appendix[i]; if(!e |
 async function hoCollectAttachments(){
   const d = hoState.data, docs = await hoLoadDocs(hoState.siteId);
   const out = [], seen = new Set();
-  const add = a => { if(a.path){ const k = a.bucket+'|'+a.path; if(seen.has(k)) return; seen.add(k); } out.push(a); };
+  // The same COSHH assessment can be on the job (copied from the library) and
+  // linked from the library itself — only attach it once.
+  const coshhSeen = new Set();
+  const add = a => {
+    if(a.path){ const k = a.bucket+'|'+a.path; if(seen.has(k)) return; seen.add(k); }
+    if(/coshh/i.test(a.name||'') && !/^data sheet/i.test(a.name||'')){ const n = hoCoshhName(a.name); if(n){ if(coshhSeen.has(n)) return; coshhSeen.add(n); } }
+    out.push(a);
+  };
   d.sections.forEach(s=>{ (s.links||[]).forEach(ls=>(ls||[]).forEach(l=>{
     if(l.docId){ const x = docs.find(y=>y.id===l.docId); if(x && x.storage_path) add({bucket:'mc-documents', path:x.storage_path, name:x.name}); }
     else if(l.path) add({bucket:l.bucket, path:l.path, name:l.name});
   })); });
   if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
   if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>add({bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path')).forEach(x=>add({bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
+  if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&subcontractor_company_id=is.null&select=name,storage_path')).forEach(x=>add({bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
   if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>add({bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
   (d.appendix||[]).forEach(e=>{ if(e.kind==='file') add({bucket:e.bucket, path:e.path, name:e.label}); else out.push({gen:e, name:e.label}); });
   return out;
@@ -527,6 +537,45 @@ function hoSyncDocs(docs){
   if(changed) hoTouch();
 }
 
+// #(om-coshh-autosync) COSHH assessments on the job (H&S › COSHH) go into
+// the Materials Log automatically — each with its PDF linked to the row, so
+// it's attached in the back of the manual straight after that product.
+// Ones added to the job after the manual was started are picked up too.
+// Matched by product name to a row already there (e.g. picked from the
+// COSHH library) so nothing is listed twice. A row the user deletes stays
+// deleted.
+function hoCoshhName(n){ return String(n||'').replace(/\.pdf$/i,'').replace(/^COSHH\s*(Assessment)?\s*[—–-]\s*/i,'').replace(/^Data sheet\s*[—–-]\s*/i,'').trim().toLowerCase(); }
+function hoSyncCoshh(coshh){
+  const d = hoState.data; d.syncedCoshh = d.syncedCoshh || {};
+  const t = d.sections.find(s=>s.type==='materials');
+  if(!t) return;
+  t.links = t.links || [];
+  let changed = false;
+  (coshh||[]).forEach(c=>{
+    if(!c.storage_path || d.syncedCoshh[c.id]) return;
+    d.syncedCoshh[c.id] = 1; changed = true;
+    const lk = {bucket:'coshh-docs', path:c.storage_path, name:c.name};
+    const nm = hoCoshhName(c.name);
+    // Already linked somewhere in the log?
+    if(t.links.some(ls=>(ls||[]).some(l=>l.path===c.storage_path))) return;
+    let at = t.rows.findIndex(r=>hoCoshhName(r[2])===nm && nm);
+    if(at<0) at = t.links.findIndex(ls=>(ls||[]).some(l=>hoCoshhName(l.name)===nm));
+    if(at>=0){
+      // Same product already in the log: if it already carries a COSHH assessment (from the library) leave it.
+      const ls = t.links[at] = t.links[at] || [];
+      if(!ls.some(l=>/coshh/i.test(l.name||'') && !/^data sheet/i.test(l.name||''))) ls.push(lk);
+      return;
+    }
+    const row = t.columns.map(()=>'');
+    row[0] = String(t.rows.filter(r=>r.some((v,i)=>i>0 && v)).length+1);
+    if(row.length>1) row[1] = 'COSHH';
+    if(row.length>2) row[2] = String(c.name||'').replace(/\.pdf$/i,'').replace(/^COSHH\s*(Assessment)?\s*[—–-]\s*/i,'');
+    const blank = t.rows.findIndex(r=>r.every((v,i)=>!v || i===0));
+    if(blank>=0){ t.rows[blank] = row; t.links[blank] = [lk]; } else { t.rows.push(row); t.links[t.rows.length-1] = [lk]; }
+  });
+  if(changed) hoTouch();
+}
+
 // ---------- page ----------
 async function renderHandover(siteId){
   const __gen = RENDER_GEN;
@@ -535,9 +584,13 @@ async function renderHandover(siteId){
   if(!site){ go('#/sites'); return; }
   if(hoState && hoState.siteId!==siteId){ if(hoState.dirty) await hoSaveNow(); hoState = null; }
   await hoLoadManual(siteId);
-  const docs = await hoLoadDocs(siteId);
+  const [docs, jobCoshh] = await Promise.all([
+    hoLoadDocs(siteId),
+    dbSelect('coshh_docs', 'site_id=eq.'+siteId+'&subcontractor_company_id=is.null&order=uploaded_at.asc&select=id,name,storage_path').catch(()=>[]),
+  ]);
   if(__gen !== RENDER_GEN) return;
   hoSyncDocs(docs);
+  hoSyncCoshh(jobCoshh||[]);
   const sheets = docs.filter(d=>d.kind==='datasheet'), guars = docs.filter(d=>d.kind==='guarantee');
   const d = hoState.data, c = d.cover;
   const tab = (k, l, n) => `<button type="button" class="pmchip ${hoTab===k?'on':''}" onclick="hoTab='${k}';render()">${l}${n!=null?' ('+n+')':''}</button>`;
@@ -579,7 +632,7 @@ async function renderHandover(siteId){
       if(s.type==='text') inner = `<textarea rows="${Math.min(18, Math.max(4, String(s.body||'').split('\n').length+1))}" ${req?`placeholder="Describe the works carried out (required)" class="${hoScopeEmpty()?'horequired':''}"`:''} oninput="hoSet('${s.id}','body',this.value);${req?`this.classList.toggle('horequired', !this.value.trim())`:''}">${escapeHtml(s.body||'')}</textarea>${req?`<p class="stub" style="margin:4px 0 0;font-size:12px;">Required — the manual can't be exported until this is filled in.</p>`:''}`;
       if(s.type==='table') inner = tableHtml(s);
       if(s.type==='materials') inner = `<button type="button" class="darkbtn" style="margin:0 0 8px;" onclick="hoPickDatasheets('${s.id}')">📚 Choose data sheets from the library</button>
-        <p class="stub" style="margin:0 0 6px;font-size:12px;">Each product's data sheet and COSHH assessment are attached to its row and go in the back of the PDF. Data sheets uploaded on the Data sheets tab are added too.</p>` + tableHtml(s);
+        <p class="stub" style="margin:0 0 6px;font-size:12px;">Each product's data sheet and COSHH assessment are attached to its row and go in the back of the PDF. COSHH assessments on the job (H&amp;S › COSHH) and data sheets uploaded on the Data sheets tab are added here automatically.</p>` + tableHtml(s);
       if(s.type==='maint'){
         const on = new Set(s.items.map(x=>x.key).filter(Boolean));
         inner = `<p class="field-label" style="margin:0 0 6px;">Tap to add or remove standard wording</p>
@@ -630,7 +683,7 @@ async function renderHandover(siteId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Also attach to the back of the PDF</p>
-      ${[['datasheets','Data sheets tab ('+sheets.length+')'],['guarantees','Guarantee certificates ('+guars.filter(g=>g.storage_path).length+')'],['coshh','COSHH assessments on this job'],['drawings','Drawings & specifications']].map(([k,l])=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.attach[k]?'checked':''} onchange="hoAttach('${k}',this.checked)">${l}</label>`).join('')}
+      ${[['datasheets','Data sheets tab ('+sheets.length+')'],['guarantees','Guarantee certificates ('+guars.filter(g=>g.storage_path).length+')'],['coshh','COSHH assessments on this job ('+(jobCoshh||[]).filter(x=>x.storage_path).length+')'],['drawings','Drawings & specifications']].map(([k,l])=>`<label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 6px;"><input type="checkbox" style="width:auto;" ${d.attach[k]?'checked':''} onchange="hoAttach('${k}',this.checked)">${l}</label>`).join('')}
     </div>
     <button type="button" class="ghostbtn" style="color:var(--warn);border-color:var(--warn);" onclick="hoRebuild()">⟳ Rebuild from the job</button>`;
   }
