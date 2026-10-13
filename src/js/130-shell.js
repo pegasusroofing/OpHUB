@@ -122,7 +122,7 @@ function tabbar(siteId, active){
     {k:'home', ic:ophIcon('home'), lbl:'Home', href: active==='home' ? '#/sites' : `#/site/${siteId}/home`},
     // PMs/admins/site managers: Deliveries in this slot (Andy, 11 Oct);
     // operatives can't open the delivery schedule, so they keep SOW.
-    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='#/site/${siteId}/home';`} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
+    isManager(ME) ? {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', href:'#/delivery', pre:`deliveryScheduleBackHash='#/site/${siteId}/home';`, badge:(typeof deliveryRequestsCount!=='undefined' && deliveryRequestsCount)||0} : {k:'schedule', ic:ophIcon('clipboard'), lbl:'SOW', href:`#/site/${siteId}/schedule`},
     {k:'checkin', ic:ophIcon('pin'), lbl:'Check In', href:`#/site/${siteId}/checkin`, emph:true},
     {k:'messages', ic:ophIcon('chat'), lbl:'Inbox', href:`#/site/${siteId}/messages`, badge:currentUnreadMsgs},
     // "More" is now a direct jump to Settings & Admin (managers/admins) or
@@ -198,7 +198,7 @@ function homeBottomBar(canAdd, outstandingCount, active){
     // Calendar (Admin is a tile on the Home page). The
     // new Home page has no bottom bar.
     {k:'home', ic:ophIcon('home'), lbl:'Home', onclick:"go('#/home')"},
-    {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')"},
+    {k:'deliveries', ic:ophIcon('truck'), lbl:'Deliveries', onclick:"deliveryScheduleBackHash='#/sites';go('#/delivery')", badge:(typeof deliveryRequestsCount!=='undefined' && deliveryRequestsCount)||0},
     {k:'add', ic:ophIcon('plus', 22, 2.4), lbl:'Add', emph:true, branded:true, onclick:"openHomeAddProject()"},
     {k:'hub', ic:ophIcon('bell'), lbl:'HUB', onclick:"go('#/hub')", badge: outstandingCount||0},
     {k:'calendar', ic:ophIcon('calendar'), lbl:'Calendar', onclick:"go('#/calendar')"},

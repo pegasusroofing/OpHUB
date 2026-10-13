@@ -228,6 +228,48 @@ window.pmDeliveryJump = function(iso){
   pmDeliveryDayISO = iso===localISODate(new Date()) ? null : iso;
   render();
 };
+// #(delivery-requests) Waste to clear / Leftover material ticked on site
+// arrive here as "To schedule" items (made by a database trigger; both ticks
+// on one section = one item). Schedule opens the delivery form pre-filled.
+let DELIVERY_PREFILL = null;
+let deliveryRequestsCount = null; // cached count for badges
+async function loadDeliveryRequests(){
+  if(!isManager(ME)) return [];
+  try{ const r = await dbSelect('delivery_requests', 'org_id=eq.'+ME.org_id+'&status=eq.open&order=created_at.asc'); deliveryRequestsCount = r.length; return r; }catch(e){ return []; }
+}
+async function deliveryRequestsBadgeCount(){
+  if(deliveryRequestsCount==null) await loadDeliveryRequests();
+  return deliveryRequestsCount || 0;
+}
+window.scheduleDeliveryRequest = async function(id){
+  const r = (await dbSelect('delivery_requests', 'id=eq.'+id))[0]; if(!r) return;
+  const who = r.flagged_by ? nameOf(r.flagged_by) : '';
+  DELIVERY_PREFILL = {site_id:r.site_id, description:(r.waste?'🗑 ':'')+(r.leftover?'📦 ':'')+r.description+(who?' (flagged by '+who+')':''),
+    collection_type:'manual', supplier_id:'', collection_address_manual:DELIVERY_CLEAR_SITE, photo_paths:(r.photo_paths||[]).slice(), _requestId:r.id};
+  pmDeliveryDefaultDate = pmDeliveryDayISO || localISODate(new Date());
+  deliveryFormDraft = null;
+  go('#/delivery/new');
+};
+window.dismissDeliveryRequest = async function(id){
+  if(!(await customConfirm('Remove this from the "To schedule" list without booking it?'))) return;
+  await dbUpdate('delivery_requests', id, {status:'dismissed', updated_at:new Date().toISOString()});
+  deliveryRequestsCount = null; toast('Removed'); render();
+};
+function deliveryRequestsHtml(reqs){
+  if(!reqs.length) return '';
+  return `<div class="card dlvreq">
+    <p class="sectiontitle" style="margin:0 0 8px;display:flex;align-items:center;gap:8px;">📥 To schedule <span class="badge-count" style="position:static;">${reqs.length}</span></p>
+    <p class="stub" style="margin:0 0 10px;font-size:12px;">Waste and leftover material flagged on site — book a collection for each.</p>
+    ${reqs.map(r=>{ const s = SITES.find(x=>x.id===r.site_id); return `<div class="dlvreq-item">
+      <div style="font-weight:800;">${r.waste?'🗑 ':''}${r.leftover?'📦 ':''}${escapeHtml(s ? s.name : 'Project')}</div>
+      ${s && fullSiteAddress(s) ? `<div class="stub" style="margin:0;font-size:12px;">${escapeHtml(fullSiteAddress(s))}</div>` : ''}
+      <div style="font-size:13px;margin-top:2px;">${escapeHtml(r.description)}</div>
+      <div class="stub" style="margin:2px 0 0;font-size:11.5px;">${r.flagged_by ? 'Flagged by '+escapeHtml(nameOf(r.flagged_by)||'')+' · ' : ''}${new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</div>
+      ${(r.photo_paths||[]).length ? deliveryPhotoThumbsHtml(r.photo_paths, 54) : ''}
+      <div class="row-gap" style="margin-top:8px;"><button class="darkbtn" style="flex:1;margin:0;" onclick="scheduleDeliveryRequest('${r.id}')">Schedule</button><button class="ghostbtn" style="width:auto;margin:0;padding:10px 14px;" onclick="dismissDeliveryRequest('${r.id}')">Dismiss</button></div>
+    </div>`; }).join('')}
+  </div>`;
+}
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
@@ -235,10 +277,11 @@ async function renderDeliverySchedulePM(){
   const day = new Date(iso+'T12:00:00');
   const days = Array.from({length:7}, (_,i)=>{ const d = new Date(day); d.setDate(d.getDate()+i); return d; });
   const daysISO = days.map(localISODate);
-  const [tasks, suppliers] = await Promise.all([
+  const [tasks, suppliers, , dlvReqs] = await Promise.all([
     dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+iso+'&order=time_slot.asc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
     loadAllProfiles(),
+    loadDeliveryRequests(),
   ]);
   const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
   tasks.forEach(t=>{ t._supplierName = supplierName[t.supplier_id]; });
@@ -259,6 +302,7 @@ async function renderDeliverySchedulePM(){
       <input type="date" id="pmDeliveryJumpInput" value="${iso}" style="flex:1;min-width:0;margin:0;" onchange="pmDeliveryJump(this.value)">
       ${iso!==todayISO ? `<button class="ghostbtn" style="width:auto;flex:none;margin:0;padding:9px 14px;" onclick="pmDeliveryJump('${todayISO}')">Today</button>` : ''}
     </div>
+    ${deliveryRequestsHtml(dlvReqs)}
     <button class="darkbtn" style="width:100%;margin-bottom:10px;" onclick="addDeliveryFrom('${iso}')">+ Add Delivery</button>
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
@@ -304,6 +348,7 @@ async function renderDeliveryForm(taskId){
     } else {
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, double_slot:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
+      if(DELIVERY_PREFILL){ Object.assign(deliveryFormDraft, DELIVERY_PREFILL); DELIVERY_PREFILL = null; }
     }
     if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
@@ -632,6 +677,7 @@ window.saveDeliveryTask = async function(){
     if(payload.driver_id && payload.driver_id!==d._origDriverId && savedId){
       postSystemMessageToUser(payload.driver_id, payload.site_id, 'delivery_assigned', `You've been assigned a delivery/collection: ${payload.description}`, savedId);
     }
+    if(d._requestId && savedId){ await dbUpdate('delivery_requests', d._requestId, {status:'scheduled', delivery_task_id:savedId, updated_at:new Date().toISOString()}); deliveryRequestsCount = null; }
     toast(d._id && d._id!=='new' ? 'Delivery updated' : 'Added to delivery schedule');
     deliveryFormDraft = null;
     // Land on the day the delivery is booked for, so it's there on screen.

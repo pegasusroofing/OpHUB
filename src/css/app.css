@@ -1055,3 +1055,5 @@ select.sarole{width:auto;min-width:150px;margin:0;padding:6px 8px;font-size:12px
 .calday-big .calh-item{padding:12px 14px;}
 .calday-big .calh-item .calh-txt > span:first-child{font-size:15.5px!important;font-weight:700!important;}
 #assignOpModalOverlay label.sitecard.picked{border-color:var(--brand1);background:#F6F8FD;}
+.dlvreq{border-color:var(--warn,#C0392B);background:#FFF9F5;}
+.dlvreq-item{background:#fff;border:1px solid #ECEEF2;border-radius:12px;padding:10px 12px;margin-bottom:8px;}

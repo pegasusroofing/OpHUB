@@ -115,6 +115,7 @@ async function renderPmHome(){
   if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
   let reports = pmReportsCache.uid===ME.id ? pmReportsCache.rows : [];
   try{ reports = await loadPmReports(); }catch(e){}
+  let dlvReqN = 0; try{ deliveryRequestsCount = null; dlvReqN = await deliveryRequestsBadgeCount(); }catch(e){}
   let todos = pmTodosCache.uid===ME.id ? pmTodosCache.rows : [];
   try{ todos = await loadPmTodos(); }catch(e){}
   const live = SITES.filter(s=>siteStatusKey(s)==='live');
@@ -160,7 +161,7 @@ async function renderPmHome(){
       ${tile('chart', 'teal', 'Dashboard', 'Company &amp; operative overview', "go('#/dashboards')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
-      ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
+      ${tile('truck', 'purple', 'Deliveries', dlvReqN ? dlvReqN+' to schedule' : 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')", dlvReqN)}
       ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
       ${tile('admin', 'blue', 'Operatives', 'Certifications, training, tools', "go('#/operatives?from=%23%2Fhome')")}
       ${tile('users', 'purple', 'HR', 'Holidays, policies & handbook', "go('#/hr')")}

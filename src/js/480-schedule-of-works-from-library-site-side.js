@@ -293,7 +293,7 @@ async function saveSectionFlag(siteId, sectionId, field, value, photoPath){
   if(!wasOn && value){
     const site = SITES.find(s=>s.id===siteId);
     const flagLabel = field==='waste_to_clear' ? 'Waste to clear' : 'Leftover material';
-    postSystemMessage(siteId, 'schedule_flag', `${ME.name} flagged "${flagLabel}" on ${sectionFlagLabel(sectionId)}${site?(' at '+site.name):''}.`);
+    postSystemMessage(siteId, 'schedule_flag', `${ME.name} flagged "${flagLabel}" on ${sectionFlagLabel(sectionId)}${site?(' at '+site.name):''} — it's waiting in Deliveries › To schedule.`);
   }
   toast('Saved');
   render();
