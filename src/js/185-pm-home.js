@@ -162,8 +162,9 @@ async function renderPmHome(){
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
       ${tile('truck', 'purple', 'Deliveries', 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')")}
       ${tile('reports', 'blue', 'Reports &amp; surveys', open.length ? open.length+' in progress' : 'All projects', "go('#/reports')")}
-      ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
+      ${tile('admin', 'blue', 'Operatives', 'Certifications, training, tools', "go('#/operatives?from=%23%2Fhome')")}
       ${tile('users', 'purple', 'HR', 'Holidays, policies & handbook', "go('#/hr')")}
+      ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
     </div>
     ${mine.length ? `
       <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>

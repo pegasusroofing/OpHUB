@@ -212,7 +212,16 @@ async function renderAssignTeam(siteId){
     ` : ''}
     </div>` : ''}
 
-    <p class="ddrow" style="margin-top:18px;" onclick="go('#/operatives?from=${encodeURIComponent('#/site/'+siteId+'/team')}')">👷 Operatives Directory</p>
+    ${isFullManager(ME) ? (()=>{ const sk = siteStatusKey(site); return `
+    <p class="sectiontitle" style="margin-top:22px;">Job status</p>
+    <div class="card">
+      <p class="stub" style="margin:0 0 10px;">This job is <b style="color:${sk==='closed'?'var(--warn)':sk==='live'?'var(--ok)':'var(--ink)'};">${escapeHtml(SITE_STATUS_LABEL[sk]||sk)}</b>.</p>
+      ${sk!=='closed' ? `<button type="button" class="darkbtn" style="margin:0;" onclick="closeJobFromAdmin('${siteId}')">🔒 Close this job</button>` : ''}
+      <div class="row-gap" style="margin-top:8px;">
+        ${sk!=='live' ? `<button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="setSiteStatus('${siteId}','live')">${sk==='closed'?'↩ Reopen as Active':'Set Active'}</button>` : ''}
+        ${sk!=='upcoming' ? `<button type="button" class="ghostbtn" style="flex:1;margin:0;" onclick="setSiteStatus('${siteId}','upcoming')">Set Upcoming</button>` : ''}
+      </div>
+    </div>`; })() : ''}
 
     ${isFullManager(ME) ? `
     <p class="ddrow" style="margin-top:18px;" onclick="toggleSiteTeamSection('price')"><span class="arrow">${siteTeamSectionOpen.price?'▼':'▶'}</span> Price</p>
@@ -241,6 +250,13 @@ async function renderAssignTeam(siteId){
 let siteTeamSectionOpen = {grpsetup:false, grpteam:false, address:false, sync:false, operatives:false, sitemanagers:false, clients:false, price:false, multisite:false, activity:false, maincontractor:false, subcontractor:false};
 window.toggleSiteTeamSection = function(key){ siteTeamSectionOpen[key] = !siteTeamSectionOpen[key]; render(); };
 // Per-subcontractor-company "Assign Operatives to X" dropdowns on Settings &
+// Close the job straight from its Settings & Admin page (same as Close on the
+// Live projects list), so you don't have to come out of the job to do it.
+window.closeJobFromAdmin = async function(siteId){
+  const site = SITES.find(s=>s.id===siteId); if(!site) return;
+  if(!(await customConfirm(`Close "${site.name}"? Operatives lose access to it, and the Handover tile (O&M manual) appears on the job. You can reopen it any time from here or the Closed list.`))) return;
+  await setSiteStatus(siteId, 'closed');
+};
 // Admin — keyed by subcontractor_companies.id, separate from siteTeamSectionOpen
 // since there can be any number of them.
 let siteSubOperativesOpen = {};
