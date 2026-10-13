@@ -35922,6 +35922,13 @@ function addDeliverTo(fulfil, materials){
   const labels = Array.from(new Set((materials||[]).map(m=>m.sub_site_label).filter(Boolean)));
   if(fulfil.mode==='delivery' && labels.length===1) fulfil.note = 'Deliver to: '+labels[0]+(fulfil.note ? ' — '+fulfil.note : '');
 }
+// Typed CCs, plus the supplier's main order email whenever the order is
+// going to one of its branches' own emails instead.
+function orderCcEmails(supplier, fulfil, toMe){
+  const out = (fulfil.ccEmails||[]).slice();
+  if(!toMe && supplier && supplier.email && fulfil.branch && fulfil.branch.email && fulfil.branch.email.toLowerCase()!==String(supplier.email).toLowerCase()) out.push(supplier.email);
+  return out;
+}
 function orderSupplierFor(key){
   if(key==='group') return groupSupplierId;
   if(sendingMaterial && sendingMaterial.matId===key) return sendingMaterial.supplierId;
@@ -35960,7 +35967,11 @@ function orderFulfilmentHtml(key, drivers, siteOps){
         ${siteOps.filter(o=>o.email).map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13.5px;cursor:pointer;"><input type="checkbox" class="reqCc_${key}" value="${o.id}" style="width:17px;height:17px;flex:0 0 17px;"> ${escapeHtml(o.name)}</label>`).join('')}
       </div>
       <p class="stub" style="margin:4px 0 0;">Operatives assigned to this site. Anyone ticked is copied in on the order email.</p>
-    </div>` : ''}`;
+    </div>` : ''}
+    <div class="formfield"><label class="field-label">CC other emails (optional)</label>
+      <input type="text" id="reqCcEmails_${key}" inputmode="email" autocomplete="off" placeholder="e.g. accounts@supplier.co.uk, office@ourcompany.co.uk">
+      <p class="stub" style="margin:4px 0 0;">Separate several with commas. When the order goes to a branch's own email, the supplier's main order email (set in Admin › Suppliers) is copied in automatically.</p>
+    </div>`;
 }
 window.onOrderModeChange = function(key){
   const g = id=>document.getElementById(id+'_'+key);
@@ -35981,11 +35992,15 @@ function readOrderFulfilment(key){
   // The supplier sees the branch on the order (it goes out in the note).
   const note = branch ? ('Branch: '+branchLabel(branch)+(branch.phone?' ('+branch.phone+')':'')+(typedNote ? ' — '+typedNote : '')) : typedNote;
   const ccIds = Array.from(document.querySelectorAll('.reqCc_'+key+':checked')).map(el=>el.value);
-  if(mode==='delivery') return {mode, date, note, ccIds, branch, collectorKind:null, collectorId:null, slot:null};
+  const ccRaw = g('reqCcEmails') ? g('reqCcEmails').value : '';
+  const ccEmails = ccRaw.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean);
+  const badCc = ccEmails.filter(x=>!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x));
+  if(badCc.length){ toast('Check the CC email'+(badCc.length>1?'s':'')+': '+badCc.join(', ')); return null; }
+  if(mode==='delivery') return {mode, date, note, ccIds, ccEmails, branch, collectorKind:null, collectorId:null, slot:null};
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, note, ccIds, branch, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, ccEmails, branch, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -36076,7 +36091,7 @@ window.confirmSendMaterial = async function(siteId, matId){
       material_id: matId, supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name,
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
-      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
+      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
     })});
     const d = await res.json();
@@ -36172,7 +36187,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       supplier_email: toMe ? supplier.email : orderEmailFor(supplier, fulfil.branch), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
-      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [],
+      note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
       items: materials.map(m=>({item:m.item, qty:m.qty})),
     })});
