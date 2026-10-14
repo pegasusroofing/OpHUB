@@ -105,6 +105,10 @@ async function renderDriverHome(){
         <div class="icon" style="background:${onDuty?'var(--ok-bg)':'#E7E9EE'};color:${onDuty?'var(--ok)':'var(--ink)'};">📍</div>
         <div class="lbl">Check In / Out</div><div class="sub">${onBreak?'On a break':(onDuty?'Currently checked in':'Not checked in')}</div>
       </div>
+      <div class="tile" ${onDuty ? `onclick="doDriverBreak('${onBreak?'end':'start'}')"` : `onclick="toast('Check in first, then you can start a break')" style="opacity:.6;"`}>
+        <div class="icon" style="background:${onBreak?'var(--warn-bg)':'#FFF3E0'};color:${onBreak?'var(--warn)':'#B26A00'};">${onBreak?'▶':'☕'}</div>
+        <div class="lbl">${onBreak?'End Break':'Start Break'}</div><div class="sub">${onBreak ? 'On a break since '+new Date(openBreaks[0].started_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : (onDuty ? 'Tap to start your break' : 'Check in first')}</div>
+      </div>
       <div class="tile" onclick="go('#/driver/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📅</div>
         <div class="lbl">Today's Schedule</div><div class="sub">${pendingToday} ${pendingToday===1?'delivery':'deliveries'} today</div>
