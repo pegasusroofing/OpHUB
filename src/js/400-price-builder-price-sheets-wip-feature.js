@@ -575,9 +575,14 @@ async function pbPersist(siteId, sheetId, status){
     const entry = pbWorking.items[key];
     const item = itemsById[entry.rateItemId]; if(!item) return;
     const qty = Number(entry.quantity)||0;
-    if(!qty) return; // ticked but no quantity yet — don't save a zero line
-    if(item.is_dropdown && !entry.optionId) return; // ticked but no option chosen yet
-    const lineTotal = pbLineTotal(entry, item);
+    // #(pb-draft-keeps-ticks) A DRAFT keeps everything that's ticked, even
+    // with no quantity / option chosen yet — "Save Draft" straight after
+    // ticking used to save nothing at all (Valley Roof, 14 Oct). Issuing
+    // still only keeps lines with a quantity (and an option, for dropdowns).
+    const draft = !status;
+    if(!qty && !draft) return; // ticked but no quantity yet — don't issue a zero line
+    if(item.is_dropdown && !entry.optionId && !draft) return; // ticked but no option chosen yet
+    const lineTotal = (qty && !(item.is_dropdown && !entry.optionId)) ? (Number(pbLineTotal(entry, item))||0) : 0;
     total += lineTotal;
     // Prefer the id already tracked on the entry; if missing (e.g. the row
     // was untouched but the in-memory entry was rebuilt), recover it from
@@ -587,7 +592,7 @@ async function pbPersist(siteId, sheetId, status){
     rows.push({
       id: resolvedId, _key: key,
       sheet_id: sheetId, rate_item_id: item.id, category: item.category, name: entry.nameOverride||item.name, unit: entry.unit||item.unit,
-      rate: pbResolvedRate(entry, item), quantity: qty,
+      rate: Number(pbResolvedRate(entry, item))||0, quantity: qty,
       option_id: entry.optionId||null, option_label: entry.optionLabel||null,
       is_manual_rate: !!entry.isManualRate,
       line_total: lineTotal, sort_order: sortOrder++,
@@ -599,7 +604,8 @@ async function pbPersist(siteId, sheetId, status){
   pbWorking.customRows.forEach((row, rowIdx)=>{
     const qty = Number(row.quantity)||0;
     const rate = Number(row.rate)||0;
-    if(!row.name || !qty || !rate) return; // incomplete custom row — don't save a blank/zero line
+    if(!row.name) return; // no name yet — nothing to keep
+    if((!qty || !rate) && status) return; // incomplete custom row — don't issue a blank/zero line (a draft keeps it)
     const lineTotal = pbRound2(qty * rate);
     total += lineTotal;
     rows.push({
