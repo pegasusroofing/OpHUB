@@ -45,6 +45,10 @@ function navNoteArrival(prevHash, newHash){
 }
 function navBackFor(defaultBack){
   const cur = String(location.hash||'');
+  // #(project-back-up-a-folder) 2026-10-14 (Andy): inside a project, back
+  // always goes UP one folder (the page's own parent), never back to
+  // wherever you happened to tap from.
+  if(defaultBack && /^#\/site\//.test(cur)) return defaultBack;
   if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur);
   // A page that sent you straight on to its parent (e.g. a report that's
   // gone → the report list) without the trail noticing: fix the trail.
