@@ -105,10 +105,6 @@ async function renderDriverHome(){
         <div class="icon" style="background:${onDuty?'var(--ok-bg)':'#E7E9EE'};color:${onDuty?'var(--ok)':'var(--ink)'};">📍</div>
         <div class="lbl">Check In / Out</div><div class="sub">${onBreak?'On a break':(onDuty?'Currently checked in':'Not checked in')}</div>
       </div>
-      <div class="tile" ${onDuty ? `onclick="doDriverBreak('${onBreak?'end':'start'}')"` : `onclick="toast('Check in first, then you can start a break')" style="opacity:.6;"`}>
-        <div class="icon" style="background:${onBreak?'var(--warn-bg)':'#FFF3E0'};color:${onBreak?'var(--warn)':'#B26A00'};">${onBreak?'▶':'☕'}</div>
-        <div class="lbl">${onBreak?'End Break':'Start Break'}</div><div class="sub">${onBreak ? 'On a break since '+new Date(openBreaks[0].started_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) : (onDuty ? 'Tap to start your break' : 'Check in first')}</div>
-      </div>
       <div class="tile" onclick="go('#/driver/schedule')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">📅</div>
         <div class="lbl">Today's Schedule</div><div class="sub">${pendingToday} ${pendingToday===1?'delivery':'deliveries'} today</div>
@@ -317,11 +313,19 @@ async function renderDriverSchedule(preview){
   const d = new Date(); d.setDate(d.getDate()+driverScheduleDateOffset);
   const dateISO = localISODate(d);
   const dateLabel = d.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'});
-  const [tasks, suppliers] = await Promise.all([
+  const [tasks, suppliers, , lastCheck, openBrk] = await Promise.all([
     dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&order=sub_priority.asc'),
     dbSelect('suppliers', 'org_id=eq.'+ME.org_id),
     loadAllProfiles(),
+    preview ? Promise.resolve([]) : dbSelect('driver_checkins', 'user_id=eq.'+ME.id+'&order=ts.desc&limit=1'),
+    preview ? Promise.resolve([]) : dbSelect('driver_breaks', 'user_id=eq.'+ME.id+'&ended_at=is.null&order=started_at.desc&limit=1'),
   ]);
+  // Break button sits at the top of the driver's day view.
+  const drvOnDuty = !!(lastCheck && lastCheck[0] && lastCheck[0].type==='in');
+  const drvBreak = drvOnDuty && openBrk && openBrk[0] ? openBrk[0] : null;
+  const breakBarHtml = preview ? '' : (drvOnDuty
+    ? `<button class="${drvBreak?'darkbtn':'ghostbtn'}" style="width:100%;padding:14px;font-size:15px;margin:0 0 12px;" ${driverCheckinBusy?'disabled':''} onclick="doDriverBreak('${drvBreak?'end':'start'}')">${driverCheckinBusy ? 'Saving…' : drvBreak ? '▶ End Break <span style="font-weight:400;">(since '+new Date(drvBreak.started_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})+')</span>' : '☕ Start Break'}</button>`
+    : `<button class="ghostbtn" style="width:100%;padding:12px;font-size:14px;margin:0 0 12px;opacity:.75;" onclick="go('#/driver/checkin')">☕ Breaks — check in first</button>`);
   const supplierName = {}; suppliers.forEach(s=>{ supplierName[s.id]=s.name; });
   const previewDrivers = preview ? Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name)) : [];
   if(preview && (!driverPreviewId || !previewDrivers.some(p=>p.id===driverPreviewId))) driverPreviewId = previewDrivers.length ? previewDrivers[0].id : null;
@@ -354,6 +358,7 @@ async function renderDriverSchedule(preview){
       ${previewDrivers.length>1 ? `<select style="margin-top:8px;" onchange="driverPreviewId=this.value;render()">${previewDrivers.map(p=>`<option value="${p.id}" ${p.id===driverPreviewId?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select>` : (previewDrivers.length ? `<p class="stub" style="margin:6px 0 0;"><b>${escapeHtml(previewDrivers[0].name)}</b></p>` : '')}
     </div>` : ''}
     <div class="${preview?'driverpreview':''}">
+    ${breakBarHtml}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
       <span class="homebtn" style="flex:none;" onclick="driverScheduleDateOffset--;render()">‹</span>
       <div style="flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center;font-weight:700;font-size:15px;">${dateLabel}${driverScheduleDateOffset===0?' (Today)':''}</div>
