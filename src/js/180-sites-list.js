@@ -167,6 +167,13 @@ let sitePmPickerOpenId = null;
 let siteSectionOpen = {live:true, upcoming:null, closed:false};
 // #(projects-tabs) PM/admin project list: Live / Upcoming / Closed chips + search instead of drop-down sections.
 let siteTab = 'all';
+const projGrpOpen = {live:true, upcoming:false, closed:false};
+window.toggleProjGrp = function(k){
+  projGrpOpen[k] = !projGrpOpen[k];
+  const h = document.querySelector('.projgrp[data-grp="'+k+'"]'), b = document.querySelector('[data-grpbody="'+k+'"]');
+  if(h) h.classList.toggle('open', projGrpOpen[k]);
+  if(b) b.style.display = projGrpOpen[k] ? '' : 'none';
+};
 window.setSiteTab = function(k){ siteTab = k; render(); };
 window.toggleSiteStatusMenu = function(siteId){
   siteStatusMenuOpenId = siteStatusMenuOpenId===siteId ? null : siteId;
@@ -253,7 +260,7 @@ async function renderSites(){
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     ${(!canAdd && isManager(ME) && !isClient(ME)) ? `<div class="admgroup" style="margin-bottom:12px;">${admRow('#/hr', 'users', 'purple', 'HR', 'Holidays, policies & handbook')}</div>` : ''}
     ${(canAdd || (typeof usesOpHome==='function' && usesOpHome(ME))) ? `
-      <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
+      <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox');var b=document.getElementById('siteListBox');if(b)b.classList.toggle('searching',!!this.value.trim())"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
       ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['all','All',liveSites.concat(upcomingSites, closedSites)],['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
@@ -324,8 +331,9 @@ async function renderSites(){
           const card = s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`;
           if(siteTab==='all'){
             // All: one list, split by bold Live / Upcoming / Closed headings.
-            const grp = (label, list)=> list.length ? `<div class="projgrp">${label} <span>(${list.length})</span></div>`+list.map(card).join('') : '';
-            return (grp('Live', liveSites)+grp('Upcoming', upcomingSites)+grp('Closed', closedSites)) || `<div class="empty">No projects.</div>`;
+            // Each heading opens/closes its group (Live open to start).
+            const grp = (k, label, list)=> list.length ? `<div class="projgrp ${projGrpOpen[k]?'open':''}" data-grp="${k}" onclick="toggleProjGrp('${k}')"><b>${label}</b> <span>(${list.length})</span><i>▾</i></div><div class="projgrp-body" data-grpbody="${k}" style="${projGrpOpen[k]?'':'display:none;'}">`+list.map(card).join('')+`</div>` : '';
+            return (grp('live','Live', liveSites)+grp('upcoming','Upcoming', upcomingSites)+grp('closed','Closed', closedSites)) || `<div class="empty">No projects.</div>`;
           }
           return (siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(card).join('') || `<div class="empty">No ${siteTab} projects.</div>`;
         })()}
