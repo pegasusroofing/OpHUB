@@ -3017,7 +3017,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '14 Oct 2026 · project back = up a folder';
+const OPHUB_BUILD_LABEL = '14 Oct 2026 · TBT multi-email';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -34028,6 +34028,53 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
 // ---------- Reports & surveys › Completed TBTs (#/reports/tbt) ----------
 // Every completed (closed) toolbox talk across the company's projects, newest
 // first, with Open / PDF / Email on each.
+let tbtDoneSel = new Set(), tbtDoneSignable = [], tbtDoneBusy = '';
+window.tbtDoneToggle = function(id, on){ if(on) tbtDoneSel.add(id); else tbtDoneSel.delete(id); render(); };
+// All ticked talks as ONE signed PDF (each talk's pages one after another).
+async function tbtDoneBuildMerged(){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
+  const out = await PDFLib.PDFDocument.create();
+  let n = 0;
+  for(const id of Array.from(tbtDoneSel)){
+    try{
+      const b = await buildSignedToolboxTalkPdfBytes(id);
+      if(!b) continue;
+      const src = await PDFLib.PDFDocument.load(b.outBytes, {ignoreEncryption:true});
+      (await out.copyPages(src, src.getPageIndices())).forEach(pg=>out.addPage(pg));
+      n++;
+    }catch(e){ console.error('[tbt merge]', id, e); }
+  }
+  if(!n){ toast('None of the ticked talks could be built.'); return null; }
+  const filename = 'Signed Toolbox Talks ('+n+') - '+new Date().toLocaleDateString('en-GB').replace(/\//g,'-')+'.pdf';
+  return {bytes: await out.save(), filename, n};
+}
+window.tbtDoneExport = async function(){
+  if(!tbtDoneSel.size || tbtDoneBusy) return;
+  tbtDoneBusy = 'pdf'; render(); toast('Building one PDF…');
+  try{ const m = await tbtDoneBuildMerged(); tbtDoneBusy = ''; render(); if(m) await deliverPdf(m.bytes, m.filename); }
+  catch(e){ tbtDoneBusy = ''; render(); toast('Could not build the PDF — try again.'); }
+};
+window.tbtDoneEmail = async function(){
+  if(!tbtDoneSel.size || tbtDoneBusy) return;
+  const to = await customPrompt('Email the '+tbtDoneSel.size+' ticked toolbox talk'+(tbtDoneSel.size===1?'':'s')+' (one PDF) to:', '');
+  if(!to) return;
+  const email = to.trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
+  tbtDoneBusy = 'email'; render(); toast('Building one PDF…');
+  try{
+    const m = await tbtDoneBuildMerged();
+    if(!m){ tbtDoneBusy = ''; render(); return; }
+    const path = 'tbt-exports/'+ME.org_id+'/'+uid()+'-'+m.filename.replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, new Blob([m.bytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored){ tbtDoneBusy = ''; render(); toast('Could not upload the PDF — try again.'); return; }
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({general_label:'Toolbox Talks', recipient_email: email, cc_email: email!==ME.email ? ME.email : undefined, doc_title: 'Signed Toolbox Talks ('+m.n+')', file_url: publicUrl('mc-documents', stored)})});
+    const d = res ? await res.json().catch(()=>({})) : {};
+    tbtDoneBusy = '';
+    if(res && res.ok && !d.error){ tbtDoneSel = new Set(); toast(m.n+' toolbox talk'+(m.n===1?'':'s')+' emailed to '+email+(d.attached===false?' (as a link — too big to attach)':'')); }
+    else toast('Could not send the email — '+String((d && d.error) || 'try again').slice(0,140));
+    render();
+  }catch(e){ tbtDoneBusy = ''; render(); toast('Could not send the email — check your connection.'); }
+};
 async function renderCompletedTbts(){
   const __gen = RENDER_GEN;
   const [talks] = await Promise.all([
@@ -34043,7 +34090,11 @@ async function renderCompletedTbts(){
   const rows = (talks||[]).map(t=>{
     const site = SITES.find(s=>s.id===t.site_id);
     const where = site ? site.name : 'Project';
-    return `<div class="card" style="padding:12px;margin-bottom:8px;" data-lf="${lfText([t.title, where, site&&site.address].filter(Boolean).join(' '))}">
+    const sel = tbtDoneSel.has(t.id);
+    return `<div class="card" style="padding:12px;margin-bottom:8px;${sel?'border-color:var(--brand1);box-shadow:0 0 0 1.5px var(--brand1) inset;':''}" data-lf="${lfText([t.title, where, site&&site.address].filter(Boolean).join(' '))}">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+      <label style="flex:none;padding-top:1px;cursor:pointer;" title="Select"><input type="checkbox" style="width:20px;height:20px;" ${sel?'checked':''} ${n[t.id]?'':'disabled'} onchange="tbtDoneToggle('${t.id}',this.checked)"></label>
+      <div style="flex:1;min-width:0;">
       <div style="font-weight:700;">${escapeHtml(t.title||'Toolbox Talk')}</div>
       <div class="stub" style="margin:2px 0 8px;font-size:12px;">${escapeHtml(where)} · issued ${fmt(t.created_at)}${last[t.id] ? ' · last signed '+fmt(last[t.id]) : ''} · ${n[t.id]||0} signature${(n[t.id]||0)===1?'':'s'}</div>
       <div class="row-gap" style="gap:6px;">
@@ -34051,10 +34102,21 @@ async function renderCompletedTbts(){
         <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:7px 6px;font-size:12px;" ${n[t.id]?'':'disabled'} onclick="exportSignedToolboxTalk('${t.id}')">📄 PDF</button>
         <button type="button" class="darkbtn" style="flex:1;margin:0;padding:7px 6px;font-size:12px;" ${n[t.id]?'':'disabled'} onclick="emailSignedToolboxTalk('${t.site_id}','${t.id}')">✉ Email</button>
       </div>
+      </div></div>
     </div>`;
   }).join('');
+  tbtDoneSignable = (talks||[]).filter(t=>n[t.id]).map(t=>t.id);
+  for(const id of Array.from(tbtDoneSel)) if(!tbtDoneSignable.includes(id)) tbtDoneSel.delete(id);
+  const selN = tbtDoneSel.size;
   document.getElementById('app').innerHTML = shell(`
     <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search toolbox talks or projects" aria-label="Search toolbox talks" oninput="liveFilter(this.value,'#tbtDoneList')"></label>
+    ${selN ? `
+      <div class="pmselbar">
+        <span><b>${selN}</b> selected</span>
+        <button type="button" class="ghostbtn" ${tbtDoneBusy?'disabled':''} onclick="tbtDoneExport()">${tbtDoneBusy==='pdf'?'Building…':'Export PDF'}</button>
+        <button type="button" class="darkbtn" ${tbtDoneBusy?'disabled':''} onclick="tbtDoneEmail()">${tbtDoneBusy==='email'?'Sending…':'Email all'}</button>
+        <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="tbtDoneSel=new Set();render()">✕</button>
+      </div>` : (tbtDoneSignable.length ? `<div style="text-align:right;margin:-4px 2px 8px;"><span class="stub" style="margin:0;cursor:pointer;text-decoration:underline;" onclick="tbtDoneSel=new Set(tbtDoneSignable);render()">Select all</span></div>` : '')}
     <div id="tbtDoneList">
       ${rows || '<div class="empty">No completed toolbox talks yet.</div>'}
       <div class="empty lf-empty" style="display:none;">No toolbox talks match.</div>
