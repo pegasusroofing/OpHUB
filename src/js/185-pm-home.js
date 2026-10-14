@@ -234,6 +234,7 @@ async function renderAllReports(){
       </div>` : ''}
     <div class="pmtiles" style="margin:12px 0;">
       <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
+      <button type="button" class="pmtile pmtile-sm" onclick="go('#/reports/tbt')"><span class="pmtile-txt"><span class="pmtile-t">Completed TBTs</span><span class="pmtile-s">Signed toolbox talks, all projects</span></span></button>
       <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries/reporttemplates')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
     </div>
     <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search reports, projects, people" aria-label="Search reports" oninput="liveFilter(this.value,'#pmReportList')"></label>

@@ -315,7 +315,7 @@ async function renderToolboxTalkView(siteId, tbtId){
       <div class="row-gap" style="margin-top:8px;align-items:stretch;">
         ${sigs.length ? `<button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" onclick="exportSignedToolboxTalk('${tbtId}')">Export Signed TBT</button>` : '<div style="flex:1;"></div>'}
         ${talk.status==='live' ? `<button style="flex:1;font-size:11px;padding:6px 4px;border:none;border-radius:9px;font-weight:700;background:var(--brand1);color:var(--brand1-text);" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : '<div style="flex:1;"></div>'}
-        ${sigs.length ? `<button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailTbtManual('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>` : '<div style="flex:1;"></div>'}
+        ${sigs.length ? `<button class="ghostbtn exportbtn" style="flex:1;font-size:11px;padding:6px 4px;" ${tbtEmailBusy===tbtId?'disabled':''} onclick="emailSignedToolboxTalk('${siteId}','${tbtId}')">${tbtEmailBusy===tbtId?'Sending…':'Email TBT'}</button>` : '<div style="flex:1;"></div>'}
       </div>
       ${hasAnySignature && talk.status==='live' ? `<button class="ghostbtn" style="margin-top:8px;color:var(--warn);font-size:11px;padding:6px 4px;" onclick="deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}',${sigs.length})">🗑 Delete TBT</button>` : ''}
       ${!hasAnySignature ? `
@@ -668,3 +668,40 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
     toast('Could not send the email — please try again.');
   }
 };
+
+// ---------- Reports & surveys › Completed TBTs (#/reports/tbt) ----------
+// Every completed (closed) toolbox talk across the company's projects, newest
+// first, with Open / PDF / Email on each.
+async function renderCompletedTbts(){
+  const __gen = RENDER_GEN;
+  const [talks] = await Promise.all([
+    dbSelect('toolbox_talks', 'org_id=eq.'+ME.org_id+'&status=eq.completed&subcontractor_company_id=is.null&order=created_at.desc&limit=500&select=id,site_id,title,created_at,created_by'),
+    loadAllProfiles(),
+  ]);
+  const ids = (talks||[]).map(t=>t.id);
+  const sigs = ids.length ? await dbSelect('toolbox_talk_signatures', 'tbt_id=in.('+ids.join(',')+')&select=tbt_id,signed_at') : [];
+  const n = {}, last = {};
+  (sigs||[]).forEach(x=>{ n[x.tbt_id] = (n[x.tbt_id]||0)+1; if(!last[x.tbt_id] || x.signed_at > last[x.tbt_id]) last[x.tbt_id] = x.signed_at; });
+  if(__gen !== RENDER_GEN) return;
+  const fmt = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const rows = (talks||[]).map(t=>{
+    const site = SITES.find(s=>s.id===t.site_id);
+    const where = site ? site.name : 'Project';
+    return `<div class="card" style="padding:12px;margin-bottom:8px;" data-lf="${lfText([t.title, where, site&&site.address].filter(Boolean).join(' '))}">
+      <div style="font-weight:700;">${escapeHtml(t.title||'Toolbox Talk')}</div>
+      <div class="stub" style="margin:2px 0 8px;font-size:12px;">${escapeHtml(where)} · issued ${fmt(t.created_at)}${last[t.id] ? ' · last signed '+fmt(last[t.id]) : ''} · ${n[t.id]||0} signature${(n[t.id]||0)===1?'':'s'}</div>
+      <div class="row-gap" style="gap:6px;">
+        <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:7px 6px;font-size:12px;" onclick="go('#/site/${t.site_id}/hs/tbt/${t.id}')">Open</button>
+        <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:7px 6px;font-size:12px;" ${n[t.id]?'':'disabled'} onclick="exportSignedToolboxTalk('${t.id}')">📄 PDF</button>
+        <button type="button" class="darkbtn" style="flex:1;margin:0;padding:7px 6px;font-size:12px;" ${n[t.id]?'':'disabled'} onclick="emailSignedToolboxTalk('${t.site_id}','${t.id}')">✉ Email</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('app').innerHTML = shell(`
+    <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search toolbox talks or projects" aria-label="Search toolbox talks" oninput="liveFilter(this.value,'#tbtDoneList')"></label>
+    <div id="tbtDoneList">
+      ${rows || '<div class="empty">No completed toolbox talks yet.</div>'}
+      <div class="empty lf-empty" style="display:none;">No toolbox talks match.</div>
+    </div>
+  `, {title:'Completed TBTs', subtitle:'All projects', back:'#/reports', tabs:false});
+}

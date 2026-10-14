@@ -99,6 +99,7 @@ async function renderRoute(){
   if(parts[0]==='reports'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     addSiteFormOpen = false;
+    if(parts[1]==='tbt') return renderCompletedTbts();
     return renderAllReports();
   }
   addSiteFormOpen = false; newSiteStatus = null; newSiteNameDraft=''; newSiteAddrDraft=''; newSitePostcodeDraft=''; newSiteJobNumberDraft=''; newSiteMultiSiteDraft=false; newSiteRepairContractDraft=false; newSiteClientNameDraft=''; newSiteClientPhoneDraft=''; newSiteClientEmailDraft=''; // navigating anywhere off the site list closes the collapsed add-site form back up
