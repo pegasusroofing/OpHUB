@@ -3017,7 +3017,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '14 Oct 2026 · TBT select all';
+const OPHUB_BUILD_LABEL = '14 Oct 2026 · COSHH multi-select';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -29443,6 +29443,56 @@ window.sendRamsSignReminder = async function(siteId){
 
 /* ================= COSHH (identical to RAMS above — separate document type) ================= */
 let coshhPollTimer = null;
+// #(coshh-multiselect) Tick COSHH documents (or Select all), then Export PDF
+// or Email them as ONE PDF — signed copies where people have signed, the
+// plain document where nobody has yet.
+let coshhSel = new Set(), coshhSelAll = [], coshhSelBusy = '';
+window.coshhSelToggle = function(id, on){ if(on) coshhSel.add(id); else coshhSel.delete(id); render(); };
+async function coshhSelBuild(siteId){
+  if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
+  const ids = coshhSelAll.filter(id=>coshhSel.has(id));
+  const docs = await dbSelect('coshh_docs', 'id=in.('+ids.join(',')+')&select=id,name,storage_path');
+  const parts = [];
+  for(const id of ids){
+    try{
+      const b = await buildSignedCoshhPdf(id);
+      if(b && b.bytes){ parts.push(b.bytes); continue; }
+      const d = docs.find(x=>x.id===id);
+      if(d && d.storage_path){ const res = await fetchWithTimeout(publicUrl('coshh-docs', d.storage_path), {}, 60000); if(res.ok) parts.push(new Uint8Array(await res.arrayBuffer())); }
+    }catch(e){ console.error('[coshh sel]', id, e); }
+  }
+  if(!parts.length){ toast('Could not build any of the ticked COSHH documents.'); return null; }
+  const site = SITES.find(s=>s.id===siteId);
+  const filename = exportFilename(site?site.name:'', 'COSHH ('+parts.length+')', 'pdf');
+  const bytes = parts.length===1 ? parts[0] : await mergePdfBytes(parts, filename.replace(/\.pdf$/i,''));
+  return {bytes, filename, n: parts.length};
+}
+window.coshhSelExport = async function(siteId){
+  if(!coshhSel.size || coshhSelBusy) return;
+  coshhSelBusy = 'pdf'; render(); toast('Building one PDF…');
+  try{ const m = await coshhSelBuild(siteId); coshhSelBusy = ''; render(); if(m) await deliverPdf(m.bytes, m.filename, {siteId}); }
+  catch(e){ coshhSelBusy = ''; render(); toast('Could not build the PDF — try again.'); }
+};
+window.coshhSelEmail = async function(siteId){
+  if(!coshhSel.size || coshhSelBusy) return;
+  const site = SITES.find(s=>s.id===siteId);
+  const answer = await customPromptWithCc('Email the '+coshhSel.size+' ticked COSHH document'+(coshhSel.size===1?'':'s')+' (one PDF) to:', '', site);
+  if(!answer) return;
+  const typed = (answer.value||'').trim();
+  if(typed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)){ toast('Enter a valid email address.'); return; }
+  const emailTo = resolvePromptEmailTo(answer);
+  if(!emailTo) return;
+  coshhSelBusy = 'email'; render(); toast('Building one PDF…');
+  try{
+    const m = await coshhSelBuild(siteId);
+    if(!m){ coshhSelBusy = ''; render(); return; }
+    const ok = await emailPdfAsLink({siteId, bytes: m.bytes, filename: m.filename, title: 'COSHH — '+m.n+' document'+(m.n===1?'':'s'), to: emailTo.to, cc: emailTo.cc, clientCc: ccClientEmailFromPromptAnswer(answer, site)});
+    coshhSelBusy = '';
+    if(ok){ coshhSel = new Set(); toast(m.n+' COSHH document'+(m.n===1?'':'s')+' emailed to '+emailTo.to+(emailTo.cc?' (you\'re copied in)':'')); }
+    else toast('Email failed — please try again.');
+    render();
+  }catch(e){ coshhSelBusy = ''; render(); toast('Email failed — could not reach the server.'); }
+};
 function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView){
   const roster = assignedIds||[];
   return docs.map(r=>{
@@ -29462,10 +29512,12 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isCli
     // shows a "who's signed" summary plus how many are still outstanding.
     const signedCount = sigs.length;
     const outstandingCount = notSigned.length;
+    const picked = coshhSel.has(r.id);
     return `
-    <div class="ramsdoc" style="padding:10px 12px;">
+    <div class="ramsdoc" style="padding:10px 12px;${picked?'box-shadow:0 0 0 2px var(--brand1) inset;':''}">
       <div class="taskrowtop">
-        <div class="name" style="font-size:19px;font-weight:800;">${escapeHtml(r.name)}</div>
+        ${canAdd && isManager(ME) ? `<label style="flex:none;cursor:pointer;margin-right:8px;" title="Select"><input type="checkbox" style="width:20px;height:20px;" ${picked?'checked':''} onchange="coshhSelToggle('${r.id}',this.checked)"></label>` : ''}
+        <div class="name" style="font-size:19px;font-weight:800;flex:1;min-width:0;">${escapeHtml(r.name)}</div>
         ${canAdd ? `<div class="taskicons">
           <input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">
           <div class="taskicon" title="Replace this file (resets signatures)" onclick="document.getElementById('coshhReplaceInput-${r.id}').click()">🔁</div>
@@ -29561,7 +29613,18 @@ async function renderCoshh(siteId){
   const uploadForm = `<div class="row-gap" style="margin:0 0 ${coshhAddMode?'14px':'0'};">${coshhBtn('create','🧪 Create COSHH')}${coshhBtn('upload','📄 Upload COSHH')}</div>
         ${coshhAddMode==='create' ? coshhCreatePart : coshhAddMode==='upload' ? coshhUploadPart : ''}`;
 
+  coshhSelAll = docs.map(d=>d.id);
+  for(const id of Array.from(coshhSel)) if(!coshhSelAll.includes(id)) coshhSel.delete(id);
+  const cSelN = coshhSel.size;
+  const coshhSelBar = (canAdd && isManager(ME) && docs.length) ? (cSelN ? `
+      <div class="pmselbar">
+        <span><b>${cSelN}</b> selected${cSelN < docs.length ? ` · <u style="cursor:pointer;" onclick="coshhSel=new Set(coshhSelAll);render()">Select all</u>` : ''}</span>
+        <button type="button" class="ghostbtn" ${coshhSelBusy?'disabled':''} onclick="coshhSelExport('${siteId}')">${coshhSelBusy==='pdf'?'Building…':'Export PDF'}</button>
+        <button type="button" class="darkbtn" ${coshhSelBusy?'disabled':''} onclick="coshhSelEmail('${siteId}')">${coshhSelBusy==='email'?'Sending…':'Email'}</button>
+        <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="coshhSel=new Set();render()">✕</button>
+      </div>` : `<div style="text-align:right;margin:-2px 2px 8px;"><span class="stub" style="margin:0;cursor:pointer;text-decoration:underline;" onclick="coshhSel=new Set(coshhSelAll);render()">Select all</span></div>`) : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${coshhSelBar}
     <div id="coshhDocsList">${coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClientView)}</div>
 
     ${!canAdd && !isClientView && docs.length ? `
