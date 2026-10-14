@@ -32,6 +32,68 @@ function coshhCodeListHtml(codes){
 
 // ---------- Library list ----------
 let coshhLibQ = '';
+let coshhStepsOpen = false;
+let coshhMfr = ''; // manufacturer filter on the Products tab
+// Manufacturer names come in several spellings ("Bauder Ltd", "Paul Bauder
+// GmbH & Co KG") — reduce them to one brand so the filter groups them.
+function coshhBrandKeys(lib){
+  const norm = m => String(m||'').toLowerCase().replace(/&/g,' ').replace(/\b(ltd|limited|plc|gmbh|co|kg|uk|llp|inc|group|the|and)\b/g,' ').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+  const names = {};
+  lib.forEach(i=>{ const n = norm(i.data && i.data.manufacturer); if(n) names[n] = names[n] || (i.data.manufacturer||'').trim(); });
+  const keys = Object.keys(names), map = {};
+  keys.forEach(k=>{
+    const toks = k.split(' ').filter(t=>t.length>=4);
+    const shorter = keys.filter(o=>o!==k && o.length < k.length && toks.includes(o.split(' ')[0]));
+    map[k] = shorter.length ? shorter.sort((a,b)=>a.length-b.length)[0] : k;
+  });
+  const label = k => { const base = map[k]; return base.replace(/\b\w/g, c=>c.toUpperCase()); };
+  return {of: i => { const n = norm(i.data && i.data.manufacturer); return n ? label(n) : 'No manufacturer'; }};
+}
+// Compact products list: one line per product, grouped by WHERE its COSHH
+// assessment is filed (folder path), "Not assessed yet" first. Duplicates
+// (same product name twice) are marked in red.
+function coshhProductsListHtml(lib, amap, lfq, lfOf, fmtD, hits){
+  const brands = coshhBrandKeys(lib);
+  const brandList = Array.from(new Set(lib.map(brands.of))).sort((a,b)=>a==='No manufacturer'?1:b==='No manufacturer'?-1:a.localeCompare(b));
+  if(coshhMfr && !brandList.includes(coshhMfr)) coshhMfr = '';
+  const list = lib.filter(it=>!coshhMfr || brands.of(it)===coshhMfr);
+  const cnt = {}; lib.forEach(i=>{ const k = coshhTitleKey(i.title); cnt[k] = (cnt[k]||0)+1; });
+  const groups = {};
+  list.forEach(it=>{ const a = amap[it.id]; const g = a ? a.folder : ''; (groups[g] = groups[g] || []).push(it); });
+  const order = Object.keys(groups).sort((a,b)=>a===''?-1:b===''?1:a.localeCompare(b));
+  const row = it => {
+    const d = it.data, a = amap[it.id], dup = cnt[coshhTitleKey(it.title)] > 1;
+    return `<div class="coshhrow ${dup?'dup':''}" data-lf="${lfText(lfOf(it)+' '+(a?a.folder:''))}" style="${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
+      <div class="coshhrow-pics">${(d.pictos||[]).slice(0,3).map(k=>coshhPictoImgHtml(k,18)).join('')}</div>
+      <div class="coshhrow-main">
+        <div class="coshhrow-t">${escapeHtml(it.title)}${dup?' <span class="coshhbadge dup">Duplicate</span>':''}${d.needsCheck?' <span class="coshhbadge chk">Check</span>':''}</div>
+        <div class="coshhrow-s">${escapeHtml(d.manufacturer||'No manufacturer')}${d.sdsPath?' · data sheet':' · <span style="color:var(--warn);">no data sheet</span>'}${a ? ' · '+(a.due?'<b style="color:var(--warn);">review due</b>':'assessed '+fmtD(a.at)) : ''}</div>
+      </div>
+      <div class="coshhrow-act" onclick="event.stopPropagation()">
+        ${a ? rowActionsMenuHtml('cp-'+it.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;go('#/coshh-substances/${it.id}')">✏️ Edit product</div>
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;coshhUpdateAssessment('${it.id}')">⟳ Update assessment</div>
+          <div class="statusmenu-item" style="color:var(--warn);" onclick="rowActionsMenuOpenFor=null;coshhDeleteProductFull('${it.id}')">🗑 Delete</div>`)
+        : `<button type="button" class="coshhmk" onclick="coshhMakeAssessment('${it.id}')">+ Assess</button>`}
+      </div>
+    </div>`;
+  };
+  const dupN = Object.values(cnt).reduce((t,v)=>t+(v>1?v-1:0),0);
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <input type="search" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" autocomplete="off" style="flex:2 1 180px;margin:0;box-sizing:border-box;" oninput="coshhLibQ=this.value;liveFilter(this.value,'#coshhLibList')">
+      <select style="flex:1 1 150px;margin:0;" onchange="coshhMfr=this.value;render()" aria-label="Filter by manufacturer">
+        <option value="">All manufacturers (${lib.length})</option>
+        ${brandList.map(b=>`<option value="${escapeHtml(b)}" ${coshhMfr===b?'selected':''}>${escapeHtml(b)} (${lib.filter(i=>brands.of(i)===b).length})</option>`).join('')}
+      </select>
+    </div>
+    ${dupN ? `<div class="coshhdupbar"><span><b>${dupN} duplicate${dupN===1?'':'s'}</b> — marked in red below</span><button type="button" class="darkbtn" onclick="coshhRemoveDuplicates()">Remove duplicates</button></div>` : ''}
+    <div id="coshhLibList">
+      ${order.map(g=>`<div class="coshhgrp">${g ? '📁 '+escapeHtml(g) : '⚠ Not assessed yet'} <span>(${groups[g].length})</span></div>${groups[g].map(row).join('')}`).join('')}
+      <div class="empty lf-empty" ${hits && list.length?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
+    </div>
+`;
+}
 async function renderCoshhLibrary(editId){
   const __gen = RENDER_GEN;
   if(!isFullManager(ME)){ go('#/team'); return; }
@@ -44,23 +106,11 @@ async function renderCoshhLibrary(editId){
   const lfq = coshhLibQ.trim().toLowerCase(), lfOf = i => (i.title+' '+(i.data.manufacturer||'')).toLowerCase();
   const hits = lib.filter(i=>!lfq || lfOf(i).includes(lfq)).length;
   const html = `<div class="card">
-    <div class="coshhsteps"><div><b>1</b><span>Open a folder and <b>upload the data sheet</b> — the reader fills in the details.</span></div><div><b>2</b><span>Check it and tap <b>Create COSHH assessment</b> — it's saved in that folder.</span></div><div><b>3</b><span>Tick assessments to <b>export or email</b>, or add them to a job (COSHH › Add from COSHH Library).</span></div></div>
+    <div class="ddrow" style="margin:0 0 10px;" onclick="coshhStepsOpen=!coshhStepsOpen;render()"><span class="arrow">${coshhStepsOpen?'▼':'▶'}</span> How it works</div>
+    ${coshhStepsOpen ? `<div class="coshhsteps"><div><b>1</b><span>Open a folder and <b>upload the data sheet</b> — the reader fills in the details.</span></div><div><b>2</b><span>Check it and tap <b>Create COSHH assessment</b> — it's saved in that folder.</span></div><div><b>3</b><span>Tick assessments to <b>export or email</b>, or add them to a job (COSHH › Add from COSHH Library).</span></div></div>` : ''}
     <div class="pmchips" style="margin:0 0 12px;"><button type="button" class="pmchip ${coshhLibTab==='assess'?'on':''}" onclick="coshhLibTab='assess';render()">Assessments (folders)</button><button type="button" class="pmchip ${coshhLibTab==='products'?'on':''}" onclick="coshhLibTab='products';render()">Products (data sheets)</button></div>
     ${coshhLibTab==='assess' ? await coshhLibraryBrowserHtml() : `
-    ${(()=>{ const c = {}; lib.forEach(i=>{ const k = coshhTitleKey(i.title); c[k] = (c[k]||0)+1; }); const d = Object.values(c).reduce((t,v)=>t+(v>1?v-1:0),0); return d ? `<div class="card" style="border:1.5px solid var(--warn);background:var(--warn-bg);padding:10px 12px;"><b>${d} duplicate product${d===1?'':'s'}</b> — the same data sheet was added more than once. <button type="button" class="darkbtn" style="margin-top:8px;" onclick="coshhRemoveDuplicates()">Remove duplicates</button></div>` : ''; })()}
-    <input type="search" id="coshhLibSearch" placeholder="Search products…" value="${escapeHtml(coshhLibQ)}" autocomplete="off" style="width:100%;margin-bottom:10px;box-sizing:border-box;" oninput="coshhLibQ=this.value;liveFilter(this.value,'#coshhLibList')">
-    <div id="coshhLibList">
-    ${lib.map(it=>{ const d = it.data; return `<div class="card ramsitem" data-lf="${lfText(lfOf(it))}" style="cursor:pointer;${!lfq || lfOf(it).includes(lfq) ? '' : 'display:none;'}" onclick="go('#/coshh-substances/${it.id}')">
-      <div class="ramsitem-head"><div style="flex:1;min-width:0;"><div class="ramsitem-title">${escapeHtml(it.title)}</div>
-        <div class="stub" style="margin:0;">${escapeHtml(d.manufacturer||'')}${d.manufacturer?' · ':''}${d.h.length} hazard code${d.h.length===1?'':'s'}${d.sdsPath?' · 📄 data sheet':''}${d.signal?' · '+escapeHtml(d.signal):''}${d.needsCheck?' · <b style="color:var(--warn);">check me</b>':''}</div></div>
-        <div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px;">${d.pictos.map(k=>coshhPictoImgHtml(k,26)).join('')}</div></div>
-        ${amap[it.id] ? `<div class="coshhassessed ${amap[it.id].due?'due':''}">${amap[it.id].due ? '⚠ Review due' : '✅ Assessed'} ${fmtD(amap[it.id].at)} · ${escapeHtml(amap[it.id].folder)}</div>
-        <div class="row-gap" style="margin-top:8px;gap:6px;" onclick="event.stopPropagation()">
-          <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px 8px;font-size:12px;" onclick="go('#/coshh-substances/${it.id}')">✏️ Edit</button>
-          <button type="button" class="${amap[it.id].due?'darkbtn':'ghostbtn'}" style="flex:1;margin:0;padding:6px 8px;font-size:12px;" onclick="coshhUpdateAssessment('${it.id}')">⟳ Update</button>
-          <button type="button" class="ghostbtn" style="flex:1;margin:0;padding:6px 8px;font-size:12px;color:var(--warn);border-color:var(--warn);" onclick="coshhDeleteProductFull('${it.id}')">🗑 Delete</button>
-        </div>` : `<button type="button" class="ghostbtn" style="margin:8px 0 0;padding:6px 10px;font-size:12px;width:auto;" onclick="event.stopPropagation();coshhMakeAssessment('${it.id}')">📋 Create COSHH assessment ›</button>`}</div>`; }).join('')}<div class="empty lf-empty" ${hits?'style="display:none;"':''}>${lib.length ? 'Nothing matches.' : 'No products yet — add your first one below.'}</div>
-    </div>
+    ${coshhProductsListHtml(lib, amap, lfq, lfOf, fmtD, hits)}
     ${coshhBulk ? `<div class="card" style="margin:6px 0 0;text-align:center;"><span class="spinner"></span> ${escapeHtml(coshhBulk)}</div>` : `
     <label class="darkbtn" style="display:block;text-align:center;margin-top:6px;cursor:pointer;">📄 Add products from data sheets (PDF)
       <input type="file" accept="application/pdf" multiple style="display:none;" onchange="coshhBulkFromSds(this)"></label>
