@@ -166,7 +166,7 @@ let sitePmPickerOpenId = null;
 // toggling takes over from there.
 let siteSectionOpen = {live:true, upcoming:null, closed:false};
 // #(projects-tabs) PM/admin project list: Live / Upcoming / Closed chips + search instead of drop-down sections.
-let siteTab = 'live';
+let siteTab = 'all';
 window.setSiteTab = function(k){ siteTab = k; render(); };
 window.toggleSiteStatusMenu = function(siteId){
   siteStatusMenuOpenId = siteStatusMenuOpenId===siteId ? null : siteId;
@@ -256,7 +256,7 @@ async function renderSites(){
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
-      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites],['all','All',liveSites.concat(upcomingSites, closedSites)]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
+      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['all','All',liveSites.concat(upcomingSites, closedSites)],['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;" data-pmfilter-root>
@@ -320,7 +320,15 @@ async function renderSites(){
     ` : ''}
     ${canAdd ? `
       <div id="siteListBox">
-        ${(siteTab==='all' ? liveSites.concat(upcomingSites, closedSites) : siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab==='all'?'':siteTab+' '}projects.</div>`}
+        ${(()=>{
+          const card = s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`;
+          if(siteTab==='all'){
+            // All: one list, split by bold Live / Upcoming / Closed headings.
+            const grp = (label, list)=> list.length ? `<div class="projgrp">${label} <span>(${list.length})</span></div>`+list.map(card).join('') : '';
+            return (grp('Live', liveSites)+grp('Upcoming', upcomingSites)+grp('Closed', closedSites)) || `<div class="empty">No projects.</div>`;
+          }
+          return (siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(card).join('') || `<div class="empty">No ${siteTab} projects.</div>`;
+        })()}
         <div class="empty lf-empty" style="display:none;">No projects match.</div>
       </div>
     ` : `
