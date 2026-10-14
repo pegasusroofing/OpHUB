@@ -68,9 +68,9 @@ async function renderAdmin(){
             <div class="formfield" style="margin-top:0;" onclick="event.stopPropagation();">
               <label class="field-label">Package</label>
               <select onchange="setOrgPlanTier('${o.id}', this.value)" onclick="event.stopPropagation();">
-                <option value="starter" ${o.plan_tier==='starter'?'selected':''}>OpHUB Basic — no GPS check-in/geofencing</option>
-                <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro — GPS check-in & geofencing</option>
-                <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise — everything, priority support</option>
+                <option value="starter" ${o.plan_tier==='starter'?'selected':''}>OpHUB Basic</option>
+                <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro</option>
+                <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise</option>
               </select>
             </div>
             <button class="darkbtn" style="margin:10px 0 0;" onclick="event.stopPropagation();superadminOpenCompany('${o.id}','${jsAttr(o.name)}')">🛠 Open this company's app</button>

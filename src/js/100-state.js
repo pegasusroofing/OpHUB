@@ -20,7 +20,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '14 Oct 2026 · COSHH multi-select';
+const OPHUB_BUILD_LABEL = '14 Oct 2026 · plans updated';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -91,7 +91,8 @@ function applyTheme(org){
 // Feature gating by company package. 'starter' (OpHUB Basic) doesn't include
 // GPS check-in & geofencing — everything else (growth/enterprise) does.
 // Superadmin has no ORG at all, so treat that as unrestricted.
-function orgAllowsGps(){ return !ORG || ORG.plan_tier !== 'starter'; }
+// GPS check-in is in every plan (tiers sheet, 14 Oct 2026).
+function orgAllowsGps(){ return true; }
 const PLAN_LABEL = { starter:'OpHUB Basic', growth:'OpHUB Pro', enterprise:'OpHUB Enterprise' };
 const REPORT_FIELD_TYPES = [
   {k:'text', lbl:'Short Text'},
