@@ -256,7 +256,7 @@ async function renderSites(){
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
-      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
+      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites],['all','All',liveSites.concat(upcomingSites, closedSites)]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;" data-pmfilter-root>
@@ -320,7 +320,7 @@ async function renderSites(){
     ` : ''}
     ${canAdd ? `
       <div id="siteListBox">
-        ${(siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab} projects.</div>`}
+        ${(siteTab==='all' ? liveSites.concat(upcomingSites, closedSites) : siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab==='all'?'':siteTab+' '}projects.</div>`}
         <div class="empty lf-empty" style="display:none;">No projects match.</div>
       </div>
     ` : `

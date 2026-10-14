@@ -884,6 +884,7 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .projfilterrow{justify-content:flex-start !important;width:100%;box-sizing:border-box;padding:0;margin-left:0;margin-right:0;}
 .projfilterrow .pmchips-tight{flex:1 1 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0;margin:0 !important;}
 .projfilterrow .pmchips-tight::-webkit-scrollbar{display:none;}
+.projfilterrow .pmchips-tight{gap:4px;}.projfilterrow .pmchips-tight .pmchip{padding:0 8px;font-size:11.5px;}
 .projfilterrow .pmchip{margin:0 !important;flex:none;}
 .projfilterrow [data-pmfilter-root]{flex:none;margin-left:auto;}
 /* ---- #(cal-month-grid) iPhone-style month view ---- */
@@ -3008,7 +3009,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '13 Oct 2026 · multiple O&Ms';
+const OPHUB_BUILD_LABEL = '14 Oct 2026 · All projects tab';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -5199,7 +5200,7 @@ async function renderSites(){
       <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search projects" aria-label="Search projects" oninput="liveFilter(this.value,'#siteListBox')"></label>
     ` : ''}
     <div class="${canAdd?'projfilterrow':''}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;${canAdd?'margin-bottom:12px;':''}">
-      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
+      ${canAdd ? `<div class="pmchips pmchips-tight" style="margin:0;">${[['live','Live',liveSites],['upcoming','Upcoming',upcomingSites],['closed','Closed',closedSites],['all','All',liveSites.concat(upcomingSites, closedSites)]].map(([k,l,list])=>`<button type="button" class="pmchip ${siteTab===k?'on':''}" onclick="setSiteTab('${k}')">${l} (${list.length})</button>`).join('')}</div>` : `<p class="sectiontitle" style="margin:4px 0 10px;">Your Projects</p>`}
       <div style="display:flex;align-items:center;gap:8px;">
       ${canAdd && pmOptions.length ? `
         <div style="position:relative;" data-pmfilter-root>
@@ -5263,7 +5264,7 @@ async function renderSites(){
     ` : ''}
     ${canAdd ? `
       <div id="siteListBox">
-        ${(siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab} projects.</div>`}
+        ${(siteTab==='all' ? liveSites.concat(upcomingSites, closedSites) : siteTab==='upcoming' ? upcomingSites : siteTab==='closed' ? closedSites : liveSites).map(s=>`<div data-lf="${lfText([s.name, s.address, s.postcode, s.job_number].filter(Boolean).join(' '))}">${siteCardHtml(s,canAdd,pmOptions)}</div>`).join('') || `<div class="empty">No ${siteTab==='all'?'':siteTab+' '}projects.</div>`}
         <div class="empty lf-empty" style="display:none;">No projects match.</div>
       </div>
     ` : `

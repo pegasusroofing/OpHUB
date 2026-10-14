@@ -870,6 +870,7 @@ input[type=text],input[type=email],input[type=tel],input[type=number],input[type
 .projfilterrow{justify-content:flex-start !important;width:100%;box-sizing:border-box;padding:0;margin-left:0;margin-right:0;}
 .projfilterrow .pmchips-tight{flex:1 1 auto;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0;margin:0 !important;}
 .projfilterrow .pmchips-tight::-webkit-scrollbar{display:none;}
+.projfilterrow .pmchips-tight{gap:4px;}.projfilterrow .pmchips-tight .pmchip{padding:0 8px;font-size:11.5px;}
 .projfilterrow .pmchip{margin:0 !important;flex:none;}
 .projfilterrow [data-pmfilter-root]{flex:none;margin-left:auto;}
 /* ---- #(cal-month-grid) iPhone-style month view ---- */
