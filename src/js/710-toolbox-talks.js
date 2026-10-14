@@ -731,7 +731,8 @@ async function renderCompletedTbts(){
   (sigs||[]).forEach(x=>{ n[x.tbt_id] = (n[x.tbt_id]||0)+1; if(!last[x.tbt_id] || x.signed_at > last[x.tbt_id]) last[x.tbt_id] = x.signed_at; });
   if(__gen !== RENDER_GEN) return;
   const fmt = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
-  const rows = (talks||[]).map(t=>{
+  // Only talks someone has actually signed.
+  const rows = (talks||[]).filter(t=>n[t.id]).map(t=>{
     const site = SITES.find(s=>s.id===t.site_id);
     const where = site ? site.name : 'Project';
     const sel = tbtDoneSel.has(t.id);
@@ -762,7 +763,7 @@ async function renderCompletedTbts(){
         <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="tbtDoneSel=new Set();render()">✕</button>
       </div>` : (tbtDoneSignable.length ? `<div style="text-align:right;margin:-4px 2px 8px;"><span class="stub" style="margin:0;cursor:pointer;text-decoration:underline;" onclick="tbtDoneSel=new Set(tbtDoneSignable);render()">Select all</span></div>` : '')}
     <div id="tbtDoneList">
-      ${rows || '<div class="empty">No completed toolbox talks yet.</div>'}
+      ${rows || '<div class="empty">No signed toolbox talks yet.</div>'}
       <div class="empty lf-empty" style="display:none;">No toolbox talks match.</div>
     </div>
   `, {title:'Completed TBTs', subtitle:'All projects', back:'#/reports', tabs:false});
