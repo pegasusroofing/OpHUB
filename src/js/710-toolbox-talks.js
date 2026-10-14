@@ -757,7 +757,7 @@ async function renderCompletedTbts(){
     <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search toolbox talks or projects" aria-label="Search toolbox talks" oninput="liveFilter(this.value,'#tbtDoneList')"></label>
     ${selN ? `
       <div class="pmselbar">
-        <span><b>${selN}</b> selected</span>
+        <span><b>${selN}</b> selected${selN < tbtDoneSignable.length ? ` · <u style="cursor:pointer;" onclick="tbtDoneSel=new Set(tbtDoneSignable);render()">Select all</u>` : ''}</span>
         <button type="button" class="ghostbtn" ${tbtDoneBusy?'disabled':''} onclick="tbtDoneExport()">${tbtDoneBusy==='pdf'?'Building…':'Export PDF'}</button>
         <button type="button" class="darkbtn" ${tbtDoneBusy?'disabled':''} onclick="tbtDoneEmail()">${tbtDoneBusy==='email'?'Sending…':'Email all'}</button>
         <button type="button" class="pmselbar-x" aria-label="Clear selection" onclick="tbtDoneSel=new Set();render()">✕</button>
