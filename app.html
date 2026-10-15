@@ -3040,7 +3040,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '14 Oct 2026 · COSHH rows slimmer';
+const OPHUB_BUILD_LABEL = '15 Oct 2026 · on site now';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -5624,6 +5624,7 @@ async function renderPmHome(){
   try{ todos = await loadPmTodos(); }catch(e){}
   const live = SITES.filter(s=>siteStatusKey(s)==='live');
   const upcoming = SITES.filter(s=>siteStatusKey(s)==='upcoming');
+  let onSiteN = 0; try{ onSiteN = (await loadOnSiteNow()).length; }catch(e){}
   const open = reports.filter(r=>r.status==='in_progress');
   const mine = open.filter(r=>r.submitted_by===ME.id).slice(0,2);
   const hubCount = homeExtras.count || 0;
@@ -5652,7 +5653,7 @@ async function renderPmHome(){
       </div>` : ''}
     <div class="pmstats">
       ${stat(live.length, 'Live jobs', "go('#/sites')")}
-      ${stat(upcoming.length, 'Upcoming', "goSitesSection('upcoming')")}
+      ${stat(onSiteN, 'On site now', "go('#/onsite')")}
       ${stat(todos.length, 'To do', "go('#/todos')")}
       ${stat(hubCount, 'Notifications', "go('#/hub')", hubCount>0)}
     </div>
@@ -5933,6 +5934,50 @@ async function renderOpInbox(){
     bar.innerHTML = `<button type="button" class="pmchip ${tab==='todo'?'on':''}" onclick="setOpInboxTab('todo')">To sign / do${outstanding?' ('+outstanding+')':''}</button><button type="button" class="pmchip ${tab==='msgs'?'on':''}" onclick="setOpInboxTab('msgs')">Messages${unreadN&&tab!=='msgs'?' ('+unreadN+' new)':''}</button>`;
     area.insertBefore(bar, area.firstChild);
   }
+}
+
+// ---------- Who's on site right now (#/onsite) ----------
+// Everyone whose latest check-in today is an "in": where they are, since when.
+let onSiteCache = {at:0, rows:[]};
+async function loadOnSiteNow(force){
+  if(!force && Date.now()-onSiteCache.at < 30000) return onSiteCache.rows;
+  const start = new Date(); start.setHours(0,0,0,0);
+  const rows = await dbSelect('checkins', 'ts=gte.'+start.toISOString()+'&order=ts.asc&select=site_id,user_id,type,ts');
+  const last = {};
+  (rows||[]).forEach(c=>{ if(c.user_id) last[c.user_id] = c; });
+  const siteIds = new Set(SITES.map(x=>x.id));
+  const out = Object.values(last).filter(c=>c.type==='in' && siteIds.has(c.site_id));
+  onSiteCache = {at:Date.now(), rows:out};
+  return out;
+}
+async function renderOnSiteNow(){
+  const __gen = RENDER_GEN;
+  let rows = [];
+  try{ [rows] = await Promise.all([loadOnSiteNow(true), loadAllProfiles()]); }catch(e){}
+  if(__gen !== RENDER_GEN) return;
+  const bySite = {};
+  rows.forEach(r=>{ (bySite[r.site_id] = bySite[r.site_id] || []).push(r); });
+  const sites = Object.keys(bySite).map(id=>SITES.find(x=>x.id===id)).filter(Boolean).sort((a,b)=>bySite[b.id].length-bySite[a.id].length || (a.name||'').localeCompare(b.name||''));
+  const t = d => new Date(d).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  const roleLbl = r => r==='site_manager' ? 'Site manager' : r==='pm' ? 'PM' : r==='admin' ? 'Admin' : r==='subcontractor' ? 'Subcontractor' : '';
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;">
+      <div><div style="font-size:26px;font-weight:800;line-height:1;">${rows.length}</div><div class="stub" style="margin:2px 0 0;">on site now across ${sites.length} job${sites.length===1?'':'s'}</div></div>
+      <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:8px 12px;" onclick="render()">↻ Refresh</button>
+    </div>
+    ${sites.length ? sites.map(st=>`
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg,#F3F4F6);cursor:pointer;" onclick="go('#/site/${st.id}/checkin')">
+          <div style="flex:1;min-width:0;"><div style="font-weight:800;">${escapeHtml(st.name)}</div><div class="stub" style="margin:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(fullSiteAddress(st)||'')}</div></div>
+          <span class="pmbadge done" style="flex:none;">${bySite[st.id].length} on site</span>
+        </div>
+        ${bySite[st.id].sort((a,b)=>new Date(a.ts)-new Date(b.ts)).map(r=>{ const p = PROFILES[r.user_id]||{}; return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-top:1px solid var(--line);">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--ok,#1F9D52);flex:none;"></span>
+          <span style="flex:1;min-width:0;font-weight:600;">${escapeHtml(p.name||'Unknown')}${roleLbl(p.role)?` <span class="stub" style="display:inline;margin:0;font-size:11.5px;font-weight:400;">· ${roleLbl(p.role)}</span>`:''}</span>
+          <span class="stub" style="margin:0;font-size:12px;">in since ${t(r.ts)}</span>
+        </div>`; }).join('')}
+      </div>`).join('') : '<div class="empty">Nobody is checked in on site right now.</div>'}
+  `, {title:'On site now', subtitle:new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'}), back:'#/home', tabs:false});
 }
 
 /* ================= #(hr) HR — holiday calendar, company policies, handbook =================
@@ -42497,6 +42542,7 @@ async function renderRoute(){
     if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);
     return renderPmTodos();
   }
+  if(parts[0]==='onsite'){ if(!usesPmHome(ME)){ go('#/sites'); return; } return renderOnSiteNow(); }
   if(parts[0]==='reports'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     addSiteFormOpen = false;

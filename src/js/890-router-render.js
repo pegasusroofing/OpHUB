@@ -96,6 +96,7 @@ async function renderRoute(){
     if(parts[1]==='general') return renderTodoList(GENERAL_TODOS);
     return renderPmTodos();
   }
+  if(parts[0]==='onsite'){ if(!usesPmHome(ME)){ go('#/sites'); return; } return renderOnSiteNow(); }
   if(parts[0]==='reports'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
     addSiteFormOpen = false;
