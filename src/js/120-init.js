@@ -14,7 +14,38 @@ async function saveBootSnapshot(){
 // from the saved snapshot, quietly fetch the real thing and only redraw if
 // something actually changed.
 let bootRefreshing = false;
-async function refreshBootData(){
+let lastBootRefreshAt = 0;
+// #(job-list-refresh-on-return) 2026-10-15: phones keep the app alive in the
+// background for days, so "opening" it often just resumes the old copy and
+// the job list never re-loads (an operative newly assigned to a job couldn't
+// see it). Now, whenever the app comes back to the front after being away a
+// minute or more, the job list etc. is quietly re-fetched — no sign-in needed.
+// It only redraws the screen if they're on a home / job-list screen, so
+// nobody loses a half-filled form.
+function onJobListScreen(){
+  const p = (location.hash||'').replace(/^#\/?/,'').split('/').filter(Boolean);
+  return !p.length || ['sites','home','onsite','driver'].includes(p[0]) && p.length===1;
+}
+let appHiddenAt = 0;
+function refreshOnReturn(){
+  if(!SESSION || !ME) return;
+  const away = appHiddenAt ? Date.now()-appHiddenAt : 0;
+  appHiddenAt = 0;
+  if(away < 60000 && Date.now()-lastBootRefreshAt < 5*60000) return;
+  refreshBootData({listOnly:true});
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){ appHiddenAt = Date.now(); return; }
+  refreshOnReturn();
+});
+try{
+  const AppPl = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(AppPl && AppPl.addListener) AppPl.addListener('appStateChange', st=>{
+    if(!st || !st.isActive){ if(!appHiddenAt) appHiddenAt = Date.now(); return; }
+    refreshOnReturn();
+  });
+}catch(e){ /* web build — visibilitychange covers it */ }
+async function refreshBootData(opts){
   if(bootRefreshing || !SESSION || navigator.onLine === false) return;
   bootRefreshing = true;
   try{
@@ -40,7 +71,9 @@ async function refreshBootData(){
     if(!SESSION || SESSION.user.id !== uid) return;
     if(sitesRes.ok) SITES = sitesRes.data;
     await saveBootSnapshot();
-    if(JSON.stringify([ME, ORG, SITES]) !== before && !scheduleControlBusy()) render();
+    lastBootRefreshAt = Date.now();
+    homeExtras.at = 0;
+    if(JSON.stringify([ME, ORG, SITES]) !== before && !scheduleControlBusy() && (!opts || !opts.listOnly || onJobListScreen())) render();
   }catch(e){ console.error('refreshBootData failed', e); }
   finally{ bootRefreshing = false; }
 }
