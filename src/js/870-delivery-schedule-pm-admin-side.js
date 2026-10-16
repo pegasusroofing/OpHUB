@@ -378,11 +378,15 @@ async function renderDeliveryForm(taskId){
     </div>
     ` : ''}
     <div class="formfield"><label class="field-label">Site</label>
-      ${sites.length>1 ? `<input type="text" id="deliverySiteFilter" placeholder="Type to filter sites — name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)" style="margin-bottom:6px;">` : ''}
+      <div class="row-gap" style="gap:8px;margin-bottom:8px;">
+        <button type="button" class="${!draft._manualSite?'darkbtn':'ghostbtn'}" style="flex:1;width:auto;padding:9px 8px;font-size:12.5px;" onclick="onDeliveryFormSiteChange(deliveryFormDraft._manualSite?'':(deliveryFormDraft.site_id||''))">📍 Job on the app</button>
+        <button type="button" class="${draft._manualSite?'darkbtn':'ghostbtn'}" style="flex:1;width:auto;padding:9px 8px;font-size:12.5px;" onclick="onDeliveryFormSiteChange('__manual')">✏️ Job not on the app</button>
+      </div>
+      ${draft._manualSite ? '' : `${sites.length>1 ? `<input type="text" id="deliverySiteFilter" placeholder="Type to filter sites — name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)" style="margin-bottom:6px;">` : ''}
       <select id="deliverySiteSelect" onchange="onDeliveryFormSiteChange(this.value)">
         ${deliverySiteOptionsHtml(sites, draft._manualSite ? '__manual' : draft.site_id, deliveryFormSiteFilter)}
       </select>
-      <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
+      <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>`}
     </div>
     ${!draft._manualSite && draft.site_id ? subAddrSelectHtml('deliverySubAddr', draft.site_id, draft.sub_site_id, "deliveryFormDraft.sub_site_id=this.value", 'Which address on this job?') : ''}
     ${draft._manualSite ? `
