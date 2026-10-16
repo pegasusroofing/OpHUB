@@ -56,6 +56,9 @@ async function renderUnifiedCalendar(){
   });
   const eventsByDate = {};
   filteredEvents.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
+  // #(desk-calendar) On a computer the month grid fills the page with the
+  // chosen day's items in a panel beside it (phones unchanged).
+  const deskSplit = monthMode && isDeskMode();
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
       <div style="position:relative;" data-calhomepmfilter-root>
@@ -92,7 +95,9 @@ async function renderUnifiedCalendar(){
       </div>
       <div style="margin-left:auto;">${calToolsHtml({label:'View'})}</div>
     </div>
+    ${deskSplit ? '<div class="caldesk"><div class="caldesk-main">' : ''}
     ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>`}
+    ${deskSplit ? '</div><div class="caldesk-side">' : ''}
     ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
@@ -135,5 +140,6 @@ async function renderUnifiedCalendar(){
         </div>
       `;
     }).join('')}
+    ${deskSplit ? '</div></div>' : ''}
   `, {title:'Calendar', subtitle:'All sites', back: usesPmHome(ME) ? '#/home' : '#/sites', tabs:false}); }
 }

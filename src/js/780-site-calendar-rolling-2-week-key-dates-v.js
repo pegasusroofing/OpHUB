@@ -56,7 +56,13 @@ function calMonthGridHtml(eventsByDate){
     // #(cal-expand) A day with something booked shows the items themselves
     // (short labels) rather than just dots, and its week row grows to fit.
     const col = e => e._leave ? '#7B3FB5' : e.is_private ? 'var(--slate-light)' : 'var(--brand1)';
-    const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,2).map(e=>`<span class="calm-ev" style="--c:${col(e)};">${escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('))}</span>`).join('')}${evs.length>2?`<span class="calm-more">+${evs.length-2} more</span>`:''}</span>` : '';
+    // On a computer the cells are big enough for up to 5 items, each with
+    // its project name underneath on the all-projects calendar.
+    const desk = isDeskMode(), maxEv = desk ? 5 : 2;
+    const allProj = desk && (typeof parseRoute==='function') && parseRoute()[0]==='calendar';
+    const evLabel = e => escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('));
+    const evSite = e => { const st = allProj && e.site_id ? SITES.find(x=>x.id===e.site_id) : null; return st ? `<small>${escapeHtml(st.name)}</small>` : ''; };
+    const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,maxEv).map(e=>`<span class="calm-ev" style="--c:${col(e)};" title="${escapeHtml(e.title||'')}">${evLabel(e)}${evSite(e)}</span>`).join('')}${evs.length>maxEv?`<span class="calm-more">+${evs.length-maxEv} more</span>`:''}</span>` : '';
     cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''} ${evs.length?'has-ev':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span>${evHtml}</button>`;
   }
   return `
@@ -67,7 +73,7 @@ function calMonthGridHtml(eventsByDate){
         <button type="button" class="calm-today" onclick="calMonthToday()">Today</button>
         <button type="button" class="calm-nav" aria-label="Next month" onclick="calMonthShift(1)">›</button>
       </div>
-      <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="calm-wk">${(isDeskMode() ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['M','T','W','T','F','S','S']).map(x=>`<span>${x}</span>`).join('')}</div>
       <div class="calm-grid">${cellsHtml}</div>
     </div>
     <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}${(eventsByDate[calSelDate]||[]).length ? ` · ${(eventsByDate[calSelDate]||[]).length} booked` : ''}</p>`;

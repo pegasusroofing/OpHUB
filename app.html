@@ -1118,11 +1118,11 @@ html.desk body{background:#F4F3EF;}
 html.desk #app{max-width:none;margin:0;box-shadow:none;background:#F4F3EF;}
 html.desk #app > .appshell{padding-left:248px;}
 html.desk .appshell > .tabbar{display:none !important;}
-html.desk .appbar{background:#fff;padding:14px max(36px, calc((100% - 1400px) / 2));padding-top:14px;border-bottom:1px solid #E7E6E1;}
+html.desk .appbar{background:#fff;padding:14px 40px;padding-top:14px;border-bottom:1px solid #E7E6E1;}
 html.desk .appbar img.brandmark{display:none;}
 html.desk .appbar .row{min-height:52px;}
 html.desk .stripe-edge{height:4px;}
-html.desk .scrollarea{padding:26px max(36px, calc((100% - 1400px) / 2)) 48px;}
+html.desk .scrollarea{padding:26px 40px 40px;}
 .desknav{display:none;}
 html.desk .desknav{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:248px;box-sizing:border-box;background:#fff;border-right:1px solid #E7E6E1;padding:18px 12px 14px;overflow-y:auto;z-index:60;}
 .desknav-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;cursor:pointer;}
@@ -1167,7 +1167,8 @@ html.desk .toast{left:calc(248px + 16px);}
 .smcard-h{display:flex;align-items:center;gap:10px;padding:2px 4px 10px;}
 .smcard-h b{font-family:'Sora',sans-serif;font-size:14px;}
 .smcard-h button{all:unset;cursor:pointer;margin-left:auto;font-size:12.5px;font-weight:800;color:var(--brand1);}
-.smmini{height:280px;border-radius:12px;overflow:hidden;cursor:pointer;background:#EEF0F2;}
+.smmini{height:280px;}
+html.desk .smmini{height:340px;border-radius:12px;overflow:hidden;cursor:pointer;background:#EEF0F2;}
 .smmini .leaflet-container{cursor:pointer !important;}
 .smpage{display:flex;gap:16px;height:calc(100vh - 150px);min-height:480px;}
 .smside{flex:0 0 280px;display:flex;flex-direction:column;min-height:0;background:#fff;border:1px solid #ECEEF2;border-radius:16px;padding:12px;}
@@ -1190,6 +1191,35 @@ html.desk .toast{left:calc(248px + 16px);}
 .smpop-st{font-weight:700;margin-top:4px;}
 .smpop button{all:unset;cursor:pointer;margin-top:8px;display:inline-block;background:var(--ink);color:#fff;padding:6px 10px;border-radius:8px;font-weight:700;font-size:12px;}
 .desknav > *{flex-shrink:0;}
+/* Desktop calendar (html.desk only) — big month grid, day panel beside it */
+html.desk .calm{padding:18px 18px 14px;border-radius:20px;}
+html.desk .calm-title{font-size:24px;}
+html.desk .calm-nav{width:42px;height:42px;font-size:28px;border:1px solid #ECEEF2;}
+html.desk .calm-nav:hover,html.desk .calm-today:hover{background:#F3F3F0;}
+html.desk .calm-today{font-size:14px;padding:9px 14px;border:1px solid #ECEEF2;border-radius:12px;}
+html.desk .calm-wk{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:10px 0;}
+html.desk .calm-grid{row-gap:0;padding-top:0;border-left:1px solid #F0F1F4;}
+html.desk .calm-day{min-height:128px;height:auto;align-items:stretch;justify-content:flex-start;padding:6px 6px 8px;gap:4px;border-right:1px solid #F0F1F4;border-bottom:1px solid #F0F1F4;border-radius:0;background:#fff;}
+html.desk .calm-day.has-ev{background:#fff;border-radius:0;}
+html.desk .calm-day:hover{background:#FAFAF8;}
+html.desk .calm-day.out{background:#FBFBFA;}
+html.desk .calm-day.sel{box-shadow:inset 0 0 0 2px var(--ink);}
+html.desk .calm-num{width:30px;height:30px;font-size:15px;align-self:flex-start;}
+html.desk .calm-evs{padding:0;gap:3px;}
+html.desk .calm-ev{font-size:12px;font-weight:700;padding:4px 7px;border-radius:6px;line-height:1.25;}
+html.desk .calm-ev small{display:block;font-size:10.5px;font-weight:600;opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+html.desk .calm-more{font-size:11.5px;text-align:left;padding-left:4px;}
+html.desk .calm-selhead{font-size:20px;margin:4px 2px 12px;}
+html.desk .caldesk{display:flex;gap:20px;align-items:flex-start;}
+html.desk .caldesk-main{flex:1;min-width:0;}
+html.desk .caldesk-main .calm{margin-bottom:0;}
+html.desk .caldesk-side{flex:0 0 360px;position:sticky;top:0;background:#fff;border:1px solid #ECEEF2;border-radius:20px;padding:16px;}
+html.desk .caldesk-main .calm-selhead{display:none;}
+html.desk .caldesk-side .calday-big{border:0;padding:0;margin:0;background:transparent;}
+html.desk .calh-item{padding:12px 14px;}
+html.desk .calday{padding:14px 0;}
+html.desk .calday-evt,html.desk .calh-txt > span:first-child{font-size:14.5px !important;}
+html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 </style>
 </head>
 <body>
@@ -3122,7 +3152,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '16 Oct 2026 · OSM map tiles';
+const OPHUB_BUILD_LABEL = '16 Oct 2026 · desktop full width + calendar';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -37970,7 +38000,13 @@ function calMonthGridHtml(eventsByDate){
     // #(cal-expand) A day with something booked shows the items themselves
     // (short labels) rather than just dots, and its week row grows to fit.
     const col = e => e._leave ? '#7B3FB5' : e.is_private ? 'var(--slate-light)' : 'var(--brand1)';
-    const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,2).map(e=>`<span class="calm-ev" style="--c:${col(e)};">${escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('))}</span>`).join('')}${evs.length>2?`<span class="calm-more">+${evs.length-2} more</span>`:''}</span>` : '';
+    // On a computer the cells are big enough for up to 5 items, each with
+    // its project name underneath on the all-projects calendar.
+    const desk = isDeskMode(), maxEv = desk ? 5 : 2;
+    const allProj = desk && (typeof parseRoute==='function') && parseRoute()[0]==='calendar';
+    const evLabel = e => escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('));
+    const evSite = e => { const st = allProj && e.site_id ? SITES.find(x=>x.id===e.site_id) : null; return st ? `<small>${escapeHtml(st.name)}</small>` : ''; };
+    const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,maxEv).map(e=>`<span class="calm-ev" style="--c:${col(e)};" title="${escapeHtml(e.title||'')}">${evLabel(e)}${evSite(e)}</span>`).join('')}${evs.length>maxEv?`<span class="calm-more">+${evs.length-maxEv} more</span>`:''}</span>` : '';
     cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''} ${evs.length?'has-ev':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span>${evHtml}</button>`;
   }
   return `
@@ -37981,7 +38017,7 @@ function calMonthGridHtml(eventsByDate){
         <button type="button" class="calm-today" onclick="calMonthToday()">Today</button>
         <button type="button" class="calm-nav" aria-label="Next month" onclick="calMonthShift(1)">›</button>
       </div>
-      <div class="calm-wk">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="calm-wk">${(isDeskMode() ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['M','T','W','T','F','S','S']).map(x=>`<span>${x}</span>`).join('')}</div>
       <div class="calm-grid">${cellsHtml}</div>
     </div>
     <p class="calm-selhead">${new Date(calSelDate+'T00:00:00').toLocaleDateString('en-GB',{weekday:'long', day:'numeric', month:'long'})}${(eventsByDate[calSelDate]||[]).length ? ` · ${(eventsByDate[calSelDate]||[]).length} booked` : ''}</p>`;
@@ -38388,6 +38424,9 @@ async function renderUnifiedCalendar(){
   });
   const eventsByDate = {};
   filteredEvents.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
+  // #(desk-calendar) On a computer the month grid fills the page with the
+  // chosen day's items in a panel beside it (phones unchanged).
+  const deskSplit = monthMode && isDeskMode();
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
       <div style="position:relative;" data-calhomepmfilter-root>
@@ -38424,7 +38463,9 @@ async function renderUnifiedCalendar(){
       </div>
       <div style="margin-left:auto;">${calToolsHtml({label:'View'})}</div>
     </div>
+    ${deskSplit ? '<div class="caldesk"><div class="caldesk-main">' : ''}
     ${monthMode ? calMonthGridHtml(eventsByDate) : `<p class="stub" style="margin:0 0 14px;">Next ${numDays} days across every site — tap a date to manage it there.</p>`}
+    ${deskSplit ? '</div><div class="caldesk-side">' : ''}
     ${(monthMode ? [new Date(calSelDate+'T00:00:00')] : days).map(d=>{
       const dStr = localISODate(d);
       const isToday = dStr===startStr;
@@ -38467,6 +38508,7 @@ async function renderUnifiedCalendar(){
         </div>
       `;
     }).join('')}
+    ${deskSplit ? '</div></div>' : ''}
   `, {title:'Calendar', subtitle:'All sites', back: usesPmHome(ME) ? '#/home' : '#/sites', tabs:false}); }
 }
 
