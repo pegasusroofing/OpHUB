@@ -163,11 +163,83 @@ function siteMapPopupHtml(p){
     <div class="smpop-st" style="color:${SITEMAP_COLOURS[p.st]};">● ${escapeHtml(SITE_STATUS_LABEL[p.st]||p.st)}${p.s.job_number?` · Job ${escapeHtml(p.s.job_number)}`:''}</div>
     <button type="button" onclick="go('#/site/${p.s.id}/home')">Open project ›</button></div>`;
 }
+// #(sites-map-modern) 2026-10-17: modern, clean vector map (MapLibre +
+// OpenFreeMap's "positron" style — free, no account or API key) with
+// pin-style markers. Falls back to the plain OpenStreetMap map if the
+// computer can't draw it (very old browser / no graphics acceleration).
+const MAPLIBRE_JS = ['https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js', 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js'];
+const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+const SITEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+let _mlP = null;
+function loadMapLibre(){
+  if(window.maplibregl && window.maplibregl.Map) return Promise.resolve(true);
+  if(_mlP) return _mlP;
+  _mlP = (async()=>{
+    if(!document.querySelector('link[data-maplibre]')){ const l = document.createElement('link'); l.rel='stylesheet'; l.href=MAPLIBRE_CSS; l.setAttribute('data-maplibre','1'); document.head.appendChild(l); }
+    for(const src of MAPLIBRE_JS){
+      const ok = await new Promise(res=>{ const sc = document.createElement('script'); sc.src = src; sc.async = true; sc.onload = ()=>res(!!(window.maplibregl && window.maplibregl.Map)); sc.onerror = ()=>{ sc.remove(); res(false); }; document.head.appendChild(sc); });
+      if(ok) return true;
+    }
+    _mlP = null; return false;
+  })();
+  return _mlP;
+}
+function webglOk(){ try{ const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }catch(e){ return false; } }
+function siteMapPinEl(p, mini){
+  const el = document.createElement('div');
+  el.className = 'smpin'+(mini?' mini':'');
+  el.style.setProperty('--c', SITEMAP_COLOURS[p.st]||'#555');
+  el.title = p.s.name;
+  el.innerHTML = '<span></span>';
+  return el;
+}
+async function mountSiteMapGL(box, elId, mini, pts, missing){
+  if(!webglOk() || !(await loadMapLibre())) return false;
+  const shown = pts.filter(p=>mini ? p.st!=='closed' : siteMapShow[p.st]);
+  let map;
+  try{
+    map = new maplibregl.Map({container: box, style: SITEMAP_STYLE, center:[-1.5, 52.6], zoom:5.3, attributionControl:{compact:true}, interactive: !mini, cooperativeGestures:false, dragRotate:false, pitchWithRotate:false});
+  }catch(e){ return false; }
+  _siteMaps[elId] = map;
+  if(!mini) map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+  const markers = {};
+  shown.forEach(p=>{
+    const mk = new maplibregl.Marker({element: siteMapPinEl(p, mini), anchor:'bottom'}).setLngLat([p.lng, p.lat]);
+    if(!mini) mk.setPopup(new maplibregl.Popup({offset:28, closeButton:true, maxWidth:'280px'}).setHTML(siteMapPopupHtml(p)));
+    mk.addTo(map); markers[p.s.id] = mk;
+  });
+  const fit = ()=>{
+    if(!shown.length) return;
+    if(shown.length===1){ map.jumpTo({center:[shown[0].lng, shown[0].lat], zoom:12}); return; }
+    const b = new maplibregl.LngLatBounds(); shown.forEach(p=>b.extend([p.lng, p.lat]));
+    map.fitBounds(b, {padding: mini?40:70, maxZoom:13, duration:0});
+  };
+  fit();
+  map._ophubFocus = id=>{ const mk = markers[id]; if(!mk) return; map.flyTo({center: mk.getLngLat(), zoom:14, speed:1.6}); if(mk.getPopup() && !mk.getPopup().isOpen()) mk.togglePopup(); };
+  if(mini){ box.addEventListener('click', ()=>go('#/sitemap')); }
+  else if(siteMapFocus && markers[siteMapFocus]) map.once('load', ()=>map._ophubFocus(siteMapFocus));
+  setTimeout(()=>{ try{ map.resize(); fit(); }catch(e){} }, 80);
+  return true;
+}
 // Draws a map into the element with this id. mini = the small Home preview
 // (no dragging/zooming; clicking it opens the full map).
 async function mountSiteMap(elId, mini){
   const el = document.getElementById(elId);
   if(!el) return;
+  {
+    const {pts, missing} = await siteMapPoints();
+    const box = document.getElementById(elId);
+    if(!box) return;
+    if(_siteMaps[elId]){ try{ _siteMaps[elId].remove(); }catch(e){} delete _siteMaps[elId]; }
+    box.innerHTML = '';
+    if(await mountSiteMapGL(box, elId, mini, pts, missing)){
+      const n = document.getElementById(elId+'Count');
+      const shownN = pts.filter(p=>p.st!=='closed').length, missN = missing.filter(x=>x.st!=='closed').length;
+      if(mini && n) n.textContent = shownN+' site'+(shownN===1?'':'s')+' on the map'+(missN ? ' · '+missN+' without a postcode' : '');
+      if(!mini) siteMapRenderList(pts, missing);
+      return;
+    }
+  }
   if(!(await loadLeaflet())){ el.innerHTML = '<div class="empty">Map could not load — check your connection.</div>'; return; }
   const {pts, missing} = await siteMapPoints();
   const box = document.getElementById(elId);
@@ -211,7 +283,8 @@ function siteMapRenderList(pts, missing){
     || '<div class="empty">No sites to show.</div>';
 }
 window.siteMapFocusOn = function(siteId){
-  const map = _siteMaps.siteMapFull; if(!map || !map._ophubMarkers) return;
+  const map = _siteMaps.siteMapFull; if(map && map._ophubFocus){ map._ophubFocus(siteId); return; }
+  if(!map || !map._ophubMarkers) return;
   const m = map._ophubMarkers[siteId]; if(!m) return;
   map.setView(m.getLatLng(), 14); m.openPopup();
 };

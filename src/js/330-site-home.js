@@ -258,5 +258,42 @@ async function renderSiteHome(siteId){
     </div>
   `, {title:site.name, titleIsSiteName:true, subtitle:fullSiteAddress(site), back:'#/sites', siteId, activeTab:'home'});
     requestAnimationFrame(function(){ equalizeStatusStripWidths(); fitTileLabelsOneLine(); });
+    maybeShowSignNag(siteId);
   }
 }
+// #(sign-nag) 2026-10-17: an operative opening a job with RAMS / COSHH /
+// Toolbox Talks still to sign gets a pop-up listing them, with a button
+// straight to each one (or X to close). Shown each time they open the job
+// (not on every redraw of the same visit) until everything is signed.
+let signNagSite = null, signNagAt = 0;
+async function maybeShowSignNag(siteId){
+  if(!ME || ME.role!=='operative' || navigator.onLine===false) return;
+  if(signNagSite===siteId) return; // already shown on this visit to the job's home page
+  signNagSite = siteId; signNagAt = Date.now();
+  let items = [];
+  try{
+    const {rows} = await computeOutstandingRows(ME.id);
+    const row = rows.find(r=>r.site && r.site.id===siteId);
+    items = row ? row.items.filter(i=>i.type==='rams' || i.type==='coshh' || i.type==='tbt') : [];
+  }catch(e){ return; }
+  if(!items.length) return;
+  const parts = parseRoute();
+  if(parts[0]!=='site' || parts[1]!==siteId) return; // they've moved on
+  let ov = document.getElementById('signNagOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'signNagOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) closeSignNag(); };
+  const icon = {rams:'📋', coshh:'🧪', tbt:'🗣️'};
+  const label = i => i.lbl.replace(/ to sign \((\d+)\)$/, (m,n)=> n==='1' ? '' : ' ×'+n);
+  ov.innerHTML = `<div class="geo-modal-card signnag">
+      <button type="button" class="signnag-x" aria-label="Close" onclick="closeSignNag()">×</button>
+      <div class="signnag-h">✍️ Needs your signature</div>
+      <p class="stub" style="margin:0 0 12px;font-style:normal;">Please read and sign before starting work on this job.</p>
+      ${items.map(i=>`<button type="button" class="signnag-row" onclick="closeSignNag();go('${i.href}')"><span>${icon[i.type]||'•'}</span><b>${escapeHtml(label(i))}</b><em>Sign now ›</em></button>`).join('')}
+      <button type="button" class="geo-modal-cancel" onclick="closeSignNag()">Not now</button>
+    </div>`;
+  ov.style.display = 'flex';
+}
+// Leaving the job's home page ends the "visit", so coming back (e.g. after
+// signing the RAMS) shows whatever is still left to sign.
+window.addEventListener('hashchange', ()=>{ closeSignNag(); if(!/^#\/site\/[^/]+\/home/.test(location.hash||'')) signNagSite = null; });
+window.closeSignNag = function(){ const ov = document.getElementById('signNagOverlay'); if(ov) ov.style.display = 'none'; };

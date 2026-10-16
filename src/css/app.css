@@ -1206,3 +1206,23 @@ html.desk .calh-item{padding:12px 14px;}
 html.desk .calday{padding:14px 0;}
 html.desk .calday-evt,html.desk .calh-txt > span:first-child{font-size:14.5px !important;}
 html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
+/* Operative "needs your signature" pop-up */
+.signnag{position:relative;}
+.signnag-x{all:unset;cursor:pointer;position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--slate);}
+.signnag-x:hover{background:#F3F3F0;}
+.signnag-h{font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:var(--ink);margin:0 36px 6px 0;}
+.signnag-row{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;padding:13px 14px;margin-bottom:8px;border-radius:12px;background:var(--warn-bg);border:1.5px solid color-mix(in srgb, var(--warn) 45%, #fff);}
+.signnag-row span{font-size:18px;}
+.signnag-row b{flex:1;font-size:15px;color:var(--ink);}
+.signnag-row em{font-style:normal;font-weight:800;font-size:13px;color:var(--brand1);white-space:nowrap;}
+/* Modern map pins */
+.smpin{width:30px;height:32px;cursor:pointer;filter:drop-shadow(0 3px 4px rgba(0,0,0,.28));}
+.smpin span{position:absolute;left:3px;top:0;width:24px;height:24px;border-radius:50% 50% 50% 0;background:var(--c);transform:rotate(-45deg);border:2.5px solid #fff;box-sizing:border-box;transition:transform .15s;}
+.smpin span::after{content:'';position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:#fff;}
+.smpin:hover span{transform:rotate(-45deg) scale(1.15);}
+.smpin.mini{width:22px;height:28px;}
+.smpin.mini span{width:18px;height:18px;left:2px;border-width:2px;}
+.smpin.mini span::after{width:5px;height:5px;margin:-2.5px 0 0 -2.5px;}
+.maplibregl-popup-content{border-radius:14px !important;padding:14px 16px !important;box-shadow:0 10px 30px rgba(20,22,28,.18) !important;}
+.maplibregl-popup-close-button{font-size:18px;padding:2px 8px;}
+.smmini .maplibregl-canvas{cursor:pointer;}
