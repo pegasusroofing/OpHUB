@@ -176,6 +176,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
               <p class="stub" style="margin:0 0 8px;color:#7A1F1F;">Upload at least one completed photo to mark this task complete.</p>
               <div class="ghostbtn" style="cursor:pointer;text-align:center;" onclick="document.getElementById('completePhotoInput-${t.id}').click()">📸 Upload completed photos</div>
               <input type="file" id="completePhotoInput-${t.id}" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="completeTaskWithPhotos(this,'${siteId}','${t.id}')">
+              ${isManager(ME) ? sowPmCompletePickHtml(siteId, t, photosByTask[t.id]||[]) : ''}
               <button class="ghostbtn" style="margin-top:8px;" onclick="pendingCompleteTaskId=null;render()">‹ Back to In Progress</button>
             </div>
           ` : `
@@ -902,7 +903,7 @@ window.setTaskStatus = async function(siteId, taskId, next){
 // photo actually uploads successfully (see completeTaskWithPhotos below).
 window.beginTaskComplete = function(taskId){
   if(percentPromptTaskId===taskId) percentPromptTaskId = null;
-  pendingCompleteTaskId = taskId;
+  pendingCompleteTaskId = taskId; delete sowPmPick[taskId];
   render();
 };
 // ---------- Schedule of Works photos: three sizes of every photo ----------
@@ -1043,6 +1044,56 @@ window.completeTaskWithPhotos = async function(input, siteId, taskId){
   await sowOfflineKeepTaskPatch(siteId, taskId, {status:'done', completed_at: new Date().toISOString(), percent_complete:100});
   toast('Task marked complete — '+files.length+' photo'+(files.length===1?'':'s')+' uploading');
   render();
+};
+// #(sow-pm-complete-pick) 2026-10-16: a PM/admin can mark a task Complete
+// without uploading — instead ticking which of the photos already on the
+// task should count as the Completed photos (operatives don't always upload
+// under the right stage). Ticked photos are moved to the Completed stage.
+const sowPmPick = {};
+function sowPmCompletePickHtml(siteId, t, photos){
+  const list = photos.filter(p=>p && p.id && !sowPendingFind(p.id));
+  const sel = sowPmPick[t.id] || (sowPmPick[t.id] = new Set(list.filter(p=>p.stage==='done').map(p=>p.id)));
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #E8B4B4;">
+    <p class="stub" style="margin:0 0 6px;color:#7A1F1F;font-weight:700;">PM: or tick photos already uploaded to use as Completed photos</p>
+    ${list.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">${list.map(p=>`
+      <div class="sowpick ${sel.has(p.id)?'on':''}" onclick="sowPmTogglePick('${t.id}','${p.id}',this)">
+        <img src="${sowPhotoUrl(p,'thumb')}" loading="lazy" width="56" height="56" onerror="this.onerror=null;this.src='${PHOTO_PLACEHOLDER_INLINE}'">
+        <span class="sowpicktick">✓</span>
+      </div>`).join('')}</div>` : `<p class="stub" style="margin:0 0 8px;">No photos on this task yet.</p>`}
+    <button class="darkbtn" id="sowPmDoneBtn-${t.id}" style="width:100%;" onclick="sowPmCompleteNow('${siteId}','${t.id}')">${sowPmDoneLabel(sel.size)}</button>
+  </div>`;
+}
+function sowPmDoneLabel(n){ return n ? '✓ Mark complete with '+n+' photo'+(n===1?'':'s') : '✓ Mark complete (no photos)'; }
+window.sowPmTogglePick = function(taskId, photoId, el){
+  const sel = sowPmPick[taskId] || (sowPmPick[taskId] = new Set());
+  if(sel.has(photoId)) sel.delete(photoId); else sel.add(photoId);
+  if(el) el.classList.toggle('on', sel.has(photoId));
+  const b = document.getElementById('sowPmDoneBtn-'+taskId); if(b) b.textContent = sowPmDoneLabel(sel.size);
+};
+window.sowPmCompleteNow = async function(siteId, taskId){
+  if(!isManager(ME)) return;
+  const ids = Array.from(sowPmPick[taskId] || []);
+  if(!ids.length && !(await customConfirm('Mark this task complete without any completed photos?'))) return;
+  const b = document.getElementById('sowPmDoneBtn-'+taskId); if(b){ b.disabled = true; b.textContent = 'Saving…'; }
+  try{
+    if(ids.length){
+      const r = await sbFetch('/rest/v1/rpc/set_schedule_photo_stage', {method:'POST', body: JSON.stringify({p_ids: ids, p_stage:'done'})});
+      if(!r || !r.ok) throw new Error('photos');
+    }
+    const row = await dbUpdate('schedule_tasks', taskId, {status:'done', completed_at:new Date().toISOString(), percent_complete:100});
+    if(!row) throw new Error('task');
+    const t = Array.isArray(row) ? row[0] : row;
+    if(t && t.section_id){ try{ await maybeAutoCloseVariationForSection(siteId, t.section_id); }catch(e){} }
+    delete sowPmPick[taskId];
+    pendingCompleteTaskId = null;
+    if(percentPromptTaskId===taskId) percentPromptTaskId = null;
+    try{ uiReadCacheClear(); }catch(e){}
+    toast('Task marked complete'+(ids.length ? ' — '+ids.length+' photo'+(ids.length===1?'':'s')+' moved to Completed' : ''));
+    render();
+  }catch(e){
+    toast('Could not mark complete — check your connection and try again.');
+    if(b){ b.disabled = false; b.textContent = sowPmDoneLabel(ids.length); }
+  }
 };
 // A variation added to the Schedule of Works becomes its own section
 // (see addVariationToSchedule) — once every task in that section is done,
