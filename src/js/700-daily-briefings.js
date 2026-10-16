@@ -135,6 +135,56 @@ async function mergePdfBytes(list, title){
   if(title) merged.setTitle(title);
   return merged.save();
 }
+// #(email-separate-pdfs) 2026-10-16: several documents can go on ONE email
+// either merged into one PDF or as separate PDF attachments. askPdfMode asks
+// which (only when there's more than one); emailPdfsSeparately uploads each
+// one and sends them together.
+let _pdfModeResolve = null;
+function askPdfMode(n, what){
+  if(n < 2) return Promise.resolve('one');
+  return new Promise(resolve=>{
+    _pdfModeResolve = resolve;
+    let ov = document.getElementById('pdfModeOverlay');
+    if(!ov){ ov = document.createElement('div'); ov.id = 'pdfModeOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+    ov.onclick = e=>{ if(e.target===ov) window._pdfModeAnswer(null); };
+    ov.innerHTML = `<div class="geo-modal-card">
+        <h3>Email ${n} ${escapeHtml(what)}</h3>
+        <p class="stub">How should they be attached?</p>
+        <button class="darkbtn" style="width:100%;margin-bottom:8px;" onclick="window._pdfModeAnswer('separate')">📎 Separate PDFs (${n} attachments)</button>
+        <button class="ghostbtn" style="width:100%;margin-bottom:8px;" onclick="window._pdfModeAnswer('one')">📄 One combined PDF</button>
+        <button class="geo-modal-cancel" onclick="window._pdfModeAnswer(null)">Cancel</button>
+      </div>`;
+    ov.style.display = 'flex';
+  });
+}
+window._pdfModeAnswer = function(v){
+  const ov = document.getElementById('pdfModeOverlay'); if(ov) ov.style.display = 'none';
+  const r = _pdfModeResolve; _pdfModeResolve = null; if(r) r(v);
+};
+// o: {siteId?, generalLabel?, parts:[{bytes, name}], title, to, cc?, clientCc?}
+// Returns {ok, attached}.
+async function emailPdfsSeparately(o){
+  const files = [];
+  const used = new Set();
+  for(const p of o.parts){
+    let name = String(p.name||'Document').replace(/\.pdf$/i,'').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,100) || 'Document';
+    let nm = name, k = 2; while(used.has(nm.toLowerCase())) nm = name+' ('+(k++)+')';
+    used.add(nm.toLowerCase());
+    const path = (o.siteId || ME.org_id)+'/email-exports/'+uid()+'-'+nm.replace(/[^a-z0-9.\-]+/gi,'_')+'.pdf';
+    const stored = await uploadToStorage('mc-documents', path, new Blob([p.bytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored) return {ok:false};
+    files.push({url: publicUrl('mc-documents', stored), name: nm+'.pdf'});
+  }
+  try{
+    const res = await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:120000, body: JSON.stringify({
+      site_id: o.siteId || undefined, general_label: o.siteId ? undefined : (o.generalLabel || 'Documents'),
+      recipient_email: o.to, cc_email: o.cc || undefined, client_cc_email: o.clientCc || undefined,
+      doc_title: o.title, files,
+    })});
+    const d = res ? await res.json().catch(()=>({})) : {};
+    return {ok: !!(res && res.ok && !d.error), attached: d.attached !== false, error: d && d.error};
+  }catch(e){ return {ok:false}; }
+}
 // Emails a PDF as a LINK: the file is uploaded to storage first and the
 // email carries a button to it. The alternative — posting the PDF itself
 // inside the request — is what fails as "could not reach the server" once a
@@ -181,12 +231,26 @@ window.emailSelectedBriefings = async function(){
   toast('Building PDFs…');
   try{
     const ids = Array.from(selectedBriefingIds);
-    const parts = []; let siteId = null;
+    const mode = await askPdfMode(ids.length, 'briefings');
+    if(!mode){ return; }
+    toast('Building PDFs…');
+    const parts = [], named = []; let siteId = null;
     for(const id of ids){
       const built = await buildBriefingPdfWithSignatures(id);
-      if(built){ parts.push(built.bytes); siteId = siteId || built.sub.site_id; }
+      if(built){
+        parts.push(built.bytes); siteId = siteId || built.sub.site_id;
+        const when = built.sub.created_at ? new Date(built.sub.created_at).toLocaleDateString('en-GB').replace(/\//g,'-') : '';
+        named.push({bytes: built.bytes, name: (built.sub.template_name||'Daily Briefing')+(when?' - '+when:'')});
+      }
     }
     if(!parts.length){ toast('Could not build any of the selected briefings.'); return; }
+    if(mode==='separate' && parts.length>1){
+      toast('Sending…');
+      const r = await emailPdfsSeparately({siteId, parts: named, title: `Daily Briefings (${parts.length})`, to: ME.email});
+      if(r.ok){ toast(`${parts.length} briefings emailed to ${ME.email} as separate PDFs`+(r.attached?'':' (as links — too big to attach)')); selectedBriefingIds = new Set(); }
+      else toast('Email failed — please try again.');
+      return;
+    }
     // One combined PDF, emailed as a link — these used to go as separate
     // attachments posted in a single request, which failed once the
     // briefings carried photos.

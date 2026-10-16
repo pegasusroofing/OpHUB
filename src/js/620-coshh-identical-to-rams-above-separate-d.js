@@ -5,22 +5,24 @@ let coshhPollTimer = null;
 // plain document where nobody has yet.
 let coshhSel = new Set(), coshhSelAll = [], coshhSelBusy = '';
 window.coshhSelToggle = function(id, on){ if(on) coshhSel.add(id); else coshhSel.delete(id); render(); };
-async function coshhSelBuild(siteId){
+async function coshhSelBuild(siteId, separate){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const ids = coshhSelAll.filter(id=>coshhSel.has(id));
   const docs = await dbSelect('coshh_docs', 'id=in.('+ids.join(',')+')&select=id,name,storage_path');
-  const parts = [];
+  const parts = [], named = [];
   for(const id of ids){
     try{
-      const b = await buildSignedCoshhPdf(id);
-      if(b && b.bytes){ parts.push(b.bytes); continue; }
       const d = docs.find(x=>x.id===id);
-      if(d && d.storage_path){ const res = await fetchWithTimeout(publicUrl('coshh-docs', d.storage_path), {}, 60000); if(res.ok) parts.push(new Uint8Array(await res.arrayBuffer())); }
+      const nm = 'COSHH - '+((d && d.name) || 'Document');
+      const b = await buildSignedCoshhPdf(id);
+      if(b && b.bytes){ parts.push(b.bytes); named.push({bytes:b.bytes, name:nm}); continue; }
+      if(d && d.storage_path){ const res = await fetchWithTimeout(publicUrl('coshh-docs', d.storage_path), {}, 60000); if(res.ok){ const by = new Uint8Array(await res.arrayBuffer()); parts.push(by); named.push({bytes:by, name:nm}); } }
     }catch(e){ console.error('[coshh sel]', id, e); }
   }
   if(!parts.length){ toast('Could not build any of the ticked COSHH documents.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const filename = exportFilename(site?site.name:'', 'COSHH ('+parts.length+')', 'pdf');
+  if(separate) return {named, filename, n: parts.length};
   const bytes = parts.length===1 ? parts[0] : await mergePdfBytes(parts, filename.replace(/\.pdf$/i,''));
   return {bytes, filename, n: parts.length};
 }
@@ -33,14 +35,26 @@ window.coshhSelExport = async function(siteId){
 window.coshhSelEmail = async function(siteId){
   if(!coshhSel.size || coshhSelBusy) return;
   const site = SITES.find(s=>s.id===siteId);
-  const answer = await customPromptWithCc('Email the '+coshhSel.size+' ticked COSHH document'+(coshhSel.size===1?'':'s')+' (one PDF) to:', '', site);
+  const mode = await askPdfMode(coshhSel.size, 'COSHH documents');
+  if(!mode) return;
+  const answer = await customPromptWithCc('Email the '+coshhSel.size+' ticked COSHH document'+(coshhSel.size===1?'':'s')+(coshhSel.size>1 ? (mode==='separate'?' (separate PDFs)':' (one PDF)') : '')+' to:', '', site);
   if(!answer) return;
   const typed = (answer.value||'').trim();
   if(typed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed)){ toast('Enter a valid email address.'); return; }
   const emailTo = resolvePromptEmailTo(answer);
   if(!emailTo) return;
-  coshhSelBusy = 'email'; render(); toast('Building one PDF…');
+  coshhSelBusy = 'email'; render(); toast(mode==='separate' ? 'Building PDFs…' : 'Building one PDF…');
   try{
+    if(mode==='separate'){
+      const m = await coshhSelBuild(siteId, true);
+      if(!m){ coshhSelBusy = ''; render(); return; }
+      toast('Sending…');
+      const r = await emailPdfsSeparately({siteId, parts: m.named, title: 'COSHH — '+m.n+' documents', to: emailTo.to, cc: emailTo.cc, clientCc: ccClientEmailFromPromptAnswer(answer, site)});
+      coshhSelBusy = '';
+      if(r.ok){ coshhSel = new Set(); toast(m.n+' COSHH documents emailed to '+emailTo.to+' as separate PDFs'+(r.attached?'':' (as links — too big to attach)')+(emailTo.cc?' (you\'re copied in)':'')); }
+      else toast('Email failed — please try again.');
+      render(); return;
+    }
     const m = await coshhSelBuild(siteId);
     if(!m){ coshhSelBusy = ''; render(); return; }
     const ok = await emailPdfAsLink({siteId, bytes: m.bytes, filename: m.filename, title: 'COSHH — '+m.n+' document'+(m.n===1?'':'s'), to: emailTo.to, cc: emailTo.cc, clientCc: ccClientEmailFromPromptAnswer(answer, site)});

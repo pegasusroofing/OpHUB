@@ -675,14 +675,19 @@ window.emailSignedToolboxTalk = async function(siteId, tbtId){
 let tbtDoneSel = new Set(), tbtDoneSignable = [], tbtDoneBusy = '';
 window.tbtDoneToggle = function(id, on){ if(on) tbtDoneSel.add(id); else tbtDoneSel.delete(id); render(); };
 // All ticked talks as ONE signed PDF (each talk's pages one after another).
-async function tbtDoneBuildMerged(){
+async function tbtDoneBuildMerged(separate){
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const out = await PDFLib.PDFDocument.create();
-  let n = 0;
+  let n = 0; const named = [];
   for(const id of Array.from(tbtDoneSel)){
     try{
       const b = await buildSignedToolboxTalkPdfBytes(id);
       if(!b) continue;
+      if(separate){
+        const site = b.talk && SITES.find(s=>s.id===b.talk.site_id);
+        named.push({bytes: b.outBytes, name: 'TBT - '+((b.talk&&b.talk.title)||'Toolbox Talk')+(site?' - '+site.name:'')});
+        n++; continue;
+      }
       const src = await PDFLib.PDFDocument.load(b.outBytes, {ignoreEncryption:true});
       (await out.copyPages(src, src.getPageIndices())).forEach(pg=>out.addPage(pg));
       n++;
@@ -690,6 +695,7 @@ async function tbtDoneBuildMerged(){
   }
   if(!n){ toast('None of the ticked talks could be built.'); return null; }
   const filename = 'Signed Toolbox Talks ('+n+') - '+new Date().toLocaleDateString('en-GB').replace(/\//g,'-')+'.pdf';
+  if(separate) return {named, filename, n};
   return {bytes: await out.save(), filename, n};
 }
 window.tbtDoneExport = async function(){
@@ -700,12 +706,24 @@ window.tbtDoneExport = async function(){
 };
 window.tbtDoneEmail = async function(){
   if(!tbtDoneSel.size || tbtDoneBusy) return;
-  const to = await customPrompt('Email the '+tbtDoneSel.size+' ticked toolbox talk'+(tbtDoneSel.size===1?'':'s')+' (one PDF) to:', '');
+  const mode = await askPdfMode(tbtDoneSel.size, 'toolbox talks');
+  if(!mode) return;
+  const to = await customPrompt('Email the '+tbtDoneSel.size+' ticked toolbox talk'+(tbtDoneSel.size===1?'':'s')+(tbtDoneSel.size>1 ? (mode==='separate'?' (separate PDFs)':' (one PDF)') : '')+' to:', '');
   if(!to) return;
   const email = to.trim();
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid email address.'); return; }
-  tbtDoneBusy = 'email'; render(); toast('Building one PDF…');
+  tbtDoneBusy = 'email'; render(); toast(mode==='separate' ? 'Building PDFs…' : 'Building one PDF…');
   try{
+    if(mode==='separate'){
+      const m = await tbtDoneBuildMerged(true);
+      if(!m){ tbtDoneBusy = ''; render(); return; }
+      toast('Sending…');
+      const r = await emailPdfsSeparately({generalLabel:'Toolbox Talks', parts: m.named, title: 'Signed Toolbox Talks ('+m.n+')', to: email, cc: email!==ME.email ? ME.email : undefined});
+      tbtDoneBusy = '';
+      if(r.ok){ tbtDoneSel = new Set(); toast(m.n+' toolbox talks emailed to '+email+' as separate PDFs'+(r.attached?'':' (as links — too big to attach)')); }
+      else toast('Could not send the email — '+String(r.error || 'try again').slice(0,140));
+      render(); return;
+    }
     const m = await tbtDoneBuildMerged();
     if(!m){ tbtDoneBusy = ''; render(); return; }
     const path = 'tbt-exports/'+ME.org_id+'/'+uid()+'-'+m.filename.replace(/[^a-z0-9.\-]+/gi,'_');
