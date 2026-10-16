@@ -176,9 +176,10 @@ async function mountSiteMap(elId, mini){
   box.innerHTML = '';
   const map = L.map(box, {zoomControl:!mini, dragging:!mini, scrollWheelZoom:!mini, doubleClickZoom:!mini, boxZoom:!mini, keyboard:!mini, touchZoom:!mini, attributionControl:true});
   _siteMaps[elId] = map;
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    maxZoom: 19, subdomains:'abcd',
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>',
+  // OpenStreetMap's own free map tiles — no account or API key needed.
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
   }).addTo(map);
   const shown = pts.filter(p=>mini ? p.st!=='closed' : siteMapShow[p.st]);
   const markers = {};
