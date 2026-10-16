@@ -3040,7 +3040,7 @@ const DEFAULT_BRAND1 = '#4E8FD1';
 // same way; this constant just brings the client-side Copy Link buttons in
 // line with it.
 // Bump when a release needs confirming on someone's phone (shown small on the driver home page).
-const OPHUB_BUILD_LABEL = '15 Oct 2026 · job list auto-refresh';
+const OPHUB_BUILD_LABEL = '16 Oct 2026 · SOW period export';
 const OPHUB_WEB_URL = 'https://operativehub.co.uk/app.html';
 // Feature flag: the Price Sheet rewrite (Excel-driven rate card library,
 // Price/Price Sheet tile split, compact builder redesign) is still in
@@ -23426,7 +23426,7 @@ async function appendMediaSummaryPages(pdfDoc, photoRefs, opts){
             const sc = Math.min(cellW/dim.width, cellH/dim.height, 1) * sizeScale;
             const w = dim.width*sc, h = dim.height*sc;
             page.drawImage(img, {x:cx+(cellW-w)/2, y:rowTop-cellH+(cellH-h)/2, width:w, height:h});
-            page.drawText('Photo '+num, {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
+            page.drawText('Photo '+num + (ref.caption ? '  ·  '+ref.caption : ''), {x:cx, y:rowTop-cellH-13, size:8.5, font:reg, color:SLATE});
           }
         }catch(e){ /* skip photo if it fails to embed */ }
       }
@@ -23773,7 +23773,53 @@ window.emailSnaggingPDF = async function(siteId, scope){
 // Shared by the Export button and the Email button below — builds the PDF
 // bytes without delivering them anywhere, so both callers decide what to do
 // with the result (download vs. attach to an email).
-async function buildSchedulePdfBytes(siteId){
+// #(sow-export-period) 2026-10-16: Export / Email can be the full project or
+// just a period (today, this week, last week, chosen dates). A period report
+// only has the photos uploaded in that period, and only the tasks that had
+// photos or were completed in it.
+function sowPeriodRange(key, fromStr, toStr){
+  const d0 = new Date(); d0.setHours(0,0,0,0);
+  const day = 864e5;
+  const fmt = d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  if(key==='today') return {from:d0.getTime(), to:d0.getTime()+day, label:'Today '+fmt(d0), file:'Daily '+d0.toLocaleDateString('en-GB').replace(/\//g,'-')};
+  if(key==='week' || key==='lastweek'){
+    const mon = new Date(d0); mon.setDate(mon.getDate()-((mon.getDay()+6)%7));
+    if(key==='lastweek') mon.setDate(mon.getDate()-7);
+    const sun = new Date(mon); sun.setDate(sun.getDate()+6);
+    return {from:mon.getTime(), to:sun.getTime()+day, label:'Week '+fmt(mon)+' – '+fmt(sun), file:'Week commencing '+mon.toLocaleDateString('en-GB').replace(/\//g,'-')};
+  }
+  if(key==='custom' && fromStr && toStr){
+    const f = new Date(fromStr+'T00:00:00'), t = new Date(toStr+'T00:00:00');
+    if(isNaN(f) || isNaN(t) || t < f) return null;
+    return {from:f.getTime(), to:t.getTime()+day, label:fmt(f)+' – '+fmt(t), file:f.toLocaleDateString('en-GB').replace(/\//g,'-')+' to '+t.toLocaleDateString('en-GB').replace(/\//g,'-')};
+  }
+  return null; // full project
+}
+function sowPeriodPickerHtml(prefix){
+  const today = new Date().toISOString().slice(0,10);
+  return `<div class="formfield"><label class="field-label">What to include</label>
+    <select id="${prefix}Period" onchange="document.getElementById('${prefix}Dates').style.display=this.value==='custom'?'flex':'none'">
+      <option value="full">Full project — every photo</option>
+      <option value="today">Today only</option>
+      <option value="week">This week (Mon–Sun)</option>
+      <option value="lastweek">Last week</option>
+      <option value="custom">Choose dates…</option>
+    </select>
+    <div id="${prefix}Dates" style="display:none;gap:8px;margin-top:8px;">
+      <input type="date" id="${prefix}From" value="${today}" style="flex:1;min-width:0;">
+      <input type="date" id="${prefix}To" value="${today}" style="flex:1;min-width:0;">
+    </div></div>`;
+}
+function sowReadPeriod(prefix){
+  const key = (document.getElementById(prefix+'Period')||{}).value || 'full';
+  if(key==='full') return {full:true};
+  const r = sowPeriodRange(key, (document.getElementById(prefix+'From')||{}).value, (document.getElementById(prefix+'To')||{}).value);
+  if(!r){ toast('Pick a valid from and to date.'); return null; }
+  return r;
+}
+function sowPhotoDay(p){ try{ return new Date(p.uploaded_at).toLocaleDateString('en-GB'); }catch(e){ return ''; } }
+async function buildSchedulePdfBytes(siteId, period){
+  if(period && period.full) period = null;
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
   const allTasksUnfiltered = await dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc');
@@ -23784,13 +23830,20 @@ async function buildSchedulePdfBytes(siteId){
   // of the filter they've selected.
   const FILTER_LABEL = {active:'To Do / In Progress', done:'Complete', all:'All'};
   const filterLabel = FILTER_LABEL[scheduleFilter] || 'All';
-  const allTasks = scheduleFilter==='all' ? allTasksUnfiltered
+  let allTasks = scheduleFilter==='all' ? allTasksUnfiltered
     : scheduleFilter==='done' ? allTasksUnfiltered.filter(t=>t.status==='done')
     : allTasksUnfiltered.filter(t=>t.status==='todo'||t.status==='progress');
   if(!allTasks.length){ toast('No tasks match the current filter ("'+filterLabel+'") to export.'); return null; }
   let photosByTask = {};
   const ids = allTasks.map(t=>t.id).join(',');
-  const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+  let photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+  if(period){
+    const inP = ts=>{ const v = ts ? new Date(ts).getTime() : NaN; return v>=period.from && v<period.to; };
+    photos = photos.filter(p=>inP(p.uploaded_at));
+    const withPh = new Set(photos.map(p=>p.task_id));
+    allTasks = allTasks.filter(t=>withPh.has(t.id) || inP(t.completed_at));
+    if(!allTasks.length){ toast('Nothing was uploaded or completed in that period ('+period.label+').'); return null; }
+  }
   photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
   // Start the photo downloads now (several at a time) so they're ready by
   // the time each task is drawn; drawing picks them up from the shared cache.
@@ -23843,7 +23896,7 @@ async function buildSchedulePdfBytes(siteId){
         page.drawImage(logoImg, {x:MARGIN+(40-w)/2, y:PAGE_H-76+(40-h)/2, width:w, height:h});
       }
       const textX = logoImg ? MARGIN+52 : MARGIN;
-      page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT' + (scheduleFilter!=='all' ? '  ·  ' + filterLabel.toUpperCase() + ' ONLY' : ''), {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
+      page.drawText('SCHEDULE OF WORKS — PROGRESS REPORT' + (period ? '  ·  ' + period.label.toUpperCase() : '') + (scheduleFilter!=='all' ? '  ·  ' + filterLabel.toUpperCase() + ' ONLY' : ''), {x:textX, y:PAGE_H-40, size:9, font:bold, color:WHITE, opacity:0.85});
       pdfDrawFit(page, pdfSiteLabel(site), {x:textX, y:PAGE_H-60, size:16, font:bold, color:WHITE});
       page.drawText(companyName + ' · as of ' + new Date().toLocaleDateString('en-GB'), {x:textX, y:PAGE_H-76, size:9.5, font:reg, color:WHITE, opacity:0.9});
     }
@@ -23878,7 +23931,7 @@ async function buildSchedulePdfBytes(siteId){
     // Summary strip on the first page only.
     const chipW = 112, chipGap = 10, chipY = y - 34;
     [
-      {label:'Total tasks', value:String(allTasks.length), bg:CARDBG, fg:INK},
+      {label:period ? 'Tasks this period' : 'Total tasks', value:String(allTasks.length), bg:CARDBG, fg:INK},
       {label:'To do', value:String(todoTasks.length), bg:TODOBG, fg:TODO},
       {label:'In progress', value:String(progTasks.length), bg:PROGBG, fg:PROG},
       {label:'Complete', value:String(doneTasks.length), bg:OKBG, fg:OK},
@@ -23966,11 +24019,26 @@ async function buildSchedulePdfBytes(siteId){
       // which on jobs with lots of photos left half of every page blank.)
       const headerH = 30;
       const ROW_H = thumbSize+thumbGap, LABEL_H = 14, BOTTOM = 60, PAD_B = 12;
+      // #(sow-photo-day-breaks) 2026-10-16: within a stage, photos from
+      // different days are split by a divider line, and the first photo of
+      // each day carries a small date tag.
+      const SEP_W = 14;
       const items = [];
       STAGE_SECTIONS.forEach(st=>{
         const ph = stageBuckets[st.key];
         if(!ph.length) return;
-        for(let r=0; r*perRow<ph.length; r++) items.push({stage:st, total:ph.length, photos:ph.slice(r*perRow, (r+1)*perRow), first:r===0});
+        const rows = []; let cur = [], w = 0, lastDay = null;
+        ph.forEach(p=>{
+          const day = sowPhotoDay(p);
+          const newDay = day !== lastDay;
+          const sep = newDay && lastDay !== null && cur.length > 0;
+          if(cur.length && w + (sep?SEP_W:0) + thumbSize > usableW){ rows.push(cur); cur = []; w = 0; }
+          if(newDay && lastDay !== null && cur.length){ cur.push({sep:true}); w += SEP_W; }
+          cur.push({p, dayStart:newDay, day}); w += thumbSize + thumbGap;
+          lastDay = day;
+        });
+        if(cur.length) rows.push(cur);
+        rows.forEach((r,i)=>items.push({stage:st, total:ph.length, photos:r, first:i===0}));
       });
       let idx = 0, isFirstChunk = true;
       while(isFirstChunk || idx < items.length){
@@ -24016,7 +24084,14 @@ async function buildSchedulePdfBytes(siteId){
             ty -= 12;
           }
           let cx = textLeft;
-          for(const ph of it.photos){
+          for(const ent of it.photos){
+            if(ent.sep){
+              const lx = cx + (SEP_W - thumbGap)/2;
+              page.drawLine({start:{x:lx, y:ty+2}, end:{x:lx, y:ty-thumbSize-2}, thickness:1.6, color:BRAND});
+              cx += SEP_W;
+              continue;
+            }
+            const ph = ent.p;
             try{
               // A ready-made 200px tile needs no shrinking; older photos still get shrunk here.
               const bytes = ph.thumb_path ? await pdfFetchImageBytes(sowPhotoUrl(ph,'thumb')) : await pdfFetchImageBytesScaled(publicUrl('site-photos', ph.storage_path), Math.round(thumbSize*3), 0.78);
@@ -24028,6 +24103,12 @@ async function buildSchedulePdfBytes(siteId){
                 page.drawImage(img, {x:cx+(thumbSize-w)/2, y:ty-thumbSize+(thumbSize-h)/2, width:w, height:h});
               }
             }catch(e){ /* skip photo if it fails to embed */ }
+            if(ent.dayStart && ent.day){
+              const tag = ent.day.slice(0,5);
+              const tw = bold.widthOfTextAtSize(tag, 6.5) + 6;
+              page.drawRectangle({x:cx, y:ty-10, width:tw, height:10, color:INK, opacity:0.72});
+              page.drawText(tag, {x:cx+3, y:ty-7.5, size:6.5, font:bold, color:WHITE});
+            }
             cx += thumbSize+thumbGap;
           }
           ty -= ROW_H;
@@ -24065,7 +24146,7 @@ async function buildSchedulePdfBytes(siteId){
     // Media summary appendix — every progress photo on every task, not just
     // the single latest one shown on each task's row above.
     const schedulePhotoRefs = [];
-    allTasks.forEach(t=>{ (photosByTask[t.id]||[]).forEach(p=>schedulePhotoRefs.push({path:p.storage_path, bucket:'site-photos', readyPath:p.mid_path||null})); });
+    allTasks.forEach(t=>{ (photosByTask[t.id]||[]).forEach(p=>schedulePhotoRefs.push({path:p.storage_path, bucket:'site-photos', readyPath:p.mid_path||null, caption:sowPhotoDay(p)})); });
     // sizeScale 0.9 = the "summary photos" drawn 0.9x smaller within their
     // tile per the PM's request. maxDim/quality is the real fix for emails
     // failing on large reports — every photo on the job gets embedded here,
@@ -24077,7 +24158,7 @@ async function buildSchedulePdfBytes(siteId){
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
-    const filename = exportFilename(site.name, 'Schedule of Works' + (scheduleFilter!=='all' ? ' - '+filterLabel : ''), 'pdf');
+    const filename = exportFilename(site.name, 'Schedule of Works' + (period ? ' - '+period.file : '') + (scheduleFilter!=='all' ? ' - '+filterLabel : ''), 'pdf');
     pdfDoc.setTitle(filename.replace(/\.pdf$/i,''));
     const outBytes = await pdfDoc.save();
     return {outBytes, filename, site};
@@ -24087,8 +24168,26 @@ async function buildSchedulePdfBytes(siteId){
     return null;
   }
 }
-window.exportSchedulePDF = async function(siteId){
-  const built = await buildSchedulePdfBytes(siteId);
+window.exportSchedulePDF = function(siteId){
+  let ov = document.getElementById('sowExportOverlay');
+  if(!ov){
+    ov = document.createElement('div'); ov.id = 'sowExportOverlay'; ov.className = 'geo-modal-overlay';
+    ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `<div class="geo-modal-card">
+      <h3>Export Schedule of Works</h3>
+      <p class="stub">Full project, or just the photos from a day or week.</p>
+      ${sowPeriodPickerHtml('sowExp')}
+      <button class="darkbtn" id="sowExpGo" style="width:100%;" onclick="sowExportGo('${siteId}')">📄 Export PDF</button>
+      <button class="geo-modal-cancel" onclick="document.getElementById('sowExportOverlay').style.display='none'">Cancel</button>
+    </div>`;
+  ov.style.display = 'flex';
+};
+window.sowExportGo = async function(siteId){
+  const period = sowReadPeriod('sowExp'); if(!period) return;
+  const ov = document.getElementById('sowExportOverlay'); if(ov) ov.style.display = 'none';
+  const built = await buildSchedulePdfBytes(siteId, period);
   if(built) await deliverPdf(built.outBytes, built.filename);
 };
 // Email Report — same recipient-tick-list pattern as the material-order
@@ -24121,6 +24220,7 @@ window.openScheduleEmailPrompt = async function(siteId){
         `).join('') || `<p class="stub">No other PMs/admins found.</p>`}
       </div>
       <div class="formfield"><label class="field-label">Add another address</label><input type="email" id="scheduleEmailExtraInput" placeholder="name@example.com"></div>
+      ${sowPeriodPickerHtml('sowEm')}
       ${ccClientTickHtml(site, 'scheduleEmailCcClient')}
       <button class="darkbtn" id="scheduleEmailConfirmBtn" style="width:100%;" onclick="confirmScheduleEmail('${siteId}')">Confirm &amp; Send</button>
       <button class="geo-modal-cancel" onclick="closeScheduleEmailPrompt()">Cancel</button>
@@ -24141,9 +24241,10 @@ window.confirmScheduleEmail = async function(siteId){
   }
   const recipients = Array.from(new Set(ticks));
   if(!recipients.length){ toast('Tick or enter at least one recipient.'); return; }
+  const period = sowReadPeriod('sowEm'); if(!period) return;
   const btn = document.getElementById('scheduleEmailConfirmBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Building PDF…'; }
-  const built = await buildSchedulePdfBytes(siteId);
+  const built = await buildSchedulePdfBytes(siteId, period);
   if(!built){ if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; } return; }
   // 2026-10-02 — this used to base64-encode the whole PDF and send it
   // inline in this request's JSON body. That turned out to be the actual
