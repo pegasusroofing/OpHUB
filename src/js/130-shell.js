@@ -70,6 +70,7 @@ function shell(innerHtml, opts){
   CURRENT_BACK_HASH = opts.back || null;
   return `
     <div class="appshell" style="display:flex;flex-direction:column;min-height:100vh;">
+      ${deskSidebar(opts)}
       <div class="stripe-edge"></div>
       ${ME && ME._support ? `<div class="supportbar"><span>🛠 Support mode — you're inside <b>${escapeHtml((ORG && ORG.name) || 'this company')}</b> as their admin. Changes are real.</span><button type="button" onclick="superadminExitCompany()">Exit</button></div>` : ''}
       ${OFFLINE_CACHE_USED ? `<div style="background:var(--warn-bg);color:var(--warn);padding:6px 14px;font-size:12px;font-weight:700;text-align:center;">📡 Offline — showing saved data from earlier</div>` : ''}

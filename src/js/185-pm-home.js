@@ -158,6 +158,7 @@ async function renderPmHome(){
       <span class="pmhero-t">Live projects</span>
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
+    ${siteMapMiniCardHtml()}
     <div class="pmtiles pmtiles-home">
       ${tile('chart', 'teal', 'Dashboard', 'Company &amp; operative overview', "go('#/dashboards')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
@@ -186,6 +187,7 @@ async function renderPmHome(){
     </div>
   `, {tabs:false, centerHeader:true, showRefresh:true});
   if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
+  if(isDeskMode() && isManager(ME)) mountSiteMap('deskMapMini', true);
   refreshHomeExtras();
 }
 

@@ -349,6 +349,7 @@ function orderFulfilmentHtml(key, drivers, siteOps){
       <div class="formfield"><label class="field-label">Who is collecting</label>
         <select id="reqCollector_${key}" onchange="onOrderModeChange('${key}')">
           <option value="">Choose…</option>
+          <option value="rtbop:">👷 ${escapeHtml(companyOperativeLabel())}</option>
           ${drivers.length ? `<optgroup label="Driver — adds to the Delivery Schedule">${drivers.map(d=>`<option value="driver:${d.id}">🚐 ${escapeHtml(d.name)}</option>`).join('')}</optgroup>` : ''}
           ${siteOps.length ? `<optgroup label="Operative — adds to the Collection List">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
         </select>
@@ -401,7 +402,7 @@ function readOrderFulfilment(key){
   const who = g('reqCollector') ? g('reqCollector').value : '';
   if(!who){ toast('Choose who is collecting.'); return null; }
   const parts = who.split(':');
-  return {mode, date, note, ccIds, ccEmails, branch, sendTo, collectorKind:parts[0], collectorId:parts[1], slot: g('reqSlot') ? g('reqSlot').value : '7am'};
+  return {mode, date, note, ccIds, ccEmails, branch, sendTo, collectorKind:parts[0], collectorId:parts[1]||null, slot: g('reqSlot') ? g('reqSlot').value : '7am'};
 }
 // After the order is saved: puts a collection onto the driver's Delivery
 // Schedule (one job for the whole order) or the operative's Material List.
@@ -409,8 +410,13 @@ function readOrderFulfilment(key){
 // used to put the collection on the Delivery Schedule / Material List a
 // second time, so the driver ended up with duplicates. Now a re-send asks
 // first; "No" still sends the email, it just doesn't book it again.
+// #(rtb-operative-collector) 2026-10-16: "RTB Operative" — a collection by
+// one of the company's operatives without naming who. Nothing is booked on
+// anyone's list; the order email just says who's collecting.
+function companyOperativeLabel(){ const w = String((ORG && ORG.name) || '').trim().split(/\s+/)[0]; return (w || 'Company')+' Operative'; }
+function orderCollectorName(f){ if(!f) return null; if(f.collectorKind==='rtbop') return companyOperativeLabel(); return (f.collectorId && PROFILES[f.collectorId]) ? PROFILES[f.collectorId].name : null; }
 async function confirmRebookCollection(f, materials){
-  if(!f || f.mode!=='collection') return true;
+  if(!f || f.mode!=='collection' || f.collectorKind==='rtbop') return true;
   const sentBefore = (materials||[]).some(m=>m && (m.sent_at || m.email_sent_at));
   if(!sentBefore) return true;
   const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Collection List';
@@ -419,6 +425,7 @@ async function confirmRebookCollection(f, materials){
 }
 async function bookOrderCollection(siteId, f, supplier, toMe, materials){
   if(!f || f.mode!=='collection') return '';
+  if(f.collectorKind==='rtbop') return ' — to be collected by an '+companyOperativeLabel();
   if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Collection List')+' again';
   const who = PROFILES[f.collectorId];
   const whoName = who ? who.name : 'them';
@@ -493,7 +500,7 @@ window.confirmSendMaterial = async function(siteId, matId){
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
-      fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
+      fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -589,7 +596,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
       supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
-      fulfilment: fulfil.mode, collector_name: (fulfil.collectorId && PROFILES[fulfil.collectorId]) ? PROFILES[fulfil.collectorId].name : null,
+      fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
       items: materials.map(m=>({item:m.item, qty:m.qty})),
     })});
     const d = await res.json();
