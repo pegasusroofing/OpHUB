@@ -98,6 +98,7 @@ async function renderRoute(){
     return renderPmTodos();
   }
   if(parts[0]==='sitemap'){ if(!isManager(ME) || isNativeShell()){ go(homeHash()); return; } return renderSiteMapPage(); }
+  if(parts[0]==='subapplications'){ if(!isManager(ME)){ go(homeHash()); return; } return parts[1] ? renderSubApplication(parts[1]) : renderSubApplications(); }
   if(parts[0]==='onsite'){ if(!usesPmHome(ME)){ go('#/sites'); return; } return renderOnSiteNow(); }
   if(parts[0]==='reports'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }

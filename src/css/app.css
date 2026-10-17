@@ -1306,3 +1306,10 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .howto-off{text-align:center;margin-top:6px;}
 .howto-off span{font-size:11px;color:var(--slate-light);cursor:pointer;text-decoration:underline;}
 html.desk .howto{padding-left:248px;padding-bottom:24px;justify-content:flex-end;padding-right:24px;}
+.sublink{font-family:'IBM Plex Mono',monospace;font-size:12px;background:#F4F5F7;border-radius:10px;padding:10px 12px;word-break:break-all;color:var(--ink);}
+.subapp-r{display:flex;gap:12px;padding:7px 0;border-bottom:1px solid #F0F1F4;font-size:13px;}
+.subapp-r:last-child{border-bottom:0;}
+.subapp-r b{flex:0 0 42%;color:var(--slate);font-weight:700;font-size:12px;}
+.subapp-r span{flex:1;min-width:0;color:var(--ink);overflow-wrap:anywhere;}
+.subapp-file{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #F0F1F4;cursor:pointer;font-size:13px;}
+.subapp-file span{flex:1;min-width:0;color:var(--slate);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:12px;}

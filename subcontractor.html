@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Subcontractor sign-up — OpHUB</title>
+<link rel="icon" href="assets/ophub-logo.png?v=2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* #(sub-signup) Google-Forms-style public subcontractor sign-up form. */
+  :root{--brand1:#4E8FD1;--ink:#0B0E14;--paper:#F2F3F6;--card:#fff;--line:#E3E7EE;--slate:#566072;--mute:#8A93A3;--ok:#1F9D62;--warn:#B3261E;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 14px 70px;}
+  .head{background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--line);margin-bottom:14px;}
+  .head .bar{height:10px;background:var(--brand1);}
+  .head .in{padding:22px 24px;display:flex;gap:16px;align-items:center;}
+  .head img{width:58px;height:58px;object-fit:contain;border-radius:12px;border:1px solid var(--line);background:#fff;padding:4px;display:none;}
+  h1{font-size:26px;margin:0;letter-spacing:-.02em;line-height:1.15;}
+  .head p{margin:6px 0 0;color:var(--slate);font-size:15px;}
+  .req-note{color:var(--warn);font-size:13px;margin-top:8px !important;}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 24px 8px;margin-bottom:14px;}
+  .sec h2{font-size:19px;margin:0 0 2px;letter-spacing:-.01em;}
+  .sec .hint{color:var(--slate);font-size:14px;margin:0 0 6px;}
+  .q{margin:16px 0;}
+  .q > span{display:block;font-weight:700;font-size:15px;margin-bottom:7px;}
+  .q > span i{color:var(--warn);font-style:normal;margin-left:3px;}
+  .q small{display:block;color:var(--mute);font-size:13px;margin:-3px 0 7px;}
+  input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number],select,textarea{width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;font-family:inherit;background:#fff;color:var(--ink);}
+  textarea{min-height:84px;resize:vertical;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand1);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand1) 20%, transparent);}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:560px){.two{grid-template-columns:1fr;}}
+  .checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px 14px;}
+  .checks label,.radios label,.agree{display:flex;gap:9px;align-items:flex-start;font-size:15px;cursor:pointer;padding:4px 0;}
+  .checks input,.radios input,.agree input{width:19px;height:19px;margin:2px 0 0;flex:none;accent-color:var(--brand1);}
+  .radios{display:flex;gap:18px;flex-wrap:wrap;}
+  .file{display:flex;align-items:center;gap:10px;border:1.5px dashed #C3CAD6;border-radius:10px;padding:11px 13px;cursor:pointer;position:relative;background:#FAFBFC;}
+  .file input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .file b{font-size:14.5px;}
+  .file span{color:var(--mute);font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file.has{border-style:solid;border-color:var(--ok);background:#F2FBF6;}
+  .file.has span{color:var(--ok);font-weight:700;}
+  .ops .op{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:center;}
+  @media (max-width:640px){.ops .op{grid-template-columns:1fr 1fr;} .ops .op .x{grid-column:span 2;justify-self:end;}}
+  .ops .x{border:0;background:none;color:var(--mute);font-size:22px;cursor:pointer;padding:0 6px;}
+  .add{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 14px;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;color:var(--ink);}
+  .btn{display:block;width:100%;padding:16px;border-radius:12px;border:0;background:var(--brand1);color:#fff;font-family:inherit;font-weight:800;font-size:17px;cursor:pointer;margin-top:6px;}
+  .btn:disabled{opacity:.6;cursor:default;}
+  .err{color:var(--warn);background:#FDECEA;border-radius:10px;padding:11px 14px;font-size:14.5px;margin:12px 0 0;display:none;}
+  .bad input,.bad select,.bad textarea,.bad .file{border-color:var(--warn) !important;}
+  .done{text-align:center;padding:40px 20px;}
+  .tick{width:66px;height:66px;border-radius:50%;background:#E3F5EC;color:var(--ok);font-size:32px;font-weight:900;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
+  .foot{text-align:center;color:var(--mute);font-size:12.5px;margin-top:14px;}
+  .hp{position:absolute;left:-9999px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><div class="bar"></div><div class="in"><img id="logo" alt=""><div><h1 id="title">Subcontractor sign-up</h1><p id="intro">Loading…</p><p class="req-note">* Required</p></div></div></div>
+  <div id="form" style="display:none;">
+
+    <div class="sec"><h2>1. Your company</h2>
+      <div class="q"><span>Company name<i>*</i></span><input type="text" data-k="company_name" data-req></div>
+      <div class="two">
+        <div class="q"><span>Trading name (if different)</span><input type="text" data-k="trading_name"></div>
+        <div class="q"><span>Business type<i>*</i></span><select data-k="company_type" data-req><option value=""></option><option>Limited company</option><option>Sole trader</option><option>Partnership</option><option>LLP</option></select></div>
+      </div>
+      <div class="two">
+        <div class="q"><span>Company number</span><input type="text" data-k="company_number"></div>
+        <div class="q"><span>VAT number</span><input type="text" data-k="vat_number"></div>
+      </div>
+      <div class="two">
+        <div class="q"><span>UTR</span><input type="text" data-k="utr"></div>
+        <div class="q"><span>CIS status<i>*</i></span><select data-k="cis_status" data-req><option value=""></option><option>Gross payment</option><option>20% deduction</option><option>30% deduction (not registered)</option></select></div>
+      </div>
+      <div class="q"><span>Business address<i>*</i></span><textarea data-k="address" data-req></textarea></div>
+      <div class="two">
+        <div class="q"><span>Postcode<i>*</i></span><input type="text" data-k="postcode" data-req></div>
+        <div class="q"><span>Website</span><input type="text" data-k="website_url"></div>
+      </div>
+    </div>
+
+    <div class="sec"><h2>2. Main contact</h2>
+      <div class="two">
+        <div class="q"><span>Your name<i>*</i></span><input type="text" data-k="contact_name" data-req></div>
+        <div class="q"><span>Position</span><input type="text" data-k="contact_role"></div>
+      </div>
+      <div class="two">
+        <div class="q"><span>Email<i>*</i></span><input type="email" data-k="email" data-req></div>
+        <div class="q"><span>Mobile<i>*</i></span><input type="tel" data-k="phone" data-req></div>
+      </div>
+      <div class="q"><span>Office phone</span><input type="tel" data-k="office_phone"></div>
+    </div>
+
+    <div class="sec"><h2>3. Your work</h2>
+      <div class="q"><span>Trades<i>*</i></span><small>Tick all that apply</small><div class="checks" data-k="trades" data-req>
+        <label><input type="checkbox" value="Flat roofing — felt">Flat roofing — felt</label>
+        <label><input type="checkbox" value="Single ply / EPDM">Single ply / EPDM</label>
+        <label><input type="checkbox" value="Liquid roofing">Liquid roofing</label>
+        <label><input type="checkbox" value="Pitched roofing — tiling / slating">Pitched — tiling / slating</label>
+        <label><input type="checkbox" value="Leadwork">Leadwork</label>
+        <label><input type="checkbox" value="Roof carpentry">Roof carpentry</label>
+        <label><input type="checkbox" value="Cladding">Cladding</label>
+        <label><input type="checkbox" value="Fascias, soffits & gutters">Fascias, soffits &amp; gutters</label>
+        <label><input type="checkbox" value="Green roofs">Green roofs</label>
+        <label><input type="checkbox" value="Scaffolding">Scaffolding</label>
+        <label><input type="checkbox" value="Labour only">Labour only</label>
+        <label><input type="checkbox" value="Other">Other</label>
+      </div></div>
+      <div class="q"><span>Other trade</span><input type="text" data-k="other_trade"></div>
+      <div class="two">
+        <div class="q"><span>Areas you cover</span><input type="text" data-k="areas" placeholder="e.g. London & Home Counties"></div>
+        <div class="q"><span>Operatives available</span><input type="number" min="0" data-k="team_size"></div>
+      </div>
+      <div class="q"><span>Do you have your own access equipment?</span><div class="radios" data-k="own_access"><label><input type="radio" name="own_access" value="Yes">Yes</label><label><input type="radio" name="own_access" value="No">No</label></div></div>
+      <div class="q"><span>Plant / equipment you supply</span><input type="text" data-k="plant"></div>
+    </div>
+
+    <div class="sec"><h2>4. Insurance</h2><p class="hint">Upload your current certificates.</p>
+      <div class="two">
+        <div class="q"><span>Public liability cover<i>*</i></span><select data-k="pl_cover" data-req><option value=""></option><option>£1 million</option><option>£2 million</option><option>£5 million</option><option>£10 million</option><option>Other</option></select></div>
+        <div class="q"><span>Public liability expiry<i>*</i></span><input type="date" data-k="pl_expiry" data-req></div>
+      </div>
+      <div class="two">
+        <div class="q"><span>Employers liability cover</span><select data-k="el_cover"><option value=""></option><option>£5 million</option><option>£10 million</option><option>Not applicable (no employees)</option><option>Other</option></select></div>
+        <div class="q"><span>Employers liability expiry</span><input type="date" data-k="el_expiry"></div>
+      </div>
+      <div class="two">
+        <div class="q"><span>Professional indemnity</span><input type="text" data-k="pi_cover" placeholder="If held"></div>
+        <div class="q"><span>Contract works cover</span><input type="text" data-k="car_cover" placeholder="If held"></div>
+      </div>
+      <div class="q"><span>Public liability certificate<i>*</i></span><label class="file" data-file="Public liability certificate" data-req><input type="file" accept=".pdf,image/*"><b>📎 Choose file</b><span>No file chosen</span></label></div>
+      <div class="q"><span>Employers liability certificate</span><label class="file" data-file="Employers liability certificate"><input type="file" accept=".pdf,image/*"><b>📎 Choose file</b><span>No file chosen</span></label></div>
+    </div>
+
+    <div class="sec"><h2>5. Accreditations</h2>
+      <div class="q"><span>Which do you hold?</span><div class="checks" data-k="accreditations">
+        <label><input type="checkbox" value="CHAS">CHAS</label><label><input type="checkbox" value="SMAS Worksafe">SMAS Worksafe</label>
+        <label><input type="checkbox" value="Constructionline">Constructionline</label><label><input type="checkbox" value="SafeContractor">SafeContractor</label>
+        <label><input type="checkbox" value="Acclaim">Acclaim</label><label><input type="checkbox" value="NFRC">NFRC</label>
+        <label><input type="checkbox" value="CompetentRoofer">CompetentRoofer</label><label><input type="checkbox" value="ISO 9001">ISO 9001</label>
+        <label><input type="checkbox" value="ISO 14001">ISO 14001</label><label><input type="checkbox" value="ISO 45001">ISO 45001</label>
+      </div></div>
+      <div class="q"><span>Other accreditation</span><input type="text" data-k="other_accreditation"></div>
+      <div class="q"><span>Accreditation certificates</span><label class="file" data-file="Accreditation certificate" data-multi><input type="file" accept=".pdf,image/*" multiple><b>📎 Choose files</b><span>No files chosen</span></label></div>
+    </div>
+
+    <div class="sec"><h2>6. Health &amp; safety</h2>
+      <div class="q"><span>Do you have a written health &amp; safety policy?<i>*</i></span><div class="radios" data-k="hs_policy" data-req><label><input type="radio" name="hs_policy" value="Yes">Yes</label><label><input type="radio" name="hs_policy" value="No">No</label></div></div>
+      <div class="q"><span>H&amp;S policy document</span><label class="file" data-file="H&S policy"><input type="file" accept=".pdf,image/*,.doc,.docx"><b>📎 Choose file</b><span>No file chosen</span></label></div>
+      <div class="q"><span>Can you produce your own RAMS?<i>*</i></span><div class="radios" data-k="rams_ability" data-req><label><input type="radio" name="rams_ability" value="Yes">Yes</label><label><input type="radio" name="rams_ability" value="No">No</label></div></div>
+      <div class="q"><span>Who is your competent person for health &amp; safety?</span><input type="text" data-k="competent_person" placeholder="Name and company"></div>
+      <div class="q"><span>Any RIDDOR-reportable incidents in the last 3 years?<i>*</i></span><div class="radios" data-k="riddor" data-req><label><input type="radio" name="riddor" value="No">No</label><label><input type="radio" name="riddor" value="Yes">Yes</label></div></div>
+      <div class="q"><span>If yes, give details</span><textarea data-k="riddor_detail"></textarea></div>
+      <div class="q"><span>Any HSE improvement / prohibition notices in the last 3 years?<i>*</i></span><div class="radios" data-k="enforcement" data-req><label><input type="radio" name="enforcement" value="No">No</label><label><input type="radio" name="enforcement" value="Yes">Yes</label></div></div>
+      <div class="q"><span>If yes, give details</span><textarea data-k="enforcement_detail"></textarea></div>
+    </div>
+
+    <div class="sec"><h2>7. Your operatives</h2><p class="hint">Everyone who may work on our sites.</p>
+      <div class="ops" id="ops"></div>
+      <button type="button" class="add" onclick="addOp()">+ Add operative</button>
+      <div class="q"><span>CSCS / skills cards</span><small>Photos or scans of each card</small><label class="file" data-file="CSCS / skills card" data-multi><input type="file" accept=".pdf,image/*" multiple><b>📎 Choose files</b><span>No files chosen</span></label></div>
+    </div>
+
+    <div class="sec"><h2>8. References</h2><p class="hint">Two recent clients or main contractors.</p>
+      <div class="q"><span>Reference 1</span><input type="text" data-k="ref1" placeholder="Company, contact name, phone or email"></div>
+      <div class="q"><span>Reference 2</span><input type="text" data-k="ref2" placeholder="Company, contact name, phone or email"></div>
+    </div>
+
+    <div class="sec"><h2>9. Anything else</h2>
+      <div class="q"><span>Anything else we should know?</span><textarea data-k="notes"></textarea></div>
+    </div>
+
+    <div class="sec"><h2>Declaration</h2>
+      <label class="agree" id="agreeRow"><input type="checkbox" id="agree"><span>I confirm the information given is true and complete, the insurances above are in force, and I will tell you straight away if anything changes.</span></label>
+      <div class="q"><span>Type your full name to sign<i>*</i></span><input type="text" id="signedName"></div>
+      <input type="text" class="hp" id="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="err" id="err"></div>
+      <button type="button" class="btn" id="submitBtn" onclick="submitForm()">Submit</button>
+      <p class="foot" style="margin-bottom:12px;">You'll get an email copy once it's sent.</p>
+    </div>
+  </div>
+  <div id="done" class="sec done" style="display:none;"><div class="tick">✓</div><h2>Thanks — that's sent</h2><p class="hint" id="doneMsg">We'll be in touch.</p></div>
+  <p class="foot">Secure form by OpHUB · operativehub.co.uk</p>
+</div>
+<script>
+  const SUPABASE_URL = 'https://dtrfupmcazoioubhwdml.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR0cmZ1cG1jYXpvaW91Ymh3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY4ODI2MTEsImV4cCI6MjEwMjQ1ODYxMX0.RpPi02zvyPCrw9CxfkK0hNvmEEnILlXQ5qoMwxYsSKc';
+  const ORG = new URLSearchParams(location.search).get('org') || '';
+  const KEY = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())+Math.random().toString(16).slice(2)).replace(/[^a-z0-9-]/gi,'').slice(0,36);
+  let ORG_NAME = 'us';
+  async function api(payload){
+    const r = await fetch(SUPABASE_URL+'/functions/v1/subcontractor-apply', {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY,'Content-Type':'application/json'}, body: JSON.stringify(Object.assign({org: ORG}, payload))});
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok || d.error) throw new Error(d.error || 'Something went wrong — please try again.');
+    return d;
+  }
+  function addOp(v){
+    v = v || {};
+    const row = document.createElement('div'); row.className = 'op';
+    row.innerHTML = '<input type="text" placeholder="Full name" data-f="name"><input type="text" placeholder="Trade" data-f="trade"><input type="text" placeholder="CSCS card no." data-f="card"><input type="date" title="Card expiry" data-f="expiry"><button type="button" class="x" aria-label="Remove">×</button>';
+    row.querySelector('.x').onclick = ()=>row.remove();
+    document.getElementById('ops').appendChild(row);
+  }
+  document.querySelectorAll('.file input').forEach(inp=>inp.addEventListener('change', ()=>{
+    const box = inp.closest('.file'); const n = inp.files.length;
+    box.classList.toggle('has', n>0);
+    box.querySelector('span').textContent = n ? (n===1 ? inp.files[0].name : n+' files') : (inp.multiple ? 'No files chosen' : 'No file chosen');
+  }));
+  function collect(){
+    const data = {}; const bad = [];
+    document.querySelectorAll('[data-k]').forEach(el=>{
+      const k = el.getAttribute('data-k');
+      let v;
+      if(el.classList.contains('checks')) v = Array.from(el.querySelectorAll('input:checked')).map(i=>i.value);
+      else if(el.classList.contains('radios')){ const c = el.querySelector('input:checked'); v = c ? c.value : ''; }
+      else v = el.value.trim();
+      data[k] = v;
+      const q = el.closest('.q');
+      const empty = Array.isArray(v) ? !v.length : !v;
+      if(el.hasAttribute('data-req') && empty){ bad.push(q); q.classList.add('bad'); } else if(q) q.classList.remove('bad');
+    });
+    if(data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)){ const q = document.querySelector('[data-k="email"]').closest('.q'); q.classList.add('bad'); bad.push(q); }
+    data.operatives = Array.from(document.querySelectorAll('#ops .op')).map(r=>{ const o = {}; r.querySelectorAll('[data-f]').forEach(i=>o[i.getAttribute('data-f')] = i.value.trim()); return o; }).filter(o=>o.name);
+    document.querySelectorAll('.file[data-req]').forEach(f=>{ const q = f.closest('.q'); if(!f.querySelector('input').files.length){ bad.push(q); q.classList.add('bad'); } else q.classList.remove('bad'); });
+    return {data, bad};
+  }
+  function showErr(m){ const e = document.getElementById('err'); e.textContent = m; e.style.display = m ? 'block' : 'none'; }
+  async function submitForm(){
+    showErr('');
+    const {data, bad} = collect();
+    const signed = document.getElementById('signedName').value.trim();
+    const agree = document.getElementById('agree').checked;
+    if(bad.length){ showErr('Please fill in the questions marked in red.'); bad[0].scrollIntoView({behavior:'smooth', block:'center'}); return; }
+    if(!agree || !signed){ showErr('Please tick the declaration and type your name to sign.'); return; }
+    const btn = document.getElementById('submitBtn'); btn.disabled = true;
+    try{
+      const picks = [];
+      document.querySelectorAll('.file').forEach(f=>{ Array.from(f.querySelector('input').files).forEach(file=>picks.push({label: f.getAttribute('data-file'), file})); });
+      const uploaded = [];
+      if(picks.length){
+        btn.textContent = 'Uploading documents…';
+        const {uploads} = await api({action:'upload', key: KEY, files: picks.map(p=>({name:p.file.name, size:p.file.size}))});
+        for(let i=0;i<picks.length;i++){
+          btn.textContent = `Uploading ${i+1} of ${picks.length}…`;
+          const u = uploads[i];
+          const r = await fetch(u.signedUrl, {method:'PUT', headers:{'Content-Type': picks[i].file.type || 'application/octet-stream', 'x-upsert':'false'}, body: picks[i].file});
+          if(!r.ok) throw new Error('Could not upload "'+picks[i].file.name+'" — please try again.');
+          uploaded.push({label: picks[i].label, name: picks[i].file.name, path: u.path});
+        }
+      }
+      btn.textContent = 'Sending…';
+      await api({action:'submit', key: KEY, data, files: uploaded, signed_name: signed, agree, website: document.getElementById('website').value});
+      document.getElementById('form').style.display = 'none';
+      document.getElementById('done').style.display = 'block';
+      document.getElementById('doneMsg').textContent = ORG_NAME+' has your details and documents. A copy has been emailed to '+data.email+'.';
+      window.scrollTo(0,0);
+    }catch(e){ showErr(e.message); btn.disabled = false; btn.textContent = 'Submit'; }
+  }
+  (async()=>{
+    try{
+      const o = await api({action:'org'});
+      ORG_NAME = o.name || 'us';
+      document.title = 'Subcontractor sign-up — '+ORG_NAME;
+      document.getElementById('title').textContent = ORG_NAME+' — subcontractor sign-up';
+      document.getElementById('intro').textContent = 'Please fill this in to work with '+ORG_NAME+'. It takes about 10 minutes — have your insurance certificates and CSCS cards to hand.';
+      if(o.colour && /^#[0-9a-f]{6}$/i.test(o.colour)) document.documentElement.style.setProperty('--brand1', o.colour);
+      if(o.logo){ const l = document.getElementById('logo'); l.src = o.logo; l.style.display = 'block'; }
+      addOp(); addOp();
+      document.getElementById('form').style.display = 'block';
+    }catch(e){ document.getElementById('intro').textContent = e.message; }
+  })();
+</script>
+</body>
+</html>
