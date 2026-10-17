@@ -1285,3 +1285,8 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .hsdoc-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
 .hsdoc-actions button{width:auto !important;flex:1 1 auto;margin:0 !important;padding:9px 12px !important;font-size:12px !important;}
 .hsdoc-actions:empty{display:none;}
+.dlvhours table{border-collapse:collapse;width:100%;font-size:12px;min-width:520px;}
+.dlvhours th,.dlvhours td{padding:7px 6px;border-bottom:1px solid #F0F1F4;text-align:center;white-space:nowrap;}
+.dlvhours tbody th{text-align:left;font-weight:700;}
+.dlvhours thead td{font-weight:700;color:var(--slate);font-size:11px;}
+.dlvhours .tot{font-weight:800;background:#F7F8FA;}

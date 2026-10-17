@@ -111,10 +111,9 @@ async function renderHavsPuwer(siteId){
         <div class="icon" style="background:#E8F0FE;color:#1A56B0;">🛠</div>
         <div class="lbl">PUWER Tool Inspection</div><div class="sub">Weekly tool checks</div>
       </div>
-      <div class="tile" onclick="go('#/site/${siteId}/hs/loler')">
-        <div class="icon" style="background:#F3EAFB;color:#6A2E99;">⛓</div>
-        <div class="lbl">LOLER Inspection</div><div class="sub">Lifting equipment</div>
-      </div>
+      ${(()=>{ const lv = tileVisRoles(site, 'hs_loler', TILE_VIS_DEFAULTS.hs_loler); const hidden = !lv.includes('operative');
+        return visTileHtml(site, 'hs_loler', {href:`#/site/${siteId}/hs/loler`, icon:'⛓', bg:'#F3EAFB', fg:'#6A2E99', label:'LOLER Inspection',
+          sub: isFullManager(ME) ? (hidden ? 'Hidden from operatives · tap ▾ to show' : 'Lifting equipment · shown to operatives') : 'Lifting equipment', def:TILE_VIS_DEFAULTS.hs_loler}); })()}
     </div>
   `, {title:'Tools, HAVS & PUWER', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 }

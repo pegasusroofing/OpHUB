@@ -15,10 +15,9 @@ async function renderReportTemplates(){
     ${rows.map(t=>`
       <div class="sitecard">
         <div class="info"><div class="name">${escapeHtml(t.name)}</div><div class="addr">${(t.sections||[]).length} section${(t.sections||[]).length===1?'':'s'}</div></div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="ghostbtn" style="width:auto;padding:8px 12px;" onclick="openTemplateEditor('${t.id}')">Edit</button>
-          <button class="ghostbtn" style="width:auto;padding:8px 12px;color:var(--warn);" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">Delete</button>
-        </div>
+        ${rowActionsMenuHtml('rtpl2-'+t.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openTemplateEditor('${t.id}')">✎ Edit</div>
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTemplate('${t.id}','${jsAttr(t.name)}')">🗑 Delete</div>`)}
       </div>
     `).join('') || `<div class="empty">No templates yet — create your first one below.</div>`}
     <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate()">+ New Template</button>

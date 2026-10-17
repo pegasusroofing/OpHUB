@@ -178,7 +178,7 @@ async function renderMaterialRequiredList(siteId){
         <p class="sectiontitle" style="margin-top:0;">${selectedMatReqIds.size} item${selectedMatReqIds.size>1?'s':''} selected</p>
         <div class="row-gap">
           <button class="darkbtn" style="flex:1;" onclick="openMatReqEmailSelectedPrompt('${siteId}')">✉ Email Selected</button>
-          ${matReqFilter==='live' ? `<button class="darkbtn" style="flex:1;background:var(--ok);" onclick="closeMaterialRequiredItems('${siteId}', Array.from(selectedMatReqIds))">✓ Mark Selected Collected</button>` : ''}
+          ${matReqFilter==='live' ? `<button class="darkbtn" style="flex:1;background:#fff;color:var(--ink);border-color:var(--ink);" onclick="closeMaterialRequiredItems('${siteId}', Array.from(selectedMatReqIds))">✓ Mark Selected Collected</button>` : ''}
         </div>
         ${matReqFilter==='live' ? (matReqBulkAssignOpen ? `
           <div class="row-gap" style="margin-top:8px;">

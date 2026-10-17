@@ -270,6 +270,33 @@ function deliveryRequestsHtml(reqs){
     </div>`; }).join('')}
   </div>`;
 }
+// #(driver-week-hours) 2026-10-17: PMs see each driver's hours for the week
+// (check-in to check-out, breaks taken off) on the Delivery Schedule.
+let dlvHoursOpen = false, dlvHoursWeek = 0; // 0 = this week, -1 = last week
+window.toggleDlvHours = function(){ dlvHoursOpen = !dlvHoursOpen; render(); };
+window.setDlvHoursWeek = function(n){ dlvHoursWeek = n; render(); };
+async function driverWeekHoursHtml(){
+  const mon = new Date(); mon.setHours(0,0,0,0); mon.setDate(mon.getDate()-((mon.getDay()+6)%7)+7*dlvHoursWeek);
+  const end = new Date(mon); end.setDate(end.getDate()+7);
+  const days = Array.from({length:7}, (_,i)=>{ const d = new Date(mon); d.setDate(d.getDate()+i); return localISODate(d); });
+  const [checks, breaks] = await Promise.all([
+    dbSelect('driver_checkins', 'org_id=eq.'+ME.org_id+'&ts=gte.'+mon.toISOString()+'&ts=lt.'+end.toISOString()+'&order=ts.asc&limit=1000'),
+    dbSelect('driver_breaks', 'org_id=eq.'+ME.org_id+'&started_at=gte.'+mon.toISOString()+'&started_at=lt.'+end.toISOString()+'&order=started_at.asc&limit=1000'),
+  ]);
+  const drivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
+  const lbl = m => m ? driverMinsLabel(m) : '—';
+  const rows = drivers.map(dv=>{
+    const myC = checks.filter(c=>c.user_id===dv.id), myB = breaks.filter(b=>b.user_id===dv.id);
+    let tot = 0;
+    const cells = days.map(k=>{ const t = driverDayTotals(myC, myB, k); const w = Math.max(0, t.duty - t.brk); tot += w; return `<td>${lbl(w)}</td>`; }).join('');
+    return `<tr><th>${escapeHtml(dv.name)}</th>${cells}<td class="tot">${lbl(tot)}</td></tr>`;
+  }).join('');
+  return `<div class="card dlvhours">
+    <div class="pmchips" style="margin:0 0 10px;"><button type="button" class="pmchip ${dlvHoursWeek===0?'on':''}" onclick="setDlvHoursWeek(0)">This week</button><button type="button" class="pmchip ${dlvHoursWeek===-1?'on':''}" onclick="setDlvHoursWeek(-1)">Last week</button></div>
+    ${drivers.length ? `<div style="overflow-x:auto;"><table><thead><tr><th></th>${days.map(k=>`<td>${new Date(k+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short', day:'numeric'})}</td>`).join('')}<td class="tot">Total</td></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="stub" style="margin:8px 0 0;">Check-in to check-out, with breaks taken off. Full detail in Admin › Driver Check-In Log.</p>` : `<div class="empty">No drivers set up.</div>`}
+  </div>`;
+}
 async function renderDeliverySchedulePM(){
   const __gen = RENDER_GEN;
   const todayISO = localISODate(new Date());
@@ -290,6 +317,7 @@ async function renderDeliverySchedulePM(){
   Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
   const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const hoursHtml = dlvHoursOpen ? await driverWeekHoursHtml() : '';
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -317,11 +345,16 @@ async function renderDeliverySchedulePM(){
         <span class="admrow-txt"><span class="admrow-t">Vehicle health checks</span><span class="admrow-s">Weekly driver checklists, mileage and 10,000-mile checks</span></span>
         ${ophIcon('chevron', 18, 2.2)}
       </button>
+      <button type="button" class="admrow" style="border:1px solid #ECEEF2;border-radius:16px;background:#fff;margin:0 0 12px;" onclick="toggleDlvHours()">
+        <span class="pmtile-ic pmtint-blue" style="width:38px;height:38px;border-radius:12px;flex:none;">${ophIcon('clock', 19)}</span>
+        <span class="admrow-txt"><span class="admrow-t">Driver hours</span><span class="admrow-s">Each driver's hours for the week, breaks taken off</span></span>
+        <span style="color:var(--slate);">${dlvHoursOpen?'▾':'▸'}</span>
+      </button>
+      ${hoursHtml}
     <div class="row-gap" style="margin-bottom:4px;">
       <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliveryScheduleExcel(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='xlsx'?'Building…':'📊 Export Excel'}</button>
-      <button class="ghostbtn" style="flex:1;" ${deliveryExportBusy?'disabled':''} onclick="exportDeliverySchedulePdf(${escapeHtml(JSON.stringify(daysISO))},'${jsAttr(weekLabel)}')">${deliveryExportBusy==='pdf'?'Building…':'📄 Export PDF'}</button>
     </div>
-    <p class="stub" style="margin:0 0 14px;text-align:center;">Exports cover 7 days from this day (${escapeHtml(weekLabel)}).</p>
+    <p class="stub" style="margin:0 0 14px;text-align:center;">Export covers 7 days from this day (${escapeHtml(weekLabel)}).</p>
     </div>
   `, {title:'Delivery Schedule', back:deliveryScheduleBackHash});
 }

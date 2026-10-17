@@ -347,14 +347,13 @@ async function renderTeam(adminPage, adminItemKey){
     <div class="card">
       <p class="stub" style="margin:0 0 10px;">Build reusable inspection / report templates here. Project Managers can fill these in on site and submit them as a report. Editing a template never changes inspections already started from it.</p>
       ${reportTemplates.map(t=>`
-        <div class="sitecard" style="padding:8px 10px;">
+        <div class="sitecard" style="padding:8px 10px;cursor:pointer;" onclick="openTemplateEditor('${t.id}',null,'#/team/libraries/reporttemplates')">
           <div class="swatch">📋</div>
           <div class="info"><div class="name">${escapeHtml(t.name)}</div><div class="addr">${(t.sections||[]).length} section${(t.sections||[]).length===1?'':'s'}</div></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;">
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="openTemplateEditor('${t.id}',null,'#/team/libraries/reporttemplates')">Edit</button>
-            <button class="ghostbtn" style="width:auto;padding:6px 10px;" onclick="duplicateTemplate('${t.id}')">Duplicate</button>
-            <div class="taskicon danger" onclick="deleteTemplate('${t.id}','${jsAttr(t.name)}')">🗑</div>
-          </div>
+          ${rowActionsMenuHtml('rtpl-'+t.id, `
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openTemplateEditor('${t.id}',null,'#/team/libraries/reporttemplates')">✎ Edit</div>
+            <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateTemplate('${t.id}')">⧉ Duplicate</div>
+            <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteTemplate('${t.id}','${jsAttr(t.name)}')">🗑 Delete</div>`)}
         </div>
       `).join('') || `<div class="empty" style="padding:10px;">No templates yet — create your first one below.</div>`}
       <button class="darkbtn" style="margin-top:10px;" onclick="createNewTemplate(null,'#/team/libraries/reporttemplates')">+ New Template</button>

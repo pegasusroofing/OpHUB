@@ -101,7 +101,7 @@ async function renderOperativeMaterials(siteId){
         <div class="opmat-sub"><b style="color:var(--ink);">${escapeHtml(g.name)}</b>${g.items[0].assigned_at ? ' · asked '+fmt(g.items[0].assigned_at) : ''}${g.addr ? `<br>📍 <a href="https://maps.google.com/?q=${encodeURIComponent(g.addr)}" target="_blank" style="color:inherit;">${escapeHtml(g.addr)}</a>` : ''}${g.phone ? ` · <a href="tel:${escapeHtml(g.phone)}" style="color:inherit;">${escapeHtml(g.phone)}</a>` : ''}</div>
         ${g.items.map(tick).join('')}
       </div>`).join('') : `<div class="empty" style="padding:12px;">Nothing for you to collect.</div>`}
-    ${openIds.length ? `<button class="darkbtn" style="margin:0 0 4px;${opMatSelected.size?'':'opacity:.5;'}" onclick="${opMatSelected.size ? `opMatCollect('${siteId}', Array.from(opMatSelected))` : `toast('Tick the items you have collected first')`}">✓ Mark ${opMatSelected.size ? opMatSelected.size+' ' : ''}collected</button>` : ''}
+    ${openIds.length ? `<button class="darkbtn" style="margin:0 0 4px;color:var(--ink);border-color:var(--ink);${opMatSelected.size?'':'opacity:.5;'}" onclick="${opMatSelected.size ? `opMatCollect('${siteId}', Array.from(opMatSelected))` : `toast('Tick the items you have collected first')`}">✓ Mark ${opMatSelected.size ? opMatSelected.size+' ' : ''}collected</button>` : ''}
 
     <p class="opmat-h">Coming to site</p>
     ${(coming||[]).length ? coming.map(m=>`<div class="card opmat-card">
