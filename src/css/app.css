@@ -1230,3 +1230,9 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .certexp{flex:0 0 82px;width:82px;position:relative;height:26px;border:1.5px solid var(--line);border-radius:6px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;}
 .certexp-lbl{font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;pointer-events:none;}
 .certexp input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0;margin:0;min-width:0;}
+/* HR: initials 0.9x (Andy 17 Oct) + colour swatches that show on phones */
+.hrchip.sm{font-size:7.2px;line-height:11px;}
+.hrchip.sm b{font-size:6.75px;}
+.hrswatches{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);}
+.hrsw{all:unset;cursor:pointer;width:24px;height:24px;border-radius:50%;box-sizing:border-box;border:2px solid #fff;box-shadow:0 0 0 1px #DADCE0;}
+.hrsw.on{box-shadow:0 0 0 2.5px var(--ink);}

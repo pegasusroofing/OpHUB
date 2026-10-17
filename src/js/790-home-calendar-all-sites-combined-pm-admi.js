@@ -13,6 +13,14 @@ let calHomeSiteFilterOpen = false;
 // up in place (details); tapping its title then goes to that day in the
 // project's own calendar.
 let calHomeOpenId = null;
+// #(cal-starts-driver) 2026-10-17: upcoming jobs' start dates always show;
+// the driver's diary (Delivery Schedule) can be switched on alongside.
+let calHomeShowDriver = false;
+window.toggleCalHomeDriver = function(){ calHomeShowDriver = !calHomeShowDriver; render(); };
+window.openCalPseudo = function(kind, id){
+  if(kind==='start') go('#/site/'+id+'/home');
+  else if(kind==='driver'){ deliveryScheduleBackHash='#/calendar'; go('#/delivery/edit/'+id); }
+};
 window.toggleCalHomeItem = function(id){ calHomeOpenId = calHomeOpenId===id ? null : id; render(); };
 window.openCalEntryOnSite = function(siteId, dStr){
   const d = new Date(dStr+'T00:00:00');
@@ -42,13 +50,21 @@ async function renderUnifiedCalendar(){
   const mr = monthMode ? calMonthRange() : null;
   const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
   const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
-  const [events, pmOptions] = await Promise.all([
+  const [events0, pmOptions, driverTasks] = await Promise.all([
     dbSelect('site_calendar_events', 'event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     loadPMList(),
+    calHomeShowDriver ? dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=gte.'+qStart+'&scheduled_date=lte.'+endStr+'&order=scheduled_date.asc,sub_priority.asc.nullslast&select=id,site_id,manual_site_name,manual_site_address,description,scheduled_date,time_slot,status,driver_id') : Promise.resolve([]),
   ]);
   const siteById = {}; SITES.forEach(s=>{ siteById[s.id] = s; });
+  const slotLbl = k => { const x = (typeof DELIVERY_TIME_SLOTS!=='undefined' ? DELIVERY_TIME_SLOTS : []).find(z=>z.key===k); return x ? x.label : (k||''); };
+  const events = events0.concat(
+    SITES.filter(s=>siteStatusKey(s)==='upcoming' && s.start_date && s.start_date>=qStart && s.start_date<=endStr)
+      .map(s=>({_pseudo:'start', _color:'#1E9E5A', id:'start-'+s.id, _target:s.id, site_id:s.id, event_date:s.start_date, title:'🚧 Project start: '+s.name})),
+    (driverTasks||[]).filter(t=>t.status!=='cancelled').map(t=>({_pseudo:'driver', _color:'#6B4FD8', id:'drv-'+t.id, _target:t.id, site_id:t.site_id||null, event_date:t.scheduled_date, title:'🚚 '+(slotLbl(t.time_slot) ? slotLbl(t.time_slot)+' · ' : '')+(t.description||'Delivery'), _where: deliverySiteLabel(t)+(t.driver_id && PROFILES[t.driver_id] ? ' · '+PROFILES[t.driver_id].name : '')})),
+  );
   const filteredEvents = events.filter(e=>{
     const site = siteById[e.site_id];
+    if(e._pseudo==='driver' && !site) return !calHomePmFilterIds.length && !calHomeSiteFilterIds.length;
     if(!site) return false;
     if(calHomePmFilterIds.length && !calHomePmFilterIds.includes(site.responsible_pm_id)) return false;
     if(calHomeSiteFilterIds.length && !calHomeSiteFilterIds.includes(site.id)) return false;
@@ -93,6 +109,7 @@ async function renderUnifiedCalendar(){
           </div>
         ` : ''}
       </div>
+      <button type="button" onclick="toggleCalHomeDriver()" style="width:auto;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;border-radius:20px;border:1px solid ${calHomeShowDriver?'#6B4FD8':'var(--line)'};background:${calHomeShowDriver?'#6B4FD8':'#fff'};color:${calHomeShowDriver?'#fff':'var(--slate)'};cursor:pointer;">🚚 Driver diary ${calHomeShowDriver?'✓':''}</button>
       <div style="margin-left:auto;">${calToolsHtml({label:'View'})}</div>
     </div>
     ${deskSplit ? '<div class="caldesk"><div class="caldesk-main">' : ''}
@@ -112,6 +129,13 @@ async function renderUnifiedCalendar(){
           <div style="flex:1;min-width:0;">
             ${dayEvents.length ? dayEvents.map(e=>{
               const site = siteById[e.site_id];
+              if(e._pseudo) return `
+                <button type="button" class="calh-item" onclick="openCalPseudo('${e._pseudo}','${e._target}')">
+                  <span class="calh-dot" style="background:${e._color};"></span>
+                  <span class="calh-txt"><span style="font-size:13.5px;font-weight:600;color:var(--ink);">${escapeHtml(e.title)}</span>
+                  <span class="stub" style="margin:0;font-size:11.5px;">${escapeHtml(e._where || (site?site.name:''))}</span></span>
+                  ${ophIcon('chevron', 16, 2.2)}
+                </button>`;
               return `
               ${calHomeOpenId===e.id ? `
                 <div class="calh-card">

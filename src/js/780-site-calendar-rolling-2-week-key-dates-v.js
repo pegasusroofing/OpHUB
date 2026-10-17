@@ -55,13 +55,13 @@ function calMonthGridHtml(eventsByDate){
     const isToday = dStr===todayStr, isSel = dStr===calSelDate;
     // #(cal-expand) A day with something booked shows the items themselves
     // (short labels) rather than just dots, and its week row grows to fit.
-    const col = e => e._leave ? '#7B3FB5' : e.is_private ? 'var(--slate-light)' : 'var(--brand1)';
+    const col = e => e._color ? e._color : e._leave ? '#7B3FB5' : e.is_private ? 'var(--slate-light)' : 'var(--brand1)';
     // On a computer the cells are big enough for up to 5 items, each with
     // its project name underneath on the all-projects calendar.
     const desk = isDeskMode(), maxEv = desk ? 5 : 2;
     const allProj = desk && (typeof parseRoute==='function') && parseRoute()[0]==='calendar';
     const evLabel = e => escapeHtml(String(e.title||'').replace(/^.*? off \(/, 'Off ('));
-    const evSite = e => { const st = allProj && e.site_id ? SITES.find(x=>x.id===e.site_id) : null; return st ? `<small>${escapeHtml(st.name)}</small>` : ''; };
+    const evSite = e => { const st = allProj && e.site_id && e._pseudo!=='start' ? SITES.find(x=>x.id===e.site_id) : null; return st ? `<small>${escapeHtml(st.name)}</small>` : ''; };
     const evHtml = evs.length ? `<span class="calm-evs">${evs.slice(0,maxEv).map(e=>`<span class="calm-ev" style="--c:${col(e)};" title="${escapeHtml(e.title||'')}">${evLabel(e)}${evSite(e)}</span>`).join('')}${evs.length>maxEv?`<span class="calm-more">+${evs.length-maxEv} more</span>`:''}</span>` : '';
     cellsHtml += `<button type="button" class="calm-day ${inMonth?'':'out'} ${isToday?'today':''} ${isSel?'sel':''} ${evs.length?'has-ev':''}" onclick="calSelectDate('${dStr}')" aria-label="${d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})}${evs.length?', '+evs.length+' item'+(evs.length===1?'':'s'):''}"><span class="calm-num">${d.getDate()}</span>${evHtml}</button>`;
   }

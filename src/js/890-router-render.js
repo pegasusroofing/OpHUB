@@ -79,7 +79,7 @@ async function renderRoute(){
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   if(parts[0]==='hr'){
     if(!hrCanUse(ME)){ go('#/sites'); return; }
-    if(parts[1]==='holidays') return renderHrHolidays();
+    if(parts[1]==='holidays'){ hrView = (parts[2]==='req' || parts[2]==='set') ? parts[2] : 'cal'; return renderHrHolidays(); }
     if(parts[1]==='policies') return renderHrPolicies();
     return renderHrHub();
   }

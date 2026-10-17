@@ -16,7 +16,9 @@
 const HR_TYPES = {annual:'Annual leave', training:'Training course', sick:'Sick'};
 const HR_DEFAULT_CODES = {annual:'AL', sick:'SK', training:'TC', bank:'BH'};
 const HR_DEFAULT_ALLOWANCE = 28; // 2026-10-12: 28 days a year INCLUDING bank holidays
-const HR_COLOURS = ['#D32F2F','#2457C5','#17804A','#B35A00','#7B3FB5','#0E7F7C','#C2185B','#5D4037','#455A64','#E0B400'];
+// #(hr-more-colours) 2026-10-17: 24 colours (was 10) so a bigger team still gets one each.
+const HR_COLOURS = ['#D32F2F','#2457C5','#17804A','#B35A00','#7B3FB5','#0E7F7C','#C2185B','#5D4037','#455A64','#E0B400',
+  '#F4511E','#0288D1','#43A047','#8E24AA','#00897B','#6D4C41','#3949AB','#C0CA33','#EC407A','#26A69A','#FB8C00','#5C6BC0','#7CB342','#212121'];
 // England & Wales bank holidays (gov.uk). Auto-booked for PMs / site managers
 // (not admins) and taken out of their 28-day allowance.
 const HR_BANK_HOLS = new Set([
@@ -26,6 +28,20 @@ const HR_BANK_HOLS = new Set([
 ]);
 function hrIsWorkingDay(dStr){ const d = new Date(dStr+'T00:00:00'); const wd = d.getDay(); return wd!==0 && wd!==6 && !HR_BANK_HOLS.has(dStr); }
 function hrEachDay(a, b, fn){ const d = new Date(a+'T00:00:00'), e = new Date(b+'T00:00:00'); while(d <= e){ fn(localISODate(d)); d.setDate(d.getDate()+1); } }
+// #(hr-part-days) 2026-10-17: a booking over several days can start in the
+// afternoon (start_part 'pm') and/or finish at lunchtime (end_part 'am') —
+// e.g. Thursday afternoon + Friday = 1.5 days.
+function hrDayFraction(l, ds){
+  if(l.half) return 0.5;
+  let f = 1;
+  if(ds===l.start_date && l.start_part==='pm') f -= 0.5;
+  if(ds===l.end_date && l.end_part==='am') f -= 0.5;
+  return Math.max(f, 0.5);
+}
+function hrLeaveDays(l, yearOnly){
+  if(l.half) return hrDaysBetween(l.start_date, l.end_date, l.half, yearOnly);
+  let n = 0; hrEachDay(l.start_date, l.end_date, d=>{ if(hrIsWorkingDay(d) && (!yearOnly || d.slice(0,4)===String(yearOnly))) n += hrDayFraction(l, d); }); return n;
+}
 function hrDaysBetween(a, b, half, yearOnly){
   if(half) return (hrIsWorkingDay(a) && (!yearOnly || a.slice(0,4)===String(yearOnly))) ? 0.5 : 0;
   let n = 0; hrEachDay(a, b, d=>{ if(hrIsWorkingDay(d) && (!yearOnly || d.slice(0,4)===String(yearOnly))) n++; }); return n;
@@ -68,7 +84,7 @@ function hrCode(type){ return ((HR && HR.settings.type_codes[type]) || HR_DEFAUL
 function hrInitials(uid){ return (nameOf(uid)||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 function hrUsed(uid, year, statuses){
   return (HR ? HR.leave : []).filter(l=>l.user_id===uid && l.type==='annual' && statuses.includes(l.status))
-    .reduce((t,l)=>t + (l.bank_holiday ? (l.start_date.slice(0,4)===String(year) ? 1 : 0) : hrDaysBetween(l.start_date, l.end_date, l.half, year)), 0);
+    .reduce((t,l)=>t + (l.bank_holiday ? (l.start_date.slice(0,4)===String(year) ? 1 : 0) : hrLeaveDays(l, year)), 0);
 }
 function hrOffOn(dStr){
   const real = (HR ? HR.leave : []).filter(l=>l.start_date<=dStr && l.end_date>=dStr && (l.status==='approved' || l.status==='pending'));
@@ -99,10 +115,12 @@ async function renderHrHub(){
 let hrMonth = null, hrSel = null, hrBookOpen = false, hrDraft = null, hrView = 'cal';
 window.hrMonthShift = function(n){ const m = hrMonth || new Date(new Date().getFullYear(), new Date().getMonth(), 1); hrMonth = new Date(m.getFullYear(), m.getMonth()+n, 1); render(); };
 window.hrSelect = function(d){ hrSel = d; render(); };
-window.hrSetView = function(v){ hrView = v; render(); };
+// #(hr-view-url) Requests / Settings are their own addresses now, so the back
+// arrow from them goes to the calendar instead of right out of HR.
+window.hrSetView = function(v){ go(v==='cal' ? '#/hr/holidays' : '#/hr/holidays/'+v); };
 window.hrOpenBook = function(dStr){
   const d = dStr || hrSel || localISODate(new Date());
-  hrDraft = {user_id: ME.id, type:'annual', start:d, end:d, part:'full', link:true, note:''};
+  hrDraft = {user_id: ME.id, type:'annual', start:d, end:d, part:'full', startPart:'full', endPart:'full', link:true, note:''};
   hrBookOpen = true; render();
   requestAnimationFrame(()=>{ const el = document.getElementById('hrBookCard'); if(el) el.scrollIntoView({behavior:'smooth', block:'start'}); });
 };
@@ -111,7 +129,9 @@ window.hrSaveBooking = async function(){
   if(!d.start || !d.end){ toast('Pick the dates.'); return; }
   if(d.end < d.start){ toast('The end date is before the start date.'); return; }
   const half = (d.start===d.end && d.part!=='full') ? d.part : null;
-  const days = hrDaysBetween(d.start, d.end, half);
+  const start_part = (d.start!==d.end && d.startPart==='pm') ? 'pm' : null;
+  const end_part = (d.start!==d.end && d.endPart==='am') ? 'am' : null;
+  const days = hrLeaveDays({start_date:d.start, end_date:d.end, half, start_part, end_part});
   if(!days){ toast('Those dates are all weekends or bank holidays.'); return; }
   const isAdmin = hrIsAdmin();
   const uid = isAdmin ? (d.user_id || ME.id) : ME.id;
@@ -141,11 +161,19 @@ window.hrSaveBooking = async function(){
       override = true;
     }
   }
-  const status = (isAdmin || d.type==='sick' || !HR.settings.approval_required) ? 'approved' : 'pending';
-  const row = await dbInsert('hr_leave', {org_id:ME.org_id, user_id:uid, type:d.type, start_date:d.start, end_date:d.end, half, days, status, link_projects:!!d.link, note:(d.note||'').trim()||null, override_limit:override, created_by:ME.id, ...(status==='approved'&&isAdmin?{decided_by:ME.id, decided_at:new Date().toISOString()}:{})});
+  // #(hr-pm-approval) 2026-10-17: anyone who isn't an admin (PMs, site
+  // managers) always goes to an admin for approval — sick days excepted.
+  const status = (isAdmin || d.type==='sick') ? 'approved' : 'pending';
+  const row = await dbInsert('hr_leave', {org_id:ME.org_id, user_id:uid, type:d.type, start_date:d.start, end_date:d.end, half, start_part, end_part, days, status, link_projects:!!d.link, note:(d.note||'').trim()||null, override_limit:override, created_by:ME.id, ...(status==='approved'&&isAdmin?{decided_by:ME.id, decided_at:new Date().toISOString()}:{})});
   if(!row){ toast('Could not save — try again.'); return; }
   hrBookOpen = false; hrDraft = null; HR = null;
-  toast(status==='pending' ? 'Request sent for approval' : 'Booked');
+  if(status==='pending'){
+    const fmtD = x => new Date(x+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric', month:'short'});
+    Object.values(PROFILES).filter(p=>p && p.role==='admin' && p.id!==ME.id).forEach(a=>{
+      try{ postSystemMessageToUser(a.id, null, 'message', `${ME.name} has asked for time off (${HR_TYPES[d.type]||d.type}, ${days} day${days===1?'':'s'}: ${fmtD(d.start)}${d.end!==d.start?' – '+fmtD(d.end):''}) — approve it in HR › Holiday calendar › Requests.`, null); }catch(e){}
+    });
+  }
+  toast(status==='pending' ? 'Request sent to the admin for approval' : 'Booked');
   render();
 };
 window.hrDecide = async function(id, ok){
@@ -170,15 +198,20 @@ window.hrSaveSettings = async function(){
   Object.keys(HR_TYPES).forEach(k=>{ const v = (g('hrCode_'+k).value||'').trim().toUpperCase().slice(0,2); codes[k] = v || HR_DEFAULT_CODES[k]; });
   const payload = {org_id:ME.org_id, max_off_at_once: Math.max(0, parseInt(g('hrMax').value,10)||0), approval_required: !!g('hrApproval').checked, type_codes: codes, updated_at:new Date().toISOString()};
   const res = await sbFetch('/rest/v1/hr_settings?on_conflict=org_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify(payload)});
-  const people = HR.people.map(p=>({org_id:ME.org_id, user_id:p.id, allowance_days: Number(g('hrAllow_'+p.id).value)||0, colour: g('hrCol_'+p.id).value, updated_at:new Date().toISOString()}));
+  const people = HR.people.map(p=>({org_id:ME.org_id, user_id:p.id, allowance_days: Number(g('hrAllow_'+p.id).value)||0, colour: (g('hrCol_'+p.id)||{}).value || hrColour(p.id), updated_at:new Date().toISOString()}));
   const res2 = await sbFetch('/rest/v1/hr_people?on_conflict=org_id,user_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify(people)});
   if(res && res.ok && res2 && res2.ok){ HR = null; toast('HR settings saved'); render(); } else toast('Could not save — try again.');
 };
-function hrChip(l, small){
+function hrChip(l, small, ds){
   const col = hrColour(l.user_id);
   const pend = l.status==='pending';
-  return `<span class="hrchip ${small?'sm':''}" style="background:${pend?'#fff':col};color:${pend?col:'#fff'};border-color:${col};">${small ? hrInitials(l.user_id) : escapeHtml(nameOf(l.user_id)||'')}<b>${l.bank_holiday?'BH':hrCode(l.type)}${l.half?'½':''}</b></span>`;
+  const halfHere = l.half || (ds && hrDayFraction(l, ds) < 1);
+  return `<span class="hrchip ${small?'sm':''}" style="background:${pend?'#fff':col};color:${pend?col:'#fff'};border-color:${col};">${small ? hrInitials(l.user_id) : escapeHtml(nameOf(l.user_id)||'')}<b>${l.bank_holiday?'BH':hrCode(l.type)}${halfHere?'½':''}</b></span>`;
 }
+window.hrPickColour = function(uid, c){
+  const inp = document.getElementById('hrCol_'+uid); if(inp) inp.value = c;
+  document.querySelectorAll('[data-hrsw="'+uid+'"]').forEach(b=>b.classList.toggle('on', b.getAttribute('data-c')===c));
+};
 function hrTypeLabel(l){ return l.bank_holiday ? 'Bank holiday' : (HR_TYPES[l.type]||l.type); }
 function hrBhCount(uid, year){ return (HR ? HR.leave : []).filter(l=>l.user_id===uid && l.bank_holiday && l.status==='approved' && l.start_date.slice(0,4)===String(year)).length; }
 async function renderHrHolidays(){
@@ -200,7 +233,7 @@ async function renderHrHolidays(){
     const bh = HR_BANK_HOLS.has(ds), we = d.getDay()===0 || d.getDay()===6;
     grid += `<button type="button" class="hrday ${d.getMonth()!==first.getMonth()?'out':''} ${ds===today?'today':''} ${ds===hrSel?'sel':''} ${bh||we?'off':''}" onclick="hrSelect('${ds}')">
       <span class="hrday-n">${d.getDate()}</span>${bh?'<span class="hrbh">BH</span>':''}
-      ${offs.slice(0,3).map(l=>hrChip(l, true)).join('')}${offs.length>3?`<span class="hrmore">+${offs.length-3}</span>`:''}
+      ${offs.slice(0,3).map(l=>hrChip(l, true, ds)).join('')}${offs.length>3?`<span class="hrmore">+${offs.length-3}</span>`:''}
     </button>`;
   }
   const y = new Date().getFullYear();
@@ -209,7 +242,7 @@ async function renderHrHolidays(){
   const pending = HR.allLeave.filter(l=>l.status==='pending').sort((a,b)=>a.start_date.localeCompare(b.start_date));
   const myUpcoming = HR.allLeave.filter(l=>l.user_id===ME.id && !l.bank_holiday && l.end_date>=today && (l.status==='approved'||l.status==='pending'));
   const fmt = s => new Date(s+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short'});
-  const range = l => l.start_date===l.end_date ? fmt(l.start_date)+(l.half?(l.half==='am'?' (morning)':' (afternoon)'):'') : fmt(l.start_date)+' – '+fmt(l.end_date);
+  const range = l => l.start_date===l.end_date ? fmt(l.start_date)+(l.half?(l.half==='am'?' (morning)':' (afternoon)'):'') : fmt(l.start_date)+(l.start_part==='pm'?' (afternoon)':'')+' – '+fmt(l.end_date)+(l.end_part==='am'?' (morning)':'');
   const d = hrDraft;
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
@@ -228,14 +261,16 @@ async function renderHrHolidays(){
         <div class="formfield"><label class="field-label">Type</label>
           <div class="pmchips" style="margin:0;">${Object.keys(HR_TYPES).map(k=>`<button type="button" class="pmchip ${d.type===k?'on':''}" onclick="hrDraft.type='${k}';render()">${HR_TYPES[k]} (${hrCode(k)})</button>`).join('')}</div></div>
         <div class="row-gap">
-          <div class="formfield" style="flex:1;min-width:0;" onclick="openDatePickerRow(this)"><label class="field-label">From</label><input type="date" value="${d.start}" onchange="hrDraft.start=this.value;if(hrDraft.end<hrDraft.start)hrDraft.end=this.value;render()"></div>
-          <div class="formfield" style="flex:1;min-width:0;" onclick="openDatePickerRow(this)"><label class="field-label">To</label><input type="date" value="${d.end}" onchange="hrDraft.end=this.value;render()"></div>
+          <div class="formfield" style="flex:1;min-width:0;" onclick="openDatePickerRow(this)"><label class="field-label">From</label><input type="date" value="${d.start}" onchange="hrDraft.start=this.value;if(hrDraft.end<hrDraft.start)hrDraft.end=this.value;" onblur="render()"></div>
+          <div class="formfield" style="flex:1;min-width:0;" onclick="openDatePickerRow(this)"><label class="field-label">To</label><input type="date" value="${d.end}" onchange="hrDraft.end=this.value;" onblur="render()"></div>
         </div>
-        ${d.start===d.end ? `<div class="formfield"><label class="field-label">Day</label><div class="pmchips" style="margin:0;">${[['full','Full day'],['am','Morning'],['pm','Afternoon']].map(([k,l])=>`<button type="button" class="pmchip ${d.part===k?'on':''}" onclick="hrDraft.part='${k}';render()">${l}</button>`).join('')}</div></div>` : ''}
-        <p class="stub" style="margin:0 0 10px;">${(()=>{ const n = hrDaysBetween(d.start, d.end, d.start===d.end && d.part!=='full' ? d.part : null); return n+' working day'+(n===1?'':'s')+(d.type==='annual'?' of annual leave':'')+' — weekends and bank holidays (already booked) don’t count.'; })()}</p>
+        ${d.start===d.end ? `<div class="formfield"><label class="field-label">Day</label><div class="pmchips" style="margin:0;">${[['full','Full day'],['am','Morning'],['pm','Afternoon']].map(([k,l])=>`<button type="button" class="pmchip ${d.part===k?'on':''}" onclick="hrDraft.part='${k}';render()">${l}</button>`).join('')}</div></div>` : `
+        <div class="formfield"><label class="field-label">First day</label><div class="pmchips" style="margin:0;">${[['full','Full day'],['pm','Afternoon only']].map(([k,l])=>`<button type="button" class="pmchip ${(d.startPart||'full')===k?'on':''}" onclick="hrDraft.startPart='${k}';render()">${l}</button>`).join('')}</div></div>
+        <div class="formfield"><label class="field-label">Last day</label><div class="pmchips" style="margin:0;">${[['full','Full day'],['am','Morning only']].map(([k,l])=>`<button type="button" class="pmchip ${(d.endPart||'full')===k?'on':''}" onclick="hrDraft.endPart='${k}';render()">${l}</button>`).join('')}</div></div>`}
+        <p class="stub" style="margin:0 0 10px;">${(()=>{ const n = hrLeaveDays({start_date:d.start, end_date:d.end, half: d.start===d.end && d.part!=='full' ? d.part : null, start_part: d.start!==d.end && d.startPart==='pm' ? 'pm' : null, end_part: d.start!==d.end && d.endPart==='am' ? 'am' : null}); return n+' working day'+(n===1?'':'s')+(d.type==='annual'?' of annual leave':'')+' — weekends and bank holidays (already booked) don’t count.'; })()}</p>
         <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" value="${escapeHtml(d.note||'')}" oninput="hrDraft.note=this.value" placeholder="e.g. Family holiday"></div>
         <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" style="width:auto;" ${d.link?'checked':''} onchange="hrDraft.link=this.checked">Link with project calendars — operatives on jobs I run can see I'm off</label>
-        <div class="row-gap"><button class="darkbtn" style="flex:1;" onclick="hrSaveBooking()">${(isAdmin || d.type==='sick' || !HR.settings.approval_required) ? 'Book it' : 'Send for approval'}</button><button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="hrBookOpen=false;render()">Cancel</button></div>
+        <div class="row-gap"><button class="darkbtn" style="flex:1;" onclick="hrSaveBooking()">${(isAdmin || d.type==='sick') ? 'Book it' : 'Send for approval'}</button><button class="ghostbtn" style="width:auto;padding:10px 16px;" onclick="hrBookOpen=false;render()">Cancel</button></div>
       </div>` : ''}
     ${(!isAdmin || hrView==='cal') ? `
       <div class="calm">
@@ -269,7 +304,7 @@ async function renderHrHolidays(){
       <div class="card">
         <p class="sectiontitle" style="margin-top:0;">Rules</p>
         <div class="formfield"><label class="field-label">Most people off at the same time</label><input type="number" id="hrMax" min="0" value="${Number(HR.settings.max_off_at_once)||0}"><p class="stub" style="margin:4px 0 0;">0 = no limit. You can still go over it yourself when booking or approving.</p></div>
-        <label class="stub" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;"><input type="checkbox" id="hrApproval" style="width:auto;" ${HR.settings.approval_required?'checked':''}>Time off needs approving by an admin (sick days are recorded straight away)</label>
+        <input type="checkbox" id="hrApproval" checked hidden><p class="stub" style="margin:0 0 12px;">PMs' and site managers' time off always comes to an admin to approve. Sick days are recorded straight away.</p>
         <p class="field-label" style="margin:0 0 6px;">Letters shown in the calendar</p>
         ${Object.keys(HR_TYPES).map(k=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;"><input type="text" id="hrCode_${k}" maxlength="2" value="${escapeHtml(hrCode(k))}" style="width:60px;margin:0;text-transform:uppercase;text-align:center;font-weight:800;"><span>${HR_TYPES[k]}</span></div>`).join('')}
       </div>
@@ -279,12 +314,12 @@ async function renderHrHolidays(){
         ${HR.people.map(p=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
           <span style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(p.name)}</span>
           <input type="number" id="hrAllow_${p.id}" min="0" step="0.5" value="${hrAllowance(p.id)}" style="width:72px;margin:0;">
-          <select id="hrCol_${p.id}" style="width:auto;margin:0;padding:6px;background:${hrColour(p.id)};color:#fff;font-weight:700;" onchange="this.style.background=this.value">${HR_COLOURS.map(c=>`<option value="${c}" ${hrColour(p.id)===c?'selected':''} style="background:${c};color:#fff;">●</option>`).join('')}</select>
-        </div>`).join('')}
+        </div>
+        <div class="hrswatches"><input type="hidden" id="hrCol_${p.id}" value="${hrColour(p.id)}">${HR_COLOURS.map(c=>`<button type="button" class="hrsw ${hrColour(p.id)===c?'on':''}" data-hrsw="${p.id}" data-c="${c}" style="background:${c};" aria-label="Colour" onclick="hrPickColour('${p.id}','${c}')"></button>`).join('')}</div>`).join('')}
       </div>
       <button class="darkbtn" onclick="hrSaveSettings()">Save settings</button>
     ` : ''}
-  `, {title:'Holiday calendar', subtitle:'Everyone’s time off', back:'#/hr', tabs:false});
+  `, {title: hrView==='req' ? 'Time off requests' : hrView==='set' ? 'Holiday settings' : 'Holiday calendar', subtitle:'Everyone’s time off', back: (isAdmin && hrView!=='cal') ? '#/hr/holidays' : '#/hr', tabs:false});
 }
 
 // ---------- Company policies + handbook ----------
