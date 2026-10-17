@@ -89,7 +89,7 @@ async function renderRoute(){
   }
   if(parts[0]==='dashboards'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }
-    return renderDashboardsChooser();
+    go('#/dashboard'); return; // #(dashboard-direct) the Dashboard tile goes straight to the company overview
   }
   if(parts[0]==='todos'){
     if(!usesPmHome(ME)){ go('#/sites'); return; }

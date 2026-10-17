@@ -160,7 +160,7 @@ async function renderPmHome(){
     </button>
     ${siteMapMiniCardHtml()}
     <div class="pmtiles pmtiles-home">
-      ${tile('chart', 'teal', 'Dashboard', 'Company &amp; operative overview', "go('#/dashboards')")}
+      ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
       ${tile('truck', 'purple', 'Deliveries', dlvReqN ? dlvReqN+' to schedule' : 'Delivery schedule', "deliveryScheduleBackHash='#/home';go('#/delivery')", dlvReqN)}
@@ -188,7 +188,37 @@ async function renderPmHome(){
   `, {tabs:false, centerHeader:true, showRefresh:true});
   if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
   if(isDeskMode() && isManager(ME)) mountSiteMap('deskMapMini', true);
+  maybeShowPmSignNag();
   refreshHomeExtras();
+}
+// #(pm-sign-nag) 2026-10-17: once each time the app is opened, a PM / admin
+// with company policies or the handbook still to sign gets a pop-up with a
+// button straight to them (or X to close).
+let pmSignNagDone = false;
+async function maybeShowPmSignNag(){
+  if(pmSignNagDone || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
+  pmSignNagDone = true;
+  let pols = [], mine = [];
+  try{
+    pols = await dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind');
+    mine = pols.length ? await dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id') : [];
+  }catch(e){ return; }
+  const signed = new Set(mine.map(x=>x.policy_id));
+  const left = pols.filter(p=>!signed.has(p.id));
+  const hb = left.filter(p=>p.kind==='handbook').length, pol = left.length - hb;
+  if(!left.length || parseRoute()[0]!=='home') return;
+  let ov = document.getElementById('signNagOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'signNagOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) closeSignNag(); };
+  ov.innerHTML = `<div class="geo-modal-card signnag">
+      <button type="button" class="signnag-x" aria-label="Close" onclick="closeSignNag()">×</button>
+      <div class="signnag-h">✍️ Needs your signature</div>
+      <p class="stub" style="margin:0 0 12px;font-style:normal;">Please read and sign these.</p>
+      ${pol ? `<button type="button" class="signnag-row" onclick="closeSignNag();go('#/hr/policies')"><span>📄</span><b>Company policies${pol>1?' ×'+pol:''}</b><em>Sign now ›</em></button>` : ''}
+      ${hb ? `<button type="button" class="signnag-row" onclick="closeSignNag();go('#/hr/policies')"><span>📘</span><b>Company handbook</b><em>Sign now ›</em></button>` : ''}
+      <button type="button" class="geo-modal-cancel" onclick="closeSignNag()">Not now</button>
+    </div>`;
+  ov.style.display = 'flex';
 }
 
 let pmReportsTab = 'open';
@@ -235,11 +265,7 @@ async function renderAllReports(){
         <button type="button" class="pmrow" onclick="pmStartReportAt(null)"><span class="pmrow-txt"><span class="pmrow-t">General survey</span><span class="pmrow-s">Not linked to a project</span></span>${ophIcon('chevron', 18, 2.2)}</button>
         ${live.map(s=>`<button type="button" class="pmrow" onclick="pmStartReportAt('${s.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(fullSiteAddress(s)||'')}</span></span>${ophIcon('chevron', 18, 2.2)}</button>`).join('')}
       </div>` : ''}
-    <div class="pmtiles" style="margin:12px 0;">
-      <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
-      <button type="button" class="pmtile pmtile-sm" onclick="go('#/reports/tbt')"><span class="pmtile-txt"><span class="pmtile-t">Completed TBTs</span><span class="pmtile-s">Signed toolbox talks, all projects</span></span></button>
-      <button type="button" class="pmtile pmtile-sm" onclick="go('#/team/libraries/reporttemplates')"><span class="pmtile-txt"><span class="pmtile-t">Templates</span><span class="pmtile-s">Build &amp; edit report templates</span></span></button>
-    </div>
+<div style="height:12px;"></div>
     <label class="pmsearch">${ophIcon('search', 18)}<input type="search" placeholder="Search reports, projects, people" aria-label="Search reports" oninput="liveFilter(this.value,'#pmReportList')"></label>
     <div class="projfilterrow" style="display:flex;align-items:center;gap:10px;margin-bottom:${pmReportsFilterOpen?'8px':'12px'};">
       <div class="pmchips pmchips-tight" style="margin:0;">${chip('open','In progress')}${chip('done','Completed')}${chip('all','All')}</div>
@@ -273,6 +299,11 @@ async function renderAllReports(){
         </button>
       </div>`; }).join('') : `<div class="empty">No reports here${nFilters?' for these filters':''}.</div>`}
       <div class="empty lf-empty" style="display:none;">No reports match.</div>
+    </div>
+    <!-- #(reports-tiles-bottom) 2026-10-17: templates now live only in Admin › Libraries -->
+    <div class="pmtiles" style="margin:18px 0 0;">
+      <button type="button" class="pmtile pmtile-sm" onclick="generalReportsBackHash='#/reports';go('#/general-reports')"><span class="pmtile-txt"><span class="pmtile-t">General surveys</span><span class="pmtile-s">Not linked to a project</span></span></button>
+      <button type="button" class="pmtile pmtile-sm" onclick="go('#/reports/tbt')"><span class="pmtile-txt"><span class="pmtile-t">Completed TBTs</span><span class="pmtile-s">Signed toolbox talks, all projects</span></span></button>
     </div>
   `, {title:'Reports & surveys', subtitle:'All projects', back:'#/home', tabs:false});
 }

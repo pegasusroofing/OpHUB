@@ -44,7 +44,7 @@ function deskSidebar(opts){
       {k:'calendar', ic:'calendar', lbl:'Calendar', go:'#/calendar'},
       {k:'hub', ic:'bell', lbl:'HUB', go:'#/hub', badge:hubN},
       {k:'sitemap', ic:'pin', lbl:'Sites map', go:'#/sitemap'},
-      {k:'dashboards', ic:'chart', lbl:'Dashboard', go:'#/dashboards'},
+      {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard'},
       {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports'},
       {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},

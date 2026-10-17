@@ -144,5 +144,5 @@ async function renderDashboard(){
         <div class="info"><div class="name">${escapeHtml((s&&s.name)||'Unknown project')}</div><div class="addr">${escapeHtml(r.location||'')} · ${new Date(r.created_at).toLocaleDateString(undefined,{day:'2-digit',month:'short'})}${r.riddor_reportable?' · RIDDOR':''}</div></div>
       </div>`;
     }).join('') : `<div class="empty">No accidents, incidents or near misses reported recently.</div>`}
-  `, {title:'Company Dashboard', back:'#/team', tabs:false}); }
+  `, {title:'Company Dashboard', back: usesPmHome(ME) ? '#/home' : '#/team', tabs:false}); }
 }

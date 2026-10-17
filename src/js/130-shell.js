@@ -2,8 +2,12 @@
 let CURRENT_BACK_HASH = null; // kept in sync with each screen's header back-arrow target, so edge-swipe-to-go-back goes up one folder level (same as tapping '‹') instead of replaying raw browser history.
 // The header's smaller subtitle line (site address, etc) copies its text
 // instead of navigating home — only the bold title above it does that now.
-window.copyHeaderSubtitle = async function(text){
+// #(copy-with-title) 2026-10-17: copying the address also copies the page
+// heading (e.g. the project name) in front of it.
+window.copyHeaderSubtitle = async function(text, title){
   if(!text) return;
+  const t = String(title||'').trim();
+  if(t && !String(text).toLowerCase().startsWith(t.toLowerCase())) text = t+', '+text;
   try{ await navigator.clipboard.writeText(text); toast('Copied'); }
   catch(e){ toast('Could not copy — try again.'); }
 };
@@ -107,7 +111,7 @@ function shell(innerHtml, opts){
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
-            ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
+            ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
             ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
