@@ -96,6 +96,7 @@ async function renderSiteLayout(siteId){
     `) : ''}
   `, {title:'Site Rules & Layout', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(siteLayoutPollTimer) clearInterval(siteLayoutPollTimer);
   let siteLayoutPollBusy = false;
   siteLayoutPollTimer = setInterval(async ()=>{

@@ -73,7 +73,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const issuedHtml = issuedBy.length ? `<div class="signerlist" style="margin-bottom:0;">${issuedBy.map(ramsIssuedLine).join('')}</div>` : '';
     const anyIssued = issuedBy.length > 0;
     const multi = ramsMultiOn(r);
-    if(canAdd && !isClientView){
+    if(canAdd && isManager(ME) && !isClientView){
       const viewJs = `viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
       const opSigs = sigs.filter(x=>!x.issued).slice().sort((x,y)=>new Date(x.signed_at)-new Date(y.signed_at));
       const hasExport = sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at);
@@ -371,26 +371,27 @@ async function renderRams(siteId){
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
   if(ramsSelSite !== siteId){ ramsSelIds = new Set(); ramsSelSite = siteId; }
-  await loadAllProfiles();
-  const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
+  // Everything here is independent — fetched together rather than one after
+  // another (was ~8 round trips in a row).
+  const profP = loadAllProfiles();
+  const [ramsData, signTemplatesRaw, hsPolicyHtml, ramsBuilderHtml, allSubCompanies] = await Promise.all([
+    profP.then(()=>fetchRamsData(siteId)),
+    canAdd ? dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout') : [],
+    profP.then(()=>hsPolicySectionHtml(siteId)),
+    profP.then(()=>ramsBuilderCardHtml(siteId)),
+    canAdd ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc') : [],
+  ]);
+  const {docs, superseded, sigsByDoc, assignedIds, nameById} = ramsData;
   // Signing templates (Settings → Signing Templates) offered on the upload form.
-  const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length) : [];
-  const hsPolicyHtml = await hsPolicySectionHtml(siteId);
-  const ramsBuilderHtml = await ramsBuilderCardHtml(siteId);
+  const signTemplates = (signTemplatesRaw||[]).filter(tp=>ramsLayoutBoxes(tp.layout).length);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
-  // company in a dropdown) — same idea as the Subcontractor Inspections
-  // section on the main Inspections page — but they stay out of the sign
-  // roster/count above (fetchRamsData excludes them) since they're scoped
-  // to that subcontractor's own operatives only.
+  // company in a dropdown) — they stay out of the sign roster/count above.
   let ramsSubCompanies = [], ramsByCompany = {};
-  if(canAdd){
-    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
-    if(allSubCompanies.length){
-      const companyIds = allSubCompanies.map(c=>c.id).join(',');
-      const subRamsDocs = await dbSelect('rams_docs', 'subcontractor_company_id=in.('+companyIds+')&status=eq.current&order=uploaded_at.desc');
-      subRamsDocs.forEach(d=>{ (ramsByCompany[d.subcontractor_company_id]=ramsByCompany[d.subcontractor_company_id]||[]).push(d); });
-      ramsSubCompanies = allSubCompanies.filter(c=>(ramsByCompany[c.id]||[]).length);
-    }
+  if(canAdd && allSubCompanies.length){
+    const companyIds = allSubCompanies.map(c=>c.id).join(',');
+    const subRamsDocs = await dbSelect('rams_docs', 'subcontractor_company_id=in.('+companyIds+')&status=eq.current&order=uploaded_at.desc');
+    subRamsDocs.forEach(d=>{ (ramsByCompany[d.subcontractor_company_id]=ramsByCompany[d.subcontractor_company_id]||[]).push(d); });
+    ramsSubCompanies = allSubCompanies.filter(c=>(ramsByCompany[c.id]||[]).length);
   }
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
@@ -490,6 +491,7 @@ async function renderRams(siteId){
     <div style="margin-top:22px;">${hsPolicyHtml}</div>
   `, {title:'RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(ramsPollTimer) clearInterval(ramsPollTimer);
   let ramsPollBusy = false;
   ramsPollTimer = setInterval(async ()=>{

@@ -538,7 +538,9 @@ window.reopenSelectedMaterials = async function(siteId){
   const ids = Array.from(selectedMaterialIds);
   if(!ids.length) return;
   if(!await customConfirm('Reopen '+ids.length+' closed order'+(ids.length>1?'s':'')+'? They go back to the Live/Pending tab.', {confirmLabel:'Yes — reopen'})) return;
-  const results = await Promise.all(ids.map(id=>dbUpdate('materials', id, {status:'sent'})));
+  const curRows = await dbSelect('materials', 'id=in.('+ids.join(',')+')&select=id,merchant,sent_at,supplier_id,email_sent_at');
+  const ordered = new Set(curRows.filter(m=>m.merchant||m.sent_at||m.email_sent_at||m.supplier_id).map(m=>m.id));
+  const results = await Promise.all(ids.map(id=>dbUpdate('materials', id, {status: ordered.has(id) ? 'sent' : 'pending'})));
   const done = results.filter(Boolean).length;
   clearMaterialSelection();
   toast(done===ids.length ? done+' order'+(done>1?'s':'')+' reopened' : done+' of '+ids.length+' reopened — the rest could not be changed.');
@@ -621,7 +623,9 @@ window.reopenMaterial = async function(siteId, matId){
   // Reopened requests go back to 'sent' (not 'pending') when they'd already
   // been ordered, so the merchant/email history stays visible and it lands
   // back in the Live tab rather than looking like a brand new request.
-  const row = await dbUpdate('materials', matId, {status:'sent'});
+  const cur = (await dbSelect('materials', 'id=eq.'+matId+'&select=merchant,sent_at,supplier_id,email_sent_at'))[0] || {};
+  const wasOrdered = !!(cur.merchant || cur.sent_at || cur.email_sent_at || cur.supplier_id);
+  const row = await dbUpdate('materials', matId, {status: wasOrdered ? 'sent' : 'pending'});
   if(row){ toast('Material request reopened'); render(); }
 };
 // Re-email popup: shows the address it was originally sent to (from the

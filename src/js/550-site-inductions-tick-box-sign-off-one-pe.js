@@ -61,7 +61,8 @@ async function renderSiteInductions(siteId){
   const linked = !!site.site_inductions_folder_id;
 
   if(canManage || isClientView){
-    const roster = assignedIds.length ? assignedIds : Object.keys(byOperative);
+    // Only operatives need inducting — PMs, admins and clients on the job aren't "outstanding".
+    const roster = (assignedIds.length ? assignedIds : Object.keys(byOperative)).filter(id=>!PROFILES[id] || PROFILES[id].role==='operative' || byOperative[id]);
     const outstandingRoster = roster.filter(uid=>!byOperative[uid]);
     const completedRoster = roster.filter(uid=>byOperative[uid]).sort((a,b)=> new Date(byOperative[b].completed_at) - new Date(byOperative[a].completed_at));
     const visibleRoster = siteInductionFilter==='completed' ? completedRoster : outstandingRoster;

@@ -260,7 +260,7 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
   toast('Building the COSHH assessment…');
   const ok = await coshhSaveAssessment(it, folderId);
   if(!ok){ toast('Could not build or save it — try again'); return; }
-  coshhEd = null; coshhLibTab = 'assess'; coshhLibFolderId = folderId || null;
+  coshhEd = null; coshhLibTab = 'assess'; coshhLibFolderId = Array.isArray(folderId) ? (folderId.filter(Boolean)[0]||null) : (folderId || null);
   toast('Saved to the COSHH Library — add it to jobs from there');
   go('#/coshh-substances');
 };

@@ -10,7 +10,7 @@ async function renderAdminDeliveriesHub(){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Delivery Schedule</div>
       </div>
-      <div class="tile" onclick="go('#/vehicle-checklists')">
+      <div class="tile" onclick="vehicleChecksBackHash='#/deliveries';go('#/vehicle-checklists')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🚐</div>
         <div class="lbl">Vehicle Checklists</div>
       </div>

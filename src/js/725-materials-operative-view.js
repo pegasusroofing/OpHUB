@@ -71,7 +71,7 @@ async function renderOperativeMaterials(siteId){
   // show as received for the rest of that day.
   const twoWeeksAgo = localISODate(new Date(Date.now()-14*864e5));
   coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection'
-    && (m.grn ? String(m.grn.at||'').slice(0,10)===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
+    && (m.grn ? (m.grn.at ? localISODate(new Date(m.grn.at)) : '')===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
   const supName = id => { const s=(suppliers||[]).find(x=>x.id===id); return s ? s.name : null; };
   const fmt = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : '';
   // Group pick-ups by merchant so one trip reads as one card.

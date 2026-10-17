@@ -739,7 +739,7 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(!pricingElementId){
     const existingEls = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&select=sort_order&order=sort_order.desc&limit=1');
     const nextOrder = existingEls.length ? Number(existingEls[0].sort_order||0)+1 : 0;
-    const newEls = await dbInsert('pricing_elements', {site_id:siteId, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
+    const newEls = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id: (SITES.find(s=>s.id===siteId)||{}).multi_site ? (priceSubAddrSelected[siteId]||null) : null, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
     if(newEls && newEls[0]) pricingElementId = newEls[0].id;
   } else {
     await dbUpdate('pricing_elements', pricingElementId, {price_total: total});
@@ -842,7 +842,7 @@ async function pbSyncScheduleTasks(siteId, sheet, persistResult){
   for(const itemId of persistResult.removedIds){
     const task = taskByItemId[itemId];
     if(!task) continue;
-    if(task.status==='done' || task.completed_at) await dbUpdate('schedule_tasks', task.id, {sheet_item_id:null});
+    if((task.status && task.status!=='todo') || task.completed_at) await dbUpdate('schedule_tasks', task.id, {sheet_item_id:null});
     else await dbDelete('schedule_tasks', task.id);
   }
 }

@@ -18,7 +18,7 @@ const PUWER_QUESTIONS = [
 ];
 let puwerWeekOffset = 0;
 window.shiftPuwerWeek = function(dir){ puwerWeekOffset += dir; render(); };
-function puwerWeekStartDate(offset){ return new Date(startOfWeek(Date.now()) + offset*7*24*60*60*1000); }
+function puwerWeekStartDate(offset){ const d = new Date(startOfWeek(Date.now())); d.setDate(d.getDate()+offset*7); return d; }
 function puwerWeekStartISO(offset){ return localISODate(puwerWeekStartDate(offset)); }
 function puwerWeekLabel(offset){
   const start = puwerWeekStartDate(offset);

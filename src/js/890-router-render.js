@@ -388,9 +388,9 @@ async function renderRoute(){
       // Asbestos/F10 underneath the single "Main Contractor" tile on Home.
       return renderMcHome(siteId);
     }
+    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
-    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if((page==='expenses' || page==='plant') && !canSeeMatTile(SITES.find(x=>x.id===siteId), page)){ go('#/site/'+siteId+'/materials'); return; }
     if(page==='expenses') return renderExpenses(siteId);
     if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }
@@ -450,7 +450,14 @@ async function renderRoute(){
 
 // Double-tap protection: while one of these saves is still running, a
 // second tap on the same button is ignored instead of creating a duplicate.
-['addSnag','submitVariation','addMcDocument','uploadOperativeCert','uploadManualPersonCert','confirmScheduleImport','submitIncidentReport','sendBroadcast','addSubCoshh','addHavsTool','addPriceRateItem'].forEach(name=>{
+['addSnag','submitVariation','addMcDocument','uploadOperativeCert','uploadManualPersonCert','confirmScheduleImport','submitIncidentReport','sendBroadcast','addSubCoshh','addHavsTool','addPriceRateItem',
+ // Deep-dive 17 Oct 2026: more saves that create records and could be
+ // double-tapped while a slow upload / PDF build was still running.
+ 'hrSaveBooking','hrSignAllPolicies','hrSignHandbook','addSite','addRepairJob','addOperativeToolFor','addManualCertPerson','startBulkImportRepairJobs',
+ 'addTodo','addTask','addSection','confirmPdfImport','useScheduleLibraryTemplate','doCheckAction','doCheckActionSub','createNewTemplate',
+ 'submitSiteInduction','addRams','coshhIssue','ramsCreate','ramsIssue','submitIssuePermit','confirmSendMaterial','confirmSendGroupedMaterial',
+ 'startBriefing','addCalEvent','completeMaterialRequiredList','setToolboxTalkStatus','issueToolboxTalkCompanyWide','importSelectedDrawings',
+ 'saveCoshhToLibraryHere','sendMessageReply','hoNewManual','saveDeliveryTask'].forEach(name=>{
   const original = window[name];
   if(typeof original !== 'function') return;
   let running = false;

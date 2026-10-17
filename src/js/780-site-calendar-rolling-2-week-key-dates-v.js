@@ -160,7 +160,7 @@ function calRecurrenceOccurrences(startDateStr, freq, siteObj){
   if(!freq || freq==='none' || !startDateStr) return [startDateStr];
   const maxCount = 60;
   const horizon = new Date(startDateStr+'T00:00:00'); horizon.setFullYear(horizon.getFullYear()+1);
-  const closedBoundary = siteObj && siteObj.closed_at ? siteObj.closed_at.slice(0,10) : null;
+  const closedBoundary = siteObj && siteObj.closed_at ? localISODate(new Date(siteObj.closed_at)) : null;
   const alreadyClosed = siteObj && siteStatusKey(siteObj)==='closed';
   const dates = [];
   let d = new Date(startDateStr+'T00:00:00');
@@ -197,7 +197,7 @@ async function renderSiteCalendar(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const mgr = isManager(ME);
   if(!calViewMode) calViewMode = calDefaultViewMode();
-  await loadAllProfiles();
+  const profP = loadAllProfiles();
   const numDays = CAL_VIEW_DAYS[calViewMode] || 14;
   const today = new Date(); today.setHours(0,0,0,0);
   const days = [];
@@ -207,17 +207,18 @@ async function renderSiteCalendar(siteId){
   const mr = monthMode ? calMonthRange() : null;
   const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
   const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
-  const [events, assignments] = await Promise.all([
+  // All fetched together (used to be four waits one after another).
+  const [events, assignments, pmOptions, pmLeave] = await Promise.all([
     dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    mgr ? profP.then(()=>loadPMList()) : [],
+    profP.then(()=>hrSiteLeave(siteId, qStart, endStr)),
   ]);
-  const pmOptions = mgr ? await loadPMList() : [];
   const operativeOptions = mgr ? Object.values(PROFILES).filter(p=>assignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   const recipientOptions = [...pmOptions, ...operativeOptions];
   const eventsByDate = {};
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
   // #(hr) the project PM's approved time off, when they've linked it to project calendars
-  const pmLeave = await hrSiteLeave(siteId, qStart, endStr);
   pmLeave.forEach(l=>{ hrEachDay(l.start_date, l.end_date, ds=>{ if(!hrIsWorkingDay(ds)) return; (eventsByDate[ds]=eventsByDate[ds]||[]).push({_leave:true, id:'lv'+ds+l.user_id, title:`${l.name} off (${(l.code||'').toUpperCase()}${l.half?' ½ day':''})`, event_date:ds, is_private:false}); }); });
 
   // Shared Add/Edit form markup, reused both at the top of the page (opened
@@ -409,7 +410,8 @@ window.deleteCalEvent = async function(siteId, id, recurrenceGroupId, eventDate)
   const evRows = await dbSelect('site_calendar_events', 'id=eq.'+id+'&select=title');
   const evTitle = evRows[0] && evRows[0].title;
   if(recurrenceGroupId){
-    const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences? (Cancel deletes just this one date.)');
+    const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences?', {confirmLabel:'Delete this and all future', cancelLabel:'No — other options', danger:true});
+    if(!whole && !await customConfirm('Delete just this one date?', {confirmLabel:'Delete this date only', cancelLabel:'Cancel — keep it'})) return;
     if(whole){
       const res = await sbFetch('/rest/v1/site_calendar_events?recurrence_group_id=eq.'+recurrenceGroupId+'&event_date=gte.'+eventDate, {method:'DELETE'});
       if(res.ok){ toast('Series deleted'); logSiteActivity(siteId, 'calendar_event_deleted', `Deleted calendar event series "${evTitle||''}"`); render(); } else { toast('Delete failed — '+(await safeErr(res))); }

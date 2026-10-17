@@ -34,7 +34,7 @@ async function renderSignTemplates(){
           </div>
           ${rowActionsMenuHtml('signtpl-'+tp.id, `
             ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;ramsBoxEd=null;go('#/sign-templates/${tp.id}')">✍ Set / edit boxes</div>` : ''}
-            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();viewDrawing('${publicUrl('rams-docs', tp.storage_path)}','${jsAttr(tp.file_name||tp.name+'.pdf')}')">👁 View sample</div>` : ''}
+            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();viewDrawing('${publicUrl('rams-docs', tp.storage_path)}',false,'${jsAttr(tp.file_name||tp.name+'.pdf')}')">👁 View sample</div>` : ''}
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSignTemplate('${tp.id}','${jsAttr(tp.name)}')">✎ Rename</div>
             <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSignTemplate('${tp.id}')">🗑 Delete</div>
           `)}
@@ -237,8 +237,8 @@ window.deleteRams = async function(ramsId, storagePath){
   if(!await customConfirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
   const rows = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=site_id,name');
   const ramsRow = rows[0];
-  try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('rams_docs', ramsId);
+  if(ok){ try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){} }
   if(ok){ toast('RAMS document deleted'); if(ramsRow) logSiteActivity(ramsRow.site_id, 'rams_deleted', `Deleted RAMS document "${ramsRow.name||''}"`); render(); }
 };
 // PM/admin-only: pushes a "please sign" notification to every operative on

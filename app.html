@@ -3130,6 +3130,9 @@ window.doSignOut = async function(){
   SESSION = null; ME = null; ORG = null;
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
+  // Per-person bits kept in memory — clear them so the next person signing
+  // in on this phone doesn't briefly see the last person's numbers.
+  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; }catch(e){}
   applyTheme(null);
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);
@@ -3670,8 +3673,16 @@ function roleActionsHtml(ME, p, allPeople){
 // they don't need to wait on this at all).
 let profilesLoadedAt = 0;
 const PROFILES_TTL_MS = 45000;
-async function loadAllProfiles(force){
-  if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return;
+// If a load is already on its way, everyone asking at the same moment shares
+// it instead of each firing their own request.
+let profilesInflight = null;
+function loadAllProfiles(force){
+  if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return Promise.resolve();
+  if(profilesInflight) return profilesInflight;
+  profilesInflight = loadAllProfilesNow().finally(()=>{ profilesInflight = null; });
+  return profilesInflight;
+}
+async function loadAllProfilesNow(){
   // Must include every column any screen reads off a cached PROFILES[id]
   // entry (not just id/name/email/role) — signature_path (TBT "Carried out
   // by", etc.) and the onedrive_* columns (per-operative Certifications
@@ -4325,7 +4336,7 @@ function deskSidebar(opts){
       {k:'hub', ic:'bell', lbl:'HUB', go:'#/hub', badge:hubN},
       {k:'sitemap', ic:'pin', lbl:'Sites map', go:'#/sitemap'},
       {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard'},
-      {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports'},
+      {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports', show: usesPmHome(ME)},
       {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},
       {k:'team', ic:'gear', lbl:'Admin', go:'#/team'},
@@ -4496,8 +4507,8 @@ async function mountSiteMapGL(box, elId, mini, pts, missing){
   };
   fit();
   map._ophubFocus = id=>{ const mk = markers[id]; if(!mk) return; map.flyTo({center: mk.getLngLat(), zoom:14, speed:1.6}); if(mk.getPopup() && !mk.getPopup().isOpen()) mk.togglePopup(); };
-  if(mini){ box.addEventListener('click', ()=>go('#/sitemap')); }
-  else if(siteMapFocus && markers[siteMapFocus]) map.once('load', ()=>map._ophubFocus(siteMapFocus));
+  // (the mini map's own onclick opens the full map — no second handler here)
+  if(!mini && siteMapFocus && markers[siteMapFocus]) map.once('load', ()=>map._ophubFocus(siteMapFocus));
   setTimeout(()=>{ try{ map.resize(); fit(); }catch(e){} }, 80);
   return true;
 }
@@ -4544,7 +4555,7 @@ async function mountSiteMap(elId, mini){
   if(shown.length){ map.fitBounds(L.latLngBounds(shown.map(p=>[p.lat,p.lng])).pad(0.2), {maxZoom: 13}); }
   else map.setView([52.6, -1.5], 6);
   if(mini){
-    map.on('click', ()=>go('#/sitemap'));
+    // click handled by the mini card's own onclick
     const n = document.getElementById(elId+'Count');
     if(n) n.textContent = shown.length+' site'+(shown.length===1?'':'s')+' on the map'+(missing.filter(x=>x.st!=='closed').length ? ' · '+missing.filter(x=>x.st!=='closed').length+' without a postcode' : '');
   } else {
@@ -4970,7 +4981,7 @@ const HOWTO = {
 };
 function howtoKeyForRoute(){
   const p = parseRoute();
-  if(!p.length) return isManager(ME) ? null : 'sites';
+  if(!p.length) return (usesPmHome(ME) || usesOpHome(ME)) ? 'home' : (isManager(ME) ? null : 'sites');
   if(p[0]==='site' && p[1]){
     const pg = p[2] || 'home';
     if(pg==='home') return 'site_home';
@@ -5456,7 +5467,7 @@ async function renderAdmin(){
     <div class="card">
       <div class="sitecard" style="margin:0;">
         <div class="info"><div class="name">${escapeHtml(ME.name)}${' (you)'}</div><div class="addr">${escapeHtml(ME.email)} · Super Admin</div></div>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${adminResetBusy===ME.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(ME.email)}')">${adminResetBusy===ME.email?'…':'Reset My Password'}</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${adminResetBusy===ME.email?'disabled':''} onclick="resetUserPassword('${jsAttr(ME.email)}')">${adminResetBusy===ME.email?'…':'Reset My Password'}</button>
       </div>
     </div>
     ${adminResetResult ? `
@@ -5516,7 +5527,7 @@ async function renderAdmin(){
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${personRoleLabel(p)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   ${p.role==='superadmin' ? '' : `<select class="sarole" title="Role" onchange="setUserRole('${p.id}', this.value, this)">${ROLES.map(r=>{ const cur = p.is_estimator ? 'estimator' : p.role; return `<option value="${r}" ${r===cur?'selected':''}>${escapeHtml(roleLabel(r))}</option>`; }).join('')}${ROLES.includes(p.is_estimator?'estimator':p.role) ? '' : `<option selected disabled>${escapeHtml(personRoleLabel(p))}</option>`}</select>`}
-                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
+                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${jsAttr(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:800;text-transform:none;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
                 </div>
               </div>
@@ -6038,14 +6049,17 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
+  const newSiteId = crypto.randomUUID();
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({id:newSiteId, name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
   newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false; newSiteClientNameDraft = ''; newSiteClientPhoneDraft = ''; newSiteClientEmailDraft = '';
-  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
-  const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
-  await preloadTbtBankForSite(newSite);
-  await preloadDrawingFoldersForSite(newSite);
+  const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
+  if(sitesRes.ok) SITES = sitesRes.data;
+  // Matched by its own id (not "newest") so the folders can't land on a
+  // project someone else created at the same moment.
+  const newSite = SITES.find(s=>s.id===newSiteId);
+  if(newSite) await Promise.all([preloadTbtBankForSite(newSite), preloadDrawingFoldersForSite(newSite)]);
   addSiteFormOpen = false;
   toast('Site created');
   render();
@@ -6270,19 +6284,25 @@ window.openPmReport = function(id){
   go(pmReportHref(r));
 };
 
+let pmDlvReqAt = 0;
 async function renderPmHome(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
   if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
   let reports = pmReportsCache.uid===ME.id ? pmReportsCache.rows : [];
-  try{ reports = await loadPmReports(); }catch(e){}
-  let dlvReqN = 0; try{ deliveryRequestsCount = null; dlvReqN = await deliveryRequestsBadgeCount(); }catch(e){}
   let todos = pmTodosCache.uid===ME.id ? pmTodosCache.rows : [];
-  try{ todos = await loadPmTodos(); }catch(e){}
+  let dlvReqN = 0, onSiteN = 0;
+  // These four don't depend on each other — fetch them together (used to be
+  // four round trips one after another on every Home open).
+  if(Date.now() - pmDlvReqAt > 30000){ deliveryRequestsCount = null; pmDlvReqAt = Date.now(); }
+  const [repR, dlvR, tdR, osR] = await Promise.allSettled([loadPmReports(), deliveryRequestsBadgeCount(), loadPmTodos(), loadOnSiteNow()]);
+  if(repR.status==='fulfilled' && repR.value) reports = repR.value;
+  if(dlvR.status==='fulfilled') dlvReqN = dlvR.value || 0;
+  if(tdR.status==='fulfilled' && tdR.value) todos = tdR.value;
+  if(osR.status==='fulfilled' && osR.value) onSiteN = osR.value.length;
   const live = SITES.filter(s=>siteStatusKey(s)==='live');
   const upcoming = SITES.filter(s=>siteStatusKey(s)==='upcoming');
-  let onSiteN = 0; try{ onSiteN = (await loadOnSiteNow()).length; }catch(e){}
   const open = reports.filter(r=>r.status==='in_progress');
   const mine = open.filter(r=>r.submitted_by===ME.id).slice(0,2);
   const hubCount = homeExtras.count || 0;
@@ -6356,19 +6376,24 @@ async function renderPmHome(){
 // #(pm-sign-nag) 2026-10-17: once each time the app is opened, a PM / admin
 // with company policies or the handbook still to sign gets a pop-up with a
 // button straight to them (or X to close).
-let pmSignNagDone = false;
+let pmSignNagDone = false, pmSignNagChecking = false;
 async function maybeShowPmSignNag(){
-  if(pmSignNagDone || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
-  pmSignNagDone = true;
+  if(pmSignNagDone || pmSignNagChecking || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
+  pmSignNagChecking = true;
   let pols = [], mine = [];
   try{
     pols = await dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind');
     mine = pols.length ? await dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id') : [];
   }catch(e){ return; }
+  finally{ pmSignNagChecking = false; }
   const signed = new Set(mine.map(x=>x.policy_id));
   const left = pols.filter(p=>!signed.has(p.id));
   const hb = left.filter(p=>p.kind==='handbook').length, pol = left.length - hb;
-  if(!left.length || parseRoute()[0]!=='home') return;
+  if(!left.length){ pmSignNagDone = true; return; }
+  // Home is "#/home" or the empty hash the app opens on.
+  const r0 = parseRoute()[0];
+  if(r0 && r0!=='home') return;
+  pmSignNagDone = true;
   let ov = document.getElementById('signNagOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'signNagOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) closeSignNag(); };
@@ -6726,11 +6751,12 @@ let HR_BH_ENSURED = false;
 let HR = null; // {settings, people:[profile], hp:{userId:row}, leave:[], at}
 async function hrLoad(force){
   if(!force && HR && HR.uid===ME.id && Date.now()-HR.at < 20000) return HR;
-  await loadAllProfiles();
+  const profP = loadAllProfiles();
   const y = new Date().getFullYear();
   // #(hr-bank-hol-rows) Bank holidays are real bookings on each PM / site
   // manager (not admins), created automatically once per session.
   if(!HR_BH_ENSURED){ HR_BH_ENSURED = true; try{ await sbFetch('/rest/v1/rpc/hr_ensure_bank_holidays', {method:'POST', body:'{}'}); }catch(e){ HR_BH_ENSURED = false; } }
+  await profP;
   const [settingsRows, hpRows, leave] = await Promise.all([
     dbSelect('hr_settings', 'org_id=eq.'+ME.org_id+'&limit=1'),
     dbSelect('hr_people', 'org_id=eq.'+ME.org_id),
@@ -6767,9 +6793,11 @@ function hrOffOn(dStr){
 // ---------- HR hub ----------
 async function renderHrHub(){
   const __gen = RENDER_GEN;
-  await hrLoad(true);
-  const pols = await dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind');
-  const mine = pols.length ? await dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id') : [];
+  const [, pols, mine] = await Promise.all([
+    hrLoad(true),
+    dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind'),
+    dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id'),
+  ]);
   const signed = new Set(mine.map(s=>s.policy_id));
   const toSign = pols.filter(p=>!signed.has(p.id)).length;
   const y = new Date().getFullYear();
@@ -6810,11 +6838,15 @@ window.hrSaveBooking = async function(){
   const uid = isAdmin ? (d.user_id || ME.id) : ME.id;
   // Allowance (annual leave only)
   if(d.type==='annual'){
-    const y = Number(d.start.slice(0,4));
-    const left = hrAllowance(uid) - hrUsed(uid, y, ['approved','pending']);
-    if(days > left && !(isAdmin && await customConfirm(`This takes ${days} days but only ${left} are left for ${nameOf(uid)} in ${y}. Book it anyway?`))){
-      if(!isAdmin) toast(`Only ${left} day${left===1?'':'s'} of annual leave left this year.`);
-      return;
+    // Checked per year, so a booking over New Year counts each part against
+    // the right year's allowance.
+    for(const y of [...new Set([Number(d.start.slice(0,4)), Number(d.end.slice(0,4))])]){
+      const need = hrLeaveDays({start_date:d.start, end_date:d.end, half, start_part, end_part}, y);
+      const left = hrAllowance(uid) - hrUsed(uid, y, ['approved','pending']);
+      if(need > left && !(isAdmin && await customConfirm(`This takes ${need} day${need===1?'':'s'} in ${y} but only ${left} are left for ${nameOf(uid)}. Book it anyway?`))){
+        if(!isAdmin) toast(`Only ${left} day${left===1?'':'s'} of annual leave left for ${y}.`);
+        return;
+      }
     }
   }
   // How many people off at once
@@ -6851,13 +6883,15 @@ window.hrSaveBooking = async function(){
 };
 window.hrDecide = async function(id, ok){
   const l = HR.allLeave.find(x=>x.id===id); if(!l) return;
+  let hrOverrode = false;
   if(ok){
     const max = Number(HR.settings.max_off_at_once)||0;
     let clash = null;
     if(max>0 && l.type!=='sick') hrEachDay(l.start_date, l.end_date, day=>{ if(clash || !hrIsWorkingDay(day)) return; const others = new Set(hrOffOn(day).filter(x=>x.user_id!==l.user_id && x.status==='approved').map(x=>x.user_id)); if(others.size >= max) clash = {day, n:others.size}; });
+    if(clash) hrOverrode = true;
     if(clash && !(await customConfirm(`${clash.n} people are already off on ${new Date(clash.day+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} (limit ${max}). Approve anyway?`))) return;
   }
-  const row = await dbUpdate('hr_leave', id, {status: ok?'approved':'rejected', decided_by:ME.id, decided_at:new Date().toISOString(), ...(ok?{override_limit:true}:{})});
+  const row = await dbUpdate('hr_leave', id, {status: ok?'approved':'rejected', decided_by:ME.id, decided_at:new Date().toISOString(), ...(ok && hrOverrode?{override_limit:true}:{})});
   if(row){ HR = null; toast(ok?'Approved':'Declined'); render(); }
 };
 window.hrCancel = async function(id){
@@ -7040,7 +7074,9 @@ window.hrSignAllPolicies = async function(){
   if(!(await hrNeedSignature())) return;
   if(!(await customConfirm(`Sign all ${ids.length} company polic${ids.length===1?'y':'ies'}? This confirms you have read and understood ${ids.length===1?'it':'them'}.`))) return;
   let ok = 0;
-  for(const id of ids){ const r = await dbInsert('company_policy_signatures', {policy_id:id, user_id:ME.id, signature_image_path:ME.signature_path, signed_at:new Date().toISOString()}); if(r) ok++; }
+  const at = new Date().toISOString();
+  const res = await Promise.all(ids.map(id=>dbInsert('company_policy_signatures', {policy_id:id, user_id:ME.id, signature_image_path:ME.signature_path, signed_at:at})));
+  ok = res.filter(Boolean).length;
   toast(ok ? 'Signed' : 'Could not sign — try again.'); render();
 };
 window.hrSignHandbook = async function(id){
@@ -7086,8 +7122,7 @@ window.hrEmailPolicy = async function(id){
 };
 async function renderHrPolicies(){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
-  const {pols, sigs} = await hrPolicyData();
+  const [, {pols, sigs}] = await Promise.all([loadAllProfiles(), hrPolicyData()]);
   window._hrPols = pols; window._hrSigs = sigs;
   const isAdmin = hrIsAdmin();
   const people = Object.values(PROFILES).filter(p=>p && ['pm','admin','site_manager'].includes(p.role)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
@@ -7488,6 +7523,9 @@ async function computeHubItems(forcedPmId){
   // ahead of the start date, so Hub needs to surface that too. Closed sites
   // stay excluded — there's nothing outstanding to action once a site's done.
   const allLiveSites = SITES.filter(s=>{ const k = siteStatusKey(s); return k==='live' || k==='upcoming'; });
+  // Started straight away — it doesn't depend on anything below.
+  const profilesP = loadAllProfiles();
+  const sowAlertsP = sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'}).then(r=>r && r.ok ? r.json() : []).catch(()=>[]);
   let sites;
   if(effectivePmId === 'all'){
     sites = allLiveSites;
@@ -7510,13 +7548,20 @@ async function computeHubItems(forcedPmId){
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
     idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
     idsCsv ? dbSelect('todos', 'site_id=in.('+idsCsv+')&done=eq.false&order=created_at.asc') : Promise.resolve([]),
-    idsCsv ? dbSelect('messages', 'audience=eq.managers&or=(site_id.in.('+idsCsv+'),site_id.is.null)&sender_id=neq.'+ME.id+'&select=id,site_id,created_at') : Promise.resolve([]),
+    idsCsv ? dbSelect('messages', 'audience=eq.managers&or=(site_id.in.('+idsCsv+'),site_id.is.null)&sender_id=neq.'+ME.id+'&created_at=gte.'+new Date(Date.now()-180*864e5).toISOString()+'&select=id,site_id,created_at') : Promise.resolve([]),
   ]);
+  await profilesP; // needed for the operative roster below
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
-  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+  // Read receipts fetched alongside the signatures, in chunks so the
+  // address never gets too long as messages build up.
+  const msgIds = mgrMsgs.map(m=>m.id);
+  const readChunks = [];
+  for(let i=0;i<msgIds.length;i+=120) readChunks.push(msgIds.slice(i,i+120));
+  const [ramsSigsRaw, coshhSigsRaw, readsNested] = await Promise.all([
     ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : Promise.resolve([]),
     coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+    Promise.all(readChunks.map(c=>dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+c.join(',')+')&select=message_id'))),
   ]);
   const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
   const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
@@ -7572,15 +7617,13 @@ async function computeHubItems(forcedPmId){
   // operatives since this manager last opened that job's SOW. Opening the
   // SOW clears it (see markSowViewed).
   try{
-    const r = await sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'});
-    const rows = r && r.ok ? await r.json() : [];
+    const rows = await sowAlertsP;
     (rows||[]).forEach(a=>{
       const site = sites.find(s=>s.id===a.site_id); if(!site) return;
       items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:new Date(a.latest), href:`#/site/${site.id}/schedule`});
     });
   }catch(e){}
-  const msgIds = mgrMsgs.map(m=>m.id);
-  const reads = msgIds.length ? await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+msgIds.join(',')+')&select=message_id') : [];
+  const reads = [].concat(...readsNested);
   const readSet = new Set(reads.map(r=>r.message_id));
   mgrMsgs.filter(m=>!readSet.has(m.id)).forEach(m=>{
     const site = m.site_id ? sites.find(s=>s.id===m.site_id) : null;
@@ -7590,7 +7633,7 @@ async function computeHubItems(forcedPmId){
 }
 async function renderHub(){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
+  // computeHubItems loads the profiles itself, alongside its own queries.
   const {items, sites} = await computeHubItems();
   // #405: every manager gets the switcher now, not just admins — defaults
   // to "Me", with "All PMs" (the old admin-only default) and each named
@@ -8215,7 +8258,7 @@ async function renderTeam(adminPage, adminItemKey){
   } })());
   let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
-  let reportTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
+  let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
   let suppliers = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.suppliers) suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'); })());
   let havsTools = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.havstools) havsTools = await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc'); })());
@@ -8433,7 +8476,7 @@ async function renderTeam(adminPage, adminItemKey){
               <div class="integ-row">
                 <span class="integ-dot ${p.id?'on':''}"></span>
                 <span class="integ-txt"><b>${p.label}</b><span>${p.id ? '📁 '+escapeHtml(p.name||'Linked folder') : 'Not linked'}</span></span>
-                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="odPickerReturnHash='#/team/company/onedrive';startOneDriveFolderPicker('${s.id}','${p.k}')">${p.id?'Change':'Link'}</button>
+                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="startOneDriveFolderPicker('${s.id}','${p.k}','#/team/company/onedrive')">${p.id?'Change':'Link'}</button>
               </div>`).join('') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
           </div>`;
         }).join('');
@@ -9321,9 +9364,10 @@ function checkinLogRange(mode, offset){
     return {start, end, label};
   }
   const thisWeekStart = startOfWeek(Date.now());
-  const start = thisWeekStart + offset*7*24*60*60*1000;
-  const end = start + 7*24*60*60*1000;
-  const endDisplay = new Date(end - 24*60*60*1000);
+  const sd = new Date(thisWeekStart); sd.setDate(sd.getDate()+offset*7);
+  const ed = new Date(sd); ed.setDate(ed.getDate()+7);
+  const start = sd.getTime(), end = ed.getTime();
+  const endDisplay = new Date(ed); endDisplay.setDate(endDisplay.getDate()-1);
   const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
   return {start, end, label};
 }
@@ -9399,9 +9443,10 @@ function ppeLogRange(mode, offset){
     return {start, end, label};
   }
   const thisWeekStart = startOfWeek(Date.now());
-  const start = thisWeekStart + offset*7*24*60*60*1000;
-  const end = start + 7*24*60*60*1000;
-  const endDisplay = new Date(end - 24*60*60*1000);
+  const sd = new Date(thisWeekStart); sd.setDate(sd.getDate()+offset*7);
+  const ed = new Date(sd); ed.setDate(ed.getDate()+7);
+  const start = sd.getTime(), end = ed.getTime();
+  const endDisplay = new Date(ed); endDisplay.setDate(endDisplay.getDate()-1);
   const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
   return {start, end, label};
 }
@@ -9712,7 +9757,8 @@ window.manualSyncSiteOneDrive = async function(siteId){
   }catch(e){ toast('Sync failed — could not reach the server.'); }
   siteOdSyncBusy = null; render();
 };
-window.startOneDriveFolderPicker = function(siteId, target){
+window.startOneDriveFolderPicker = function(siteId, target, returnHash){
+  odPickerReturnHash = returnHash || null; // only the Admin › Integrations button passes one
   odPickerTarget = target || 'progress';
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];
@@ -10992,8 +11038,9 @@ async function renderSiteHome(siteId){
   // before anyone can be checked in. It stops appearing the moment at least
   // one operative is assigned — nothing to dismiss or configure.
   if(isManager(ME) && siteStatusKey(site)==='live'){
+    const hereHash = location.hash;
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id&limit=1').then(rows=>{
-      if(!rows.length) openAssignOperativesModal(siteId);
+      if(!rows.length && location.hash===hereHash) openAssignOperativesModal(siteId);
     });
   }
 
@@ -11039,8 +11086,8 @@ async function renderSiteHome(siteId){
   const [tasks, openSnags, ramsDocs, mySignatures, pendingMat, myLastCheckin, openTodos, teamCheckinsForCount, todayCalEvents] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&select=status,percent_complete'),
     dbSelect('snags', 'site_id=eq.'+siteId+'&status=eq.open&select=id'),
-    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
-    dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id'),
+    dbSelect('rams_docs', 'site_id=eq.'+siteId+'&status=eq.current&subcontractor_company_id=is.null&select=id,resign_cycle_start,uploaded_at'), // current versions only — a superseded RAMS can't be signed, so it used to count as "to sign" for ever
+    dbSelect('rams_signatures', 'user_id=eq.'+ME.id+'&select=rams_id,signed_at&order=signed_at.desc&limit=500'),
     // Stays counted through "sent" too, not just "pending" — see the
     // matching comment on the Dashboard's materials query above.
     dbSelect('materials', 'site_id=eq.'+siteId+'&status=in.(pending,sent)&select=id'),
@@ -11060,7 +11107,8 @@ async function renderSiteHome(siteId){
   // the router right before this ran — reuse it here instead of querying twice.
   const unreadMsgs = currentUnreadMsgs;
   const scheduleDone = tasks.filter(t=>t.status==='done').length;
-  const signedIds = new Set(mySignatures.map(s=>s.rams_id));
+  // Same 12-month re-sign rule as the RAMS page and the sign pop-up.
+  const signedIds = new Set(filterCurrentCycleSigs(mySignatures, ramsDocs, 'rams_id', site).map(s=>s.rams_id));
   const pendingRams = ramsDocs.filter(r=>!signedIds.has(r.id)).length;
   const onSite = myLastCheckin[0] && myLastCheckin[0].type==='in';
   // Site-wide "on site now" count for the PM/admin stat row — latest
@@ -12097,7 +12145,7 @@ window.exportRepairJobsByApprovedDate = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
   repairApprovedExportBusy = true; render();
   try{
-    const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number,address,description,survey_notes,access_notes,access_requirement,variation_cost,scaffold_booking_date,scaffold_erection_date,repair_return_date,quote_approved_at,closed,quote_approved,works_completed');
+    const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number,address,description,survey_notes,access_notes,access_requirement,variation_cost,scaffold_booking_date,scaffold_erection_date,repair_return_date,quote_approved_at,closed,quote_approved,works_completed,job_status');
     const filtered = jobs.filter(REPAIR_CATEGORY_DEFS.approved.match);
     if(!filtered.length){ toast('No jobs in Approved & Ready yet.'); return; }
     filtered.sort(REPAIR_JOB_SORTS.approved_asc);
@@ -14859,9 +14907,8 @@ window.togglePricingElementSelected = function(elementId){
 window.closeSelectedPricingElements = async function(){
   const ids = Object.keys(priceElementSelected);
   if(!ids.length){ toast('Select at least one Pricing Element'); return; }
-  for(const id of ids){
-    await dbUpdate('pricing_elements', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString()});
-  }
+  const at = new Date().toISOString();
+  await Promise.all(ids.map(id=>dbUpdate('pricing_elements', id, {closed:true, closed_by:ME.id, closed_at:at})));
   priceElementSelected = {};
   toast(ids.length===1 ? 'Pricing Element closed' : ids.length+' Pricing Elements closed');
   render();
@@ -15481,7 +15528,11 @@ async function renderPriceHome(siteId){
 // every Pricing Element on this site, computed once. Pulled out into its own
 // function when the grid/detail split was introduced so the two pages can't
 // drift out of sync on how a figure or an access check is worked out.
-async function loadPriceTileData(siteId){
+// opts.onlyElementId: the single sub-tile page only needs that one element's
+// details; opts.gridOnly: the tile grid needs none (just which ones are Price
+// Sheets). Saves ~10 requests per element on every open.
+async function loadPriceTileData(siteId, opts){
+  opts = opts || {};
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   const isMultiSite = !!(site && site.multi_site);
@@ -15577,7 +15628,8 @@ async function loadPriceTileData(siteId){
   Object.keys(groupFigures).forEach(gid=>{ groupFigures[gid].balance = (groupFigures[gid].priceTotal + groupFigures[gid].awApprovedTotal) - groupFigures[gid].bookedIn; });
 
   const elementData = {};
-  await Promise.all(visibleElements.map(async el=>{
+  if(opts.gridOnly) visibleElements.forEach(el=>{ elementData[el.id] = {pbSheet: pbSheetByElementId[el.id] || null}; });
+  await Promise.all(visibleElements.filter(el=> !opts.gridOnly && (!opts.onlyElementId || el.id===opts.onlyElementId)).map(async el=>{
     const canSeeLabour = canSeeLabourInvoicesFor(el.id);
     const hasPriceAcc = hasPriceAccessTo(el.id);
     const pbSheet = pbSheetByElementId[el.id] || null;
@@ -15667,9 +15719,11 @@ window.pbRecolorGroup = async function(groupId){
   rowActionsMenuOpenFor = null;
   render();
 };
+let priceElementSelectedSite = null;
 async function renderPriceTile(siteId){
   const __gen = RENDER_GEN;
-  const d = await loadPriceTileData(siteId);
+  if(priceElementSelectedSite !== siteId){ priceElementSelected = {}; priceElementSelectedSite = siteId; }
+  const d = await loadPriceTileData(siteId, {gridOnly:true});
   const {site, canManage, isMultiSite, fmt, elementGroups, groupsById, groupFigures, subAddressesList, selectedSubId, openElements, closedElements, elementFigures} = d;
   const anyClosedSelected = Object.keys(priceElementSelected).length>0;
   // Groups scoped to whichever address tab is currently selected (or the
@@ -15816,7 +15870,7 @@ async function renderPriceTile(siteId){
 // keep the figures/access-checks identical) and just renders the one card.
 async function renderPricingElementDetail(siteId, elementId){
   const __gen = RENDER_GEN;
-  const d = await loadPriceTileData(siteId);
+  const d = await loadPriceTileData(siteId, {onlyElementId: elementId});
   const {site, canManage, fmt, allElements, elementFigures, weeksByElement, elementData} = d;
   const el = allElements.find(e=>e.id===elementId);
   if(!el || !elementData[elementId]){ toast('Sub tile not found, or you don\'t have access to it.'); go(`#/site/${siteId}/price`); return; }
@@ -17291,7 +17345,7 @@ window.issuePriceBuilderSheet = async function(siteId, sheetId){
   if(!pricingElementId){
     const existingEls = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&select=sort_order&order=sort_order.desc&limit=1');
     const nextOrder = existingEls.length ? Number(existingEls[0].sort_order||0)+1 : 0;
-    const newEls = await dbInsert('pricing_elements', {site_id:siteId, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
+    const newEls = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id: (SITES.find(s=>s.id===siteId)||{}).multi_site ? (priceSubAddrSelected[siteId]||null) : null, name: subTileName, sort_order: nextOrder, price_total: total, created_by: ME.id});
     if(newEls && newEls[0]) pricingElementId = newEls[0].id;
   } else {
     await dbUpdate('pricing_elements', pricingElementId, {price_total: total});
@@ -17394,7 +17448,7 @@ async function pbSyncScheduleTasks(siteId, sheet, persistResult){
   for(const itemId of persistResult.removedIds){
     const task = taskByItemId[itemId];
     if(!task) continue;
-    if(task.status==='done' || task.completed_at) await dbUpdate('schedule_tasks', task.id, {sheet_item_id:null});
+    if((task.status && task.status!=='todo') || task.completed_at) await dbUpdate('schedule_tasks', task.id, {sheet_item_id:null});
     else await dbDelete('schedule_tasks', task.id);
   }
 }
@@ -20482,7 +20536,7 @@ window.reportOfflineSync = async function(manual){
   for(const rec of waiting){
     try{
       // The report someone has open right now is left alone until they leave it.
-      if(reportFillDraft && reportFillDraft.submissionId === rec.submissionId) continue;
+      if(reportFillDraft && reportFillDraft.submissionId === rec.submissionId && (location.hash||'').includes(rec.submissionId)) continue;
       const d = rec.draft;
       // 1. create it, if it was started with no signal
       if(rec.create){
@@ -20953,6 +21007,9 @@ window.doCheckActionSub = async function(siteId, subId, type){
       const taskIds = linkedTasks.map(t=>t.id).join(',');
       const photoRows = await dbSelect('schedule_photos', 'task_id=in.('+taskIds+')&select=task_id');
       const withPhoto = new Set(photoRows.map(p=>p.task_id));
+      // Photos taken but still waiting on the phone to send count too.
+      try{ (await sowOfflineAll()).forEach(r=>{ if(r.kind==='photo') withPhoto.add(r.taskId); }); }catch(e){}
+      try{ Object.keys(SOW_PENDING).forEach(k=>withPhoto.add(k)); }catch(e){}
       const missing = linkedTasks.filter(t=>!withPhoto.has(t.id));
       if(missing.length){
         checkinBusy = false;
@@ -21688,7 +21745,7 @@ async function renderSchedule(siteId){
   // visibility (see schedule_visibility_ok) — an operative or PM simply
   // never gets back a row they're not allowed to see, so nothing further
   // needs filtering client-side; admins always get everything back.
-  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs] = await Promise.all([
+  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs, sitePhotos] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
@@ -21701,11 +21758,14 @@ async function renderSchedule(siteId){
     // switched a document to "Managers only" — RLS only hands back the rows
     // this viewer is allowed to see, so no client-side filtering needed.
     dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+    // Photos fetched by site in the same batch (used to wait for the task
+    // list and then send every task id in one very long address).
+    dbSelect('schedule_photos', 'select=*,schedule_tasks!inner(site_id)&schedule_tasks.site_id=eq.'+siteId+'&order=uploaded_at.asc'),
+    canAdd ? loadAllProfiles() : null,
   ]);
   scheduleSectionsCache = sections;
   // Task changes made on this phone that are still waiting on their photos.
   try{ await sowPendingForRender(siteId, allTasks, null); }catch(e){}
-  if(canAdd) await loadAllProfiles();
   const operativeOptions = canAdd ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   // Flags row visibility/state is driven off allTasks (every task ever added
   // to a section), not the currently filtered `tasks` list below — so the
@@ -21726,6 +21786,7 @@ async function renderSchedule(siteId){
   if(scheduleLastSiteId !== siteId){
     scheduleLastSiteId = siteId;
     percentPromptTaskId = null;
+    scheduleImportPreview = null; scheduleAddPanel = null;
     scheduleFilter = 'active';
     sectionFirstSubAddr = {};
     scheduleMultiSelectMode = false;
@@ -21738,8 +21799,8 @@ async function renderSchedule(siteId){
     : allTasks.filter(t=>t.status==='todo'||t.status==='progress');
   let photosByTask = {};
   if(allTasks.length){
-    const ids = allTasks.map(t=>t.id).join(',');
-    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+    const taskIdSet = new Set(allTasks.map(t=>t.id));
+    const photos = sitePhotos.filter(p=>taskIdSet.has(p.task_id)).map(p=>{ const q = Object.assign({}, p); delete q.schedule_tasks; return q; });
     photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
     // Photos still going up from this phone, and the task changes that go with them.
     try{ await sowPendingForRender(siteId, null, photos); }catch(e){}
@@ -22776,6 +22837,20 @@ function sowAddPhotos(siteId, taskId, files, stage){
         SOW_PENDING[taskId] = (SOW_PENDING[taskId]||[]).filter(x=>x!==p);
         sowPaintPending(taskId);
         toast('One photo could not be read — please try that one again.');
+        // If that was the only photo for a "Complete", don't let the task go
+        // to Complete with no photo — drop the waiting change instead.
+        try{
+          if(!(SOW_PENDING[taskId]||[]).length){
+            delete SOW_PENDING[taskId];
+            const recs = await sowOfflineAll();
+            const patch = recs.find(r=>r.id==='patch:'+taskId);
+            if(patch && patch.patch && patch.patch.status==='done' && !recs.some(r=>r.kind==='photo' && r.taskId===taskId)){
+              await sowOfflineDel(patch.id);
+              toast('Task not marked complete — add the photo again.');
+              render();
+            }
+          }
+        }catch(e2){}
       }
     });
   });
@@ -22862,6 +22937,9 @@ async function sowPumpRun(){
   // Task changes go once none of that task's photos are still waiting.
   const left = await sowOfflineAll();
   const waitingTasks = new Set(left.filter(r=>r.kind==='photo').map(r=>r.taskId));
+  // Photos still being resized on the phone aren't in the queue yet — don't
+  // let a "Complete" go ahead of them.
+  for(const k in SOW_PENDING){ if(SOW_PENDING[k].some(x=>x.state==='prep')) waitingTasks.add(k); }
   let patched = false;
   for(const p of left.filter(r=>r.kind==='patch')){
     if(waitingTasks.has(p.taskId) || navigator.onLine === false) continue;
@@ -24614,7 +24692,7 @@ function sowPeriodRange(key, fromStr, toStr){
   return null; // full project
 }
 function sowPeriodPickerHtml(prefix){
-  const today = new Date().toISOString().slice(0,10);
+  const today = localISODate(new Date());
   return `<div class="formfield"><label class="field-label">What to include</label>
     <select id="${prefix}Period" onchange="document.getElementById('${prefix}Dates').style.display=this.value==='custom'?'flex':'none'">
       <option value="full">Full project — every photo</option>
@@ -25168,9 +25246,9 @@ function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
 // nowhere else.
 async function getMcTiles(siteId, site){
   const canAdd = isManager(ME);
-  const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
-  const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const [companies, inductionAssigned, inductionDone, openPermits, mcInspectionTemplates, layoutRows] = await Promise.all([
+  const [counts, mcProgrammeFolder, companies, inductionAssignedAll, inductionDone, openPermits, mcInspectionTemplates, layoutRows] = await Promise.all([
+    dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category'),
+    dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id'),
     dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
@@ -25178,21 +25256,21 @@ async function getMcTiles(siteId, site){
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&select=id'),
     dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
   ]);
+  const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
+  const inductionAssigned = inductionAssignedAll.filter(a=>!PROFILES[a.user_id] || PROFILES[a.user_id].role==='operative');
   const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
   const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
-  let mcInspectionsCount = 0;
-  if(mcInspectionTemplates.length){
-    const ids = mcInspectionTemplates.map(t=>t.id).join(',');
-    const subs = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id');
-    mcInspectionsCount = subs.length;
-  }
+  const [inspSubs, mcProgFiles] = await Promise.all([
+    mcInspectionTemplates.length ? dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+mcInspectionTemplates.map(t=>t.id).join(',')+')&select=id') : [],
+    mcProgrammeFolder && mcProgrammeFolder[0] ? dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+mcProgrammeFolder[0].id+'&status=eq.current&select=id') : [],
+  ]);
+  const mcInspectionsCount = inspSubs.length;
   const inspectionsSub = mcInspectionsCount ? `${mcInspectionsCount} logged` : (mcInspectionTemplates.length ? 'None logged yet' : 'Set up templates');
   // Main Contractor's own Programme — a separate document to the site's
   // general Programme (different main contractors can be running different
   // programmes), so it's counted from its own dedicated root folder rather
   // than the one under Drawings, Spec's & Programme.
-  const mcProgrammeFolder = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id');
-  const mcProgrammeCount = mcProgrammeFolder && mcProgrammeFolder[0] ? (await dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+mcProgrammeFolder[0].id+'&status=eq.current&select=id')).length : 0;
+  const mcProgrammeCount = mcProgFiles.length;
   const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
   const tiles = [
     {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},
@@ -25811,6 +25889,7 @@ async function renderSiteLayout(siteId){
     `) : ''}
   `, {title:'Site Rules & Layout', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/mc`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(siteLayoutPollTimer) clearInterval(siteLayoutPollTimer);
   let siteLayoutPollBusy = false;
   siteLayoutPollTimer = setInterval(async ()=>{
@@ -25956,7 +26035,8 @@ async function renderSiteInductions(siteId){
   const linked = !!site.site_inductions_folder_id;
 
   if(canManage || isClientView){
-    const roster = assignedIds.length ? assignedIds : Object.keys(byOperative);
+    // Only operatives need inducting — PMs, admins and clients on the job aren't "outstanding".
+    const roster = (assignedIds.length ? assignedIds : Object.keys(byOperative)).filter(id=>!PROFILES[id] || PROFILES[id].role==='operative' || byOperative[id]);
     const outstandingRoster = roster.filter(uid=>!byOperative[uid]);
     const completedRoster = roster.filter(uid=>byOperative[uid]).sort((a,b)=> new Date(byOperative[b].completed_at) - new Date(byOperative[a].completed_at));
     const visibleRoster = siteInductionFilter==='completed' ? completedRoster : outstandingRoster;
@@ -27064,7 +27144,7 @@ async function renderSubCompanyLibrary(siteId, companyId){
   await __pProfiles;
   const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&order=uploaded_at.desc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">${company.name}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
+    <p class="stub" style="margin:0 0 14px;">${escapeHtml(company.name)}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
     ${canUpload ? (companyLibraryAddOpen ? `
       <div class="card" style="margin-bottom:12px;">
         <p class="field-label" style="margin-bottom:6px;">Upload a document</p>
@@ -27216,7 +27296,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const issuedHtml = issuedBy.length ? `<div class="signerlist" style="margin-bottom:0;">${issuedBy.map(ramsIssuedLine).join('')}</div>` : '';
     const anyIssued = issuedBy.length > 0;
     const multi = ramsMultiOn(r);
-    if(canAdd && !isClientView){
+    if(canAdd && isManager(ME) && !isClientView){
       const viewJs = `viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
       const opSigs = sigs.filter(x=>!x.issued).slice().sort((x,y)=>new Date(x.signed_at)-new Date(y.signed_at));
       const hasExport = sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at);
@@ -27514,26 +27594,27 @@ async function renderRams(siteId){
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
   if(ramsSelSite !== siteId){ ramsSelIds = new Set(); ramsSelSite = siteId; }
-  await loadAllProfiles();
-  const {docs, superseded, sigsByDoc, assignedIds, nameById} = await fetchRamsData(siteId);
+  // Everything here is independent — fetched together rather than one after
+  // another (was ~8 round trips in a row).
+  const profP = loadAllProfiles();
+  const [ramsData, signTemplatesRaw, hsPolicyHtml, ramsBuilderHtml, allSubCompanies] = await Promise.all([
+    profP.then(()=>fetchRamsData(siteId)),
+    canAdd ? dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout') : [],
+    profP.then(()=>hsPolicySectionHtml(siteId)),
+    profP.then(()=>ramsBuilderCardHtml(siteId)),
+    canAdd ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc') : [],
+  ]);
+  const {docs, superseded, sigsByDoc, assignedIds, nameById} = ramsData;
   // Signing templates (Settings → Signing Templates) offered on the upload form.
-  const signTemplates = canAdd ? (await dbSelect('sign_layout_templates', 'order=name.asc&select=id,name,layout')).filter(tp=>ramsLayoutBoxes(tp.layout).length) : [];
-  const hsPolicyHtml = await hsPolicySectionHtml(siteId);
-  const ramsBuilderHtml = await ramsBuilderCardHtml(siteId);
+  const signTemplates = (signTemplatesRaw||[]).filter(tp=>ramsLayoutBoxes(tp.layout).length);
   // Completed subcontractor RAMS surface here too (read-only, grouped per
-  // company in a dropdown) — same idea as the Subcontractor Inspections
-  // section on the main Inspections page — but they stay out of the sign
-  // roster/count above (fetchRamsData excludes them) since they're scoped
-  // to that subcontractor's own operatives only.
+  // company in a dropdown) — they stay out of the sign roster/count above.
   let ramsSubCompanies = [], ramsByCompany = {};
-  if(canAdd){
-    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
-    if(allSubCompanies.length){
-      const companyIds = allSubCompanies.map(c=>c.id).join(',');
-      const subRamsDocs = await dbSelect('rams_docs', 'subcontractor_company_id=in.('+companyIds+')&status=eq.current&order=uploaded_at.desc');
-      subRamsDocs.forEach(d=>{ (ramsByCompany[d.subcontractor_company_id]=ramsByCompany[d.subcontractor_company_id]||[]).push(d); });
-      ramsSubCompanies = allSubCompanies.filter(c=>(ramsByCompany[c.id]||[]).length);
-    }
+  if(canAdd && allSubCompanies.length){
+    const companyIds = allSubCompanies.map(c=>c.id).join(',');
+    const subRamsDocs = await dbSelect('rams_docs', 'subcontractor_company_id=in.('+companyIds+')&status=eq.current&order=uploaded_at.desc');
+    subRamsDocs.forEach(d=>{ (ramsByCompany[d.subcontractor_company_id]=ramsByCompany[d.subcontractor_company_id]||[]).push(d); });
+    ramsSubCompanies = allSubCompanies.filter(c=>(ramsByCompany[c.id]||[]).length);
   }
   const uploadForm = `
         <div class="formfield" style="margin-top:0;"><input type="text" id="ramsName" placeholder="Document name, e.g. Working at Height"></div>
@@ -27633,6 +27714,7 @@ async function renderRams(siteId){
     <div style="margin-top:22px;">${hsPolicyHtml}</div>
   `, {title:'RAMS', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(ramsPollTimer) clearInterval(ramsPollTimer);
   let ramsPollBusy = false;
   ramsPollTimer = setInterval(async ()=>{
@@ -28644,6 +28726,10 @@ window.ramsIssue = async function(siteId){
       const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:isRA?'Risk Assessment':'Method Statement', supersedes:prevId||null, sign_layout:out.signLayout});
       if(!rows || !rows[0]){ customAlert('Could not save the document.'); return; }
       if(prevId) await dbUpdate('rams_docs', prevId, {status:'superseded', superseded_by:rows[0].id});
+      // Remember the new document straight away, so if the next one fails a
+      // re-issue supersedes this one rather than leaving two "current".
+      const docKey = isRA ? 'ra_doc_id' : 'ms_doc_id';
+      if(await dbUpdate('rams_builds', b.id, {[docKey]: rows[0].id})) b[docKey] = rows[0].id;
       // Issuing it marks it issued straight away — by whoever issued it, with their signature.
       await dbInsert('rams_signatures', {rams_id:rows[0].id, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null});
       made.push([which, rows[0].id, name, isRA?'Risk Assessment':'Method Statement']);
@@ -28833,7 +28919,7 @@ function ramsLibTemplateEditHtml(it, lib){
   const group = (title, cls, rows) => `<details class="ramstplgrp" open><summary>${title} <span class="stub" style="display:inline;margin:0;">(<span>${rows.filter(r=>r.on).length}</span> ticked)</span></summary>
       <div style="margin:6px 0 4px;display:flex;gap:6px;"><button class="ghostbtn" style="width:auto;padding:4px 10px;font-size:11px;" onclick="document.querySelectorAll('.${cls}').forEach(c=>c.checked=true)">Tick all</button><button class="ghostbtn" style="width:auto;padding:4px 10px;font-size:11px;" onclick="document.querySelectorAll('.${cls}').forEach(c=>c.checked=false)">Untick all</button></div>
       ${rows.map(r=>box(cls, r.val, r.label, r.on, r.extra)).join('') || '<p class="stub" style="margin:4px 0;">None in the library yet.</p>'}</details>`;
-  const cust = (k, part) => custom(k).filter(o=> k!=='sections' || ((o.x.part==='method')===(part==='method'))).map(o=>({val:'custom:'+custom(k).indexOf(o), label:name(o.x), on:true, extra:' <span class="stub" style="display:inline;margin:0;">(saved from a job)</span>'}));
+  const cust = (k, part) => custom(k).map((o,j)=>({...o,j})).filter(o=> k!=='sections' || ((o.x.part==='method')===(part==='method'))).map(o=>({val:'custom:'+o.j, label:name(o.x), on:true, extra:' <span class="stub" style="display:inline;margin:0;">(saved from a job)</span>'}));
   const hz = libH.map(i=>({val:i.title, label:i.title, on:inTpl('hazards', i.title)})).concat(cust('hazards'));
   const sg = libS.filter(i=>(i.data||{}).part!=='method').map(i=>({val:i.title, label:i.title, on:inTpl('sections', i.title)})).concat(cust('sections','general'));
   const sm = libS.filter(i=>(i.data||{}).part==='method').map(i=>({val:i.title, label:i.title, on:inTpl('sections', i.title)})).concat(cust('sections','method'));
@@ -29183,7 +29269,7 @@ window.coshhMakeAssessment = async function(productId, saveFirst){
   toast('Building the COSHH assessment…');
   const ok = await coshhSaveAssessment(it, folderId);
   if(!ok){ toast('Could not build or save it — try again'); return; }
-  coshhEd = null; coshhLibTab = 'assess'; coshhLibFolderId = folderId || null;
+  coshhEd = null; coshhLibTab = 'assess'; coshhLibFolderId = Array.isArray(folderId) ? (folderId.filter(Boolean)[0]||null) : (folderId || null);
   toast('Saved to the COSHH Library — add it to jobs from there');
   go('#/coshh-substances');
 };
@@ -29760,7 +29846,7 @@ async function renderExpenses(siteId){
         ${isFullManager(ME) && r.created_by!==ME.id ? `<p class="stub" style="margin:0 0 6px;">Sent by ${escapeHtml(nameOf(r.created_by))}</p>` : ''}
         <p class="stub" style="margin:0 0 8px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
+          ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}',false,'${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
           ${r.emailed_at && (r.created_by===ME.id || isFullManager(ME)) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="expResendSent('${r.batch_id}','${r.id}',${nf})">✉️ Resend</button>` : ''}
           ${isFullManager(ME) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;color:var(--warn);" onclick="expDelete('${r.id}')">🗑 Delete</button>` : ''}
         </div>
@@ -30335,7 +30421,7 @@ async function renderSignTemplates(){
           </div>
           ${rowActionsMenuHtml('signtpl-'+tp.id, `
             ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;ramsBoxEd=null;go('#/sign-templates/${tp.id}')">✍ Set / edit boxes</div>` : ''}
-            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();viewDrawing('${publicUrl('rams-docs', tp.storage_path)}','${jsAttr(tp.file_name||tp.name+'.pdf')}')">👁 View sample</div>` : ''}
+            ${tp.storage_path ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();viewDrawing('${publicUrl('rams-docs', tp.storage_path)}',false,'${jsAttr(tp.file_name||tp.name+'.pdf')}')">👁 View sample</div>` : ''}
             <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;renameSignTemplate('${tp.id}','${jsAttr(tp.name)}')">✎ Rename</div>
             <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteSignTemplate('${tp.id}')">🗑 Delete</div>
           `)}
@@ -30538,8 +30624,8 @@ window.deleteRams = async function(ramsId, storagePath){
   if(!await customConfirm('Delete this RAMS document and all its signatures? This can\'t be undone.')) return;
   const rows = await dbSelect('rams_docs', 'id=eq.'+ramsId+'&select=site_id,name');
   const ramsRow = rows[0];
-  try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('rams_docs', ramsId);
+  if(ok){ try{ await sbFetch('/storage/v1/object/rams-docs/'+storagePath, {method:'DELETE'}); }catch(e){} }
   if(ok){ toast('RAMS document deleted'); if(ramsRow) logSiteActivity(ramsRow.site_id, 'rams_deleted', `Deleted RAMS document "${ramsRow.name||''}"`); render(); }
 };
 // PM/admin-only: pushes a "please sign" notification to every operative on
@@ -30734,15 +30820,17 @@ async function renderCoshh(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
-  await loadAllProfiles();
-  const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
+  const [cData, allSubCompanies] = await Promise.all([
+    loadAllProfiles().then(()=>fetchCoshhData(siteId)),
+    canAdd ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc') : [],
+  ]);
+  const {docs, sigsByDoc, assignedIds} = cData;
   const unsignedCoshhCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
   const signedCoshhCount = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0).length;
   // Completed subcontractor COSHH — same read-only dropdown-per-company
   // pattern as Subcontractor RAMS/Inspections above.
   let coshhSubCompanies = [], coshhByCompany = {};
   if(canAdd){
-    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
     if(allSubCompanies.length){
       const companyIds = allSubCompanies.map(c=>c.id).join(',');
       const subCoshhDocs = await dbSelect('coshh_docs', 'subcontractor_company_id=in.('+companyIds+')&order=uploaded_at.desc');
@@ -30834,6 +30922,7 @@ async function renderCoshh(siteId){
     ` : ''}
   `, {title:'COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(coshhPollTimer) clearInterval(coshhPollTimer);
   let coshhPollBusy = false;
   coshhPollTimer = setInterval(async ()=>{
@@ -31028,8 +31117,8 @@ window.deleteCoshh = async function(coshhId, storagePath){
   if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
   const rows = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=site_id,name');
   const coshhRow = rows[0];
-  try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('coshh_docs', coshhId);
+  if(ok){ try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){} }
   if(ok){ toast('COSHH document deleted'); if(coshhRow) logSiteActivity(coshhRow.site_id, 'coshh_deleted', `Deleted COSHH document "${coshhRow.name||''}"`); render(); }
 };
 // PM/admin-only: same "Ask Outstanding to Sign" push as RAMS, but for COSHH.
@@ -31604,7 +31693,8 @@ async function renderPpe(siteId){
   const siteOperatives = allOperatives.filter(p=>assignedIds.has(p.id));
 
   const [allIssuances, allRequests] = await Promise.all([
-    dbSelect('ppe_issuances', canManage ? 'order=issued_at.desc' : 'user_id=eq.'+ME.id+'&order=issued_at.desc'),
+    // Managers only need this job's operatives (used to fetch the whole company's history every time).
+    dbSelect('ppe_issuances', canManage ? (siteOperatives.length ? 'user_id=in.('+siteOperatives.map(p=>p.id).join(',')+')&order=issued_at.desc' : 'id=is.null') : 'user_id=eq.'+ME.id+'&order=issued_at.desc'),
     dbSelect('ppe_requests', canManage ? 'site_id=eq.'+siteId+'&order=created_at.desc' : 'user_id=eq.'+ME.id+'&order=created_at.desc'),
   ]);
 
@@ -31817,7 +31907,7 @@ window.exportPpeSiteReport = async function(siteId){
   let operatives = Object.values(PROFILES).filter(p=>p.role==='operative' && assignedIds.has(p.id));
   if(ppeExportOperativeIds.length) operatives = operatives.filter(p=>ppeExportOperativeIds.includes(p.id));
   if(!operatives.length){ toast('No operatives to export.'); return; }
-  const allIssuances = await dbSelect('ppe_issuances', 'order=issued_at.desc');
+  const allIssuances = await dbSelect('ppe_issuances', 'user_id=in.('+operatives.map(p=>p.id).join(',')+')&order=issued_at.desc');
   const data = [];
   operatives.forEach(op=>{
     const history = allIssuances.filter(i=>i.user_id===op.id);
@@ -31979,8 +32069,10 @@ window.shiftHavsWeek = async function(dir, siteId){
   render();
 };
 function havsWeekDates(offset){
-  const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
-  return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
+  // Calendar-day maths (not fixed 24h blocks) so weeks either side of a
+  // clock change still start on the Monday.
+  const ws = new Date(startOfWeek(Date.now())); ws.setDate(ws.getDate()+offset*7);
+  return [0,1,2,3,4].map(i => { const d = new Date(ws); d.setDate(d.getDate()+i); return d; });
 }
 // Same as havsWeekDates but from an explicit Monday (YYYY-MM-DD) rather than
 // an offset from today — used by the Completed HAVS tab to re-export/email
@@ -32594,7 +32686,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   }
 
   newPage();
-  let weeklyPoints = 0;
+  let weeklyPoints = 0, maxDayPoints = 0;
   for(let di=0; di<days.length; di++){
     const d = days[di];
     const dateStr = localISODate(d);
@@ -32614,6 +32706,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
       drawRow([i===0?dayLabel:'', tool?titleCaseWords(tool.name):'(removed tool)', mag.toFixed(1), e.minutes, a8.toFixed(2), pts.toFixed(1)]);
     });
     weeklyPoints += dayPoints;
+    maxDayPoints = Math.max(maxDayPoints, dayPoints);
     const dayColor = dayPoints>=400 ? RED : dayPoints>=100 ? AMBER : GREEN;
     drawRow(['', '', '', '', 'Daily total:', dayPoints.toFixed(1)+' pts'], {bold:true, color:dayColor});
   }
@@ -32627,7 +32720,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   ensureRoom(12);
   page.drawText('(informational — limits are daily)', {x:colX(4)+6, y:y-6, size:4.25, font:italic, color:SLATE});
   y -= 12;
-  if(weeklyPoints < 500){
+  if(maxDayPoints < 100){
     ensureRoom(20);
     const boxH = 18;
     page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:PDFLib.rgb(0.91,0.97,0.93)});
@@ -33266,7 +33359,7 @@ const PUWER_QUESTIONS = [
 ];
 let puwerWeekOffset = 0;
 window.shiftPuwerWeek = function(dir){ puwerWeekOffset += dir; render(); };
-function puwerWeekStartDate(offset){ return new Date(startOfWeek(Date.now()) + offset*7*24*60*60*1000); }
+function puwerWeekStartDate(offset){ const d = new Date(startOfWeek(Date.now())); d.setDate(d.getDate()+offset*7); return d; }
 function puwerWeekStartISO(offset){ return localISODate(puwerWeekStartDate(offset)); }
 function puwerWeekLabel(offset){
   const start = puwerWeekStartDate(offset);
@@ -35145,9 +35238,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
     try{
       const built = await buildSignedToolboxTalkPdfBytes(id);
       if(!built){ skipped++; continue; }
-      let binary=''; const chunk=0x8000;
-      for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
-      attachments.push({filename: built.filename, content: btoa(binary)});
+      attachments.push({name: built.filename, bytes: built.outBytes});
       titles.push(built.talk.title);
     }catch(e){ console.error(e); skipped++; }
   }
@@ -35157,12 +35248,11 @@ window.confirmEmailSelectedTbts = async function(siteId){
     return;
   }
   if(btn) btn.textContent = 'Sending…';
-  const site = SITES.find(s=>s.id===siteId);
   try{
-    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients:[email], site_name: site?site.name:'', tbt_titles: titles, attachments,
-    })});
-    const d = await res.json();
+    // Each PDF is uploaded and sent as its own attachment (big talks used to
+    // fail when posted inside the request).
+    const d = await emailPdfsSeparately({siteId, parts: attachments, title: attachments.length===1 ? 'Toolbox Talk' : 'Toolbox Talks', to: email});
+    const res = {ok: d.ok};
     if(res.ok && !d.error){
       const skipNote = skipped ? `<p class="stub" style="margin:0 0 12px;color:var(--warn);">${skipped} selected talk${skipped>1?'s were':' was'} skipped — no signatures yet.</p>` : '';
       const card = document.querySelector('#tbtEmailModalOverlay .geo-modal-card');
@@ -35170,7 +35260,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
         card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">${attachments.length} Toolbox Talk PDF${attachments.length>1?'s':''} emailed to ${escapeHtml(email)}.</p>${skipNote}<button class="darkbtn" style="width:100%;" onclick="closeTbtEmailPrompt();selectedTbtIds=new Set();render()">Done</button>`;
       } else { selectedTbtIds = new Set(); render(); }
     } else {
-      console.error('send-tbt-completion failed:', d.error || res.status);
+      console.error('TBT email failed:', d.error);
       toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
       if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     }
@@ -35923,7 +36013,7 @@ async function renderOperativeMaterials(siteId){
   // show as received for the rest of that day.
   const twoWeeksAgo = localISODate(new Date(Date.now()-14*864e5));
   coming = (coming||[]).filter(m=>(m.status==='sent' || m.merchant || m.sent_at) && m.fulfilment!=='collection'
-    && (m.grn ? String(m.grn.at||'').slice(0,10)===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
+    && (m.grn ? (m.grn.at ? localISODate(new Date(m.grn.at)) : '')===todayIso : (!m.required_for_delivery || m.required_for_delivery>=twoWeeksAgo))).slice(0,20);
   const supName = id => { const s=(suppliers||[]).find(x=>x.id===id); return s ? s.name : null; };
   const fmt = d => d ? new Date(String(d).length===10 ? d+'T00:00:00' : d).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}) : '';
   // Group pick-ups by merchant so one trip reads as one card.
@@ -37945,7 +38035,9 @@ window.reopenSelectedMaterials = async function(siteId){
   const ids = Array.from(selectedMaterialIds);
   if(!ids.length) return;
   if(!await customConfirm('Reopen '+ids.length+' closed order'+(ids.length>1?'s':'')+'? They go back to the Live/Pending tab.', {confirmLabel:'Yes — reopen'})) return;
-  const results = await Promise.all(ids.map(id=>dbUpdate('materials', id, {status:'sent'})));
+  const curRows = await dbSelect('materials', 'id=in.('+ids.join(',')+')&select=id,merchant,sent_at,supplier_id,email_sent_at');
+  const ordered = new Set(curRows.filter(m=>m.merchant||m.sent_at||m.email_sent_at||m.supplier_id).map(m=>m.id));
+  const results = await Promise.all(ids.map(id=>dbUpdate('materials', id, {status: ordered.has(id) ? 'sent' : 'pending'})));
   const done = results.filter(Boolean).length;
   clearMaterialSelection();
   toast(done===ids.length ? done+' order'+(done>1?'s':'')+' reopened' : done+' of '+ids.length+' reopened — the rest could not be changed.');
@@ -38028,7 +38120,9 @@ window.reopenMaterial = async function(siteId, matId){
   // Reopened requests go back to 'sent' (not 'pending') when they'd already
   // been ordered, so the merchant/email history stays visible and it lands
   // back in the Live tab rather than looking like a brand new request.
-  const row = await dbUpdate('materials', matId, {status:'sent'});
+  const cur = (await dbSelect('materials', 'id=eq.'+matId+'&select=merchant,sent_at,supplier_id,email_sent_at'))[0] || {};
+  const wasOrdered = !!(cur.merchant || cur.sent_at || cur.email_sent_at || cur.supplier_id);
+  const row = await dbUpdate('materials', matId, {status: wasOrdered ? 'sent' : 'pending'});
   if(row){ toast('Material request reopened'); render(); }
 };
 // Re-email popup: shows the address it was originally sent to (from the
@@ -38629,7 +38723,7 @@ function calRecurrenceOccurrences(startDateStr, freq, siteObj){
   if(!freq || freq==='none' || !startDateStr) return [startDateStr];
   const maxCount = 60;
   const horizon = new Date(startDateStr+'T00:00:00'); horizon.setFullYear(horizon.getFullYear()+1);
-  const closedBoundary = siteObj && siteObj.closed_at ? siteObj.closed_at.slice(0,10) : null;
+  const closedBoundary = siteObj && siteObj.closed_at ? localISODate(new Date(siteObj.closed_at)) : null;
   const alreadyClosed = siteObj && siteStatusKey(siteObj)==='closed';
   const dates = [];
   let d = new Date(startDateStr+'T00:00:00');
@@ -38666,7 +38760,7 @@ async function renderSiteCalendar(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const mgr = isManager(ME);
   if(!calViewMode) calViewMode = calDefaultViewMode();
-  await loadAllProfiles();
+  const profP = loadAllProfiles();
   const numDays = CAL_VIEW_DAYS[calViewMode] || 14;
   const today = new Date(); today.setHours(0,0,0,0);
   const days = [];
@@ -38676,17 +38770,18 @@ async function renderSiteCalendar(siteId){
   const mr = monthMode ? calMonthRange() : null;
   const qStart = monthMode ? localISODate(mr.gridStart) : startStr;
   const endStr = monthMode ? localISODate(mr.gridEnd) : localISODate(days[days.length-1]);
-  const [events, assignments] = await Promise.all([
+  // All fetched together (used to be four waits one after another).
+  const [events, assignments, pmOptions, pmLeave] = await Promise.all([
     dbSelect('site_calendar_events', 'site_id=eq.'+siteId+'&event_date=gte.'+qStart+'&event_date=lte.'+endStr+'&order=event_date.asc,created_at.asc'),
     mgr ? dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id') : Promise.resolve([]),
+    mgr ? profP.then(()=>loadPMList()) : [],
+    profP.then(()=>hrSiteLeave(siteId, qStart, endStr)),
   ]);
-  const pmOptions = mgr ? await loadPMList() : [];
   const operativeOptions = mgr ? Object.values(PROFILES).filter(p=>assignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   const recipientOptions = [...pmOptions, ...operativeOptions];
   const eventsByDate = {};
   events.forEach(e=>{ (eventsByDate[e.event_date]=eventsByDate[e.event_date]||[]).push(e); });
   // #(hr) the project PM's approved time off, when they've linked it to project calendars
-  const pmLeave = await hrSiteLeave(siteId, qStart, endStr);
   pmLeave.forEach(l=>{ hrEachDay(l.start_date, l.end_date, ds=>{ if(!hrIsWorkingDay(ds)) return; (eventsByDate[ds]=eventsByDate[ds]||[]).push({_leave:true, id:'lv'+ds+l.user_id, title:`${l.name} off (${(l.code||'').toUpperCase()}${l.half?' ½ day':''})`, event_date:ds, is_private:false}); }); });
 
   // Shared Add/Edit form markup, reused both at the top of the page (opened
@@ -38878,7 +38973,8 @@ window.deleteCalEvent = async function(siteId, id, recurrenceGroupId, eventDate)
   const evRows = await dbSelect('site_calendar_events', 'id=eq.'+id+'&select=title');
   const evTitle = evRows[0] && evRows[0].title;
   if(recurrenceGroupId){
-    const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences? (Cancel deletes just this one date.)');
+    const whole = await customConfirm('This is part of a repeating series. Delete this AND all future occurrences?', {confirmLabel:'Delete this and all future', cancelLabel:'No — other options', danger:true});
+    if(!whole && !await customConfirm('Delete just this one date?', {confirmLabel:'Delete this date only', cancelLabel:'Cancel — keep it'})) return;
     if(whole){
       const res = await sbFetch('/rest/v1/site_calendar_events?recurrence_group_id=eq.'+recurrenceGroupId+'&event_date=gte.'+eventDate, {method:'DELETE'});
       if(res.ok){ toast('Series deleted'); logSiteActivity(siteId, 'calendar_event_deleted', `Deleted calendar event series "${evTitle||''}"`); render(); } else { toast('Delete failed — '+(await safeErr(res))); }
@@ -40347,6 +40443,7 @@ window.saveCoshhToLibraryHere = async function(siteId){
   if(!coshhSaveDocId) return;
   try{
     const srcRes = await fetch(publicUrl('coshh-docs', coshhSaveDocStoragePath));
+    if(!srcRes.ok){ toast('Could not download the document — check signal and try again.'); return; }
     const blob = await srcRes.blob();
     const path = ME.org_id+'/'+(coshhSaveFolderId||'root')+'/'+uid()+'-'+coshhSaveDocName.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('coshh-library', path, blob, 'application/pdf');
@@ -40484,6 +40581,7 @@ async function renderMessages(siteId){
   if(msgLastSiteId !== siteId){
     msgLastSiteId = siteId;
     msgActiveTab = 'fromTeam';
+    msgSelectedIds = new Set();
   }
   const fromTeamUnreadCount = fromTeam.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;
   const sentUnreadCount = broadcasts.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;
@@ -41627,7 +41725,7 @@ async function renderAdminDeliveriesHub(){
         <div class="icon" style="background:var(--warn-bg);color:var(--warn);">🚚</div>
         <div class="lbl">Delivery Schedule</div>
       </div>
-      <div class="tile" onclick="go('#/vehicle-checklists')">
+      <div class="tile" onclick="vehicleChecksBackHash='#/deliveries';go('#/vehicle-checklists')">
         <div class="icon" style="background:var(--blue-bg);color:var(--blue);">🚐</div>
         <div class="lbl">Vehicle Checklists</div>
       </div>
@@ -41795,7 +41893,7 @@ This document records the scope of works carried out, materials and systems inst
       {id:hoUid(), type:'materials', title:'3. Materials Log – Data & COSHH', columns:['Log No.','Element','Product','Manufacturer'], rows: matRows.length ? matRows : [['1','','','']], links: matRows.length ? matLinks : [[]]},
       {id:hoUid(), type:'table', title:'4. Guarantees & Warranties', columns:['Manufacturer / Item','Ref','Expiry','Maintenance'], rows: guars.length ? guars.map(g=>[g.provider ? g.provider+' – '+g.name.replace(/\.pdf$/i,'') : g.name.replace(/\.pdf$/i,''), g.ref||'', g.expiry_date ? hoFmtDate(g.expiry_date) : '', g.maintenance||'']) : [['','','','']], links: guars.length ? guars.map(g=>[{docId:g.id, name:g.name}]) : [[]]},
       {id:hoUid(), type:'maint', title:'5. Maintenance Procedures', items: maintItems},
-      {id:hoUid(), type:'table', title:'6. Specifications & Drawings', columns:['File Name','Ref','Date','Provider'], rows: drawings.filter(d=>d.status!=='superseded').map(d=>[d.name.replace(/\.[a-z0-9]+$/i,''), '', hoFmtDate((d.uploaded_at||'').slice(0,10)), '']).concat([['O&M Documentation', 'O&M '+(site.name||''), hoFmtDate(localISODate(new Date())), company]])},
+      {id:hoUid(), type:'table', title:'6. Specifications & Drawings', columns:['File Name','Ref','Date','Provider'], rows: drawings.filter(d=>d.status!=='superseded').map(d=>[d.name.replace(/\.[a-z0-9]+$/i,''), '', hoFmtDate((d.uploaded_at?localISODate(new Date(d.uploaded_at)):'')), '']).concat([['O&M Documentation', 'O&M '+(site.name||''), hoFmtDate(localISODate(new Date())), company]])},
       {id:hoUid(), type:'text', title:'7. Health & Safety Information', body:
 `Residual risks for anyone working on or maintaining the roof:
 • Working at height — use safe access and edge protection or a harness system; roof access by competent persons only.
@@ -42082,7 +42180,7 @@ window.hoAddAppendix = async function(cat){
     try{
       const subs = (await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=100&select=id,template_name,submitted_at,status,general_label')).filter(x=>x.status!=='in_progress');
       subs.sort((a,b)=>(/handover|completion|practical/i.test(b.template_name||'')?1:0)-(/handover|completion|practical/i.test(a.template_name||'')?1:0));
-      subs.forEach(x=>opts.push({v:'report', label:'📝 '+(x.template_name||'Report'), sub:'Submitted '+hoFmtDate((x.submitted_at||'').slice(0,10)), reportId:x.id, name:(x.template_name||'Report')+' – '+hoFmtDate((x.submitted_at||'').slice(0,10))}));
+      subs.forEach(x=>opts.push({v:'report', label:'📝 '+(x.template_name||'Report'), sub:'Submitted '+hoFmtDate((x.submitted_at?localISODate(new Date(x.submitted_at)):'')), reportId:x.id, name:(x.template_name||'Report')+' – '+hoFmtDate((x.submitted_at?localISODate(new Date(x.submitted_at)):''))}));
     }catch(e){}
   }
   hoSheet(cat==='sow' ? 'Add a Schedule of Works to the back' : 'Add a handover report to the back', `
@@ -42773,6 +42871,7 @@ async function renderSubApplication(id){
   const r = (await dbSelect('subcontractor_applications', 'id=eq.'+id))[0];
   if(__gen !== RENDER_GEN) return;
   if(!r){ toast('That application has gone.'); go('#/subapplications'); return; }
+  subAppOpenFiles = r.files || [];
   const d = r.data || {};
   const rows = Object.keys(SUBAPP_LABELS).filter(k=>d[k]!=null && subAppValue(d[k]).trim()!=='').map(k=>`<div class="subapp-r"><b>${escapeHtml(SUBAPP_LABELS[k])}</b><span>${escapeHtml(subAppValue(d[k])).replace(/\n/g,'<br>')}</span></div>`).join('');
   const st = {new:'New', approved:'Approved', rejected:'Rejected'}[r.status]||r.status;
@@ -42785,7 +42884,7 @@ async function renderSubApplication(id){
     </div>
     <div class="card">${rows || '<div class="empty">No other details.</div>'}</div>
     <div class="card"><p class="sectiontitle" style="margin-top:0;">Documents (${(r.files||[]).length})</p>
-      ${(r.files||[]).map(f=>`<div class="subapp-file" onclick="viewDrawing('${publicUrl('mc-documents', f.path)}', ${/\.(png|jpe?g|webp|gif)$/i.test(f.name||'')}, '${jsAttr(f.name||'Document')}')">📎 <b>${escapeHtml(f.label||'Document')}</b><span>${escapeHtml(f.name||'')}</span></div>`).join('') || '<div class="empty">None uploaded.</div>'}
+      ${(r.files||[]).map((f,fi)=>`<div class="subapp-file" onclick="openSubAppFile('${r.id}',${fi})">📎 <b>${escapeHtml(f.label||'Document')}</b><span>${escapeHtml(f.name||'')}</span></div>`).join('') || '<div class="empty">None uploaded.</div>'}
     </div>
     <div class="row-gap">
       ${r.status!=='approved' ? `<button class="darkbtn" style="flex:1;" onclick="decideSubApp('${r.id}','approved')">✓ Approve</button>` : ''}
@@ -42794,6 +42893,26 @@ async function renderSubApplication(id){
     ${isFullManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="deleteSubApp('${r.id}')">🗑 Delete application</button>` : ''}
   `, {title:r.company_name, subtitle:'Subcontractor application', back:'#/subapplications', tabs:false});
 }
+let subAppOpenFiles = [];
+// Documents sit in a private bucket — open them through a short-lived link.
+window.openSubAppFile = async function(appId, idx){
+  const f = subAppOpenFiles[idx]; if(!f || typeof f.path!=='string') return;
+  try{
+    if(f.bucket !== 'subcontractor-apps'){ viewDrawing(publicUrl('mc-documents', f.path), /\.(png|jpe?g|webp|gif)$/i.test(f.name||''), f.name||'Document'); return; }
+    await ensureFreshToken();
+    if(!SESSION || !SESSION.access_token){ toast('Please sign in again.'); return; }
+    const encPath = f.path.split('/').map(encodeURIComponent).join('/');
+    const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/sign/subcontractor-apps/'+encPath, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SESSION.access_token,'Content-Type':'application/json'}, body: JSON.stringify({expiresIn: 600})}, 20000);
+    const d = await res.json().catch(()=>({}));
+    const signed = d.signedURL || d.signedUrl;
+    if(!res.ok || !signed){ toast('Could not open that document.'); return; }
+    const url = SUPABASE_URL+'/storage/v1'+(signed.charAt(0)==='/'?'':'/')+signed;
+    const nm = f.name || 'Document';
+    if(/\.(png|jpe?g|gif|webp)$/i.test(nm)){ viewImage(url); return; }
+    if(/\.pdf$/i.test(nm)){ await viewPdfInApp(url, nm); return; }
+    await openExternalFile(url);
+  }catch(e){ toast('Could not open that document.'); }
+};
 window.decideSubApp = async function(id, status){
   const note = await customPrompt(status==='approved' ? 'Approve — add a note (optional)' : 'Reject — reason (optional)', '');
   if(note===null) return;
@@ -42826,10 +42945,7 @@ let deliveryScheduleBackHash = '#/team';
 async function resequenceSlot(dateISO, slotKey){
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+slotKey);
   rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
-  for(let i=0;i<rows.length;i++){
-    const want = rows.length>1 ? i+1 : null;
-    if(rows[i].sub_priority !== want){ await dbUpdate('delivery_tasks', rows[i].id, {sub_priority:want}); }
-  }
+  await Promise.all(rows.map((r,i)=>{ const want = rows.length>1 ? i+1 : null; return r.sub_priority !== want ? dbUpdate('delivery_tasks', r.id, {sub_priority:want}) : null; }));
 }
 window.moveDeliveryTask = async function(taskId, dir){
   const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
@@ -42859,7 +42975,7 @@ window.moveDeliveryTask = async function(taskId, dir){
       await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
     } else if(slotIdx < DELIVERY_TIME_SLOTS.length-1){
       const destSlot = DELIVERY_TIME_SLOTS[slotIdx+1].key;
-      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999}); // -999 = "goes first" until resequenceSlot renumbers it
+      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999, high_priority:false}); // a 1st DROP moved later is no longer first; -999 = "goes first" until resequenceSlot renumbers it
       await resequenceSlot(dateISO, oldSlot);
       await resequenceSlot(dateISO, destSlot);
     } else { toast('Already the last slot of the day.'); return; }
@@ -43175,14 +43291,18 @@ async function loadDeliveryFormSiteOperatives(siteId){
 let DELIVERY_FORM_SUPPLIERS = [];
 async function renderDeliveryForm(taskId){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
-  const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  const needTask = taskId && (!deliveryFormDraft || deliveryFormDraft._id !== taskId);
+  const [, suppliers, taskRows] = await Promise.all([
+    loadAllProfiles(),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'),
+    needTask ? dbSelect('delivery_tasks', 'id=eq.'+taskId) : null,
+  ]);
+  if(__gen !== RENDER_GEN) return; // they've moved on — don't overwrite the form they're on now
   DELIVERY_FORM_SUPPLIERS = suppliers;
   deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
   if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
     if(taskId){
-      const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
-      const t = rows[0];
+      const t = (taskRows || [])[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
       deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
@@ -43190,7 +43310,7 @@ async function renderDeliveryForm(taskId){
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
       if(DELIVERY_PREFILL){ Object.assign(deliveryFormDraft, DELIVERY_PREFILL); DELIVERY_PREFILL = null; }
     }
-    if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
+    if(taskId){ const t0 = (taskRows || [])[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
   if(deliveryFormDraft.site_id && siteIsMulti(deliveryFormDraft.site_id) && !SUB_ADDR_CACHE[deliveryFormDraft.site_id]) await loadSubAddrs(deliveryFormDraft.site_id);
@@ -43475,7 +43595,7 @@ window.saveDeliveryTask = async function(){
     photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
-    high_priority: !!d.high_priority,
+    high_priority: !!d.high_priority && (!DELIVERY_TIME_SLOTS[0] || d.time_slot===DELIVERY_TIME_SLOTS[0].key),
     double_slot: !!d.double_slot,
     driver_id: (d.driver_id && d.driver_id!=='none') ? d.driver_id : null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
@@ -43662,10 +43782,7 @@ async function dlvSaveOrder(taskId, fromSlot, toSlot, order){
   // number the drop in the order it now shows (1st DROP always stays at the top)
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+toSlot);
   rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (order.indexOf(a.id)<0?999:order.indexOf(a.id)) - (order.indexOf(b.id)<0?999:order.indexOf(b.id)));
-  for(let i=0;i<rows.length;i++){
-    const want = rows.length>1 ? i+1 : null;
-    if(rows[i].sub_priority !== want) await dbUpdate('delivery_tasks', rows[i].id, {sub_priority: want});
-  }
+  await Promise.all(rows.map((r,i)=>{ const want = rows.length>1 ? i+1 : null; return r.sub_priority !== want ? dbUpdate('delivery_tasks', r.id, {sub_priority:want}) : null; }));
   if(fromSlot && fromSlot !== toSlot) await resequenceSlot(dateISO, fromSlot);
   if(t.calendar_event_id && toSlot !== fromSlot){ /* same day — calendar date unchanged */ }
   toast(toSlot!==fromSlot ? 'Moved to the '+((DELIVERY_TIME_SLOTS.find(s=>s.key===toSlot)||{}).label||toSlot) : 'Order saved');
@@ -44159,9 +44276,9 @@ async function renderRoute(){
       // Asbestos/F10 underneath the single "Main Contractor" tile on Home.
       return renderMcHome(siteId);
     }
+    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if(page==='ppe') return renderPpe(siteId);
     if(page==='materials') return renderMaterials(siteId);
-    if(page==='ppe' && !canSeeTile(SITES.find(x=>x.id===siteId), 'hs_ppe')){ go('#/site/'+siteId+'/hs'); return; }
     if((page==='expenses' || page==='plant') && !canSeeMatTile(SITES.find(x=>x.id===siteId), page)){ go('#/site/'+siteId+'/materials'); return; }
     if(page==='expenses') return renderExpenses(siteId);
     if(page==='activity'){ if(!isManager(ME)){ go(`#/site/${siteId}/home`); return; } return renderSiteActivity(siteId); }
@@ -44221,7 +44338,14 @@ async function renderRoute(){
 
 // Double-tap protection: while one of these saves is still running, a
 // second tap on the same button is ignored instead of creating a duplicate.
-['addSnag','submitVariation','addMcDocument','uploadOperativeCert','uploadManualPersonCert','confirmScheduleImport','submitIncidentReport','sendBroadcast','addSubCoshh','addHavsTool','addPriceRateItem'].forEach(name=>{
+['addSnag','submitVariation','addMcDocument','uploadOperativeCert','uploadManualPersonCert','confirmScheduleImport','submitIncidentReport','sendBroadcast','addSubCoshh','addHavsTool','addPriceRateItem',
+ // Deep-dive 17 Oct 2026: more saves that create records and could be
+ // double-tapped while a slow upload / PDF build was still running.
+ 'hrSaveBooking','hrSignAllPolicies','hrSignHandbook','addSite','addRepairJob','addOperativeToolFor','addManualCertPerson','startBulkImportRepairJobs',
+ 'addTodo','addTask','addSection','confirmPdfImport','useScheduleLibraryTemplate','doCheckAction','doCheckActionSub','createNewTemplate',
+ 'submitSiteInduction','addRams','coshhIssue','ramsCreate','ramsIssue','submitIssuePermit','confirmSendMaterial','confirmSendGroupedMaterial',
+ 'startBriefing','addCalEvent','completeMaterialRequiredList','setToolboxTalkStatus','issueToolboxTalkCompanyWide','importSelectedDrawings',
+ 'saveCoshhToLibraryHere','sendMessageReply','hoNewManual','saveDeliveryTask'].forEach(name=>{
   const original = window[name];
   if(typeof original !== 'function') return;
   let running = false;

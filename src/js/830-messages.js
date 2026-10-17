@@ -125,6 +125,7 @@ async function renderMessages(siteId){
   if(msgLastSiteId !== siteId){
     msgLastSiteId = siteId;
     msgActiveTab = 'fromTeam';
+    msgSelectedIds = new Set();
   }
   const fromTeamUnreadCount = fromTeam.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;
   const sentUnreadCount = broadcasts.filter(m=>unreadMsgIds.has(m.id) || (repliesByParent[m.id]||[]).some(r=>unreadMsgIds.has(r.id))).length;

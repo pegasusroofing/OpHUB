@@ -47,9 +47,9 @@ function mcTileHtml(key, href, icon, lbl, sub, canAdd, hidden, siteId){
 // nowhere else.
 async function getMcTiles(siteId, site){
   const canAdd = isManager(ME);
-  const counts = await dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category');
-  const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
-  const [companies, inductionAssigned, inductionDone, openPermits, mcInspectionTemplates, layoutRows] = await Promise.all([
+  const [counts, mcProgrammeFolder, companies, inductionAssignedAll, inductionDone, openPermits, mcInspectionTemplates, layoutRows] = await Promise.all([
+    dbSelect('mc_documents', 'site_id=eq.'+siteId+'&category=neq.site_inductions&select=category'),
+    dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id'),
     dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id'),
     dbSelect('site_assignments', 'site_id=eq.'+siteId+'&select=user_id'),
     dbSelect('site_induction_completions', 'site_id=eq.'+siteId+'&select=operative_id'),
@@ -57,21 +57,21 @@ async function getMcTiles(siteId, site){
     dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&is_mc_inspection=eq.true&archived=eq.false&select=id'),
     dbSelect('site_layout_docs', 'site_id=eq.'+siteId+'&select=id'),
   ]);
+  const countByCat = {}; counts.forEach(c=>{ countByCat[c.category] = (countByCat[c.category]||0)+1; });
+  const inductionAssigned = inductionAssignedAll.filter(a=>!PROFILES[a.user_id] || PROFILES[a.user_id].role==='operative');
   const inductionSub = inductionAssigned.length ? `${inductionDone.length} of ${inductionAssigned.length} inducted` : `${inductionDone.length} completed`;
   const permitsSub = openPermits.length ? `${openPermits.length} open` : 'None open';
-  let mcInspectionsCount = 0;
-  if(mcInspectionTemplates.length){
-    const ids = mcInspectionTemplates.map(t=>t.id).join(',');
-    const subs = await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+ids+')&select=id');
-    mcInspectionsCount = subs.length;
-  }
+  const [inspSubs, mcProgFiles] = await Promise.all([
+    mcInspectionTemplates.length ? dbSelect('report_submissions', 'site_id=eq.'+siteId+'&template_id=in.('+mcInspectionTemplates.map(t=>t.id).join(',')+')&select=id') : [],
+    mcProgrammeFolder && mcProgrammeFolder[0] ? dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+mcProgrammeFolder[0].id+'&status=eq.current&select=id') : [],
+  ]);
+  const mcInspectionsCount = inspSubs.length;
   const inspectionsSub = mcInspectionsCount ? `${mcInspectionsCount} logged` : (mcInspectionTemplates.length ? 'None logged yet' : 'Set up templates');
   // Main Contractor's own Programme — a separate document to the site's
   // general Programme (different main contractors can be running different
   // programmes), so it's counted from its own dedicated root folder rather
   // than the one under Drawings, Spec's & Programme.
-  const mcProgrammeFolder = await dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&parent_id=is.null&name=eq.Main Contractor Programme&select=id');
-  const mcProgrammeCount = mcProgrammeFolder && mcProgrammeFolder[0] ? (await dbSelect('drawing_files', 'site_id=eq.'+siteId+'&folder_id=eq.'+mcProgrammeFolder[0].id+'&status=eq.current&select=id')).length : 0;
+  const mcProgrammeCount = mcProgFiles.length;
   const hiddenSet = new Set((site && site.mc_hidden_tiles) || []);
   const tiles = [
     {key:'cpp', href:`#/site/${siteId}/mc/cpp`, icon:MC_CATEGORY_ICON.cpp, lbl:MC_CATEGORY_LABEL.cpp, sub:`${countByCat.cpp||0} document${(countByCat.cpp||0)===1?'':'s'}`},

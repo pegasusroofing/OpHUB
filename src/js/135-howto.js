@@ -25,7 +25,7 @@ const HOWTO = {
 };
 function howtoKeyForRoute(){
   const p = parseRoute();
-  if(!p.length) return isManager(ME) ? null : 'sites';
+  if(!p.length) return (usesPmHome(ME) || usesOpHome(ME)) ? 'home' : (isManager(ME) ? null : 'sites');
   if(p[0]==='site' && p[1]){
     const pg = p[2] || 'home';
     if(pg==='home') return 'site_home';

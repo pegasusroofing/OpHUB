@@ -168,15 +168,17 @@ async function renderCoshh(siteId){
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
   const isClientView = ME.role==='client';
-  await loadAllProfiles();
-  const {docs, sigsByDoc, assignedIds} = await fetchCoshhData(siteId);
+  const [cData, allSubCompanies] = await Promise.all([
+    loadAllProfiles().then(()=>fetchCoshhData(siteId)),
+    canAdd ? dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc') : [],
+  ]);
+  const {docs, sigsByDoc, assignedIds} = cData;
   const unsignedCoshhCount = docs.filter(r=>!(sigsByDoc[r.id]||[]).some(s=>s.user_id===ME.id)).length;
   const signedCoshhCount = docs.filter(r=>(sigsByDoc[r.id]||[]).length>0).length;
   // Completed subcontractor COSHH — same read-only dropdown-per-company
   // pattern as Subcontractor RAMS/Inspections above.
   let coshhSubCompanies = [], coshhByCompany = {};
   if(canAdd){
-    const allSubCompanies = await dbSelect('subcontractor_companies', 'site_id=eq.'+siteId+'&select=id,name&order=name.asc');
     if(allSubCompanies.length){
       const companyIds = allSubCompanies.map(c=>c.id).join(',');
       const subCoshhDocs = await dbSelect('coshh_docs', 'subcontractor_company_id=in.('+companyIds+')&order=uploaded_at.desc');
@@ -268,6 +270,7 @@ async function renderCoshh(siteId){
     ` : ''}
   `, {title:'COSHH', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs`, siteId, activeTab:'more'}); }
 
+  if(__gen !== RENDER_GEN) return;
   if(coshhPollTimer) clearInterval(coshhPollTimer);
   let coshhPollBusy = false;
   coshhPollTimer = setInterval(async ()=>{
@@ -462,8 +465,8 @@ window.deleteCoshh = async function(coshhId, storagePath){
   if(!await customConfirm('Delete this COSHH document and all its signatures? This can\'t be undone.')) return;
   const rows = await dbSelect('coshh_docs', 'id=eq.'+coshhId+'&select=site_id,name');
   const coshhRow = rows[0];
-  try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){}
   const ok = await dbDelete('coshh_docs', coshhId);
+  if(ok){ try{ await sbFetch('/storage/v1/object/coshh-docs/'+storagePath, {method:'DELETE'}); }catch(e){} }
   if(ok){ toast('COSHH document deleted'); if(coshhRow) logSiteActivity(coshhRow.site_id, 'coshh_deleted', `Deleted COSHH document "${coshhRow.name||''}"`); render(); }
 };
 // PM/admin-only: same "Ask Outstanding to Sign" push as RAMS, but for COSHH.

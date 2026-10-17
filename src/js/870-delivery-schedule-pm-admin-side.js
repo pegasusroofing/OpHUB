@@ -19,10 +19,7 @@ let deliveryScheduleBackHash = '#/team';
 async function resequenceSlot(dateISO, slotKey){
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+slotKey);
   rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
-  for(let i=0;i<rows.length;i++){
-    const want = rows.length>1 ? i+1 : null;
-    if(rows[i].sub_priority !== want){ await dbUpdate('delivery_tasks', rows[i].id, {sub_priority:want}); }
-  }
+  await Promise.all(rows.map((r,i)=>{ const want = rows.length>1 ? i+1 : null; return r.sub_priority !== want ? dbUpdate('delivery_tasks', r.id, {sub_priority:want}) : null; }));
 }
 window.moveDeliveryTask = async function(taskId, dir){
   const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
@@ -52,7 +49,7 @@ window.moveDeliveryTask = async function(taskId, dir){
       await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
     } else if(slotIdx < DELIVERY_TIME_SLOTS.length-1){
       const destSlot = DELIVERY_TIME_SLOTS[slotIdx+1].key;
-      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999}); // -999 = "goes first" until resequenceSlot renumbers it
+      await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999, high_priority:false}); // a 1st DROP moved later is no longer first; -999 = "goes first" until resequenceSlot renumbers it
       await resequenceSlot(dateISO, oldSlot);
       await resequenceSlot(dateISO, destSlot);
     } else { toast('Already the last slot of the day.'); return; }
@@ -368,14 +365,18 @@ async function loadDeliveryFormSiteOperatives(siteId){
 let DELIVERY_FORM_SUPPLIERS = [];
 async function renderDeliveryForm(taskId){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
-  const suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc');
+  const needTask = taskId && (!deliveryFormDraft || deliveryFormDraft._id !== taskId);
+  const [, suppliers, taskRows] = await Promise.all([
+    loadAllProfiles(),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'),
+    needTask ? dbSelect('delivery_tasks', 'id=eq.'+taskId) : null,
+  ]);
+  if(__gen !== RENDER_GEN) return; // they've moved on — don't overwrite the form they're on now
   DELIVERY_FORM_SUPPLIERS = suppliers;
   deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
   if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
     if(taskId){
-      const rows = await dbSelect('delivery_tasks', 'id=eq.'+taskId);
-      const t = rows[0];
+      const t = (taskRows || [])[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
       deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
@@ -383,7 +384,7 @@ async function renderDeliveryForm(taskId){
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
       if(DELIVERY_PREFILL){ Object.assign(deliveryFormDraft, DELIVERY_PREFILL); DELIVERY_PREFILL = null; }
     }
-    if(taskId){ const t0 = (await dbSelect('delivery_tasks','id=eq.'+taskId+'&select=sub_site_id'))[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
+    if(taskId){ const t0 = (taskRows || [])[0]; deliveryFormDraft.sub_site_id = (t0 && t0.sub_site_id) || ''; }
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
   if(deliveryFormDraft.site_id && siteIsMulti(deliveryFormDraft.site_id) && !SUB_ADDR_CACHE[deliveryFormDraft.site_id]) await loadSubAddrs(deliveryFormDraft.site_id);
@@ -668,7 +669,7 @@ window.saveDeliveryTask = async function(){
     photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
     time_slot: d.time_slot,
-    high_priority: !!d.high_priority,
+    high_priority: !!d.high_priority && (!DELIVERY_TIME_SLOTS[0] || d.time_slot===DELIVERY_TIME_SLOTS[0].key),
     double_slot: !!d.double_slot,
     driver_id: (d.driver_id && d.driver_id!=='none') ? d.driver_id : null,
     needs_completing: false, // saving the full form — whether new or a quick-added stub being properly filled in — means it's no longer "needs completing"
@@ -855,10 +856,7 @@ async function dlvSaveOrder(taskId, fromSlot, toSlot, order){
   // number the drop in the order it now shows (1st DROP always stays at the top)
   const rows = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+toSlot);
   rows.sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (order.indexOf(a.id)<0?999:order.indexOf(a.id)) - (order.indexOf(b.id)<0?999:order.indexOf(b.id)));
-  for(let i=0;i<rows.length;i++){
-    const want = rows.length>1 ? i+1 : null;
-    if(rows[i].sub_priority !== want) await dbUpdate('delivery_tasks', rows[i].id, {sub_priority: want});
-  }
+  await Promise.all(rows.map((r,i)=>{ const want = rows.length>1 ? i+1 : null; return r.sub_priority !== want ? dbUpdate('delivery_tasks', r.id, {sub_priority:want}) : null; }));
   if(fromSlot && fromSlot !== toSlot) await resequenceSlot(dateISO, fromSlot);
   if(t.calendar_event_id && toSlot !== fromSlot){ /* same day — calendar date unchanged */ }
   toast(toSlot!==fromSlot ? 'Moved to the '+((DELIVERY_TIME_SLOTS.find(s=>s.key===toSlot)||{}).label||toSlot) : 'Order saved');

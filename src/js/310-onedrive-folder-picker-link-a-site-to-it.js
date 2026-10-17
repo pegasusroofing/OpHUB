@@ -78,7 +78,8 @@ window.manualSyncSiteOneDrive = async function(siteId){
   }catch(e){ toast('Sync failed — could not reach the server.'); }
   siteOdSyncBusy = null; render();
 };
-window.startOneDriveFolderPicker = function(siteId, target){
+window.startOneDriveFolderPicker = function(siteId, target, returnHash){
+  odPickerReturnHash = returnHash || null; // only the Admin › Integrations button passes one
   odPickerTarget = target || 'progress';
   odPickerStack = [{id:null, name:'OneDrive', driveId:null}];
   odPickerFolders = [];

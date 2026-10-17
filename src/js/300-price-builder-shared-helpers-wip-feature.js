@@ -125,9 +125,10 @@ function checkinLogRange(mode, offset){
     return {start, end, label};
   }
   const thisWeekStart = startOfWeek(Date.now());
-  const start = thisWeekStart + offset*7*24*60*60*1000;
-  const end = start + 7*24*60*60*1000;
-  const endDisplay = new Date(end - 24*60*60*1000);
+  const sd = new Date(thisWeekStart); sd.setDate(sd.getDate()+offset*7);
+  const ed = new Date(sd); ed.setDate(ed.getDate()+7);
+  const start = sd.getTime(), end = ed.getTime();
+  const endDisplay = new Date(ed); endDisplay.setDate(endDisplay.getDate()-1);
   const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
   return {start, end, label};
 }
@@ -203,9 +204,10 @@ function ppeLogRange(mode, offset){
     return {start, end, label};
   }
   const thisWeekStart = startOfWeek(Date.now());
-  const start = thisWeekStart + offset*7*24*60*60*1000;
-  const end = start + 7*24*60*60*1000;
-  const endDisplay = new Date(end - 24*60*60*1000);
+  const sd = new Date(thisWeekStart); sd.setDate(sd.getDate()+offset*7);
+  const ed = new Date(sd); ed.setDate(ed.getDate()+7);
+  const start = sd.getTime(), end = ed.getTime();
+  const endDisplay = new Date(ed); endDisplay.setDate(endDisplay.getDate()-1);
   const label = `${new Date(start).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})} – ${endDisplay.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}`;
   return {start, end, label};
 }

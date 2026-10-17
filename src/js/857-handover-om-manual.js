@@ -159,7 +159,7 @@ This document records the scope of works carried out, materials and systems inst
       {id:hoUid(), type:'materials', title:'3. Materials Log – Data & COSHH', columns:['Log No.','Element','Product','Manufacturer'], rows: matRows.length ? matRows : [['1','','','']], links: matRows.length ? matLinks : [[]]},
       {id:hoUid(), type:'table', title:'4. Guarantees & Warranties', columns:['Manufacturer / Item','Ref','Expiry','Maintenance'], rows: guars.length ? guars.map(g=>[g.provider ? g.provider+' – '+g.name.replace(/\.pdf$/i,'') : g.name.replace(/\.pdf$/i,''), g.ref||'', g.expiry_date ? hoFmtDate(g.expiry_date) : '', g.maintenance||'']) : [['','','','']], links: guars.length ? guars.map(g=>[{docId:g.id, name:g.name}]) : [[]]},
       {id:hoUid(), type:'maint', title:'5. Maintenance Procedures', items: maintItems},
-      {id:hoUid(), type:'table', title:'6. Specifications & Drawings', columns:['File Name','Ref','Date','Provider'], rows: drawings.filter(d=>d.status!=='superseded').map(d=>[d.name.replace(/\.[a-z0-9]+$/i,''), '', hoFmtDate((d.uploaded_at||'').slice(0,10)), '']).concat([['O&M Documentation', 'O&M '+(site.name||''), hoFmtDate(localISODate(new Date())), company]])},
+      {id:hoUid(), type:'table', title:'6. Specifications & Drawings', columns:['File Name','Ref','Date','Provider'], rows: drawings.filter(d=>d.status!=='superseded').map(d=>[d.name.replace(/\.[a-z0-9]+$/i,''), '', hoFmtDate((d.uploaded_at?localISODate(new Date(d.uploaded_at)):'')), '']).concat([['O&M Documentation', 'O&M '+(site.name||''), hoFmtDate(localISODate(new Date())), company]])},
       {id:hoUid(), type:'text', title:'7. Health & Safety Information', body:
 `Residual risks for anyone working on or maintaining the roof:
 • Working at height — use safe access and edge protection or a harness system; roof access by competent persons only.
@@ -446,7 +446,7 @@ window.hoAddAppendix = async function(cat){
     try{
       const subs = (await dbSelect('report_submissions', 'site_id=eq.'+siteId+'&order=submitted_at.desc&limit=100&select=id,template_name,submitted_at,status,general_label')).filter(x=>x.status!=='in_progress');
       subs.sort((a,b)=>(/handover|completion|practical/i.test(b.template_name||'')?1:0)-(/handover|completion|practical/i.test(a.template_name||'')?1:0));
-      subs.forEach(x=>opts.push({v:'report', label:'📝 '+(x.template_name||'Report'), sub:'Submitted '+hoFmtDate((x.submitted_at||'').slice(0,10)), reportId:x.id, name:(x.template_name||'Report')+' – '+hoFmtDate((x.submitted_at||'').slice(0,10))}));
+      subs.forEach(x=>opts.push({v:'report', label:'📝 '+(x.template_name||'Report'), sub:'Submitted '+hoFmtDate((x.submitted_at?localISODate(new Date(x.submitted_at)):'')), reportId:x.id, name:(x.template_name||'Report')+' – '+hoFmtDate((x.submitted_at?localISODate(new Date(x.submitted_at)):''))}));
     }catch(e){}
   }
   hoSheet(cat==='sow' ? 'Add a Schedule of Works to the back' : 'Add a handover report to the back', `

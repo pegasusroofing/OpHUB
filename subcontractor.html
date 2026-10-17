@@ -242,13 +242,19 @@
       const picks = [];
       document.querySelectorAll('.file').forEach(f=>{ Array.from(f.querySelector('input').files).forEach(file=>picks.push({label: f.getAttribute('data-file'), file})); });
       const uploaded = [];
+      if(picks.length > 20) throw new Error('Please attach 20 files or fewer in total.');
+      const big = picks.find(p=>p.file.size > 25*1024*1024);
+      if(big) throw new Error('"'+big.file.name+'" is bigger than 25MB — please attach a smaller copy.');
+      const okType = t => /^(application\/pdf|image\/(jpeg|png|webp|heic|heif|gif)|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)$/.test(t||'');
+      const oddType = picks.find(p=>!okType(p.file.type));
+      if(oddType) throw new Error('"'+oddType.file.name+'" isn’t a PDF, photo or Word file — please attach one of those.');
       if(picks.length){
         btn.textContent = 'Uploading documents…';
         const {uploads} = await api({action:'upload', key: KEY, files: picks.map(p=>({name:p.file.name, size:p.file.size}))});
         for(let i=0;i<picks.length;i++){
           btn.textContent = `Uploading ${i+1} of ${picks.length}…`;
           const u = uploads[i];
-          const r = await fetch(u.signedUrl, {method:'PUT', headers:{'Content-Type': picks[i].file.type || 'application/octet-stream', 'x-upsert':'false'}, body: picks[i].file});
+          const r = await fetch(u.signedUrl, {method:'PUT', headers:{'Content-Type': picks[i].file.type, 'x-upsert':'false'}, body: picks[i].file});
           if(!r.ok) throw new Error('Could not upload "'+picks[i].file.name+'" — please try again.');
           uploaded.push({label: picks[i].label, name: picks[i].file.name, path: u.path});
         }

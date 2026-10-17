@@ -445,6 +445,7 @@ window.saveCoshhToLibraryHere = async function(siteId){
   if(!coshhSaveDocId) return;
   try{
     const srcRes = await fetch(publicUrl('coshh-docs', coshhSaveDocStoragePath));
+    if(!srcRes.ok){ toast('Could not download the document — check signal and try again.'); return; }
     const blob = await srcRes.blob();
     const path = ME.org_id+'/'+(coshhSaveFolderId||'root')+'/'+uid()+'-'+coshhSaveDocName.replace(/[^a-z0-9.\-]+/gi,'_');
     const stored = await uploadToStorage('coshh-library', path, blob, 'application/pdf');

@@ -53,11 +53,12 @@ let HR_BH_ENSURED = false;
 let HR = null; // {settings, people:[profile], hp:{userId:row}, leave:[], at}
 async function hrLoad(force){
   if(!force && HR && HR.uid===ME.id && Date.now()-HR.at < 20000) return HR;
-  await loadAllProfiles();
+  const profP = loadAllProfiles();
   const y = new Date().getFullYear();
   // #(hr-bank-hol-rows) Bank holidays are real bookings on each PM / site
   // manager (not admins), created automatically once per session.
   if(!HR_BH_ENSURED){ HR_BH_ENSURED = true; try{ await sbFetch('/rest/v1/rpc/hr_ensure_bank_holidays', {method:'POST', body:'{}'}); }catch(e){ HR_BH_ENSURED = false; } }
+  await profP;
   const [settingsRows, hpRows, leave] = await Promise.all([
     dbSelect('hr_settings', 'org_id=eq.'+ME.org_id+'&limit=1'),
     dbSelect('hr_people', 'org_id=eq.'+ME.org_id),
@@ -94,9 +95,11 @@ function hrOffOn(dStr){
 // ---------- HR hub ----------
 async function renderHrHub(){
   const __gen = RENDER_GEN;
-  await hrLoad(true);
-  const pols = await dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind');
-  const mine = pols.length ? await dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id') : [];
+  const [, pols, mine] = await Promise.all([
+    hrLoad(true),
+    dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind'),
+    dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id'),
+  ]);
   const signed = new Set(mine.map(s=>s.policy_id));
   const toSign = pols.filter(p=>!signed.has(p.id)).length;
   const y = new Date().getFullYear();
@@ -137,11 +140,15 @@ window.hrSaveBooking = async function(){
   const uid = isAdmin ? (d.user_id || ME.id) : ME.id;
   // Allowance (annual leave only)
   if(d.type==='annual'){
-    const y = Number(d.start.slice(0,4));
-    const left = hrAllowance(uid) - hrUsed(uid, y, ['approved','pending']);
-    if(days > left && !(isAdmin && await customConfirm(`This takes ${days} days but only ${left} are left for ${nameOf(uid)} in ${y}. Book it anyway?`))){
-      if(!isAdmin) toast(`Only ${left} day${left===1?'':'s'} of annual leave left this year.`);
-      return;
+    // Checked per year, so a booking over New Year counts each part against
+    // the right year's allowance.
+    for(const y of [...new Set([Number(d.start.slice(0,4)), Number(d.end.slice(0,4))])]){
+      const need = hrLeaveDays({start_date:d.start, end_date:d.end, half, start_part, end_part}, y);
+      const left = hrAllowance(uid) - hrUsed(uid, y, ['approved','pending']);
+      if(need > left && !(isAdmin && await customConfirm(`This takes ${need} day${need===1?'':'s'} in ${y} but only ${left} are left for ${nameOf(uid)}. Book it anyway?`))){
+        if(!isAdmin) toast(`Only ${left} day${left===1?'':'s'} of annual leave left for ${y}.`);
+        return;
+      }
     }
   }
   // How many people off at once
@@ -178,13 +185,15 @@ window.hrSaveBooking = async function(){
 };
 window.hrDecide = async function(id, ok){
   const l = HR.allLeave.find(x=>x.id===id); if(!l) return;
+  let hrOverrode = false;
   if(ok){
     const max = Number(HR.settings.max_off_at_once)||0;
     let clash = null;
     if(max>0 && l.type!=='sick') hrEachDay(l.start_date, l.end_date, day=>{ if(clash || !hrIsWorkingDay(day)) return; const others = new Set(hrOffOn(day).filter(x=>x.user_id!==l.user_id && x.status==='approved').map(x=>x.user_id)); if(others.size >= max) clash = {day, n:others.size}; });
+    if(clash) hrOverrode = true;
     if(clash && !(await customConfirm(`${clash.n} people are already off on ${new Date(clash.day+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} (limit ${max}). Approve anyway?`))) return;
   }
-  const row = await dbUpdate('hr_leave', id, {status: ok?'approved':'rejected', decided_by:ME.id, decided_at:new Date().toISOString(), ...(ok?{override_limit:true}:{})});
+  const row = await dbUpdate('hr_leave', id, {status: ok?'approved':'rejected', decided_by:ME.id, decided_at:new Date().toISOString(), ...(ok && hrOverrode?{override_limit:true}:{})});
   if(row){ HR = null; toast(ok?'Approved':'Declined'); render(); }
 };
 window.hrCancel = async function(id){
@@ -367,7 +376,9 @@ window.hrSignAllPolicies = async function(){
   if(!(await hrNeedSignature())) return;
   if(!(await customConfirm(`Sign all ${ids.length} company polic${ids.length===1?'y':'ies'}? This confirms you have read and understood ${ids.length===1?'it':'them'}.`))) return;
   let ok = 0;
-  for(const id of ids){ const r = await dbInsert('company_policy_signatures', {policy_id:id, user_id:ME.id, signature_image_path:ME.signature_path, signed_at:new Date().toISOString()}); if(r) ok++; }
+  const at = new Date().toISOString();
+  const res = await Promise.all(ids.map(id=>dbInsert('company_policy_signatures', {policy_id:id, user_id:ME.id, signature_image_path:ME.signature_path, signed_at:at})));
+  ok = res.filter(Boolean).length;
   toast(ok ? 'Signed' : 'Could not sign — try again.'); render();
 };
 window.hrSignHandbook = async function(id){
@@ -413,8 +424,7 @@ window.hrEmailPolicy = async function(id){
 };
 async function renderHrPolicies(){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
-  const {pols, sigs} = await hrPolicyData();
+  const [, {pols, sigs}] = await Promise.all([loadAllProfiles(), hrPolicyData()]);
   window._hrPols = pols; window._hrSigs = sigs;
   const isAdmin = hrIsAdmin();
   const people = Object.values(PROFILES).filter(p=>p && ['pm','admin','site_manager'].includes(p.role)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));

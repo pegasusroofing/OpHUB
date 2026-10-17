@@ -21,7 +21,7 @@ async function renderAdmin(){
     <div class="card">
       <div class="sitecard" style="margin:0;">
         <div class="info"><div class="name">${escapeHtml(ME.name)}${' (you)'}</div><div class="addr">${escapeHtml(ME.email)} · Super Admin</div></div>
-        <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${adminResetBusy===ME.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(ME.email)}')">${adminResetBusy===ME.email?'…':'Reset My Password'}</button>
+        <button class="ghostbtn" style="width:auto;padding:8px 12px;" ${adminResetBusy===ME.email?'disabled':''} onclick="resetUserPassword('${jsAttr(ME.email)}')">${adminResetBusy===ME.email?'…':'Reset My Password'}</button>
       </div>
     </div>
     ${adminResetResult ? `
@@ -81,7 +81,7 @@ async function renderAdmin(){
                 <div class="info"><div class="name">${escapeHtml(p.name)}</div><div class="addr">${escapeHtml(p.email)} · ${personRoleLabel(p)}</div></div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;">
                   ${p.role==='superadmin' ? '' : `<select class="sarole" title="Role" onchange="setUserRole('${p.id}', this.value, this)">${ROLES.map(r=>{ const cur = p.is_estimator ? 'estimator' : p.role; return `<option value="${r}" ${r===cur?'selected':''}>${escapeHtml(roleLabel(r))}</option>`; }).join('')}${ROLES.includes(p.is_estimator?'estimator':p.role) ? '' : `<option selected disabled>${escapeHtml(personRoleLabel(p))}</option>`}</select>`}
-                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${escapeHtml(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
+                  <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:400;text-transform:none;" ${adminResetBusy===p.email?'disabled':''} onclick="resetUserPassword('${jsAttr(p.email)}')">${adminResetBusy===p.email?'…':'Reset Password'}</button>
                   <button class="ghostbtn" style="width:132px;padding:6px 8px;font-size:10px;font-weight:800;text-transform:none;color:var(--warn);" onclick="deleteUserPlatform('${p.id}','${jsAttr(p.name)}')">Delete User</button>
                 </div>
               </div>

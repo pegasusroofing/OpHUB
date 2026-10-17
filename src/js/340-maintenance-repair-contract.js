@@ -847,7 +847,7 @@ window.exportRepairJobsByApprovedDate = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
   repairApprovedExportBusy = true; render();
   try{
-    const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number,address,description,survey_notes,access_notes,access_requirement,variation_cost,scaffold_booking_date,scaffold_erection_date,repair_return_date,quote_approved_at,closed,quote_approved,works_completed');
+    const jobs = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=job_number,address,description,survey_notes,access_notes,access_requirement,variation_cost,scaffold_booking_date,scaffold_erection_date,repair_return_date,quote_approved_at,closed,quote_approved,works_completed,job_status');
     const filtered = jobs.filter(REPAIR_CATEGORY_DEFS.approved.match);
     if(!filtered.length){ toast('No jobs in Approved & Ready yet.'); return; }
     filtered.sort(REPAIR_JOB_SORTS.approved_asc);

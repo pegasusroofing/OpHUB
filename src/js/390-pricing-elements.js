@@ -69,9 +69,8 @@ window.togglePricingElementSelected = function(elementId){
 window.closeSelectedPricingElements = async function(){
   const ids = Object.keys(priceElementSelected);
   if(!ids.length){ toast('Select at least one Pricing Element'); return; }
-  for(const id of ids){
-    await dbUpdate('pricing_elements', id, {closed:true, closed_by:ME.id, closed_at:new Date().toISOString()});
-  }
+  const at = new Date().toISOString();
+  await Promise.all(ids.map(id=>dbUpdate('pricing_elements', id, {closed:true, closed_by:ME.id, closed_at:at})));
   priceElementSelected = {};
   toast(ids.length===1 ? 'Pricing Element closed' : ids.length+' Pricing Elements closed');
   render();
@@ -691,7 +690,11 @@ async function renderPriceHome(siteId){
 // every Pricing Element on this site, computed once. Pulled out into its own
 // function when the grid/detail split was introduced so the two pages can't
 // drift out of sync on how a figure or an access check is worked out.
-async function loadPriceTileData(siteId){
+// opts.onlyElementId: the single sub-tile page only needs that one element's
+// details; opts.gridOnly: the tile grid needs none (just which ones are Price
+// Sheets). Saves ~10 requests per element on every open.
+async function loadPriceTileData(siteId, opts){
+  opts = opts || {};
   const site = SITES.find(s=>s.id===siteId);
   const canManage = isManager(ME);
   const isMultiSite = !!(site && site.multi_site);
@@ -787,7 +790,8 @@ async function loadPriceTileData(siteId){
   Object.keys(groupFigures).forEach(gid=>{ groupFigures[gid].balance = (groupFigures[gid].priceTotal + groupFigures[gid].awApprovedTotal) - groupFigures[gid].bookedIn; });
 
   const elementData = {};
-  await Promise.all(visibleElements.map(async el=>{
+  if(opts.gridOnly) visibleElements.forEach(el=>{ elementData[el.id] = {pbSheet: pbSheetByElementId[el.id] || null}; });
+  await Promise.all(visibleElements.filter(el=> !opts.gridOnly && (!opts.onlyElementId || el.id===opts.onlyElementId)).map(async el=>{
     const canSeeLabour = canSeeLabourInvoicesFor(el.id);
     const hasPriceAcc = hasPriceAccessTo(el.id);
     const pbSheet = pbSheetByElementId[el.id] || null;
@@ -877,9 +881,11 @@ window.pbRecolorGroup = async function(groupId){
   rowActionsMenuOpenFor = null;
   render();
 };
+let priceElementSelectedSite = null;
 async function renderPriceTile(siteId){
   const __gen = RENDER_GEN;
-  const d = await loadPriceTileData(siteId);
+  if(priceElementSelectedSite !== siteId){ priceElementSelected = {}; priceElementSelectedSite = siteId; }
+  const d = await loadPriceTileData(siteId, {gridOnly:true});
   const {site, canManage, isMultiSite, fmt, elementGroups, groupsById, groupFigures, subAddressesList, selectedSubId, openElements, closedElements, elementFigures} = d;
   const anyClosedSelected = Object.keys(priceElementSelected).length>0;
   // Groups scoped to whichever address tab is currently selected (or the
@@ -1026,7 +1032,7 @@ async function renderPriceTile(siteId){
 // keep the figures/access-checks identical) and just renders the one card.
 async function renderPricingElementDetail(siteId, elementId){
   const __gen = RENDER_GEN;
-  const d = await loadPriceTileData(siteId);
+  const d = await loadPriceTileData(siteId, {onlyElementId: elementId});
   const {site, canManage, fmt, allElements, elementFigures, weeksByElement, elementData} = d;
   const el = allElements.find(e=>e.id===elementId);
   if(!el || !elementData[elementId]){ toast('Sub tile not found, or you don\'t have access to it.'); go(`#/site/${siteId}/price`); return; }

@@ -53,6 +53,7 @@ async function renderSubApplication(id){
   const r = (await dbSelect('subcontractor_applications', 'id=eq.'+id))[0];
   if(__gen !== RENDER_GEN) return;
   if(!r){ toast('That application has gone.'); go('#/subapplications'); return; }
+  subAppOpenFiles = r.files || [];
   const d = r.data || {};
   const rows = Object.keys(SUBAPP_LABELS).filter(k=>d[k]!=null && subAppValue(d[k]).trim()!=='').map(k=>`<div class="subapp-r"><b>${escapeHtml(SUBAPP_LABELS[k])}</b><span>${escapeHtml(subAppValue(d[k])).replace(/\n/g,'<br>')}</span></div>`).join('');
   const st = {new:'New', approved:'Approved', rejected:'Rejected'}[r.status]||r.status;
@@ -65,7 +66,7 @@ async function renderSubApplication(id){
     </div>
     <div class="card">${rows || '<div class="empty">No other details.</div>'}</div>
     <div class="card"><p class="sectiontitle" style="margin-top:0;">Documents (${(r.files||[]).length})</p>
-      ${(r.files||[]).map(f=>`<div class="subapp-file" onclick="viewDrawing('${publicUrl('mc-documents', f.path)}', ${/\.(png|jpe?g|webp|gif)$/i.test(f.name||'')}, '${jsAttr(f.name||'Document')}')">📎 <b>${escapeHtml(f.label||'Document')}</b><span>${escapeHtml(f.name||'')}</span></div>`).join('') || '<div class="empty">None uploaded.</div>'}
+      ${(r.files||[]).map((f,fi)=>`<div class="subapp-file" onclick="openSubAppFile('${r.id}',${fi})">📎 <b>${escapeHtml(f.label||'Document')}</b><span>${escapeHtml(f.name||'')}</span></div>`).join('') || '<div class="empty">None uploaded.</div>'}
     </div>
     <div class="row-gap">
       ${r.status!=='approved' ? `<button class="darkbtn" style="flex:1;" onclick="decideSubApp('${r.id}','approved')">✓ Approve</button>` : ''}
@@ -74,6 +75,26 @@ async function renderSubApplication(id){
     ${isFullManager(ME) ? `<button class="ghostbtn" style="margin-top:10px;color:var(--warn);" onclick="deleteSubApp('${r.id}')">🗑 Delete application</button>` : ''}
   `, {title:r.company_name, subtitle:'Subcontractor application', back:'#/subapplications', tabs:false});
 }
+let subAppOpenFiles = [];
+// Documents sit in a private bucket — open them through a short-lived link.
+window.openSubAppFile = async function(appId, idx){
+  const f = subAppOpenFiles[idx]; if(!f || typeof f.path!=='string') return;
+  try{
+    if(f.bucket !== 'subcontractor-apps'){ viewDrawing(publicUrl('mc-documents', f.path), /\.(png|jpe?g|webp|gif)$/i.test(f.name||''), f.name||'Document'); return; }
+    await ensureFreshToken();
+    if(!SESSION || !SESSION.access_token){ toast('Please sign in again.'); return; }
+    const encPath = f.path.split('/').map(encodeURIComponent).join('/');
+    const res = await fetchWithTimeout(SUPABASE_URL+'/storage/v1/object/sign/subcontractor-apps/'+encPath, {method:'POST', headers:{'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SESSION.access_token,'Content-Type':'application/json'}, body: JSON.stringify({expiresIn: 600})}, 20000);
+    const d = await res.json().catch(()=>({}));
+    const signed = d.signedURL || d.signedUrl;
+    if(!res.ok || !signed){ toast('Could not open that document.'); return; }
+    const url = SUPABASE_URL+'/storage/v1'+(signed.charAt(0)==='/'?'':'/')+signed;
+    const nm = f.name || 'Document';
+    if(/\.(png|jpe?g|gif|webp)$/i.test(nm)){ viewImage(url); return; }
+    if(/\.pdf$/i.test(nm)){ await viewPdfInApp(url, nm); return; }
+    await openExternalFile(url);
+  }catch(e){ toast('Could not open that document.'); }
+};
 window.decideSubApp = async function(id, status){
   const note = await customPrompt(status==='approved' ? 'Approve — add a note (optional)' : 'Reject — reason (optional)', '');
   if(note===null) return;

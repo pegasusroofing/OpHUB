@@ -32,6 +32,9 @@ async function computeHubItems(forcedPmId){
   // ahead of the start date, so Hub needs to surface that too. Closed sites
   // stay excluded — there's nothing outstanding to action once a site's done.
   const allLiveSites = SITES.filter(s=>{ const k = siteStatusKey(s); return k==='live' || k==='upcoming'; });
+  // Started straight away — it doesn't depend on anything below.
+  const profilesP = loadAllProfiles();
+  const sowAlertsP = sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'}).then(r=>r && r.ok ? r.json() : []).catch(()=>[]);
   let sites;
   if(effectivePmId === 'all'){
     sites = allLiveSites;
@@ -54,13 +57,20 @@ async function computeHubItems(forcedPmId){
     idsCsv ? dbSelect('schedule_tasks', 'site_id=in.('+idsCsv+')&select=site_id,status') : Promise.resolve([]),
     idsCsv ? dbSelect('site_assignments', 'site_id=in.('+idsCsv+')&select=site_id,user_id') : Promise.resolve([]),
     idsCsv ? dbSelect('todos', 'site_id=in.('+idsCsv+')&done=eq.false&order=created_at.asc') : Promise.resolve([]),
-    idsCsv ? dbSelect('messages', 'audience=eq.managers&or=(site_id.in.('+idsCsv+'),site_id.is.null)&sender_id=neq.'+ME.id+'&select=id,site_id,created_at') : Promise.resolve([]),
+    idsCsv ? dbSelect('messages', 'audience=eq.managers&or=(site_id.in.('+idsCsv+'),site_id.is.null)&sender_id=neq.'+ME.id+'&created_at=gte.'+new Date(Date.now()-180*864e5).toISOString()+'&select=id,site_id,created_at') : Promise.resolve([]),
   ]);
+  await profilesP; // needed for the operative roster below
   const ramsIds = ramsDocs.map(d=>d.id).join(',');
   const coshhIds = coshhDocs.map(d=>d.id).join(',');
-  const [ramsSigsRaw, coshhSigsRaw] = await Promise.all([
+  // Read receipts fetched alongside the signatures, in chunks so the
+  // address never gets too long as messages build up.
+  const msgIds = mgrMsgs.map(m=>m.id);
+  const readChunks = [];
+  for(let i=0;i<msgIds.length;i+=120) readChunks.push(msgIds.slice(i,i+120));
+  const [ramsSigsRaw, coshhSigsRaw, readsNested] = await Promise.all([
     ramsIds ? dbSelect('rams_signatures', 'rams_id=in.('+ramsIds+')&select=rams_id,user_id,signed_at') : Promise.resolve([]),
     coshhIds ? dbSelect('coshh_signatures', 'coshh_id=in.('+coshhIds+')&select=coshh_id,user_id,signed_at') : Promise.resolve([]),
+    Promise.all(readChunks.map(c=>dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+c.join(',')+')&select=message_id'))),
   ]);
   const ramsSigsCur = filterCurrentCycleSigs(ramsSigsRaw, ramsDocs, 'rams_id', {status:'active'});
   const coshhSigsCur = filterCurrentCycleSigs(coshhSigsRaw, coshhDocs, 'coshh_id', {status:'active'});
@@ -116,15 +126,13 @@ async function computeHubItems(forcedPmId){
   // operatives since this manager last opened that job's SOW. Opening the
   // SOW clears it (see markSowViewed).
   try{
-    const r = await sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'});
-    const rows = r && r.ok ? await r.json() : [];
+    const rows = await sowAlertsP;
     (rows||[]).forEach(a=>{
       const site = sites.find(s=>s.id===a.site_id); if(!site) return;
       items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:new Date(a.latest), href:`#/site/${site.id}/schedule`});
     });
   }catch(e){}
-  const msgIds = mgrMsgs.map(m=>m.id);
-  const reads = msgIds.length ? await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+msgIds.join(',')+')&select=message_id') : [];
+  const reads = [].concat(...readsNested);
   const readSet = new Set(reads.map(r=>r.message_id));
   mgrMsgs.filter(m=>!readSet.has(m.id)).forEach(m=>{
     const site = m.site_id ? sites.find(s=>s.id===m.site_id) : null;
@@ -134,7 +142,7 @@ async function computeHubItems(forcedPmId){
 }
 async function renderHub(){
   const __gen = RENDER_GEN;
-  await loadAllProfiles();
+  // computeHubItems loads the profiles itself, alongside its own queries.
   const {items, sites} = await computeHubItems();
   // #405: every manager gets the switcher now, not just admins — defaults
   // to "Me", with "All PMs" (the old admin-only default) and each named

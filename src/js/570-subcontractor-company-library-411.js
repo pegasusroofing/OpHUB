@@ -109,7 +109,7 @@ async function renderSubCompanyLibrary(siteId, companyId){
   await __pProfiles;
   const docs = await dbSelect('subcontractor_company_documents', 'master_company_id=eq.'+company.master_company_id+'&order=uploaded_at.desc');
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 14px;">${company.name}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
+    <p class="stub" style="margin:0 0 14px;">${escapeHtml(company.name)}'s own document library — insurance, accreditations, RAMS templates and the like. Anything kept here follows this company onto every site they're added to, so it never needs re-uploading.</p>
     ${canUpload ? (companyLibraryAddOpen ? `
       <div class="card" style="margin-bottom:12px;">
         <p class="field-label" style="margin-bottom:6px;">Upload a document</p>

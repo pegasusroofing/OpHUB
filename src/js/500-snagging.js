@@ -746,7 +746,7 @@ function sowPeriodRange(key, fromStr, toStr){
   return null; // full project
 }
 function sowPeriodPickerHtml(prefix){
-  const today = new Date().toISOString().slice(0,10);
+  const today = localISODate(new Date());
   return `<div class="formfield"><label class="field-label">What to include</label>
     <select id="${prefix}Period" onchange="document.getElementById('${prefix}Dates').style.display=this.value==='custom'?'flex':'none'">
       <option value="full">Full project — every photo</option>

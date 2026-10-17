@@ -506,9 +506,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
     try{
       const built = await buildSignedToolboxTalkPdfBytes(id);
       if(!built){ skipped++; continue; }
-      let binary=''; const chunk=0x8000;
-      for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
-      attachments.push({filename: built.filename, content: btoa(binary)});
+      attachments.push({name: built.filename, bytes: built.outBytes});
       titles.push(built.talk.title);
     }catch(e){ console.error(e); skipped++; }
   }
@@ -518,12 +516,11 @@ window.confirmEmailSelectedTbts = async function(siteId){
     return;
   }
   if(btn) btn.textContent = 'Sending…';
-  const site = SITES.find(s=>s.id===siteId);
   try{
-    const res = await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients:[email], site_name: site?site.name:'', tbt_titles: titles, attachments,
-    })});
-    const d = await res.json();
+    // Each PDF is uploaded and sent as its own attachment (big talks used to
+    // fail when posted inside the request).
+    const d = await emailPdfsSeparately({siteId, parts: attachments, title: attachments.length===1 ? 'Toolbox Talk' : 'Toolbox Talks', to: email});
+    const res = {ok: d.ok};
     if(res.ok && !d.error){
       const skipNote = skipped ? `<p class="stub" style="margin:0 0 12px;color:var(--warn);">${skipped} selected talk${skipped>1?'s were':' was'} skipped — no signatures yet.</p>` : '';
       const card = document.querySelector('#tbtEmailModalOverlay .geo-modal-card');
@@ -531,7 +528,7 @@ window.confirmEmailSelectedTbts = async function(siteId){
         card.innerHTML = `<h3>✓ Email sent</h3><p class="stub" style="margin:0 0 12px;">${attachments.length} Toolbox Talk PDF${attachments.length>1?'s':''} emailed to ${escapeHtml(email)}.</p>${skipNote}<button class="darkbtn" style="width:100%;" onclick="closeTbtEmailPrompt();selectedTbtIds=new Set();render()">Done</button>`;
       } else { selectedTbtIds = new Set(); render(); }
     } else {
-      console.error('send-tbt-completion failed:', d.error || res.status);
+      console.error('TBT email failed:', d.error);
       toast('Email failed — '+(d.error ? String(d.error).slice(0,140) : 'try again.'));
       if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; }
     }

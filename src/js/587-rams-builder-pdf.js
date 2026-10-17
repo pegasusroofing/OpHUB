@@ -239,6 +239,10 @@ window.ramsIssue = async function(siteId){
       const rows = await dbInsert('rams_docs', {site_id:siteId, name, storage_path:stored, uploaded_by:ME.id, doc_type:isRA?'Risk Assessment':'Method Statement', supersedes:prevId||null, sign_layout:out.signLayout});
       if(!rows || !rows[0]){ customAlert('Could not save the document.'); return; }
       if(prevId) await dbUpdate('rams_docs', prevId, {status:'superseded', superseded_by:rows[0].id});
+      // Remember the new document straight away, so if the next one fails a
+      // re-issue supersedes this one rather than leaving two "current".
+      const docKey = isRA ? 'ra_doc_id' : 'ms_doc_id';
+      if(await dbUpdate('rams_builds', b.id, {[docKey]: rows[0].id})) b[docKey] = rows[0].id;
       // Issuing it marks it issued straight away — by whoever issued it, with their signature.
       await dbInsert('rams_signatures', {rams_id:rows[0].id, user_id:ME.id, issued:true, signature_image_path: ME.signature_path || null});
       made.push([which, rows[0].id, name, isRA?'Risk Assessment':'Method Statement']);

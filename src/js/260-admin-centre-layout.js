@@ -110,7 +110,7 @@ async function renderTeam(adminPage, adminItemKey){
   } })());
   let odConn = null; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.integrations) odConn = (await dbSelect('onedrive_connections', 'org_id=eq.'+ME.org_id))[0] || null; })());
   let tbtTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.tbt) tbtTemplates = await dbSelect('tbt_templates', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'); })());
-  let reportTemplates = []; __tp.push((async()=>{ if(iAmAdmin && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
+  let reportTemplates = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.reporttemplates) reportTemplates = await dbSelect('report_templates', 'org_id=eq.'+ME.org_id+'&archived=eq.false&order=name.asc'); })());
   let deviceLocks = []; __tp.push((async()=>{ if(isFullManager(ME) && teamSectionOpen.devicelocks) deviceLocks = await dbSelect('device_locks', 'org_id=eq.'+ME.org_id+'&order=last_seen_at.desc'); })());
   let suppliers = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.suppliers) suppliers = await dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc'); })());
   let havsTools = []; __tp.push((async()=>{ if(isManager(ME) && teamSectionOpen.havstools) havsTools = await dbSelect('havs_tools', 'org_id=eq.'+ME.org_id+'&active=eq.true&order=sort_order.asc,name.asc'); })());
@@ -328,7 +328,7 @@ async function renderTeam(adminPage, adminItemKey){
               <div class="integ-row">
                 <span class="integ-dot ${p.id?'on':''}"></span>
                 <span class="integ-txt"><b>${p.label}</b><span>${p.id ? '📁 '+escapeHtml(p.name||'Linked folder') : 'Not linked'}</span></span>
-                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="odPickerReturnHash='#/team/company/onedrive';startOneDriveFolderPicker('${s.id}','${p.k}')">${p.id?'Change':'Link'}</button>
+                <button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" onclick="startOneDriveFolderPicker('${s.id}','${p.k}','#/team/company/onedrive')">${p.id?'Change':'Link'}</button>
               </div>`).join('') + (s.onedrive_folder_id ? `<div class="integ-row" style="justify-content:flex-end;"><button type="button" class="ghostbtn" style="width:auto;margin:0;padding:6px 10px;font-size:12px;" ${siteOdSyncBusy===s.id?'disabled':''} onclick="manualSyncSiteOneDrive('${s.id}')">${siteOdSyncBusy===s.id?'Syncing…':'Sync now'}</button></div>` : '') : ''}
           </div>`;
         }).join('');

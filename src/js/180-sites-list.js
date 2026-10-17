@@ -400,14 +400,17 @@ window.addSite = async function(){
   // return the new row" call get rejected even though the insert itself
   // is fully allowed. Inserting plain, then re-fetching the list, sidesteps
   // it without weakening the security policy.
-  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
+  const newSiteId = crypto.randomUUID();
+  const res = await sbFetch('/rest/v1/sites', {method:'POST', body: JSON.stringify({id:newSiteId, name, address:addr||null, postcode:postcode||null, job_number:jobNumber||null, status:newSiteStatus, start_date:startDate||null, multi_site:!!newSiteMultiSiteDraft, repair_contract:!!newSiteRepairContractDraft, client_name:clientName||null, client_phone:clientPhone||null, client_email:clientEmail||null, created_by:ME.id, org_id:ME.org_id})});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
   newSiteStatus = null;
   newSiteNameDraft = ''; newSiteAddrDraft = ''; newSitePostcodeDraft = ''; newSiteJobNumberDraft = ''; newSiteStartDateDraft = ''; newSiteMultiSiteDraft = false; newSiteRepairContractDraft = false; newSiteClientNameDraft = ''; newSiteClientPhoneDraft = ''; newSiteClientEmailDraft = '';
-  SITES = await dbSelect('sites', 'select=*&order=created_at.asc');
-  const newSite = SITES.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0];
-  await preloadTbtBankForSite(newSite);
-  await preloadDrawingFoldersForSite(newSite);
+  const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
+  if(sitesRes.ok) SITES = sitesRes.data;
+  // Matched by its own id (not "newest") so the folders can't land on a
+  // project someone else created at the same moment.
+  const newSite = SITES.find(s=>s.id===newSiteId);
+  if(newSite) await Promise.all([preloadTbtBankForSite(newSite), preloadDrawingFoldersForSite(newSite)]);
   addSiteFormOpen = false;
   toast('Site created');
   render();

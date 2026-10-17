@@ -169,6 +169,9 @@ window.doCheckActionSub = async function(siteId, subId, type){
       const taskIds = linkedTasks.map(t=>t.id).join(',');
       const photoRows = await dbSelect('schedule_photos', 'task_id=in.('+taskIds+')&select=task_id');
       const withPhoto = new Set(photoRows.map(p=>p.task_id));
+      // Photos taken but still waiting on the phone to send count too.
+      try{ (await sowOfflineAll()).forEach(r=>{ if(r.kind==='photo') withPhoto.add(r.taskId); }); }catch(e){}
+      try{ Object.keys(SOW_PENDING).forEach(k=>withPhoto.add(k)); }catch(e){}
       const missing = linkedTasks.filter(t=>!withPhoto.has(t.id));
       if(missing.length){
         checkinBusy = false;

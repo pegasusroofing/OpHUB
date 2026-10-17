@@ -431,8 +431,16 @@ function roleActionsHtml(ME, p, allPeople){
 // they don't need to wait on this at all).
 let profilesLoadedAt = 0;
 const PROFILES_TTL_MS = 45000;
-async function loadAllProfiles(force){
-  if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return;
+// If a load is already on its way, everyone asking at the same moment shares
+// it instead of each firing their own request.
+let profilesInflight = null;
+function loadAllProfiles(force){
+  if(!force && profilesLoadedAt && Object.keys(PROFILES).length && (Date.now()-profilesLoadedAt) < PROFILES_TTL_MS) return Promise.resolve();
+  if(profilesInflight) return profilesInflight;
+  profilesInflight = loadAllProfilesNow().finally(()=>{ profilesInflight = null; });
+  return profilesInflight;
+}
+async function loadAllProfilesNow(){
   // Must include every column any screen reads off a cached PROFILES[id]
   // entry (not just id/name/email/role) — signature_path (TBT "Carried out
   // by", etc.) and the onedrive_* columns (per-operative Certifications

@@ -87,7 +87,7 @@ async function renderExpenses(siteId){
         ${isFullManager(ME) && r.created_by!==ME.id ? `<p class="stub" style="margin:0 0 6px;">Sent by ${escapeHtml(nameOf(r.created_by))}</p>` : ''}
         <p class="stub" style="margin:0 0 8px;">${r.emailed_at ? `<span style="color:var(--good,#1F9D62);font-weight:600;">✓ Emailed${r.emailed_to ? ' to '+escapeHtml(r.emailed_to) : ''}</span>` : `<span style="color:var(--warn);font-weight:700;">Not emailed yet</span>${r.created_by===ME.id ? ` · <span class="viewlink" style="cursor:pointer;" onclick="expResend('${r.batch_id}')">Send now</span>` : ''}`}</p>
         <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}','${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
+          ${(r.file_paths||[]).map((p,k)=>`<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="${/\.pdf$/i.test(p) ? `viewDrawing('${publicUrl('site-photos',p)}',false,'${jsAttr((r.file_names||[])[k]||'receipt.pdf')}')` : `viewImage('${publicUrl('site-photos',p)}')`}">View ${k+1}</button>`).join('')}
           ${r.emailed_at && (r.created_by===ME.id || isFullManager(ME)) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;" onclick="expResendSent('${r.batch_id}','${r.id}',${nf})">✉️ Resend</button>` : ''}
           ${isFullManager(ME) ? `<button class="ghostbtn" style="width:auto;padding:8px 12px;margin:0;color:var(--warn);" onclick="expDelete('${r.id}')">🗑 Delete</button>` : ''}
         </div>

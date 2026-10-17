@@ -192,7 +192,8 @@ async function renderPpe(siteId){
   const siteOperatives = allOperatives.filter(p=>assignedIds.has(p.id));
 
   const [allIssuances, allRequests] = await Promise.all([
-    dbSelect('ppe_issuances', canManage ? 'order=issued_at.desc' : 'user_id=eq.'+ME.id+'&order=issued_at.desc'),
+    // Managers only need this job's operatives (used to fetch the whole company's history every time).
+    dbSelect('ppe_issuances', canManage ? (siteOperatives.length ? 'user_id=in.('+siteOperatives.map(p=>p.id).join(',')+')&order=issued_at.desc' : 'id=is.null') : 'user_id=eq.'+ME.id+'&order=issued_at.desc'),
     dbSelect('ppe_requests', canManage ? 'site_id=eq.'+siteId+'&order=created_at.desc' : 'user_id=eq.'+ME.id+'&order=created_at.desc'),
   ]);
 
@@ -405,7 +406,7 @@ window.exportPpeSiteReport = async function(siteId){
   let operatives = Object.values(PROFILES).filter(p=>p.role==='operative' && assignedIds.has(p.id));
   if(ppeExportOperativeIds.length) operatives = operatives.filter(p=>ppeExportOperativeIds.includes(p.id));
   if(!operatives.length){ toast('No operatives to export.'); return; }
-  const allIssuances = await dbSelect('ppe_issuances', 'order=issued_at.desc');
+  const allIssuances = await dbSelect('ppe_issuances', 'user_id=in.('+operatives.map(p=>p.id).join(',')+')&order=issued_at.desc');
   const data = [];
   operatives.forEach(op=>{
     const history = allIssuances.filter(i=>i.user_id===op.id);

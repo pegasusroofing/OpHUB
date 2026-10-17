@@ -80,8 +80,10 @@ window.shiftHavsWeek = async function(dir, siteId){
   render();
 };
 function havsWeekDates(offset){
-  const weekStart = startOfWeek(Date.now()) + offset*7*24*60*60*1000;
-  return [0,1,2,3,4].map(i => new Date(weekStart + i*86400000));
+  // Calendar-day maths (not fixed 24h blocks) so weeks either side of a
+  // clock change still start on the Monday.
+  const ws = new Date(startOfWeek(Date.now())); ws.setDate(ws.getDate()+offset*7);
+  return [0,1,2,3,4].map(i => { const d = new Date(ws); d.setDate(d.getDate()+i); return d; });
 }
 // Same as havsWeekDates but from an explicit Monday (YYYY-MM-DD) rather than
 // an offset from today — used by the Completed HAVS tab to re-export/email
@@ -695,7 +697,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   }
 
   newPage();
-  let weeklyPoints = 0;
+  let weeklyPoints = 0, maxDayPoints = 0;
   for(let di=0; di<days.length; di++){
     const d = days[di];
     const dateStr = localISODate(d);
@@ -715,6 +717,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
       drawRow([i===0?dayLabel:'', tool?titleCaseWords(tool.name):'(removed tool)', mag.toFixed(1), e.minutes, a8.toFixed(2), pts.toFixed(1)]);
     });
     weeklyPoints += dayPoints;
+    maxDayPoints = Math.max(maxDayPoints, dayPoints);
     const dayColor = dayPoints>=400 ? RED : dayPoints>=100 ? AMBER : GREEN;
     drawRow(['', '', '', '', 'Daily total:', dayPoints.toFixed(1)+' pts'], {bold:true, color:dayColor});
   }
@@ -728,7 +731,7 @@ async function drawHavsOperativePages(pdfDoc, fonts, siteName, weekLabel, days, 
   ensureRoom(12);
   page.drawText('(informational — limits are daily)', {x:colX(4)+6, y:y-6, size:4.25, font:italic, color:SLATE});
   y -= 12;
-  if(weeklyPoints < 500){
+  if(maxDayPoints < 100){
     ensureRoom(20);
     const boxH = 18;
     page.drawRectangle({x:MARGIN, y:y-boxH, width:TABLE_W, height:boxH, color:PDFLib.rgb(0.91,0.97,0.93)});

@@ -93,6 +93,20 @@ function sowAddPhotos(siteId, taskId, files, stage){
         SOW_PENDING[taskId] = (SOW_PENDING[taskId]||[]).filter(x=>x!==p);
         sowPaintPending(taskId);
         toast('One photo could not be read — please try that one again.');
+        // If that was the only photo for a "Complete", don't let the task go
+        // to Complete with no photo — drop the waiting change instead.
+        try{
+          if(!(SOW_PENDING[taskId]||[]).length){
+            delete SOW_PENDING[taskId];
+            const recs = await sowOfflineAll();
+            const patch = recs.find(r=>r.id==='patch:'+taskId);
+            if(patch && patch.patch && patch.patch.status==='done' && !recs.some(r=>r.kind==='photo' && r.taskId===taskId)){
+              await sowOfflineDel(patch.id);
+              toast('Task not marked complete — add the photo again.');
+              render();
+            }
+          }
+        }catch(e2){}
       }
     });
   });
@@ -179,6 +193,9 @@ async function sowPumpRun(){
   // Task changes go once none of that task's photos are still waiting.
   const left = await sowOfflineAll();
   const waitingTasks = new Set(left.filter(r=>r.kind==='photo').map(r=>r.taskId));
+  // Photos still being resized on the phone aren't in the queue yet — don't
+  // let a "Complete" go ahead of them.
+  for(const k in SOW_PENDING){ if(SOW_PENDING[k].some(x=>x.state==='prep')) waitingTasks.add(k); }
   let patched = false;
   for(const p of left.filter(r=>r.kind==='patch')){
     if(waitingTasks.has(p.taskId) || navigator.onLine === false) continue;

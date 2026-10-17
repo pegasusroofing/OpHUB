@@ -164,7 +164,7 @@ window.reportOfflineSync = async function(manual){
   for(const rec of waiting){
     try{
       // The report someone has open right now is left alone until they leave it.
-      if(reportFillDraft && reportFillDraft.submissionId === rec.submissionId) continue;
+      if(reportFillDraft && reportFillDraft.submissionId === rec.submissionId && (location.hash||'').includes(rec.submissionId)) continue;
       const d = rec.draft;
       // 1. create it, if it was started with no signal
       if(rec.create){

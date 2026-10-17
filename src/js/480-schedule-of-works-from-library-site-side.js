@@ -441,7 +441,7 @@ async function renderSchedule(siteId){
   // visibility (see schedule_visibility_ok) — an operative or PM simply
   // never gets back a row they're not allowed to see, so nothing further
   // needs filtering client-side; admins always get everything back.
-  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs] = await Promise.all([
+  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs, sitePhotos] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
@@ -454,11 +454,14 @@ async function renderSchedule(siteId){
     // switched a document to "Managers only" — RLS only hands back the rows
     // this viewer is allowed to see, so no client-side filtering needed.
     dbSelect('schedule_documents', 'site_id=eq.'+siteId+'&order=created_at.asc'),
+    // Photos fetched by site in the same batch (used to wait for the task
+    // list and then send every task id in one very long address).
+    dbSelect('schedule_photos', 'select=*,schedule_tasks!inner(site_id)&schedule_tasks.site_id=eq.'+siteId+'&order=uploaded_at.asc'),
+    canAdd ? loadAllProfiles() : null,
   ]);
   scheduleSectionsCache = sections;
   // Task changes made on this phone that are still waiting on their photos.
   try{ await sowPendingForRender(siteId, allTasks, null); }catch(e){}
-  if(canAdd) await loadAllProfiles();
   const operativeOptions = canAdd ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
   // Flags row visibility/state is driven off allTasks (every task ever added
   // to a section), not the currently filtered `tasks` list below — so the
@@ -479,6 +482,7 @@ async function renderSchedule(siteId){
   if(scheduleLastSiteId !== siteId){
     scheduleLastSiteId = siteId;
     percentPromptTaskId = null;
+    scheduleImportPreview = null; scheduleAddPanel = null;
     scheduleFilter = 'active';
     sectionFirstSubAddr = {};
     scheduleMultiSelectMode = false;
@@ -491,8 +495,8 @@ async function renderSchedule(siteId){
     : allTasks.filter(t=>t.status==='todo'||t.status==='progress');
   let photosByTask = {};
   if(allTasks.length){
-    const ids = allTasks.map(t=>t.id).join(',');
-    const photos = await dbSelect('schedule_photos', 'task_id=in.('+ids+')&order=uploaded_at.asc');
+    const taskIdSet = new Set(allTasks.map(t=>t.id));
+    const photos = sitePhotos.filter(p=>taskIdSet.has(p.task_id)).map(p=>{ const q = Object.assign({}, p); delete q.schedule_tasks; return q; });
     photos.forEach(p=>{ (photosByTask[p.task_id]=photosByTask[p.task_id]||[]).push(p); });
     // Photos still going up from this phone, and the task changes that go with them.
     try{ await sowPendingForRender(siteId, null, photos); }catch(e){}

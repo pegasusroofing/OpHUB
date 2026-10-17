@@ -70,6 +70,9 @@ window.doSignOut = async function(){
   SESSION = null; ME = null; ORG = null;
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
+  // Per-person bits kept in memory — clear them so the next person signing
+  // in on this phone doesn't briefly see the last person's numbers.
+  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; }catch(e){}
   applyTheme(null);
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);

@@ -108,19 +108,25 @@ window.openPmReport = function(id){
   go(pmReportHref(r));
 };
 
+let pmDlvReqAt = 0;
 async function renderPmHome(){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
   if(homeExtras.uid !== ME.id) homeExtras = {uid: ME.id, onboarding: null, count: 0, at: 0, loading: false};
   if(navigator.onLine === false) OFFLINE_CACHE_USED = true;
   let reports = pmReportsCache.uid===ME.id ? pmReportsCache.rows : [];
-  try{ reports = await loadPmReports(); }catch(e){}
-  let dlvReqN = 0; try{ deliveryRequestsCount = null; dlvReqN = await deliveryRequestsBadgeCount(); }catch(e){}
   let todos = pmTodosCache.uid===ME.id ? pmTodosCache.rows : [];
-  try{ todos = await loadPmTodos(); }catch(e){}
+  let dlvReqN = 0, onSiteN = 0;
+  // These four don't depend on each other — fetch them together (used to be
+  // four round trips one after another on every Home open).
+  if(Date.now() - pmDlvReqAt > 30000){ deliveryRequestsCount = null; pmDlvReqAt = Date.now(); }
+  const [repR, dlvR, tdR, osR] = await Promise.allSettled([loadPmReports(), deliveryRequestsBadgeCount(), loadPmTodos(), loadOnSiteNow()]);
+  if(repR.status==='fulfilled' && repR.value) reports = repR.value;
+  if(dlvR.status==='fulfilled') dlvReqN = dlvR.value || 0;
+  if(tdR.status==='fulfilled' && tdR.value) todos = tdR.value;
+  if(osR.status==='fulfilled' && osR.value) onSiteN = osR.value.length;
   const live = SITES.filter(s=>siteStatusKey(s)==='live');
   const upcoming = SITES.filter(s=>siteStatusKey(s)==='upcoming');
-  let onSiteN = 0; try{ onSiteN = (await loadOnSiteNow()).length; }catch(e){}
   const open = reports.filter(r=>r.status==='in_progress');
   const mine = open.filter(r=>r.submitted_by===ME.id).slice(0,2);
   const hubCount = homeExtras.count || 0;
@@ -194,19 +200,24 @@ async function renderPmHome(){
 // #(pm-sign-nag) 2026-10-17: once each time the app is opened, a PM / admin
 // with company policies or the handbook still to sign gets a pop-up with a
 // button straight to them (or X to close).
-let pmSignNagDone = false;
+let pmSignNagDone = false, pmSignNagChecking = false;
 async function maybeShowPmSignNag(){
-  if(pmSignNagDone || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
-  pmSignNagDone = true;
+  if(pmSignNagDone || pmSignNagChecking || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
+  pmSignNagChecking = true;
   let pols = [], mine = [];
   try{
     pols = await dbSelect('company_policies', 'org_id=eq.'+ME.org_id+'&archived=eq.false&select=id,kind');
     mine = pols.length ? await dbSelect('company_policy_signatures', 'user_id=eq.'+ME.id+'&select=policy_id') : [];
   }catch(e){ return; }
+  finally{ pmSignNagChecking = false; }
   const signed = new Set(mine.map(x=>x.policy_id));
   const left = pols.filter(p=>!signed.has(p.id));
   const hb = left.filter(p=>p.kind==='handbook').length, pol = left.length - hb;
-  if(!left.length || parseRoute()[0]!=='home') return;
+  if(!left.length){ pmSignNagDone = true; return; }
+  // Home is "#/home" or the empty hash the app opens on.
+  const r0 = parseRoute()[0];
+  if(r0 && r0!=='home') return;
+  pmSignNagDone = true;
   let ov = document.getElementById('signNagOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'signNagOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) closeSignNag(); };

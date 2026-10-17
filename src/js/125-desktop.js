@@ -45,7 +45,7 @@ function deskSidebar(opts){
       {k:'hub', ic:'bell', lbl:'HUB', go:'#/hub', badge:hubN},
       {k:'sitemap', ic:'pin', lbl:'Sites map', go:'#/sitemap'},
       {k:'dashboard', ic:'chart', lbl:'Dashboard', go:'#/dashboard'},
-      {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports'},
+      {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports', show: usesPmHome(ME)},
       {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},
       {k:'team', ic:'gear', lbl:'Admin', go:'#/team'},
@@ -216,8 +216,8 @@ async function mountSiteMapGL(box, elId, mini, pts, missing){
   };
   fit();
   map._ophubFocus = id=>{ const mk = markers[id]; if(!mk) return; map.flyTo({center: mk.getLngLat(), zoom:14, speed:1.6}); if(mk.getPopup() && !mk.getPopup().isOpen()) mk.togglePopup(); };
-  if(mini){ box.addEventListener('click', ()=>go('#/sitemap')); }
-  else if(siteMapFocus && markers[siteMapFocus]) map.once('load', ()=>map._ophubFocus(siteMapFocus));
+  // (the mini map's own onclick opens the full map — no second handler here)
+  if(!mini && siteMapFocus && markers[siteMapFocus]) map.once('load', ()=>map._ophubFocus(siteMapFocus));
   setTimeout(()=>{ try{ map.resize(); fit(); }catch(e){} }, 80);
   return true;
 }
@@ -264,7 +264,7 @@ async function mountSiteMap(elId, mini){
   if(shown.length){ map.fitBounds(L.latLngBounds(shown.map(p=>[p.lat,p.lng])).pad(0.2), {maxZoom: 13}); }
   else map.setView([52.6, -1.5], 6);
   if(mini){
-    map.on('click', ()=>go('#/sitemap'));
+    // click handled by the mini card's own onclick
     const n = document.getElementById(elId+'Count');
     if(n) n.textContent = shown.length+' site'+(shown.length===1?'':'s')+' on the map'+(missing.filter(x=>x.st!=='closed').length ? ' · '+missing.filter(x=>x.st!=='closed').length+' without a postcode' : '');
   } else {
