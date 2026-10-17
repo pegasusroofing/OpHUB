@@ -29,9 +29,14 @@ function navNoteArrival(prevHash, newHash){
   // stepped back to (trail trimmed); a page reached with no tap since the
   // last one (a redirect) replaces the top rather than adding a step.
   const full = String(newHash);
-  const at = NAV_STACK.lastIndexOf(full);
+  // Same page already in the trail — even with a different ?query (e.g. an
+  // operative's page opened as ?listFrom=… and returned to plainly after
+  // picking their OneDrive folder) — is stepped back to, not stacked again,
+  // so the back arrow can't land you on the very page you're on.
+  let at = NAV_STACK.lastIndexOf(full);
+  if(at < 0) at = NAV_STACK.map(base).lastIndexOf(n);
   const topBase = NAV_STACK.length ? base(NAV_STACK[NAV_STACK.length-1]) : '';
-  if(at >= 0) NAV_STACK.length = at+1;
+  if(at >= 0){ NAV_STACK.length = at+1; NAV_STACK[at] = full; }
   // Going UP a level (e.g. a report → that project's report list) is a step
   // back, not forward: it replaces the page you were on, so the next back
   // doesn't bounce you down into it again.
@@ -56,7 +61,7 @@ function navBackFor(defaultBack){
   if(defaultBack && NAV_STACK.length >= 2 && NAV_STACK[NAV_STACK.length-1] === cur){
     const prev = NAV_STACK[NAV_STACK.length-2];
     // never "back" down into a page inside this one
-    if(prev && prev !== cur && prev !== '#' && prev !== '' && !String(prev).split('?')[0].startsWith(cur.split('?')[0]+'/')) return prev;
+    if(prev && prev !== cur && prev !== '#' && prev !== '' && String(prev).split('?')[0] !== cur.split('?')[0] && !String(prev).split('?')[0].startsWith(cur.split('?')[0]+'/')) return prev;
   }
   const n = cur.split('?')[0];
   const o = NAV_CAME_FROM[n];

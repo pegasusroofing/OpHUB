@@ -21,6 +21,8 @@ const CERT_CATEGORIES = [
   {key:'manufacturer_installer_card', label:'Manufacturer Installer Card'},
   {key:'other', label:'Other'},
 ];
+// #(cert-types-az) 2026-10-17: card-type drop-downs list A–Z, "Other" last.
+const CERT_CATEGORIES_AZ = CERT_CATEGORIES.filter(c=>c.key!=='other').sort((a,b)=>a.label.localeCompare(b.label)).concat(CERT_CATEGORIES.filter(c=>c.key==='other'));
 function certCategoryLabel(key){ return (CERT_CATEGORIES.find(c=>c.key===key)||{}).label || 'Other'; }
 let operativeCertSyncBusy = {};
 // Change Folder / Unlink collapsed into a chevron dropdown (#276) — one open at a time.
@@ -88,7 +90,7 @@ function operativeCertUploadFormHtml(operativeId, prefix){
     <div class="card" style="margin-top:10px;">
       <p class="field-label" style="margin-bottom:6px;">Upload a certificate</p>
       <select id="${prefix}CertCategory" class="stub" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card);" onchange="document.getElementById('${prefix}CertOtherRow').style.display=this.value==='other'?'block':'none';">
-        ${CERT_CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}
+        ${CERT_CATEGORIES_AZ.map(c=>`<option value="${c.key}">${c.label}</option>`).join('')}
       </select>
       <div id="${prefix}CertOtherRow" style="display:none;margin-bottom:8px;">
         <input type="text" id="${prefix}CertOtherDesc" placeholder="Describe the certificate type" style="width:100%;padding:10px;border:1.5px solid var(--line);border-radius:8px;box-sizing:border-box;">
@@ -182,7 +184,7 @@ function operativeCertListHtml(certs, canManage, opts){
   if(!certs.length) return `<div class="empty">No certificates yet.</div>`;
   const byCat = {};
   certs.forEach(c=>{ (byCat[c.category]=byCat[c.category]||[]).push(c); });
-  return CERT_CATEGORIES.map(cat=>{
+  return CERT_CATEGORIES_AZ.map(cat=>{
     const list = byCat[cat.key]||[];
     if(!list.length) return '';
     return `
@@ -197,8 +199,9 @@ function operativeCertListHtml(certs, canManage, opts){
               <div class="stub" style="font-size:9.5px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f.category==='other'&&f.other_type_description?escapeHtml(f.other_type_description)+' · ':''}${f.expiry_date?'Expires '+new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):escapeHtml(certDisplayName(f))}</div>
             </div>
             ${canManage?`
-              <div style="flex:0 0 78px;width:78px;max-width:78px;overflow:hidden;">
-                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" placeholder="Expiry" title="Expiry date" style="display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;padding:3px 2px;font-size:9px;border:1.5px solid var(--line);border-radius:6px;" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value,this)" onblur="certExpiryPickerClosed()">
+              <div class="certexp" title="Expiry date">
+                <span class="certexp-lbl">${f.expiry_date ? new Date(f.expiry_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}) : 'Expiry'}</span>
+                <input type="date" id="certExpiry_${f.id}" value="${f.expiry_date||''}" aria-label="Expiry date" onclick="openDatePickerRow(this)" onchange="setOperativeCertExpiry('${f.id}',this.value,this)" onblur="certExpiryPickerClosed()">
               </div>
             `:''}
             <div class="taskicon" style="flex:0 0 auto;width:24px;height:24px;font-size:13px;position:relative;top:-2px;" title="View" onclick="viewOperativeCertFile('${jsAttr(f.storage_path)}','${jsAttr(certDisplayName(f))}')">👁</div>
@@ -208,7 +211,7 @@ function operativeCertListHtml(certs, canManage, opts){
               <div class="statusmenu-item" style="cursor:default;" onclick="event.stopPropagation();">
                 <div style="margin-bottom:4px;">Cert Type</div>
                 <select class="stub" title="Category" style="width:100%;box-sizing:border-box;padding:5px 6px;border:1.5px solid var(--line);border-radius:6px;background:var(--card);font-size:11px;" onchange="changeOperativeCertCategory('${f.id}',this.value)">
-                  ${CERT_CATEGORIES.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
+                  ${CERT_CATEGORIES_AZ.map(c=>`<option value="${c.key}" ${c.key===f.category?'selected':''}>${c.label}</option>`).join('')}
                 </select>
               </div>
             `):''}
@@ -260,8 +263,18 @@ window.renameOperativeCertFile = async function(fileId, currentName){
   if(row){ toast('Renamed'); render(); }
 };
 window.changeOperativeCertCategory = async function(fileId, category){
-  const row = await dbUpdate('operative_certifications', fileId, {category});
-  if(row){ toast('Moved to '+certCategoryLabel(category)); render(); }
+  // Picking a type closes the row's ▾ menu straight away (it used to stay open).
+  rowActionsMenuOpenFor = null;
+  const patch = {category};
+  // "Other" — type in what the card actually is.
+  if(category==='other'){
+    const desc = await customPrompt('What type of card / certificate is it?', '');
+    if(desc===null){ render(); return; }
+    patch.other_type_description = desc.trim() || null;
+  } else patch.other_type_description = null;
+  const row = await dbUpdate('operative_certifications', fileId, patch);
+  if(row){ toast('Moved to '+(category==='other' && patch.other_type_description ? patch.other_type_description : certCategoryLabel(category))); }
+  render();
 };
 // #325: expiry date is now editable on every certification record, not just
 // at upload time — this lets a PM/admin retroactively set/change/clear the
