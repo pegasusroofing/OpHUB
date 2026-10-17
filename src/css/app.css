@@ -1290,3 +1290,19 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .dlvhours tbody th{text-align:left;font-weight:700;}
 .dlvhours thead td{font-weight:700;color:var(--slate);font-size:11px;}
 .dlvhours .tot{font-weight:800;background:#F7F8FA;}
+/* How-to tips */
+.howto{position:fixed;left:0;right:0;bottom:0;z-index:120;display:none;justify-content:center;padding:0 12px calc(86px + env(safe-area-inset-bottom));pointer-events:none;}
+.howto-card{pointer-events:auto;width:100%;max-width:440px;background:#fff;border-radius:18px;box-shadow:0 12px 40px rgba(20,22,28,.25);padding:14px 16px 10px;border:1px solid #ECEEF2;animation:howtoIn .2s ease-out;}
+@keyframes howtoIn{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
+.howto-h{display:flex;align-items:center;gap:8px;font-family:'Sora',sans-serif;font-weight:800;font-size:15px;color:var(--ink);}
+.howto-h span{flex:1;min-width:0;}
+.howto-x{all:unset;cursor:pointer;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--slate);}
+.howto-card ol{margin:8px 0 10px;padding-left:20px;font-size:13.5px;line-height:1.45;color:#3A3D44;}
+.howto-card li{margin:3px 0;}
+.howto-f{display:flex;align-items:center;gap:10px;}
+.howto-f label{flex:1;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--slate);cursor:pointer;}
+.howto-f input{width:16px;height:16px;margin:0;}
+.howto-f .darkbtn{width:auto;margin:0;padding:8px 16px;}
+.howto-off{text-align:center;margin-top:6px;}
+.howto-off span{font-size:11px;color:var(--slate-light);cursor:pointer;text-decoration:underline;}
+html.desk .howto{padding-left:248px;padding-bottom:24px;justify-content:flex-end;padding-right:24px;}

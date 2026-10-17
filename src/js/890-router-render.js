@@ -26,6 +26,7 @@ async function render(){
     if(sameHash && location.hash === RENDERED_HASH && keepY > 0) appScrollTo(keepY);
     if(typeof rowActionsMenuOpenFor!=='undefined' && rowActionsMenuOpenFor){ try{ rowActionsMenuFit(true); }catch(e){} }
     RENDERED_HASH = location.hash;
+    if(!sameHash) setTimeout(maybeShowHowTo, 700);
   }catch(e){
     uiReadCacheClear();
     console.error('render() failed', e);

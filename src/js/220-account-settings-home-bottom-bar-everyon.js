@@ -19,6 +19,7 @@ function renderAccountSettings(){
       <p class="stub" style="margin:0 0 10px;">Shown to delivery drivers when you're the site contact for a delivery.</p>
       <button class="ghostbtn" ${myPhoneSaveBusy?'disabled':''} onclick="saveMyPhone()">${myPhoneSaveBusy?'Saving…':'Save Phone Number'}</button>
       <button class="ghostbtn" style="margin-top:8px;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</button>
+      <button class="ghostbtn" style="margin-top:8px;" onclick="resetHowTo()">💡 Show the how-to tips again</button>
       <button class="ghostbtn" style="margin-top:8px;color:var(--warn);" onclick="doSignOut()">Sign out</button>
     </div>
   `, {title:'Settings', back: ME.role==='driver' ? '#/driver' : '#/sites', tabs:false}); }
