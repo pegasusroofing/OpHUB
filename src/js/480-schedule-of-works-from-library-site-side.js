@@ -109,7 +109,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
     <span ${canAdd?`onclick="openSubcontractorAssignPicker('${t.id}')" style="cursor:pointer;`:`style="`}display:inline-block;flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink);background:#E7E9EE;border:1px solid var(--line);border-radius:20px;padding:2px 8px;white-space:nowrap;">🏗 ${escapeHtml(assignedCo ? assignedCo.name : 'Subcontractor')}</span>
   ` : '';
   return `
-      <div class="task">
+      <div class="task task-${t.status||'todo'}">
         <div class="taskbody">
           ${canAdd && editingTaskId===t.id && !alwaysEditable ? `
             <div class="taskeditrow">
@@ -408,7 +408,18 @@ window.deleteScheduleDocument = async function(siteId, docId){
   toast('Document removed');
   render();
 };
+// #(sow-photo-alerts) Opening a job's Schedule of Works as a manager clears
+// its "new photos" item in HUB (once per visit, not on every redraw).
+let sowViewedFor = null;
+function markSowViewed(siteId){
+  if(!isManager(ME) || sowViewedFor===siteId || navigator.onLine===false) return;
+  sowViewedFor = siteId;
+  sbFetch('/rest/v1/sow_views?on_conflict=user_id,site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:ME.id, site_id:siteId, viewed_at:new Date().toISOString()})})
+    .then(()=>{ try{ homeExtras.at = 0; }catch(e){} }).catch(()=>{});
+}
+window.addEventListener('hashchange', ()=>{ if(!/\/schedule/.test(location.hash||'')) sowViewedFor = null; });
 async function renderSchedule(siteId){
+  markSowViewed(siteId);
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
@@ -531,7 +542,7 @@ async function renderSchedule(siteId){
       <div style="flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;"><div style="height:100%;width:${overallPct}%;background:#2E9E5B;"></div></div>
       <b style="font-size:13px;color:var(--ink);">${overallPct}%</b>
     </div>` : '';
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="sowpage">
     ${overallHtml}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
@@ -655,6 +666,7 @@ async function renderSchedule(siteId){
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;display:flex;flex-wrap:nowrap;align-items:center;">
           <span style="cursor:pointer;flex:1;min-width:0;" onclick="toggleScheduleSection('__ungrouped__')"><span class="arrow">${open?'▼':'▶'}</span> Schedule of Works</span>
+          ${allUngrouped.length ? `<span class="sowsec-count">${allUngrouped.filter(t=>t.status==='done').length}/${allUngrouped.length} done</span>` : ''}
           ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';scheduleSectionsOpen['__ungrouped__']=true;render()">➕ Add Task</button><span style="margin-left:6px;display:inline-flex;flex:0 0 auto;" onclick="event.stopPropagation()">${sowMoreMenuHtml}</span>` : ''}
         </div>
         ${open ? `<div style="padding:0 14px 14px;">
@@ -678,7 +690,6 @@ async function renderSchedule(siteId){
             </div>
           ` : ''}
           ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
-          ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
         </div>` : ''}
       </div>
     `;})() : ''}
@@ -697,6 +708,7 @@ async function renderSchedule(siteId){
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
           <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${sec.visibility_mode==='assigned'?'🔒 ':''}${escapeHtml(sec.name)}</div>
+          ${(bySectionAll[sec.id]||[]).length ? `<span class="sowsec-count">${(bySectionAll[sec.id]||[]).filter(t=>t.status==='done').length}/${(bySectionAll[sec.id]||[]).length} done</span>` : ''}
           ${canAdd ? `<div style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
@@ -742,6 +754,7 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
+    ${allTasks.length ? `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0;">Site condition</p>${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}</div>` : ''}
     ${allTasks.length ? `
     <div class="row-gap" style="margin-bottom:14px;flex-wrap:nowrap;">
       <button class="ghostbtn exportbtn sowexportbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
@@ -749,7 +762,7 @@ async function renderSchedule(siteId){
     </div>
     ` : ''}
     <div id="scheduleLiveMarker" style="display:none;"></div>
-  `, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 
   // Live two-way sync with any subcontractor's own filtered Schedule of
   // Works view (renderSubSchedule) — both pages read/write the exact same

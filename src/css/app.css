@@ -1236,3 +1236,30 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .hrswatches{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);}
 .hrsw{all:unset;cursor:pointer;width:24px;height:24px;border-radius:50%;box-sizing:border-box;border:2px solid #fff;box-shadow:0 0 0 1px #DADCE0;}
 .hrsw.on{box-shadow:0 0 0 2.5px var(--ink);}
+/* ===== Schedule of Works — modern layout (Andy, 17 Oct) ===== */
+.sowpage .sowoverall{background:#fff;border:1px solid #ECEEF2;border-radius:16px;padding:12px 14px;margin-bottom:12px !important;}
+.sowpage .sowoverall > div{height:10px !important;border-radius:6px !important;}
+.sowpage .filterrow{background:#ECEDF0;border-radius:14px;padding:4px;gap:4px;}
+.sowpage .filterchip{border:0;border-radius:10px;background:transparent;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--slate);min-height:34px;padding:6px 8px;}
+.sowpage .filterchip.active{background:#fff;border:0;color:var(--ink);box-shadow:0 1px 4px rgba(20,22,28,.12);}
+.sowpage > .card{border-radius:18px;border:1px solid #ECEEF2;box-shadow:none;}
+.sowpage .ddrow{font-family:'Sora',-apple-system,sans-serif;font-weight:800;font-size:15px;gap:8px;}
+.sowpage .ddrow .arrow{font-size:10px;color:var(--slate);margin-right:4px;}
+.sowsec-count{flex:0 0 auto;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--slate);background:#F1F2F4;border-radius:999px;padding:3px 9px;margin-left:6px;}
+.sowpage .task{border:1px solid #ECEEF2;border-radius:14px;padding:12px 12px 12px 14px;margin-bottom:8px;position:relative;box-shadow:none;background:#fff;gap:6px;}
+.sowpage .task::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:#C9CDD4;}
+.sowpage .task.task-progress::before{background:var(--warn);}
+.sowpage .task.task-done::before{background:var(--ok);}
+.sowpage .taskname{font-size:14px;}
+.sowpage .statusbtns{background:#F1F2F4;border-radius:11px;padding:3px;gap:3px;margin-top:8px;}
+.sowpage .statusbtn{border:0 !important;border-radius:8px;background:transparent;font-size:11px;letter-spacing:0;padding:7px 4px;color:var(--slate);}
+.sowpage .statusbtn.active-todo{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(20,22,28,.12);}
+.sowpage .statusbtn.active-progress{background:var(--warn);color:#fff;}
+.sowpage .statusbtn.active-done{background:var(--ok);color:#fff;}
+.sowpage .addphotobtn{margin-top:8px;padding:6px 11px;font-size:12px;border-width:1px;border-radius:999px;border-color:#DADCE0;color:var(--ink);background:#fff;}
+.sowpage .taskpct{border:0;background:#F7F8FA;padding:4px 10px;margin-top:8px;}
+.sowpage .taskpct input[type=range]{height:10px;border:0;background:#E3E6EA;}
+.sowpage .taskpct input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-6px;}
+.sowpage .sowflagcard{padding:12px 14px;}
+.sowpage .sowflagcard .sectionflagrow{border-top:0;margin-top:6px;padding:0;}
+.sowpage .ddrow > span:first-child,.sowpage .ddrow > div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

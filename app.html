@@ -1250,6 +1250,33 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .hrswatches{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);}
 .hrsw{all:unset;cursor:pointer;width:24px;height:24px;border-radius:50%;box-sizing:border-box;border:2px solid #fff;box-shadow:0 0 0 1px #DADCE0;}
 .hrsw.on{box-shadow:0 0 0 2.5px var(--ink);}
+/* ===== Schedule of Works — modern layout (Andy, 17 Oct) ===== */
+.sowpage .sowoverall{background:#fff;border:1px solid #ECEEF2;border-radius:16px;padding:12px 14px;margin-bottom:12px !important;}
+.sowpage .sowoverall > div{height:10px !important;border-radius:6px !important;}
+.sowpage .filterrow{background:#ECEDF0;border-radius:14px;padding:4px;gap:4px;}
+.sowpage .filterchip{border:0;border-radius:10px;background:transparent;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;color:var(--slate);min-height:34px;padding:6px 8px;}
+.sowpage .filterchip.active{background:#fff;border:0;color:var(--ink);box-shadow:0 1px 4px rgba(20,22,28,.12);}
+.sowpage > .card{border-radius:18px;border:1px solid #ECEEF2;box-shadow:none;}
+.sowpage .ddrow{font-family:'Sora',-apple-system,sans-serif;font-weight:800;font-size:15px;gap:8px;}
+.sowpage .ddrow .arrow{font-size:10px;color:var(--slate);margin-right:4px;}
+.sowsec-count{flex:0 0 auto;font-family:'IBM Plex Sans',sans-serif;font-size:11px;font-weight:700;color:var(--slate);background:#F1F2F4;border-radius:999px;padding:3px 9px;margin-left:6px;}
+.sowpage .task{border:1px solid #ECEEF2;border-radius:14px;padding:12px 12px 12px 14px;margin-bottom:8px;position:relative;box-shadow:none;background:#fff;gap:6px;}
+.sowpage .task::before{content:'';position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:#C9CDD4;}
+.sowpage .task.task-progress::before{background:var(--warn);}
+.sowpage .task.task-done::before{background:var(--ok);}
+.sowpage .taskname{font-size:14px;}
+.sowpage .statusbtns{background:#F1F2F4;border-radius:11px;padding:3px;gap:3px;margin-top:8px;}
+.sowpage .statusbtn{border:0 !important;border-radius:8px;background:transparent;font-size:11px;letter-spacing:0;padding:7px 4px;color:var(--slate);}
+.sowpage .statusbtn.active-todo{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(20,22,28,.12);}
+.sowpage .statusbtn.active-progress{background:var(--warn);color:#fff;}
+.sowpage .statusbtn.active-done{background:var(--ok);color:#fff;}
+.sowpage .addphotobtn{margin-top:8px;padding:6px 11px;font-size:12px;border-width:1px;border-radius:999px;border-color:#DADCE0;color:var(--ink);background:#fff;}
+.sowpage .taskpct{border:0;background:#F7F8FA;padding:4px 10px;margin-top:8px;}
+.sowpage .taskpct input[type=range]{height:10px;border:0;background:#E3E6EA;}
+.sowpage .taskpct input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-6px;}
+.sowpage .sowflagcard{padding:12px 14px;}
+.sowpage .sowflagcard .sectionflagrow{border-top:0;margin-top:6px;padding:0;}
+.sowpage .ddrow > span:first-child,.sowpage .ddrow > div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 <body>
@@ -7409,6 +7436,17 @@ async function computeHubItems(forcedPmId){
     if(!site) return;
     items.push({type:'task', typeLbl:'Task', label:t.text, siteId:t.site_id, siteName:site.name, pmId:t.assigned_to||null, dueDate: t.date_required_by ? new Date(t.date_required_by+'T00:00:00') : null, href:`#/site/${t.site_id}/todos`});
   });
+  // #(sow-photo-alerts) 2026-10-17: new Schedule of Works photos from
+  // operatives since this manager last opened that job's SOW. Opening the
+  // SOW clears it (see markSowViewed).
+  try{
+    const r = await sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'});
+    const rows = r && r.ok ? await r.json() : [];
+    (rows||[]).forEach(a=>{
+      const site = sites.find(s=>s.id===a.site_id); if(!site) return;
+      items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:new Date(a.latest), href:`#/site/${site.id}/schedule`});
+    });
+  }catch(e){}
   const msgIds = mgrMsgs.map(m=>m.id);
   const reads = msgIds.length ? await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+msgIds.join(',')+')&select=message_id') : [];
   const readSet = new Set(reads.map(r=>r.message_id));
@@ -7429,7 +7467,7 @@ async function renderHub(){
   const pmOptions = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.id!==ME.id).sort((a,b)=>a.name.localeCompare(b.name));
   const typeChips = [
     {k:'all', lbl:'All'}, {k:'tbt', lbl:'TBT'}, {k:'snag', lbl:'Snags'},
-    {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'},
+    {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'}, {k:'sowphoto', lbl:'Photos'},
   ];
   const now = new Date();
   const weekAhead = new Date(now.getTime() + 7*24*60*60*1000);
@@ -21186,7 +21224,7 @@ function taskRowHtml(siteId, t, canAdd, photosByTask, isMultiSite, subAddrById, 
     <span ${canAdd?`onclick="openSubcontractorAssignPicker('${t.id}')" style="cursor:pointer;`:`style="`}display:inline-block;flex:0 0 auto;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--ink);background:#E7E9EE;border:1px solid var(--line);border-radius:20px;padding:2px 8px;white-space:nowrap;">🏗 ${escapeHtml(assignedCo ? assignedCo.name : 'Subcontractor')}</span>
   ` : '';
   return `
-      <div class="task">
+      <div class="task task-${t.status||'todo'}">
         <div class="taskbody">
           ${canAdd && editingTaskId===t.id && !alwaysEditable ? `
             <div class="taskeditrow">
@@ -21485,7 +21523,18 @@ window.deleteScheduleDocument = async function(siteId, docId){
   toast('Document removed');
   render();
 };
+// #(sow-photo-alerts) Opening a job's Schedule of Works as a manager clears
+// its "new photos" item in HUB (once per visit, not on every redraw).
+let sowViewedFor = null;
+function markSowViewed(siteId){
+  if(!isManager(ME) || sowViewedFor===siteId || navigator.onLine===false) return;
+  sowViewedFor = siteId;
+  sbFetch('/rest/v1/sow_views?on_conflict=user_id,site_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}, body: JSON.stringify({user_id:ME.id, site_id:siteId, viewed_at:new Date().toISOString()})})
+    .then(()=>{ try{ homeExtras.at = 0; }catch(e){} }).catch(()=>{});
+}
+window.addEventListener('hashchange', ()=>{ if(!/\/schedule/.test(location.hash||'')) sowViewedFor = null; });
 async function renderSchedule(siteId){
+  markSowViewed(siteId);
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const canAdd = isManager(ME);
@@ -21608,7 +21657,7 @@ async function renderSchedule(siteId){
       <div style="flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;"><div style="height:100%;width:${overallPct}%;background:#2E9E5B;"></div></div>
       <b style="font-size:13px;color:var(--ink);">${overallPct}%</b>
     </div>` : '';
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="sowpage">
     ${overallHtml}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
@@ -21732,6 +21781,7 @@ async function renderSchedule(siteId){
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;display:flex;flex-wrap:nowrap;align-items:center;">
           <span style="cursor:pointer;flex:1;min-width:0;" onclick="toggleScheduleSection('__ungrouped__')"><span class="arrow">${open?'▼':'▶'}</span> Schedule of Works</span>
+          ${allUngrouped.length ? `<span class="sowsec-count">${allUngrouped.filter(t=>t.status==='done').length}/${allUngrouped.length} done</span>` : ''}
           ${canAdd ? `<button class="darkbtn" style="width:auto;flex:0 0 auto;padding:6px 10px;font-size:10px;" onclick="event.stopPropagation();scheduleAddPanel=scheduleAddPanel==='task'?null:'task';scheduleSectionsOpen['__ungrouped__']=true;render()">➕ Add Task</button><span style="margin-left:6px;display:inline-flex;flex:0 0 auto;" onclick="event.stopPropagation()">${sowMoreMenuHtml}</span>` : ''}
         </div>
         ${open ? `<div style="padding:0 14px 14px;">
@@ -21755,7 +21805,6 @@ async function renderSchedule(siteId){
             </div>
           ` : ''}
           ${ungrouped.length ? ungrouped.map(t=>taskRowHtml(siteId,t,canAdd,photosByTask,isMultiSite,subAddrById,subAddressesList,subCompanies,isMc) + (canAdd && scheduleAssignTarget && scheduleAssignTarget.kind==='task' && scheduleAssignTarget.id===t.id ? scheduleAssignFormHtml(siteId, pmOptions, operativeOptions) : '')).join('') : `<div class="empty">No tasks${scheduleFilter!=='all'?' for this filter':''}.</div>`}
-          ${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}
         </div>` : ''}
       </div>
     `;})() : ''}
@@ -21774,6 +21823,7 @@ async function renderSchedule(siteId){
       <div class="card" style="padding:0;${somethingOpenHere?'overflow:visible;':'overflow:hidden;'}">
         <div class="ddrow" style="margin:0;padding:12px 14px;border:none;border-radius:0;background:transparent;flex-wrap:nowrap;" onclick="toggleScheduleSection('${sec.id}')">
           <div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><span class="arrow">${open?'▼':'▶'}</span> ${sec.visibility_mode==='assigned'?'🔒 ':''}${escapeHtml(sec.name)}</div>
+          ${(bySectionAll[sec.id]||[]).length ? `<span class="sowsec-count">${(bySectionAll[sec.id]||[]).filter(t=>t.status==='done').length}/${(bySectionAll[sec.id]||[]).length} done</span>` : ''}
           ${canAdd ? `<div style="flex:0 0 auto;margin-left:8px;" onclick="event.stopPropagation()">
             ${rowActionsMenuHtml('sowsec-'+sec.id, `
               <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;duplicateSection('${siteId}','${sec.id}')">⧉ Duplicate section</div>
@@ -21819,6 +21869,7 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
+    ${allTasks.length ? `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0;">Site condition</p>${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}</div>` : ''}
     ${allTasks.length ? `
     <div class="row-gap" style="margin-bottom:14px;flex-wrap:nowrap;">
       <button class="ghostbtn exportbtn sowexportbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
@@ -21826,7 +21877,7 @@ async function renderSchedule(siteId){
     </div>
     ` : ''}
     <div id="scheduleLiveMarker" style="display:none;"></div>
-  `, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
+  </div>`, {title:'Schedule of Works', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: scheduleBackFrom ? decodeURIComponent(scheduleBackFrom) : `#/site/${siteId}/home`, siteId, activeTab:'schedule'}); }
 
   // Live two-way sync with any subcontractor's own filtered Schedule of
   // Works view (renderSubSchedule) — both pages read/write the exact same

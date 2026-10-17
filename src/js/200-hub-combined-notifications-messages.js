@@ -112,6 +112,17 @@ async function computeHubItems(forcedPmId){
     if(!site) return;
     items.push({type:'task', typeLbl:'Task', label:t.text, siteId:t.site_id, siteName:site.name, pmId:t.assigned_to||null, dueDate: t.date_required_by ? new Date(t.date_required_by+'T00:00:00') : null, href:`#/site/${t.site_id}/todos`});
   });
+  // #(sow-photo-alerts) 2026-10-17: new Schedule of Works photos from
+  // operatives since this manager last opened that job's SOW. Opening the
+  // SOW clears it (see markSowViewed).
+  try{
+    const r = await sbFetch('/rest/v1/rpc/sow_photo_alerts', {method:'POST', body:'{}'});
+    const rows = r && r.ok ? await r.json() : [];
+    (rows||[]).forEach(a=>{
+      const site = sites.find(s=>s.id===a.site_id); if(!site) return;
+      items.push({type:'sowphoto', typeLbl:'SOW photos', label:`${a.photos} new photo${a.photos===1?'':'s'} on the Schedule of Works`, siteId:site.id, siteName:site.name, pmId:site.responsible_pm_id, dueDate:new Date(a.latest), href:`#/site/${site.id}/schedule`});
+    });
+  }catch(e){}
   const msgIds = mgrMsgs.map(m=>m.id);
   const reads = msgIds.length ? await dbSelect('message_reads', 'user_id=eq.'+ME.id+'&message_id=in.('+msgIds.join(',')+')&select=message_id') : [];
   const readSet = new Set(reads.map(r=>r.message_id));
@@ -132,7 +143,7 @@ async function renderHub(){
   const pmOptions = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.id!==ME.id).sort((a,b)=>a.name.localeCompare(b.name));
   const typeChips = [
     {k:'all', lbl:'All'}, {k:'tbt', lbl:'TBT'}, {k:'snag', lbl:'Snags'},
-    {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'},
+    {k:'rams', lbl:'RAMS'}, {k:'coshh', lbl:'COSHH'}, {k:'message', lbl:'Messages'}, {k:'task', lbl:'Tasks'}, {k:'sowphoto', lbl:'Photos'},
   ];
   const now = new Date();
   const weekAhead = new Date(now.getTime() + 7*24*60*60*1000);
