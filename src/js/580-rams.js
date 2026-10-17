@@ -73,6 +73,30 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const issuedHtml = issuedBy.length ? `<div class="signerlist" style="margin-bottom:0;">${issuedBy.map(ramsIssuedLine).join('')}</div>` : '';
     const anyIssued = issuedBy.length > 0;
     const multi = ramsMultiOn(r);
+    if(canAdd && !isClientView){
+      const viewJs = `viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
+      const opSigs = sigs.filter(x=>!x.issued).slice().sort((x,y)=>new Date(x.signed_at)-new Date(y.signed_at));
+      const hasExport = sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at);
+      const sel = ramsSelIds.has(r.id);
+      return hsDocRowHtml({
+        sel,
+        selHtml: `<button type="button" class="ramschk" aria-label="Select ${escapeHtml(r.name)}" onclick="toggleRamsSel('${r.id}')"><span class="pmrep-box">${sel?'✓':''}</span></button>`,
+        name: r.name,
+        meta: `${anyIssued ? 'Issued by '+escapeHtml(nameOf(issuedBy[0].user_id))+' '+new Date(issuedBy[0].signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : `<span class="hsnotissued" onclick="signRams('${siteId}','${r.id}')">Not issued — tap to issue</span>`}${r.supersedes?' · Supersedes "'+escapeHtml(nameById[r.supersedes]||'an earlier version')+'"':''}${resignDueLabel(r, site)} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: hsSignPill(roster.length - notSigned.length, roster.length),
+        menu: rowActionsMenuHtml('ramsdoc-'+r.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+          ${hasExport ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedRams('${r.id}')">📄 Export signed PDF</div><div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailSignedRams('${siteId}','${r.id}')">✉️ Email signed PDF</div>` : ''}
+          ${!anyIssued && !mine ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;signRams('${siteId}','${r.id}')">📝 Mark as issued</div>` : ''}
+          ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
+        body: hsSignersHtml(opSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id)))
+          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+            <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
+            ${ramsClientLineHtml(siteId, r)}
+          </div>` : ''),
+      });
+    }
     return `
     <div class="ramsdoc ${canAdd && ramsSelIds.has(r.id)?'ramssel':''}" style="padding:10px 12px;">
       <div class="taskrowtop">

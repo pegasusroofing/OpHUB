@@ -84,6 +84,25 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isCli
     const signedCount = sigs.length;
     const outstandingCount = notSigned.length;
     const picked = coshhSel.has(r.id);
+    if(canAdd && isManager(ME)){
+      const viewJs = `viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
+      const opSigned = sigs.filter(x=>PROFILES[x.user_id] && PROFILES[x.user_id].role==='operative');
+      return hsDocRowHtml({
+        sel: picked,
+        selHtml: `<label class="hsdoc-chk" title="Select"><input type="checkbox" ${picked?'checked':''} onchange="coshhSelToggle('${r.id}',this.checked)"></label>`,
+        name: r.name,
+        meta: `Added ${new Date(r.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: hsSignPill(roster.length ? roster.length-notSigned.length : opSigned.length, roster.length),
+        menu: rowActionsMenuHtml('coshhdoc-'+r.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+          ${sigs.length ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedCoshh('${r.id}')">📄 Export signed PDF</div>` : ''}
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('coshhReplaceInput-${r.id}').click()">🔁 Replace file (resets signatures)</div>
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;startCoshhSaveToLibrary('${siteId}','${r.id}','${jsAttr(r.name)}','${jsAttr(r.storage_path)}')">⬆️ Save to COSHH Library</div>
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
+        body: `<input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">`
+          + hsSignersHtml(opSigned.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id))),
+      });
+    }
     return `
     <div class="ramsdoc" style="padding:10px 12px;${picked?'box-shadow:0 0 0 2px var(--brand1) inset;':''}">
       <div class="taskrowtop">

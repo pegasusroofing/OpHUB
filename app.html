@@ -1277,6 +1277,28 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 .sowpage .sowflagcard{padding:12px 14px;}
 .sowpage .sowflagcard .sectionflagrow{border-top:0;margin-top:6px;padding:0;}
 .sowpage .ddrow > span:first-child,.sowpage .ddrow > div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Compact H&S document rows (RAMS / COSHH / TBT — managers) */
+.hsdoc{background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:10px 12px;margin-bottom:8px;}
+.hsdoc.sel{box-shadow:0 0 0 2px var(--brand1) inset;}
+.hsdoc-top{display:flex;align-items:center;gap:10px;}
+.hsdoc-chk{flex:none;display:flex;cursor:pointer;}
+.hsdoc-chk input{width:18px;height:18px;margin:0;}
+.hsdoc .ramschk{flex:none;}
+.hsdoc-main{flex:1;min-width:0;}
+.hsdoc-name{font-family:'Sora',sans-serif;font-weight:800;font-size:14.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hsdoc-meta{font-size:11.5px;color:var(--slate);margin-top:2px;line-height:1.4;}
+.hsdoc-meta .viewlink{cursor:pointer;}
+.hspill{flex:none;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;background:#F1F2F4;color:var(--slate);white-space:nowrap;}
+.hspill.ok{background:var(--ok-bg);color:var(--ok);}
+.hspill.warn{background:var(--warn-bg);color:var(--warn);}
+.hssig{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px;padding-top:8px;border-top:1px solid #F0F1F4;font-size:12px;}
+.hssig span.ok{color:var(--ink);} .hssig span.ok::first-letter{color:var(--ok);}
+.hssig span.no{color:var(--warn);}
+.hssig i{font-style:normal;color:var(--slate-light);font-size:11px;}
+.hsnotissued{color:var(--warn);font-weight:700;cursor:pointer;text-decoration:underline;}
+.hsdoc-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.hsdoc-actions button{width:auto !important;flex:1 1 auto;margin:0 !important;padding:9px 12px !important;font-size:12px !important;}
+.hsdoc-actions:empty{display:none;}
 </style>
 </head>
 <body>
@@ -26981,6 +27003,34 @@ window.deleteCompanyLibraryDoc = async function(id, storagePath){
   if(ok){ try{ await sbFetch('/storage/v1/object/mc-documents/'+storagePath, {method:'DELETE'}); }catch(e){} toast('Deleted'); render(); }
 };
 
+/* ================= Compact H&S document rows (RAMS / COSHH / TBT) =================
+   #(hs-compact) 2026-10-17 (Andy): manager rows are one tidy line — name,
+   a small "x/y signed" pill and a ▾ menu holding every action — with who
+   has / hasn't signed underneath as plain text. Operatives keep the big
+   "Tap to sign" box. */
+function hsSignPill(done, total, extra){
+  if(!total) return `<span class="hspill">${done} signed${extra||''}</span>`;
+  const all = done>=total;
+  return `<span class="hspill ${all?'ok':'warn'}">${all?'✓ ':''}${done}/${total} signed${extra||''}</span>`;
+}
+function hsSignersHtml(signed, waiting){
+  // signed: [{name, date}], waiting: [name]
+  if(!signed.length && !waiting.length) return '';
+  const d = t=>new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  return `<div class="hssig">${signed.map(x=>`<span class="ok">✓ ${escapeHtml(x.name)}${x.date?` <i>${d(x.date)}</i>`:''}</span>`).join('')}${waiting.map(n=>`<span class="no">○ ${escapeHtml(n)}</span>`).join('')}</div>`;
+}
+function hsDocRowHtml(o){
+  return `<div class="hsdoc ${o.sel?'sel':''}">
+    <div class="hsdoc-top">
+      ${o.selHtml||''}
+      <div class="hsdoc-main"><div class="hsdoc-name" title="${escapeHtml(o.name)}">${escapeHtml(o.name)}</div>${o.meta?`<div class="hsdoc-meta">${o.meta}</div>`:''}</div>
+      ${o.pill||''}
+      ${o.menu||''}
+    </div>
+    ${o.body||''}
+  </div>`;
+}
+
 /* ================= RAMS ================= */
 let ramsPollTimer = null;
 // "Multi-page signing" (signature boxes inside the document itself, like the
@@ -27056,6 +27106,30 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
     const issuedHtml = issuedBy.length ? `<div class="signerlist" style="margin-bottom:0;">${issuedBy.map(ramsIssuedLine).join('')}</div>` : '';
     const anyIssued = issuedBy.length > 0;
     const multi = ramsMultiOn(r);
+    if(canAdd && !isClientView){
+      const viewJs = `viewDrawing('${publicUrl('rams-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
+      const opSigs = sigs.filter(x=>!x.issued).slice().sort((x,y)=>new Date(x.signed_at)-new Date(y.signed_at));
+      const hasExport = sigs.length || Object.values(ramsClientSigs[r.id]||{}).some(c=>c.signed_at);
+      const sel = ramsSelIds.has(r.id);
+      return hsDocRowHtml({
+        sel,
+        selHtml: `<button type="button" class="ramschk" aria-label="Select ${escapeHtml(r.name)}" onclick="toggleRamsSel('${r.id}')"><span class="pmrep-box">${sel?'✓':''}</span></button>`,
+        name: r.name,
+        meta: `${anyIssued ? 'Issued by '+escapeHtml(nameOf(issuedBy[0].user_id))+' '+new Date(issuedBy[0].signed_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : `<span class="hsnotissued" onclick="signRams('${siteId}','${r.id}')">Not issued — tap to issue</span>`}${r.supersedes?' · Supersedes "'+escapeHtml(nameById[r.supersedes]||'an earlier version')+'"':''}${resignDueLabel(r, site)} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: hsSignPill(roster.length - notSigned.length, roster.length),
+        menu: rowActionsMenuHtml('ramsdoc-'+r.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+          ${hasExport ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedRams('${r.id}')">📄 Export signed PDF</div><div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailSignedRams('${siteId}','${r.id}')">✉️ Email signed PDF</div>` : ''}
+          ${!anyIssued && !mine ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;signRams('${siteId}','${r.id}')">📝 Mark as issued</div>` : ''}
+          ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
+        body: hsSignersHtml(opSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id)))
+          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+            <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
+            ${ramsClientLineHtml(siteId, r)}
+          </div>` : ''),
+      });
+    }
     return `
     <div class="ramsdoc ${canAdd && ramsSelIds.has(r.id)?'ramssel':''}" style="padding:10px 12px;">
       <div class="taskrowtop">
@@ -30466,6 +30540,25 @@ function coshhDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isCli
     const signedCount = sigs.length;
     const outstandingCount = notSigned.length;
     const picked = coshhSel.has(r.id);
+    if(canAdd && isManager(ME)){
+      const viewJs = `viewDrawing('${publicUrl('coshh-docs', r.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(r.name)?r.name:r.name+'.pdf')}')`;
+      const opSigned = sigs.filter(x=>PROFILES[x.user_id] && PROFILES[x.user_id].role==='operative');
+      return hsDocRowHtml({
+        sel: picked,
+        selHtml: `<label class="hsdoc-chk" title="Select"><input type="checkbox" ${picked?'checked':''} onchange="coshhSelToggle('${r.id}',this.checked)"></label>`,
+        name: r.name,
+        meta: `Added ${new Date(r.uploaded_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}${resignDueLabel(r, site)} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: hsSignPill(roster.length ? roster.length-notSigned.length : opSigned.length, roster.length),
+        menu: rowActionsMenuHtml('coshhdoc-'+r.id, `
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+          ${sigs.length ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedCoshh('${r.id}')">📄 Export signed PDF</div>` : ''}
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;render();document.getElementById('coshhReplaceInput-${r.id}').click()">🔁 Replace file (resets signatures)</div>
+          <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;startCoshhSaveToLibrary('${siteId}','${r.id}','${jsAttr(r.name)}','${jsAttr(r.storage_path)}')">⬆️ Save to COSHH Library</div>
+          <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteCoshh('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
+        body: `<input type="file" accept="application/pdf" id="coshhReplaceInput-${r.id}" style="display:none;" onchange="replaceCoshhFile(this,'${siteId}','${r.id}','${jsAttr(r.storage_path)}')">`
+          + hsSignersHtml(opSigned.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id))),
+      });
+    }
     return `
     <div class="ramsdoc" style="padding:10px 12px;${picked?'box-shadow:0 0 0 2px var(--brand1) inset;':''}">
       <div class="taskrowtop">
@@ -34721,6 +34814,44 @@ async function renderToolboxTalkView(siteId, tbtId){
   // no longer be edited, the file can't be replaced, and it can't be
   // deleted — only Export / Close / Email remain available from here on.
   const hasAnySignature = sigs.length > 0;
+  // #(hs-compact) Managers get the compact layout that matches COSHH/RAMS.
+  if(isPM && !isClientView){
+    const viewJs = `viewDrawing('${publicUrl('rams-docs', talk.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(talk.title)?talk.title:talk.title+'.pdf')}')`;
+    const dt = t=>new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    const menu = rowActionsMenuHtml('tbtv-'+tbtId, `
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+      ${sigs.length ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedToolboxTalk('${tbtId}')">📄 Export signed TBT</div>
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailSignedToolboxTalk('${siteId}','${tbtId}')">✉️ Email TBT</div>` : ''}
+      ${talk.status==='bank' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;issueToolboxTalkCompanyWide('${tbtId}','${jsAttr(talk.title)}')">📢 Issue company-wide</div>` : ''}
+      ${!hasAnySignature ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('edit','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">✎ Edit title</div>
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('replace','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">🔁 Replace file</div>
+      <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('delete','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">🗑 Delete</div>` : (talk.status==='live' ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}',${sigs.length})">🗑 Delete TBT</div>` : '')}`);
+    if(__gen !== RENDER_GEN) return;
+    document.getElementById('app').innerHTML = shell(`
+      ${hsDocRowHtml({
+        name: talk.title,
+        meta: `<span class="statustag2 ${TBT_STATUS_CLASS[talk.status]||'closed'}" style="font-size:10px;padding:1px 7px;">${TBT_STATUS_LABEL[talk.status]||talk.status}</span> ${dt(talk.created_at)}${conductor?' · Carried out by '+escapeHtml(conductor.name):''}${mine?' · ✓ you signed '+dt(mine.signed_at):''} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: talk.status==='bank' ? '' : hsSignPill(operativeSigs.length, operativeRoster.length),
+        menu,
+        body: (talk.status==='bank' ? '' : hsSignersHtml(operativeSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), outstanding.map(a=>nameOf(a.user_id))))
+          + `<div class="hsdoc-actions">
+            ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue to this site</button>` : ''}
+            ${isLive && !mine ? `<button class="ghostbtn" onclick="signToolboxTalk('${siteId}','${tbtId}')">✍ Sign as carried out</button>` : ''}
+            ${isLive && outstanding.length ? `<button class="ghostbtn" ${tbtNotifyBusy===tbtId?'disabled':''} onclick="notifyOutstandingTbt('${siteId}','${tbtId}')">${tbtNotifyBusy===tbtId?'Sending…':'🔔 Notify outstanding'}</button>` : ''}
+            ${isLive ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
+          </div>`,
+      })}
+      ${tbtReplaceFileOpen===tbtId && !hasAnySignature ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="stub" style="margin:0 0 8px;">Choose a new PDF to replace the current document. The title stays the same — only the file changes.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:8px;" onclick="document.getElementById('tbtReplaceInput-${tbtId}').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="tbtReplaceInput-${tbtId}" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('tbtReplaceFileName-${tbtId}').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="tbtReplaceFileName-${tbtId}" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" ${tbtReplaceBusy?'disabled':''} onclick="replaceToolboxTalkFile('${siteId}','${tbtId}')">${tbtReplaceBusy?'Uploading…':'Replace File'}</button>
+      </div>` : ''}
+    `, {title:talk.title, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'});
+    return;
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -34952,12 +35083,17 @@ async function emailCompletedTbtToPM(siteId, tbtId){
       recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p)).map(p=>p.email);
     }
     if(!recipients.length) return;
-    let binary=''; const chunk=0x8000;
-    for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
-    const base64 = btoa(binary);
-    await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients, site_name: site?site.name:'', tbt_title: built.talk.title, filename: built.filename, pdf_base64: base64,
-    })});
+    // #(tbt-auto-email) 2026-10-17: uploaded first and sent as an attachment
+    // via send-document-email — posting the whole PDF inside the request
+    // (the old way) silently failed on bigger talks from a site phone.
+    const path = siteId+'/tbt-exports/'+uid()+'-'+String(built.filename||'TBT.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, new Blob([built.outBytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored) return;
+    for(const to of recipients.slice(0, 6)){
+      await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
+        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored),
+      })});
+    }
   }catch(e){ /* best-effort */ }
 }
 window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){

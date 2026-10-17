@@ -285,6 +285,44 @@ async function renderToolboxTalkView(siteId, tbtId){
   // no longer be edited, the file can't be replaced, and it can't be
   // deleted — only Export / Close / Email remain available from here on.
   const hasAnySignature = sigs.length > 0;
+  // #(hs-compact) Managers get the compact layout that matches COSHH/RAMS.
+  if(isPM && !isClientView){
+    const viewJs = `viewDrawing('${publicUrl('rams-docs', talk.storage_path)}', false, '${jsAttr(/\.pdf$/i.test(talk.title)?talk.title:talk.title+'.pdf')}')`;
+    const dt = t=>new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    const menu = rowActionsMenuHtml('tbtv-'+tbtId, `
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;${viewJs}">👁 View document</div>
+      ${sigs.length ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;exportSignedToolboxTalk('${tbtId}')">📄 Export signed TBT</div>
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;emailSignedToolboxTalk('${siteId}','${tbtId}')">✉️ Email TBT</div>` : ''}
+      ${talk.status==='bank' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;issueToolboxTalkCompanyWide('${tbtId}','${jsAttr(talk.title)}')">📢 Issue company-wide</div>` : ''}
+      ${!hasAnySignature ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('edit','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">✎ Edit title</div>
+      <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('replace','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">🔁 Replace file</div>
+      <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;handleTbtActionMenu('delete','${siteId}','${tbtId}','${jsAttr(talk.title)}','${jsAttr(talk.storage_path)}')">🗑 Delete</div>` : (talk.status==='live' ? `<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteToolboxTalk('${siteId}','${tbtId}','${jsAttr(talk.storage_path)}',${sigs.length})">🗑 Delete TBT</div>` : '')}`);
+    if(__gen !== RENDER_GEN) return;
+    document.getElementById('app').innerHTML = shell(`
+      ${hsDocRowHtml({
+        name: talk.title,
+        meta: `<span class="statustag2 ${TBT_STATUS_CLASS[talk.status]||'closed'}" style="font-size:10px;padding:1px 7px;">${TBT_STATUS_LABEL[talk.status]||talk.status}</span> ${dt(talk.created_at)}${conductor?' · Carried out by '+escapeHtml(conductor.name):''}${mine?' · ✓ you signed '+dt(mine.signed_at):''} · <span class="viewlink" onclick="${viewJs}">View ↗</span>`,
+        pill: talk.status==='bank' ? '' : hsSignPill(operativeSigs.length, operativeRoster.length),
+        menu,
+        body: (talk.status==='bank' ? '' : hsSignersHtml(operativeSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), outstanding.map(a=>nameOf(a.user_id))))
+          + `<div class="hsdoc-actions">
+            ${talk.status==='bank' ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','live')">Issue to this site</button>` : ''}
+            ${isLive && !mine ? `<button class="ghostbtn" onclick="signToolboxTalk('${siteId}','${tbtId}')">✍ Sign as carried out</button>` : ''}
+            ${isLive && outstanding.length ? `<button class="ghostbtn" ${tbtNotifyBusy===tbtId?'disabled':''} onclick="notifyOutstandingTbt('${siteId}','${tbtId}')">${tbtNotifyBusy===tbtId?'Sending…':'🔔 Notify outstanding'}</button>` : ''}
+            ${isLive ? `<button class="darkbtn" onclick="setToolboxTalkStatus('${siteId}','${tbtId}','completed')">Close TBT</button>` : ''}
+          </div>`,
+      })}
+      ${tbtReplaceFileOpen===tbtId && !hasAnySignature ? `
+      <div class="card" style="margin-top:10px;">
+        <p class="stub" style="margin:0 0 8px;">Choose a new PDF to replace the current document. The title stays the same — only the file changes.</p>
+        <div class="ghostbtn" style="cursor:pointer;text-align:center;margin-bottom:8px;" onclick="document.getElementById('tbtReplaceInput-${tbtId}').click()">Choose PDF</div>
+        <input type="file" accept="application/pdf" id="tbtReplaceInput-${tbtId}" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="document.getElementById('tbtReplaceFileName-${tbtId}').textContent=this.files[0]?this.files[0].name:''">
+        <p class="stub" id="tbtReplaceFileName-${tbtId}" style="margin:-4px 0 10px;"></p>
+        <button class="darkbtn" ${tbtReplaceBusy?'disabled':''} onclick="replaceToolboxTalkFile('${siteId}','${tbtId}')">${tbtReplaceBusy?'Uploading…':'Replace File'}</button>
+      </div>` : ''}
+    `, {title:talk.title, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/hs/tbt`, siteId, activeTab:'more'});
+    return;
+  }
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -516,12 +554,17 @@ async function emailCompletedTbtToPM(siteId, tbtId){
       recipients = Object.values(PROFILES).filter(p=>(p.role==='pm'||p.role==='admin') && p.email && !isEstimator(p)).map(p=>p.email);
     }
     if(!recipients.length) return;
-    let binary=''; const chunk=0x8000;
-    for(let i=0;i<built.outBytes.length;i+=chunk) binary += String.fromCharCode.apply(null, built.outBytes.subarray(i,i+chunk));
-    const base64 = btoa(binary);
-    await sbFetch('/functions/v1/send-tbt-completion', {method:'POST', timeoutMs:60000, body: JSON.stringify({
-      site_id: siteId, recipients, site_name: site?site.name:'', tbt_title: built.talk.title, filename: built.filename, pdf_base64: base64,
-    })});
+    // #(tbt-auto-email) 2026-10-17: uploaded first and sent as an attachment
+    // via send-document-email — posting the whole PDF inside the request
+    // (the old way) silently failed on bigger talks from a site phone.
+    const path = siteId+'/tbt-exports/'+uid()+'-'+String(built.filename||'TBT.pdf').replace(/[^a-z0-9.\-]+/gi,'_');
+    const stored = await uploadToStorage('mc-documents', path, new Blob([built.outBytes], {type:'application/pdf'}), 'application/pdf');
+    if(!stored) return;
+    for(const to of recipients.slice(0, 6)){
+      await sbFetch('/functions/v1/send-document-email', {method:'POST', timeoutMs:60000, body: JSON.stringify({
+        site_id: siteId, recipient_email: to, doc_title: (built.talk.title||'Toolbox Talk')+' — completed, signed by all operatives', file_url: publicUrl('mc-documents', stored),
+      })});
+    }
   }catch(e){ /* best-effort */ }
 }
 window.setToolboxTalkStatus = async function(siteId, tbtId, newStatus){
