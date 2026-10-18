@@ -52,6 +52,25 @@ async function deliveryFirstFreeSlot(dateISO, preferKey){
   const free = order.find(s=>!deliverySlotProblem(dayList, {id:'new', double_slot:false}, s.key));
   return free ? free.key : (preferKey||DELIVERY_TIME_SLOTS[0].key);
 }
+// #(dlv-job-pm) 2026-10-19 (Andy): every delivery shows whose job it is, so
+// the driver knows who to ring with a query. The project's responsible PM;
+// for a job not on the app, whoever booked the delivery.
+function deliveryJobPm(t){
+  const site = t && t.site_id ? SITES.find(s=>s.id===t.site_id) : null;
+  const id = (site && site.responsible_pm_id) || (t && t.created_by) || null;
+  const p = id ? PROFILES[id] : null;
+  return p ? {id, name:p.name, phone:(p.phone||'').trim(), booked: !(site && site.responsible_pm_id)} : null;
+}
+function deliveryJobPmHtml(t, opts){
+  const pm = deliveryJobPm(t);
+  if(!pm) return `<div class="dlvpm none">👷 No PM set for this job</div>`;
+  const label = pm.booked ? 'Booked by' : 'Job PM';
+  const tel = pm.phone ? pm.phone.replace(/[^0-9+]/g,'') : '';
+  return `<div class="dlvpm" onclick="event.stopPropagation()">
+    <span class="dlvpm-l">👷 ${label}</span><b>${escapeHtml(pm.name)}</b>
+    ${tel ? `<a class="dlvpm-call" href="tel:${escapeHtml(tel)}">📞 ${escapeHtml(pm.phone)}</a>` : `<span class="dlvpm-nophone">no number saved</span>`}
+  </div>`;
+}
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
 // Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
@@ -424,6 +443,7 @@ async function renderDriverSchedule(preview){
         <div class="card ${t.double_slot?'dlv-double':''}" style="margin-bottom:8px;">
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
+          ${deliveryJobPmHtml(t)}
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?` · <a href="tel:${escapeHtml(PROFILES[t.site_contact_id].phone.replace(/\s+/g,''))}">${escapeHtml(PROFILES[t.site_contact_id].phone)}</a>`:''}</p>` : (t.site_contact_manual ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(t.site_contact_manual)}</p>` : '')}
@@ -445,7 +465,7 @@ async function renderDriverSchedule(preview){
               </label>
             </div>
             <button class="darkbtn" style="width:100%;margin-top:8px;" ${deliveryCompletionBusyId || !deliveryCompletionPhotos(t).length ? 'disabled' : ''} onclick="markDeliveryComplete('${t.id}')">${deliveryCompletionPhotos(t).length ? '✓ Mark Complete' : '✓ Mark Complete (add a photo first)'}</button>
-            <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day (2pm)'}</button>
+            <button class="ghostbtn" style="width:100%;margin-top:8px;" ${deliveryPushBusyId===t.id?'disabled':''} onclick="pushDeliveryToTomorrow('${t.id}')">${deliveryPushBusyId===t.id ? 'Moving…' : '⏭ Push to Next Working Day'}</button>
           `}
         </div>
       `).join('') : (deliveryContinuations(showDone ? doneTasks : todoTasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}

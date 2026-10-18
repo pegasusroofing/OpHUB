@@ -79,6 +79,7 @@ function deliveryTaskCardHtml(t, opts){
     <div class="sitecard dlvcard ${t.double_slot?'dlv-double':''}" data-tid="${t.id}" data-slot="${t.time_slot}" style="flex-wrap:wrap;${t.status==='completed'?'opacity:.6;':''}">
       <div class="info" style="cursor:pointer;" onclick="if(dlvDrag.justDropped)return;deliveryFormDraft=null;go('#/delivery/edit/${t.id}')">
         <div class="name">${t.high_priority?'<span style="color:var(--brand1);font-weight:800;">1st DROP · </span>':''}${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Unknown site') : deliverySiteLabel(t))}${t.sub_site_label ? '<br>'+subAddrPill(t.sub_site_label) : ''}${!t.site_id ? ' <span class="stub">(not on app)</span>' : ''}${showOrder?` <span class="stub">(order ${t.sub_priority||'?'})</span>`:''}${t.needs_completing?' <span style="color:var(--warn);font-weight:800;">⚠ Needs completing</span>':''}${deliveryDoublePill(t)}</div>
+        ${deliveryJobPmHtml(t)}
         <div class="addr">${escapeHtml(t.description||'')}${t.status==='completed'?' · ✓ Completed':''}</div>
         <div class="addr" style="font-weight:700;color:var(--ink);">${escapeHtml(deliveryCollectionLine(t))}</div>
         <div class="addr">🚐 ${t.driver_id && PROFILES[t.driver_id] ? escapeHtml(PROFILES[t.driver_id].name) : '<span style="color:var(--warn);">Unassigned</span>'}</div>
@@ -119,6 +120,7 @@ async function deliveryScheduleExportRows(daysISO){
     description: t.description || '',
     collection: deliveryCollectionLabel(t),
     driver: (t.driver_id && PROFILES[t.driver_id]) ? PROFILES[t.driver_id].name : 'Unassigned',
+    pm: (()=>{ const pm = deliveryJobPm(t); return pm ? pm.name+(pm.phone?' '+pm.phone:'') : ''; })(),
     priority: t.high_priority ? '1st drop' : '',
     status: t.status==='completed' ? 'Completed' : (t.needs_completing ? 'Needs completing' : 'Scheduled'),
   }));
@@ -131,8 +133,8 @@ window.exportDeliveryScheduleExcel = async function(daysISO, weekLabel){
     const rows = await deliveryScheduleExportRows(daysISO);
     if(!rows.length){ toast('No deliveries in this week to export.'); return; }
     const filename = exportFilename('', 'Delivery Schedule', 'xlsx');
-    const cols = ['Date','Drop','Site','Description','Collection From','Driver','Priority','Status'];
-    const rowVals = r=>[r.date,r.time,r.site,r.description,r.collection,r.driver,r.priority,r.status];
+    const cols = ['Date','Drop','Site','Job PM','Description','Collection From','Driver','Priority','Status'];
+    const rowVals = r=>[r.date,r.time,r.site,r.pm,r.description,r.collection,r.driver,r.priority,r.status];
     if((await loadLib('ExcelJS'))){
       try{
         const wb = new ExcelJS.Workbook();
