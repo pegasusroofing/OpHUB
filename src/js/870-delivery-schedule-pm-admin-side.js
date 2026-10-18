@@ -395,6 +395,7 @@ async function renderDeliveryForm(taskId){
   DELIVERY_FORM_SUPPLIERS = suppliers;
   deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
   if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
+    deliverySitePickOpen = false; deliverySiteGroupOpen = {upcoming:false, closed:false}; deliveryFormSiteFilter = '';
     deliveryFormDayFor = null; // fresh look at that day's drops each time the form opens
     if(taskId){
       const t = (taskRows || [])[0];
@@ -447,11 +448,7 @@ async function renderDeliveryForm(taskId){
     </div>
     ` : ''}
     <div class="formfield"><label class="field-label">Site</label>
-      ${sites.length>1 ? `<input type="text" id="deliverySiteFilter" placeholder="Type to filter sites — name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)" style="margin-bottom:6px;">` : ''}
-      <select id="deliverySiteSelect" onchange="onDeliveryFormSiteChange(this.value)">
-        ${deliverySiteOptionsHtml(sites, draft._manualSite ? '__manual' : draft.site_id, deliveryFormSiteFilter)}
-      </select>
-      <p class="stub" id="deliverySiteFilterNote" style="margin:4px 0 0;display:none;"></p>
+      ${deliverySitePickerHtml(sites, draft._manualSite ? '__manual' : draft.site_id)}
     </div>
     ${!draft._manualSite && draft.site_id ? subAddrSelectHtml('deliverySubAddr', draft.site_id, draft.sub_site_id, "deliveryFormDraft.sub_site_id=this.value", 'Which address on this job?') : ''}
     ${draft._manualSite ? `
@@ -578,7 +575,51 @@ function deliverySiteOptionsHtml(sites, selectedId, filterText){
         return grp.length ? `<optgroup label="${lbl} (${grp.length})">${grp.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</optgroup>` : '';
       }).join('');
 }
+// #(dlv-site-picker) 2026-10-18 (Andy): the Site box looks like the other
+// dropdowns; tapping it opens a list with a search box, the active sites, and
+// Upcoming / Closed tucked away as their own little dropdowns inside it.
+let deliverySitePickOpen = false;
+let deliverySiteGroupOpen = {upcoming:false, closed:false};
+function deliverySitePickerHtml(sites, selectedId){
+  deliveryFormSiteList = sites;
+  const cur = selectedId==='__manual' ? '✏️ Other — a job not on the app' : ((sites.find(x=>x.id===selectedId)||{}).name || '');
+  return `<div class="sitepick ${deliverySitePickOpen?'open':''}">
+    <button type="button" class="sitepick-btn" onclick="toggleDeliverySitePicker()"><span class="${cur?'':'ph'}">${escapeHtml(cur || 'Choose a site…')}</span></button>
+    ${deliverySitePickOpen ? `<div class="sitepick-panel">
+      <input type="text" id="deliverySiteFilter" class="sitepick-q" placeholder="Search name, address or postcode…" value="${escapeHtml(deliveryFormSiteFilter)}" oninput="filterDeliverySiteOptions(this.value)">
+      <div id="deliverySiteList">${deliverySiteListHtml(sites, selectedId, deliveryFormSiteFilter)}</div>
+    </div>` : ''}
+  </div>`;
+}
+function deliverySiteListHtml(sites, selectedId, filterText){
+  const q = (filterText||'').trim().toLowerCase();
+  const match = x => !q || [x.name, x.address, x.postcode, x.job_number].some(v=>(v||'').toLowerCase().includes(q));
+  const row = x => `<button type="button" class="sitepick-row ${selectedId===x.id?'on':''}" onclick="pickDeliverySite('${x.id}')"><b>${escapeHtml(x.name)}</b>${x.address||x.postcode?`<span>${escapeHtml([x.address, x.postcode].filter(Boolean).join(', '))}</span>`:''}</button>`;
+  const live = sites.filter(x=>siteStatusKey(x)==='live' && match(x));
+  let html = live.map(row).join('') || (q ? '' : '<div class="sitepick-empty">No active sites.</div>');
+  [['upcoming','Upcoming sites'],['closed','Closed sites']].forEach(([k,lbl])=>{
+    const grp = sites.filter(x=>siteStatusKey(x)===k && match(x));
+    if(!grp.length) return;
+    const open = deliverySiteGroupOpen[k] || !!q;
+    html += `<button type="button" class="sitepick-grp ${open?'open':''}" onclick="toggleDeliverySiteGroup('${k}')">${lbl} <span>${grp.length}</span></button>`
+      + (open ? `<div class="sitepick-sub">${grp.map(row).join('')}</div>` : '');
+  });
+  if(q && !html) html = '<div class="sitepick-empty">No sites match that.</div>';
+  html += `<button type="button" class="sitepick-row manual ${selectedId==='__manual'?'on':''}" onclick="pickDeliverySite('__manual')"><b>✏️ Other — a job not on the app</b><span>Type the site address in</span></button>`;
+  return html;
+}
+window.toggleDeliverySitePicker = function(){ deliverySitePickOpen = !deliverySitePickOpen; render(); if(deliverySitePickOpen) setTimeout(()=>{ const i=document.getElementById('deliverySiteFilter'); if(i && !('ontouchstart' in window)) i.focus(); }, 50); };
+window.toggleDeliverySiteGroup = function(k){
+  deliverySiteGroupOpen[k] = !deliverySiteGroupOpen[k];
+  const box = document.getElementById('deliverySiteList');
+  const current = deliveryFormDraft ? (deliveryFormDraft._manualSite ? '__manual' : deliveryFormDraft.site_id) : '';
+  if(box) box.innerHTML = deliverySiteListHtml(deliveryFormSiteList, current, deliveryFormSiteFilter);
+};
+window.pickDeliverySite = function(id){ deliverySitePickOpen = false; deliverySiteGroupOpen = {upcoming:false, closed:false}; onDeliveryFormSiteChange(id); };
 window.filterDeliverySiteOptions = function(val){
+  deliveryFormSiteFilter = val;
+  const box = document.getElementById('deliverySiteList');
+  if(box){ const current = deliveryFormDraft ? (deliveryFormDraft._manualSite ? '__manual' : deliveryFormDraft.site_id) : ''; box.innerHTML = deliverySiteListHtml(deliveryFormSiteList, current, val); return; }
   deliveryFormSiteFilter = val;
   const sel = document.getElementById('deliverySiteSelect');
   if(!sel) return;
