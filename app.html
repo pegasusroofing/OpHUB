@@ -1344,6 +1344,43 @@ html.desk .howto{padding-left:248px;padding-bottom:24px;justify-content:flex-end
 .scq-yn button.on.yes{background:var(--warn);color:#fff;}
 /* drop taken by an extra-time delivery (2026-10-18) */
 .dlvtaken{border:1.5px dashed #D9DCE1;border-radius:12px;padding:12px 14px;margin:0 0 8px;font-size:13px;color:var(--slate);background:repeating-linear-gradient(135deg,#F7F8FA 0 10px,#F1F2F5 10px 20px);}
+/* Delivery form: extra time as two tiles (2026-10-18) */
+.dlvtime2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.dlvtime2 button{margin:0;width:auto;display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 8px;border-radius:12px;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;box-shadow:none;}
+.dlvtime2 button b{font-size:15px;font-weight:800;}
+.dlvtime2 button span{font-size:11.5px;font-weight:600;color:var(--slate);}
+.dlvtime2 button.on{border-color:var(--brand1);background:var(--brand1);color:var(--brand1-text);}
+.dlvtime2 button.on span{color:inherit;opacity:.85;}
+/* In-app subcontractor form — Google Forms look (2026-10-18) */
+.sfwrap{max-width:720px;margin:0 auto;}
+.sfhead,.sfsec{background:#fff;border:1px solid #E3E5EA;border-radius:12px;margin-bottom:12px;overflow:hidden;}
+.sfbar{height:10px;background:var(--brand1);}
+.sfhead-in{padding:16px 18px 14px;border-left:6px solid transparent;}
+.sfhead h1{margin:0 0 6px;font-size:24px;font-weight:800;color:var(--ink);}
+.sfhead p{margin:0;font-size:13.5px;line-height:1.5;color:#3A3B3E;}
+.sfhead .sfreq{margin-top:10px;color:var(--warn);font-size:12.5px;}
+.sfsec{padding:16px 18px;}
+.sfsec-t{font-size:16px;font-weight:800;color:var(--ink);}
+.sfq{padding:14px 0 4px;}
+.sfq + .sfq{border-top:1px solid #F0F1F4;}
+.sfq.bad{border-left:3px solid var(--warn);padding-left:10px;margin-left:-13px;}
+.sfq-l{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:8px;}
+.sfq-l i{color:var(--warn);font-style:normal;margin-left:3px;}
+.sfq-h{font-size:12px;color:var(--slate);margin:-4px 0 8px;}
+.sfq-err{font-size:12px;color:var(--warn);margin-top:6px;}
+.sfq-in{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid #C9CDD4;border-radius:0;background:transparent;padding:8px 2px;font-size:14px;margin:0;box-shadow:none;}
+.sfq-in:focus{outline:none;border-bottom:2px solid var(--brand1);}
+textarea.sfq-in{resize:vertical;}
+.sfq-opts{display:flex;flex-direction:column;gap:2px;}
+.sfq-opt{display:flex;align-items:center;gap:10px;padding:7px 2px;font-size:14px;color:var(--ink);cursor:pointer;}
+.sfq-opt input{width:18px;height:18px;margin:0;flex:0 0 auto;accent-color:var(--brand1);}
+.sfq-file{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F6F7F9;border-radius:8px;margin-bottom:6px;font-size:13px;}
+.sfq-file span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.sfq-file button{width:auto;margin:0;padding:2px 8px;border:0;background:transparent;color:var(--slate);box-shadow:none;cursor:pointer;}
+.sfq-up{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid #C9CDD4;border-radius:8px;font-size:13px;font-weight:700;color:var(--brand1);cursor:pointer;}
+.sfq-up input{display:none;}
+.sfwrap input.sfq-in,.sfwrap textarea.sfq-in{border:0 !important;border-bottom:1px solid #C9CDD4 !important;border-radius:0 !important;background:transparent !important;box-shadow:none !important;padding:8px 2px !important;}
+.sfwrap input.sfq-in:focus,.sfwrap textarea.sfq-in:focus{border-bottom:2px solid var(--brand1) !important;}
 </style>
 </head>
 <body>
@@ -3665,15 +3702,26 @@ function estimatorsSectionHtml(people){
       </div>
     `).join('')}`;
 }
+// Admins/PMs can fill in someone's mobile number (e.g. a PM who hasn't).
+window.setTeamMemberPhone = async function(userId){
+  const p = PROFILES[userId]; if(!p) return;
+  const v = await customPrompt('Mobile number for '+p.name, p.phone||'');
+  if(v===null) return;
+  const row = await dbUpdate('profiles', userId, {phone: String(v).trim() || null});
+  if(row){ PROFILES[userId].phone = row.phone; toast('Phone number saved'); render(); }
+  else toast('Could not save — admins can set anyone\'s number; PMs can set operatives\', drivers\' and site managers\'.');
+};
 function roleActionsHtml(ME, p, allPeople){
   const {options, canRemove} = roleActionsFor(ME, p, allPeople);
-  if(!options && !canRemove) return '';
+  if(!options && !canRemove && !isFullManager(ME)) return '';
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;'; // matches the smallBtn style used elsewhere in this admin screen
   return `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
       ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
         ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
+      ${isFullManager(ME) && p.role==='operative' ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</button>` : ''}
+      ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone):'Add phone'}</button>` : ''}
       ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
     </div>
   `;
@@ -3709,7 +3757,7 @@ async function loadAllProfilesNow(){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
   if(!rows.length && Object.keys(PROFILES).length) return;
@@ -6394,13 +6442,27 @@ async function renderPmHome(){
   `, {tabs:false, centerHeader:true, showRefresh:true});
   if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
   if(isDeskMode() && isManager(ME)) mountSiteMap('deskMapMini', true);
-  maybeShowPmSignNag();
+  maybeShowPmSignNag().then(()=>maybeAskMyPhone());
   refreshHomeExtras();
 }
 // #(pm-sign-nag) 2026-10-17: once each time the app is opened, a PM / admin
 // with company policies or the handbook still to sign gets a pop-up with a
 // button straight to them (or X to close).
 let pmSignNagDone = false, pmSignNagChecking = false;
+// #(pm-phone) 2026-10-18 (Andy): PMs / admins / site managers without a
+// mobile number saved get asked for it (once per app open) — drivers and
+// the delivery Site contact list use it.
+let myPhoneAsked = false;
+async function maybeAskMyPhone(){
+  if(myPhoneAsked || !ME || ME._support || (ME.phone||'').trim() || !['pm','admin','site_manager'].includes(ME.role)) return;
+  if(document.getElementById('signNagOverlay') && document.getElementById('signNagOverlay').style.display==='flex') return; // the sign pop-up is showing — ask next time
+  const r0 = parseRoute()[0]; if(r0 && r0!=='home') return;
+  myPhoneAsked = true;
+  const v = await customPrompt('Add your mobile number so drivers and the team can call you (shown as the Site contact on deliveries).', '');
+  if(v===null || !String(v).trim()) return;
+  const row = await dbUpdate('profiles', ME.id, {phone: String(v).trim()});
+  if(row){ ME.phone = row.phone; if(PROFILES[ME.id]) PROFILES[ME.id].phone = row.phone; toast('Phone number saved'); }
+}
 async function maybeShowPmSignNag(){
   if(pmSignNagDone || pmSignNagChecking || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
   pmSignNagChecking = true;
@@ -6586,7 +6648,8 @@ async function renderOpHome(){
   const live = mine.filter(s=>siteStatusKey(s)==='live');
   const upcoming = mine.filter(s=>siteStatusKey(s)==='upcoming');
   const outstanding = homeExtras.count || 0;
-  let unreadN = 0; try{ unreadN = await opUnreadCount(); }catch(e){}
+  let unreadN = 0, subformDue = false;
+  try{ [unreadN, subformDue] = await Promise.all([opUnreadCount().catch(()=>0), subformStillNeeded().catch(()=>false)]); }catch(e){}
   const onboarding = homeExtras.onboarding;
   const now = new Date();
   const hr = now.getHours();
@@ -6621,6 +6684,7 @@ async function renderOpHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
+      ${subformDue ? subformTileHtml(tile) : ''}
       ${tile('chat', 'blue', 'Messages &amp; tasks', [outstanding ? outstanding+' to sign or do' : 'Nothing to sign', unreadN ? unreadN+' new message'+(unreadN===1?'':'s') : 'no new messages'].join(' · '), "go('#/inbox')", outstanding+unreadN)}
       ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
       ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}
@@ -10591,10 +10655,11 @@ async function renderOperativeDetail(operativeId){
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
-  const [assignedRows, certs, myTools] = await Promise.all([
+  const [assignedRows, certs, myTools, subformCard] = await Promise.all([
     dbSelect('site_assignments', 'user_id=eq.'+operativeId+'&select=site_id'),
     dbSelect('operative_certifications', 'operative_id=eq.'+operativeId+'&order=created_at.desc'),
     dbSelect('operative_tools', 'user_id=eq.'+operativeId+'&order=created_at.asc'),
+    operative.role==='operative' ? subformOperativeCardHtml(operativeId) : '',
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
   const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && siteStatusKey(s)==='live').length;
@@ -10694,6 +10759,7 @@ async function renderOperativeDetail(operativeId){
         <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${operativeId}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
       `}
     </div>
+    ${subformCard}
   `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : (listFrom ? `#/operatives?from=${encodeURIComponent(listFrom)}` : '#/operatives'), tabs:false}); }
 }
 // Site-scoped Certifications page. An operative sees just their own
@@ -40881,6 +40947,12 @@ function deliveryBlockedSlots(list, excludeId){
   (list||[]).forEach(t=>{ if(t && t.double_slot && t.id!==excludeId && t.status!=='cancelled'){ const nx = deliveryNextSlotKey(t.time_slot); if(nx && !out[nx]) out[nx] = t; } });
   return out;
 }
+// Drops nothing else can be added to: the extra-time delivery's own drop and the next one.
+function deliveryFullSlots(list){
+  const out = Object.assign({}, deliveryBlockedSlots(list));
+  (list||[]).forEach(t=>{ if(t && t.double_slot && t.status!=='cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
+  return out;
+}
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
 // Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
@@ -40889,7 +40961,12 @@ function deliverySlotProblem(list, task, slotKey){
   const others = (list||[]).filter(x=>x.id!==task.id && x.status!=='cancelled');
   const blocker = deliveryBlockedSlots(others)[slotKey];
   if(blocker) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(blocker)} (extra time from the ${deliverySlotLabel(blocker.time_slot)}).`;
+  // An extra-time delivery has its own drop to itself as well.
+  const holder = others.find(x=>x.double_slot && x.time_slot===slotKey);
+  if(holder) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(holder)} (needs extra time — 2 drops).`;
   if(task.double_slot){
+    const inSame = others.filter(x=>x.time_slot===slotKey);
+    if(inSame.length) return `It needs extra time, so it needs the ${deliverySlotLabel(slotKey)} to itself — ${deliveryTaskPlace(inSame[0])} is already in it.`;
     const nx = deliveryNextSlotKey(slotKey);
     if(!nx) return 'A delivery needing extra time can\'t go in the last drop of the day.';
     const inNext = others.filter(x=>x.time_slot===nx);
@@ -41250,7 +41327,7 @@ async function renderDriverSchedule(preview){
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
-          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
+          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?` · <a href="tel:${escapeHtml(PROFILES[t.site_contact_id].phone.replace(/\s+/g,''))}">${escapeHtml(PROFILES[t.site_contact_id].phone)}</a>`:''}</p>` : (t.site_contact_manual ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(t.site_contact_manual)}</p>` : '')}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
           ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order within this drop: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `
@@ -43004,6 +43081,218 @@ window.deleteSubApp = async function(id){
   if(await dbDelete('subcontractor_applications', id)){ toast('Deleted'); go('#/subapplications'); }
 };
 
+/* ================= #(subform-in-app) Subcontractor form inside the app =================
+   2026-10-18 (Andy): the same questions as the public sign-up form, but filled
+   in inside the app (Google-Forms look, like the report forms). Operatives get
+   a "Subcontractor form" tile on their Home until they've sent it; once sent
+   it shows on their page in Admin (Operatives › person) and in Subcontractor
+   sign-up. Admins can switch it off per person (we already have their info)
+   from Admin Centre › Invites & Users › tap the person. */
+const SUBFORM_SECTIONS = [
+  {t:'Your company', q:[
+    {k:'company_name', l:'Company name', req:1},
+    {k:'trading_name', l:'Trading name (if different)'},
+    {k:'company_type', l:'Business type', type:'radio', req:1, o:['Limited company','Sole trader','Partnership','LLP']},
+    {k:'company_number', l:'Company number'},
+    {k:'vat_number', l:'VAT number'},
+    {k:'utr', l:'UTR'},
+    {k:'cis_status', l:'CIS status', type:'radio', req:1, o:['Gross payment','20% deduction','30% deduction (not registered)']},
+    {k:'address', l:'Business / home address', type:'textarea', req:1},
+    {k:'postcode', l:'Postcode', req:1},
+  ]},
+  {t:'Contact', q:[
+    {k:'contact_name', l:'Your name', req:1},
+    {k:'email', l:'Email', type:'email', req:1},
+    {k:'phone', l:'Mobile', type:'tel', req:1},
+  ]},
+  {t:'Your work', q:[
+    {k:'trades', l:'Trades', type:'checks', req:1, hint:'Tick all that apply', o:['Flat roofing — felt','Single ply / EPDM','Liquid roofing','Pitched roofing — tiling / slating','Leadwork','Roof carpentry','Cladding','Fascias, soffits & gutters','Green roofs','Scaffolding','Labour only','Other']},
+    {k:'other_trade', l:'Other trade'},
+    {k:'areas', l:'Areas you cover', ph:'e.g. London & Home Counties'},
+    {k:'own_access', l:'Do you have your own access equipment?', type:'radio', o:['Yes','No']},
+    {k:'plant', l:'Plant / equipment you supply'},
+  ]},
+  {t:'Insurance', hint:'Upload your current certificates.', q:[
+    {k:'pl_cover', l:'Public liability cover', type:'radio', req:1, o:['£1 million','£2 million','£5 million','£10 million','Other']},
+    {k:'pl_expiry', l:'Public liability expiry', type:'date', req:1},
+    {k:'el_cover', l:'Employers liability cover', type:'radio', o:['£5 million','£10 million','Not applicable (no employees)','Other']},
+    {k:'el_expiry', l:'Employers liability expiry', type:'date'},
+    {f:'Public liability certificate', l:'Public liability certificate', type:'file', req:1},
+    {f:'Employers liability certificate', l:'Employers liability certificate', type:'file'},
+  ]},
+  {t:'Accreditations & cards', q:[
+    {k:'accreditations', l:'Which do you hold?', type:'checks', o:['CHAS','SMAS Worksafe','Constructionline','SafeContractor','Acclaim','NFRC','CompetentRoofer','ISO 9001','ISO 14001','ISO 45001']},
+    {k:'other_accreditation', l:'Other accreditation'},
+    {f:'Accreditation certificate', l:'Accreditation certificates', type:'file', multi:1},
+    {f:'CSCS / skills card', l:'CSCS / skills cards', hint:'Photos or scans of each card', type:'file', multi:1},
+  ]},
+  {t:'Health & safety', q:[
+    {k:'hs_policy', l:'Do you have a written health & safety policy?', type:'radio', req:1, o:['Yes','No']},
+    {f:'H&S policy', l:'H&S policy document', type:'file'},
+    {k:'rams_ability', l:'Can you produce your own RAMS?', type:'radio', req:1, o:['Yes','No']},
+    {k:'riddor', l:'Any RIDDOR-reportable incidents in the last 3 years?', type:'radio', req:1, o:['No','Yes']},
+    {k:'riddor_detail', l:'If yes, give details', type:'textarea', showIf:['riddor','Yes']},
+    {k:'enforcement', l:'Any HSE improvement / prohibition notices in the last 3 years?', type:'radio', req:1, o:['No','Yes']},
+    {k:'enforcement_detail', l:'If yes, give details', type:'textarea', showIf:['enforcement','Yes']},
+  ]},
+  {t:'Anyone working with you', hint:'Anyone else who may come on our sites with you — name, trade, CSCS card and expiry.', q:[
+    {k:'operatives', l:'Names and cards', type:'textarea', ph:'e.g. Dan Jones — labourer — CSCS green, exp 03/2027'},
+  ]},
+  {t:'References', q:[
+    {k:'ref1', l:'Reference 1', ph:'Company, contact name, phone or email'},
+    {k:'ref2', l:'Reference 2', ph:'Company, contact name, phone or email'},
+  ]},
+  {t:'Anything else', q:[{k:'notes', l:'Anything else we should know?', type:'textarea'}]},
+];
+let SUBFORM = null; // {data:{}, files:{label:[{name,path}]}, agree, signed, busy}
+let subformMineCache = {uid:null, at:0, done:null};
+function subformDraftKey(){ return 'ophub_subform_'+(ME&&ME.id); }
+function subformLoadDraft(){
+  if(SUBFORM && SUBFORM.uid===ME.id) return SUBFORM;
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem(subformDraftKey())||'null'); }catch(e){}
+  SUBFORM = Object.assign({uid:ME.id, data:{contact_name:ME.name||'', email:ME.email||'', phone:ME.phone||''}, files:{}, agree:false, signed:ME.name||'', busy:false}, saved||{}, {busy:false});
+  return SUBFORM;
+}
+function subformSaveDraft(){ try{ const {busy, ...keep} = SUBFORM; localStorage.setItem(subformDraftKey(), JSON.stringify(keep)); }catch(e){} }
+// Does this operative still need to fill it in? (cached 60s for the Home tile)
+async function subformStillNeeded(force){
+  if(!ME || ME.role!=='operative' || ME.subform_required===false) return false;
+  if(!force && subformMineCache.uid===ME.id && Date.now()-subformMineCache.at < 60000) return !subformMineCache.done;
+  const r = await dbSelectChecked('subcontractor_applications', 'user_id=eq.'+ME.id+'&select=id&limit=1');
+  if(!r.ok) return subformMineCache.uid===ME.id ? !subformMineCache.done : false;
+  subformMineCache = {uid:ME.id, at:Date.now(), done: r.data.length>0};
+  return !subformMineCache.done;
+}
+function subformTileHtml(tile){
+  return tile('reports', 'orange', 'Subcontractor form', 'Please fill in — takes about 5 minutes', "go('#/subform')", '!');
+}
+window.subformSet = function(k, v){ subformLoadDraft().data[k] = v; subformSaveDraft(); };
+window.subformToggleCheck = function(k, v, on){
+  const d = subformLoadDraft().data; const arr = Array.isArray(d[k]) ? d[k] : [];
+  d[k] = on ? Array.from(new Set(arr.concat([v]))) : arr.filter(x=>x!==v); subformSaveDraft();
+};
+window.subformPickRadio = function(k, v){ subformLoadDraft().data[k] = v; subformSaveDraft(); render(); };
+window.subformFilesChosen = async function(input, label, multi){
+  const S = subformLoadDraft();
+  const picks = Array.from(input.files||[]); input.value = '';
+  if(!picks.length) return;
+  for(const f of picks){
+    if(f.size > 25*1024*1024){ toast('"'+f.name+'" is bigger than 25MB — please attach a smaller copy.'); continue; }
+    if(!/^(application\/pdf|image\/|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document)/.test(f.type||'')){ toast('"'+f.name+'" isn’t a PDF, photo or Word file.'); continue; }
+    toast('Uploading '+f.name+'…');
+    const safe = f.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(0,100) || 'file';
+    const path = ME.org_id+'/'+ME.id+'/'+uid()+'-'+safe;
+    const stored = await uploadToStorage('subcontractor-apps', path, f, f.type);
+    if(!stored){ toast('Could not upload '+f.name+' — try again.'); continue; }
+    const list = multi ? (S.files[label]||[]) : [];
+    list.push({name:f.name, path: typeof stored==='string' ? stored : path});
+    S.files[label] = list;
+  }
+  subformSaveDraft(); render();
+};
+window.subformRemoveFile = function(label, i){ const S = subformLoadDraft(); (S.files[label]||[]).splice(i,1); subformSaveDraft(); render(); };
+function subformQuestionHtml(q, S, missing){
+  const d = S.data;
+  if(q.showIf && d[q.showIf[0]]!==q.showIf[1]) return '';
+  const id = 'sfq-'+(q.k||q.f).replace(/[^a-z0-9]+/gi,'_');
+  const bad = missing && missing.has(q.k||q.f);
+  const head = `<div class="sfq-l">${escapeHtml(q.l)}${q.req?'<i>*</i>':''}</div>${q.hint?`<div class="sfq-h">${escapeHtml(q.hint)}</div>`:''}`;
+  let body = '';
+  const v = d[q.k];
+  if(q.type==='radio') body = `<div class="sfq-opts">${q.o.map(o=>`<label class="sfq-opt"><input type="radio" name="${id}" ${v===o?'checked':''} onchange="subformPickRadio('${q.k}','${jsAttr(o)}')"><span>${escapeHtml(o)}</span></label>`).join('')}</div>`;
+  else if(q.type==='checks') body = `<div class="sfq-opts">${q.o.map(o=>`<label class="sfq-opt"><input type="checkbox" ${(Array.isArray(v)&&v.includes(o))?'checked':''} onchange="subformToggleCheck('${q.k}','${jsAttr(o)}',this.checked)"><span>${escapeHtml(o)}</span></label>`).join('')}</div>`;
+  else if(q.type==='textarea') body = `<textarea class="sfq-in" rows="3" placeholder="${escapeHtml(q.ph||'Your answer')}" oninput="subformSet('${q.k}',this.value)">${escapeHtml(v||'')}</textarea>`;
+  else if(q.type==='file'){
+    const list = S.files[q.f]||[];
+    body = `${list.map((f,i)=>`<div class="sfq-file">📎 <span>${escapeHtml(f.name)}</span><button type="button" onclick="subformRemoveFile('${jsAttr(q.f)}',${i})">✕</button></div>`).join('')}
+      ${(!list.length || q.multi) ? `<label class="sfq-up"><input type="file" accept=".pdf,image/*,.doc,.docx" ${q.multi?'multiple':''} onchange="subformFilesChosen(this,'${jsAttr(q.f)}',${q.multi?1:0})">⬆ ${list.length?'Add another':'Add file'}</label>` : ''}`;
+  }
+  else body = `<input class="sfq-in" type="${q.type||'text'}" value="${escapeHtml(v||'')}" placeholder="${escapeHtml(q.ph||'Your answer')}" oninput="subformSet('${q.k}',this.value)">`;
+  return `<div class="sfq ${bad?'bad':''}" id="${id}">${head}${body}${bad?'<div class="sfq-err">This question is required</div>':''}</div>`;
+}
+let subformMissing = null;
+async function renderSubForm(){
+  const __gen = RENDER_GEN;
+  if(ME.role==='operative' && !(await subformStillNeeded(true))){
+    if(__gen !== RENDER_GEN) return;
+    document.getElementById('app').innerHTML = shell(`<div class="sfwrap"><div class="sfhead"><div class="sfbar"></div><div class="sfhead-in"><h1>Subcontractor form</h1><p>${ME.subform_required===false ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent. If anything changes, let the office know.'}</p></div></div></div>`, {title:'Your details', back:'#/home', tabs:false});
+    return;
+  }
+  const S = subformLoadDraft();
+  if(__gen !== RENDER_GEN) return;
+  const orgName = (ORG && ORG.name) || 'us';
+  document.getElementById('app').innerHTML = shell(`
+    <div class="sfwrap">
+      <div class="sfhead"><div class="sfbar"></div><div class="sfhead-in">
+        <h1>Subcontractor form</h1>
+        <p>Please fill this in for ${escapeHtml(orgName)} — your company details, insurance, cards and health &amp; safety. It saves as you go, so you can come back to it.</p>
+        <p class="sfreq">* Required</p>
+      </div></div>
+      ${SUBFORM_SECTIONS.map((sec,i)=>`
+        <div class="sfsec">
+          <div class="sfsec-t">${i+1}. ${escapeHtml(sec.t)}</div>${sec.hint?`<div class="sfq-h" style="margin-top:2px;">${escapeHtml(sec.hint)}</div>`:''}
+          ${sec.q.map(q=>subformQuestionHtml(q, S, subformMissing)).join('')}
+        </div>`).join('')}
+      <div class="sfsec">
+        <div class="sfsec-t">Declaration</div>
+        <label class="sfq-opt" style="align-items:flex-start;${subformMissing&&subformMissing.has('__agree')?'color:var(--warn);':''}"><input type="checkbox" ${S.agree?'checked':''} onchange="subformLoadDraft().agree=this.checked;subformSaveDraft()"><span>I confirm the information given is true and complete, the insurances above are in force, and I will tell you straight away if anything changes.</span></label>
+        <div class="sfq ${subformMissing&&subformMissing.has('__signed')?'bad':''}"><div class="sfq-l">Type your full name to sign<i>*</i></div><input class="sfq-in" type="text" value="${escapeHtml(S.signed||'')}" oninput="subformLoadDraft().signed=this.value;subformSaveDraft()"></div>
+        <button type="button" class="darkbtn" style="margin-top:14px;" ${S.busy?'disabled':''} onclick="submitSubForm()">${S.busy?'Sending…':'Submit'}</button>
+      </div>
+    </div>
+  `, {title:'Your details', back:'#/home', tabs:false});
+}
+window.submitSubForm = async function(){
+  const S = subformLoadDraft(); if(S.busy) return;
+  const d = S.data; const missing = new Set();
+  SUBFORM_SECTIONS.forEach(sec=>sec.q.forEach(q=>{
+    if(!q.req || (q.showIf && d[q.showIf[0]]!==q.showIf[1])) return;
+    if(q.type==='file'){ if(!(S.files[q.f]||[]).length) missing.add(q.f); return; }
+    const v = d[q.k]; if(Array.isArray(v) ? !v.length : !String(v||'').trim()) missing.add(q.k);
+  }));
+  if(d.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) missing.add('email');
+  if(!S.agree) missing.add('__agree');
+  if(!String(S.signed||'').trim()) missing.add('__signed');
+  subformMissing = missing.size ? missing : null;
+  if(missing.size){
+    render(); toast('Please answer the questions marked in red.');
+    setTimeout(()=>{ const el = document.querySelector('.sfq.bad'); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }, 80);
+    return;
+  }
+  S.busy = true; render();
+  const files = []; Object.keys(S.files).forEach(label=>(S.files[label]||[]).forEach(f=>files.push({label, name:f.name, path:f.path, bucket:'subcontractor-apps'})));
+  const data = Object.assign({}, d); delete data.company_name; delete data.contact_name; delete data.email;
+  const rows = await dbInsert('subcontractor_applications', {org_id:ME.org_id, user_id:ME.id, company_name:String(d.company_name).trim(), contact_name:String(d.contact_name).trim(), email:String(d.email).trim().toLowerCase(), phone:String(d.phone||'').trim()||null, data, files, signed_name:String(S.signed).trim()});
+  S.busy = false;
+  if(!rows){ toast('Could not send — check signal and try again.'); render(); return; }
+  try{ localStorage.removeItem(subformDraftKey()); }catch(e){}
+  SUBFORM = null; subformMissing = null; subformMineCache = {uid:ME.id, at:Date.now(), done:true};
+  // Let the admins know.
+  try{ Object.values(PROFILES).filter(p=>p && p.role==='admin' && p.id!==ME.id).forEach(a=>postSystemMessageToUser(a.id, null, 'message', `${ME.name} has filled in their subcontractor form — see Admin › Operatives › ${ME.name}.`, null)); }catch(e){}
+  toast('Thanks — your form has been sent');
+  go('#/home');
+};
+// Managers: the operative's completed form, shown on their Admin page.
+async function subformOperativeCardHtml(operativeId){
+  if(!isManager(ME)) return '';
+  const p = PROFILES[operativeId];
+  const rows = await dbSelect('subcontractor_applications', 'user_id=eq.'+operativeId+'&order=created_at.desc&limit=1&select=id,status,created_at');
+  const r = rows[0];
+  const off = p && p.subform_required===false;
+  return `<div class="card" style="margin-top:14px;">
+    <div style="display:flex;align-items:center;gap:8px;"><p class="sectiontitle" style="margin:0;flex:1;">Subcontractor form</p>
+      ${r ? `<span class="hspill ok">Sent ${new Date(r.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>` : `<span class="hspill ${off?'':'warn'}">${off?'Turned off':'Not sent yet'}</span>`}</div>
+    ${r ? `<button type="button" class="ghostbtn" style="margin-top:10px;" onclick="go('#/subapplications/${r.id}')">View form</button>` : `<p class="stub" style="margin:8px 0 0;">${off?'Not asked for — switch it on from Admin Centre › Invites &amp; Users.':'It’s on their Home screen until they send it.'}</p>`}
+  </div>`;
+}
+window.toggleSubformRequired = async function(userId){
+  const p = PROFILES[userId]; if(!p) return;
+  const next = p.subform_required===false;
+  const row = await dbUpdate('profiles', userId, {subform_required: next});
+  if(row){ p.subform_required = row.subform_required; toast(next ? 'Subcontractor form switched on' : 'Subcontractor form switched off'); render(); }
+  else toast('Could not change it — try again.');
+};
+
 /* ================= DELIVERY SCHEDULE (PM/admin side) ================= */
 // A 7-day, slot-by-slot view. Days in the past default collapsed (nothing
 // to plan there any more); today and future days default expanded. Each
@@ -43336,6 +43625,7 @@ async function renderDeliverySchedulePM(){
   tasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
   Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
   const blockedSlots = deliveryBlockedSlots(tasks);
+  const fullSlots = deliveryFullSlots(tasks);
   const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const hoursHtml = dlvHoursOpen ? await driverWeekHoursHtml() : '';
@@ -43356,7 +43646,7 @@ async function renderDeliverySchedulePM(){
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
-      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}${blockedSlots[slot.key] ? '' : `<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span>`}</p>
+      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}${fullSlots[slot.key] ? '' : `<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span>`}</p>
       <div class="dlvslot" data-slot="${slot.key}" ${blockedSlots[slot.key]?'data-blocked="1"':''}>${blockedSlots[slot.key] ? `<div class="dlvtaken">⏱ Taken — <b>${escapeHtml(deliveryTaskPlace(blockedSlots[slot.key]))}</b> needs extra time (carries on from the ${escapeHtml(deliverySlotLabel(blockedSlots[slot.key].time_slot))})</div>` : ''}${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (blockedSlots[slot.key] ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
     <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->
@@ -43404,7 +43694,7 @@ async function renderDeliveryForm(taskId){
     if(taskId){
       const t = (taskRows || [])[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
+      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||(t.site_contact_manual?'__typed':''), site_contact_manual:t.site_contact_manual||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, double_slot:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
@@ -43421,6 +43711,11 @@ async function renderDeliveryForm(taskId){
     deliveryFormDayFor = deliveryFormDraft.scheduled_date;
     if(__gen !== RENDER_GEN) return;
   }
+  // A new delivery starts on the first drop that's actually free.
+  if(deliveryFormDraft._id==='new' && !deliveryFormDraft._slotPicked && deliverySlotProblem(deliveryFormDayTasks, {id:'new', double_slot:!!deliveryFormDraft.double_slot}, deliveryFormDraft.time_slot)){
+    const free = DELIVERY_TIME_SLOTS.find(sl=>!deliverySlotProblem(deliveryFormDayTasks, {id:'new', double_slot:!!deliveryFormDraft.double_slot}, sl.key));
+    if(free) deliveryFormDraft.time_slot = free.key;
+  }
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
@@ -43433,7 +43728,9 @@ async function renderDeliveryForm(taskId){
   // opens that way too), as opposed to '' = nobody has chosen yet.
   if(!deliveryFormDraft.driver_id && deliveryFormDraft._id!=='new') deliveryFormDraft.driver_id = 'none';
   const draft = deliveryFormDraft;
-  const sites = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>a.name.localeCompare(b.name));
+  // #(dlv-site-groups) 2026-10-18 (Andy): Active sites first, then Upcoming
+  // and Closed as their own groups further down the same list.
+  const sites = SITES.slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${draft._status==='completed' ? `
@@ -43455,10 +43752,7 @@ async function renderDeliveryForm(taskId){
     ${draft._manualSite ? `
     <div class="card" style="margin-bottom:12px;">
       <p class="stub" style="margin:0 0 8px;">For a job that isn't set up on the app. Type the details the driver needs.</p>
-      <div class="formfield" style="margin-top:0;"><label class="field-label">Job / site name</label>
-        <input type="text" value="${escapeHtml(draft.manual_site_name||'')}" oninput="deliveryFormDraft.manual_site_name=this.value" placeholder="e.g. Smith — garage roof">
-      </div>
-      <div class="formfield"><label class="field-label">Full address and postcode</label>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Site address</label>
         <textarea rows="2" oninput="deliveryFormDraft.manual_site_address=this.value" placeholder="e.g. 14 High Street, Croydon, CR0 1AB">${escapeHtml(draft.manual_site_address||'')}</textarea>
       </div>
     </div>` : ''}
@@ -43488,10 +43782,10 @@ async function renderDeliveryForm(taskId){
       <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
     </div>` : ''}
     <div class="formfield"><label class="field-label">Is additional time required?</label>
-      <select onchange="deliveryFormDraft.double_slot=this.value==='yes';render()">
-        <option value="no" ${draft.double_slot?'':'selected'}>No</option>
-        <option value="yes" ${draft.double_slot?'selected':''}>Yes — book 2 drops</option>
-      </select>
+      <div class="dlvtime2">
+        <button type="button" class="${!draft.double_slot?'on':''}" onclick="deliveryFormDraft.double_slot=false;render()"><b>1 drop</b><span>Normal</span></button>
+        <button type="button" class="${draft.double_slot?'on':''}" onclick="deliveryFormDraft.double_slot=true;render()"><b>2 drops</b><span>Extra time</span></button>
+      </div>
       ${draft.double_slot ? `<p class="stub" style="margin:4px 0 0;">Takes the chosen drop and the one after it — nothing else can be booked into that next drop.</p>` : ''}
     </div>
     <div class="formfield"><label class="field-label">Site contact</label>
@@ -43510,19 +43804,22 @@ async function renderDeliveryForm(taskId){
         // Someone chosen earlier who no longer fits a group still shows, so saving doesn't quietly drop them.
         const listed = new Set(groups.flatMap(g=>g.people.map(x=>x.id)));
         const orphan = draft.site_contact_id && !listed.has(draft.site_contact_id) ? PROFILES[draft.site_contact_id] : null;
-        return `<select onchange="deliveryFormDraft.site_contact_id=this.value">
+        const typed = draft.site_contact_id==='__typed';
+        return `<select onchange="deliveryFormDraft.site_contact_id=this.value;render()">
         <option value="">None</option>
+        <option value="__typed" ${typed?'selected':''}>✏️ Type a name &amp; number…</option>
         ${orphan ? opt(orphan) : ''}
         ${groups.map(g=>`<optgroup label="${escapeHtml(g.label)}">${g.people.map(opt).join('')}</optgroup>`).join('')}
       </select>`;
       })()}
+      ${draft.site_contact_id==='__typed' ? `<input type="text" style="margin-top:8px;" value="${escapeHtml(draft.site_contact_manual||'')}" oninput="deliveryFormDraft.site_contact_manual=this.value" placeholder="e.g. Dave (foreman) 07123 456789">` : ''}
       ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
     </div>
     <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
       <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value;render()">
     </div>
     <div class="formfield"><label class="field-label">Drop</label>
-      <select onchange="deliveryFormDraft.time_slot=this.value;render()">
+      <select onchange="deliveryFormDraft.time_slot=this.value;deliveryFormDraft._slotPicked=true;render()">
         ${DELIVERY_TIME_SLOTS.map(s=>{ const why = deliverySlotProblem(deliveryFormDayTasks, {id:draft._id, double_slot:!!draft.double_slot}, s.key); const taken = !!deliveryBlockedSlots(deliveryFormDayTasks.filter(x=>x.id!==draft._id))[s.key];
           return `<option value="${s.key}" ${draft.time_slot===s.key?'selected':''} ${why && draft.time_slot!==s.key?'disabled':''}>${s.label}${taken?' — taken (extra time)':(why?' — not free':'')}</option>`; }).join('')}
       </select>
@@ -43571,7 +43868,10 @@ function deliverySiteOptionsHtml(sites, selectedId, filterText){
   const shown = q ? sites.filter(x=>x.id===selectedId || [x.name, x.address, x.postcode].some(v=>(v||'').toLowerCase().includes(q))) : sites;
   return `<option value="">${q ? (shown.length ? 'Choose from '+shown.length+' matching site'+(shown.length===1?'':'s')+'…' : 'No sites match') : 'Choose a site…'}</option>`
     + `<option value="__manual" ${selectedId==='__manual'?'selected':''}>✏️ Other — a job not on the app (type it in)</option>`
-    + shown.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
+    + [['live','Active sites'],['upcoming','Upcoming sites'],['closed','Closed sites']].map(([k,lbl])=>{
+        const grp = shown.filter(x=>siteStatusKey(x)===k);
+        return grp.length ? `<optgroup label="${lbl} (${grp.length})">${grp.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</optgroup>` : '';
+      }).join('');
 }
 window.filterDeliverySiteOptions = function(val){
   deliveryFormSiteFilter = val;
@@ -43659,7 +43959,7 @@ window.removeDeliveryFormPhoto = function(index){
 window.saveDeliveryTask = async function(){
   const d = deliveryFormDraft;
   if(d._manualSite){
-    if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the job name or address.'); return; }
+    if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the site address.'); return; }
   } else if(!d.site_id){ toast('Choose a site.'); return; }
   if(!d._manualSite && siteIsMulti(d.site_id) && (SUB_ADDR_CACHE[d.site_id]||[]).length && !d.sub_site_id){ toast('Choose which address on this job.'); return; }
   if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
@@ -43704,7 +44004,8 @@ window.saveDeliveryTask = async function(){
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
     supplier_branch: d.collection_type==='supplier' ? (d.supplier_branch || null) : null,
     collection_address_manual: d.collection_type==='manual' ? d.collection_address_manual.trim() : null,
-    site_contact_id: d.site_contact_id || null,
+    site_contact_id: (d.site_contact_id && d.site_contact_id!=='__typed') ? d.site_contact_id : null,
+    site_contact_manual: d.site_contact_id==='__typed' ? ((d.site_contact_manual||'').trim() || null) : null,
     photo_path: (d.photo_paths && d.photo_paths[0]) || d.photo_path || null,
     photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
@@ -44195,6 +44496,7 @@ async function renderRoute(){
     if(parts[1]) return renderVehicleChecklistDetail(parts[1]);
     return renderVehicleChecklistsAdmin();
   }
+  if(parts[0]==='subform') return renderSubForm();
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1] && parts[2]==='onedrive-folder') return renderOneDriveFolderPicker(null);

@@ -194,13 +194,27 @@ async function renderPmHome(){
   `, {tabs:false, centerHeader:true, showRefresh:true});
   if(typeof appSearchOpen !== 'undefined' && appSearchOpen) appSearchRender();
   if(isDeskMode() && isManager(ME)) mountSiteMap('deskMapMini', true);
-  maybeShowPmSignNag();
+  maybeShowPmSignNag().then(()=>maybeAskMyPhone());
   refreshHomeExtras();
 }
 // #(pm-sign-nag) 2026-10-17: once each time the app is opened, a PM / admin
 // with company policies or the handbook still to sign gets a pop-up with a
 // button straight to them (or X to close).
 let pmSignNagDone = false, pmSignNagChecking = false;
+// #(pm-phone) 2026-10-18 (Andy): PMs / admins / site managers without a
+// mobile number saved get asked for it (once per app open) — drivers and
+// the delivery Site contact list use it.
+let myPhoneAsked = false;
+async function maybeAskMyPhone(){
+  if(myPhoneAsked || !ME || ME._support || (ME.phone||'').trim() || !['pm','admin','site_manager'].includes(ME.role)) return;
+  if(document.getElementById('signNagOverlay') && document.getElementById('signNagOverlay').style.display==='flex') return; // the sign pop-up is showing — ask next time
+  const r0 = parseRoute()[0]; if(r0 && r0!=='home') return;
+  myPhoneAsked = true;
+  const v = await customPrompt('Add your mobile number so drivers and the team can call you (shown as the Site contact on deliveries).', '');
+  if(v===null || !String(v).trim()) return;
+  const row = await dbUpdate('profiles', ME.id, {phone: String(v).trim()});
+  if(row){ ME.phone = row.phone; if(PROFILES[ME.id]) PROFILES[ME.id].phone = row.phone; toast('Phone number saved'); }
+}
 async function maybeShowPmSignNag(){
   if(pmSignNagDone || pmSignNagChecking || !ME || !hrCanUse(ME) || navigator.onLine===false) return;
   pmSignNagChecking = true;
@@ -386,7 +400,8 @@ async function renderOpHome(){
   const live = mine.filter(s=>siteStatusKey(s)==='live');
   const upcoming = mine.filter(s=>siteStatusKey(s)==='upcoming');
   const outstanding = homeExtras.count || 0;
-  let unreadN = 0; try{ unreadN = await opUnreadCount(); }catch(e){}
+  let unreadN = 0, subformDue = false;
+  try{ [unreadN, subformDue] = await Promise.all([opUnreadCount().catch(()=>0), subformStillNeeded().catch(()=>false)]); }catch(e){}
   const onboarding = homeExtras.onboarding;
   const now = new Date();
   const hr = now.getHours();
@@ -421,6 +436,7 @@ async function renderOpHome(){
       <span class="pmhero-s">${live.length} live${upcoming.length ? ' · '+upcoming.length+' upcoming' : ''}</span>
     </button>
     <div class="pmtiles pmtiles-home">
+      ${subformDue ? subformTileHtml(tile) : ''}
       ${tile('chat', 'blue', 'Messages &amp; tasks', [outstanding ? outstanding+' to sign or do' : 'Nothing to sign', unreadN ? unreadN+' new message'+(unreadN===1?'':'s') : 'no new messages'].join(' · '), "go('#/inbox')", outstanding+unreadN)}
       ${tile('tools', 'green', 'My dashboard', 'Hours, tools, certificates', "go('#/operative-dashboard')")}
       ${tile('gear', 'grey', 'Settings', 'Account, signature, password', "go('#/account')")}

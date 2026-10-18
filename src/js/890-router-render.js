@@ -187,6 +187,7 @@ async function renderRoute(){
     if(parts[1]) return renderVehicleChecklistDetail(parts[1]);
     return renderVehicleChecklistsAdmin();
   }
+  if(parts[0]==='subform') return renderSubForm();
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1] && parts[2]==='onedrive-folder') return renderOneDriveFolderPicker(null);

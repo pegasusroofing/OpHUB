@@ -570,10 +570,11 @@ async function renderOperativeDetail(operativeId){
   await loadAllProfiles();
   const operative = PROFILES[operativeId];
   if(!operative){ go('#/operatives'); return; }
-  const [assignedRows, certs, myTools] = await Promise.all([
+  const [assignedRows, certs, myTools, subformCard] = await Promise.all([
     dbSelect('site_assignments', 'user_id=eq.'+operativeId+'&select=site_id'),
     dbSelect('operative_certifications', 'operative_id=eq.'+operativeId+'&order=created_at.desc'),
     dbSelect('operative_tools', 'user_id=eq.'+operativeId+'&order=created_at.asc'),
+    operative.role==='operative' ? subformOperativeCardHtml(operativeId) : '',
   ]);
   const siteIds = new Set(assignedRows.map(r=>r.site_id));
   const liveSiteCount = SITES.filter(s=>siteIds.has(s.id) && siteStatusKey(s)==='live').length;
@@ -673,6 +674,7 @@ async function renderOperativeDetail(operativeId){
         <button class="darkbtn" style="margin-top:10px;padding:9px 14px;font-size:12.5px;text-transform:none;letter-spacing:.01em;border-radius:9px;" onclick="operativeToolsAddOpenFor='${operativeId}';operativeToolsPhotoFile=null;render()">+ Add Tool</button>
       `}
     </div>
+    ${subformCard}
   `, {title: operative.name, subtitle:'Operative', back: fromSiteId ? `#/site/${fromSiteId}/hs/certifications` : (listFrom ? `#/operatives?from=${encodeURIComponent(listFrom)}` : '#/operatives'), tabs:false}); }
 }
 // Site-scoped Certifications page. An operative sees just their own

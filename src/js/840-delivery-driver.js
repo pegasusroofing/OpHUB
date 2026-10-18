@@ -36,6 +36,12 @@ function deliveryBlockedSlots(list, excludeId){
   (list||[]).forEach(t=>{ if(t && t.double_slot && t.id!==excludeId && t.status!=='cancelled'){ const nx = deliveryNextSlotKey(t.time_slot); if(nx && !out[nx]) out[nx] = t; } });
   return out;
 }
+// Drops nothing else can be added to: the extra-time delivery's own drop and the next one.
+function deliveryFullSlots(list){
+  const out = Object.assign({}, deliveryBlockedSlots(list));
+  (list||[]).forEach(t=>{ if(t && t.double_slot && t.status!=='cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
+  return out;
+}
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
 // Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
@@ -44,7 +50,12 @@ function deliverySlotProblem(list, task, slotKey){
   const others = (list||[]).filter(x=>x.id!==task.id && x.status!=='cancelled');
   const blocker = deliveryBlockedSlots(others)[slotKey];
   if(blocker) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(blocker)} (extra time from the ${deliverySlotLabel(blocker.time_slot)}).`;
+  // An extra-time delivery has its own drop to itself as well.
+  const holder = others.find(x=>x.double_slot && x.time_slot===slotKey);
+  if(holder) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(holder)} (needs extra time — 2 drops).`;
   if(task.double_slot){
+    const inSame = others.filter(x=>x.time_slot===slotKey);
+    if(inSame.length) return `It needs extra time, so it needs the ${deliverySlotLabel(slotKey)} to itself — ${deliveryTaskPlace(inSame[0])} is already in it.`;
     const nx = deliveryNextSlotKey(slotKey);
     if(!nx) return 'A delivery needing extra time can\'t go in the last drop of the day.';
     const inNext = others.filter(x=>x.time_slot===nx);
@@ -405,7 +416,7 @@ async function renderDriverSchedule(preview){
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
-          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?' · '+escapeHtml(PROFILES[t.site_contact_id].phone):''}</p>` : ''}
+          ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?` · <a href="tel:${escapeHtml(PROFILES[t.site_contact_id].phone.replace(/\s+/g,''))}">${escapeHtml(PROFILES[t.site_contact_id].phone)}</a>`:''}</p>` : (t.site_contact_manual ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(t.site_contact_manual)}</p>` : '')}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
           ${myTasks.filter(x=>x.time_slot===slot.key).length>1 && t.sub_priority ? `<p class="stub" style="margin:4px 0;">Order within this drop: ${t.sub_priority}</p>` : ''}
           ${t.status==='completed' ? `

@@ -406,15 +406,26 @@ function estimatorsSectionHtml(people){
       </div>
     `).join('')}`;
 }
+// Admins/PMs can fill in someone's mobile number (e.g. a PM who hasn't).
+window.setTeamMemberPhone = async function(userId){
+  const p = PROFILES[userId]; if(!p) return;
+  const v = await customPrompt('Mobile number for '+p.name, p.phone||'');
+  if(v===null) return;
+  const row = await dbUpdate('profiles', userId, {phone: String(v).trim() || null});
+  if(row){ PROFILES[userId].phone = row.phone; toast('Phone number saved'); render(); }
+  else toast('Could not save — admins can set anyone\'s number; PMs can set operatives\', drivers\' and site managers\'.');
+};
 function roleActionsHtml(ME, p, allPeople){
   const {options, canRemove} = roleActionsFor(ME, p, allPeople);
-  if(!options && !canRemove) return '';
+  if(!options && !canRemove && !isFullManager(ME)) return '';
   const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;'; // matches the smallBtn style used elsewhere in this admin screen
   return `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
       ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
         ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
+      ${isFullManager(ME) && p.role==='operative' ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</button>` : ''}
+      ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone):'Add phone'}</button>` : ''}
       ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
     </div>
   `;
@@ -450,7 +461,7 @@ async function loadAllProfilesNow(){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
   if(!rows.length && Object.keys(PROFILES).length) return;

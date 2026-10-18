@@ -330,6 +330,7 @@ async function renderDeliverySchedulePM(){
   tasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
   Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
   const blockedSlots = deliveryBlockedSlots(tasks);
+  const fullSlots = deliveryFullSlots(tasks);
   const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const hoursHtml = dlvHoursOpen ? await driverWeekHoursHtml() : '';
@@ -350,7 +351,7 @@ async function renderDeliverySchedulePM(){
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
-      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}${blockedSlots[slot.key] ? '' : `<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span>`}</p>
+      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}${fullSlots[slot.key] ? '' : `<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span>`}</p>
       <div class="dlvslot" data-slot="${slot.key}" ${blockedSlots[slot.key]?'data-blocked="1"':''}>${blockedSlots[slot.key] ? `<div class="dlvtaken">⏱ Taken — <b>${escapeHtml(deliveryTaskPlace(blockedSlots[slot.key]))}</b> needs extra time (carries on from the ${escapeHtml(deliverySlotLabel(blockedSlots[slot.key].time_slot))})</div>` : ''}${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (blockedSlots[slot.key] ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
     <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->
@@ -398,7 +399,7 @@ async function renderDeliveryForm(taskId){
     if(taskId){
       const t = (taskRows || [])[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
-      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
+      deliveryFormDraft = {_id:taskId, _manualSite:!t.site_id, manual_site_name:t.manual_site_name||'', manual_site_address:t.manual_site_address||'', _origDate:t.scheduled_date, _origSlot:t.time_slot, _origDriverId:t.driver_id||'', _calendarEventId:t.calendar_event_id||null, site_id:t.site_id||'', description:t.description||'', scheduled_date:t.scheduled_date, time_slot:t.time_slot, collection_type:t.collection_type, supplier_id:t.supplier_id||'', supplier_branch:t.supplier_branch||null, collection_address_manual:t.collection_address_manual||'', site_contact_id:t.site_contact_id||(t.site_contact_manual?'__typed':''), site_contact_manual:t.site_contact_manual||'', photo_path:t.photo_path||null, photo_paths:deliveryPhotos(t), high_priority:!!t.high_priority, double_slot:!!t.double_slot, driver_id:t.driver_id||'', _status:t.status, _completedAt:t.completed_at, _completedBy:t.completed_by, _completionPhotoPath:t.completion_photo_path, _completionPhotos:deliveryCompletionPhotos(t)};
     } else {
       deliveryFormDraft = {_id:'new', _manualSite:false, manual_site_name:'', manual_site_address:'', photo_paths:[], site_id:'', description:'', scheduled_date:pmDeliveryDefaultDate||localISODate(new Date()), time_slot:pmDeliveryDefaultSlot||'7am', collection_type:'yard', supplier_id:'', collection_address_manual:'', site_contact_id:'', photo_path:null, high_priority:false, double_slot:false, driver_id:''};
       pmDeliveryDefaultDate = null; pmDeliveryDefaultSlot = null;
@@ -415,6 +416,11 @@ async function renderDeliveryForm(taskId){
     deliveryFormDayFor = deliveryFormDraft.scheduled_date;
     if(__gen !== RENDER_GEN) return;
   }
+  // A new delivery starts on the first drop that's actually free.
+  if(deliveryFormDraft._id==='new' && !deliveryFormDraft._slotPicked && deliverySlotProblem(deliveryFormDayTasks, {id:'new', double_slot:!!deliveryFormDraft.double_slot}, deliveryFormDraft.time_slot)){
+    const free = DELIVERY_TIME_SLOTS.find(sl=>!deliverySlotProblem(deliveryFormDayTasks, {id:'new', double_slot:!!deliveryFormDraft.double_slot}, sl.key));
+    if(free) deliveryFormDraft.time_slot = free.key;
+  }
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
@@ -427,7 +433,9 @@ async function renderDeliveryForm(taskId){
   // opens that way too), as opposed to '' = nobody has chosen yet.
   if(!deliveryFormDraft.driver_id && deliveryFormDraft._id!=='new') deliveryFormDraft.driver_id = 'none';
   const draft = deliveryFormDraft;
-  const sites = SITES.filter(s=>siteStatusKey(s)!=='closed').sort((a,b)=>a.name.localeCompare(b.name));
+  // #(dlv-site-groups) 2026-10-18 (Andy): Active sites first, then Upcoming
+  // and Closed as their own groups further down the same list.
+  const sites = SITES.slice().sort((a,b)=>a.name.localeCompare(b.name));
   if(__gen !== RENDER_GEN) return;
   document.getElementById('app').innerHTML = shell(`
     ${draft._status==='completed' ? `
@@ -449,10 +457,7 @@ async function renderDeliveryForm(taskId){
     ${draft._manualSite ? `
     <div class="card" style="margin-bottom:12px;">
       <p class="stub" style="margin:0 0 8px;">For a job that isn't set up on the app. Type the details the driver needs.</p>
-      <div class="formfield" style="margin-top:0;"><label class="field-label">Job / site name</label>
-        <input type="text" value="${escapeHtml(draft.manual_site_name||'')}" oninput="deliveryFormDraft.manual_site_name=this.value" placeholder="e.g. Smith — garage roof">
-      </div>
-      <div class="formfield"><label class="field-label">Full address and postcode</label>
+      <div class="formfield" style="margin-top:0;"><label class="field-label">Site address</label>
         <textarea rows="2" oninput="deliveryFormDraft.manual_site_address=this.value" placeholder="e.g. 14 High Street, Croydon, CR0 1AB">${escapeHtml(draft.manual_site_address||'')}</textarea>
       </div>
     </div>` : ''}
@@ -482,10 +487,10 @@ async function renderDeliveryForm(taskId){
       <input type="text" value="${escapeHtml(draft.collection_address_manual)}" oninput="deliveryFormDraft.collection_address_manual=this.value" placeholder="Address or pickup details">
     </div>` : ''}
     <div class="formfield"><label class="field-label">Is additional time required?</label>
-      <select onchange="deliveryFormDraft.double_slot=this.value==='yes';render()">
-        <option value="no" ${draft.double_slot?'':'selected'}>No</option>
-        <option value="yes" ${draft.double_slot?'selected':''}>Yes — book 2 drops</option>
-      </select>
+      <div class="dlvtime2">
+        <button type="button" class="${!draft.double_slot?'on':''}" onclick="deliveryFormDraft.double_slot=false;render()"><b>1 drop</b><span>Normal</span></button>
+        <button type="button" class="${draft.double_slot?'on':''}" onclick="deliveryFormDraft.double_slot=true;render()"><b>2 drops</b><span>Extra time</span></button>
+      </div>
       ${draft.double_slot ? `<p class="stub" style="margin:4px 0 0;">Takes the chosen drop and the one after it — nothing else can be booked into that next drop.</p>` : ''}
     </div>
     <div class="formfield"><label class="field-label">Site contact</label>
@@ -504,19 +509,22 @@ async function renderDeliveryForm(taskId){
         // Someone chosen earlier who no longer fits a group still shows, so saving doesn't quietly drop them.
         const listed = new Set(groups.flatMap(g=>g.people.map(x=>x.id)));
         const orphan = draft.site_contact_id && !listed.has(draft.site_contact_id) ? PROFILES[draft.site_contact_id] : null;
-        return `<select onchange="deliveryFormDraft.site_contact_id=this.value">
+        const typed = draft.site_contact_id==='__typed';
+        return `<select onchange="deliveryFormDraft.site_contact_id=this.value;render()">
         <option value="">None</option>
+        <option value="__typed" ${typed?'selected':''}>✏️ Type a name &amp; number…</option>
         ${orphan ? opt(orphan) : ''}
         ${groups.map(g=>`<optgroup label="${escapeHtml(g.label)}">${g.people.map(opt).join('')}</optgroup>`).join('')}
       </select>`;
       })()}
+      ${draft.site_contact_id==='__typed' ? `<input type="text" style="margin-top:8px;" value="${escapeHtml(draft.site_contact_manual||'')}" oninput="deliveryFormDraft.site_contact_manual=this.value" placeholder="e.g. Dave (foreman) 07123 456789">` : ''}
       ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
     </div>
     <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
       <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value;render()">
     </div>
     <div class="formfield"><label class="field-label">Drop</label>
-      <select onchange="deliveryFormDraft.time_slot=this.value;render()">
+      <select onchange="deliveryFormDraft.time_slot=this.value;deliveryFormDraft._slotPicked=true;render()">
         ${DELIVERY_TIME_SLOTS.map(s=>{ const why = deliverySlotProblem(deliveryFormDayTasks, {id:draft._id, double_slot:!!draft.double_slot}, s.key); const taken = !!deliveryBlockedSlots(deliveryFormDayTasks.filter(x=>x.id!==draft._id))[s.key];
           return `<option value="${s.key}" ${draft.time_slot===s.key?'selected':''} ${why && draft.time_slot!==s.key?'disabled':''}>${s.label}${taken?' — taken (extra time)':(why?' — not free':'')}</option>`; }).join('')}
       </select>
@@ -565,7 +573,10 @@ function deliverySiteOptionsHtml(sites, selectedId, filterText){
   const shown = q ? sites.filter(x=>x.id===selectedId || [x.name, x.address, x.postcode].some(v=>(v||'').toLowerCase().includes(q))) : sites;
   return `<option value="">${q ? (shown.length ? 'Choose from '+shown.length+' matching site'+(shown.length===1?'':'s')+'…' : 'No sites match') : 'Choose a site…'}</option>`
     + `<option value="__manual" ${selectedId==='__manual'?'selected':''}>✏️ Other — a job not on the app (type it in)</option>`
-    + shown.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('');
+    + [['live','Active sites'],['upcoming','Upcoming sites'],['closed','Closed sites']].map(([k,lbl])=>{
+        const grp = shown.filter(x=>siteStatusKey(x)===k);
+        return grp.length ? `<optgroup label="${lbl} (${grp.length})">${grp.map(x=>`<option value="${x.id}" ${selectedId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}</optgroup>` : '';
+      }).join('');
 }
 window.filterDeliverySiteOptions = function(val){
   deliveryFormSiteFilter = val;
@@ -653,7 +664,7 @@ window.removeDeliveryFormPhoto = function(index){
 window.saveDeliveryTask = async function(){
   const d = deliveryFormDraft;
   if(d._manualSite){
-    if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the job name or address.'); return; }
+    if(!(d.manual_site_name||'').trim() && !(d.manual_site_address||'').trim()){ toast('Type the site address.'); return; }
   } else if(!d.site_id){ toast('Choose a site.'); return; }
   if(!d._manualSite && siteIsMulti(d.site_id) && (SUB_ADDR_CACHE[d.site_id]||[]).length && !d.sub_site_id){ toast('Choose which address on this job.'); return; }
   if(!d.description || !d.description.trim()){ toast('Add a description.'); return; }
@@ -698,7 +709,8 @@ window.saveDeliveryTask = async function(){
     supplier_id: d.collection_type==='supplier' ? d.supplier_id : null,
     supplier_branch: d.collection_type==='supplier' ? (d.supplier_branch || null) : null,
     collection_address_manual: d.collection_type==='manual' ? d.collection_address_manual.trim() : null,
-    site_contact_id: d.site_contact_id || null,
+    site_contact_id: (d.site_contact_id && d.site_contact_id!=='__typed') ? d.site_contact_id : null,
+    site_contact_manual: d.site_contact_id==='__typed' ? ((d.site_contact_manual||'').trim() || null) : null,
     photo_path: (d.photo_paths && d.photo_paths[0]) || d.photo_path || null,
     photo_paths: Array.isArray(d.photo_paths) ? d.photo_paths : (d.photo_path ? [d.photo_path] : []),
     scheduled_date: d.scheduled_date,
