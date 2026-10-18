@@ -73,7 +73,7 @@ function subformLoadDraft(){
 function subformSaveDraft(){ try{ const {busy, ...keep} = SUBFORM; localStorage.setItem(subformDraftKey(), JSON.stringify(keep)); }catch(e){} }
 // Does this operative still need to fill it in? (cached 60s for the Home tile)
 async function subformStillNeeded(force){
-  if(!ME || ME.role!=='operative' || ME.subform_required===false) return false;
+  if(!ME || ME.role!=='operative' || ((PROFILES[ME.id]||ME).subform_required===false)) return false;
   if(!force && subformMineCache.uid===ME.id && Date.now()-subformMineCache.at < 60000) return !subformMineCache.done;
   const r = await dbSelectChecked('subcontractor_applications', 'user_id=eq.'+ME.id+'&select=id&limit=1');
   if(!r.ok) return subformMineCache.uid===ME.id ? !subformMineCache.done : false;
@@ -132,7 +132,7 @@ async function renderSubForm(){
   const __gen = RENDER_GEN;
   if(ME.role==='operative' && !(await subformStillNeeded(true))){
     if(__gen !== RENDER_GEN) return;
-    document.getElementById('app').innerHTML = shell(`<div class="sfwrap"><div class="sfhead"><div class="sfbar"></div><div class="sfhead-in"><h1>Subcontractor form</h1><p>${ME.subform_required===false ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent. If anything changes, let the office know.'}</p></div></div></div>`, {title:'Your details', back:'#/home', tabs:false});
+    document.getElementById('app').innerHTML = shell(`<div class="sfwrap"><div class="sfhead"><div class="sfbar"></div><div class="sfhead-in"><h1>Subcontractor form</h1><p>${(PROFILES[ME.id]||ME).subform_required===false ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent. If anything changes, let the office know.'}</p></div></div></div>`, {title:'Your details', back:'#/home', tabs:false});
     return;
   }
   const S = subformLoadDraft();

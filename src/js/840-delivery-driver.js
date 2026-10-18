@@ -42,6 +42,16 @@ function deliveryFullSlots(list){
   (list||[]).forEach(t=>{ if(t && t.double_slot && t.status!=='cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
   return out;
 }
+// First drop on `dateISO` that a (single) delivery can go in, starting from
+// `preferKey` — used by the calendar / material-collection shortcuts that
+// book a delivery without showing the form.
+async function deliveryFirstFreeSlot(dateISO, preferKey){
+  const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+  const start = Math.max(0, DELIVERY_TIME_SLOTS.findIndex(s=>s.key===preferKey));
+  const order = DELIVERY_TIME_SLOTS.slice(start).concat(DELIVERY_TIME_SLOTS.slice(0,start));
+  const free = order.find(s=>!deliverySlotProblem(dayList, {id:'new', double_slot:false}, s.key));
+  return free ? free.key : (preferKey||DELIVERY_TIME_SLOTS[0].key);
+}
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
 // Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
@@ -496,19 +506,26 @@ window.pushDeliveryToTomorrow = async function(taskId){
   while(next.getDay()===6 || next.getDay()===0) next.setDate(next.getDate()+1);
   const nextISO = localISODate(next);
   const nextLabel = next.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'});
-  if(!await customConfirm('Push this delivery to '+nextLabel+' at 2pm?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
+  // Land it on the first drop from 2pm that's actually free that day (a
+  // 2-drop delivery there, or this being one, used to overlap).
+  const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+  const from2 = DELIVERY_TIME_SLOTS.slice(Math.max(0, DELIVERY_TIME_SLOTS.findIndex(s=>s.key==='2pm')));
+  const freeSlot = from2.find(s=>!deliverySlotProblem(dayList, t, s.key)) || DELIVERY_TIME_SLOTS.find(s=>!deliverySlotProblem(dayList, t, s.key));
+  if(!freeSlot){ customAlert('No free drop on '+nextLabel+' — '+deliverySlotProblem(dayList, t, '2pm')); return; }
+  const slotKey = freeSlot.key, slotLabel = freeSlot.label;
+  if(!await customConfirm('Push this delivery to '+nextLabel+' ('+slotLabel+')?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
   deliveryPushBusyId = taskId; render();
   let keepHigh = !!t.high_priority;
   if(keepHigh){
     const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
     if(clash.length) keepHigh = false;
   }
-  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot:'2pm', sub_priority: 999, high_priority: keepHigh, updated_at: new Date().toISOString()});
+  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot: slotKey, sub_priority: 999, high_priority: keepHigh && slotKey===DELIVERY_TIME_SLOTS[0].key, updated_at: new Date().toISOString()});
   deliveryPushBusyId = null;
   if(!row){ toast('Could not move it — try again.'); render(); return; }
   try{
     await resequenceSlot(t.scheduled_date, t.time_slot);
-    await resequenceSlot(nextISO, '2pm');
+    await resequenceSlot(nextISO, slotKey);
     if(t.calendar_event_id) await dbUpdate('site_calendar_events', t.calendar_event_id, {event_date: nextISO, reminder_sent:false});
   }catch(e){ /* the move itself is saved — ordering/calendar tidy-up is best-effort */ }
   if(t.created_by && t.created_by!==ME.id){
@@ -564,6 +581,11 @@ window.reopenDeliveryTask = async function(taskId){
   if(t.status!=='completed'){ toast('This delivery is already open.'); render(); return; }
   const choice = await askDeliveryReopen(t);
   if(!choice) return;
+  if(!choice.same){
+    const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+choice.date+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    const why = deliverySlotProblem(dayList, t, choice.slot);
+    if(why){ customAlert(why); return; }
+  }
   deliveryReopenBusy = true;
   try{
     // Only one first-drop high priority per day: if the day it's going back

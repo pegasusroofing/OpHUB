@@ -1701,11 +1701,15 @@ function exportFilename(siteName, label, ext){
 // browser decodes &#39; back to a literal ' before parsing the onclick JS,
 // so any name containing an apostrophe (e.g. "Andy's Documents") silently
 // broke the click handler with no error shown — it just did nothing.
-function jsAttr(s){ return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+// Line breaks are escaped too — a raw newline inside a quoted JS string is a
+// syntax error, which used to silently kill the click on anything whose text
+// (a variation description, a note) had more than one line.
+function _jsEsc(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029'); }
+function jsAttr(s){ return escapeHtml(_jsEsc(s)); }
 // A JS literal for embedding inside a double-quoted onclick="..." attribute —
 // booleans stay bare (true/false), everything else becomes a single-quoted,
 // escaped string. Used for the media-required value toggles below.
-function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${String(o).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`; }
+function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${_jsEsc(o)}'`; }
 function toast(msg){
   const host=document.getElementById('toastHost');
   const el=document.createElement('div'); el.className='toast';
@@ -2456,8 +2460,18 @@ async function ensureFreshToken(){
   return _tokenRefreshInFlight;
 }
 async function _refreshTokenNow(){
-  const session = SESSION;
+  let session = SESSION;
   if(!session) return;
+  // Another open copy of the app (a second tab, or the phone app + Safari)
+  // may already have refreshed and saved a newer token — use that instead of
+  // re-using ours, which the server would reject and sign everyone out.
+  try{
+    const stored = await getJSON(K_SESSION, false, null);
+    if(stored && stored.refresh_token && stored.user && session.user && stored.user.id===session.user.id && stored.refresh_token!==session.refresh_token && (stored.expires_at||0) > (session.expires_at||0)){
+      SESSION = stored; session = stored;
+      if(Date.now() < (stored.expires_at||0) - 60000) return;
+    }
+  }catch(e){}
   try{
     const res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
@@ -2472,7 +2486,15 @@ async function _refreshTokenNow(){
     } else if(res.status===400 || res.status===401 || res.status===403){
       // The server actually answered and said the refresh token itself is
       // no good (expired/revoked) — this really is a "log in again" case.
-      SESSION = null; ME = null; await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+      const now = await getJSON(K_SESSION, false, null).catch(()=>null);
+      if(now && now.refresh_token && now.refresh_token !== session.refresh_token && now.user && now.user.id===session.user.id){
+        SESSION = now; // a sibling tab rotated it first — carry on with theirs
+      } else {
+        SESSION = null; resetPerUserState(); await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+        try{ await clearOfflineCache(); }catch(e){}
+        try{ authError = 'Your session has expired — please sign in again.'; }catch(e){}
+        render();
+      }
     }
     // Anything else (429 rate limit, a 5xx blip) says nothing about the
     // token — keep the session and let the next request try again.
@@ -3205,12 +3227,9 @@ window.doSignOut = async function(){
   // Signing out stops this phone getting the outgoing person's notifications.
   if(pushTokenValue && SESSION){ try{ await sbFetch('/rest/v1/push_tokens?token=eq.'+encodeURIComponent(pushTokenValue), {method:'DELETE', timeoutMs:6000}); }catch(e){} }
   try{ await sbFetch('/auth/v1/logout', {method:'POST', timeoutMs:6000}); }catch(e){}
-  SESSION = null; ME = null; ORG = null;
+  SESSION = null; resetPerUserState();
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
-  // Per-person bits kept in memory — clear them so the next person signing
-  // in on this phone doesn't briefly see the last person's numbers.
-  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; }catch(e){}
   applyTheme(null);
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);
@@ -3330,6 +3349,16 @@ function supportModeMe(p){
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
 let SITES = [];
 let PROFILES = {}; // id -> {name,email,role}
+// Everything remembered about the signed-in person. Cleared on every sign-out
+// path so the next person on the same phone never sees the last person's
+// names, numbers or lists (and they never get saved into the new snapshot).
+function resetPerUserState(){
+  ME = null; ORG = null; SITES = []; PROFILES = {}; profilesLoadedAt = 0; profilesInflight = null;
+  try{ subOpCache = {}; }catch(e){}
+  try{ unreadMsgsCache = {}; currentUnreadMsgs = 0; }catch(e){}
+  try{ uiReadCacheClear(); }catch(e){}
+  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; subformMineCache = {uid:null, at:0, done:null}; SUBFORM = null; }catch(e){}
+}
 
 const OPHUB_LOGO = 'assets/ophub-logo.png?v=2';
 const DEFAULT_BRAND1 = '#4E8FD1';
@@ -3784,7 +3813,7 @@ async function loadAllProfilesNow(){
   const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
-  if(!rows.length && Object.keys(PROFILES).length) return;
+  if(!rows.length) return; // a failed fetch is never "no people" — keep what we have and try again next time
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
   profilesLoadedAt = Date.now();
@@ -3992,7 +4021,12 @@ document.addEventListener('click', function(e){
 // known to render reliably, instead of relying on a native browser dialog.
 // Usage: if(!await customConfirm('Are you sure?')) return;
 let _confirmResolve = null;
+// Only one of these dialogs can be on screen at a time: opening a new one
+// settles whatever was still waiting (as Cancel), so the earlier caller
+// never hangs for ever with its button locked.
+function _settlePendingDialogs(){ const c=_confirmResolve, p=_promptResolve; _confirmResolve=null; _promptResolve=null; try{ if(c) c(false); }catch(e){} try{ if(p) p(null); }catch(e){} }
 function customConfirm(message, opts){
+  _settlePendingDialogs();
   opts = opts || {};
   return new Promise(resolve=>{
     _confirmResolve = resolve;
@@ -4023,6 +4057,7 @@ window._confirmAnswer = function(result){
 // Same overlay, single-button variant for a plain heads-up message (no
 // yes/no choice needed) — e.g. "choose a supplier before sending".
 function customAlert(message){
+  _settlePendingDialogs();
   let ov = document.getElementById('confirmModalOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -4044,6 +4079,7 @@ function customAlert(message){
 // why "rename" actions like Drawings looked broken on the app specifically).
 let _promptResolve = null;
 function customPrompt(message, defaultValue){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -4085,6 +4121,7 @@ window._promptAnswer = function(result){
 // themselves (see ccClientEmailFromPromptAnswer below) rather than this
 // generic prompt knowing about client_cc_email as a concept.
 function customPromptWithCc(message, defaultValue, site){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -4145,6 +4182,7 @@ function resolvePromptEmailTo(answer){
 // instead of text — used anywhere a single date needs picking outside a
 // full form (e.g. the "Starts <date>" chip on the site list).
 function customDatePrompt(message, defaultValue){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -4234,8 +4272,9 @@ async function refreshBootData(opts){
     if(!SESSION || SESSION.user.id !== uid || !prof.ok) return;
     if(!prof.data[0]){
       // The account genuinely no longer exists (removed from the company).
-      SESSION = null; ME = null; ORG = null;
+      SESSION = null; resetPerUserState();
       await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+      try{ await clearOfflineCache(); }catch(e){}
       render();
       return;
     }
@@ -4286,6 +4325,7 @@ async function recheckDeviceLockOnOpen(){
     render();
   }catch(e){ /* never blocks start-up */ }
 }
+let bootSitesOk = true;
 async function init(){
   registerServiceWorker();
   SESSION = await getJSON(K_SESSION, false, null);
@@ -4319,18 +4359,20 @@ async function init(){
     // another — this is the very first screen the app shows, so cutting it
     // from three sequential round trips to one saves real time on every
     // login/app open.
-    const [, , sitesRows] = await Promise.all([
+    const [, , sitesRes] = await Promise.all([
       loadOrg(),
       loadAllProfiles(),
-      dbSelect('sites', 'select=*&order=created_at.asc'),
+      dbSelectChecked('sites', 'select=*&order=created_at.asc'),
     ]);
-    SITES = sitesRows;
+    if(sitesRes.ok) SITES = sitesRes.data;
+    else { try{ const c = await getCachedRows('sites', 'select=*&order=created_at.asc'); if(c && c.data) SITES = c.data; }catch(e){} }
+    bootSitesOk = sitesRes.ok;
     if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
   } else {
     applyTheme(null);
   }
   await render();
-  if(SESSION && ME) saveBootSnapshot();
+  if(SESSION && ME && bootSitesOk) saveBootSnapshot();
   warmUpLibs();
   recheckDeviceLockOnOpen();
 }
@@ -5286,14 +5328,13 @@ function rememberedAuth(){
   }catch(e){ return {email:'', password:'', remember:false}; }
 }
 window.doSignIn = async function(){
+  if(authBusy) return; // Enter key + button tap at the same time used to start two sign-ins
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   const remember = document.getElementById('authRemember') && document.getElementById('authRemember').checked;
+  authPrefillEmail = email; // keep what they typed if the password's wrong
   if(!email || !password){ authError='Enter your email and password.'; render(); return; }
-  try{
-    if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password}));
-    else localStorage.removeItem('ophub_remember');
-  }catch(e){}
+  try{ if(!remember) localStorage.removeItem('ophub_remember'); }catch(e){}
   // authBusy stays true (and the button stays showing progress) for the
   // WHOLE sign-in sequence, not just the initial password check — it used
   // to flip back to false the moment the password check passed, but with
@@ -5309,6 +5350,9 @@ window.doSignIn = async function(){
   try{
     const r = await signIn(email, password);
     if(r.error){ authError = r.error; return; }
+    // Only remember a password that actually worked.
+    try{ if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password})); }catch(e){}
+    resetPerUserState(); // never carry the previous person's lists into this sign-in
     authBusyLabel = 'Loading your account…'; render();
     await loadProfile();
     if(!ME || (!ME.org_id && ME.role!=='superadmin')){
@@ -5331,10 +5375,11 @@ window.doSignIn = async function(){
     authBusyLabel = 'Getting your sites…'; render();
     // These three don't depend on each other, so run them together instead
     // of stacking three separate timeouts one after another.
-    const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
-    SITES = sites;
+    const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
+    if(sitesRes.ok) SITES = sitesRes.data;
     registerPushNotifications();
-    saveBootSnapshot(); warmUpLibs();
+    if(sitesRes.ok) saveBootSnapshot(); // a failed list fetch must not be saved as "no projects"
+    warmUpLibs();
     go(homeHash());
   }catch(e){
     authError = 'Something went wrong signing you in — check your connection and try again.';
@@ -5361,9 +5406,12 @@ function renderJoinDone(){
 let joinBusyLabel = null;
 let joinError = null;
 let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
+let joinInfoFor = null;   // which invite the loaded joinInfo belongs to
+let joinDraft = {name:'', email:'', password:''}; // kept across re-renders so an error doesn't wipe the form
 async function renderJoin(inviteId){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
+  if(joinInfoFor !== inviteId){ joinInfo = undefined; joinInfoFor = inviteId; joinDraft = {name:'', email:'', password:''}; joinError = null; }
   if(joinInfo === undefined){
     if(__gen === RENDER_GEN){ app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false}); }
     joinInfo = await getInviteInfo(inviteId);
@@ -5381,23 +5429,23 @@ async function renderJoin(inviteId){
   }
   // Preview the inviting company's own branding on this screen — falls back
   // to the generic OpHUB mark/colours if they haven't finished company setup yet.
-  ORG = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
-  applyTheme(ORG);
+  const previewOrg = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
+  applyTheme(previewOrg);
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div class="card">
       <p class="stub" style="margin:0 0 12px;">You've been invited to join <b>${escapeHtml(joinInfo.org_name)}</b> on OpHUB.</p>
       ${joinError ? `<div class="errbox">${escapeHtml(joinError)}</div>` : ''}
       <div class="formfield">
         <label class="field-label">Name</label>
-        <input type="text" id="joinName" placeholder="e.g. Andy Turner">
+        <input type="text" id="joinName" value="${escapeHtml(joinDraft.name)}" oninput="joinDraft.name=this.value" placeholder="e.g. Andy Turner">
       </div>
       <div class="formfield">
         <label class="field-label">Email</label>
-        <input type="email" id="joinEmail" placeholder="you@yourcompany.co.uk">
+        <input type="email" id="joinEmail" value="${escapeHtml(joinDraft.email)}" oninput="joinDraft.email=this.value" placeholder="you@yourcompany.co.uk">
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="joinPassword" placeholder="••••••••">
+        <input type="password" id="joinPassword" value="${escapeHtml(joinDraft.password)}" oninput="joinDraft.password=this.value" placeholder="••••••••">
       </div>
       <button class="primarybtn" ${joinBusy?'disabled':''} onclick="doJoin('${inviteId}')">
         ${joinBusy ? '<span class="spinner"></span>'+escapeHtml(joinBusyLabel||'Please wait…') : 'Join Team'}
@@ -5409,6 +5457,7 @@ async function renderJoin(inviteId){
   `, {title:'Join OpHUB', tabs:false}); }
 }
 window.doJoin = async function(inviteId){
+  if(joinBusy) return;
   const name = document.getElementById('joinName').value.trim();
   const email = document.getElementById('joinEmail').value.trim();
   const password = document.getElementById('joinPassword').value;
@@ -5422,6 +5471,7 @@ window.doJoin = async function(inviteId){
   try{
     const r = await signUp(email, password, {name, invite_id: inviteId});
     if(r.error){ joinError = r.error; return; }
+    resetPerUserState();
     if(r.confirmed){
       joinBusyLabel = 'Loading your account…'; render();
       await loadProfile();
@@ -5432,9 +5482,9 @@ window.doJoin = async function(inviteId){
       }
       joinInfo = undefined;
       joinBusyLabel = 'Getting your sites…'; render();
-      const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
-      SITES = sites;
-      saveBootSnapshot(); warmUpLibs();
+      const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
+      if(sitesRes.ok){ SITES = sitesRes.data; saveBootSnapshot(); }
+      warmUpLibs();
       registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
       // Lock this phone to the new account now, rather than only at its next sign-in.
       if(deviceLockApplies(ME)){
@@ -21712,8 +21762,9 @@ function siteConditionQuestionsHtml(siteId, flag){
     + `<input type="file" id="leftoverPhotoInput-ungrouped" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="leftoverMaterialPhotoChosen(this,'${siteId}','')">`;
 }
 window.setSiteConditionFlag = function(siteId, field, value){
-  const cur = (window.__scqFlag||{})[field];
-  if(!!cur === !!value) return; // already that answer
+  const f = window.__scqFlag || (window.__scqFlag = {});
+  if(!!f[field] === !!value) return; // already that answer (also swallows a double tap)
+  f[field] = !!value;
   saveSectionFlag(siteId, null, field, !!value);
   if(field==='leftover_material' && value){ const inp = document.getElementById('leftoverPhotoInput-ungrouped'); if(inp) inp.click(); }
 };
@@ -38081,7 +38132,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
         collection_type: (toMe || f.branch) ? 'manual' : 'supplier',
         supplier_id: toMe ? null : supplier.id,
         collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
-        scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
+        scheduled_date: f.date, time_slot: await deliveryFirstFreeSlot(f.date, f.slot||'7am'), high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
         sub_site_id: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_id) ? materials[0].sub_site_id : null,
         sub_site_label: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_label) ? materials[0].sub_site_label : null,
@@ -39047,14 +39098,15 @@ window.addCalEventToDeliverySchedule = async function(siteId){
   const title = (calDraft.title||'').trim();
   if(!title){ toast('Enter what this date is for first.'); return; }
   if(!calDraft.date){ toast('Pick a date first.'); return; }
+  const calSlot = await deliveryFirstFreeSlot(calDraft.date, '7am');
   const payload = {
     org_id: ME.org_id, site_id: siteId, created_by: ME.id,
-    description: title, scheduled_date: calDraft.date, time_slot: '7am',
+    description: title, scheduled_date: calDraft.date, time_slot: calSlot,
     collection_type: 'yard', high_priority: false, needs_completing: true,
   };
   const rows = await dbInsert('delivery_tasks', payload);
   if(rows && rows[0]){
-    await resequenceSlot(calDraft.date, '7am');
+    await resequenceSlot(calDraft.date, calSlot);
     toast('Added to Delivery Schedule — open it to fill in collection details, which drop and site contact.');
     calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
     deliveryFormDraft = null;
@@ -40977,6 +41029,16 @@ function deliveryFullSlots(list){
   (list||[]).forEach(t=>{ if(t && t.double_slot && t.status!=='cancelled' && !out[t.time_slot]) out[t.time_slot] = t; });
   return out;
 }
+// First drop on `dateISO` that a (single) delivery can go in, starting from
+// `preferKey` — used by the calendar / material-collection shortcuts that
+// book a delivery without showing the form.
+async function deliveryFirstFreeSlot(dateISO, preferKey){
+  const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+  const start = Math.max(0, DELIVERY_TIME_SLOTS.findIndex(s=>s.key===preferKey));
+  const order = DELIVERY_TIME_SLOTS.slice(start).concat(DELIVERY_TIME_SLOTS.slice(0,start));
+  const free = order.find(s=>!deliverySlotProblem(dayList, {id:'new', double_slot:false}, s.key));
+  return free ? free.key : (preferKey||DELIVERY_TIME_SLOTS[0].key);
+}
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
 // Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
@@ -41431,19 +41493,26 @@ window.pushDeliveryToTomorrow = async function(taskId){
   while(next.getDay()===6 || next.getDay()===0) next.setDate(next.getDate()+1);
   const nextISO = localISODate(next);
   const nextLabel = next.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'});
-  if(!await customConfirm('Push this delivery to '+nextLabel+' at 2pm?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
+  // Land it on the first drop from 2pm that's actually free that day (a
+  // 2-drop delivery there, or this being one, used to overlap).
+  const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+  const from2 = DELIVERY_TIME_SLOTS.slice(Math.max(0, DELIVERY_TIME_SLOTS.findIndex(s=>s.key==='2pm')));
+  const freeSlot = from2.find(s=>!deliverySlotProblem(dayList, t, s.key)) || DELIVERY_TIME_SLOTS.find(s=>!deliverySlotProblem(dayList, t, s.key));
+  if(!freeSlot){ customAlert('No free drop on '+nextLabel+' — '+deliverySlotProblem(dayList, t, '2pm')); return; }
+  const slotKey = freeSlot.key, slotLabel = freeSlot.label;
+  if(!await customConfirm('Push this delivery to '+nextLabel+' ('+slotLabel+')?', {confirmLabel:'Yes — push it', cancelLabel:'No'})) return;
   deliveryPushBusyId = taskId; render();
   let keepHigh = !!t.high_priority;
   if(keepHigh){
     const clash = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+nextISO+'&high_priority=is.true&status=eq.pending&id=neq.'+taskId+'&select=id');
     if(clash.length) keepHigh = false;
   }
-  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot:'2pm', sub_priority: 999, high_priority: keepHigh, updated_at: new Date().toISOString()});
+  const row = await dbUpdate('delivery_tasks', taskId, {scheduled_date: nextISO, time_slot: slotKey, sub_priority: 999, high_priority: keepHigh && slotKey===DELIVERY_TIME_SLOTS[0].key, updated_at: new Date().toISOString()});
   deliveryPushBusyId = null;
   if(!row){ toast('Could not move it — try again.'); render(); return; }
   try{
     await resequenceSlot(t.scheduled_date, t.time_slot);
-    await resequenceSlot(nextISO, '2pm');
+    await resequenceSlot(nextISO, slotKey);
     if(t.calendar_event_id) await dbUpdate('site_calendar_events', t.calendar_event_id, {event_date: nextISO, reminder_sent:false});
   }catch(e){ /* the move itself is saved — ordering/calendar tidy-up is best-effort */ }
   if(t.created_by && t.created_by!==ME.id){
@@ -41499,6 +41568,11 @@ window.reopenDeliveryTask = async function(taskId){
   if(t.status!=='completed'){ toast('This delivery is already open.'); render(); return; }
   const choice = await askDeliveryReopen(t);
   if(!choice) return;
+  if(!choice.same){
+    const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+choice.date+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    const why = deliverySlotProblem(dayList, t, choice.slot);
+    if(why){ customAlert(why); return; }
+  }
   deliveryReopenBusy = true;
   try{
     // Only one first-drop high priority per day: if the day it's going back
@@ -43180,7 +43254,7 @@ function subformLoadDraft(){
 function subformSaveDraft(){ try{ const {busy, ...keep} = SUBFORM; localStorage.setItem(subformDraftKey(), JSON.stringify(keep)); }catch(e){} }
 // Does this operative still need to fill it in? (cached 60s for the Home tile)
 async function subformStillNeeded(force){
-  if(!ME || ME.role!=='operative' || ME.subform_required===false) return false;
+  if(!ME || ME.role!=='operative' || ((PROFILES[ME.id]||ME).subform_required===false)) return false;
   if(!force && subformMineCache.uid===ME.id && Date.now()-subformMineCache.at < 60000) return !subformMineCache.done;
   const r = await dbSelectChecked('subcontractor_applications', 'user_id=eq.'+ME.id+'&select=id&limit=1');
   if(!r.ok) return subformMineCache.uid===ME.id ? !subformMineCache.done : false;
@@ -43239,7 +43313,7 @@ async function renderSubForm(){
   const __gen = RENDER_GEN;
   if(ME.role==='operative' && !(await subformStillNeeded(true))){
     if(__gen !== RENDER_GEN) return;
-    document.getElementById('app').innerHTML = shell(`<div class="sfwrap"><div class="sfhead"><div class="sfbar"></div><div class="sfhead-in"><h1>Subcontractor form</h1><p>${ME.subform_required===false ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent. If anything changes, let the office know.'}</p></div></div></div>`, {title:'Your details', back:'#/home', tabs:false});
+    document.getElementById('app').innerHTML = shell(`<div class="sfwrap"><div class="sfhead"><div class="sfbar"></div><div class="sfhead-in"><h1>Subcontractor form</h1><p>${(PROFILES[ME.id]||ME).subform_required===false ? 'You don’t need to fill this in — we already have your details.' : 'Thanks — your form has been sent. If anything changes, let the office know.'}</p></div></div></div>`, {title:'Your details', back:'#/home', tabs:false});
     return;
   }
   const S = subformLoadDraft();
@@ -44426,7 +44500,8 @@ async function renderRoute(){
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
   if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
-  if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
+  if(!SESSION || !ME || authBusy){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
+  if(typeof joinBusy!=='undefined' && joinBusy && preParts[0]==='join') return renderJoin(preParts[1]);
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && !ME._support && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role

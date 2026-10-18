@@ -56,8 +56,9 @@ async function refreshBootData(opts){
     if(!SESSION || SESSION.user.id !== uid || !prof.ok) return;
     if(!prof.data[0]){
       // The account genuinely no longer exists (removed from the company).
-      SESSION = null; ME = null; ORG = null;
+      SESSION = null; resetPerUserState();
       await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+      try{ await clearOfflineCache(); }catch(e){}
       render();
       return;
     }
@@ -108,6 +109,7 @@ async function recheckDeviceLockOnOpen(){
     render();
   }catch(e){ /* never blocks start-up */ }
 }
+let bootSitesOk = true;
 async function init(){
   registerServiceWorker();
   SESSION = await getJSON(K_SESSION, false, null);
@@ -141,18 +143,20 @@ async function init(){
     // another — this is the very first screen the app shows, so cutting it
     // from three sequential round trips to one saves real time on every
     // login/app open.
-    const [, , sitesRows] = await Promise.all([
+    const [, , sitesRes] = await Promise.all([
       loadOrg(),
       loadAllProfiles(),
-      dbSelect('sites', 'select=*&order=created_at.asc'),
+      dbSelectChecked('sites', 'select=*&order=created_at.asc'),
     ]);
-    SITES = sitesRows;
+    if(sitesRes.ok) SITES = sitesRes.data;
+    else { try{ const c = await getCachedRows('sites', 'select=*&order=created_at.asc'); if(c && c.data) SITES = c.data; }catch(e){} }
+    bootSitesOk = sitesRes.ok;
     if(ME.role!=='superadmin' && !ME._support) registerPushNotifications();
   } else {
     applyTheme(null);
   }
   await render();
-  if(SESSION && ME) saveBootSnapshot();
+  if(SESSION && ME && bootSitesOk) saveBootSnapshot();
   warmUpLibs();
   recheckDeviceLockOnOpen();
 }

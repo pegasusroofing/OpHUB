@@ -51,8 +51,18 @@ async function ensureFreshToken(){
   return _tokenRefreshInFlight;
 }
 async function _refreshTokenNow(){
-  const session = SESSION;
+  let session = SESSION;
   if(!session) return;
+  // Another open copy of the app (a second tab, or the phone app + Safari)
+  // may already have refreshed and saved a newer token — use that instead of
+  // re-using ours, which the server would reject and sign everyone out.
+  try{
+    const stored = await getJSON(K_SESSION, false, null);
+    if(stored && stored.refresh_token && stored.user && session.user && stored.user.id===session.user.id && stored.refresh_token!==session.refresh_token && (stored.expires_at||0) > (session.expires_at||0)){
+      SESSION = stored; session = stored;
+      if(Date.now() < (stored.expires_at||0) - 60000) return;
+    }
+  }catch(e){}
   try{
     const res = await fetchWithTimeout(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token', {
       method:'POST',
@@ -67,7 +77,15 @@ async function _refreshTokenNow(){
     } else if(res.status===400 || res.status===401 || res.status===403){
       // The server actually answered and said the refresh token itself is
       // no good (expired/revoked) — this really is a "log in again" case.
-      SESSION = null; ME = null; await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+      const now = await getJSON(K_SESSION, false, null).catch(()=>null);
+      if(now && now.refresh_token && now.refresh_token !== session.refresh_token && now.user && now.user.id===session.user.id){
+        SESSION = now; // a sibling tab rotated it first — carry on with theirs
+      } else {
+        SESSION = null; resetPerUserState(); await sdelete(K_SESSION, false); await sdelete(K_BOOT, false);
+        try{ await clearOfflineCache(); }catch(e){}
+        try{ authError = 'Your session has expired — please sign in again.'; }catch(e){}
+        render();
+      }
     }
     // Anything else (429 rate limit, a 5xx blip) says nothing about the
     // token — keep the session and let the next request try again.

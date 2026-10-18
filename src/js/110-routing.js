@@ -179,7 +179,12 @@ document.addEventListener('click', function(e){
 // known to render reliably, instead of relying on a native browser dialog.
 // Usage: if(!await customConfirm('Are you sure?')) return;
 let _confirmResolve = null;
+// Only one of these dialogs can be on screen at a time: opening a new one
+// settles whatever was still waiting (as Cancel), so the earlier caller
+// never hangs for ever with its button locked.
+function _settlePendingDialogs(){ const c=_confirmResolve, p=_promptResolve; _confirmResolve=null; _promptResolve=null; try{ if(c) c(false); }catch(e){} try{ if(p) p(null); }catch(e){} }
 function customConfirm(message, opts){
+  _settlePendingDialogs();
   opts = opts || {};
   return new Promise(resolve=>{
     _confirmResolve = resolve;
@@ -210,6 +215,7 @@ window._confirmAnswer = function(result){
 // Same overlay, single-button variant for a plain heads-up message (no
 // yes/no choice needed) — e.g. "choose a supplier before sending".
 function customAlert(message){
+  _settlePendingDialogs();
   let ov = document.getElementById('confirmModalOverlay');
   if(!ov){
     ov = document.createElement('div');
@@ -231,6 +237,7 @@ function customAlert(message){
 // why "rename" actions like Drawings looked broken on the app specifically).
 let _promptResolve = null;
 function customPrompt(message, defaultValue){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -272,6 +279,7 @@ window._promptAnswer = function(result){
 // themselves (see ccClientEmailFromPromptAnswer below) rather than this
 // generic prompt knowing about client_cc_email as a concept.
 function customPromptWithCc(message, defaultValue, site){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');
@@ -332,6 +340,7 @@ function resolvePromptEmailTo(answer){
 // instead of text — used anywhere a single date needs picking outside a
 // full form (e.g. the "Starts <date>" chip on the site list).
 function customDatePrompt(message, defaultValue){
+  _settlePendingDialogs();
   return new Promise(resolve=>{
     _promptResolve = resolve;
     let ov = document.getElementById('confirmModalOverlay');

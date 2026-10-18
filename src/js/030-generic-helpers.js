@@ -188,11 +188,15 @@ function exportFilename(siteName, label, ext){
 // browser decodes &#39; back to a literal ' before parsing the onclick JS,
 // so any name containing an apostrophe (e.g. "Andy's Documents") silently
 // broke the click handler with no error shown — it just did nothing.
-function jsAttr(s){ return escapeHtml(String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+// Line breaks are escaped too — a raw newline inside a quoted JS string is a
+// syntax error, which used to silently kill the click on anything whose text
+// (a variation description, a note) had more than one line.
+function _jsEsc(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n').replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029'); }
+function jsAttr(s){ return escapeHtml(_jsEsc(s)); }
 // A JS literal for embedding inside a double-quoted onclick="..." attribute —
 // booleans stay bare (true/false), everything else becomes a single-quoted,
 // escaped string. Used for the media-required value toggles below.
-function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${String(o).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`; }
+function jsLit(o){ return typeof o==='boolean' ? String(o) : `'${_jsEsc(o)}'`; }
 function toast(msg){
   const host=document.getElementById('toastHost');
   const el=document.createElement('div'); el.className='toast';

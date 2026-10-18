@@ -52,7 +52,8 @@ async function renderRoute(){
   const preParts = parseRoute();
   if(preParts[0]==='join' && preParts[1]){ return renderJoin(preParts[1]); }
   if(String(location.hash||'').startsWith('#/reset')) return renderResetPassword();
-  if(!SESSION || !ME){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
+  if(!SESSION || !ME || authBusy){ if(joinDoneMsg) return renderJoinDone(); return renderLogin(); }
+  if(typeof joinBusy!=='undefined' && joinBusy && preParts[0]==='join') return renderJoin(preParts[1]);
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && !ME._support && ORG && !ORG.logo_path){ return renderCompanySetup(); }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role

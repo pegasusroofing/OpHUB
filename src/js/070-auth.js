@@ -67,12 +67,9 @@ window.doSignOut = async function(){
   // Signing out stops this phone getting the outgoing person's notifications.
   if(pushTokenValue && SESSION){ try{ await sbFetch('/rest/v1/push_tokens?token=eq.'+encodeURIComponent(pushTokenValue), {method:'DELETE', timeoutMs:6000}); }catch(e){} }
   try{ await sbFetch('/auth/v1/logout', {method:'POST', timeoutMs:6000}); }catch(e){}
-  SESSION = null; ME = null; ORG = null;
+  SESSION = null; resetPerUserState();
   hsPolicyGateChecked = false; hsPolicyGatePending = false; // re-check fresh for whoever signs in next
   homeExtras = {uid:null, onboarding:null, count:0, at:0, loading:false};
-  // Per-person bits kept in memory — clear them so the next person signing
-  // in on this phone doesn't briefly see the last person's numbers.
-  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; }catch(e){}
   applyTheme(null);
   await sdelete(K_SESSION, false);
   await sdelete(K_BOOT, false);

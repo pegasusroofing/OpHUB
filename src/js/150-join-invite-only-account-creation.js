@@ -16,9 +16,12 @@ function renderJoinDone(){
 let joinBusyLabel = null;
 let joinError = null;
 let joinInfo = undefined; // undefined = not loaded yet, null = invalid, {org_name,is_valid} = loaded
+let joinInfoFor = null;   // which invite the loaded joinInfo belongs to
+let joinDraft = {name:'', email:'', password:''}; // kept across re-renders so an error doesn't wipe the form
 async function renderJoin(inviteId){
   const __gen = RENDER_GEN;
   const app = document.getElementById('app');
+  if(joinInfoFor !== inviteId){ joinInfo = undefined; joinInfoFor = inviteId; joinDraft = {name:'', email:'', password:''}; joinError = null; }
   if(joinInfo === undefined){
     if(__gen === RENDER_GEN){ app.innerHTML = shell(`<p class="stub">Checking invite…</p>`, {title:'Join OpHUB', tabs:false}); }
     joinInfo = await getInviteInfo(inviteId);
@@ -36,23 +39,23 @@ async function renderJoin(inviteId){
   }
   // Preview the inviting company's own branding on this screen — falls back
   // to the generic OpHUB mark/colours if they haven't finished company setup yet.
-  ORG = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
-  applyTheme(ORG);
+  const previewOrg = {name: joinInfo.org_name, logo_path: joinInfo.logo_path, color_primary: joinInfo.color_primary, color_secondary: joinInfo.color_secondary};
+  applyTheme(previewOrg);
   if(__gen === RENDER_GEN){ app.innerHTML = shell(`
     <div class="card">
       <p class="stub" style="margin:0 0 12px;">You've been invited to join <b>${escapeHtml(joinInfo.org_name)}</b> on OpHUB.</p>
       ${joinError ? `<div class="errbox">${escapeHtml(joinError)}</div>` : ''}
       <div class="formfield">
         <label class="field-label">Name</label>
-        <input type="text" id="joinName" placeholder="e.g. Andy Turner">
+        <input type="text" id="joinName" value="${escapeHtml(joinDraft.name)}" oninput="joinDraft.name=this.value" placeholder="e.g. Andy Turner">
       </div>
       <div class="formfield">
         <label class="field-label">Email</label>
-        <input type="email" id="joinEmail" placeholder="you@yourcompany.co.uk">
+        <input type="email" id="joinEmail" value="${escapeHtml(joinDraft.email)}" oninput="joinDraft.email=this.value" placeholder="you@yourcompany.co.uk">
       </div>
       <div class="formfield">
         <label class="field-label">Password</label>
-        <input type="password" id="joinPassword" placeholder="••••••••">
+        <input type="password" id="joinPassword" value="${escapeHtml(joinDraft.password)}" oninput="joinDraft.password=this.value" placeholder="••••••••">
       </div>
       <button class="primarybtn" ${joinBusy?'disabled':''} onclick="doJoin('${inviteId}')">
         ${joinBusy ? '<span class="spinner"></span>'+escapeHtml(joinBusyLabel||'Please wait…') : 'Join Team'}
@@ -64,6 +67,7 @@ async function renderJoin(inviteId){
   `, {title:'Join OpHUB', tabs:false}); }
 }
 window.doJoin = async function(inviteId){
+  if(joinBusy) return;
   const name = document.getElementById('joinName').value.trim();
   const email = document.getElementById('joinEmail').value.trim();
   const password = document.getElementById('joinPassword').value;
@@ -77,6 +81,7 @@ window.doJoin = async function(inviteId){
   try{
     const r = await signUp(email, password, {name, invite_id: inviteId});
     if(r.error){ joinError = r.error; return; }
+    resetPerUserState();
     if(r.confirmed){
       joinBusyLabel = 'Loading your account…'; render();
       await loadProfile();
@@ -87,9 +92,9 @@ window.doJoin = async function(inviteId){
       }
       joinInfo = undefined;
       joinBusyLabel = 'Getting your sites…'; render();
-      const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
-      SITES = sites;
-      saveBootSnapshot(); warmUpLibs();
+      const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
+      if(sitesRes.ok){ SITES = sitesRes.data; saveBootSnapshot(); }
+      warmUpLibs();
       registerPushNotifications(); // a brand-new account was never registered for notifications until its next sign-in
       // Lock this phone to the new account now, rather than only at its next sign-in.
       if(deviceLockApplies(ME)){

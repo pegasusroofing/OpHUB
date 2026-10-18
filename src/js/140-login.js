@@ -107,14 +107,13 @@ function rememberedAuth(){
   }catch(e){ return {email:'', password:'', remember:false}; }
 }
 window.doSignIn = async function(){
+  if(authBusy) return; // Enter key + button tap at the same time used to start two sign-ins
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   const remember = document.getElementById('authRemember') && document.getElementById('authRemember').checked;
+  authPrefillEmail = email; // keep what they typed if the password's wrong
   if(!email || !password){ authError='Enter your email and password.'; render(); return; }
-  try{
-    if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password}));
-    else localStorage.removeItem('ophub_remember');
-  }catch(e){}
+  try{ if(!remember) localStorage.removeItem('ophub_remember'); }catch(e){}
   // authBusy stays true (and the button stays showing progress) for the
   // WHOLE sign-in sequence, not just the initial password check — it used
   // to flip back to false the moment the password check passed, but with
@@ -130,6 +129,9 @@ window.doSignIn = async function(){
   try{
     const r = await signIn(email, password);
     if(r.error){ authError = r.error; return; }
+    // Only remember a password that actually worked.
+    try{ if(remember) localStorage.setItem('ophub_remember', JSON.stringify({email, password})); }catch(e){}
+    resetPerUserState(); // never carry the previous person's lists into this sign-in
     authBusyLabel = 'Loading your account…'; render();
     await loadProfile();
     if(!ME || (!ME.org_id && ME.role!=='superadmin')){
@@ -152,10 +154,11 @@ window.doSignIn = async function(){
     authBusyLabel = 'Getting your sites…'; render();
     // These three don't depend on each other, so run them together instead
     // of stacking three separate timeouts one after another.
-    const [, , sites] = await Promise.all([loadOrg(), loadAllProfiles(), dbSelect('sites', 'select=*&order=created_at.asc')]);
-    SITES = sites;
+    const [, , sitesRes] = await Promise.all([loadOrg(), loadAllProfiles(true), dbSelectChecked('sites', 'select=*&order=created_at.asc')]);
+    if(sitesRes.ok) SITES = sitesRes.data;
     registerPushNotifications();
-    saveBootSnapshot(); warmUpLibs();
+    if(sitesRes.ok) saveBootSnapshot(); // a failed list fetch must not be saved as "no projects"
+    warmUpLibs();
     go(homeHash());
   }catch(e){
     authError = 'Something went wrong signing you in — check your connection and try again.';

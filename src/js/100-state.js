@@ -10,6 +10,16 @@ function supportModeMe(p){
 let ORG = null; // {id,name,logo_path,color_primary,color_secondary}
 let SITES = [];
 let PROFILES = {}; // id -> {name,email,role}
+// Everything remembered about the signed-in person. Cleared on every sign-out
+// path so the next person on the same phone never sees the last person's
+// names, numbers or lists (and they never get saved into the new snapshot).
+function resetPerUserState(){
+  ME = null; ORG = null; SITES = []; PROFILES = {}; profilesLoadedAt = 0; profilesInflight = null;
+  try{ subOpCache = {}; }catch(e){}
+  try{ unreadMsgsCache = {}; currentUnreadMsgs = 0; }catch(e){}
+  try{ uiReadCacheClear(); }catch(e){}
+  try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; subformMineCache = {uid:null, at:0, done:null}; SUBFORM = null; }catch(e){}
+}
 
 const OPHUB_LOGO = 'assets/ophub-logo.png?v=2';
 const DEFAULT_BRAND1 = '#4E8FD1';
@@ -464,7 +474,7 @@ async function loadAllProfilesNow(){
   const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
-  if(!rows.length && Object.keys(PROFILES).length) return;
+  if(!rows.length) return; // a failed fetch is never "no people" — keep what we have and try again next time
   PROFILES = {};
   rows.forEach(p=> PROFILES[p.id]=p);
   profilesLoadedAt = Date.now();

@@ -339,14 +339,15 @@ window.addCalEventToDeliverySchedule = async function(siteId){
   const title = (calDraft.title||'').trim();
   if(!title){ toast('Enter what this date is for first.'); return; }
   if(!calDraft.date){ toast('Pick a date first.'); return; }
+  const calSlot = await deliveryFirstFreeSlot(calDraft.date, '7am');
   const payload = {
     org_id: ME.org_id, site_id: siteId, created_by: ME.id,
-    description: title, scheduled_date: calDraft.date, time_slot: '7am',
+    description: title, scheduled_date: calDraft.date, time_slot: calSlot,
     collection_type: 'yard', high_priority: false, needs_completing: true,
   };
   const rows = await dbInsert('delivery_tasks', payload);
   if(rows && rows[0]){
-    await resequenceSlot(calDraft.date, '7am');
+    await resequenceSlot(calDraft.date, calSlot);
     toast('Added to Delivery Schedule — open it to fill in collection details, which drop and site contact.');
     calAddOpen = false; calInlineDate = null; calEditId = null; calResetDraft();
     deliveryFormDraft = null;

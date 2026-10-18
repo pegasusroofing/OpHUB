@@ -288,8 +288,9 @@ function siteConditionQuestionsHtml(siteId, flag){
     + `<input type="file" id="leftoverPhotoInput-ungrouped" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="leftoverMaterialPhotoChosen(this,'${siteId}','')">`;
 }
 window.setSiteConditionFlag = function(siteId, field, value){
-  const cur = (window.__scqFlag||{})[field];
-  if(!!cur === !!value) return; // already that answer
+  const f = window.__scqFlag || (window.__scqFlag = {});
+  if(!!f[field] === !!value) return; // already that answer (also swallows a double tap)
+  f[field] = !!value;
   saveSectionFlag(siteId, null, field, !!value);
   if(field==='leftover_material' && value){ const inp = document.getElementById('leftoverPhotoInput-ungrouped'); if(inp) inp.click(); }
 };

@@ -439,7 +439,7 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
         collection_type: (toMe || f.branch) ? 'manual' : 'supplier',
         supplier_id: toMe ? null : supplier.id,
         collection_address_manual: f.branch ? (supplier.name+' '+branchLabel(f.branch)) : (toMe ? 'Supplier to be confirmed' : null),
-        scheduled_date: f.date, time_slot: f.slot||'7am', high_priority:false,
+        scheduled_date: f.date, time_slot: await deliveryFirstFreeSlot(f.date, f.slot||'7am'), high_priority:false,
         driver_id: f.collectorId, needs_completing:false, created_by: ME.id,
         sub_site_id: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_id) ? materials[0].sub_site_id : null,
         sub_site_label: (new Set(materials.map(m=>m.sub_site_id||'')).size===1 && materials[0].sub_site_label) ? materials[0].sub_site_label : null,
