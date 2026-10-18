@@ -1342,6 +1342,8 @@ html.desk .howto{padding-left:248px;padding-bottom:24px;justify-content:flex-end
 .scq-yn button{border:0;background:transparent;margin:0;width:auto;min-width:56px;padding:7px 12px;border-radius:8px;font-size:13px;font-weight:700;color:var(--slate);cursor:pointer;box-shadow:none;}
 .scq-yn button.on.no{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,17,20,.12);}
 .scq-yn button.on.yes{background:var(--warn);color:#fff;}
+/* drop taken by an extra-time delivery (2026-10-18) */
+.dlvtaken{border:1.5px dashed #D9DCE1;border-radius:12px;padding:12px 14px;margin:0 0 8px;font-size:13px;color:var(--slate);background:repeating-linear-gradient(135deg,#F7F8FA 0 10px,#F1F2F5 10px 20px);}
 </style>
 </head>
 <body>
@@ -40870,6 +40872,31 @@ const DELIVERY_TIME_SLOTS = [
 // gets planned into it without seeing that.
 function deliveryNextSlotKey(key){ const i = DELIVERY_TIME_SLOTS.findIndex(s=>s.key===key); return (i>-1 && i<DELIVERY_TIME_SLOTS.length-1) ? DELIVERY_TIME_SLOTS[i+1].key : null; }
 function deliveryContinuations(list, slotKey){ return (list||[]).filter(t=>t.double_slot && deliveryNextSlotKey(t.time_slot)===slotKey); }
+// #(dlv-extra-time-blocks) 2026-10-18 (Andy): a delivery that needs extra
+// time takes its own drop AND the next one — e.g. booked as the 1st drop it
+// also uses the 2nd, so nothing else can go in until the 3rd. Returns
+// {slotKey: the 2-drop delivery holding it} for that day's list.
+function deliveryBlockedSlots(list, excludeId){
+  const out = {};
+  (list||[]).forEach(t=>{ if(t && t.double_slot && t.id!==excludeId && t.status!=='cancelled'){ const nx = deliveryNextSlotKey(t.time_slot); if(nx && !out[nx]) out[nx] = t; } });
+  return out;
+}
+function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
+function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
+// Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
+// an explanation when it can't.
+function deliverySlotProblem(list, task, slotKey){
+  const others = (list||[]).filter(x=>x.id!==task.id && x.status!=='cancelled');
+  const blocker = deliveryBlockedSlots(others)[slotKey];
+  if(blocker) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(blocker)} (extra time from the ${deliverySlotLabel(blocker.time_slot)}).`;
+  if(task.double_slot){
+    const nx = deliveryNextSlotKey(slotKey);
+    if(!nx) return 'A delivery needing extra time can\'t go in the last drop of the day.';
+    const inNext = others.filter(x=>x.time_slot===nx);
+    if(inNext.length) return `It needs extra time, so it also takes the ${deliverySlotLabel(nx)} — move ${deliveryTaskPlace(inNext[0])} out of the ${deliverySlotLabel(nx)} first.`;
+  }
+  return '';
+}
 function deliveryContinuedHtml(t){
   const prev = (DELIVERY_TIME_SLOTS.find(s=>s.key===t.time_slot)||{}).label || '';
   return `<div class="dlvcont">⤷ <b>${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||'Site'))}</b> continues from the ${escapeHtml(prev)} <span class="stub" style="margin:0;">(2-drop booking)</span></div>`;
@@ -43010,13 +43037,28 @@ window.moveDeliveryTask = async function(taskId, dir){
   const slotTasks = (await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&time_slot=eq.'+oldSlot))
     .sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority) || (a.created_at<b.created_at?-1:1));
   const pos = slotTasks.findIndex(t=>t.id===taskId);
+  // Moving into another drop skips any drop taken by an extra-time delivery.
+  const step = (dir==='up' ? -1 : 1);
+  let dayList = null;
+  async function freeSlotFrom(i){
+    if(!dayList) dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    let firstWhy = '';
+    for(let j=i; j>=0 && j<DELIVERY_TIME_SLOTS.length; j+=step){
+      const why = deliverySlotProblem(dayList, task, DELIVERY_TIME_SLOTS[j].key);
+      if(!why) return {key: DELIVERY_TIME_SLOTS[j].key};
+      if(!firstWhy) firstWhy = why;
+    }
+    return {why: firstWhy};
+  }
   if(dir==='up'){
     if(pos>0){
       const other = slotTasks[pos-1];
       await dbUpdate('delivery_tasks', task.id, {sub_priority: other.sub_priority});
       await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
     } else if(slotIdx>0){
-      const destSlot = DELIVERY_TIME_SLOTS[slotIdx-1].key;
+      const free = await freeSlotFrom(slotIdx-1);
+      if(!free.key){ customAlert(free.why || 'No earlier drop is free.'); return; }
+      const destSlot = free.key;
       await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: 999}); // 999 = "goes last" until resequenceSlot renumbers it
       await resequenceSlot(dateISO, oldSlot);
       await resequenceSlot(dateISO, destSlot);
@@ -43027,7 +43069,9 @@ window.moveDeliveryTask = async function(taskId, dir){
       await dbUpdate('delivery_tasks', task.id, {sub_priority: other.sub_priority});
       await dbUpdate('delivery_tasks', other.id, {sub_priority: task.sub_priority});
     } else if(slotIdx < DELIVERY_TIME_SLOTS.length-1){
-      const destSlot = DELIVERY_TIME_SLOTS[slotIdx+1].key;
+      const free = await freeSlotFrom(slotIdx+1);
+      if(!free.key){ customAlert(free.why || 'No later drop is free.'); return; }
+      const destSlot = free.key;
       await dbUpdate('delivery_tasks', task.id, {time_slot: destSlot, sub_priority: -999, high_priority:false}); // a 1st DROP moved later is no longer first; -999 = "goes first" until resequenceSlot renumbers it
       await resequenceSlot(dateISO, oldSlot);
       await resequenceSlot(dateISO, destSlot);
@@ -43291,6 +43335,7 @@ async function renderDeliverySchedulePM(){
   const bySlot = {}; DELIVERY_TIME_SLOTS.forEach(s=>bySlot[s.key]=[]);
   tasks.forEach(t=>{ if(bySlot[t.time_slot]) bySlot[t.time_slot].push(t); });
   Object.keys(bySlot).forEach(k=>bySlot[k].sort((a,b)=>((b.high_priority?1:0)-(a.high_priority?1:0)) || (a.sub_priority==null?999:a.sub_priority)-(b.sub_priority==null?999:b.sub_priority)));
+  const blockedSlots = deliveryBlockedSlots(tasks);
   const dayLabel = day.toLocaleDateString('en-GB',{weekday:'long',day:'2-digit',month:'short'}) + (iso===todayISO ? ' (Today)' : (day.getFullYear()!==new Date().getFullYear() ? ' '+day.getFullYear() : ''));
   const weekLabel = days[0].toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) + ' – ' + days[6].toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const hoursHtml = dlvHoursOpen ? await driverWeekHoursHtml() : '';
@@ -43311,8 +43356,8 @@ async function renderDeliverySchedulePM(){
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="driverScheduleDateOffset=${Math.round((new Date(iso+'T12:00:00') - new Date(todayISO+'T12:00:00'))/86400000)};go('#/delivery/driver-view')">👁 Driver view</button>
     <p class="stub" style="margin:-6px 0 10px;text-align:center;">Tip: press and hold a delivery, then drag it up or down to move it.</p>
     ${DELIVERY_TIME_SLOTS.map(slot=>`
-      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span></p>
-      <div class="dlvslot" data-slot="${slot.key}">${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (deliveryContinuations(tasks, slot.key).length ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
+      <p class="sectiontitle" style="margin-top:12px;display:flex;align-items:center;">${slot.label}${blockedSlots[slot.key] ? '' : `<span class="homebtn" title="Add a delivery in this drop" style="margin-left:auto;flex:none;width:26px;height:26px;font-size:16px;font-weight:800;" onclick="addDeliveryFrom('${iso}','${slot.key}')">+</span>`}</p>
+      <div class="dlvslot" data-slot="${slot.key}" ${blockedSlots[slot.key]?'data-blocked="1"':''}>${blockedSlots[slot.key] ? `<div class="dlvtaken">⏱ Taken — <b>${escapeHtml(deliveryTaskPlace(blockedSlots[slot.key]))}</b> needs extra time (carries on from the ${escapeHtml(deliverySlotLabel(blockedSlots[slot.key].time_slot))})</div>` : ''}${bySlot[slot.key].length ? bySlot[slot.key].map(t=>deliveryTaskCardHtml(t, {slotCount:bySlot[slot.key].length})).join('') : (blockedSlots[slot.key] ? '' : `<div class="empty">Nothing in this drop.</div>`)}</div>
     `).join('')}
     <!-- #(deliveries-vehicles) vehicle checks live here now (not Admin), then the exports -->
     <div class="dlv-foot">
@@ -43342,6 +43387,7 @@ async function loadDeliveryFormSiteOperatives(siteId){
   deliveryFormSiteOperatives = rows.map(r=>PROFILES[r.user_id]).filter(p=>p && p.role==='operative').sort((a,b)=>a.name.localeCompare(b.name));
 }
 let DELIVERY_FORM_SUPPLIERS = [];
+let deliveryFormDayTasks = [], deliveryFormDayFor = null;
 async function renderDeliveryForm(taskId){
   const __gen = RENDER_GEN;
   const needTask = taskId && (!deliveryFormDraft || deliveryFormDraft._id !== taskId);
@@ -43354,6 +43400,7 @@ async function renderDeliveryForm(taskId){
   DELIVERY_FORM_SUPPLIERS = suppliers;
   deliveryFormDrivers = Object.values(PROFILES).filter(p=>p && p.role==='driver').sort((a,b)=>a.name.localeCompare(b.name));
   if(!deliveryFormDraft || deliveryFormDraft._id !== (taskId||'new')){
+    deliveryFormDayFor = null; // fresh look at that day's drops each time the form opens
     if(taskId){
       const t = (taskRows || [])[0];
       if(!t){ toast('Delivery not found'); go('#/delivery'); return; }
@@ -43367,6 +43414,13 @@ async function renderDeliveryForm(taskId){
     await loadDeliveryFormSiteOperatives(deliveryFormDraft.site_id);
   }
   if(deliveryFormDraft.site_id && siteIsMulti(deliveryFormDraft.site_id) && !SUB_ADDR_CACHE[deliveryFormDraft.site_id]) await loadSubAddrs(deliveryFormDraft.site_id);
+  // That day's other deliveries, so drops taken by an extra-time delivery
+  // can be shown as unavailable in the Drop list.
+  if(deliveryFormDraft.scheduled_date && deliveryFormDayFor !== deliveryFormDraft.scheduled_date){
+    deliveryFormDayTasks = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+deliveryFormDraft.scheduled_date+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    deliveryFormDayFor = deliveryFormDraft.scheduled_date;
+    if(__gen !== RENDER_GEN) return;
+  }
   // Single driver in the org? Assign them automatically — nothing for the
   // PM to pick. More than one, and it's ambiguous who's doing this
   // delivery, so a driver must be chosen explicitly (see saveDeliveryTask).
@@ -43438,7 +43492,7 @@ async function renderDeliveryForm(taskId){
         <option value="no" ${draft.double_slot?'':'selected'}>No</option>
         <option value="yes" ${draft.double_slot?'selected':''}>Yes — book 2 drops</option>
       </select>
-      ${draft.double_slot ? `<p class="stub" style="margin:4px 0 0;">Takes the chosen drop and the one after it.</p>` : ''}
+      ${draft.double_slot ? `<p class="stub" style="margin:4px 0 0;">Takes the chosen drop and the one after it — nothing else can be booked into that next drop.</p>` : ''}
     </div>
     <div class="formfield"><label class="field-label">Site contact</label>
       ${(()=>{
@@ -43465,12 +43519,14 @@ async function renderDeliveryForm(taskId){
       ${draft.site_id && !deliveryFormSiteOperatives.length ? `<p class="stub" style="margin-top:4px;">No operatives assigned to this site yet.</p>` : ''}
     </div>
     <div class="formfield" style="overflow:hidden;"><label class="field-label">Date</label>
-      <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value">
+      <input type="date" style="width:100%;max-width:100%;min-width:0;box-sizing:border-box;display:block;" value="${draft.scheduled_date}" onchange="deliveryFormDraft.scheduled_date=this.value;render()">
     </div>
     <div class="formfield"><label class="field-label">Drop</label>
-      <select onchange="deliveryFormDraft.time_slot=this.value">
-        ${DELIVERY_TIME_SLOTS.map(s=>`<option value="${s.key}" ${draft.time_slot===s.key?'selected':''}>${s.label}</option>`).join('')}
+      <select onchange="deliveryFormDraft.time_slot=this.value;render()">
+        ${DELIVERY_TIME_SLOTS.map(s=>{ const why = deliverySlotProblem(deliveryFormDayTasks, {id:draft._id, double_slot:!!draft.double_slot}, s.key); const taken = !!deliveryBlockedSlots(deliveryFormDayTasks.filter(x=>x.id!==draft._id))[s.key];
+          return `<option value="${s.key}" ${draft.time_slot===s.key?'selected':''} ${why && draft.time_slot!==s.key?'disabled':''}>${s.label}${taken?' — taken (extra time)':(why?' — not free':'')}</option>`; }).join('')}
       </select>
+      ${(()=>{ const why = deliverySlotProblem(deliveryFormDayTasks, {id:draft._id, double_slot:!!draft.double_slot}, draft.time_slot); return why ? `<p class="stub" style="margin:4px 0 0;color:var(--warn);font-style:normal;">${escapeHtml(why)}</p>` : (draft.double_slot && deliveryNextSlotKey(draft.time_slot) ? `<p class="stub" style="margin:4px 0 0;">Also takes the ${escapeHtml(deliverySlotLabel(deliveryNextSlotKey(draft.time_slot)))}.</p>` : ''); })()}
     </div>
     ${deliveryFormDrivers.length ? `
     <div class="formfield"><label class="field-label">Driver</label>
@@ -43611,6 +43667,11 @@ window.saveDeliveryTask = async function(){
   if(d.collection_type==='manual' && !d.collection_address_manual.trim()){ toast('Enter a collection address.'); return; }
   if(d.collection_type==='supplier' && !d.supplier_id){ toast('Choose a supplier.'); return; }
   if(deliveryFormDrivers.length>1 && !d.driver_id){ toast('Choose a driver, or pick Unassigned.'); return; }
+  { // extra-time deliveries take two drops — check the chosen one is free
+    const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+d.scheduled_date+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    const why = deliverySlotProblem(dayList, {id:d._id, double_slot:!!d.double_slot}, d.time_slot);
+    if(why){ customAlert(why); return; }
+  }
   // Only one first-drop high priority per day. Booking a second asks
   // whether to swap: Yes moves the flag onto this delivery (the other one
   // is un-flagged after this one saves, and whoever booked it is told); No
@@ -43793,9 +43854,10 @@ function dlvPlace(p){
   let el = document.elementFromPoint(Math.max(4, Math.min(window.innerWidth-4, p.x)), p.y);
   ghost.style.visibility = '';
   let slot = el && el.closest ? el.closest('.dlvslot') : null;
+  if(slot && slot.dataset.blocked) slot = null; // taken by an extra-time delivery
   if(!slot){
     // between drops: use the nearest drop list above or below the finger
-    const slots = Array.from(document.querySelectorAll('.dlvslot'));
+    const slots = Array.from(document.querySelectorAll('.dlvslot')).filter(s=>!s.dataset.blocked);
     let best = null, bd = 1e9;
     slots.forEach(s=>{ const r = s.getBoundingClientRect(); const d = p.y < r.top ? r.top-p.y : (p.y > r.bottom ? p.y-r.bottom : 0); if(d < bd){ bd = d; best = s; } });
     slot = best;
@@ -43826,6 +43888,11 @@ async function dlvSaveOrder(taskId, fromSlot, toSlot, order){
   const dateISO = pmDeliveryDayISO || localISODate(new Date());
   const t = (await dbSelect('delivery_tasks', 'id=eq.'+taskId))[0];
   if(!t){ render(); return; }
+  if(toSlot !== fromSlot){
+    const dayList = await dbSelect('delivery_tasks', 'org_id=eq.'+ME.org_id+'&scheduled_date=eq.'+dateISO+'&select=id,time_slot,double_slot,status,site_id,manual_site_name,manual_site_address');
+    const why = deliverySlotProblem(dayList, t, toSlot);
+    if(why){ customAlert(why); render(); return; }
+  }
   const patch = {time_slot: toSlot};
   if(t.high_priority && toSlot !== DELIVERY_TIME_SLOTS[0].key){
     if(!(await customConfirm('This is the 1st DROP. Moving it to a later drop takes the 1st DROP off it — carry on?', {confirmLabel:'Yes — move it', cancelLabel:'No'}))){ render(); return; }

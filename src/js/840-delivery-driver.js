@@ -27,6 +27,31 @@ const DELIVERY_TIME_SLOTS = [
 // gets planned into it without seeing that.
 function deliveryNextSlotKey(key){ const i = DELIVERY_TIME_SLOTS.findIndex(s=>s.key===key); return (i>-1 && i<DELIVERY_TIME_SLOTS.length-1) ? DELIVERY_TIME_SLOTS[i+1].key : null; }
 function deliveryContinuations(list, slotKey){ return (list||[]).filter(t=>t.double_slot && deliveryNextSlotKey(t.time_slot)===slotKey); }
+// #(dlv-extra-time-blocks) 2026-10-18 (Andy): a delivery that needs extra
+// time takes its own drop AND the next one — e.g. booked as the 1st drop it
+// also uses the 2nd, so nothing else can go in until the 3rd. Returns
+// {slotKey: the 2-drop delivery holding it} for that day's list.
+function deliveryBlockedSlots(list, excludeId){
+  const out = {};
+  (list||[]).forEach(t=>{ if(t && t.double_slot && t.id!==excludeId && t.status!=='cancelled'){ const nx = deliveryNextSlotKey(t.time_slot); if(nx && !out[nx]) out[nx] = t; } });
+  return out;
+}
+function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
+function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
+// Can `task` (double or not) go in `slotKey` on a day with `list`? Returns
+// an explanation when it can't.
+function deliverySlotProblem(list, task, slotKey){
+  const others = (list||[]).filter(x=>x.id!==task.id && x.status!=='cancelled');
+  const blocker = deliveryBlockedSlots(others)[slotKey];
+  if(blocker) return `The ${deliverySlotLabel(slotKey)} is taken by ${deliveryTaskPlace(blocker)} (extra time from the ${deliverySlotLabel(blocker.time_slot)}).`;
+  if(task.double_slot){
+    const nx = deliveryNextSlotKey(slotKey);
+    if(!nx) return 'A delivery needing extra time can\'t go in the last drop of the day.';
+    const inNext = others.filter(x=>x.time_slot===nx);
+    if(inNext.length) return `It needs extra time, so it also takes the ${deliverySlotLabel(nx)} — move ${deliveryTaskPlace(inNext[0])} out of the ${deliverySlotLabel(nx)} first.`;
+  }
+  return '';
+}
 function deliveryContinuedHtml(t){
   const prev = (DELIVERY_TIME_SLOTS.find(s=>s.key===t.time_slot)||{}).label || '';
   return `<div class="dlvcont">⤷ <b>${escapeHtml(t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||'Site'))}</b> continues from the ${escapeHtml(prev)} <span class="stub" style="margin:0;">(2-drop booking)</span></div>`;
