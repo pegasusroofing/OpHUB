@@ -267,6 +267,32 @@ function sectionFlagRowHtml(siteId, sectionId, flag){
     </div>
   `;
 }
+// #(site-condition-yes-no) 2026-10-18 (Andy): one Site condition card at the
+// bottom of the Schedule of Works, asked as two Yes / No questions (the
+// per-section tick rows are gone). Same saved flags + notifications as before.
+function siteConditionQuestionsHtml(siteId, flag){
+  const waste = flag ? !!flag.waste_to_clear : false;
+  const leftover = flag ? !!flag.leftover_material : false;
+  window.__scqFlag = {waste_to_clear: waste, leftover_material: leftover};
+  const q = (label, on, field) => `
+    <div class="scq">
+      <span class="scq-l">${label}</span>
+      <span class="scq-yn">
+        <button type="button" class="${!on?'on no':''}" onclick="setSiteConditionFlag('${siteId}','${field}',false)">No</button>
+        <button type="button" class="${on?'on yes':''}" onclick="setSiteConditionFlag('${siteId}','${field}',true)">Yes</button>
+      </span>
+    </div>`;
+  return q('🗑 Is there waste to clear?', waste, 'waste_to_clear')
+    + q('📦 Any leftover material?', leftover, 'leftover_material')
+    + (leftover && flag && flag.leftover_photo_path ? `<p class="stub" style="margin:6px 0 0;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', flag.leftover_photo_path)}')">📷 Leftover photo added — tap to view</p>` : '')
+    + `<input type="file" id="leftoverPhotoInput-ungrouped" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="leftoverMaterialPhotoChosen(this,'${siteId}','')">`;
+}
+window.setSiteConditionFlag = function(siteId, field, value){
+  const cur = (window.__scqFlag||{})[field];
+  if(!!cur === !!value) return; // already that answer
+  saveSectionFlag(siteId, null, field, !!value);
+  if(field==='leftover_material' && value){ const inp = document.getElementById('leftoverPhotoInput-ungrouped'); if(inp) inp.click(); }
+};
 function sectionFlagLabel(sectionId){
   if(!sectionId) return 'the ungrouped tasks';
   const sec = scheduleSectionsCache.find(s=>s.id===sectionId);
@@ -740,7 +766,6 @@ async function renderSchedule(siteId){
                 </select>
               `) : ''}
             ` : ''}
-            ${bySectionAll[sec.id] && bySectionAll[sec.id].length ? sectionFlagRowHtml(siteId, sec.id, flagsBySection[sec.id]) : ''}
           </div>
         ` : ''}
       </div>
@@ -758,7 +783,7 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
-    ${allTasks.length ? `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0;">Site condition</p>${sectionFlagRowHtml(siteId, null, flagsBySection['__ungrouped__'])}</div>` : ''}
+    ${allTasks.length ? `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0 0 4px;">Site condition</p>${siteConditionQuestionsHtml(siteId, flagsBySection['__ungrouped__'])}</div>` : ''}
     ${allTasks.length ? `
     <div class="row-gap" style="margin-bottom:14px;flex-wrap:nowrap;">
       <button class="ghostbtn exportbtn sowexportbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
