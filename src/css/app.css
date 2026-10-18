@@ -1395,3 +1395,6 @@ textarea.sfq-in{resize:vertical;}
 .dlvpm{margin:1px 0 3px;font-size:11.5px;color:var(--slate);font-style:normal;}
 .dlvpm a{color:var(--slate);font-weight:600;text-decoration:underline;}
 .dlvpm.none{color:var(--slate);opacity:.7;}
+/* Driver card: what's on the delivery and where to collect it — easy to read in the van (2026-10-19) */
+.dlvinfo-desc{margin:4px 0 4px;font-size:15.5px;font-weight:700;color:var(--ink);line-height:1.35;white-space:pre-wrap;}
+.dlvinfo-coll{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink);line-height:1.35;}

@@ -440,7 +440,7 @@ async function renderDriverSchedule(preview){
           ${t.high_priority ? `<p style="margin:0 0 6px;color:var(--brand1);font-weight:800;">1st DROP<br><span style="font-weight:500;font-size:12px;color:var(--slate);">This is the first delivery of the day — do this one first.</span></p>` : ''}
           <p style="margin:0 0 4px;font-weight:700;">${deliverySiteHeadingHtml(t)}${deliveryDoublePill(t)}</p>
           ${deliveryJobPmHtml(t)}
-          <p class="stub" style="margin:0 0 4px;">${escapeHtml(t.description||'')}</p>
+          ${t.description ? `<p class="dlvinfo-desc">${escapeHtml(t.description)}</p>` : ''}
           <p class="stub" style="margin:0 0 4px;">${escapeHtml(deliveryCollectionLine(t))}</p>
           ${t.site_contact_id && PROFILES[t.site_contact_id] ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(PROFILES[t.site_contact_id].name)}${PROFILES[t.site_contact_id].phone?` · <a href="tel:${escapeHtml(PROFILES[t.site_contact_id].phone.replace(/\s+/g,''))}">${escapeHtml(PROFILES[t.site_contact_id].phone)}</a>`:''}</p>` : (t.site_contact_manual ? `<p class="stub" style="margin:0 0 4px;">👤 Site contact: ${escapeHtml(t.site_contact_manual)}</p>` : '')}
           ${deliveryPhotoThumbsHtml(deliveryPhotos(t), 64)}
