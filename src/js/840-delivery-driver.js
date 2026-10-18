@@ -63,13 +63,9 @@ function deliveryJobPm(t){
 }
 function deliveryJobPmHtml(t, opts){
   const pm = deliveryJobPm(t);
-  if(!pm) return `<div class="dlvpm none">👷 No PM set for this job</div>`;
-  const label = pm.booked ? 'Booked by' : 'Job PM';
+  if(!pm) return `<div class="dlvpm none">PM: not set</div>`;
   const tel = pm.phone ? pm.phone.replace(/[^0-9+]/g,'') : '';
-  return `<div class="dlvpm" onclick="event.stopPropagation()">
-    <span class="dlvpm-l">👷 ${label}</span><b>${escapeHtml(pm.name)}</b>
-    ${tel ? `<a class="dlvpm-call" href="tel:${escapeHtml(tel)}">📞 ${escapeHtml(pm.phone)}</a>` : `<span class="dlvpm-nophone">no number saved</span>`}
-  </div>`;
+  return `<div class="dlvpm" onclick="event.stopPropagation()">${pm.booked ? 'Booked by' : 'PM'}: ${escapeHtml(pm.name)}${tel ? ` · <a href="tel:${escapeHtml(tel)}">${escapeHtml(pm.phone)}</a>` : ''}</div>`;
 }
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }

@@ -1405,13 +1405,10 @@ textarea.sfq-in{resize:vertical;}
 .sitepick-grp.open::after{transform:translateY(-20%) rotate(-135deg);}
 .sitepick-sub{padding-left:10px;border-left:2px solid #F0F1F4;margin:0 0 4px 10px;}
 .sitepick-empty{padding:10px;font-size:13px;color:var(--slate);}
-/* Delivery: whose job it is (2026-10-19) */
-.dlvpm{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:6px 0 6px;padding:7px 10px;border-radius:10px;background:#EEF4FF;border:1px solid #D6E4FF;font-size:12.5px;color:var(--ink);width:100%;box-sizing:border-box;}
-.dlvpm-l{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#3B5BA9;}
-.dlvpm b{font-weight:800;}
-.dlvpm-call{margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;background:#fff;border:1px solid #C7D7FB;font-weight:700;color:#1F4FBF;text-decoration:none;white-space:nowrap;}
-.dlvpm-nophone{margin-left:auto;font-size:11.5px;color:var(--slate);font-style:italic;}
-.dlvpm.none{background:var(--warn-bg);border-color:transparent;color:var(--warn);font-weight:700;}
+/* Delivery: whose job it is (2026-10-19) — one small line */
+.dlvpm{margin:1px 0 3px;font-size:11.5px;color:var(--slate);font-style:normal;}
+.dlvpm a{color:var(--slate);font-weight:600;text-decoration:underline;}
+.dlvpm.none{color:var(--slate);opacity:.7;}
 </style>
 </head>
 <body>
@@ -41057,13 +41054,9 @@ function deliveryJobPm(t){
 }
 function deliveryJobPmHtml(t, opts){
   const pm = deliveryJobPm(t);
-  if(!pm) return `<div class="dlvpm none">👷 No PM set for this job</div>`;
-  const label = pm.booked ? 'Booked by' : 'Job PM';
+  if(!pm) return `<div class="dlvpm none">PM: not set</div>`;
   const tel = pm.phone ? pm.phone.replace(/[^0-9+]/g,'') : '';
-  return `<div class="dlvpm" onclick="event.stopPropagation()">
-    <span class="dlvpm-l">👷 ${label}</span><b>${escapeHtml(pm.name)}</b>
-    ${tel ? `<a class="dlvpm-call" href="tel:${escapeHtml(tel)}">📞 ${escapeHtml(pm.phone)}</a>` : `<span class="dlvpm-nophone">no number saved</span>`}
-  </div>`;
+  return `<div class="dlvpm" onclick="event.stopPropagation()">${pm.booked ? 'Booked by' : 'PM'}: ${escapeHtml(pm.name)}${tel ? ` · <a href="tel:${escapeHtml(tel)}">${escapeHtml(pm.phone)}</a>` : ''}</div>`;
 }
 function deliverySlotLabel(key){ return (DELIVERY_TIME_SLOTS.find(s=>s.key===key)||{}).label || key; }
 function deliveryTaskPlace(t){ return t.site_id ? ((SITES.find(s=>s.id===t.site_id)||{}).name||'Site') : (t.manual_site_name||t.manual_site_address||'Site'); }
