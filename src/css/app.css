@@ -278,6 +278,7 @@
     box-shadow:0 1px 3px rgba(16,17,20,.04);transition:box-shadow .15s ease;}
   .ddrow:first-child{margin-top:0;}
   .ddrow .arrow{font-size:10px;color:var(--slate);flex:0 0 auto;}
+  .ddrow .stub{margin:0;} /* subtitle text sits level with the row label (was pushed down by .stub margin) */
   /* Card-style variant for a page's top-level section headers (Admin Centre
      etc) — an icon swatch + bolder label, so a long list of settings groups
      reads as a tidy stack of cards rather than plain text rows. Nested
