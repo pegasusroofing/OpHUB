@@ -1052,7 +1052,7 @@ async function hoDeliverBlob(blob, filename){
     try{
       const path = 'exports/'+uid()+'-'+filename.replace(/[^a-z0-9.\-]+/gi,'-');
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
-      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)}); return; }
+      if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){ await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)); return; }
     }catch(e){}
   }
   const url = URL.createObjectURL(blob);

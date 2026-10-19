@@ -18,6 +18,7 @@ function resetPerUserState(){
   try{ subOpCache = {}; }catch(e){}
   try{ unreadMsgsCache = {}; currentUnreadMsgs = 0; }catch(e){}
   try{ uiReadCacheClear(); }catch(e){}
+  try{ signedCacheClear(); }catch(e){}
   try{ pmSignNagDone = false; howtoShownThisSession = new Set(); opUnreadCache = {at:0, n:0}; onSiteCache = {at:0, rows:[]}; deliveryRequestsCount = null; subformMineCache = {uid:null, at:0, done:null}; SUBFORM = null; }catch(e){}
 }
 

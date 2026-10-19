@@ -445,7 +445,7 @@ async function deliverExcelFile(wb, filename){
       const path = 'exports/'+uid()+'-'+safeName;
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
-        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)});
+        await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
         return;
       }
     }catch(e){ /* fall through to the direct-download fallback below */ }
@@ -467,7 +467,7 @@ async function deliverExcelBuffer(buffer, filename){
       const path = 'exports/'+uid()+'-'+safeName;
       const stored = await uploadToStorage('site-photos', path, blob, blob.type);
       if(stored && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser){
-        await window.Capacitor.Plugins.Browser.open({url: publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename)});
+        await openInAppBrowser(publicUrl('site-photos', stored)+'?download='+encodeURIComponent(filename));
         return;
       }
     }catch(e){ /* fall through to the direct-download fallback below */ }

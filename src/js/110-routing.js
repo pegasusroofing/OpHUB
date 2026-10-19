@@ -131,7 +131,7 @@ window.addEventListener('hashchange', function(){
     if(pdfOv && pdfOv.style.display === 'flex') return;
     const imgOv = document.getElementById('imgViewerOverlay') || document.querySelector('.img-viewer-overlay');
     if(imgOv && getComputedStyle(imgOv).display !== 'none') return;
-    go(CURRENT_BACK_HASH);
+    goBack(CURRENT_BACK_HASH);
   }, {passive:true});
 })();
 // Safety net for platforms where "swipe back" isn't caught by the manual
@@ -148,7 +148,7 @@ window.addEventListener('hashchange', function(){
 // overrides wherever raw history landed us.
 window.addEventListener('popstate', function(){
   if(SELF_NAV) return;
-  if(CURRENT_BACK_HASH) go(CURRENT_BACK_HASH);
+  if(CURRENT_BACK_HASH) goBack(CURRENT_BACK_HASH);
 });
 // Close the PM-filter dropdown (home page) and the per-site status/PM-picker
 // dropdowns (the "Active ▾" style menus) on any tap outside them, instead of

@@ -24,6 +24,8 @@ const NAV_FROM_HUB = {};
 let NAV_ROOT = 'home';
 const NAV_STACK = [];
 let NAV_LAST_TAP = 0, NAV_LAST_ARRIVAL = 0;
+let NAV_GOING_BACK = false; // set by goBack() so the trail knows this is a back step
+function goBack(target){ NAV_GOING_BACK = true; go(target); setTimeout(()=>{ NAV_GOING_BACK = false; }, 1500); }
 ['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev, ()=>{ NAV_LAST_TAP = Date.now(); }, true));
 function navNoteArrival(prevHash, newHash){
   if(!newHash || prevHash===newHash) return;
@@ -41,21 +43,39 @@ function navNoteArrival(prevHash, newHash){
   // operative's page opened as ?listFrom=… and returned to plainly after
   // picking their OneDrive folder) — is stepped back to, not stacked again,
   // so the back arrow can't land you on the very page you're on.
-  let at = NAV_STACK.lastIndexOf(full);
-  if(at < 0) at = NAV_STACK.map(base).lastIndexOf(n);
+  // #(nav-back-vs-forward) 2026-10-19 (Andy): only a BACK step (‹ arrow,
+  // swipe, phone back) trims the trail to that page. Going forward to a page
+  // you'd been on much earlier now adds a step — it used to cut the trail
+  // there, so Map → project → back → Map's own back bounced into the project
+  // again and you were stuck going round in a circle.
+  const isBack = NAV_GOING_BACK; NAV_GOING_BACK = false;
   const topBase = NAV_STACK.length ? base(NAV_STACK[NAV_STACK.length-1]) : '';
+  const prevBase = NAV_STACK.length > 1 ? base(NAV_STACK[NAV_STACK.length-2]) : '';
+  let at = -1;
+  if(isBack){ at = NAV_STACK.lastIndexOf(full); if(at < 0) at = NAV_STACK.map(base).lastIndexOf(n); }
+  else if(prevBase === n) at = NAV_STACK.length-2; // straight back to the page before (e.g. after picking a OneDrive folder)
   if(at >= 0){ NAV_STACK.length = at+1; NAV_STACK[at] = full; }
+  else if(topBase === n) NAV_STACK[NAV_STACK.length-1] = full;
   // Going UP a level (e.g. a report → that project's report list) is a step
   // back, not forward: it replaces the page you were on, so the next back
   // doesn't bounce you down into it again.
   else if(NAV_STACK.length && topBase.startsWith(n+'/')) NAV_STACK[NAV_STACK.length-1] = full;
   else if(NAV_STACK.length && NAV_LAST_TAP < NAV_LAST_ARRIVAL) NAV_STACK[NAV_STACK.length-1] = full;
   else { NAV_STACK.push(full); if(NAV_STACK.length > 60) NAV_STACK.shift(); }
+  const tapped = NAV_LAST_TAP >= NAV_LAST_ARRIVAL;
   NAV_LAST_ARRIVAL = Date.now();
-  // Same for a project opened from the Sites map: back goes to the map.
-  if(p==='#/sitemap' && n!=='#/sitemap') NAV_FROM_HUB[n] = '#/sitemap';
-  else if(p==='#/hub' && n!=='#/hub') NAV_FROM_HUB[n] = '#/hub';
-  else if(!(p.startsWith(n+'/') || p===n) && !(NAV_FROM_HUB[p] && n.startsWith(p+'/'))) delete NAV_FROM_HUB[n];
+  // A project page opened from somewhere OUTSIDE Live projects (Home, the
+  // map, HUB, the calendar, deliveries…) goes back to where you tapped it
+  // from. From Live projects it goes up a folder as normal. Kept while you
+  // dip into that page's own sub-pages and come back up.
+  const fromOutside = n.startsWith('#/site/') && !p.startsWith('#/site/') && p !== '#/sites';
+  if(!isBack && tapped && fromOutside) NAV_FROM_HUB[n] = p || '#/home';
+  else {
+    const siteOf = h => { const m = /^#\/site\/[^/]+/.exec(h); return m ? m[0] : null; };
+    const sameSite = siteOf(n) && siteOf(n) === siteOf(p);
+    // Coming back to it from inside the same project keeps where it was opened from.
+    if(!(p.startsWith(n+'/') || p===n || (isBack && sameSite)) && !(NAV_FROM_HUB[p] && n.startsWith(p+'/'))) delete NAV_FROM_HUB[n];
+  }
   if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
   else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
   else delete NAV_CAME_FROM[n];
@@ -116,7 +136,7 @@ function shell(innerHtml, opts){
           </div>
         ` : `
         <div class="row" style="align-items:center;">
-          ${opts.back ? `<span class="backarrow" onclick="go('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
+          ${opts.back ? `<span class="backarrow" onclick="goBack('${opts.back}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 5 8 12 15 19"></polyline></svg></span>` : `<img class="brandmark" src="${orgLogoUrl(ORG)}" alt="OpHUB" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="cursor:pointer;" onclick="goHome()">`}
           <div style="flex:1;min-width:0;min-height:59.4px;display:flex;flex-direction:column;justify-content:center;text-align:center;padding-top:4px;">
             ${!opts.back ? `<div class="brandline" style="cursor:pointer;" onclick="goHome()">OpHUB${ORG && ORG.name ? ` <span style="color:var(--brand1);">- ${escapeHtml(ORG.name)}</span>` : ''}</div>` : ''}
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
