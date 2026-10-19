@@ -1412,6 +1412,15 @@ textarea.sfq-in{resize:vertical;}
 /* Driver card: what's on the delivery and where to collect it — easy to read in the van (2026-10-19) */
 .dlvinfo-desc{margin:4px 0 4px;font-size:15.5px;font-weight:700;color:var(--ink);line-height:1.35;white-space:pre-wrap;}
 .dlvinfo-coll{margin:0 0 6px;font-size:14px;font-weight:600;color:var(--ink);line-height:1.35;}
+/* Map job card (2026-10-19) */
+.smpop{min-width:220px;}
+.smpop b.smpop-t{font-size:15px;font-weight:800;margin-bottom:2px;}
+.smpop-a{color:var(--slate);}
+.smpop-rows{margin-top:8px;border-top:1px solid #EEF0F3;padding-top:6px;}
+.smpop-r{display:flex;justify-content:space-between;gap:10px;padding:2px 0;}
+.smpop-r span{color:var(--slate);}
+.smpop-r b{display:inline;font-size:12.5px;margin:0;font-weight:700;text-align:right;}
+.smpop button{display:block;width:100%;box-sizing:border-box;text-align:center;margin-top:10px;padding:8px 10px;background:var(--brand1);}
 </style>
 </head>
 <body>
@@ -4586,11 +4595,23 @@ async function siteMapPoints(){
   });
   return {pts, missing};
 }
+// #(map-job-card) 2026-10-19 (Andy): tapping a pin shows the job's details;
+// "Open project" takes you in, and Back from the project comes back here.
 function siteMapPopupHtml(p){
-  return `<div class="smpop"><b>${escapeHtml(p.s.name)}</b>
-    <div>${escapeHtml(fullSiteAddress(p.s) || p.pc || '')}</div>
-    <div class="smpop-st" style="color:${SITEMAP_COLOURS[p.st]};">● ${escapeHtml(SITE_STATUS_LABEL[p.st]||p.st)}${p.s.job_number?` · Job ${escapeHtml(p.s.job_number)}`:''}</div>
-    <button type="button" onclick="go('#/site/${p.s.id}/home')">Open project ›</button></div>`;
+  const s = p.s;
+  const pm = s.responsible_pm_id && PROFILES[s.responsible_pm_id] ? PROFILES[s.responsible_pm_id].name : '';
+  const row = (k, v) => v ? `<div class="smpop-r"><span>${k}</span><b>${escapeHtml(v)}</b></div>` : '';
+  const start = s.start_date ? new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+  return `<div class="smpop"><b class="smpop-t">${escapeHtml(s.name)}</b>
+    <div class="smpop-a">${escapeHtml(fullSiteAddress(s) || p.pc || '')}</div>
+    <div class="smpop-st" style="color:${SITEMAP_COLOURS[p.st]};">● ${escapeHtml(SITE_STATUS_LABEL[p.st]||p.st)}</div>
+    <div class="smpop-rows">
+      ${row('Job no.', s.job_number)}
+      ${row('PM', pm)}
+      ${row('Client', s.client_name)}
+      ${p.st==='upcoming' ? row('Starts', start) : ''}
+    </div>
+    <button type="button" onclick="siteMapFocus='${s.id}';go('#/site/${s.id}/home')">Open project ›</button></div>`;
 }
 // #(sites-map-modern) 2026-10-17: modern, clean vector map (MapLibre +
 // OpenFreeMap's "positron" style — free, no account or API key) with
@@ -4795,7 +4816,9 @@ function navNoteArrival(prevHash, newHash){
   else if(NAV_STACK.length && NAV_LAST_TAP < NAV_LAST_ARRIVAL) NAV_STACK[NAV_STACK.length-1] = full;
   else { NAV_STACK.push(full); if(NAV_STACK.length > 60) NAV_STACK.shift(); }
   NAV_LAST_ARRIVAL = Date.now();
-  if(p==='#/hub' && n!=='#/hub') NAV_FROM_HUB[n] = true;
+  // Same for a project opened from the Sites map: back goes to the map.
+  if(p==='#/sitemap' && n!=='#/sitemap') NAV_FROM_HUB[n] = '#/sitemap';
+  else if(p==='#/hub' && n!=='#/hub') NAV_FROM_HUB[n] = '#/hub';
   else if(!(p.startsWith(n+'/') || p===n) && !(NAV_FROM_HUB[p] && n.startsWith(p+'/'))) delete NAV_FROM_HUB[n];
   if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
   else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
@@ -4803,7 +4826,7 @@ function navNoteArrival(prevHash, newHash){
 }
 function navBackFor(defaultBack){
   const cur = String(location.hash||'');
-  if(defaultBack && NAV_FROM_HUB[cur.split('?')[0]]) return '#/hub';
+  if(defaultBack && NAV_FROM_HUB[cur.split('?')[0]]) return NAV_FROM_HUB[cur.split('?')[0]]===true ? '#/hub' : NAV_FROM_HUB[cur.split('?')[0]];
   // #(project-back-up-a-folder) 2026-10-14 (Andy): inside a project, back
   // always goes UP one folder (the page's own parent), never back to
   // wherever you happened to tap from.

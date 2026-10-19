@@ -52,7 +52,9 @@ function navNoteArrival(prevHash, newHash){
   else if(NAV_STACK.length && NAV_LAST_TAP < NAV_LAST_ARRIVAL) NAV_STACK[NAV_STACK.length-1] = full;
   else { NAV_STACK.push(full); if(NAV_STACK.length > 60) NAV_STACK.shift(); }
   NAV_LAST_ARRIVAL = Date.now();
-  if(p==='#/hub' && n!=='#/hub') NAV_FROM_HUB[n] = true;
+  // Same for a project opened from the Sites map: back goes to the map.
+  if(p==='#/sitemap' && n!=='#/sitemap') NAV_FROM_HUB[n] = '#/sitemap';
+  else if(p==='#/hub' && n!=='#/hub') NAV_FROM_HUB[n] = '#/hub';
   else if(!(p.startsWith(n+'/') || p===n) && !(NAV_FROM_HUB[p] && n.startsWith(p+'/'))) delete NAV_FROM_HUB[n];
   if(NAV_ORIGIN_PAGES.includes(p)) NAV_CAME_FROM[n] = p;
   else if(p.startsWith(n+'/') || p===n) { /* back up from a sub-page: keep */ }
@@ -60,7 +62,7 @@ function navNoteArrival(prevHash, newHash){
 }
 function navBackFor(defaultBack){
   const cur = String(location.hash||'');
-  if(defaultBack && NAV_FROM_HUB[cur.split('?')[0]]) return '#/hub';
+  if(defaultBack && NAV_FROM_HUB[cur.split('?')[0]]) return NAV_FROM_HUB[cur.split('?')[0]]===true ? '#/hub' : NAV_FROM_HUB[cur.split('?')[0]];
   // #(project-back-up-a-folder) 2026-10-14 (Andy): inside a project, back
   // always goes UP one folder (the page's own parent), never back to
   // wherever you happened to tap from.

@@ -157,11 +157,23 @@ async function siteMapPoints(){
   });
   return {pts, missing};
 }
+// #(map-job-card) 2026-10-19 (Andy): tapping a pin shows the job's details;
+// "Open project" takes you in, and Back from the project comes back here.
 function siteMapPopupHtml(p){
-  return `<div class="smpop"><b>${escapeHtml(p.s.name)}</b>
-    <div>${escapeHtml(fullSiteAddress(p.s) || p.pc || '')}</div>
-    <div class="smpop-st" style="color:${SITEMAP_COLOURS[p.st]};">● ${escapeHtml(SITE_STATUS_LABEL[p.st]||p.st)}${p.s.job_number?` · Job ${escapeHtml(p.s.job_number)}`:''}</div>
-    <button type="button" onclick="go('#/site/${p.s.id}/home')">Open project ›</button></div>`;
+  const s = p.s;
+  const pm = s.responsible_pm_id && PROFILES[s.responsible_pm_id] ? PROFILES[s.responsible_pm_id].name : '';
+  const row = (k, v) => v ? `<div class="smpop-r"><span>${k}</span><b>${escapeHtml(v)}</b></div>` : '';
+  const start = s.start_date ? new Date(s.start_date+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+  return `<div class="smpop"><b class="smpop-t">${escapeHtml(s.name)}</b>
+    <div class="smpop-a">${escapeHtml(fullSiteAddress(s) || p.pc || '')}</div>
+    <div class="smpop-st" style="color:${SITEMAP_COLOURS[p.st]};">● ${escapeHtml(SITE_STATUS_LABEL[p.st]||p.st)}</div>
+    <div class="smpop-rows">
+      ${row('Job no.', s.job_number)}
+      ${row('PM', pm)}
+      ${row('Client', s.client_name)}
+      ${p.st==='upcoming' ? row('Starts', start) : ''}
+    </div>
+    <button type="button" onclick="siteMapFocus='${s.id}';go('#/site/${s.id}/home')">Open project ›</button></div>`;
 }
 // #(sites-map-modern) 2026-10-17: modern, clean vector map (MapLibre +
 // OpenFreeMap's "positron" style — free, no account or API key) with
