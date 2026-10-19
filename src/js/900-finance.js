@@ -91,7 +91,7 @@ async function renderFinanceHome(){
   const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
   document.getElementById('app').innerHTML = shell(`
     <div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>
-    <div class="pmstats">
+    <div class="pmstats finstats">
       <div class="pmstat"><b>${finMoney(liveValue, 0)}</b><span>Live contract value</span></div>
       <div class="pmstat"><b>${liveSites.length}</b><span>Live jobs</span></div>
       <div class="pmstat"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>

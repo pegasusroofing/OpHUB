@@ -1481,6 +1481,8 @@ textarea.sfq-in{resize:vertical;}
 .fincost span{display:block;font-size:12px;font-weight:700;color:var(--slate);}
 .fincost b{display:block;font-family:'Sora',-apple-system,sans-serif;font-size:18px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
 .fincost em{display:block;font-style:normal;font-size:11.5px;color:var(--warn);font-weight:700;}
+.finstats .pmstat b{font-size:18px;overflow-wrap:anywhere;}
+@media (max-width:600px){ .finstats{grid-template-columns:1fr 1fr !important;} }
 </style>
 </head>
 <body>
@@ -45420,7 +45422,7 @@ async function renderFinanceHome(){
   const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
   document.getElementById('app').innerHTML = shell(`
     <div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>
-    <div class="pmstats">
+    <div class="pmstats finstats">
       <div class="pmstat"><b>${finMoney(liveValue, 0)}</b><span>Live contract value</span></div>
       <div class="pmstat"><b>${liveSites.length}</b><span>Live jobs</span></div>
       <div class="pmstat"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
@@ -46584,7 +46586,7 @@ async function finAppExcelBytes(a){
   const jfRows = await dbSelect('job_finance', 'site_id=eq.'+a.site_id); const jf = jfRows[0] || {};
   const wb = new ExcelJS.Workbook(); wb.creator = (ORG&&ORG.name)||'OpHUB';
   const ws = wb.addWorksheet('Application '+a.number, {pageSetup:{paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0}});
-  ws.columns = [{key:'id', width:4, hidden:true}, {key:'ref', width:9}, {key:'desc', width:58}, {key:'value', width:15}, {key:'pct', width:11}, {key:'gross', width:16}];
+  ws.columns = [{key:'id', width:4, hidden:true}, {key:'ref', width:22}, {key:'desc', width:52}, {key:'value', width:16}, {key:'pct', width:13}, {key:'gross', width:17}];
   const money = '£#,##0.00;[Red]-£#,##0.00';
   const brand = String((ORG&&ORG.color_primary)||'#C8102E').replace('#','').toUpperCase();
   const t = ws.addRow(['', (ORG&&ORG.name)||'']); t.getCell(2).font = {bold:true, size:16, color:{argb:'FF'+brand}};

@@ -407,7 +407,7 @@ async function finAppExcelBytes(a){
   const jfRows = await dbSelect('job_finance', 'site_id=eq.'+a.site_id); const jf = jfRows[0] || {};
   const wb = new ExcelJS.Workbook(); wb.creator = (ORG&&ORG.name)||'OpHUB';
   const ws = wb.addWorksheet('Application '+a.number, {pageSetup:{paperSize:9, orientation:'portrait', fitToPage:true, fitToWidth:1, fitToHeight:0}});
-  ws.columns = [{key:'id', width:4, hidden:true}, {key:'ref', width:9}, {key:'desc', width:58}, {key:'value', width:15}, {key:'pct', width:11}, {key:'gross', width:16}];
+  ws.columns = [{key:'id', width:4, hidden:true}, {key:'ref', width:22}, {key:'desc', width:52}, {key:'value', width:16}, {key:'pct', width:13}, {key:'gross', width:17}];
   const money = '£#,##0.00;[Red]-£#,##0.00';
   const brand = String((ORG&&ORG.color_primary)||'#C8102E').replace('#','').toUpperCase();
   const t = ws.addRow(['', (ORG&&ORG.name)||'']); t.getCell(2).font = {bold:true, size:16, color:{argb:'FF'+brand}};
