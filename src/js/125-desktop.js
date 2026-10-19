@@ -48,6 +48,7 @@ function deskSidebar(opts){
       {k:'reports', ic:'reports', lbl:'Reports & surveys', go:'#/reports', show: usesPmHome(ME)},
       {k:'operatives', ic:'admin', lbl:'Operatives', go:'#/operatives'},
       {k:'hr', ic:'users', lbl:'HR', go:'#/hr'},
+      {k:'finance', ic:'pound', lbl:'OpHUB Finance', go:'#/finance', show: typeof isFinanceUser==='function' && isFinanceUser()},
       {k:'team', ic:'gear', lbl:'Admin', go:'#/team'},
     ].filter(i=>i.show!==false);
   } else {

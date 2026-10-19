@@ -16,7 +16,7 @@
      phone's picture cache) for days.
    It works the same while the buckets are still public, so this can ship
    before the switch. */
-const PRIVATE_BUCKETS = new Set(['mc-documents','signatures','site-photos','incident-photos','rams-docs','coshh-docs','coshh-library','drawings','operative-tools']);
+const PRIVATE_BUCKETS = new Set(['mc-documents','signatures','site-photos','incident-photos','rams-docs','coshh-docs','coshh-library','drawings','operative-tools','finance-docs']);
 const STORAGE_PUBLIC_PREFIX = SUPABASE_URL+'/storage/v1/object/public/';
 const SIGNED_TTL_S = 7*24*3600;          // how long a signed link lasts
 const SIGNED_MIN_LEFT_MS = 24*3600*1000; // re-sign when less than this is left

@@ -215,6 +215,10 @@ async function renderSiteHome(siteId){
           <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
           ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
         </div>`);
+      if(typeof isFinanceUser==='function' && isFinanceUser()) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/finance')">
+          <div class="icon" style="background:#E6F2EC;color:#1E6B45;">${ophIcon('pound', 20)}</div>
+          <div class="lbl">Finance</div><div class="sub">${escapeHtml(site.job_number ? 'Job '+site.job_number : 'OpHUB Finance')}</div>
+        </div>`);
       // A closed job swaps the To Do List for Handover (O&M manual, data
       // sheets, guarantees) — the To Do List page is still reachable by link.
       if(isManager(ME) && typeof siteStatusKey==='function' && siteStatusKey(site)==='closed') regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/handover')">

@@ -189,6 +189,7 @@ async function renderRoute(){
     return renderVehicleChecklistsAdmin();
   }
   if(parts[0]==='subform') return renderSubForm();
+  if(parts[0]==='finance'){ return parts[1]==='settings' ? renderFinanceSettings() : renderFinanceHome(); }
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1] && parts[2]==='onedrive-folder') return renderOneDriveFolderPicker(null);
@@ -446,6 +447,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
+    if(page==='finance') return renderSiteFinance(siteId);
   }
   renderSites();
 }

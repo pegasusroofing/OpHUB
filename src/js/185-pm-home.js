@@ -174,6 +174,7 @@ async function renderPmHome(){
       ${tile('admin', 'blue', 'Operatives', 'Certifications, training, tools', "go('#/operatives?from=%23%2Fhome')")}
       ${tile('users', 'purple', 'HR', 'Holidays, policies & handbook', "go('#/hr')")}
       ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
+      ${typeof isFinanceUser==='function' && isFinanceUser() ? tile('pound', 'green', 'OpHUB Finance', 'Jobs, POs, invoices', "go('#/finance')").replace('class="pmtile"', 'class="pmtile" style="grid-column:1 / -1;"') : ''}
     </div>
     ${mine.length ? `
       <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>

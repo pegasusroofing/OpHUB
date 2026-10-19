@@ -302,7 +302,7 @@ async function renderSites(){
         <div class="formfield"><input type="text" id="newSiteName" placeholder="Site name" value="${escapeHtml(newSiteNameDraft)}" oninput="applyTitleCase(this);newSiteNameDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSiteAddr" placeholder="Address" value="${escapeHtml(newSiteAddrDraft)}" oninput="applyTitleCase(this);newSiteAddrDraft=this.value"></div>
         <div class="formfield"><input type="text" id="newSitePostcode" placeholder="Postcode" value="${escapeHtml(newSitePostcodeDraft)}" oninput="applyUpperCase(this);newSitePostcodeDraft=this.value"></div>
-        <div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>
+        ${ORG && ORG.auto_job_numbers ? `<div class="formfield"><input type="text" id="newSiteJobNumber" value="" placeholder="Job number: ${escapeHtml(finNextJobNumberLabel())} (given automatically)" disabled></div>` : `<div class="formfield"><input type="text" id="newSiteJobNumber" placeholder="Job number" value="${escapeHtml(newSiteJobNumberDraft)}" oninput="newSiteJobNumberDraft=this.value"></div>`}
         <p class="field-label" style="margin-bottom:6px;">Client (optional)</p>
         ${clientPickerHtml({name:'newSiteClientName', phone:'newSiteClientPhone', email:'newSiteClientEmail'})}
         <div class="formfield"><input type="text" id="newSiteClientName" list="clientPortfolioList" autocomplete="off" placeholder="Client name — type or pick" value="${escapeHtml(newSiteClientNameDraft)}" oninput="applyTitleCase(this);newSiteClientNameDraft=this.value" onchange="pickSavedClient(this.value,{name:'newSiteClientName',phone:'newSiteClientPhone',email:'newSiteClientEmail'},true)"></div>
@@ -389,7 +389,7 @@ window.addSite = async function(){
   const clientEmail = document.getElementById('newSiteClientEmail').value.trim();
   const startDate = newSiteStatus==='upcoming' ? (document.getElementById('newSiteStartDate')?.value || '') : '';
   if(!name){ toast('Enter a site name.'); return; }
-  if(!jobNumber){ toast('Enter a job number.'); return; }
+  if(!jobNumber && !(ORG && ORG.auto_job_numbers)){ toast('Enter a job number.'); return; }
   if(!newSiteStatus){ toast('Choose whether this site is Active or Upcoming.'); return; }
   if(clientEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail)){ toast('Enter a valid client email address.'); return; }
   // Deliberately not asking PostgREST for the row back here (no
@@ -412,7 +412,8 @@ window.addSite = async function(){
   const newSite = SITES.find(s=>s.id===newSiteId);
   if(newSite) await Promise.all([preloadTbtBankForSite(newSite), preloadDrawingFoldersForSite(newSite)]);
   addSiteFormOpen = false;
-  toast('Site created');
+  if(newSite && ORG && ORG.auto_job_numbers){ ORG.next_job_number = (ORG.next_job_number||0)+1; toast('Site created — job number '+(newSite.job_number||'')); }
+  else toast('Site created');
   render();
 };
 // Every new site gets its top-level structure preset — a "Drawings &
