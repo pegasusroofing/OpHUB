@@ -62,7 +62,7 @@ function finGuard(){
 async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const [jf, pos, invs, apps, st, toApprove, onHire] = await Promise.all([
+  const [jf, pos, invs, apps, st, toApprove, onHire, inbox] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
@@ -70,6 +70,7 @@ async function renderFinanceHome(){
     finLoadSettings(),
     dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&order=created_at.desc&limit=300'),
     dbSelect('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&off_hire=is.null&select=id,site_id,item,on_hire,rate,rate_period'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&select=id'),
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
   if(__gen !== RENDER_GEN) return;
@@ -101,7 +102,7 @@ async function renderFinanceHome(){
     ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
     ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
     ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
-    <div class="finchecks">${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
+    <div class="finchecks">${inbox.length ? `<span style="cursor:pointer;background:var(--blue-bg);color:var(--blue);" onclick="go('#/finance/inbox')">${inbox.length} invoice${inbox.length===1?'':'s'} in the inbox to file</span>` : ''}${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
     <div class="row-gap" style="margin:4px 0 12px;flex-wrap:wrap;">
       <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/inbox')">📥 Invoice inbox</button>
@@ -193,6 +194,8 @@ async function renderFinanceSettings(){
       </div>
       <div class="formfield"><label class="field-label">Footer note (optional)</label><input type="text" id="finFooter" value="${escapeHtml(st.invoice_footer||'')}" placeholder="e.g. Payment terms 30 days"></div>
     </div>
+    ${typeof finInboxSettingsHtml==='function' ? finInboxSettingsHtml(st) : ''}
+    ${typeof finXeroSettingsHtml==='function' ? finXeroSettingsHtml(st) : ''}
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
   `, {title:'Finance settings', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
 }
