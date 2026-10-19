@@ -63,10 +63,10 @@ async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [jf, pos, invs, apps, st] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day'),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,valuation_date,status'),
+    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,number,valuation_date,status,cert_retention'),
     finLoadSettings(),
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
@@ -84,6 +84,8 @@ async function renderFinanceHome(){
   const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
   const overdue = invs.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i), 0);
   counts.invoices = invs.length;
+  const retHeld = sites.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
+  const retDue = sites.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
   const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
   document.getElementById('app').innerHTML = shell(`
@@ -95,7 +97,8 @@ async function renderFinanceHome(){
       <div class="pmstat"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
     </div>
     ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
-    <div class="finchecks">${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
+    ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
+    <div class="finchecks">${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
     <div class="row-gap" style="margin:4px 0 12px;">
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/settings')">⚙️ Finance settings</button>
@@ -224,7 +227,7 @@ async function renderSiteFinance(siteId){
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value'),
-    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net'),
+    dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -243,6 +246,7 @@ async function renderSiteFinance(siteId){
 
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
+    ${finRetentionCardHtml(siteId, jf, st, apps)}
     ${finContractCardHtml(siteId, items, jf)}
 
     <div class="card">
@@ -290,10 +294,7 @@ async function renderSiteFinance(siteId){
     </div>
     <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save job details'}</button>
 
-    <div class="card" style="margin-top:16px;">
-      <p class="sectiontitle" style="margin-top:0;">Coming next</p>
-      <div class="finsoon"><span>✅ Certificates</span><span>🔒 Retention</span></div>
-    </div>
+
   `, {title:'Finance', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
 }
 window.saveSiteFinance = async function(siteId){

@@ -26,7 +26,7 @@ function finPreviousCertified(apps, number){
     .reduce((t,a)=>t + Number(a.cert_net!=null ? a.cert_net : (a.net_due||0)), 0));
 }
 const FIN_APP_STATUS = {draft:'Draft', submitted:'Submitted', certified:'Certified', invoiced:'Invoiced', void:'Void'};
-function finAppPill(a){ const c = {draft:'grey', submitted:'blue', certified:'warn', invoiced:'ok', void:'grey'}[a.status]||'grey'; return `<span class="finpill ${c}">${FIN_APP_STATUS[a.status]||a.status}</span>`; }
+function finAppPill(a){ if(a.status==='invoiced' && 'invoice_id' in a && !a.invoice_id) a = Object.assign({}, a, {status:'certified'}); const c = {draft:'grey', submitted:'blue', certified:'warn', invoiced:'ok', void:'grey'}[a.status]||'grey'; return `<span class="finpill ${c}">${FIN_APP_STATUS[a.status]||a.status}</span>`; }
 function finAppDayFor(jf, st){ return Number((jf && jf.app_reminder_day) || (st && st.app_reminder_day) || 0) || null; }
 // Is this month's application due (application day reached, none dated this month)?
 function finAppDueThisMonth(apps, appDay){
