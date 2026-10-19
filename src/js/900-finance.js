@@ -62,13 +62,14 @@ function finGuard(){
 async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const [jf, pos, invs, apps, st, toApprove] = await Promise.all([
+  const [jf, pos, invs, apps, st, toApprove, onHire] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,number,valuation_date,status,cert_retention'),
     finLoadSettings(),
     dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&order=created_at.desc&limit=300'),
+    dbSelect('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&off_hire=is.null&select=id,site_id,item,on_hire,rate,rate_period'),
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
   if(__gen !== RENDER_GEN) return;
@@ -99,10 +100,13 @@ async function renderFinanceHome(){
     </div>
     ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
     ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
+    ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
     <div class="finchecks">${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
-    <div class="row-gap" style="margin:4px 0 12px;">
-      <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/settings')">⚙️ Finance settings</button>
+    <div class="row-gap" style="margin:4px 0 12px;flex-wrap:wrap;">
+      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/inbox')">📥 Invoice inbox</button>
+      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/labour')">👷 Labour &amp; CIS</button>
+      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/settings')">⚙️ Settings</button>
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
@@ -180,6 +184,8 @@ async function renderFinanceSettings(){
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">VAT number</label><input type="text" id="finCoVat" value="${escapeHtml(st.company_vat_no||'')}"></div>
         <div class="formfield"><label class="field-label">Company number</label><input type="text" id="finCoReg" value="${escapeHtml(st.company_reg_no||'')}"></div>
+        <div class="formfield"><label class="field-label">Your UTR (for CIS statements)</label><input type="text" id="finCoUtr" value="${escapeHtml(st.contractor_utr||'')}"></div>
+        <div class="formfield"><label class="field-label">Employer / accounts office ref</label><input type="text" id="finCoEmp" value="${escapeHtml(st.employer_ref||'')}"></div>
         <div class="formfield"><label class="field-label">Bank</label><input type="text" id="finBank" value="${escapeHtml(st.bank_name||'')}"></div>
         <div class="formfield"><label class="field-label">Account name</label><input type="text" id="finBankName" value="${escapeHtml(st.bank_account_name||'')}"></div>
         <div class="formfield"><label class="field-label">Sort code</label><input type="text" id="finBankSort" value="${escapeHtml(st.bank_sort_code||'')}" placeholder="00-00-00"></div>
@@ -212,6 +218,7 @@ window.saveFinanceSettings = async function(){
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
     po_enabled: !!(document.getElementById('finPoOn')||{}).checked,
+    contractor_utr:finVal('finCoUtr')||null, employer_ref:finVal('finCoEmp')||null,
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
@@ -230,7 +237,7 @@ async function renderSiteFinance(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  const [st, jfRows, pos, invs, items, apps, pords, pinvs] = await Promise.all([
+  const [st, jfRows, pos, invs, items, apps, pords, pinvs, lab, hires] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
@@ -239,6 +246,8 @@ async function renderSiteFinance(siteId){
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
     dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
+    finJobLabour(siteId),
+    dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -255,10 +264,12 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
 
-    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs))}
+    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0)))}
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
     ${finPurchasingCardHtml(siteId, pords, pinvs)}
+    ${finLabourCardHtml(siteId, lab)}
+    ${finPlantCardHtml(siteId, hires)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
     ${finContractCardHtml(siteId, items, jf)}
 

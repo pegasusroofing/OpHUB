@@ -1513,3 +1513,6 @@ details.fincols{margin:0 0 6px;} details.fincols summary{cursor:pointer;font-wei
 .finitem-in b{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:15px;padding-bottom:8px;}
 .finitem-sum{font-size:13px;color:var(--slate);padding-bottom:8px;}
 @media (max-width:600px){ .fincrow-nums{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;} .fincrow-nums input{font-size:13px;padding-left:6px;padding-right:6px;} .fincrow.item{margin-left:6px;} .fincrow.subsection{margin-left:4px;} .fingrid3{grid-template-columns:1fr 1fr;} }
+.finlabrow{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:14px;}
+.finlabrow:first-of-type{border-top:0;}
+.finrate .fingrid3{gap:0 8px;}

@@ -32,14 +32,16 @@ const FIN_PI_STATUS = {to_approve:'To approve', approved:'Approved', query:'Quer
 function finPiPill(i){ const c = {to_approve:'warn', approved:'ok', query:'bad', rejected:'grey'}[i.status]||'grey'; return `<span class="finpill ${c}">${FIN_PI_STATUS[i.status]||i.status}</span>`; }
 function finPoInvoiced(po, pinvs){ return finRound(pinvs.filter(i=>i.po_id===po.id && i.status!=='rejected').reduce((t,i)=>t+Number(i.net||0), 0)); }
 // Job cost position (all excl. VAT).
-function finJobCost(jf, invs, pos, pinvs){
+function finJobCost(jf, invs, pos, pinvs, labour, plant){
   const contract = Number((jf&&jf.contract_value)||0);
   const invoiced = finRound(invs.filter(i=>!['draft','void'].includes(i.status)).reduce((t,i)=>t+Number(i.net||0), 0));
   const costs = finRound(pinvs.filter(i=>i.status==='approved').reduce((t,i)=>t+Number(i.net||0), 0));
   const waiting = finRound(pinvs.filter(i=>['to_approve','query'].includes(i.status)).reduce((t,i)=>t+Number(i.net||0), 0));
   const committed = finRound(pos.filter(p=>p.status==='open' && p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value) - finPoInvoiced(p, pinvs)), 0));
   const unpriced = pos.filter(p=>p.status==='open' && p.value==null).length;
-  return {contract, invoiced, costs, waiting, committed, unpriced};
+  labour = finRound(labour||0); plant = finRound(plant||0);
+  const spent = finRound(costs + labour + plant);
+  return {contract, invoiced, costs, waiting, committed, unpriced, labour, plant, spent, margin: invoiced ? finRound(invoiced - spent) : null};
 }
 
 /* ---------------- cards on the job's Finance page ---------------- */
@@ -51,7 +53,11 @@ function finJobCostCardHtml(c){
       <div><span>Invoiced to client</span><b>${finMoney(c.invoiced, 0)}</b></div>
       <div><span>Materials invoiced</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
       <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
+      <div><span>Labour</span><b>${finMoney(c.labour, 0)}</b></div>
+      <div><span>Plant</span><b>${finMoney(c.plant, 0)}</b></div>
     </div>
+    <div class="finkv big" style="margin-top:8px;"><span>Costs to date</span><b>${finMoney(c.spent, 0)}</b></div>
+    ${c.margin!=null ? `<div class="finkv"><span>Invoiced less costs</span><b style="color:${c.margin<0?'var(--red)':'var(--ok)'};">${finMoney(c.margin, 0)}</b></div>` : ''}
   </div>`;
 }
 function finPurchasingCardHtml(siteId, pos, pinvs){
