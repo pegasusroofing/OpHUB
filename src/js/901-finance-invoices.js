@@ -67,6 +67,7 @@ window.newFinInvoice = async function(siteId){
 let finInvDraft = null; // the draft being edited (kept outside render so typing isn't lost)
 async function renderFinInvoice(siteId, invId){
   if(!finGuard()) return;
+  if(!FIN_SETTINGS) await finLoadSettings();
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   const [rows, pays, pos] = await Promise.all([
@@ -106,6 +107,7 @@ async function renderFinInvoice(siteId, invId){
       <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">📄 View PDF</button>
       ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">✉️ Email</button>` : ''}
     </div>
+    ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('invoice', inv) : ''}
     ${inv.status!=='void' ? `<div class="card" style="margin-top:14px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Payments</p>
@@ -220,6 +222,7 @@ window.issueFinInvoice = async function(siteId){
   finInvDraft = null;
   toast('Invoice '+number+' issued');
   render();
+  if(typeof finXeroAuto==='function') finXeroAuto('invoice', issued.id);
 };
 // Builds the PDF and keeps it with the invoice (finance-docs/<org>/<site>/invoices/...).
 async function finStoreInvoicePdf(inv){
@@ -243,7 +246,7 @@ window.voidFinInvoice = async function(invId){
   const btn = event && event.target;
   if(btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to void — this can’t be undone'; return; }
   const row = await dbUpdate('fin_invoices', invId, {status:'void', updated_at:new Date().toISOString()});
-  if(row){ toast('Invoice voided'); render(); }
+  if(row){ toast('Invoice voided'); render(); if(typeof finXeroVoid==='function') finXeroVoid(row); }
 };
 
 /* ---------- payments ---------- */

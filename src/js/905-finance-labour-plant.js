@@ -204,6 +204,7 @@ window.newFinSubPayment = async function(userId){
 let finPay = null;
 async function renderFinSubPayment(id){
   if(!finGuard()) return;
+  if(!FIN_SETTINGS) await finLoadSettings();
   const __gen = RENDER_GEN;
   const p = (await dbSelect('fin_sub_payments', 'id=eq.'+id))[0];
   const rates = await finLoadRates();
@@ -237,6 +238,7 @@ async function renderFinSubPayment(id){
       ${p.status==='approved' ? `<button class="darkbtn" style="flex:1;" onclick="saveFinSubPayment('paid')">Mark paid today</button>` : ''}
       <button class="ghostbtn" style="flex:1;" onclick="openFinCisStatement('${p.id}')">📄 Payment statement</button>
     </div>
+    ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('sub', p) : ''}
     ${p.status!=='paid' && p.status!=='void' ? `<button class="ghostbtn" style="width:100%;margin-top:10px;color:var(--red);" onclick="voidFinSubPayment('${p.id}')">Cancel this payment</button>` : ''}
   `, {title:'Subcontractor payment', subtitle:p.name, back:'#/finance/labour', tabs:false});
   finPayPaint();

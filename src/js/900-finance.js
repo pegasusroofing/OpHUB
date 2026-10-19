@@ -74,6 +74,7 @@ async function renderFinanceHome(){
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
   if(__gen !== RENDER_GEN) return;
+  if(typeof finXeroMaybePull==='function') finXeroMaybePull();
   const jfBy = {}; jf.forEach(r=>{ jfBy[r.site_id] = r; });
   const posBy = {}; pos.forEach(p=>{ (posBy[p.site_id] = posBy[p.site_id] || []).push(p); });
   const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
@@ -313,7 +314,8 @@ async function renderSiteFinance(siteId){
 
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Billing</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Who invoices and applications go to. Filled from the job’s client details to start with; it will sync with Xero once Xero is linked.</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Who invoices and applications go to. Filled from the job’s client details to start with. ${typeof finXeroConnected==='function' && finXeroConnected() ? 'Find the client in Xero to pull their details; anything Xero is missing is added when an invoice is sent.' : 'Once Xero is connected (Finance › Settings) you can pull these from Xero.'}</p>
+      ${typeof finXeroBillingHtml==='function' ? finXeroBillingHtml() : ''}
       <div class="formfield"><label class="field-label">Bill to (company name)</label><input type="text" id="finBillName" value="${escapeHtml(pick('billing_name', site.client_name||''))}"></div>
       <div class="formfield"><label class="field-label">Billing address</label><textarea id="finBillAddr" rows="3">${escapeHtml(jf.billing_address||'')}</textarea></div>
       <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finBillEmail" value="${escapeHtml(pick('billing_email', site.client_email||''))}"></div>

@@ -1518,3 +1518,8 @@ details.fincols{margin:0 0 6px;} details.fincols summary{cursor:pointer;font-wei
 .finrate .fingrid3{gap:0 8px;}
 .fininbox code{font-size:11px;}
 @media (max-width:600px){ .fininbox .fingrid2{grid-template-columns:1fr 1fr;gap:0 8px;} .fininbox .fingrid2 .formfield:nth-last-child(-n+2){grid-column:1 / -1;} }
+/* OpHUB Finance — Xero */
+.finxero{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13px;}
+.finxero .ok{color:var(--ok);font-weight:600;}
+.finxero .ghostbtn{width:auto;flex:none;padding:6px 12px;}
+.finxero .err{flex-basis:100%;color:var(--red);font-size:12px;}

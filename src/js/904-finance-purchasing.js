@@ -240,6 +240,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
 
 /* ---------------- view / approve a supplier invoice ---------------- */
 window.openPurchaseInvoiceView = async function(siteId, id){
+  if(!FIN_SETTINGS) await finLoadSettings();
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;
   const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id+'&select=number'))[0] : null;
   let ov = document.getElementById('finPiOverlay');
@@ -257,6 +258,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
     ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">📄 View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
     ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
+    ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('bill', i) : ''}
     <div class="row-gap" style="margin-top:8px;">
       ${i.status!=='query' ? `<button class="ghostbtn" style="flex:1;" onclick="queryPurchaseInvoice('${i.id}')">Query</button>` : ''}
       ${i.status!=='rejected' ? `<button class="ghostbtn" style="flex:1;color:var(--red);" onclick="setPurchaseInvoiceStatus('${i.id}','rejected')">Reject</button>` : ''}
@@ -272,6 +274,7 @@ window.setPurchaseInvoiceStatus = async function(id, status){
   if(!r) return;
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(status==='approved' ? 'Approved' : status==='rejected' ? 'Rejected' : 'Updated'); render();
+  if(status==='approved' && typeof finXeroAuto==='function') finXeroAuto('bill', id);
 };
 window.queryPurchaseInvoice = function(id){
   const card = document.querySelector('#finPiOverlay .geo-modal-card'); if(!card) return;
