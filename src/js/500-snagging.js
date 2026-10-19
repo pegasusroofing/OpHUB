@@ -247,10 +247,12 @@ function pdfFetchImageBytes(url){
   }
   return p;
 }
-async function pdfPrefetchImages(urls){
+async function pdfPrefetchImages(urls, onProgress){
   const list = Array.from(new Set((urls||[]).filter(u=>u && !String(u).startsWith('data:')))).slice(0, 700);
+  try{ if(typeof presignStorageUrls === 'function') await presignStorageUrls(list); }catch(e){}
   let next = 0;
-  const worker = async ()=>{ while(next < list.length){ const u = list[next++]; try{ await pdfFetchImageBytes(u); }catch(e){} } };
+  let done = 0;
+  const worker = async ()=>{ while(next < list.length){ const u = list[next++]; try{ await pdfFetchImageBytes(u); }catch(e){} done++; if(onProgress && (done % 5 === 0 || done === list.length)){ try{ onProgress(done, list.length); }catch(e){} } } };
   await Promise.all([worker(), worker(), worker(), worker(), worker()]);
 }
 async function pdfFetchImageBytesRaw(url){
@@ -327,7 +329,7 @@ async function appendMediaSummaryPages(pdfDoc, photoRefs, opts){
   // ref.readyPath = an already-small version of the photo (Schedule of Works
   // "mid" size): used as it is, with no download of the original and no
   // shrinking on this device.
-  await pdfPrefetchImages(photoRefs.filter(ref=>ref.readyPath).map(ref=>publicUrl(ref.bucket||'site-photos', ref.readyPath)).concat(photoRefs.filter(ref=>!ref.readyPath).slice(0, 140).map(ref=>publicUrl(ref.bucket||'site-photos', ref.path))));
+  await pdfPrefetchImages(photoRefs.filter(ref=>ref.readyPath).map(ref=>publicUrl(ref.bucket||'site-photos', ref.readyPath)).concat(photoRefs.filter(ref=>!ref.readyPath).slice(0, 140).map(ref=>publicUrl(ref.bucket||'site-photos', ref.path))), opts && opts.onPrefetch);
   opts = opts || {};
   const sizeScale = opts.sizeScale || 0.8; // Media Summary photos run 0.8x smaller than their cell's max fit by default
   const maxDim = opts.maxDim || null;
@@ -361,6 +363,7 @@ async function appendMediaSummaryPages(pdfDoc, photoRefs, opts){
       const rowTop = startY - r*(cellH+capH+gutter);
       for(let c=0; c<rowItems.length; c++){
         num++;
+        if(opts.onProgress && (num % 4 === 0 || num === photoRefs.length)){ try{ opts.onProgress(num, photoRefs.length); }catch(e){} }
         const ref = rowItems[c];
         const cx = MARGIN + c*(cellW+gutter);
         try{
@@ -768,7 +771,7 @@ function sowReadPeriod(prefix){
   return r;
 }
 function sowPhotoDay(p){ try{ return new Date(p.uploaded_at).toLocaleDateString('en-GB'); }catch(e){ return ''; } }
-async function buildSchedulePdfBytes(siteId, period){
+async function buildSchedulePdfBytes(siteId, period, onStatus){
   if(period && period.full) period = null;
   if(!(await loadLib('PDFLib'))){ toast('PDF library failed to load — check connection.'); return null; }
   const site = SITES.find(s=>s.id===siteId);
@@ -1104,7 +1107,9 @@ async function buildSchedulePdfBytes(siteId, period){
     // show (rather than each photo's full original camera resolution) is
     // what brings the attachment size down.
     const bigJob = schedulePhotoRefs.length > 120;
-    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs, {sizeScale:0.8, maxDim: bigJob ? 600 : 900, quality: bigJob ? 0.6 : 0.72, readyMaxDim: bigJob ? 600 : null, readyQuality:0.6});
+    await appendMediaSummaryPages(pdfDoc, schedulePhotoRefs, {sizeScale:0.8, maxDim: bigJob ? 600 : 900, quality: bigJob ? 0.6 : 0.72, readyMaxDim: bigJob ? 600 : null, readyQuality:0.6,
+      onPrefetch:(n,t)=>{ if(onStatus) onStatus('Getting photos '+n+' of '+t+'…'); },
+      onProgress:(n,t)=>{ if(onStatus) onStatus('Adding photos '+n+' of '+t+'…'); }});
 
     pdfDoc.getPages().forEach((p,idx)=>{ page = p; drawFooter((idx+1)+' of '+pdfDoc.getPageCount()); });
 
@@ -1194,7 +1199,7 @@ window.confirmScheduleEmail = async function(siteId){
   const period = sowReadPeriod('sowEm'); if(!period) return;
   const btn = document.getElementById('scheduleEmailConfirmBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Building PDF…'; }
-  const built = await buildSchedulePdfBytes(siteId, period);
+  const built = await buildSchedulePdfBytes(siteId, period, t=>{ if(btn) btn.textContent = t; });
   if(!built){ if(btn){ btn.disabled = false; btn.textContent = 'Confirm & Send'; } return; }
   // 2026-10-02 — this used to base64-encode the whole PDF and send it
   // inline in this request's JSON body. That turned out to be the actual

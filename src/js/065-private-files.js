@@ -77,7 +77,7 @@ function queueSign(p){
     let q = signQueue.get(p.key);
     if(!q){ q = {bucket:p.bucket, path:p.path, waiters:[]}; signQueue.set(p.key, q); }
     q.waiters.push(resolve);
-    if(!signFlushTimer) signFlushTimer = setTimeout(flushSignQueue, 0);
+    if(!signFlushTimer) signFlushTimer = setTimeout(flushSignQueue, 30);
   });
 }
 async function flushSignQueue(){
@@ -94,11 +94,14 @@ async function flushSignQueue(){
       const chunk = items.slice(i, i+200);
       try{
         if(!token) throw new Error('signed out');
-        const res = await _origFetch(SUPABASE_URL+'/storage/v1/object/sign/'+bucket, {
+        const send = ()=>_origFetch(SUPABASE_URL+'/storage/v1/object/sign/'+bucket, {
           method:'POST',
           headers:{'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer '+token, 'Content-Type':'application/json'},
           body: JSON.stringify({expiresIn: SIGNED_TTL_S, paths: chunk.map(c=>c.path)}),
         });
+        let res = await send();
+        // Busy (too many requests): wait a moment and try again, twice.
+        for(let t=1; t<=2 && (res.status===429 || res.status>=500); t++){ await new Promise(r=>setTimeout(r, 1500*t)); res = await send(); }
         const rows = res.ok ? await res.json() : [];
         const exp = Date.now() + SIGNED_TTL_S*1000 - 60000;
         const got = new Set();
@@ -125,6 +128,16 @@ async function resolveStorageUrl(u){
   return signedFor(p) || u;
 }
 window.resolveStorageUrl = resolveStorageUrl;
+// Sign a whole list in one go (one request per bucket) before code fetches
+// them one by one — e.g. the photos for a PDF. Without this, each photo was
+// signed on its own and a 200-photo report hit the server's rate limit.
+async function presignStorageUrls(urls){
+  const want = [];
+  (urls||[]).forEach(u=>{ const p = storageParse(String(u||'')); if(p && !signedFor(p)) want.push(p); });
+  if(!want.length) return;
+  await Promise.all(want.map(p=>queueSign(p)));
+}
+window.presignStorageUrls = presignStorageUrls;
 
 // ---- fetch(): resolve before sending ----
 window.fetch = function(input, init){
