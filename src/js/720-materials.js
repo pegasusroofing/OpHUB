@@ -249,8 +249,8 @@ async function renderMaterialRequests(siteId){
             m.status==='closed'
               // Closed tab: supplier name is hidden here (kept only in the
               // request/send flow's own data) — show the emailed date instead.
-              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
-              : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
+              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
+              : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
           ) : '') :
             m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
             m.status==='pending' ? (isPM ? (
@@ -306,7 +306,7 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}</span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}${isPM && m.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(m.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(m)}${m.grn ? matGrnTag(m.grn) : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
@@ -322,10 +322,10 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow matgrouprow" style="margin-top:10px;" onclick="toggleMaterialExpand('${gk}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${allSel?'checked':''} onclick="event.stopPropagation();toggleMaterialGroupSelect('${ids.join(',')}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span></span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span>${isPM && first.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(first.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(first)}${matGroupGrnTag(e.items)}</span>
         </div>
-        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
+        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''}${isPM && first.po_number ? ' · PO '+escapeHtml(first.po_number) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
     }).join('');
     })() || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
 

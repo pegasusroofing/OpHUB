@@ -1476,6 +1476,11 @@ textarea.sfq-in{resize:vertical;}
 .finapprow > b{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .finpct{width:100%;box-sizing:border-box;text-align:right;}
 @media (max-width:600px){ .fincline{grid-template-columns:52px 1fr 90px 20px;} .finapprow{grid-template-columns:1fr 58px 92px;} }
+.fincost{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fincost > div{background:#F6F7F9;border-radius:12px;padding:10px 12px;min-width:0;}
+.fincost span{display:block;font-size:12px;font-weight:700;color:var(--slate);}
+.fincost b{display:block;font-family:'Sora',-apple-system,sans-serif;font-size:18px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
+.fincost em{display:block;font-style:normal;font-size:11.5px;color:var(--warn);font-weight:700;}
 </style>
 </head>
 <body>
@@ -36383,8 +36388,8 @@ async function renderMaterialRequests(siteId){
             m.status==='closed'
               // Closed tab: supplier name is hidden here (kept only in the
               // request/send flow's own data) — show the emailed date instead.
-              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
-              : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}`
+              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
+              : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
           ) : '') :
             m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
             m.status==='pending' ? (isPM ? (
@@ -36440,7 +36445,7 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}</span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}${isPM && m.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(m.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(m)}${m.grn ? matGrnTag(m.grn) : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
@@ -36456,10 +36461,10 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow matgrouprow" style="margin-top:10px;" onclick="toggleMaterialExpand('${gk}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${allSel?'checked':''} onclick="event.stopPropagation();toggleMaterialGroupSelect('${ids.join(',')}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span></span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span>${isPM && first.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(first.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(first)}${matGroupGrnTag(e.items)}</span>
         </div>
-        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
+        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''}${isPM && first.po_number ? ' · PO '+escapeHtml(first.po_number) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
     }).join('');
     })() || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
 
@@ -38561,13 +38566,15 @@ window.confirmSendMaterial = async function(siteId, matId){
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
+  // OpHUB Finance: every order sent becomes a purchase order (never blocks the order).
+  const po = typeof finRaisePoForOrder==='function' ? await finRaisePoForOrder(siteId, [matId], supplier, toMe, fulfil, requiredForDelivery) : null;
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, material ? [material] : []);
   toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name,
-      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
+      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId, po_id: po ? po.id : null,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
@@ -38660,6 +38667,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   sendingGroup = false;
   selectedMaterialIds = new Set();
   groupSupplierId = null;
+  const po = typeof finRaisePoForOrder==='function' ? await finRaisePoForOrder(siteId, matIds, supplier, toMe, fulfil, requiredForDelivery) : null;
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, materials);
   toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
@@ -38669,7 +38677,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
-      items: materials.map(m=>({item:m.item, qty:m.qty})),
+      items: materials.map(m=>({item:m.item, qty:m.qty})), po_id: po ? po.id : null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -38745,7 +38753,7 @@ window.confirmReemail = async function(siteId, matId, supplierName){
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: email, supplier_name: supplierName,
       item: material.item, qty: material.qty, site_id: siteId,
-      required_for_delivery: material.required_for_delivery,
+      required_for_delivery: material.required_for_delivery, po_id: material.po_id || null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -45290,7 +45298,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }
@@ -45383,12 +45391,13 @@ function finGuard(){
 async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const [jf, pos, invs, apps, st] = await Promise.all([
+  const [jf, pos, invs, apps, st, toApprove] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,number,valuation_date,status,cert_retention'),
     finLoadSettings(),
+    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&order=created_at.desc&limit=300'),
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
   if(__gen !== RENDER_GEN) return;
@@ -45404,7 +45413,7 @@ async function renderFinanceHome(){
   const noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value).length;
   const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
   const overdue = invs.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i), 0);
-  counts.invoices = invs.length;
+  counts.invoices = invs.length; counts.approve = toApprove.length;
   const retHeld = sites.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = sites.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
@@ -45419,19 +45428,20 @@ async function renderFinanceHome(){
     </div>
     ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
     ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
-    <div class="finchecks">${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
+    <div class="finchecks">${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
     <div class="row-gap" style="margin:4px 0 12px;">
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/settings')">⚙️ Finance settings</button>
     </div>
-    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}</div>
+    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
     <div id="finJobList">
       ${finHomeTab==='invoices' ? invs.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, s.job_number, s.name].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
           <span class="finjobno">${escapeHtml(s.job_number||'—')}</span>
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(s.name||'')} · ${i.issue_date?finDate(i.issue_date):'Not issued'}</span></span>
           <span class="finval">${finMoney(i.total)}</span></button>`; }).join('') : ''}
-      ${(finHomeTab==='invoices' ? [] : shown).map(s=>{
+      ${finHomeTab==='approve' ? toApprove.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<div data-lf="${lfText([i.supplier_name, i.invoice_no, s.name, s.job_number].join(' '))}"><div class="stub" style="margin:8px 0 2px;font-style:normal;">${escapeHtml((s.job_number?s.job_number+' · ':'')+(s.name||''))}</div>${finPiRowHtml(i.site_id, i)}</div>`; }).join('') : ''}
+      ${(['invoices','approve'].includes(finHomeTab) ? [] : shown).map(s=>{
         const p = posBy[s.id] || [];
         const v = (jfBy[s.id]||{}).contract_value;
         const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO';
@@ -45442,7 +45452,7 @@ async function renderFinanceHome(){
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span>
         </button>`;
       }).join('')}
-      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
+      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:finHomeTab==='approve'?toApprove.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
     </div>
   `, {title:'OpHUB Finance', subtitle:'All jobs', back:homeHash(), tabs:false});
 }
@@ -45466,6 +45476,12 @@ async function renderFinanceSettings(){
         <div class="formfield"><label class="field-label">Next number</label><input type="number" id="finJobNext" min="1" step="1" value="${escapeHtml(String(next))}"></div>
       </div>
       <p class="stub" style="margin:0;font-style:normal;">Your highest job number so far is ${finSuggestedNextJobNumber()-1}, so the next free one is ${finSuggestedNextJobNumber()}.</p>
+    </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Purchase orders</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a job’s Materials tile becomes a purchase order numbered by job (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
+      <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
+      <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Invoice numbers</p>
@@ -45524,6 +45540,7 @@ window.saveFinanceSettings = async function(){
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
+    po_enabled: !!(document.getElementById('finPoOn')||{}).checked,
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
@@ -45542,13 +45559,15 @@ async function renderSiteFinance(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  const [st, jfRows, pos, invs, items, apps] = await Promise.all([
+  const [st, jfRows, pos, invs, items, apps, pords, pinvs] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
+    dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
+    dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -45565,8 +45584,10 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
 
+    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs))}
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
+    ${finPurchasingCardHtml(siteId, pords, pinvs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
     ${finContractCardHtml(siteId, items, jf)}
 
@@ -46864,6 +46885,285 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const patch = {site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString()}; patch[n===1?'ret1_invoice_id':'ret2_invoice_id'] = rows[0].id;
   await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
   go(`#/site/${siteId}/finance/invoice/${rows[0].id}`);
+};
+
+/* ================= OpHUB FINANCE — Phase B: purchase orders + purchase invoices =================
+   B1 every material order sent from the Materials tile becomes a numbered
+      PO (<job no>-PO-001), via fin_raise_po (works for any PM, not just
+      finance users, once "Raise POs on every order" is on in Finance
+      settings; until then only finance users' orders get one).
+   B2 supplier invoices matched to a PO, with checks: over the PO,
+      duplicate invoice number, nothing delivered yet.
+   B3 receipts / invoices with no PO (bought on site).
+   B4 job cost to date on the job's Finance page. */
+
+/* ---------------- B1: raise the PO when an order is sent ---------------- */
+async function finRaisePoForOrder(siteId, matIds, supplier, toMe, fulfil, requiredForDelivery){
+  try{
+    const res = await sbFetch('/rest/v1/rpc/fin_raise_po', {method:'POST', body:JSON.stringify({
+      p_site:siteId, p_material_ids:matIds,
+      p_supplier_id: (!toMe && supplier && supplier.id && /^[0-9a-f-]{36}$/i.test(supplier.id)) ? supplier.id : null,
+      p_supplier_name: toMe ? 'Emailed to '+(ME.name||'me') : ((supplier && supplier.name) || null),
+      p_branch: fulfil && fulfil.branch ? (fulfil.branch.name || null) : null,
+      p_required: requiredForDelivery || null, p_fulfilment: (fulfil && fulfil.mode) || null, p_note: (fulfil && fulfil.note) || null,
+    })});
+    if(!res.ok) return null;
+    const d = await res.json();
+    return (d && d.id) ? d : null;
+  }catch(e){ return null; }
+}
+window.finRaisePoForOrder = finRaisePoForOrder;
+
+/* ---------------- helpers ---------------- */
+const FIN_PO_STATUS = {open:'Open', invoiced:'Invoiced', cancelled:'Cancelled'};
+function finPoPill(p){ const c = {open:'blue', invoiced:'ok', cancelled:'grey'}[p.status]||'grey'; return `<span class="finpill ${c}">${FIN_PO_STATUS[p.status]||p.status}</span>`; }
+const FIN_PI_STATUS = {to_approve:'To approve', approved:'Approved', query:'Query', rejected:'Rejected'};
+function finPiPill(i){ const c = {to_approve:'warn', approved:'ok', query:'bad', rejected:'grey'}[i.status]||'grey'; return `<span class="finpill ${c}">${FIN_PI_STATUS[i.status]||i.status}</span>`; }
+function finPoInvoiced(po, pinvs){ return finRound(pinvs.filter(i=>i.po_id===po.id && i.status!=='rejected').reduce((t,i)=>t+Number(i.net||0), 0)); }
+// Job cost position (all excl. VAT).
+function finJobCost(jf, invs, pos, pinvs){
+  const contract = Number((jf&&jf.contract_value)||0);
+  const invoiced = finRound(invs.filter(i=>!['draft','void'].includes(i.status)).reduce((t,i)=>t+Number(i.net||0), 0));
+  const costs = finRound(pinvs.filter(i=>i.status==='approved').reduce((t,i)=>t+Number(i.net||0), 0));
+  const waiting = finRound(pinvs.filter(i=>['to_approve','query'].includes(i.status)).reduce((t,i)=>t+Number(i.net||0), 0));
+  const committed = finRound(pos.filter(p=>p.status==='open' && p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value) - finPoInvoiced(p, pinvs)), 0));
+  const unpriced = pos.filter(p=>p.status==='open' && p.value==null).length;
+  return {contract, invoiced, costs, waiting, committed, unpriced};
+}
+
+/* ---------------- cards on the job's Finance page ---------------- */
+function finJobCostCardHtml(c){
+  return `<div class="card">
+    <p class="sectiontitle" style="margin-top:0;">Job cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+    <div class="fincost">
+      <div><span>Contract value</span><b>${finMoney(c.contract, 0)}</b></div>
+      <div><span>Invoiced to client</span><b>${finMoney(c.invoiced, 0)}</b></div>
+      <div><span>Materials invoiced</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
+      <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
+    </div>
+  </div>`;
+}
+function finPurchasingCardHtml(siteId, pos, pinvs){
+  const toApprove = pinvs.filter(i=>['to_approve','query'].includes(i.status));
+  const noPo = pinvs.filter(i=>!i.po_id);
+  return `<div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <p class="sectiontitle" style="margin:0;">Purchase orders</p>
+      <div style="display:flex;gap:6px;">
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
+      </div>
+    </div>
+    ${toApprove.length ? `<div class="finchecks" style="margin:8px 0 0;"><span>${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span></div>` : ''}
+    ${pos.length ? pos.map(p=>{ const inv = finPoInvoiced(p, pinvs); return `<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/po/${p.id}')">
+        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span>
+          <span class="pmrow-s">${escapeHtml(p.supplier_name||'Supplier')} · ${finDate(String(p.created_at).slice(0,10))} · ${(p.items||[]).length} item${(p.items||[]).length===1?'':'s'}${inv?' · invoiced '+finMoney(inv):''}</span></span>
+        <span class="finval">${p.value!=null ? finMoney(p.value) : '<em>No value</em>'}</span>
+      </button>`; }).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No purchase orders yet. Each material order sent from the Materials tile gets one.</p>`}
+    ${noPo.length ? `<p class="sectiontitle" style="margin:14px 0 4px;">Bought without a PO</p>${noPo.map(i=>finPiRowHtml(siteId, i)).join('')}` : ''}
+  </div>`;
+}
+function finPiRowHtml(siteId, i){
+  return `<button type="button" class="pmrow finrow fininvrow" onclick="openPurchaseInvoiceView('${siteId}','${i.id}')">
+    <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.supplier_name||'Supplier')} ${finPiPill(i)}</span>
+      <span class="pmrow-s">${i.kind==='receipt'?'Receipt':'Invoice '+escapeHtml(i.invoice_no||'')} · ${finDate(i.invoice_date)}${i.query_note?' · '+escapeHtml(i.query_note.slice(0,60)):''}</span></span>
+    <span class="finval">${finMoney(i.net)}</span>
+  </button>`;
+}
+
+/* ---------------- PO page ---------------- */
+async function renderFinPo(siteId, poId){
+  if(!finGuard()) return;
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId);
+  const [rows, pinvs] = await Promise.all([dbSelect('purchase_orders', 'id=eq.'+poId), dbSelect('purchase_invoices', 'po_id=eq.'+poId+'&order=invoice_date.asc')]);
+  const po = rows[0];
+  const mats = po && (po.material_ids||[]).length ? await dbSelect('materials', 'id=in.('+po.material_ids.join(',')+')&select=id,item,qty,grn,status,cancel_reason') : [];
+  if(__gen !== RENDER_GEN) return;
+  if(!po || !site){ toast('PO not found.'); go(`#/site/${siteId}/finance`); return; }
+  const inv = finPoInvoiced(po, pinvs);
+  const matBy = {}; mats.forEach(m=>{ matBy[m.id] = m; });
+  document.getElementById('app').innerHTML = shell(`
+    <div class="card finhead">
+      <div><div class="finhead-l">PO</div><div class="finhead-v">${escapeHtml(po.number)} ${finPoPill(po)}</div></div>
+      <div><div class="finhead-l">Supplier</div><div class="finhead-v">${escapeHtml(po.supplier_name||'—')}</div></div>
+      <div><div class="finhead-l">PO value</div><div class="finhead-v">${po.value!=null?finMoney(po.value):'—'}</div></div>
+      <div><div class="finhead-l">Invoiced</div><div class="finhead-v" style="${po.value!=null && inv>Number(po.value)?'color:var(--red);':''}">${finMoney(inv)}</div></div>
+    </div>
+    <div class="card">
+      <div class="finkv"><span>Ordered</span><b>${finDate(String(po.created_at).slice(0,10))} by ${escapeHtml(po.ordered_by_name||'—')}</b></div>
+      <div class="finkv"><span>${po.fulfilment==='collection'?'Collection':'Required for delivery'}</span><b>${finDate(po.required_by)}</b></div>
+      ${po.supplier_branch ? `<div class="finkv"><span>Branch</span><b>${escapeHtml(po.supplier_branch)}</b></div>` : ''}
+      ${po.note ? `<div class="finkv"><span>Note</span><b style="white-space:normal;">${escapeHtml(po.note)}</b></div>` : ''}
+    </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Items</p>
+      ${(po.items||[]).map(it=>{ const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+    </div>
+    ${po.status!=='cancelled' ? `<div class="card">
+      <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
+        <div class="row-gap"><input type="text" inputmode="decimal" id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
+      </div>
+      <p class="stub" style="margin:6px 0 0;font-style:normal;">Material requests have no prices, so add the value when you know it. Invoices over this value are flagged.</p>
+    </div>` : ''}
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <p class="sectiontitle" style="margin:0;">Supplier invoices</p>
+        ${po.status!=='cancelled' ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}','${po.id}')">+ Add invoice</button>` : ''}
+      </div>
+      ${pinvs.length ? pinvs.map(i=>finPiRowHtml(siteId, i)).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">None yet.</p>`}
+    </div>
+    <div class="row-gap" style="flex-wrap:wrap;">
+      ${po.status==='open' ? `<button class="ghostbtn" style="flex:1;" onclick="setFinPoStatus('${po.id}','invoiced')">Mark fully invoiced</button><button class="ghostbtn" style="flex:1;color:var(--red);" onclick="setFinPoStatus('${po.id}','cancelled')">Cancel PO</button>` : `<button class="ghostbtn" style="flex:1;" onclick="setFinPoStatus('${po.id}','open')">Reopen PO</button>`}
+    </div>
+  `, {title:po.number, subtitle:site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
+}
+window.saveFinPoValue = async function(poId){
+  const v = finNum(finVal('finPoValue'));
+  if(v!==null && (isNaN(v) || v<0)){ toast('Enter the value as a number.'); return; }
+  const r = await dbUpdate('purchase_orders', poId, {value: v===null ? null : finRound(v)});
+  if(r){ toast('PO value saved'); render(); }
+};
+window.setFinPoStatus = async function(poId, status){
+  const btn = event && event.target;
+  if(status==='cancelled' && btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to cancel'; return; }
+  const r = await dbUpdate('purchase_orders', poId, {status});
+  if(r){ toast(status==='open' ? 'PO reopened' : status==='invoiced' ? 'PO marked fully invoiced' : 'PO cancelled'); render(); }
+};
+
+/* ---------------- B2/B3: add a supplier invoice or receipt ---------------- */
+let finPiFile = null;
+window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
+  const [pos, suppliers] = await Promise.all([
+    dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&status=neq.cancelled&order=seq.desc&select=id,number,supplier_name,supplier_id,value,status'),
+    dbSelect('suppliers', 'select=id,name&order=name.asc'),
+  ]);
+  finPiFile = null;
+  const po = poId ? pos.find(p=>p.id===poId) : null;
+  let ov = document.getElementById('finPiOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>${receipt ? 'Add a receipt (no PO)' : 'Add supplier invoice'}</h3>
+    ${receipt ? `<p class="stub" style="margin:0 0 10px;font-style:normal;">For materials bought on site without a PO. It still counts against this job.</p>` : `
+    <div class="formfield"><label class="field-label">Purchase order</label>
+      <select id="finPiPo" onchange="finPiPoPicked(this.value)"><option value="">No PO</option>${pos.map(p=>`<option value="${p.id}" ${po&&po.id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select>
+    </div>`}
+    <div class="formfield"><label class="field-label">Supplier</label><input type="text" id="finPiSupplier" list="finPiSupplierList" value="${escapeHtml(po?po.supplier_name||'':'')}" placeholder="Supplier or shop"><datalist id="finPiSupplierList">${suppliers.map(s=>`<option value="${escapeHtml(s.name)}">`).join('')}</datalist></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">${receipt?'Receipt / ref no.':'Invoice number'}</label><input type="text" id="finPiNo"></div>
+      <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPiDate" value="${finToday()}"></div>
+      <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" id="finPiNet" oninput="finPiCalc('net')"></div>
+      <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" id="finPiVat" oninput="finPiCalc('vat')"></div>
+    </div>
+    <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" id="finPiTotal" oninput="finPiCalc('total')"></div>
+    <div class="formfield"><label class="field-label">What it’s for (optional)</label><input type="text" id="finPiDesc" placeholder="e.g. battens, fixings"></div>
+    <div class="formfield"><label class="field-label">${receipt?'Photo of the receipt':'Copy of the invoice'} (optional)</label><input type="file" accept="application/pdf,image/*" ${receipt?'capture="environment"':''} onchange="finPiFile=this.files[0]||null"></div>
+    <div id="finPiWarn"></div>
+    <button class="darkbtn" style="width:100%;" id="finPiSave" onclick="savePurchaseInvoice('${siteId}', ${receipt?'true':'false'})">Save</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finPiOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  window.__finPiPos = pos;
+};
+window.finPiPoPicked = function(id){ const p = (window.__finPiPos||[]).find(x=>x.id===id); const s = document.getElementById('finPiSupplier'); if(p && s && !s.value) s.value = p.supplier_name||''; };
+let finPiLast = 'net';
+window.finPiCalc = function(which){
+  finPiLast = which;
+  const n = finNum(finVal('finPiNet')), v = finNum(finVal('finPiVat')), t = finNum(finVal('finPiTotal'));
+  const set = (id, x)=>{ const el = document.getElementById(id); if(el) el.value = x; };
+  if(which==='net' && n!==null && !isNaN(n)){ const vat = finRound(n*0.2); set('finPiVat', vat); set('finPiTotal', finRound(n+vat)); }
+  else if(which==='vat' && n!==null && !isNaN(n) && v!==null && !isNaN(v)){ set('finPiTotal', finRound(n+v)); }
+  else if(which==='total' && t!==null && !isNaN(t) && (n===null || isNaN(n))){ const net = finRound(t/1.2); set('finPiNet', net); set('finPiVat', finRound(t-net)); }
+};
+window.savePurchaseInvoice = async function(siteId, receipt){
+  const poId = receipt ? '' : finVal('finPiPo');
+  const supplier = finVal('finPiSupplier'), no = finVal('finPiNo');
+  const net = finNum(finVal('finPiNet')), vat = finNum(finVal('finPiVat'))||0, total = finNum(finVal('finPiTotal'));
+  if(!supplier){ toast('Enter the supplier.'); return; }
+  if(!receipt && !no){ toast('Enter the invoice number.'); return; }
+  if(net===null || isNaN(net)){ toast('Enter the net amount.'); return; }
+  const warnEl = document.getElementById('finPiWarn');
+  const btn = document.getElementById('finPiSave');
+  // Duplicate: same supplier + invoice number anywhere in the company.
+  if(no && !(btn && btn.dataset.dupOk==='1')){
+    const dup = await dbSelect('purchase_invoices', 'invoice_no=eq.'+encodeURIComponent(no)+'&select=id,supplier_name,site_id,invoice_date');
+    const same = dup.filter(d=>String(d.supplier_name||'').trim().toLowerCase()===supplier.toLowerCase());
+    if(same.length){ const s = SITES.find(x=>x.id===same[0].site_id); if(warnEl) warnEl.innerHTML = `<p class="stub" style="margin:0 0 8px;font-style:normal;color:var(--red);"><b>Possible duplicate:</b> ${escapeHtml(supplier)} invoice ${escapeHtml(no)} is already on ${escapeHtml(s?s.name:'another job')}. Tap Save again to add it anyway.</p>`; if(btn) btn.dataset.dupOk='1'; return; }
+  }
+  const flags = [];
+  let po = null;
+  if(poId){
+    po = (await dbSelect('purchase_orders', 'id=eq.'+poId))[0];
+    if(po){
+      const others = await dbSelect('purchase_invoices', 'po_id=eq.'+poId+'&status=neq.rejected&select=net');
+      const sofar = others.reduce((t,i)=>t+Number(i.net||0), 0) + net;
+      if(po.value!=null && sofar > Number(po.value)+0.005) flags.push(finMoney(sofar-Number(po.value))+' over the PO value of '+finMoney(po.value));
+      const mats = (po.material_ids||[]).length ? await dbSelect('materials', 'id=in.('+po.material_ids.join(',')+')&select=grn') : [];
+      if(mats.length && !mats.some(m=>m.grn)) flags.push('nothing on this PO has been marked received yet');
+      if(mats.some(m=>m.grn && m.grn.ok===false)) flags.push('a delivery on this PO was marked with a problem');
+    }
+  }
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  const row = {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:receipt?'receipt':'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
+    invoice_no:no||null, invoice_date:finVal('finPiDate')||finToday(), net:finRound(net), vat:finRound(vat), total:total!==null&&!isNaN(total)?finRound(total):finRound(net+vat),
+    description:finVal('finPiDesc')||null, status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
+  if(finPiFile){
+    const safe = finPiFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+    const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/purchase/'+uid()+'-'+safe, finPiFile, finPiFile.type||'application/octet-stream');
+    if(stored){ row.file_path = stored; row.file_name = finPiFile.name; }
+  }
+  const ins = await dbInsert('purchase_invoices', row);
+  if(btn){ btn.disabled = false; btn.textContent = 'Save'; }
+  if(!ins) return;
+  document.getElementById('finPiOverlay').style.display = 'none';
+  toast(flags.length ? 'Saved and flagged: '+flags[0] : 'Saved — waiting for approval');
+  render();
+};
+
+/* ---------------- view / approve a supplier invoice ---------------- */
+window.openPurchaseInvoiceView = async function(siteId, id){
+  const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;
+  const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id+'&select=number'))[0] : null;
+  let ov = document.getElementById('finPiOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>${escapeHtml(i.supplier_name||'Supplier')} ${finPiPill(i)}</h3>
+    ${i.query_note ? `<p class="stub" style="margin:0 0 10px;font-style:normal;color:var(--red);"><b>Check:</b> ${escapeHtml(i.query_note)}</p>` : ''}
+    <div class="finkv"><span>${i.kind==='receipt'?'Receipt':'Invoice'} no.</span><b>${escapeHtml(i.invoice_no||'—')}</b></div>
+    <div class="finkv"><span>Date</span><b>${finDate(i.invoice_date)}</b></div>
+    <div class="finkv"><span>PO</span><b>${po?escapeHtml(po.number):'No PO'}</b></div>
+    ${i.description?`<div class="finkv"><span>For</span><b style="white-space:normal;">${escapeHtml(i.description)}</b></div>`:''}
+    <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
+    <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>
+    <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
+    ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">📄 View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
+    ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
+    <div class="row-gap" style="margin-top:8px;">
+      ${i.status!=='query' ? `<button class="ghostbtn" style="flex:1;" onclick="queryPurchaseInvoice('${i.id}')">Query</button>` : ''}
+      ${i.status!=='rejected' ? `<button class="ghostbtn" style="flex:1;color:var(--red);" onclick="setPurchaseInvoiceStatus('${i.id}','rejected')">Reject</button>` : ''}
+    </div>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finPiOverlay').style.display='none'">Close</button>
+  </div>`;
+  ov.style.display = 'flex';
+};
+window.setPurchaseInvoiceStatus = async function(id, status){
+  const patch = {status};
+  if(status==='approved'){ patch.approved_by = ME.id; patch.approved_at = new Date().toISOString(); }
+  const r = await dbUpdate('purchase_invoices', id, patch);
+  if(!r) return;
+  document.getElementById('finPiOverlay').style.display = 'none';
+  toast(status==='approved' ? 'Approved' : status==='rejected' ? 'Rejected' : 'Updated'); render();
+};
+window.queryPurchaseInvoice = function(id){
+  const card = document.querySelector('#finPiOverlay .geo-modal-card'); if(!card) return;
+  card.insertAdjacentHTML('beforeend', `<div class="formfield" style="margin-top:10px;"><label class="field-label">What needs checking?</label><input type="text" id="finPiQuery" placeholder="e.g. 2 packs short, price higher than quote"></div><button class="darkbtn" style="width:100%;" onclick="savePurchaseInvoiceQuery('${id}')">Save query</button>`);
+};
+window.savePurchaseInvoiceQuery = async function(id){
+  const r = await dbUpdate('purchase_invoices', id, {status:'query', query_note:finVal('finPiQuery')||'Query'});
+  if(!r) return;
+  document.getElementById('finPiOverlay').style.display = 'none'; toast('Marked as query'); render();
 };
 </script>
 </body>

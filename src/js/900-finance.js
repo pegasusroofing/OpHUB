@@ -62,12 +62,13 @@ function finGuard(){
 async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const [jf, pos, invs, apps, st] = await Promise.all([
+  const [jf, pos, invs, apps, st, toApprove] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,number,valuation_date,status,cert_retention'),
     finLoadSettings(),
+    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&order=created_at.desc&limit=300'),
   ]);
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
   if(__gen !== RENDER_GEN) return;
@@ -83,7 +84,7 @@ async function renderFinanceHome(){
   const noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value).length;
   const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
   const overdue = invs.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i), 0);
-  counts.invoices = invs.length;
+  counts.invoices = invs.length; counts.approve = toApprove.length;
   const retHeld = sites.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = sites.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
@@ -98,19 +99,20 @@ async function renderFinanceHome(){
     </div>
     ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
     ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
-    <div class="finchecks">${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
+    <div class="finchecks">${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
     <div class="row-gap" style="margin:4px 0 12px;">
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/settings')">⚙️ Finance settings</button>
     </div>
-    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}</div>
+    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
     <div id="finJobList">
       ${finHomeTab==='invoices' ? invs.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, s.job_number, s.name].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
           <span class="finjobno">${escapeHtml(s.job_number||'—')}</span>
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(s.name||'')} · ${i.issue_date?finDate(i.issue_date):'Not issued'}</span></span>
           <span class="finval">${finMoney(i.total)}</span></button>`; }).join('') : ''}
-      ${(finHomeTab==='invoices' ? [] : shown).map(s=>{
+      ${finHomeTab==='approve' ? toApprove.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<div data-lf="${lfText([i.supplier_name, i.invoice_no, s.name, s.job_number].join(' '))}"><div class="stub" style="margin:8px 0 2px;font-style:normal;">${escapeHtml((s.job_number?s.job_number+' · ':'')+(s.name||''))}</div>${finPiRowHtml(i.site_id, i)}</div>`; }).join('') : ''}
+      ${(['invoices','approve'].includes(finHomeTab) ? [] : shown).map(s=>{
         const p = posBy[s.id] || [];
         const v = (jfBy[s.id]||{}).contract_value;
         const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO';
@@ -121,7 +123,7 @@ async function renderFinanceHome(){
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span>
         </button>`;
       }).join('')}
-      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
+      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:finHomeTab==='approve'?toApprove.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
     </div>
   `, {title:'OpHUB Finance', subtitle:'All jobs', back:homeHash(), tabs:false});
 }
@@ -145,6 +147,12 @@ async function renderFinanceSettings(){
         <div class="formfield"><label class="field-label">Next number</label><input type="number" id="finJobNext" min="1" step="1" value="${escapeHtml(String(next))}"></div>
       </div>
       <p class="stub" style="margin:0;font-style:normal;">Your highest job number so far is ${finSuggestedNextJobNumber()-1}, so the next free one is ${finSuggestedNextJobNumber()}.</p>
+    </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">Purchase orders</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a job’s Materials tile becomes a purchase order numbered by job (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
+      <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
+      <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Invoice numbers</p>
@@ -203,6 +211,7 @@ window.saveFinanceSettings = async function(){
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
+    po_enabled: !!(document.getElementById('finPoOn')||{}).checked,
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
     bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
@@ -221,13 +230,15 @@ async function renderSiteFinance(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  const [st, jfRows, pos, invs, items, apps] = await Promise.all([
+  const [st, jfRows, pos, invs, items, apps, pords, pinvs] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id,value'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc&select=id,number,status,valuation_date,gross,net_due,cert_net,cert_retention,invoice_id'),
+    dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&order=seq.desc'),
+    dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -244,8 +255,10 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
 
+    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs))}
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
+    ${finPurchasingCardHtml(siteId, pords, pinvs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
     ${finContractCardHtml(siteId, items, jf)}
 

@@ -491,13 +491,15 @@ window.confirmSendMaterial = async function(siteId, matId){
   if(!row){ return; }
   sendingMaterial = null;
   delete materialSupplierChoice[matId];
+  // OpHUB Finance: every order sent becomes a purchase order (never blocks the order).
+  const po = typeof finRaisePoForOrder==='function' ? await finRaisePoForOrder(siteId, [matId], supplier, toMe, fulfil, requiredForDelivery) : null;
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, material ? [material] : []);
   toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name,
-      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId,
+      item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId, po_id: po ? po.id : null,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
@@ -590,6 +592,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   sendingGroup = false;
   selectedMaterialIds = new Set();
   groupSupplierId = null;
+  const po = typeof finRaisePoForOrder==='function' ? await finRaisePoForOrder(siteId, matIds, supplier, toMe, fulfil, requiredForDelivery) : null;
   const collectNote = await bookOrderCollection(siteId, fulfil, supplier, toMe, materials);
   toast((toMe || fulfil.sendTo==='pm') ? 'Emailing the order to you…' : 'Order routed to '+supplier.name+' — emailing…');
   render();
@@ -599,7 +602,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
-      items: materials.map(m=>({item:m.item, qty:m.qty})),
+      items: materials.map(m=>({item:m.item, qty:m.qty})), po_id: po ? po.id : null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
@@ -675,7 +678,7 @@ window.confirmReemail = async function(siteId, matId, supplierName){
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: email, supplier_name: supplierName,
       item: material.item, qty: material.qty, site_id: siteId,
-      required_for_delivery: material.required_for_delivery,
+      required_for_delivery: material.required_for_delivery, po_id: material.po_id || null,
     })});
     const d = await res.json();
     if(res.ok && !d.error){
