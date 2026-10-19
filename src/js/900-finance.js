@@ -62,9 +62,10 @@ function finGuard(){
 async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
-  const [jf, pos] = await Promise.all([
+  const [jf, pos, invs] = await Promise.all([
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
+    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jfBy = {}; jf.forEach(r=>{ jfBy[r.site_id] = r; });
@@ -77,22 +78,31 @@ async function renderFinanceHome(){
   const liveValue = liveSites.reduce((t,s)=>t + Number((jfBy[s.id]||{}).contract_value||0), 0);
   const noPo = liveSites.filter(s=>!(posBy[s.id]||[]).length).length;
   const noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value).length;
+  const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
+  const overdue = invs.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i), 0);
+  counts.invoices = invs.length;
   const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
   document.getElementById('app').innerHTML = shell(`
     <div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>
     <div class="pmstats">
       <div class="pmstat"><b>${finMoney(liveValue, 0)}</b><span>Live contract value</span></div>
       <div class="pmstat"><b>${liveSites.length}</b><span>Live jobs</span></div>
-      <div class="pmstat"><b${noPo?' class="hot"':''}>${noPo}</b><span>Live, no client PO</span></div>
-      <div class="pmstat"><b${noValue?' class="hot"':''}>${noValue}</b><span>Live, no contract value</span></div>
+      <div class="pmstat"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
+      <div class="pmstat"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
+    </div>
+    <div class="finchecks">${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
     <div class="row-gap" style="margin:4px 0 12px;">
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/settings')">⚙️ Finance settings</button>
     </div>
-    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}</div>
+    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
     <div id="finJobList">
-      ${shown.map(s=>{
+      ${finHomeTab==='invoices' ? invs.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, s.job_number, s.name].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
+          <span class="finjobno">${escapeHtml(s.job_number||'—')}</span>
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(s.name||'')} · ${i.issue_date?finDate(i.issue_date):'Not issued'}</span></span>
+          <span class="finval">${finMoney(i.total)}</span></button>`; }).join('') : ''}
+      ${(finHomeTab==='invoices' ? [] : shown).map(s=>{
         const p = posBy[s.id] || [];
         const v = (jfBy[s.id]||{}).contract_value;
         const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO';
@@ -103,7 +113,7 @@ async function renderFinanceHome(){
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span>
         </button>`;
       }).join('')}
-      <div class="empty lf-empty" style="${shown.length?'display:none;':''}">No jobs here.</div>
+      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
     </div>
   `, {title:'OpHUB Finance', subtitle:'All jobs', back:homeHash(), tabs:false});
 }
@@ -147,6 +157,20 @@ async function renderFinanceSettings(){
       </div>
       <div class="formfield"><label class="field-label">VAT</label><select id="finDefVat">${vatOpts}</select></div>
     </div>
+    <div class="card">
+      <p class="sectiontitle" style="margin-top:0;">On your invoices</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Printed at the bottom of every invoice and application.</p>
+      <div class="formfield"><label class="field-label">Company address</label><textarea id="finCoAddr" rows="3">${escapeHtml(st.company_address||'')}</textarea></div>
+      <div class="fingrid2">
+        <div class="formfield"><label class="field-label">VAT number</label><input type="text" id="finCoVat" value="${escapeHtml(st.company_vat_no||'')}"></div>
+        <div class="formfield"><label class="field-label">Company number</label><input type="text" id="finCoReg" value="${escapeHtml(st.company_reg_no||'')}"></div>
+        <div class="formfield"><label class="field-label">Bank</label><input type="text" id="finBank" value="${escapeHtml(st.bank_name||'')}"></div>
+        <div class="formfield"><label class="field-label">Account name</label><input type="text" id="finBankName" value="${escapeHtml(st.bank_account_name||'')}"></div>
+        <div class="formfield"><label class="field-label">Sort code</label><input type="text" id="finBankSort" value="${escapeHtml(st.bank_sort_code||'')}" placeholder="00-00-00"></div>
+        <div class="formfield"><label class="field-label">Account number</label><input type="text" id="finBankAcc" value="${escapeHtml(st.bank_account_no||'')}"></div>
+      </div>
+      <div class="formfield"><label class="field-label">Footer note (optional)</label><input type="text" id="finFooter" value="${escapeHtml(st.invoice_footer||'')}" placeholder="e.g. Payment terms 30 days"></div>
+    </div>
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
   `, {title:'Finance settings', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
 }
@@ -171,6 +195,9 @@ window.saveFinanceSettings = async function(){
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
+    company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
+    bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
+    bank_account_no:finVal('finBankAcc')||null, invoice_footer:finVal('finFooter')||null,
   })});
   if(btn){ btn.disabled = false; btn.textContent = 'Save settings'; }
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
@@ -186,10 +213,11 @@ async function renderSiteFinance(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  const [st, jfRows, pos] = await Promise.all([
+  const [st, jfRows, pos, invs] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
+    dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -205,6 +233,8 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
+
+    ${finInvoicesCardHtml(siteId, invs)}
 
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -253,7 +283,7 @@ async function renderSiteFinance(siteId){
 
     <div class="card" style="margin-top:16px;">
       <p class="sectiontitle" style="margin-top:0;">Coming next</p>
-      <div class="finsoon"><span>🧾 Invoices</span><span>📑 Applications</span><span>✅ Certificates</span><span>🔒 Retention</span></div>
+      <div class="finsoon"><span>📑 Applications</span><span>✅ Certificates</span><span>🔒 Retention</span></div>
     </div>
   `, {title:'Finance', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
 }

@@ -447,7 +447,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance') return renderSiteFinance(siteId);
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }
