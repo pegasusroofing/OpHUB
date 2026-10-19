@@ -64,7 +64,7 @@
      instead of a normal pointer — this catches all of them in one go. */
   [onclick]{cursor:pointer;}
   body{
-    margin:0;background:#EFEDE6;
+    margin:0;background:#F4F6F9;
     font-family:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
     color:var(--ink);
   }
@@ -1026,7 +1026,7 @@ html.ios-pwa #app:has(> .appshell){overflow:visible;}
 .hotable{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0;}
 .hotable table{border-collapse:collapse;width:100%;min-width:420px;}
 .hotable th,.hotable td{border:1px solid var(--line,#E2E2DC);padding:2px;vertical-align:top;}
-.hotable th{background:#F5F4EF;}
+.hotable th{background:#F4F6F9;}
 .hotable th input{width:calc(100% - 26px);font-weight:700;font-size:12px;margin:0;border:0;background:transparent;padding:4px;}
 .hotable td textarea{border:0;margin:0;padding:4px;font-size:13px;min-height:30px;resize:vertical;background:transparent;}
 .hox{width:auto!important;flex:0 0 auto!important;margin:0!important;text-transform:none;letter-spacing:0;color:var(--ink,#101114);border:0;background:#F0EFEA;border-radius:6px;min-width:28px;height:28px;padding:0 6px;font-size:13px;cursor:pointer;line-height:1;}
@@ -1115,17 +1115,17 @@ select.sarole{width:auto;min-width:150px;margin:0;padding:6px 8px;font-size:12px
 .coshhrow img{width:14px;height:14px;}
 .coshhrow-act .taskicon{width:24px;height:22px;min-width:24px;font-size:11px;}
 /* ================= Desktop layout (html.desk — computer web browser only) ================= */
-html.desk body{background:#F4F3EF;}
-html.desk #app{max-width:none;margin:0;box-shadow:none;background:#F4F3EF;}
+html.desk body{background:#F4F6F9;}
+html.desk #app{max-width:none;margin:0;box-shadow:none;background:#F4F6F9;}
 html.desk #app > .appshell{padding-left:248px;}
 html.desk .appshell > .tabbar{display:none !important;}
-html.desk .appbar{background:#fff;padding:14px 40px;padding-top:14px;border-bottom:1px solid #E7E6E1;}
+html.desk .appbar{background:#fff;padding:14px 40px;padding-top:14px;border-bottom:1px solid #E5E8ED;}
 html.desk .appbar img.brandmark{display:none;}
 html.desk .appbar .row{min-height:52px;}
 html.desk .stripe-edge{height:4px;}
 html.desk .scrollarea{padding:26px 40px 40px;}
 .desknav{display:none;}
-html.desk .desknav{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:248px;box-sizing:border-box;background:#fff;border-right:1px solid #E7E6E1;padding:18px 12px 14px;overflow-y:auto;z-index:60;}
+html.desk .desknav{display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;width:248px;box-sizing:border-box;background:#fff;border-right:1px solid #E5E8ED;padding:18px 12px 14px;overflow-y:auto;z-index:60;}
 .desknav-brand{display:flex;align-items:center;gap:10px;padding:4px 8px 16px;cursor:pointer;}
 .desknav-brand img{width:40px;height:40px;object-fit:contain;border-radius:10px;background:#fff;border:1px solid #EEE;}
 .desknav-org{font-family:'Sora',sans-serif;font-weight:800;font-size:14px;color:var(--brand1);line-height:1.2;}
@@ -1136,7 +1136,7 @@ html.desk .desknav{display:flex;flex-direction:column;position:fixed;left:0;top:
 .desknav-i{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;font-size:13.5px;font-weight:600;color:#3A3D44;position:relative;}
 .desknav-i .ophic{flex:none;color:#7A7E87;}
 .desknav-i span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.desknav-i:hover{background:#F3F3F0;}
+.desknav-i:hover{background:#F1F3F6;}
 .desknav-i.on{background:color-mix(in srgb, var(--brand1) 10%, #fff);color:var(--brand1);font-weight:800;}
 .desknav-i.on .ophic{color:var(--brand1);}
 .desknav-badge{flex:none;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;background:var(--brand1);color:#fff;font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center;}
@@ -1180,7 +1180,7 @@ html.desk .smmini{height:340px;border-radius:12px;overflow:hidden;cursor:pointer
 .smchip:not(.on) i{opacity:.35;}
 .smlist{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
 .smrow{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;}
-.smrow:hover{background:#F3F3F0;}
+.smrow:hover{background:#F1F3F6;}
 .smrow span{min-width:0;display:flex;flex-direction:column;}
 .smrow b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .smrow small{font-size:11px;color:var(--slate);}
@@ -1196,14 +1196,14 @@ html.desk .smmini{height:340px;border-radius:12px;overflow:hidden;cursor:pointer
 html.desk .calm{padding:18px 18px 14px;border-radius:20px;}
 html.desk .calm-title{font-size:24px;}
 html.desk .calm-nav{width:42px;height:42px;font-size:28px;border:1px solid #ECEEF2;}
-html.desk .calm-nav:hover,html.desk .calm-today:hover{background:#F3F3F0;}
+html.desk .calm-nav:hover,html.desk .calm-today:hover{background:#F1F3F6;}
 html.desk .calm-today{font-size:14px;padding:9px 14px;border:1px solid #ECEEF2;border-radius:12px;}
 html.desk .calm-wk{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;padding:10px 0;}
 html.desk .calm-grid{row-gap:0;padding-top:0;border-left:1px solid #F0F1F4;}
 html.desk .calm-day{min-height:128px;height:auto;align-items:stretch;justify-content:flex-start;padding:6px 6px 8px;gap:4px;border-right:1px solid #F0F1F4;border-bottom:1px solid #F0F1F4;border-radius:0;background:#fff;}
 html.desk .calm-day.has-ev{background:#fff;border-radius:0;}
-html.desk .calm-day:hover{background:#FAFAF8;}
-html.desk .calm-day.out{background:#FBFBFA;}
+html.desk .calm-day:hover{background:#F8F9FB;}
+html.desk .calm-day.out{background:#FAFBFC;}
 html.desk .calm-day.sel{box-shadow:inset 0 0 0 2px var(--ink);}
 html.desk .calm-num{width:30px;height:30px;font-size:15px;align-self:flex-start;}
 html.desk .calm-evs{padding:0;gap:3px;}
@@ -1224,7 +1224,7 @@ html.desk .pmhero{padding:16px 22px;}html.desk .pmhero-top{margin-bottom:4px;}
 /* Operative "needs your signature" pop-up */
 .signnag{position:relative;}
 .signnag-x{all:unset;cursor:pointer;position:absolute;top:10px;right:12px;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--slate);}
-.signnag-x:hover{background:#F3F3F0;}
+.signnag-x:hover{background:#F1F3F6;}
 .signnag-h{font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:var(--ink);margin:0 36px 6px 0;}
 .signnag-row{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:10px;padding:13px 14px;margin-bottom:8px;border-radius:12px;background:var(--warn-bg);border:1.5px solid color-mix(in srgb, var(--warn) 45%, #fff);}
 .signnag-row span{font-size:18px;}
@@ -27517,7 +27517,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
           ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
           <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
         body: hsSignersHtml(opSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id)))
-          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F6F7F9);">
             <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
             ${ramsClientLineHtml(siteId, r)}
           </div>` : ''),
@@ -27547,7 +27547,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
       </div>
       ${issuedHtml}
       ${outstandingHtml}
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `${multi ? `<div class="stub" style="margin:8px 0 0;font-weight:700;">Multi-page sign</div><div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `${multi ? `<div class="stub" style="margin:8px 0 0;font-weight:700;">Multi-page sign</div><div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F6F7F9);">
         <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
         ${ramsClientLineHtml(siteId, r)}
       </div>` : ''}` : ''}

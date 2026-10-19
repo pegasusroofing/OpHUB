@@ -91,7 +91,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
           ${/\.pdf$/i.test(r.storage_path||'') ? `<div class="statusmenu-item" style="white-space:nowrap;" onclick="rowActionsMenuOpenFor=null;ramsSetMulti('${r.id}',${multi?'false':'true'})">${multi?'☑':'☐'} Multi-page sign required</div>` : ''}
           <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteRams('${r.id}','${jsAttr(r.storage_path)}')">🗑 Delete</div>`),
         body: hsSignersHtml(opSigs.map(x=>({name:nameOf(x.user_id), date:x.signed_at})), notSigned.map(id=>nameOf(id)))
-          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+          + (/\.pdf$/i.test(r.storage_path||'') && multi ? `<div class="card" style="margin:8px 0 0;padding:8px 12px;background:var(--paper2,#F6F7F9);">
             <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
             ${ramsClientLineHtml(siteId, r)}
           </div>` : ''),
@@ -121,7 +121,7 @@ function ramsDocsHtml(siteId, docs, sigsByDoc, canAdd, assignedIds, site, isClie
       </div>
       ${issuedHtml}
       ${outstandingHtml}
-      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `${multi ? `<div class="stub" style="margin:8px 0 0;font-weight:700;">Multi-page sign</div><div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F7F6F2);">
+      ${canAdd && /\.pdf$/i.test(r.storage_path||'') ? `${multi ? `<div class="stub" style="margin:8px 0 0;font-weight:700;">Multi-page sign</div><div class="card" style="margin:6px 0 0;padding:8px 12px;background:var(--paper2,#F6F7F9);">
         <div class="meta"><span class="viewlink" style="cursor:pointer;" onclick="ramsBoxEd=null;go('#/site/${siteId}/hs/rams/boxes/${r.id}')">✍ ${ramsLayoutBoxes(r.sign_layout).length ? 'Signature boxes set ('+escapeHtml(ramsLayoutSummary(r.sign_layout))+') — edit' : 'Set signature boxes (sign into the document itself)'}</span></div>
         ${ramsClientLineHtml(siteId, r)}
       </div>` : ''}` : ''}
