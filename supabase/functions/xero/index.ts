@@ -107,7 +107,7 @@ async function contactFor(call: any, name: string, email?: string | null, addres
   return { ContactID: made.Contacts[0].ContactID };
 }
 
-// Job tracking: uses the tracking category named in settings (default "Job"); adds the job as an option if missing.
+// Project tracking: uses the tracking category named in settings (default "Project"); adds the project as an option if missing.
 async function trackingFor(call: any, catName: string, option: string) {
   if (!catName || !option) return undefined;
   try {
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
       const { data: site } = await admin.from('sites').select('name, job_number').eq('id', inv.site_id).maybeSingle();
       try {
         const contact = await contactFor(call, inv.bill_name, inv.bill_email, inv.bill_address);
-        const tracking = await trackingFor(call, s.xero_tracking_name || 'Job', jobLabel(site));
+        const tracking = await trackingFor(call, s.xero_tracking_name || 'Project', jobLabel(site));
         const tax = salesTax(inv.vat_treatment);
         const lines = (inv.lines || []).filter((l: any) => r2(l.amount) !== 0).map((l: any) => ({
           Description: String(l.description || '').slice(0, 4000) || 'Works', Quantity: 1, UnitAmount: r2(l.amount),
@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
       try {
         const { data: sup } = pi.supplier_id ? await admin.from('suppliers').select('email').eq('id', pi.supplier_id).maybeSingle() : { data: null };
         const contact = await contactFor(call, pi.supplier_name || 'Supplier', (sup as any)?.email || null, null);
-        const tracking = await trackingFor(call, s.xero_tracking_name || 'Job', jobLabel(site));
+        const tracking = await trackingFor(call, s.xero_tracking_name || 'Project', jobLabel(site));
         const vat = r2(pi.vat);
         const x: any = {
           Type: 'ACCPAY', Contact: contact, InvoiceNumber: pi.invoice_no || undefined,
