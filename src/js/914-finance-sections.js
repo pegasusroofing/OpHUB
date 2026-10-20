@@ -24,7 +24,7 @@ const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['invoices','Supplier invoices','#/finance/purchases/invoices'], ['orders','Purchase orders','#/finance/purchases/orders'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
-  subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['payrun','Pay run','#/finance/labour/payrun'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
+  subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontract orders','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
   return `<nav class="finsecnav" aria-label="Finance sections">${FIN_SECTIONS.map(s=>`<button type="button" class="${s.k===active?'on':''}" onclick="go('${s.go}')">${s.l}</button>`).join('')}</nav>`;
@@ -187,50 +187,3 @@ let finPurSup = '', finPurJob = '', finPurStatus = '';
 
 /* ================= Subcontractors ================= */
 let finSaFilter = 'open';
-async function renderFinSubsSection(sub){
-  if(!finGuard()) return;
-  sub = ['orders','apps','payments'].includes(sub) ? sub : 'orders';
-  const __gen = RENDER_GEN;
-  const [scs, sapps] = await Promise.all([
-    dbSelect('fin_subcontracts', 'org_id=eq.'+ME.org_id+'&order=created_at.desc'),
-    dbSelect('fin_sub_apps', 'org_id=eq.'+ME.org_id+'&order=app_date.desc'),
-  ]);
-  if(__gen !== RENDER_GEN) return;
-  const scBy = {}; scs.forEach(s=>scBy[s.id]=s);
-  const toCert = sapps.filter(a=>a.status==='received'), toPay = sapps.filter(a=>a.status==='certified');
-  const lastCert = id=>sapps.filter(a=>a.subcontract_id===id && a.certified_gross!=null).sort((x,y)=>y.number-x.number)[0];
-  const retHeld = finRound(scs.reduce((t,sc)=>{ const l = lastCert(sc.id); return t + (l ? Number(l.retention||0) : 0); }, 0));
-  const appRow = a=>{ const sc = scBy[a.subcontract_id] || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([sc.name, sc.number, finJobTag(a.site_id)].join(' '))}" onclick="go('#/site/${a.site_id}/finance/sub/${a.subcontract_id}')">
-    <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.name||'')} · app ${a.number} <span class="finpill ${a.status==='paid'?'ok':a.status==='certified'?'blue':'warn'}">${FIN_SA_STATUS[a.status]||a.status}</span>${a.payless?' <span class="finpill bad">Pay less</span>':''}</span><span class="pmrow-s">${escapeHtml(sc.number||'')} · ${escapeHtml(finJobTag(a.site_id))}</span><span class="pmrow-s">${finDate(a.app_date)} · applied ${finMoney(a.applied_gross)}${a.final_date && a.status!=='paid'?' · final date '+finDate(a.final_date):''}${a.paid_on?' · paid '+finDate(a.paid_on):''}</span></span>
-    <span class="finval">${a.certified_gross!=null ? finMoney(a.pay_amount)+'<em>to pay after CIS</em>' : '<em>not certified</em>'}</span></button>`; };
-  let body = '';
-  if(sub==='orders'){
-    body = finSecHead('Subcontract orders', '+ Subcontract order', "finPickJob('New subcontract order','openFinSubcontract')")
-      + finSearchHtml('Search subcontractor or project', 'finSubList')
-      + finListHtml('finSubList', scs.map(sc=>{ const l = lastCert(sc.id); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([sc.name, sc.number, sc.description, finJobTag(sc.site_id)].join(' '))}" onclick="go('#/site/${sc.site_id}/finance/sub/${sc.id}')">
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.name)} <span class="finpill grey">${escapeHtml(sc.number)}</span>${sc.status==='complete'?' <span class="finpill ok">Complete</span>':''}</span><span class="pmrow-s">${escapeHtml(finJobTag(sc.site_id))}${sc.description?' · '+escapeHtml(sc.description):''}</span><span class="pmrow-s">Certified ${finMoney(l?l.certified_gross:0)}${sc.order_value!=null?' of '+finMoney(sc.order_value):''} · retention ${finMoney(l?l.retention:0)}</span></span>
-          <span class="finval">${sc.order_value!=null?finMoney(sc.order_value, 0):''}</span></button>`; }), 'No subcontract orders yet.');
-  } else if(sub==='apps'){
-    const F = {open:a=>a.status!=='paid', received:a=>a.status==='received', certified:a=>a.status==='certified', all:()=>true};
-    if(!F[finSaFilter]) finSaFilter = 'open';
-    const list = sapps.filter(a=>a.status!=='paid' || finSaFilter==='all').filter(F[finSaFilter]);
-    body = finSecHead('Subcontractor applications') + `<p class="stub" style="margin:-4px 0 12px;">Record an application on the subcontract order. Certify it and send the payment (or pay less) notice before the final date for payment.</p>`
-      + `<div class="pmchips">${[['open','Not paid'],['received','To certify'],['certified','Certified, to pay'],['all','All']].map(([k,l])=>finChip(finSaFilter===k, l, sapps.filter(F[k]).length, `finSaFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search subcontractor or project', 'finSubList') + finListHtml('finSubList', list.map(appRow), 'No applications here.');
-  } else {
-    const paid = sapps.filter(a=>a.status==='paid').sort((x,y)=>String(y.paid_on).localeCompare(String(x.paid_on)));
-    body = finSecHead('Payments to subcontractors') + `<p class="stub" style="margin:-4px 0 12px;">Paid applications. Each one is also in the CIS tab for your CIS return.</p>`
-      + finSearchHtml('Search subcontractor or project', 'finSubList') + finListHtml('finSubList', paid.map(appRow), 'No payments yet.');
-  }
-  document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('subs')}
-    <div class="pmstats finstats">
-      <div class="pmstat" onclick="go('#/finance/subs/orders')"><b>${scs.filter(s=>s.status!=='complete').length}</b><span>Active subcontract orders</span></div>
-      <div class="pmstat" onclick="finSaFilter='received';go('#/finance/subs/apps')"><b${toCert.length?' class="hot"':''}>${toCert.length}</b><span>Applications to certify</span></div>
-      <div class="pmstat" onclick="finSaFilter='certified';go('#/finance/subs/apps')"><b>${finMoney(toPay.reduce((t,a)=>t+Number(a.pay_amount||0),0), 0)}</b><span>Certified, to pay</span></div>
-      <div class="pmstat"><b>${finMoney(retHeld, 0)}</b><span>Retention you hold</span></div>
-    </div>
-    ${finSubTabs('subs', sub, {apps:toCert.length})}
-    ${body}
-  `, {title:'Subcontractors', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
-}

@@ -15,7 +15,7 @@ async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
   // Rows that can be split across projects are also fetched when another project's row has a share here.
   const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
-  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items] = await Promise.all([
+  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items, ops] = await Promise.all([
     dbSelect('job_finance', f),
     dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
     dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
@@ -32,9 +32,10 @@ async function finLoadBook(siteId){
     finLoadRates(),
     dbSelect('client_pos', f+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_contract_items', f+'&select=id,site_id,kind,value,cost,sub_job_id,position&order=position.asc&limit=20000'),
+    dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&sub_app_id=is.null&status=in.(approved,paid)&limit=10000'),
   ]);
   await loadAllProfiles();
-  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items};
+  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items, ops};
 }
 function finBy(arr, siteId){ return (arr||[]).filter(x=>x.site_id===siteId); }
 
@@ -66,8 +67,13 @@ function finCostLinesFromBook(b, siteId){
   // Sign-in days: a day split evenly over the plots / addresses signed into that day.
   const dayCks = finBy(b.cks, siteId), daySubs = {};
   dayCks.forEach(c=>{ if(c.type && c.type!=='in') return; const k = c.user_id+'|'+finIsoDay(c.ts); (daySubs[k] = daySubs[k] || new Set()).add(c.sub_site_id||''); });
+  // Operatives invoice us: their invoice lines are the labour. Sign-in days only cost PAYE staff (day rate).
+  (b.ops||[]).forEach(p=>(p.lines||[]).forEach((l,li)=>{ if(l.site_id!==siteId) return;
+    lines.push({key:'op:'+p.id+':'+li, date:p.period_start, cat:'labour', desc:(l.description || 'Operative invoice')+(p.invoice_no?' · inv '+p.invoice_no:''), who:p.name||'', ref:'w/c '+finDate(p.period_start), status:p.status==='paid'?'Paid':'To pay', net:finRound(Number(l.amount||0)), person:p.worker_id?'w:'+p.worker_id:p.user_id, sub:l.sub_job_id||null, share:1, open:`go('#/finance/labour/payment/${p.id}')`});
+  }));
   finLabourDaysFrom(dayCks).forEach(d=>{
     const r = b.rates[d.user_id];
+    if(!r || r.pay_type!=='paye') return;
     const subs = Array.from(daySubs[d.user_id+'|'+d.date] || ['']);
     subs.forEach(sb=>{
       const share = 1/subs.length;
