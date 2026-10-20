@@ -210,7 +210,7 @@ async function renderFinLabour(){
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;"><p class="sectiontitle" style="margin:0;">Labour this week</p><b>${finMoney(total)}</b></div>
       ${list.length ? list.map(p=>{ const pay = payBy[p.key]; return `<div class="finlabrow">
-        <div><b>${escapeHtml(nameOf(p))}</b> <span class="finpill ${p.pay_type==='paye'?'grey':'blue'}">${p.pay_type==='paye'?'PAYE':'Sub · CIS '+p.cis+'%'}</span>
+        <div><b>${escapeHtml(nameOf(p))}</b> <button type="button" class="linkbtn" style="font-size:12.5px;" onclick="openFinTimesheet('${jsAttr(p.key)}', finLabWeek)">${p.timesheet ? 'Edit timesheet' : '+ Timesheet'}</button> <span class="finpill ${p.pay_type==='paye'?'grey':'blue'}">${p.pay_type==='paye'?'PAYE':'Sub · CIS '+p.cis+'%'}</span>
           <div class="stub" style="margin:2px 0 0;font-style:normal;">${Object.keys(p.sites).map(s=>{ const st = SITES.find(x=>x.id===s)||{}; return escapeHtml((st.job_number||'')+' '+(st.name||'Project'))+' ×'+p.sites[s]; }).join(' · ')}</div></div>
         <div style="text-align:right;"><b>${p.amount!=null?finMoney(p.amount):'<span class="finpill warn">No rate</span>'}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${p.days ? p.days+' sign-in day'+(p.days===1?'':'s')+(p.rate!=null?' × '+finMoney(p.rate):'') : ''}${p.days && p.timesheet ? ' + ' : ''}${p.timesheet ? 'timesheet '+finMoney(p.extra) : ''}</div>
           ${p.pay_type!=='paye' && !p.key.startsWith('n:') ? (pay ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/finance/labour/payment/${pay.id}')">${pay.status==='paid'?'Paid':'Payment '+pay.status}</button>` : (p.amount!=null ? `<button class="linkbtn" style="color:var(--blue);" onclick="newFinSubPayment('${p.key}')">Make payment</button>` : '')) : ''}</div>
@@ -311,16 +311,17 @@ async function renderFinLabourRates(){
   const __gen = RENDER_GEN;
   await loadAllProfiles();
   const rates = await finLoadRates();
+  if(!FIN_SETTINGS) await finLoadSettings();
   if(__gen !== RENDER_GEN) return;
   const people = Object.values(PROFILES).filter(p=>['operative','site_manager'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
   const workers = Object.values(FIN_WORKERS).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const card = (key, title, r, isW)=>`<div class="card finrate" id="finRate-${key}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>${escapeHtml(title)}</b><span class="stub" style="margin:0;font-style:normal;">${isW?(r.active===false?'Not active':'Worker'):'App user'}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>${escapeHtml(title)}</b><span class="stub" style="margin:0;font-style:normal;">${(r.xero_contact_id||r.xero_employee_id)?'<span class="finxw-tag">From Xero</span> ':''}${isW?(r.active===false?'Not active':'Worker'):'App user'}</span></div>
       <div class="fingrid3" style="margin-top:6px;">
         ${isW ? `<div class="formfield"><label class="field-label">Name</label><input type="text" data-k="name" value="${escapeHtml(r.name||'')}"></div>
         <div class="formfield"><label class="field-label">Email (for statements)</label><input type="email" data-k="email" value="${escapeHtml(r.email||'')}"></div>` : ''}
         <div class="formfield"><label class="field-label">Pay</label><select data-k="pay_type"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>Subcontractor</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE</option></select></div>
-        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
+        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}">${r.rate_note?`<span class="finrate-src">${escapeHtml(r.rate_note)}</span>`:''}</div>
         <div class="formfield"><label class="field-label">CIS</label><select data-k="cis_rate">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
         <div class="formfield"><label class="field-label">UTR</label><input type="text" data-k="utr" value="${escapeHtml(r.utr||'')}"></div>
         <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>
@@ -331,7 +332,8 @@ async function renderFinLabourRates(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('subs')}${finSubTabs('subs','rates')}
     <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each project. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
-    <button class="darkbtn" style="width:100%;margin-bottom:12px;" onclick="finAddWorker()">+ Add a worker</button>
+    <div class="row-gap" style="margin:0 0 12px;"><button class="darkbtn" style="flex:1;" onclick="finAddWorker()">+ Add a worker</button>${finXeroConnected() ? `<button class="ghostbtn" style="flex:1;" onclick="openFinXeroWorkers()">Bring in from Xero</button>` : ''}</div>
+    ${finXeroConnected() ? '' : '<p class="stub" style="margin:-6px 0 12px;font-style:normal;">Connect Xero in Finance › Settings to bring your subcontractors, CIS rates and PAYE staff in from Xero.</p>'}
     ${workers.map(w=>card('w:'+w.id, w.name||w.trading_name||'Worker', w, true)).join('')}
     ${people.map(p=>card(p.id, p.name, rates[p.id]||{}, false)).join('')}
     ${!workers.length && !people.length ? '<div class="empty">No one yet — add a worker.</div>' : ''}

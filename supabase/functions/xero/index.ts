@@ -18,7 +18,8 @@ const CLIENT_SECRET = Deno.env.get('XERO_CLIENT_SECRET') || '';
 const SB_URL = Deno.env.get('SUPABASE_URL')!;
 const REDIRECT = SB_URL + '/functions/v1/xero';
 // Apps created after 2 March 2026 must use Xero's granular scopes.
-const SCOPES = Deno.env.get('XERO_SCOPES') || 'openid profile email offline_access accounting.invoices accounting.payments.read accounting.contacts accounting.settings accounting.attachments';
+const SCOPES = Deno.env.get('XERO_SCOPES') || 'openid profile email offline_access accounting.invoices accounting.payments.read accounting.contacts accounting.settings accounting.attachments payroll.employees.read payroll.settings.read';
+const PAYROLL = 'https://api.xero.com/payroll.xro/2.0';
 const API = 'https://api.xero.com/api.xro/2.0';
 
 const admin = createClient(SB_URL, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -73,12 +74,12 @@ async function xero(orgId: string) {
     access = tok.access_token;
     await admin.from('xero_connections').update({ access_token: tok.access_token, refresh_token: tok.refresh_token, expires_at: new Date(Date.now() + (tok.expires_in - 60) * 1000).toISOString(), updated_at: new Date().toISOString() }).eq('org_id', orgId);
   }
-  const call = async (method: string, path: string, body?: unknown, raw?: { bytes: Uint8Array; type: string }) => {
+  const call = async (method: string, path: string, body?: unknown, raw?: { bytes: Uint8Array; type: string }, base?: string) => {
     const headers: Record<string, string> = { Authorization: 'Bearer ' + access, 'xero-tenant-id': c.tenant_id, Accept: 'application/json' };
     let payload: BodyInit | undefined;
     if (raw) { headers['Content-Type'] = raw.type; payload = raw.bytes; }
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
-    const res = await fetch(API + path, { method, headers, body: payload });
+    const res = await fetch((base || API) + path, { method, headers, body: payload });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) {
       const ve = j?.Elements?.[0]?.ValidationErrors?.map((v: any) => v.Message).join('; ');
@@ -216,6 +217,60 @@ Deno.serve(async (req) => {
       if (addr.AddressLine1 || addr.PostalCode) c.Addresses = [addr];
       const made = await call('POST', '/Contacts', { Contacts: [c] });
       return json({ ok: true, contact: shape(made.Contacts[0]) });
+    }
+
+    if (action === 'workers') {
+      // Subcontractors: Xero contacts in a group called "Subcontractors" (or similar), else suppliers with CIS switched on.
+      const people: any[] = []; const notes: string[] = [];
+      const groups = await call('GET', '/ContactGroups');
+      const grp = (groups.ContactGroups || []).find((g: any) => g.Status === 'ACTIVE' && /subcontract|labour|cis/i.test(g.Name || ''));
+      let ids: string[] = [];
+      if (grp) {
+        const gg = await call('GET', `/ContactGroups/${grp.ContactGroupID}`);
+        ids = ((gg.ContactGroups || [])[0]?.Contacts || []).map((c: any) => c.ContactID);
+        notes.push(`Subcontractors from your Xero group “${grp.Name}”.`);
+      } else {
+        const r = await call('GET', '/Contacts?where=' + encodeURIComponent('IsSupplier==true AND ContactStatus=="ACTIVE"'));
+        ids = (r.Contacts || []).map((c: any) => c.ContactID);
+        notes.push('No “Subcontractors” contact group in Xero, so suppliers with CIS switched on are shown.');
+      }
+      ids = ids.slice(0, 150);
+      const details: any[] = [];
+      for (let i = 0; i < ids.length; i += 40) { const r = await call('GET', '/Contacts?IDs=' + ids.slice(i, i + 40).join(',')); details.push(...(r.Contacts || [])); }
+      let cisCalls = 0;
+      for (const c of details) {
+        let cis: any = null;
+        if (cisCalls < 45) { cisCalls++; try { const r = await call('GET', `/Contacts/${c.ContactID}/CISSettings`); cis = (r.CISSettings || [])[0] || null; } catch (_e) { cis = null; } }
+        if (!grp && !(cis && cis.CISEnabled)) continue;
+        const ph = (c.Phones || []).find((p: any) => p.PhoneNumber);
+        people.push({ kind: 'sub', xero_contact_id: c.ContactID, name: c.Name, email: c.EmailAddress || '', phone: ph ? [ph.PhoneAreaCode, ph.PhoneNumber].filter(Boolean).join(' ') : '',
+          vat_registered: !!c.TaxNumber, cis_rate: cis && cis.CISEnabled ? (cis.Rate != null ? Number(cis.Rate) : 20) : null });
+      }
+      if (cisCalls >= 45 && details.length > 45) notes.push('CIS rates were read for the first 45 only (Xero limit) — check the rest.');
+      // PAYE: Xero Payroll (UK) employees and their pay rate.
+      try {
+        const e = await call('GET', '/Employees', undefined, undefined, PAYROLL);
+        const emps = (e.employees || e.Employees || []).filter((x: any) => !x.endDate);
+        let n = 0;
+        for (const x of emps.slice(0, 40)) {
+          let rate: number | null = null, note = '';
+          try {
+            const w = await call('GET', `/Employees/${x.employeeID}/SalaryAndWages`, undefined, undefined, PAYROLL);
+            const sw = (w.salaryAndWages || []).find((y: any) => (y.status || 'Active') === 'Active') || (w.salaryAndWages || [])[0];
+            if (sw) {
+              if (String(sw.paymentType || '').toLowerCase() === 'salary' && sw.annualSalary) { rate = Math.round(Number(sw.annualSalary) / 260 * 100) / 100; note = 'Salary ÷ 260 working days'; }
+              else if (sw.ratePerUnit) { const h = sw.numberOfUnitsPerDay || (sw.numberOfUnitsPerWeek ? sw.numberOfUnitsPerWeek / 5 : 8); rate = Math.round(Number(sw.ratePerUnit) * Number(h) * 100) / 100; note = `£${sw.ratePerUnit}/hour × ${Math.round(Number(h) * 10) / 10} hours`; }
+            }
+          } catch (_e) { /* no pay details */ }
+          n++;
+          people.push({ kind: 'paye', xero_employee_id: x.employeeID, name: [x.firstName, x.lastName].filter(Boolean).join(' '), email: x.email || '', day_rate: rate, rate_note: note });
+        }
+        if (emps.length > 40) notes.push('Only the first 40 employees were read.');
+      } catch (e) {
+        const m = String((e as Error).message || e);
+        notes.push(/403|401|scope|unauthor/i.test(m) ? 'PAYE staff: OpHUB needs permission to read Xero Payroll — disconnect and connect Xero again in Finance › Settings to allow it.' : 'PAYE staff couldn’t be read from Xero Payroll (' + m.slice(0, 120) + ').');
+      }
+      return json({ ok: true, people, notes });
     }
 
     if (action === 'push_invoice') {

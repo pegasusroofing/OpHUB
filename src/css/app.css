@@ -1956,3 +1956,51 @@ html.desk.finmode .finsetpage > *{margin-left:0 !important;margin-right:0 !impor
 .finquote.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;}
 .finappdates-g label em{font-style:normal;font-weight:500;font-size:11.5px;color:var(--slate);}
 html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
+/* Finance — weekly timesheet grid (9215) */
+.fints .fints-top{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin:0 0 12px;}
+.fints .fints-top label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--slate);}
+.fints .fints-top select,.fints .fints-top input{padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;min-width:150px;}
+.fints .fints-who select{min-width:240px;}
+.fints-wk{display:flex;align-items:center;gap:6px;} .fints-wk .ghostbtn{width:auto;margin:0;padding:7px 12px;} .fints-wk b{min-width:70px;text-align:center;color:var(--ink);font-size:14px;}
+.fints-grid{overflow-x:auto;}
+.fints-h,.fints-r,.fints-f{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(7, 62px) 56px 110px 96px 24px;gap:6px;align-items:center;min-width:960px;}
+.fints-h.subs,.fints-r.subs,.fints-f.subs{grid-template-columns:minmax(200px,1.4fr) 130px repeat(7, 62px) 56px 110px 96px 24px;min-width:1090px;}
+.fints-grid:has(.fints-r.subs) .fints-h{grid-template-columns:minmax(200px,1.4fr) 130px repeat(7, 62px) 56px 110px 96px 24px;min-width:1090px;}
+.fints-h{font-size:11.5px;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;padding:0 0 6px;border-bottom:1px solid var(--line);}
+.fints-h em{display:block;font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;font-size:11px;}
+.fints-r{padding:8px 0;border-bottom:1px solid #F0F2F5;}
+.fints-f{padding:8px 0;font-size:13px;color:var(--slate);font-weight:700;}
+.fints-f .over{color:var(--red);}
+.fints .c{text-align:center;} .fints .r{text-align:right;white-space:nowrap;}
+.fints-r label{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.fints-r label > span{display:none;font-size:11px;font-weight:700;color:var(--slate);}
+.fints-r input,.fints-r select{width:100%;box-sizing:border-box;padding:8px 6px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:#fff;min-width:0;}
+.fints-r .fints-d{text-align:center;}
+.fints-r .fints-desc{font-size:12.5px;padding:6px 8px;}
+.fints-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;}
+.fints-foot .darkbtn{width:auto;padding:12px 28px;margin:0;}
+@media (max-width:760px){
+  .fints-h{display:none;}
+  .fints-r,.fints-r.subs{grid-template-columns:repeat(7, minmax(0,1fr));min-width:0;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;}
+  .fints-r .fints-p{grid-column:1 / -1;}
+  .fints-r.subs > label:nth-child(2){grid-column:1 / -1;}
+  .fints-r label > span{display:block;text-align:center;}
+  .fints-r .fints-p > span{text-align:left;}
+  .fints-r > b.c{grid-column:1 / 3;text-align:left;}
+  .fints-r > label.c:nth-last-of-type(1){grid-column:3 / 6;}
+  .fints-r > b.r{grid-column:6 / 8;}
+  .fints-f,.fints-f.subs{grid-template-columns:repeat(7, minmax(0,1fr));min-width:0;}
+  .fints-f > span:first-child{display:none;}
+}
+@media (max-width:760px){ .fints-r .fints-d{padding:8px 0 !important;font-size:14px;letter-spacing:-.2px;} .fints-r{gap:4px;} }
+/* Xero workers import */
+.finxw{max-width:640px;width:100%;}
+.finxw-list{max-height:52vh;overflow:auto;border:1px solid var(--line,#e5e7eb);border-radius:10px;padding:2px 10px;margin-top:8px;}
+.finxw-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line,#eef0f3);cursor:pointer;}
+.finxw-row:last-child{border-bottom:0;}
+.finxw-row input{margin-top:3px;width:auto;flex:none;}
+.finxw-main{flex:1;min-width:0;line-height:1.35;}
+.finxw-new,.finxw-ok,.finxw-tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:4px;}
+.finxw-new{background:#e7f6ec;color:#17733a;}
+.finxw-ok{background:#eef2f7;color:#475569;}
+.finxw-tag{background:#e6f1fb;color:#0b5394;margin:0 4px 0 0;}
