@@ -2041,3 +2041,62 @@ html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
   .finjobchips{flex-wrap:nowrap;overflow-x:auto;gap:6px;margin:10px 0 8px;scrollbar-width:none;}
   .finjobchips .pmchip{height:30px !important;padding:0 10px !important;font-size:12px !important;white-space:nowrap;flex:none;}
 }
+
+/* ===== OpHUB Finance look: "Ledger" (clean accounting style) with a touch of colour — Finance pages only ===== */
+html.finmode .stripe-edge{display:none !important;}
+html.finmode .scrollarea{background:#f6f7f9 !important;}
+html.finmode .appbar{background:#fff !important;border-bottom:1px solid #e5e7eb !important;box-shadow:none !important;}
+html.finmode .appbar .row{justify-content:flex-start !important;gap:14px;}
+html.finmode .appbar .row>div:nth-child(2){flex:1;text-align:left !important;min-width:0;}
+html.finmode .appbar h2{text-align:left !important;letter-spacing:-.015em;font-size:21px !important;color:#111827 !important;}
+html.finmode .appbar .meta{font-family:inherit !important;text-align:left !important;letter-spacing:0 !important;color:#6b7280 !important;font-size:12.5px !important;}
+html.finmode .finsecnav{background:transparent !important;border-radius:0 !important;padding:0 !important;border-bottom:1px solid #e5e7eb;gap:2px !important;box-shadow:none !important;}
+html.finmode .finsecnav button{background:transparent !important;box-shadow:none !important;border-radius:0 !important;color:#6b7280 !important;font-weight:600 !important;padding:12px 14px !important;border-bottom:2px solid transparent !important;margin-bottom:-1px;}
+html.finmode .finsecnav button:hover{color:#111827 !important;}
+html.finmode .finsecnav button.on{color:#111827 !important;border-bottom-color:var(--brand1,#e3262b) !important;}
+html.finmode .card,html.finmode .pmstat,html.finmode .pmrow-card{border:1px solid #e5e7eb !important;box-shadow:none !important;border-radius:10px !important;}
+html.finmode .pmrow-card:hover,html.finmode .fintodo-i:hover,html.finmode tr.click:hover td{background:#f9fafb !important;}
+html.finmode .sectiontitle{text-transform:none !important;letter-spacing:-.005em !important;font-size:15px !important;color:#111827 !important;font-weight:700 !important;}
+html.finmode .finhead-l,html.finmode .field-label{text-transform:none !important;letter-spacing:0 !important;}
+html.finmode .finhead-l{color:#6b7280 !important;font-size:12px !important;font-weight:500 !important;}
+html.finmode .pmstat b,html.finmode .finhead-v,html.finmode .finval,html.finmode td.num,html.finmode .fintiles b{font-variant-numeric:tabular-nums;}
+html.finmode .pmstat{padding:16px 18px !important;}
+html.finmode .pmstat b{font-size:24px !important;font-weight:700 !important;}
+html.finmode .pmstat span{color:#6b7280 !important;font-weight:500 !important;}
+html.finmode .finbanner{background:#fff !important;border:1px solid #e5e7eb !important;color:#374151 !important;font-weight:500 !important;}
+html.finmode .ghostbtn{background:#fff !important;border:1px solid #d1d5db !important;}
+html.finmode .ghostbtn:hover{background:#f9fafb !important;}
+html.finmode .ghostbtn:disabled{background:#f3f4f6 !important;border-color:#e5e7eb !important;}
+/* the touch of colour: key figures colour-coded on a soft tint */
+html.finmode .finstats .pmstat:nth-child(1){background:#f3f7ff !important;border-color:#dbe6ff !important;} html.finmode .finstats .pmstat:nth-child(1) b{color:#1d4ed8 !important;}
+html.finmode .finstats .pmstat:nth-child(2){background:#f1fbf5 !important;border-color:#d3f0de !important;} html.finmode .finstats .pmstat:nth-child(2) b{color:#15803d !important;}
+html.finmode .finstats .pmstat:nth-child(3){background:#fff5f4 !important;border-color:#fbdcd9 !important;} html.finmode .finstats .pmstat:nth-child(3) b{color:#c81e1e !important;}
+html.finmode .finstats .pmstat:nth-child(4){background:#fffaf0 !important;border-color:#f8e7c2 !important;} html.finmode .finstats .pmstat:nth-child(4) b{color:#b45309 !important;}
+html.finmode .finhead{background:linear-gradient(180deg,#fff,#fbfcfe) !important;}
+html.finmode .finjobno:not(.none){background:#eef3ff !important;color:#1e40af !important;}
+html.finmode .finptabs button.on,html.finmode .finsubtabs button.on{color:#111827 !important;}
+
+/* Pay run */
+.finrun-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;}
+.finrun-day{display:flex;align-items:center;gap:14px;}
+.finrun-day .ghostbtn{width:auto !important;min-width:40px;}
+.finrun-sub{font-size:12.5px;color:var(--slate);margin-top:2px;}
+.finrun-cfg{font-size:13px;color:var(--slate);display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.finrun-cfg select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff;width:auto;}
+.finrun-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 12px;}
+.finrun-tiles>div{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
+.finrun-tiles span{font-size:12px;color:#6b7280;}
+.finrun-tiles b{font-size:20px;}
+.finrun-tiles .hl{background:#f1fbf5;border-color:#d3f0de;} .finrun-tiles .hl b{color:#15803d;}
+.finrun-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 10px;}
+.finrun-steps button{width:100%;}
+.finrun-warn{margin:0 0 10px;padding:8px 12px;border-radius:8px;background:#fff7e6;border:1px solid #f3d9a4;font-size:13px;}
+.finrun-bank{font-variant-numeric:tabular-nums;font-size:12.5px;color:var(--slate);white-space:nowrap;}
+@media (max-width:640px){ .finrun-tiles b{font-size:16px;} .finrun-steps{grid-template-columns:1fr;} }
+@media (max-width:640px){
+  html.finmode .finsecnav,html.finmode .finsubtabs{display:flex !important;flex-wrap:nowrap !important;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;grid-template-columns:none !important;}
+  html.finmode .finsecnav::-webkit-scrollbar,html.finmode .finsubtabs::-webkit-scrollbar{display:none;}
+  html.finmode .finsecnav button,html.finmode .finsubtabs button{flex:none !important;white-space:nowrap !important;padding:10px 12px !important;font-size:13.5px !important;}
+  .finrun-cfg select{padding:5px 6px;font-size:12.5px;height:32px;}
+  .finrun-day .ghostbtn{min-width:34px;min-height:34px !important;padding:0 !important;}
+}

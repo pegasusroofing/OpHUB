@@ -327,6 +327,11 @@ async function renderFinLabourRates(){
         <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>
         <div class="formfield"><label class="field-label">VAT registered</label><select data-k="vat_registered"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes</option></select></div>
       </div>
+      ${r.pay_type!=='paye' ? `<div class="fingrid3 finrate-bank">
+        <div class="formfield"><label class="field-label">Bank account name</label><input type="text" data-k="bank_account_name" value="${escapeHtml(r.bank_account_name||'')}" autocomplete="off"></div>
+        <div class="formfield"><label class="field-label">Sort code</label><input type="text" inputmode="numeric" data-k="bank_sort_code" placeholder="00-00-00" value="${escapeHtml(r.bank_sort_code?finSortCode(r.bank_sort_code):'')}" autocomplete="off"></div>
+        <div class="formfield"><label class="field-label">Account number</label><input type="text" inputmode="numeric" data-k="bank_account_no" placeholder="8 digits" value="${escapeHtml(r.bank_account_no||'')}" autocomplete="off"></div>
+      </div>` : ''}
       <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="saveFinRate('${key}')">Save</button>${isW ? `<button class="ghostbtn" style="flex:none;width:auto;" onclick="finWorkerActive('${r.id}', ${r.active===false})">${r.active===false?'Make active':'Not working for us'}</button>` : ''}</div>
     </div>`;
   document.getElementById('app').innerHTML = shell(`
@@ -354,6 +359,12 @@ window.saveFinRate = async function(key){
   const rate = finNum(v('day_rate'));
   if(rate!==null && isNaN(rate)){ toast('Day rate must be a number.'); return; }
   const row = {pay_type:v('pay_type')||'subcontractor', day_rate:rate, cis_rate:Number(v('cis_rate')||20), utr:v('utr')||null, trading_name:v('trading_name')||null, vat_registered:v('vat_registered')==='true', updated_at:new Date().toISOString()};
+  if(card.querySelector('[data-k="bank_sort_code"]')){
+    const sc = v('bank_sort_code').replace(/\D/g,''), an = v('bank_account_no').replace(/\D/g,'');
+    if(sc && sc.length!==6){ toast('Sort code should be 6 numbers.'); return; }
+    if(an && an.length!==8){ toast('Account number should be 8 numbers.'); return; }
+    Object.assign(row, {bank_account_name:v('bank_account_name')||null, bank_sort_code:sc||null, bank_account_no:an||null});
+  }
   if(String(key).startsWith('w:')){
     const email = v('email');
     if(!v('name')){ toast('Enter their name.'); return; }

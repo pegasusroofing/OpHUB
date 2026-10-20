@@ -24,7 +24,7 @@ const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications','#/finance/sales/apps'], ['certs','Certificates','#/finance/sales/certs'], ['invoices','Invoices','#/finance/sales/invoices'], ['receipts','Receipts','#/finance/sales/receipts'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['orders','Orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['inbox','Invoice inbox','#/finance/inbox'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
-  subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
+  subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['payrun','Pay run','#/finance/labour/payrun'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
 };
 function finSectionNav(active){
   return `<nav class="finsecnav" aria-label="Finance sections">${FIN_SECTIONS.map(s=>`<button type="button" class="${s.k===active?'on':''}" onclick="go('${s.go}')">${s.l}</button>`).join('')}</nav>`;
