@@ -13,16 +13,18 @@ const FIN_VAR_PILL = {instructed:'grey', priced:'blue', submitted:'warn', agreed
 
 async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
+  // Rows that can be split across projects are also fetched when another project's row has a share here.
+  const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
   const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos] = await Promise.all([
     dbSelect('job_finance', f),
     dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
     dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
-    dbSelect('purchase_invoices', f+'&status=neq.rejected&limit=10000'),
-    dbSelect('purchase_orders', f+'&limit=10000'),
-    dbSelect('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,ts,type&order=ts.desc&limit=50000'),
+    dbSelect('purchase_invoices', fs+'&status=neq.rejected&limit=10000'),
+    dbSelect('purchase_orders', fs+'&limit=10000'),
+    dbSelect('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,sub_site_id,ts,type&order=ts.desc&limit=50000'),
     dbSelect('fin_labour_manual', f+'&limit=20000'),
-    dbSelect('fin_plant_hires', f),
-    dbSelect('fin_job_costs', f+'&limit=10000'),
+    dbSelect('fin_plant_hires', fs),
+    dbSelect('fin_job_costs', fs+'&limit=10000'),
     dbSelect('fin_job_budgets', f),
     dbSelect('fin_variations', f+'&order=seq.asc'),
     dbSelect('fin_subcontracts', f+'&order=seq.asc'),
@@ -36,43 +38,54 @@ async function finLoadBook(siteId){
 function finBy(arr, siteId){ return (arr||[]).filter(x=>x.site_id===siteId); }
 
 // Every cost line on one job. cat = a FIN_COST_CATS key, or 'committed' (ccat says which type).
+// Each line also carries sub = the plot / address / repair job it's booked to (null = whole project),
+// and share < 1 when the cost is split (917 finAllocs).
 function finCostLinesFromBook(b, siteId){
-  const pinvs = finBy(b.pinvs, siteId), pos = finBy(b.pos, siteId);
-  const poBy = {}; pos.forEach(p=>{ poBy[p.id] = p; });
+  const poAll = {}; (b.pos||[]).forEach(p=>{ poAll[p.id] = p; });
+  const ctx = {poBy:poAll};
   const lines = [];
-  pinvs.forEach(i=>{
+  const each = (rows, fn)=>(rows||[]).forEach(r=>finAllocs(r, ctx).forEach(a=>{ if(a.site_id===siteId) fn(r, a); }));
+  const tag = a=>a.share < 0.9999 ? ' ('+finRound(a.share*100)+'% share)' : '';
+  each(b.pinvs, (i,a)=>{
     const cat = FIN_COST_CATS[i.cost_code] ? i.cost_code : 'materials';
-    lines.push({key:'pi:'+i.id, date:i.invoice_date, cat, desc:i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'), who:i.supplier_name||'', ref:[i.invoice_no, poBy[i.po_id] && poBy[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:Number(i.net||0), open:`openPurchaseInvoiceView('${siteId}','${i.id}')`});
+    lines.push({key:'pi:'+i.id+':'+(a.sub||''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
   });
-  pos.filter(p=>p.status==='open' && p.value!=null).forEach(p=>{
-    const left = finRound(Number(p.value) - finPoInvoiced(p, pinvs));
-    if(left > 0) lines.push({key:'po:'+p.id, date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet', who:p.supplier_name||'', ref:p.number, status:'Committed', net:left, open:`go('#/site/${siteId}/finance/po/${p.id}')`});
+  each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
+    const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));
+    if(left > 0) lines.push({key:'po:'+p.id+':'+(a.sub||''), date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet'+tag(a), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
   });
-  finLabourDaysFrom(finBy(b.cks, siteId)).forEach(d=>{
+  // Sign-in days: a day split evenly over the plots / addresses signed into that day.
+  const dayCks = finBy(b.cks, siteId), daySubs = {};
+  dayCks.forEach(c=>{ if(c.type && c.type!=='in') return; const k = c.user_id+'|'+finIsoDay(c.ts); (daySubs[k] = daySubs[k] || new Set()).add(c.sub_site_id||''); });
+  finLabourDaysFrom(dayCks).forEach(d=>{
     const r = b.rates[d.user_id];
-    lines.push({key:'ck:'+d.user_id+d.date, date:d.date, cat:'labour', desc:'Day on site (sign-in)', who:finPersonName(d.user_id), ref:'', status:r && r.day_rate!=null ? '' : 'No day rate', waiting:!(r && r.day_rate!=null), net:r && r.day_rate!=null ? Number(r.day_rate) : 0, person:d.user_id});
+    const subs = Array.from(daySubs[d.user_id+'|'+d.date] || ['']);
+    subs.forEach(sb=>{
+      const share = 1/subs.length;
+      lines.push({key:'ck:'+d.user_id+d.date+sb, date:d.date, cat:'labour', desc:'Day on site (sign-in)'+(subs.length>1?' ('+finRound(share*100)+'% share)':''), who:finPersonName(d.user_id), ref:'', status:r && r.day_rate!=null ? '' : 'No day rate', waiting:!(r && r.day_rate!=null), net:r && r.day_rate!=null ? finRound(Number(r.day_rate)*share) : 0, days:share, person:d.user_id, sub:sb||null, share});
+    });
   });
   finBy(b.manual, siteId).forEach(m=>{
-    lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m)});
+    lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m), sub:m.sub_job_id||null, share:1});
   });
-  finBy(b.hires, siteId).forEach(h=>{
+  each(b.hires, (h,a)=>{
     const c = finPlantCost(h);
-    lines.push({key:'ph:'+h.id, date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')', who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:c.cost, open:`openFinPlantForm('${siteId}','${h.id}')`});
+    lines.push({key:'ph:'+h.id+':'+(a.sub||''), date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')'+tag(a), who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:finRound(c.cost*a.share), sub:a.sub, share:a.share, src:{t:'fin_plant_hires', id:h.id}, open:`openFinPlantForm('${h.site_id}','${h.id}')`});
   });
-  finBy(b.extra, siteId).forEach(x=>{
-    lines.push({key:'jc:'+x.id, date:x.cost_date, cat:FIN_COST_CATS[x.category] ? x.category : 'other', desc:x.description, who:x.supplier||'', ref:x.ref||'', status:'', net:Number(x.net||0), open:`openFinJobCost('${siteId}','${x.id}')`});
+  each(b.extra, (x,a)=>{
+    lines.push({key:'jc:'+x.id+':'+(a.sub||''), date:x.cost_date, cat:FIN_COST_CATS[x.category] ? x.category : 'other', desc:x.description+tag(a), who:x.supplier||'', ref:x.ref||'', status:'', net:finRound(Number(x.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'fin_job_costs', id:x.id}, open:`openFinJobCost('${x.site_id}','${x.id}')`});
   });
   // Subcontractors: each certified application adds (certified gross − last certified gross − new contra charges).
   finBy(b.scs, siteId).forEach(sc=>{
     let prevG = 0, prevC = 0, certG = 0;
     (b.sapps||[]).filter(a=>a.subcontract_id===sc.id && a.certified_gross!=null).sort((x,y)=>x.number-y.number).forEach(a=>{
       const g = Number(a.certified_gross||0), c = Number(a.contra||0);
-      lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
       prevG = g; prevC = c; certG = g;
     });
     if(sc.order_value!=null && sc.status!=='complete'){
       const left = finRound(Number(sc.order_value) - certG);
-      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }
   });
   return lines;
@@ -124,7 +137,7 @@ function finJobCostCardFromForecast(siteId, fc){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
       <p class="sectiontitle" style="margin:0;">Project cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All costs ›</button>
+      <span style="display:flex;gap:6px;flex:none;">${finSubKind(siteId) ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/parts')">By ${finSubKind(siteId)==='repair'?'repair job':'plot'} ›</button>` : ''}<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All costs ›</button></span>
     </div>
     <div class="fincost">
       ${box('Contract value', fc.contract)}${box('Invoiced to client', fc.invoiced)}

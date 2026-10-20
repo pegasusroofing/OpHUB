@@ -1767,6 +1767,35 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finlines summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--slate);padding:6px 0;}
 .finrate-src{font-style:normal;font-size:12px;color:var(--slate-light);}
 .finshoprate{width:90px !important;height:36px;text-align:right;padding:4px 8px;margin-bottom:4px;}
+/* Finance — split / allocate (917) */
+.finseg{display:inline-flex;background:#F1F3F6;border-radius:10px;padding:3px;margin:0 0 12px;}
+.finseg button{border:0;background:none;padding:7px 16px;border-radius:8px;font:inherit;font-weight:700;font-size:13.5px;color:var(--slate);cursor:pointer;}
+.finseg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+.finseg button:disabled{opacity:.4;cursor:default;}
+.finsplit-rows{display:flex;flex-direction:column;gap:8px;}
+.finsplit-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) 96px 24px;gap:8px;align-items:center;}
+.finsplit-row select{min-width:0;width:100%;padding:9px 8px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;}
+.finsplit-none{color:var(--slate);text-align:center;}
+.finsplit-v{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:0 8px;background:#fff;}
+.finsplit-v input{border:0;width:100%;min-width:0;padding:9px 0;font:inherit;font-size:15px;text-align:right;outline:none;background:none;}
+.finsplit-v span{color:var(--slate);font-weight:700;}
+.finsplit-tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;}
+.finsplit-tools .ghostbtn{width:auto;padding:8px 12px;margin:0;}
+.finsplit-foot{border-radius:10px;padding:10px 12px;margin:0 0 12px;font-weight:700;font-size:14px;}
+.finsplit-foot.ok{background:#E6F2EC;color:#1E6B45;}
+.finsplit-foot.bad{background:var(--warn-bg,#FDF1DE);color:#7a4a00;}
+@media (max-width:600px){ .finsplit-row{grid-template-columns:1fr 84px 24px;} .finsplit-row > select:first-child{grid-column:1 / -1;} }
+.finalloc b{white-space:normal;}
+.finalloc .linkbtn{margin-left:6px;}
+.finparts .finparts-s{display:block;font-style:normal;font-size:12.5px;color:var(--slate);font-weight:400;margin-top:2px;}
+.finparts tr.finparts-un td{background:#FBF8F1;}
+.finsubpill{display:inline-block;background:#EEF1F6;color:#3A4352;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700;white-space:nowrap;}
+.finsubpill.un{background:var(--warn-bg,#FDF1DE);color:#7a4a00;cursor:pointer;}
+.finsubpill.split{background:#EDE7F6;color:#4E1F6E;}
+.fincostsub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px;}
+.fincostsub .field-label{margin:0;}
+.fincostsub select{flex:1 1 240px;min-width:0;max-width:420px;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;}
+.fincostsub .ghostbtn{width:auto;margin:0;padding:9px 14px;}
 </style>
 </head>
 <body>
@@ -36621,6 +36650,7 @@ async function renderMaterialRequests(siteId){
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
   if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
+  if(site && site.repair_contract) await loadRepairPick(siteId);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
@@ -36785,6 +36815,7 @@ async function renderMaterialRequests(siteId){
     <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
+      ${repairJobSelectHtml('matRepairJob', siteId)}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       ${ORG && ORG.has_finance && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
       <div class="row-gap">
@@ -37195,6 +37226,32 @@ function readSubAddr(selId, siteId){
 }
 function subAddrPill(label){
   return label ? `<span class="subaddrpill">📍 ${escapeHtml(label)}</span>` : '';
+}
+
+/* ---- Repair contracts: which repair job is a material request for? (Finance
+   books the cost to that repair job — 917). Optional; only id, number and
+   address are loaded here. ---- */
+const REPAIR_PICK_CACHE = {};
+async function loadRepairPick(siteId){
+  const rows = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&closed=is.false&select=id,job_number,address&order=created_at.desc&limit=2000');
+  REPAIR_PICK_CACHE[siteId] = rows || [];
+  return REPAIR_PICK_CACHE[siteId];
+}
+function repairPickLabel(j){ return [j.job_number, j.address].filter(Boolean).join(' — ') || 'Repair job'; }
+function repairJobSelectHtml(selId, siteId){
+  const s = SITES.find(x=>x.id===siteId); if(!s || !s.repair_contract) return '';
+  const list = REPAIR_PICK_CACHE[siteId] || [];
+  if(!list.length) return '';
+  return `<div class="formfield"><label class="field-label">Which repair job? (optional)</label>
+    <select id="${selId}"><option value="">— General / not for one job —</option>
+      ${list.map(j=>`<option value="${j.id}">${escapeHtml(repairPickLabel(j))}</option>`).join('')}
+    </select></div>`;
+}
+function readRepairJob(selId, siteId){
+  const el = document.getElementById(selId); const id = el ? el.value : '';
+  if(!id) return null;
+  const j = (REPAIR_PICK_CACHE[siteId]||[]).find(x=>x.id===id);
+  return {repair_job_id:id, sub_site_label:j ? repairPickLabel(j) : null};
 }
 
 /* ================= MATERIAL LIST (pick-up list) ================
@@ -38665,10 +38722,12 @@ window.addMaterial = async function(siteId){
   if(!item) return;
   const sub = readSubAddr('matSubAddr', siteId);
   if(siteIsMulti(siteId) && (SUB_ADDR_CACHE[siteId]||[]).length && !sub.sub_site_id){ toast('Choose which address on this job.'); return; }
+  const rj = typeof readRepairJob==='function' ? readRepairJob('matRepairJob', siteId) : null;
+  if(rj){ sub.repair_job_id = rj.repair_job_id; sub.sub_site_label = rj.sub_site_label; }
   // Picked from the project shopping list (915)? Keep the link (prices the PO) and add the unit.
   const pick = typeof finShopPickFor==='function' ? finShopPickFor(item) : null;
   const qtyTxt = (qty||'1') + (pick && pick.unit && /^\s*[0-9.]+\s*$/.test(qty||'1') ? ' '+pick.unit : '');
-  const rows = await dbInsert('materials', Object.assign({site_id:siteId, item, qty:qtyTxt, required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label}, pick ? {shop_item_id:pick.id} : {}));
+  const rows = await dbInsert('materials', Object.assign({site_id:siteId, item, qty:qtyTxt, required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label}, sub.repair_job_id ? {repair_job_id:sub.repair_job_id} : {}, pick ? {shop_item_id:pick.id} : {}));
   if(rows && pick) finShopPick = null;
   if(rows){
     postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`+(requiredBy?` — required by ${requiredBy}`:''));
@@ -45618,7 +45677,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='parts') return renderFinParts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }
@@ -47469,6 +47528,8 @@ async function renderFinPo(siteId, poId){
   const mats = po && (po.material_ids||[]).length ? await dbSelect('materials', 'id=in.('+po.material_ids.join(',')+')&select=id,item,qty,grn,status,cancel_reason') : [];
   if(__gen !== RENDER_GEN) return;
   if(!po || !site){ toast('PO not found.'); go(`#/site/${siteId}/finance`); return; }
+  await Promise.all(Array.from(new Set([po.site_id].concat((po.split||[]).map(e=>e.site_id)))).map(x=>finSubJobsLoad(x)));
+  if(__gen !== RENDER_GEN) return;
   const inv = finPoInvoiced(po, pinvs);
   const matBy = {}; mats.forEach(m=>{ matBy[m.id] = m; });
   document.getElementById('app').innerHTML = shell(`
@@ -47483,6 +47544,7 @@ async function renderFinPo(siteId, poId){
       <div class="finkv"><span>${po.fulfilment==='collection'?'Collection':'Required for delivery'}</span><b>${finDate(po.required_by)}</b></div>
       ${po.supplier_branch ? `<div class="finkv"><span>Branch</span><b>${escapeHtml(po.supplier_branch)}</b></div>` : ''}
       ${po.note ? `<div class="finkv"><span>Note</span><b style="white-space:normal;">${escapeHtml(po.note)}</b></div>` : ''}
+      ${finAllocBlockHtml('purchase_orders', po, {})}
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Items</p>
@@ -47533,6 +47595,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
     dbSelect('suppliers', 'select=id,name&order=name.asc'),
   ]);
   finPiFile = null;
+  await finSubJobsLoad(siteId);
   const po = poId ? pos.find(p=>p.id===poId) : null;
   let ov = document.getElementById('finPiOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -47553,6 +47616,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
     </div>
     <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" id="finPiTotal" oninput="finPiCalc('total')"></div>
     <div class="formfield"><label class="field-label">What it’s for (optional)</label><input type="text" id="finPiDesc" placeholder="e.g. battens, fixings"></div>
+    ${finSubJobSelectHtml('finPiSub', siteId, '', finSubNoun(siteId)+(receipt ? '' : ' (blank = same as the PO)'))}
     <div class="formfield"><label class="field-label">Cost type</label><select id="finPiCat">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}">${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
     <div class="formfield"><label class="field-label">${receipt?'Photo of the receipt':'Copy of the invoice'} (optional)</label><input type="file" accept="application/pdf,image/*" ${receipt?'capture="environment"':''} onchange="finPiFile=this.files[0]||null"></div>
     <div id="finPiWarn"></div>
@@ -47603,7 +47667,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const row = {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:receipt?'receipt':'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:finVal('finPiDate')||finToday(), net:finRound(net), vat:finRound(vat), total:total!==null&&!isNaN(total)?finRound(total):finRound(net+vat),
-    due_date:finVal('finPiDue')||null, description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
+    due_date:finVal('finPiDue')||null, description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', sub_job_id:finVal('finPiSub')||null, status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
   if(finPiFile){
     const safe = finPiFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/purchase/'+uid()+'-'+safe, finPiFile, finPiFile.type||'application/octet-stream');
@@ -47623,7 +47687,8 @@ window.savePurchaseInvoice = async function(siteId, receipt){
 window.openPurchaseInvoiceView = async function(siteId, id){
   if(!FIN_SETTINGS) await finLoadSettings();
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;
-  const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id+'&select=number'))[0] : null;
+  const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id))[0] : null;
+  await Promise.all(Array.from(new Set([i.site_id].concat((i.split||[]).map(e=>e.site_id)))).map(x=>finSubJobsLoad(x)));
   let ov = document.getElementById('finPiOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -47634,6 +47699,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv"><span>Date</span><b>${finDate(i.invoice_date)}</b></div>
     <div class="finkv"><span>PO</span><b>${po?escapeHtml(po.number):'No PO'}</b></div>
     <div class="finkv"><span>Cost type</span><b><select onchange="setFinPiCostCode('${i.id}', this.value)" style="width:auto;padding:4px 8px;">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}" ${(i.cost_code||'materials')===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></b></div>
+    ${finAllocBlockHtml('purchase_invoices', i, {poBy: po ? {[po.id]:po} : {}})}
     ${i.description?`<div class="finkv"><span>For</span><b style="white-space:normal;">${escapeHtml(i.description)}</b></div>`:''}
     <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
     <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>
@@ -47745,6 +47811,7 @@ window.openFinManualLabour = async function(siteId, date){
   const people = Object.values(PROFILES).filter(p=>['operative','site_manager','pm'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
   const workers = Object.values(FIN_WORKERS).filter(w=>w.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   window.__finLabRates = rates;
+  if(siteId) await finSubJobsLoad(siteId);
   let ov = document.getElementById('finLabOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finLabOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -47763,6 +47830,7 @@ window.openFinManualLabour = async function(siteId, date){
     </div>
     <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" id="finLabAmt"></div>
     <div class="formfield"><label class="field-label">What for</label><input type="text" id="finLabDesc" placeholder="e.g. price work, lead to valleys"></div>
+    ${siteId ? finSubJobSelectHtml('finLabSub', siteId, '') : ''}
     <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId||''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finLabOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -47779,7 +47847,7 @@ window.saveFinManualLabour = async function(siteId){
   if(!who && !name){ toast('Choose who, or type a name.'); return; }
   if(amt===null || isNaN(amt)){ toast('Enter the amount.'); return; }
   const isW = who.startsWith('w:');
-  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, user_id:(who && !isW)?who:null, worker_id:isW?who.slice(2):null, name:isW?finPersonName(who):(who?null:name), work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
+  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, sub_job_id:finVal('finLabSub')||null, user_id:(who && !isW)?who:null, worker_id:isW?who.slice(2):null, name:isW?finPersonName(who):(who?null:name), work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
   if(!r) return;
   document.getElementById('finLabOverlay').style.display = 'none'; toast('Labour added'); render();
 };
@@ -47804,6 +47872,7 @@ function finPlantCardHtml(siteId, hires){
 }
 window.openFinPlantForm = async function(siteId, id){
   const h = id ? (await dbSelect('fin_plant_hires', 'id=eq.'+id))[0] : null;
+  await finSubJobsLoad(siteId);
   let ov = document.getElementById('finPlantOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPlantOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -47819,8 +47888,10 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
+    ${h && h.split ? finAllocBlockHtml('fin_plant_hires', h) : finSubJobSelectHtml('finPlSub', siteId, h ? h.sub_job_id||'' : '')}
     <button class="darkbtn" style="width:100%;" onclick="saveFinPlant('${siteId}','${h?h.id:''}')">Save</button>
     ${h && !h.off_hire ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finPlOff').value='${finToday()}';saveFinPlant('${siteId}','${h.id}')">Off-hire today</button>` : ''}
+    ${h ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finPlantOverlay').style.display='none';openFinSplit('fin_plant_hires','${h.id}')">Split across ${FIN_SUBJOBS[siteId]&&FIN_SUBJOBS[siteId].length?'plots / ':''}projects</button>` : ''}
     ${h ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteFinPlant('${h.id}')">Remove</button>` : ''}
     <button class="geo-modal-cancel" onclick="document.getElementById('finPlantOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -47833,6 +47904,7 @@ window.saveFinPlant = async function(siteId, id){
   if(rate===null || isNaN(rate)){ toast('Enter the hire rate.'); return; }
   if(off && off < on){ toast('Off-hire can’t be before on-hire.'); return; }
   const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null};
+  if(document.getElementById('finPlSub')) row.sub_job_id = finVal('finPlSub')||null;
   const r = id ? await dbUpdate('fin_plant_hires', id, row) : await dbInsert('fin_plant_hires', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id}, row));
   if(!r) return;
   document.getElementById('finPlantOverlay').style.display = 'none'; toast(off ? 'Saved — off hire '+finDate(off) : 'Saved'); render();
@@ -48706,7 +48778,7 @@ window.finTeamEmail = async function(){
    ============================================================ */
 let finNewPo = null;
 window.openFinNewPo = async function(siteId){
-  const suppliers = await dbSelect('suppliers', 'select=id,name,email&order=name.asc');
+  const [suppliers] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finSubJobsLoad(siteId)]);
   finNewPo = {siteId, suppliers, lines:[{description:'', qty:1, unit:'', rate:null, amount:0}]};
   let ov = document.getElementById('finNpoOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finNpoOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -48719,6 +48791,7 @@ window.openFinNewPo = async function(siteId){
       <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
       <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
     </div>
+    ${finSubJobSelectHtml('finNpoSub', siteId, '', 'For which '+finSubNoun(siteId).toLowerCase()+'? (split it after if it’s for several)')}
     <p class="sectiontitle" style="margin:10px 0 4px;">Items</p>
     <div id="finNpoLines"></div>
     <div class="row-gap" style="margin:6px 0 10px;"><button class="ghostbtn" style="flex:1;" onclick="finNpoAdd()">+ Add item</button><button class="ghostbtn" style="flex:1;" onclick="openShopPicker('${siteId}','po')">From the shopping list</button></div>
@@ -48778,6 +48851,7 @@ window.saveFinNewPo = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
+  const sub = finVal('finNpoSub'); if(sub && d && d.id) await dbUpdate('purchase_orders', d.id, {sub_job_id:sub});
   document.getElementById('finNpoOverlay').style.display = 'none';
   finNewPo = null;
   toast('PO '+d.number+' raised');
@@ -48921,15 +48995,21 @@ async function finJobCostLines(siteId){
   return finCostLinesFromBook(b, siteId);
 }
 
+// Lines for the chosen plot / repair job ('' = all, 'none' = not allocated).
+function finCostsBase(){
+  const c = finCosts; if(!c.sub) return c.lines;
+  return c.lines.filter(l=>c.sub==='none' ? !l.sub : l.sub===c.sub);
+}
 function finCostsShown(){
   const c = finCosts; const q = (c.q||'').toLowerCase();
-  let rows = c.lines.filter(l=>{
+  let rows = finCostsBase().filter(l=>{
     if(c.tab==='all' ? l.cat==='committed' : l.cat!==c.tab) return false;
     if(c.from && l.date < c.from) return false;
     if(c.to && l.date > c.to) return false;
-    if(q && ![l.desc, l.who, l.ref, l.status, FIN_COST_CATS[l.cat]].join(' ').toLowerCase().includes(q)) return false;
+    if(q && ![l.desc, l.who, l.ref, l.status, FIN_COST_CATS[l.cat], l.sub ? finSubLabel(c.siteId, l.sub) : ''].join(' ').toLowerCase().includes(q)) return false;
     return true;
   });
+  rows.forEach(l=>l.subl = l.sub ? finSubLabel(c.siteId, l.sub, true) : '');
   const k = c.sort, dir = c.dir==='asc' ? 1 : -1;
   rows = rows.slice().sort((a,b)=>{ const x = a[k], y = b[k]; if(x==y) return 0; return (k==='net' ? (Number(x)-Number(y)) : String(x||'').localeCompare(String(y||''))) * dir; });
   return rows;
@@ -48937,7 +49017,7 @@ function finCostsShown(){
 function finCostTotals(){
   const t = {all:0, committed:0}; Object.keys(FIN_COST_CATS).forEach(k=>t[k]=0);
   const n = {all:0, committed:0}; Object.keys(FIN_COST_CATS).forEach(k=>n[k]=0);
-  finCosts.lines.forEach(l=>{ t[l.cat] += l.net; n[l.cat]++; if(l.cat!=='committed'){ t.all += l.net; n.all++; } });
+  finCostsBase().forEach(l=>{ t[l.cat] += l.net; n[l.cat]++; if(l.cat!=='committed'){ t.all += l.net; n.all++; } });
   Object.keys(t).forEach(k=>t[k] = finRound(t[k]));
   return {t, n};
 }
@@ -48947,8 +49027,11 @@ async function renderFinCosts(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  if(!finCosts || finCosts.siteId!==siteId) finCosts = {siteId, tab:'all', q:'', from:'', to:'', sort:'date', dir:'desc', lines:[]};
-  const lines = await finJobCostLines(siteId);
+  if(!finCosts || finCosts.siteId!==siteId) finCosts = {siteId, tab:'all', q:'', from:'', to:'', sort:'date', dir:'desc', lines:[], sub:''};
+  const qs = typeof routeQuery==='function' ? routeQuery() : new URLSearchParams('');
+  if(qs.has('sub')) finCosts.sub = qs.get('sub')||'';
+  const [lines, subs] = await Promise.all([finJobCostLines(siteId), finSubJobsLoad(siteId, true)]);
+  finCosts.hasSubs = subs.length > 0;
   if(__gen !== RENDER_GEN) return;
   finCosts.lines = lines;
   const {t, n} = finCostTotals();
@@ -48958,6 +49041,15 @@ async function renderFinCosts(siteId){
     <div class="fincostsum">
       ${tabs.map(k=>`<button type="button" class="fincostsum-i ${finCosts.tab===k?'on':''} ${k==='committed'?'com':''}" onclick="finCostTab('${k}')"><span>${lbl(k)}</span><b>${finMoney(t[k], 0)}</b><em>${n[k]} line${n[k]===1?'':'s'}</em></button>`).join('')}
     </div>
+    ${finCosts.hasSubs ? `<div class="fincostsub">
+      <label class="field-label" for="finCostSub">${escapeHtml(finSubNoun(siteId))}</label>
+      <select id="finCostSub" onchange="finCostSetSub(this.value)">
+        <option value="">All ${escapeHtml(finSubNoun(siteId, true).toLowerCase())}</option>
+        <option value="none" ${finCosts.sub==='none'?'selected':''}>Not allocated (whole project)</option>
+        ${subs.map(a=>`<option value="${a.id}" ${finCosts.sub===a.id?'selected':''}>${escapeHtml(a.label)}</option>`).join('')}
+      </select>
+      <button class="ghostbtn" onclick="go('#/site/${siteId}/finance/parts')">Overview by ${finSubKind(siteId)==='repair'?'repair job':'plot'}</button>
+    </div>` : ''}
     <div class="fincosttools">
       <input type="search" id="finCostQ" placeholder="Search description, supplier, ref…" value="${escapeHtml(finCosts.q)}" oninput="finCosts.q=this.value;finCostPaint()">
       <label>From<input type="date" value="${finCosts.from}" onchange="finCosts.from=this.value;finCostPaint()"></label>
@@ -48970,10 +49062,17 @@ async function renderFinCosts(siteId){
     </div>
     <div id="finCostTbl"></div>
     <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; supplier invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
-  `, {title:'Project costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
+  `, {title:finCosts.sub && finCosts.sub!=='none' ? finSubLabel(siteId, finCosts.sub, true)+' costs' : 'Project costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:finCosts.sub ? `#/site/${siteId}/finance/parts` : `#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finCostPaint();
 }
 window.finCostTab = function(k){ finCosts.tab = k; render(); };
+window.finCostSetSub = function(v){ finCosts.sub = v; go('#/site/'+finCosts.siteId+'/finance/costs'+(v?'?sub='+v:'')); };
+function finCostSubCell(l){
+  if(!finCosts.hasSubs) return '';
+  const lbl = l.sub ? finSubLabel(finCosts.siteId, l.sub, true) : '';
+  const btn = l.src ? ` onclick="event.stopPropagation();openFinSplit('${l.src.t}','${l.src.id}')" title="Allocate / split"` : '';
+  return `<td data-l="${escapeHtml(finSubNoun(finCosts.siteId))}">${lbl ? `<span class="finsubpill ${l.share<0.9999?'split':''}" ${btn} ${btn?'style="cursor:pointer;"':''}>${escapeHtml(lbl)}${l.share<0.9999?' · '+finRound(l.share*100)+'%':''}</span>` : `<span class="finsubpill un" ${btn}>${l.src?'Allocate':'Not allocated'}</span>`}</td>`;
+}
 window.finCostSort = function(k){ if(finCosts.sort===k) finCosts.dir = finCosts.dir==='asc'?'desc':'asc'; else { finCosts.sort = k; finCosts.dir = k==='net'||k==='date' ? 'desc' : 'asc'; } finCostPaint(); };
 window.finCostPaint = function(){
   const box = document.getElementById('finCostTbl'); if(!box) return;
@@ -48982,23 +49081,26 @@ window.finCostPaint = function(){
   const waiting = finRound(rows.filter(l=>l.waiting).reduce((s,l)=>s+l.net, 0));
   const th = (k, l, cls)=>`<th class="${cls||''}" onclick="finCostSort('${k}')">${l}${finCosts.sort===k ? (finCosts.dir==='asc'?' ▲':' ▼') : ''}</th>`;
   box.innerHTML = rows.length ? `<table class="fincosttbl">
-    <thead><tr>${th('date','Date')}${finCosts.tab==='all'?th('cat','Type'):''}${th('desc','Description')}${th('who','Supplier / person')}${th('ref','Ref')}${th('status','Status')}${th('net','Net £','num')}</tr></thead>
+    <thead><tr>${th('date','Date')}${finCosts.tab==='all'?th('cat','Type'):''}${th('desc','Description')}${th('who','Supplier / person')}${th('ref','Ref')}${finCosts.hasSubs?th('subl',escapeHtml(finSubNoun(finCosts.siteId))):''}${th('status','Status')}${th('net','Net £','num')}</tr></thead>
     <tbody>${rows.map(l=>`<tr ${l.open?`class="click" onclick="${l.open}"`:''}>
       <td data-l="Date">${finDate(l.date)}</td>
       ${finCosts.tab==='all'?`<td data-l="Type"><span class="fincat c-${l.cat}">${FIN_COST_CATS[l.cat]||l.cat}</span></td>`:''}
       <td data-l="Description" class="d">${escapeHtml(l.desc)}</td>
       <td data-l="Supplier / person">${escapeHtml(l.who)}</td>
       <td data-l="Ref">${escapeHtml(l.ref)}</td>
+      ${finCostSubCell(l)}
       <td data-l="Status">${l.status ? `<span class="finpill ${l.waiting?'warn':'grey'}">${escapeHtml(l.status)}</span>` : ''}</td>
       <td data-l="Net" class="num">${finMoney(l.net)}</td>
     </tr>`).join('')}</tbody>
-    <tfoot><tr><td colspan="${finCosts.tab==='all'?6:5}">${rows.length} line${rows.length===1?'':'s'}${waiting?' · '+finMoney(waiting)+' waiting approval':''}</td><td class="num">${finMoney(tot)}</td></tr></tfoot>
+    <tfoot><tr><td colspan="${(finCosts.tab==='all'?6:5)+(finCosts.hasSubs?1:0)}">${rows.length} line${rows.length===1?'':'s'}${waiting?' · '+finMoney(waiting)+' waiting approval':''}</td><td class="num">${finMoney(tot)}</td></tr></tfoot>
   </table>` : `<div class="empty">No costs here${finCosts.q||finCosts.from||finCosts.to ? ' for this search' : ' yet'}.</div>`;
 };
 
 /* ---------- add / edit a cost ---------- */
 window.openFinJobCost = async function(siteId, id){
   const x = id ? (await dbSelect('fin_job_costs', 'id=eq.'+id))[0] : null;
+  await finSubJobsLoad(siteId);
+  const subSel = x ? (x.sub_job_id||'') : (finCosts && finCosts.siteId===siteId && finCosts.sub && finCosts.sub!=='none' ? finCosts.sub : '');
   let ov = document.getElementById('finJcOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finJcOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -49011,6 +49113,7 @@ window.openFinJobCost = async function(siteId, id){
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finJcDate" value="${x?x.cost_date:finToday()}"></div>
     </div>
     <div class="formfield"><label class="field-label">Description</label><input type="text" id="finJcDesc" value="${escapeHtml(x?x.description:'')}"></div>
+    ${x && x.split ? finAllocBlockHtml('fin_job_costs', x) : finSubJobSelectHtml('finJcSub', siteId, subSel)}
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" id="finJcSup" value="${escapeHtml(x&&x.supplier||'')}"></div>
       <div class="formfield"><label class="field-label">Ref</label><input type="text" id="finJcRef" value="${escapeHtml(x&&x.ref||'')}"></div>
@@ -49018,6 +49121,7 @@ window.openFinJobCost = async function(siteId, id){
       <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" id="finJcVat" value="${x?x.vat:''}"></div>
     </div>
     <button class="darkbtn" style="width:100%;" onclick="saveFinJobCost('${siteId}','${x?x.id:''}')">Save</button>
+    ${x ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finJcOverlay').style.display='none';openFinSplit('fin_job_costs','${x.id}')">Split across ${FIN_SUBJOBS[siteId]&&FIN_SUBJOBS[siteId].length?escapeHtml(finSubNoun(siteId, true).toLowerCase())+' / ':''}projects</button>` : ''}
     ${x ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteFinJobCost('${x.id}')">Remove</button>` : ''}
     <button class="geo-modal-cancel" onclick="document.getElementById('finJcOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -49028,6 +49132,7 @@ window.saveFinJobCost = async function(siteId, id){
   if(!desc){ toast('Add a description.'); return; }
   if(net===null || isNaN(net)){ toast('Enter the net amount.'); return; }
   const row = {category:finVal('finJcCat')||'overheads', cost_date:finVal('finJcDate')||finToday(), description:desc, supplier:finVal('finJcSup')||null, ref:finVal('finJcRef')||null, net:finRound(net), vat:(vat===null||isNaN(vat))?0:finRound(vat)};
+  const subEl = document.getElementById('finJcSub'); if(subEl) row.sub_job_id = subEl.value || null;
   const r = id ? await dbUpdate('fin_job_costs', id, row) : await dbInsert('fin_job_costs', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id}, row));
   if(!r) return;
   document.getElementById('finJcOverlay').style.display = 'none'; toast('Saved'); render();
@@ -49046,7 +49151,7 @@ window.setFinPiCostCode = async function(id, code){
 /* ---------- export ---------- */
 function finCostExportName(ext){
   const s = SITES.find(x=>x.id===finCosts.siteId) || {};
-  const tab = finCosts.tab==='all' ? 'All costs' : finCosts.tab==='committed' ? 'Committed' : FIN_COST_CATS[finCosts.tab];
+  const tab = (finCosts.sub ? (finCosts.sub==='none' ? 'Not allocated' : finSubLabel(finCosts.siteId, finCosts.sub, true))+' - ' : '')+(finCosts.tab==='all' ? 'All costs' : finCosts.tab==='committed' ? 'Committed' : FIN_COST_CATS[finCosts.tab]);
   return ('Project costs - '+(s.job_number?s.job_number+' ':'')+(s.name||'')+' - '+tab+' - '+finToday()).replace(/[\\/:*?"<>|]+/g,'')+'.'+ext;
 }
 window.finCostExportXlsx = async function(){
@@ -49054,13 +49159,13 @@ window.finCostExportXlsx = async function(){
   const rows = finCostsShown(); const s = SITES.find(x=>x.id===finCosts.siteId) || {};
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Costs', {views:[{state:'frozen', ySplit:4}]});
   ws.getCell('A1').value = 'Project costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''); ws.getCell('A1').font = {bold:true, size:14};
-  ws.getCell('A2').value = (ORG&&ORG.name||'')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · exported '+finDate(finToday())+' · excl. VAT';
-  const head = ['Date','Type','Description','Supplier / person','Ref','Status','Net £'];
+  ws.getCell('A2').value = (ORG&&ORG.name||'')+(finCosts.sub ? ' · '+(finCosts.sub==='none' ? 'Not allocated' : finSubLabel(finCosts.siteId, finCosts.sub)) : '')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · exported '+finDate(finToday())+' · excl. VAT';
+  const head = ['Date','Type','Description','Supplier / person','Ref','Status','Net £', finCosts.hasSubs ? finSubNoun(finCosts.siteId) : null].filter(Boolean);
   ws.getRow(4).values = head; ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
-  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)]; r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '#,##0.00'; });
+  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)].concat(finCosts.hasSubs ? [l.sub ? finSubLabel(finCosts.siteId, l.sub) : 'Not allocated'] : []); r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '#,##0.00'; });
   const tr = ws.getRow(5+rows.length); tr.getCell(6).value = 'Total'; tr.getCell(7).value = rows.length ? {formula:`SUM(G5:G${4+rows.length})`} : 0; tr.font = {bold:true}; tr.getCell(7).numFmt = '#,##0.00';
-  [12,14,48,26,20,14,14].forEach((w,i)=>ws.getColumn(i+1).width = w);
-  ws.autoFilter = {from:'A4', to:'G4'};
+  [12,14,48,26,20,14,14,30].forEach((w,i)=>ws.getColumn(i+1).width = w);
+  ws.autoFilter = {from:'A4', to:finCosts.hasSubs ? 'H4' : 'G4'};
   const buf = await wb.xlsx.writeBuffer();
   return deliverExcelBuffer(buf, finCostExportName('xlsx'));
 };
@@ -49077,7 +49182,7 @@ window.finCostExportPdf = async function(){
   const newPage = ()=>{
     page = pdf.addPage([W, H]); y = H-M;
     page.drawText('Project costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''), {x:M, y:y-12, size:14, font:bold, color:INK});
-    page.drawText((ORG&&ORG.name||'')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · '+finDate(finToday())+' · excl. VAT', {x:M, y:y-28, size:9, font:reg, color:SLATE});
+    page.drawText((ORG&&ORG.name||'')+(finCosts.sub ? ' · '+(finCosts.sub==='none' ? 'Not allocated' : finSubLabel(finCosts.siteId, finCosts.sub)) : '')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · '+finDate(finToday())+' · excl. VAT', {x:M, y:y-28, size:9, font:reg, color:SLATE});
     y -= 50; let x = M;
     ['Date','Type','Description','Supplier / person','Ref','Status','Net £'].forEach((h,i)=>{ const c = cols[i]; const tw = bold.widthOfTextAtSize(h, 8.5); page.drawText(h, {x: c.r ? x+c.w-tw-3 : x+3, y, size:8.5, font:bold, color:SLATE}); x += c.w; });
     y -= 6; page.drawLine({start:{x:M, y}, end:{x:W-M, y}, thickness:0.8, color:INK}); y -= 13;
@@ -49085,7 +49190,7 @@ window.finCostExportPdf = async function(){
   newPage();
   rows.forEach(l=>{
     if(y < M+30) newPage();
-    const vals = {date:finDate(l.date), cat:FIN_COST_CATS[l.cat]||'Committed', desc:l.desc, who:l.who, ref:l.ref, status:l.status, net:finMoney(l.net)};
+    const vals = {date:finDate(l.date), cat:FIN_COST_CATS[l.cat]||'Committed', desc:(finCosts.hasSubs && !finCosts.sub ? '['+(l.sub ? finSubLabel(finCosts.siteId, l.sub, true) : 'n/a')+'] ' : '')+l.desc, who:l.who, ref:l.ref, status:l.status, net:finMoney(l.net)};
     let x = M;
     cols.forEach(c=>{ const t = fit(vals[c.k], reg, 8.5, c.w); const tw = reg.widthOfTextAtSize(t, 8.5); page.drawText(t, {x: c.r ? x+c.w-tw-3 : x+3, y, size:8.5, font:reg, color:INK}); x += c.w; });
     page.drawLine({start:{x:M, y:y-4}, end:{x:W-M, y:y-4}, thickness:0.4, color:LINE}); y -= 15;
@@ -49113,16 +49218,18 @@ const FIN_VAR_PILL = {instructed:'grey', priced:'blue', submitted:'warn', agreed
 
 async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
+  // Rows that can be split across projects are also fetched when another project's row has a share here.
+  const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
   const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos] = await Promise.all([
     dbSelect('job_finance', f),
     dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
     dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
-    dbSelect('purchase_invoices', f+'&status=neq.rejected&limit=10000'),
-    dbSelect('purchase_orders', f+'&limit=10000'),
-    dbSelect('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,ts,type&order=ts.desc&limit=50000'),
+    dbSelect('purchase_invoices', fs+'&status=neq.rejected&limit=10000'),
+    dbSelect('purchase_orders', fs+'&limit=10000'),
+    dbSelect('checkins', (siteId ? 'site_id=eq.'+siteId+'&' : '')+'type=eq.in&select=user_id,site_id,sub_site_id,ts,type&order=ts.desc&limit=50000'),
     dbSelect('fin_labour_manual', f+'&limit=20000'),
-    dbSelect('fin_plant_hires', f),
-    dbSelect('fin_job_costs', f+'&limit=10000'),
+    dbSelect('fin_plant_hires', fs),
+    dbSelect('fin_job_costs', fs+'&limit=10000'),
     dbSelect('fin_job_budgets', f),
     dbSelect('fin_variations', f+'&order=seq.asc'),
     dbSelect('fin_subcontracts', f+'&order=seq.asc'),
@@ -49136,43 +49243,54 @@ async function finLoadBook(siteId){
 function finBy(arr, siteId){ return (arr||[]).filter(x=>x.site_id===siteId); }
 
 // Every cost line on one job. cat = a FIN_COST_CATS key, or 'committed' (ccat says which type).
+// Each line also carries sub = the plot / address / repair job it's booked to (null = whole project),
+// and share < 1 when the cost is split (917 finAllocs).
 function finCostLinesFromBook(b, siteId){
-  const pinvs = finBy(b.pinvs, siteId), pos = finBy(b.pos, siteId);
-  const poBy = {}; pos.forEach(p=>{ poBy[p.id] = p; });
+  const poAll = {}; (b.pos||[]).forEach(p=>{ poAll[p.id] = p; });
+  const ctx = {poBy:poAll};
   const lines = [];
-  pinvs.forEach(i=>{
+  const each = (rows, fn)=>(rows||[]).forEach(r=>finAllocs(r, ctx).forEach(a=>{ if(a.site_id===siteId) fn(r, a); }));
+  const tag = a=>a.share < 0.9999 ? ' ('+finRound(a.share*100)+'% share)' : '';
+  each(b.pinvs, (i,a)=>{
     const cat = FIN_COST_CATS[i.cost_code] ? i.cost_code : 'materials';
-    lines.push({key:'pi:'+i.id, date:i.invoice_date, cat, desc:i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'), who:i.supplier_name||'', ref:[i.invoice_no, poBy[i.po_id] && poBy[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:Number(i.net||0), open:`openPurchaseInvoiceView('${siteId}','${i.id}')`});
+    lines.push({key:'pi:'+i.id+':'+(a.sub||''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
   });
-  pos.filter(p=>p.status==='open' && p.value!=null).forEach(p=>{
-    const left = finRound(Number(p.value) - finPoInvoiced(p, pinvs));
-    if(left > 0) lines.push({key:'po:'+p.id, date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet', who:p.supplier_name||'', ref:p.number, status:'Committed', net:left, open:`go('#/site/${siteId}/finance/po/${p.id}')`});
+  each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
+    const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));
+    if(left > 0) lines.push({key:'po:'+p.id+':'+(a.sub||''), date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet'+tag(a), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
   });
-  finLabourDaysFrom(finBy(b.cks, siteId)).forEach(d=>{
+  // Sign-in days: a day split evenly over the plots / addresses signed into that day.
+  const dayCks = finBy(b.cks, siteId), daySubs = {};
+  dayCks.forEach(c=>{ if(c.type && c.type!=='in') return; const k = c.user_id+'|'+finIsoDay(c.ts); (daySubs[k] = daySubs[k] || new Set()).add(c.sub_site_id||''); });
+  finLabourDaysFrom(dayCks).forEach(d=>{
     const r = b.rates[d.user_id];
-    lines.push({key:'ck:'+d.user_id+d.date, date:d.date, cat:'labour', desc:'Day on site (sign-in)', who:finPersonName(d.user_id), ref:'', status:r && r.day_rate!=null ? '' : 'No day rate', waiting:!(r && r.day_rate!=null), net:r && r.day_rate!=null ? Number(r.day_rate) : 0, person:d.user_id});
+    const subs = Array.from(daySubs[d.user_id+'|'+d.date] || ['']);
+    subs.forEach(sb=>{
+      const share = 1/subs.length;
+      lines.push({key:'ck:'+d.user_id+d.date+sb, date:d.date, cat:'labour', desc:'Day on site (sign-in)'+(subs.length>1?' ('+finRound(share*100)+'% share)':''), who:finPersonName(d.user_id), ref:'', status:r && r.day_rate!=null ? '' : 'No day rate', waiting:!(r && r.day_rate!=null), net:r && r.day_rate!=null ? finRound(Number(r.day_rate)*share) : 0, days:share, person:d.user_id, sub:sb||null, share});
+    });
   });
   finBy(b.manual, siteId).forEach(m=>{
-    lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m)});
+    lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m), sub:m.sub_job_id||null, share:1});
   });
-  finBy(b.hires, siteId).forEach(h=>{
+  each(b.hires, (h,a)=>{
     const c = finPlantCost(h);
-    lines.push({key:'ph:'+h.id, date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')', who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:c.cost, open:`openFinPlantForm('${siteId}','${h.id}')`});
+    lines.push({key:'ph:'+h.id+':'+(a.sub||''), date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')'+tag(a), who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:finRound(c.cost*a.share), sub:a.sub, share:a.share, src:{t:'fin_plant_hires', id:h.id}, open:`openFinPlantForm('${h.site_id}','${h.id}')`});
   });
-  finBy(b.extra, siteId).forEach(x=>{
-    lines.push({key:'jc:'+x.id, date:x.cost_date, cat:FIN_COST_CATS[x.category] ? x.category : 'other', desc:x.description, who:x.supplier||'', ref:x.ref||'', status:'', net:Number(x.net||0), open:`openFinJobCost('${siteId}','${x.id}')`});
+  each(b.extra, (x,a)=>{
+    lines.push({key:'jc:'+x.id+':'+(a.sub||''), date:x.cost_date, cat:FIN_COST_CATS[x.category] ? x.category : 'other', desc:x.description+tag(a), who:x.supplier||'', ref:x.ref||'', status:'', net:finRound(Number(x.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'fin_job_costs', id:x.id}, open:`openFinJobCost('${x.site_id}','${x.id}')`});
   });
   // Subcontractors: each certified application adds (certified gross − last certified gross − new contra charges).
   finBy(b.scs, siteId).forEach(sc=>{
     let prevG = 0, prevC = 0, certG = 0;
     (b.sapps||[]).filter(a=>a.subcontract_id===sc.id && a.certified_gross!=null).sort((x,y)=>x.number-y.number).forEach(a=>{
       const g = Number(a.certified_gross||0), c = Number(a.contra||0);
-      lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      lines.push({key:'sa:'+a.id, date:a.app_date, cat:'subcontract', desc:sc.number+' application '+a.number, who:sc.name, ref:sc.description||'', status:a.status==='paid' ? 'Paid' : 'Certified', net:finRound((g-prevG)-(c-prevC)), sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
       prevG = g; prevC = c; certG = g;
     });
     if(sc.order_value!=null && sc.status!=='complete'){
       const left = finRound(Number(sc.order_value) - certG);
-      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }
   });
   return lines;
@@ -49224,7 +49342,7 @@ function finJobCostCardFromForecast(siteId, fc){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
       <p class="sectiontitle" style="margin:0;">Project cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All costs ›</button>
+      <span style="display:flex;gap:6px;flex:none;">${finSubKind(siteId) ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/parts')">By ${finSubKind(siteId)==='repair'?'repair job':'plot'} ›</button>` : ''}<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All costs ›</button></span>
     </div>
     <div class="fincost">
       ${box('Contract value', fc.contract)}${box('Invoiced to client', fc.invoiced)}
@@ -49491,6 +49609,7 @@ window.openFinSubcontract = async function(siteId, id){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   const v = k=>sc && sc[k]!=null ? escapeHtml(String(sc[k])) : '';
   window.__finScWorkers = FIN_WORKERS;
+  await finSubJobsLoad(siteId);
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:540px;">
     <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
@@ -49507,6 +49626,7 @@ window.openFinSubcontract = async function(siteId, id){
       <div class="formfield"><label class="field-label">VAT registered</label><select id="finScVat"><option value="false">No</option><option value="true" ${sc&&sc.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
       ${sc ? `<div class="formfield"><label class="field-label">Status</label><select id="finScStatus"><option value="active" ${sc.status!=='complete'?'selected':''}>Active</option><option value="complete" ${sc.status==='complete'?'selected':''}>Complete</option></select></div>` : ''}
     </div>
+    ${finSubJobSelectHtml('finScSub', siteId, sc ? sc.sub_job_id||'' : '')}
     <input type="hidden" id="finScWorker" value="${v('worker_id')}">
     <button class="darkbtn" style="width:100%;" onclick="saveFinSubcontract('${siteId}','${sc?sc.id:''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finScOverlay').style.display='none'">Cancel</button>
@@ -49524,6 +49644,7 @@ window.saveFinSubcontract = async function(siteId, id){
   if(ret===null || isNaN(ret) || ret<0 || ret>20){ toast('Retention should be between 0 and 20%.'); return; }
   const row = {name, email:finVal('finScEmail')||null, description:finVal('finScDesc')||null, order_value:(val===null||isNaN(val))?null:finRound(val), retention_pct:ret, cis_rate:Number(finVal('finScCis')||20), utr:finVal('finScUtr')||null, vat_registered:finVal('finScVat')==='true', worker_id:finVal('finScWorker')||null};
   if(id){ const st = finVal('finScStatus'); if(st) row.status = st; }
+  if(document.getElementById('finScSub')) row.sub_job_id = finVal('finScSub')||null;
   let r;
   if(id) r = await dbUpdate('fin_subcontracts', id, row);
   else {
@@ -49813,7 +49934,7 @@ const FIN_REPORTS = [
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
     (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
     (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*1.2));
-    (b.pinvs||[]).filter(i=>i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
+    (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
     let bal = Number(f.opening||0);
     const rows = weeks.map(w=>{ const net = finRound(w.inv+w.apps-w.sup-w.subs); bal = finRound(bal+net); return {wk:w.wk, inv:finRound(w.inv), apps:finRound(w.apps), sup:finRound(-w.sup), subs:finRound(-w.subs), net, bal}; });
@@ -50743,6 +50864,7 @@ const FIN_DOC_TYPES = [
   {k:'shopping', l:'Shopping list', go:id=>`#/site/${id}/finance/shopping`},
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
+  {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
   {k:'budget', l:'Budget & forecast', go:id=>`#/site/${id}/finance/budget`},
   {k:'contract', l:'Contract breakdown', go:id=>`#/site/${id}/finance/contract`},
 ];
@@ -50758,7 +50880,7 @@ const FIN_NEW_TYPES = [
 ];
 function finCurrentDocType(parts){
   const p = parts[3] || '';
-  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
+  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
 }
 function finShellPrefix(opts){
   if(typeof isFinanceUser!=='function' || !isFinanceUser()) return '';
@@ -50769,7 +50891,7 @@ function finShellPrefix(opts){
   return `<div class="finprojbar">
     <button type="button" class="finprojbar-p" onclick="go('#/site/${id}/finance')" title="Project finance"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
     <select class="finprojbar-s" aria-label="Go to" onchange="finDocGo('${id}', this.value)">
-      ${FIN_DOC_TYPES.map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${t.l}</option>`).join('')}
+      ${FIN_DOC_TYPES.filter(t=>!t.when || t.when(id)).map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${typeof t.l==='function' ? t.l(id) : t.l}</option>`).join('')}
     </select>
     <select class="finprojbar-n" aria-label="New" onchange="finDocNew('${id}', this.value);this.value=''">
       <option value="">+ New</option>${FIN_NEW_TYPES.map((t,i)=>`<option value="${i}">${t.l}</option>`).join('')}
@@ -50809,6 +50931,298 @@ window.finSetSeeCosts = async function(userId, on){
   if(!r || r.see_costs !== !!on){ toast('Only an admin with Finance can change this.'); return; }
   if(PROFILES[userId]) PROFILES[userId].see_costs = !!on;
   toast(on ? 'They can now see material costs' : 'Material costs hidden from them'); finCostsAccessFill();
+};
+
+/* ============================================================
+   OpHUB Finance — costs by plot / address / repair job (Andy, 20 Oct:
+   "Multi site projects and repairs need to have costs allocated to the
+   jobs within them… an overview and go into each sub job", and "invoices
+   need to be split… a percentage or £ split… always totalling 100%").
+
+   Sub-jobs are what the project already has:
+     • multi-site projects → site_sub_addresses (plots / blocks / addresses)
+     • repair contracts    → repair_jobs
+   Any cost row can carry sub_job_id (one plot) or split = [{site_id,
+   sub_job_id, pct, amount}] across plots and/or projects (a DB trigger
+   checks it totals 100% and keeps split_sites for lookups).
+   Booking stays simple: a material request for Plot 3 → its PO is for
+   Plot 3 → the supplier invoice on that PO follows the PO.
+   ============================================================ */
+const FIN_SUBJOBS = {}; // siteId -> [{id, label, short, detail, value, closed}]
+function finSubKind(siteId){ const s = SITES.find(x=>x.id===siteId); return !s ? '' : s.repair_contract ? 'repair' : s.multi_site ? 'multi' : ''; }
+function finSubNoun(siteId, plural){ const k = finSubKind(siteId); return k==='repair' ? (plural?'Repair jobs':'Repair job') : (plural?'Plots & addresses':'Plot / address'); }
+async function finSubJobsLoad(siteId, force){
+  if(!siteId) return [];
+  if(FIN_SUBJOBS[siteId] && !force) return FIN_SUBJOBS[siteId];
+  const k = finSubKind(siteId); let out = [];
+  if(k==='repair'){
+    const rows = await dbSelect('repair_jobs', 'site_id=eq.'+siteId+'&select=id,job_number,address,description,variation_cost,job_status,closed,created_at&order=created_at.asc&limit=5000');
+    out = (rows||[]).map(r=>({id:r.id, short:r.job_number || (r.address||'').split(',')[0] || 'Repair', label:[r.job_number, r.address].filter(Boolean).join(' — ') || 'Repair job', detail:r.description||'', value:r.variation_cost!=null ? Number(r.variation_cost) : null, status:r.job_status||'', closed:!!r.closed}));
+  } else if(k==='multi'){
+    const rows = await dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc');
+    out = (rows||[]).map(a=>({id:a.id, short:a.name||'Address', label:a.name||'Address', detail:[a.address, a.postcode].filter(Boolean).join(', '), value:null, closed:!!a.closed}));
+  }
+  FIN_SUBJOBS[siteId] = out;
+  return out;
+}
+function finSubLabel(siteId, subId, short){
+  if(!subId) return '';
+  const a = (FIN_SUBJOBS[siteId]||[]).find(x=>x.id===subId);
+  return a ? (short ? a.short : a.label) : (finSubKind(siteId)==='repair' ? 'Repair job' : 'Address');
+}
+// <select> of a project's plots / repair jobs ('' when it has none). Load with finSubJobsLoad first.
+function finSubJobSelectHtml(id, siteId, selected, label){
+  const list = FIN_SUBJOBS[siteId] || [];
+  if(!finSubKind(siteId) || !list.length) return '';
+  return `<div class="formfield"><label class="field-label">${label || finSubNoun(siteId)}</label><select id="${id}">
+    <option value="">Whole project (not allocated)</option>
+    ${list.map(a=>`<option value="${a.id}" ${selected===a.id?'selected':''}>${escapeHtml(a.label)}${a.closed?' (closed)':''}</option>`).join('')}
+  </select></div>`;
+}
+
+/* ---------- where a cost row goes ---------- */
+// Returns [{site_id, sub, share}] with shares adding up to 1.
+function finAllocs(row, ctx){
+  if(Array.isArray(row.split) && row.split.length){
+    return row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||null, share:Number(e.pct||0)/100}));
+  }
+  // A supplier invoice on a PO follows the PO unless it has its own allocation.
+  if(row.po_id && !row.sub_job_id && ctx && ctx.poBy && ctx.poBy[row.po_id]){
+    const po = ctx.poBy[row.po_id];
+    const a = finAllocs(po, ctx);
+    if(a.some(x=>x.sub) || a.some(x=>x.site_id!==row.site_id)) return a;
+  }
+  // A PO for several plots: shared by item value (or item count when not priced).
+  if(Array.isArray(row.items) && !row.sub_job_id){
+    const its = row.items.filter(i=>i);
+    const subs = new Set(its.map(i=>i.sub_job_id||''));
+    if(subs.size > 1){
+      const priced = its.every(i=>i.amount!=null && Number(i.amount) > 0);
+      const w = i=>priced ? Number(i.amount) : 1;
+      const tot = its.reduce((t,i)=>t+w(i), 0) || 1;
+      const by = {}; its.forEach(i=>{ const k = i.sub_job_id||''; by[k] = (by[k]||0) + w(i)/tot; });
+      return Object.keys(by).map(k=>({site_id:row.site_id, sub:k||null, share:by[k]}));
+    }
+    if(subs.size===1 && its[0] && its[0].sub_job_id) return [{site_id:row.site_id, sub:its[0].sub_job_id, share:1}];
+  }
+  return [{site_id:row.site_id, sub:row.sub_job_id||null, share:1}];
+}
+// One line of text: "Plot 3" / "Split: Plot 1 50% · Plot 2 50%" / "Not allocated".
+function finAllocText(row, ctx){
+  const a = finAllocs(row, ctx);
+  const nm = x=>(x.site_id!==row.site_id ? (finSiteShort(x.site_id)+(x.sub?' › ':'')) : '')+(x.sub ? finSubLabel(x.site_id, x.sub, true) : (x.site_id!==row.site_id ? '' : 'Whole project'));
+  if(a.length===1) return a[0].sub || a[0].site_id!==row.site_id ? nm(a[0]) : '';
+  return 'Split: '+a.map(x=>nm(x)+' '+finRound(x.share*100)+'%').join(' · ');
+}
+function finSiteShort(siteId){ const s = SITES.find(x=>x.id===siteId); return s ? (s.job_number || s.name) : 'Project'; }
+
+/* ---------- split / allocate modal ---------- */
+const FIN_SPLIT_TABLES = {
+  purchase_invoices:{noun:'supplier invoice', net:r=>r.net},
+  purchase_orders:{noun:'PO', net:r=>r.value},
+  fin_job_costs:{noun:'cost', net:r=>r.net},
+  fin_plant_hires:{noun:'plant hire', net:r=>typeof finPlantCost==='function' ? finPlantCost(r).cost : null},
+};
+let finSplit = null; // {table, id, row, net, mode, rows:[{site_id, sub, v}]}
+window.openFinSplit = async function(table, id){
+  const cfg = FIN_SPLIT_TABLES[table]; if(!cfg) return;
+  const row = (await dbSelect(table, 'id=eq.'+id))[0]; if(!row){ toast('Not found'); return; }
+  let net = cfg.net(row); net = net!=null && !isNaN(Number(net)) && Number(net) > 0 ? finRound(Number(net)) : null;
+  let rows;
+  if(Array.isArray(row.split) && row.split.length) rows = row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||'', v:Number(e.pct)}));
+  else {
+    let a = [{site_id:row.site_id, sub:row.sub_job_id||null, share:1}];
+    if(table==='purchase_invoices' && row.po_id && !row.sub_job_id){ const po = (await dbSelect('purchase_orders', 'id=eq.'+row.po_id))[0]; if(po){ const pa = finAllocs(po, {}); if(pa.some(x=>x.sub)) a = pa; } }
+    else if(table==='purchase_orders') a = finAllocs(row, {});
+    rows = a.map(x=>({site_id:x.site_id, sub:x.sub||'', v:finRound(x.share*100)}));
+  }
+  await Promise.all(Array.from(new Set(rows.map(r=>r.site_id).concat([row.site_id]))).map(s=>finSubJobsLoad(s)));
+  finSplit = {table, id, row, net, noun:cfg.noun, mode:'pct', rows};
+  let ov = document.getElementById('finSplitOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finSplitOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.style.display = 'flex';
+  finSplitPaint();
+};
+function finSplitSites(){
+  return SITES.filter(s=>s.status!=='closed' || finSplit.rows.some(r=>r.site_id===s.id)).slice().sort((a,b)=>String(a.job_number||a.name).localeCompare(String(b.job_number||b.name), undefined, {numeric:true}));
+}
+function finSplitTotal(){ return finRound(finSplit.rows.reduce((t,r)=>t+(Number(r.v)||0), 0)); }
+window.finSplitPaint = function(){
+  const ov = document.getElementById('finSplitOverlay'); if(!ov || !finSplit) return;
+  const d = finSplit, pct = d.mode==='pct';
+  const target = pct ? 100 : d.net;
+  const tot = finSplitTotal(), left = finRound(target - tot);
+  const ok = Math.abs(left) < 0.01;
+  const sites = finSplitSites();
+  const homeSubs = FIN_SUBJOBS[d.row.site_id] || [];
+  ov.innerHTML = `<div class="geo-modal-card finsplit" style="max-width:640px;">
+    <h3>Allocate this ${d.noun}</h3>
+    <p class="stub" style="margin:-4px 0 12px;font-style:normal;">${d.net!=null ? finMoney(d.net)+' excl. VAT. ' : ''}Book it to one ${homeSubs.length ? finSubNoun(d.row.site_id).toLowerCase() : 'project'}, or split it across as many projects${homeSubs.length ? ' / '+finSubNoun(d.row.site_id, true).toLowerCase() : ''} as you need. It must add up to ${pct ? '100%' : finMoney(d.net)}.</p>
+    <div class="finseg" role="tablist">
+      <button type="button" class="${pct?'on':''}" onclick="finSplitMode('pct')">By %</button>
+      <button type="button" class="${!pct?'on':''}" ${d.net==null?'disabled title="No value yet"':''} onclick="finSplitMode('gbp')">By £</button>
+    </div>
+    <div class="finsplit-rows">
+      ${d.rows.map((r,i)=>{ const subs = FIN_SUBJOBS[r.site_id] || []; return `<div class="finsplit-row">
+        <select aria-label="Project" onchange="finSplitSite(${i}, this.value)">${sites.map(s=>`<option value="${s.id}" ${s.id===r.site_id?'selected':''}>${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select>
+        ${subs.length ? `<select aria-label="${finSubNoun(r.site_id)}" onchange="finSplit.rows[${i}].sub=this.value"><option value="">Whole project</option>${subs.map(a=>`<option value="${a.id}" ${a.id===r.sub?'selected':''}>${escapeHtml(a.label)}</option>`).join('')}</select>` : `<span class="finsplit-none">—</span>`}
+        <label class="finsplit-v"><input type="text" inputmode="decimal" value="${r.v===''||r.v==null?'':r.v}" oninput="finSplit.rows[${i}].v=finNum(this.value);finSplitFoot()"><span>${pct?'%':'£'}</span></label>
+        ${d.rows.length>1 ? `<button type="button" class="linkbtn" aria-label="Remove" onclick="finSplit.rows.splice(${i},1);finSplitPaint()">✕</button>` : '<span></span>'}
+      </div>`; }).join('')}
+    </div>
+    <div class="finsplit-tools">
+      <button type="button" class="ghostbtn" onclick="finSplitAdd()">+ Add a line</button>
+      <button type="button" class="ghostbtn" onclick="finSplitEven()">Share evenly</button>
+      ${homeSubs.length ? `<button type="button" class="ghostbtn" onclick="finSplitAllSubs()">Across all ${escapeHtml(finSubNoun(d.row.site_id, true).toLowerCase())}</button>` : ''}
+    </div>
+    <div id="finSplitFoot" class="finsplit-foot ${ok?'ok':'bad'}">${ok ? '✓ Adds up to '+(pct?'100%':finMoney(d.net)) : (left>0 ? 'Still to allocate: ' : 'Over by: ')+(pct ? finRound(Math.abs(left))+'%' : finMoney(Math.abs(left)))}</div>
+    <button class="darkbtn" style="width:100%;" onclick="saveFinSplit()">Save</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finSplitOverlay').style.display='none'">Cancel</button>
+  </div>`;
+};
+window.finSplitFoot = function(){
+  const el = document.getElementById('finSplitFoot'); if(!el) return;
+  const pct = finSplit.mode==='pct', target = pct ? 100 : finSplit.net;
+  const left = finRound(target - finSplitTotal()), ok = Math.abs(left) < 0.01;
+  el.className = 'finsplit-foot '+(ok?'ok':'bad');
+  el.textContent = ok ? '✓ Adds up to '+(pct?'100%':finMoney(finSplit.net)) : (left>0 ? 'Still to allocate: ' : 'Over by: ')+(pct ? finRound(Math.abs(left))+'%' : finMoney(Math.abs(left)));
+};
+window.finSplitMode = function(m){
+  const d = finSplit; if(m===d.mode || (m==='gbp' && d.net==null)) return;
+  d.rows.forEach(r=>{ const v = Number(r.v)||0; r.v = m==='gbp' ? finRound(v/100*d.net) : finRound(v/d.net*100); });
+  d.mode = m;
+  if(Math.abs(finSplitTotal() - (m==='pct'?100:d.net)) < 0.05) finSplitFix();
+  finSplitPaint();
+};
+function finSplitFix(){ // put any rounding penny on the last line
+  const d = finSplit, target = d.mode==='pct' ? 100 : d.net;
+  const last = d.rows[d.rows.length-1]; if(!last) return;
+  last.v = finRound((Number(last.v)||0) + target - finSplitTotal());
+}
+window.finSplitSite = async function(i, siteId){ finSplit.rows[i].site_id = siteId; finSplit.rows[i].sub = ''; await finSubJobsLoad(siteId); finSplitPaint(); };
+window.finSplitAdd = function(){
+  const d = finSplit, last = d.rows[d.rows.length-1];
+  const left = finRound((d.mode==='pct'?100:d.net) - finSplitTotal());
+  d.rows.push({site_id:last ? last.site_id : d.row.site_id, sub:'', v:left > 0 ? left : ''});
+  finSplitPaint();
+};
+window.finSplitEven = function(){
+  const d = finSplit, n = d.rows.length, target = d.mode==='pct' ? 100 : d.net;
+  d.rows.forEach(r=>r.v = finRound(target/n)); finSplitFix(); finSplitPaint();
+};
+window.finSplitAllSubs = function(){
+  const d = finSplit, subs = (FIN_SUBJOBS[d.row.site_id]||[]).filter(a=>!a.closed); if(!subs.length) return;
+  const target = d.mode==='pct' ? 100 : d.net;
+  d.rows = subs.map(a=>({site_id:d.row.site_id, sub:a.id, v:finRound(target/subs.length)}));
+  finSplitFix(); finSplitPaint();
+};
+window.saveFinSplit = async function(){
+  const d = finSplit; if(!d) return;
+  const rows = d.rows.filter(r=>r.site_id && Number(r.v) > 0);
+  if(!rows.length){ toast('Add at least one line.'); return; }
+  const pct = d.mode==='pct', target = pct ? 100 : d.net;
+  const tot = finRound(rows.reduce((t,r)=>t+Number(r.v), 0));
+  if(Math.abs(tot - target) >= 0.01){ toast('It needs to add up to '+(pct?'100%':finMoney(d.net))+' — it’s '+(pct?tot+'%':finMoney(tot))+'.'); return; }
+  const seen = new Set();
+  for(const r of rows){ const k = r.site_id+'|'+(r.sub||''); if(seen.has(k)){ toast('The same project / plot is on two lines — put them together.'); return; } seen.add(k); }
+  let patch;
+  if(rows.length===1 && rows[0].site_id===d.row.site_id){
+    patch = {sub_job_id:rows[0].sub||null, split:null};
+  } else {
+    // Percentages to 4 dp, last line takes the rounding so it's exactly 100.
+    const out = rows.map(r=>({site_id:r.site_id, sub_job_id:r.sub||null, pct:pct ? Math.round(Number(r.v)*10000)/10000 : Math.round(Number(r.v)/d.net*1000000)/10000, amount:d.net!=null ? (pct ? finRound(Number(r.v)/100*d.net) : finRound(Number(r.v))) : null}));
+    const sumP = out.reduce((t,x)=>t+x.pct, 0); out[out.length-1].pct = Math.round((out[out.length-1].pct + 100 - sumP)*10000)/10000;
+    patch = {split:out, sub_job_id:null};
+  }
+  const res = await dbUpdate(d.table, d.id, patch);
+  if(!res){ toast('Could not save the split.'); return; }
+  document.getElementById('finSplitOverlay').style.display = 'none';
+  toast(patch.split ? 'Split across '+patch.split.length : (patch.sub_job_id ? 'Booked to '+finSubLabel(d.row.site_id, patch.sub_job_id, true) : 'Booked to the whole project'));
+  finSplit = null; render();
+};
+// Small inline block for a document page: where it's booked + the button.
+function finAllocBlockHtml(table, row, ctx){
+  const kind = finSubKind(row.site_id);
+  let txt = finAllocText(row, ctx);
+  if(txt && table==='purchase_invoices' && row.po_id && !row.sub_job_id && !(row.split && row.split.length)) txt += ' (same as the PO)';
+  return `<div class="finkv finalloc"><span>Booked to</span><b>${escapeHtml(txt || (kind ? 'Whole project (not allocated)' : 'This project'))} <button type="button" class="linkbtn" onclick="openFinSplit('${table}','${row.id}')">${txt && txt.startsWith('Split') ? 'Change split' : (kind ? 'Allocate / split' : 'Split')}</button></b></div>`;
+}
+
+/* ---------- overview page: costs by plot / repair job ---------- */
+let finParts = null; // {siteId, rows}
+async function renderFinParts(siteId){
+  if(!finGuard()) return;
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
+  const [b, subs] = await Promise.all([finLoadBook(siteId), finSubJobsLoad(siteId, true)]);
+  if(__gen !== RENDER_GEN) return;
+  const lines = finCostLinesFromBook(b, siteId);
+  const isRepair = finSubKind(siteId)==='repair';
+  const blank = ()=>({materials:0, labour:0, plant:0, subcontract:0, other:0, committed:0, cost:0, n:0});
+  const by = {}; subs.forEach(a=>by[a.id] = blank()); by[''] = blank();
+  lines.forEach(l=>{
+    const k = l.sub && by[l.sub] ? l.sub : (l.sub ? l.sub : '');
+    if(!by[k]) by[k] = blank();
+    const t = by[k]; t.n++;
+    if(l.cat==='committed') t.committed += l.net;
+    else { const c = ['materials','labour','plant','subcontract'].includes(l.cat) ? l.cat : 'other'; t[c] += l.net; t.cost += l.net; }
+  });
+  const mk = (id, name, detail, value, status)=>{ const t = by[id] || blank(); const r = {id:id||'none', name, detail, status, materials:finRound(t.materials), labour:finRound(t.labour), plant:finRound(t.plant), subcontract:finRound(t.subcontract), other:finRound(t.other), cost:finRound(t.cost), committed:finRound(t.committed), n:t.n};
+    if(isRepair){ r.value = value; r.margin = value!=null ? finRound(value - r.cost - r.committed) : null; }
+    return r; };
+  const rows = subs.map(a=>mk(a.id, a.label, a.detail, a.value, a.closed ? 'Closed' : a.status));
+  Object.keys(by).filter(k=>k && !subs.some(a=>a.id===k)).forEach(k=>rows.push(mk(k, 'Removed '+finSubNoun(siteId).toLowerCase(), '', null, '')));
+  const un = mk('', 'Not allocated — whole project', 'Costs not booked to one '+finSubNoun(siteId).toLowerCase()+' yet', null, '');
+  finParts = {siteId, rows, un, isRepair, q:''};
+  const tot = k=>finRound(rows.reduce((t,r)=>t+(Number(r[k])||0), 0) + (Number(un[k])||0));
+  const allocated = finRound(rows.reduce((t,r)=>t+r.cost, 0));
+  document.getElementById('app').innerHTML = shell(`
+    <div class="pmstats finstats">
+      <div class="pmstat"><b>${finMoney(tot('cost'), 0)}</b><span>Total cost</span></div>
+      <div class="pmstat"><b>${finMoney(allocated, 0)}</b><span>Allocated to ${escapeHtml(finSubNoun(siteId, true).toLowerCase())}</span></div>
+      <div class="pmstat" onclick="go('#/site/${siteId}/finance/costs?sub=none')"><b ${un.cost>0?'style="color:var(--warn,#B0740F);"':''}>${finMoney(un.cost, 0)}</b><span>Not allocated</span></div>
+      <div class="pmstat"><b>${finMoney(tot('committed'), 0)}</b><span>Committed (ordered)</span></div>
+    </div>
+    ${subs.length ? '' : `<div class="finnote">No ${escapeHtml(finSubNoun(siteId, true).toLowerCase())} on this project yet. ${isRepair ? 'Add repair jobs from the project home.' : 'Add them in the project’s Settings › Multi-Site.'}</div>`}
+    <div class="fincosttools">
+      <input type="search" placeholder="Search ${escapeHtml(finSubNoun(siteId, true).toLowerCase())}…" oninput="finParts.q=this.value;finPartsPaint()">
+      <div class="fincosttools-b">
+        <button class="ghostbtn" onclick="finPartsExport('xlsx')">Excel</button>
+        <button class="ghostbtn" onclick="finPartsExport('pdf')">PDF</button>
+        <button class="darkbtn" onclick="go('#/site/${siteId}/finance/costs')">All costs</button>
+      </div>
+    </div>
+    <div id="finPartsTbl"></div>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the supplier invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day.${isRepair?' Value = the cost issued on the repair job.':''}</p>
+  `, {title:'Costs by '+(isRepair?'repair job':'plot'), subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
+  finPartsPaint();
+}
+function finPartsCols(){
+  const c = [{k:'name', l:finSubNoun(finParts.siteId)}, {k:'materials', l:'Materials', money:true}, {k:'labour', l:'Labour', money:true}, {k:'plant', l:'Plant', money:true}, {k:'subcontract', l:'Subcontract', money:true}, {k:'other', l:'Other', money:true}, {k:'cost', l:'Total cost', money:true}, {k:'committed', l:'Committed', money:true}];
+  if(finParts.isRepair) c.push({k:'value', l:'Value', money:true}, {k:'margin', l:'Margin', money:true});
+  return c;
+}
+window.finPartsPaint = function(){
+  const box = document.getElementById('finPartsTbl'); if(!box || !finParts) return;
+  const q = (finParts.q||'').toLowerCase();
+  const rows = finParts.rows.filter(r=>!q || [r.name, r.detail, r.status].join(' ').toLowerCase().includes(q)).concat(q ? [] : [finParts.un]);
+  const cols = finPartsCols();
+  const sum = k=>finRound(rows.reduce((t,r)=>t+(Number(r[k])||0), 0));
+  box.innerHTML = `<div class="finreptbl-wrap"><table class="fincosttbl finreptbl finparts">
+    <thead><tr>${cols.map(c=>`<th class="${c.money?'num':''}">${escapeHtml(c.l)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr class="click ${r.id==='none'?'finparts-un':''}" onclick="go('#/site/${finParts.siteId}/finance/costs?sub=${r.id}')">${cols.map((c,i)=>i===0
+      ? `<td class="d" data-l="${escapeHtml(c.l)}"><b>${escapeHtml(r.name)}</b>${r.detail||r.status?`<em class="finparts-s">${escapeHtml([r.detail, r.status].filter(Boolean).join(' · '))}</em>`:''}</td>`
+      : `<td class="num" data-l="${escapeHtml(c.l)}" ${c.k==='margin' && Number(r[c.k])<0?'style="color:var(--red);"':''}>${r[c.k]==null ? '—' : (Number(r[c.k]) ? finMoney(r[c.k]) : '<span class="stub">–</span>')}</td>`).join('')}</tr>`).join('')}</tbody>
+    <tfoot><tr>${cols.map((c,i)=>`<td class="${c.money?'num':''}">${i===0 ? 'Total' : finMoney(sum(c.k))}</td>`).join('')}</tr></tfoot>
+  </table></div>`;
+};
+window.finPartsExport = function(kind){
+  const s = SITES.find(x=>x.id===finParts.siteId) || {};
+  const cols = finPartsCols().map(c=>c.k==='name' ? c : c);
+  const rows = finParts.rows.concat([finParts.un]).map(r=>Object.assign({}, r, {name:r.name+(r.detail?' — '+r.detail:'')}));
+  const totals = {}; cols.filter(c=>c.money).forEach(c=>totals[c.k] = true);
+  return finExportTable(kind, {title:'Costs by '+(finParts.isRepair?'repair job':'plot / address'), subtitle:(s.job_number?s.job_number+' · ':'')+(s.name||''), cols, rows, totals, name:'Costs by '+(finParts.isRepair?'repair job':'plot')+' - '+(s.job_number||s.name||'')});
 };
 </script>
 </body>

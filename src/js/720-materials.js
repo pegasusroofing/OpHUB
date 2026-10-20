@@ -169,6 +169,7 @@ async function renderMaterialRequests(siteId){
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
   if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
+  if(site && site.repair_contract) await loadRepairPick(siteId);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
@@ -333,6 +334,7 @@ async function renderMaterialRequests(siteId){
     <div class="card" id="matRequestCard" style="margin-top:24px;">
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
+      ${repairJobSelectHtml('matRepairJob', siteId)}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
       ${ORG && ORG.has_finance && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
       <div class="row-gap">

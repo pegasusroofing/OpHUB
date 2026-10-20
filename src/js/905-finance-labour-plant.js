@@ -67,6 +67,7 @@ window.openFinManualLabour = async function(siteId, date){
   const people = Object.values(PROFILES).filter(p=>['operative','site_manager','pm'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
   const workers = Object.values(FIN_WORKERS).filter(w=>w.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   window.__finLabRates = rates;
+  if(siteId) await finSubJobsLoad(siteId);
   let ov = document.getElementById('finLabOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finLabOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -85,6 +86,7 @@ window.openFinManualLabour = async function(siteId, date){
     </div>
     <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" id="finLabAmt"></div>
     <div class="formfield"><label class="field-label">What for</label><input type="text" id="finLabDesc" placeholder="e.g. price work, lead to valleys"></div>
+    ${siteId ? finSubJobSelectHtml('finLabSub', siteId, '') : ''}
     <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId||''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finLabOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -101,7 +103,7 @@ window.saveFinManualLabour = async function(siteId){
   if(!who && !name){ toast('Choose who, or type a name.'); return; }
   if(amt===null || isNaN(amt)){ toast('Enter the amount.'); return; }
   const isW = who.startsWith('w:');
-  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, user_id:(who && !isW)?who:null, worker_id:isW?who.slice(2):null, name:isW?finPersonName(who):(who?null:name), work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
+  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, sub_job_id:finVal('finLabSub')||null, user_id:(who && !isW)?who:null, worker_id:isW?who.slice(2):null, name:isW?finPersonName(who):(who?null:name), work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
   if(!r) return;
   document.getElementById('finLabOverlay').style.display = 'none'; toast('Labour added'); render();
 };
@@ -126,6 +128,7 @@ function finPlantCardHtml(siteId, hires){
 }
 window.openFinPlantForm = async function(siteId, id){
   const h = id ? (await dbSelect('fin_plant_hires', 'id=eq.'+id))[0] : null;
+  await finSubJobsLoad(siteId);
   let ov = document.getElementById('finPlantOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPlantOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -141,8 +144,10 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
+    ${h && h.split ? finAllocBlockHtml('fin_plant_hires', h) : finSubJobSelectHtml('finPlSub', siteId, h ? h.sub_job_id||'' : '')}
     <button class="darkbtn" style="width:100%;" onclick="saveFinPlant('${siteId}','${h?h.id:''}')">Save</button>
     ${h && !h.off_hire ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finPlOff').value='${finToday()}';saveFinPlant('${siteId}','${h.id}')">Off-hire today</button>` : ''}
+    ${h ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finPlantOverlay').style.display='none';openFinSplit('fin_plant_hires','${h.id}')">Split across ${FIN_SUBJOBS[siteId]&&FIN_SUBJOBS[siteId].length?'plots / ':''}projects</button>` : ''}
     ${h ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteFinPlant('${h.id}')">Remove</button>` : ''}
     <button class="geo-modal-cancel" onclick="document.getElementById('finPlantOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -155,6 +160,7 @@ window.saveFinPlant = async function(siteId, id){
   if(rate===null || isNaN(rate)){ toast('Enter the hire rate.'); return; }
   if(off && off < on){ toast('Off-hire can’t be before on-hire.'); return; }
   const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null};
+  if(document.getElementById('finPlSub')) row.sub_job_id = finVal('finPlSub')||null;
   const r = id ? await dbUpdate('fin_plant_hires', id, row) : await dbInsert('fin_plant_hires', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id}, row));
   if(!r) return;
   document.getElementById('finPlantOverlay').style.display = 'none'; toast(off ? 'Saved — off hire '+finDate(off) : 'Saved'); render();

@@ -86,7 +86,7 @@ const FIN_REPORTS = [
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
     (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
     (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*1.2));
-    (b.pinvs||[]).filter(i=>i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
+    (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
     let bal = Number(f.opening||0);
     const rows = weeks.map(w=>{ const net = finRound(w.inv+w.apps-w.sup-w.subs); bal = finRound(bal+net); return {wk:w.wk, inv:finRound(w.inv), apps:finRound(w.apps), sup:finRound(-w.sup), subs:finRound(-w.subs), net, bal}; });

@@ -15,6 +15,7 @@ const FIN_DOC_TYPES = [
   {k:'shopping', l:'Shopping list', go:id=>`#/site/${id}/finance/shopping`},
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
+  {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
   {k:'budget', l:'Budget & forecast', go:id=>`#/site/${id}/finance/budget`},
   {k:'contract', l:'Contract breakdown', go:id=>`#/site/${id}/finance/contract`},
 ];
@@ -30,7 +31,7 @@ const FIN_NEW_TYPES = [
 ];
 function finCurrentDocType(parts){
   const p = parts[3] || '';
-  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
+  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
 }
 function finShellPrefix(opts){
   if(typeof isFinanceUser!=='function' || !isFinanceUser()) return '';
@@ -41,7 +42,7 @@ function finShellPrefix(opts){
   return `<div class="finprojbar">
     <button type="button" class="finprojbar-p" onclick="go('#/site/${id}/finance')" title="Project finance"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
     <select class="finprojbar-s" aria-label="Go to" onchange="finDocGo('${id}', this.value)">
-      ${FIN_DOC_TYPES.map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${t.l}</option>`).join('')}
+      ${FIN_DOC_TYPES.filter(t=>!t.when || t.when(id)).map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${typeof t.l==='function' ? t.l(id) : t.l}</option>`).join('')}
     </select>
     <select class="finprojbar-n" aria-label="New" onchange="finDocNew('${id}', this.value);this.value=''">
       <option value="">+ New</option>${FIN_NEW_TYPES.map((t,i)=>`<option value="${i}">${t.l}</option>`).join('')}

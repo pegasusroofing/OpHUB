@@ -104,6 +104,8 @@ async function renderFinPo(siteId, poId){
   const mats = po && (po.material_ids||[]).length ? await dbSelect('materials', 'id=in.('+po.material_ids.join(',')+')&select=id,item,qty,grn,status,cancel_reason') : [];
   if(__gen !== RENDER_GEN) return;
   if(!po || !site){ toast('PO not found.'); go(`#/site/${siteId}/finance`); return; }
+  await Promise.all(Array.from(new Set([po.site_id].concat((po.split||[]).map(e=>e.site_id)))).map(x=>finSubJobsLoad(x)));
+  if(__gen !== RENDER_GEN) return;
   const inv = finPoInvoiced(po, pinvs);
   const matBy = {}; mats.forEach(m=>{ matBy[m.id] = m; });
   document.getElementById('app').innerHTML = shell(`
@@ -118,6 +120,7 @@ async function renderFinPo(siteId, poId){
       <div class="finkv"><span>${po.fulfilment==='collection'?'Collection':'Required for delivery'}</span><b>${finDate(po.required_by)}</b></div>
       ${po.supplier_branch ? `<div class="finkv"><span>Branch</span><b>${escapeHtml(po.supplier_branch)}</b></div>` : ''}
       ${po.note ? `<div class="finkv"><span>Note</span><b style="white-space:normal;">${escapeHtml(po.note)}</b></div>` : ''}
+      ${finAllocBlockHtml('purchase_orders', po, {})}
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Items</p>
@@ -168,6 +171,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
     dbSelect('suppliers', 'select=id,name&order=name.asc'),
   ]);
   finPiFile = null;
+  await finSubJobsLoad(siteId);
   const po = poId ? pos.find(p=>p.id===poId) : null;
   let ov = document.getElementById('finPiOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -188,6 +192,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
     </div>
     <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" id="finPiTotal" oninput="finPiCalc('total')"></div>
     <div class="formfield"><label class="field-label">What it’s for (optional)</label><input type="text" id="finPiDesc" placeholder="e.g. battens, fixings"></div>
+    ${finSubJobSelectHtml('finPiSub', siteId, '', finSubNoun(siteId)+(receipt ? '' : ' (blank = same as the PO)'))}
     <div class="formfield"><label class="field-label">Cost type</label><select id="finPiCat">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}">${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
     <div class="formfield"><label class="field-label">${receipt?'Photo of the receipt':'Copy of the invoice'} (optional)</label><input type="file" accept="application/pdf,image/*" ${receipt?'capture="environment"':''} onchange="finPiFile=this.files[0]||null"></div>
     <div id="finPiWarn"></div>
@@ -238,7 +243,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const row = {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:receipt?'receipt':'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:finVal('finPiDate')||finToday(), net:finRound(net), vat:finRound(vat), total:total!==null&&!isNaN(total)?finRound(total):finRound(net+vat),
-    due_date:finVal('finPiDue')||null, description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
+    due_date:finVal('finPiDue')||null, description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', sub_job_id:finVal('finPiSub')||null, status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
   if(finPiFile){
     const safe = finPiFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/purchase/'+uid()+'-'+safe, finPiFile, finPiFile.type||'application/octet-stream');
@@ -258,7 +263,8 @@ window.savePurchaseInvoice = async function(siteId, receipt){
 window.openPurchaseInvoiceView = async function(siteId, id){
   if(!FIN_SETTINGS) await finLoadSettings();
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;
-  const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id+'&select=number'))[0] : null;
+  const po = i.po_id ? (await dbSelect('purchase_orders', 'id=eq.'+i.po_id))[0] : null;
+  await Promise.all(Array.from(new Set([i.site_id].concat((i.split||[]).map(e=>e.site_id)))).map(x=>finSubJobsLoad(x)));
   let ov = document.getElementById('finPiOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -269,6 +275,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv"><span>Date</span><b>${finDate(i.invoice_date)}</b></div>
     <div class="finkv"><span>PO</span><b>${po?escapeHtml(po.number):'No PO'}</b></div>
     <div class="finkv"><span>Cost type</span><b><select onchange="setFinPiCostCode('${i.id}', this.value)" style="width:auto;padding:4px 8px;">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}" ${(i.cost_code||'materials')===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></b></div>
+    ${finAllocBlockHtml('purchase_invoices', i, {poBy: po ? {[po.id]:po} : {}})}
     ${i.description?`<div class="finkv"><span>For</span><b style="white-space:normal;">${escapeHtml(i.description)}</b></div>`:''}
     <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
     <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>

@@ -449,7 +449,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='parts') return renderFinParts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }

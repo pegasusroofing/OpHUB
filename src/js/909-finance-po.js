@@ -7,7 +7,7 @@
    ============================================================ */
 let finNewPo = null;
 window.openFinNewPo = async function(siteId){
-  const suppliers = await dbSelect('suppliers', 'select=id,name,email&order=name.asc');
+  const [suppliers] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finSubJobsLoad(siteId)]);
   finNewPo = {siteId, suppliers, lines:[{description:'', qty:1, unit:'', rate:null, amount:0}]};
   let ov = document.getElementById('finNpoOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finNpoOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -20,6 +20,7 @@ window.openFinNewPo = async function(siteId){
       <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
       <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
     </div>
+    ${finSubJobSelectHtml('finNpoSub', siteId, '', 'For which '+finSubNoun(siteId).toLowerCase()+'? (split it after if it’s for several)')}
     <p class="sectiontitle" style="margin:10px 0 4px;">Items</p>
     <div id="finNpoLines"></div>
     <div class="row-gap" style="margin:6px 0 10px;"><button class="ghostbtn" style="flex:1;" onclick="finNpoAdd()">+ Add item</button><button class="ghostbtn" style="flex:1;" onclick="openShopPicker('${siteId}','po')">From the shopping list</button></div>
@@ -79,6 +80,7 @@ window.saveFinNewPo = async function(){
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
+  const sub = finVal('finNpoSub'); if(sub && d && d.id) await dbUpdate('purchase_orders', d.id, {sub_job_id:sub});
   document.getElementById('finNpoOverlay').style.display = 'none';
   finNewPo = null;
   toast('PO '+d.number+' raised');

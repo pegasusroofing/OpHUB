@@ -36,6 +36,7 @@ window.openFinSubcontract = async function(siteId, id){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   const v = k=>sc && sc[k]!=null ? escapeHtml(String(sc[k])) : '';
   window.__finScWorkers = FIN_WORKERS;
+  await finSubJobsLoad(siteId);
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:540px;">
     <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
@@ -52,6 +53,7 @@ window.openFinSubcontract = async function(siteId, id){
       <div class="formfield"><label class="field-label">VAT registered</label><select id="finScVat"><option value="false">No</option><option value="true" ${sc&&sc.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
       ${sc ? `<div class="formfield"><label class="field-label">Status</label><select id="finScStatus"><option value="active" ${sc.status!=='complete'?'selected':''}>Active</option><option value="complete" ${sc.status==='complete'?'selected':''}>Complete</option></select></div>` : ''}
     </div>
+    ${finSubJobSelectHtml('finScSub', siteId, sc ? sc.sub_job_id||'' : '')}
     <input type="hidden" id="finScWorker" value="${v('worker_id')}">
     <button class="darkbtn" style="width:100%;" onclick="saveFinSubcontract('${siteId}','${sc?sc.id:''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finScOverlay').style.display='none'">Cancel</button>
@@ -69,6 +71,7 @@ window.saveFinSubcontract = async function(siteId, id){
   if(ret===null || isNaN(ret) || ret<0 || ret>20){ toast('Retention should be between 0 and 20%.'); return; }
   const row = {name, email:finVal('finScEmail')||null, description:finVal('finScDesc')||null, order_value:(val===null||isNaN(val))?null:finRound(val), retention_pct:ret, cis_rate:Number(finVal('finScCis')||20), utr:finVal('finScUtr')||null, vat_registered:finVal('finScVat')==='true', worker_id:finVal('finScWorker')||null};
   if(id){ const st = finVal('finScStatus'); if(st) row.status = st; }
+  if(document.getElementById('finScSub')) row.sub_job_id = finVal('finScSub')||null;
   let r;
   if(id) r = await dbUpdate('fin_subcontracts', id, row);
   else {
