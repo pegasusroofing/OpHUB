@@ -276,7 +276,11 @@ window.addMaterial = async function(siteId){
   if(!item) return;
   const sub = readSubAddr('matSubAddr', siteId);
   if(siteIsMulti(siteId) && (SUB_ADDR_CACHE[siteId]||[]).length && !sub.sub_site_id){ toast('Choose which address on this job.'); return; }
-  const rows = await dbInsert('materials', {site_id:siteId, item, qty:qty||'1', required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label});
+  // Picked from the project shopping list (915)? Keep the link (prices the PO) and add the unit.
+  const pick = typeof finShopPickFor==='function' ? finShopPickFor(item) : null;
+  const qtyTxt = (qty||'1') + (pick && pick.unit && /^\s*[0-9.]+\s*$/.test(qty||'1') ? ' '+pick.unit : '');
+  const rows = await dbInsert('materials', Object.assign({site_id:siteId, item, qty:qtyTxt, required_by_date: requiredBy||null, requested_by:ME.id, status:'pending', sub_site_id:sub.sub_site_id, sub_site_label:sub.sub_site_label}, pick ? {shop_item_id:pick.id} : {}));
+  if(rows && pick) finShopPick = null;
   if(rows){
     postSystemMessage(siteId, 'material_request', `${ME.name} requested material: ${item} (qty ${qty||'1'})`+(requiredBy?` — required by ${requiredBy}`:''));
     toast('Request added'); render();

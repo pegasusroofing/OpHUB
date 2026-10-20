@@ -71,6 +71,7 @@ function finPurchasingCardHtml(siteId, pos, pinvs){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Purchase orders</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Shopping list</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openFinNewPo('${siteId}')">+ New PO</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
@@ -120,13 +121,14 @@ async function renderFinPo(siteId, poId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Items</p>
-      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}${it.rate!=null?` × ${finMoney(it.rate)}${it.amount!=null?' = '+finMoney(it.amount):''} <em class="finrate-src">${{list:'shopping list',book:'price book — estimate',quote:'quote',invoice:'invoice'}[it.rate_source]||''}</em>`:''}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
     </div>
     ${po.status!=='cancelled' ? `<div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
         <div class="row-gap"><input type="text" inputmode="decimal" id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
       </div>
-      <p class="stub" style="margin:6px 0 0;font-style:normal;">${po.source==='finance' ? 'Set from the priced items; change it if the supplier’s price changes.' : 'Material requests have no prices, so add the value when you know it.'} Invoices over this value are flagged.</p>
+      <p class="stub" style="margin:6px 0 0;font-style:normal;">${po.value_estimated && po.value!=null ? '<b style="color:var(--warn);">Estimate</b> — some items are priced from the price book or not priced yet. ' : ''}${po.source==='finance' ? 'Set from the priced items; change it if the supplier’s price changes.' : 'Priced from the shopping list or price book where possible; upload the supplier’s quote to price it properly, or the invoice will price it when it arrives.'} Invoices over this value are flagged.</p>
+      <label class="ghostbtn" style="width:100%;margin-top:10px;cursor:pointer;">Price from a supplier quote (PDF, photo or Excel)<input type="file" accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPoFromQuote('${siteId}','${po.id}',this)"></label>
     </div>` : ''}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -248,6 +250,8 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(flags.length ? 'Saved and flagged: '+flags[0] : 'Saved — waiting for approval');
   render();
+  // Read the invoice lines in the background and check them against the PO (915).
+  if(row.file_path && ins[0] && typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(ins[0].id).then(r=>{ if(r && r.notes.length){ toast('Invoice lines read — '+r.notes.length+' difference'+(r.notes.length===1?'':'s')+' with the PO'); render(); } });
 };
 
 /* ---------------- view / approve a supplier invoice ---------------- */
@@ -269,6 +273,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
     <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>
     <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
+    ${typeof finPiLinesHtml==='function' ? finPiLinesHtml(i) : ''}
     ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
     ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
     ${i.status==='approved' ? (i.paid_on ? `<p class="stub" style="margin:8px 0 0;color:var(--ok);">Paid ${finDate(i.paid_on)} <button class="linkbtn" onclick="setFinPiPaid('${i.id}', null)">undo</button></p>` : `<div class="finkv"><span>Due</span><b>${finDate(i.due_date || finAddDays(i.invoice_date, 30))}</b></div><button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="setFinPiPaid('${i.id}', finToday())">Mark paid today</button>`) : ''}

@@ -334,6 +334,7 @@ async function renderMaterialRequests(siteId){
       <p class="sectiontitle" style="margin-top:0;">Request material</p>
       ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
+      ${ORG && ORG.has_finance && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
       <div class="row-gap">
         <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
         <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;min-width:0;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>

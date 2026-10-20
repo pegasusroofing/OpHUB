@@ -150,7 +150,7 @@ function shell(innerHtml, opts){
         </div>
         `}
       </div>
-      <div class="scrollarea"${opts.tightBottom ? ' style="padding-bottom:24px;"' : ''}>${innerHtml}</div>
+      <div class="scrollarea"${opts.tightBottom ? ' style="padding-bottom:24px;"' : ''}>${typeof finShellPrefix==='function' ? finShellPrefix(opts) : ''}${innerHtml}</div>
       ${opts.homeBar ? homeBottomBar(opts.homeBarCanAdd, opts.homeBarOutstanding, opts.homeBarActive) : (opts.tabs===false ? '' : tabbar(opts.siteId, opts.activeTab))}
     </div>
   `;

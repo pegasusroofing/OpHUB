@@ -473,7 +473,7 @@ async function loadAllProfilesNow(){
   // onedrive_folder_id/onedrive_last_synced_at back to undefined client-side
   // even though the database row itself was correct — reading as "sync
   // isn't working" when it actually was.
-  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,finance_enabled,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
+  const rows = await dbSelect('profiles', 'select=id,name,email,role,is_estimator,phone,subform_required,finance_enabled,see_costs,signature_path,onedrive_folder_id,onedrive_folder_name,onedrive_drive_id,onedrive_last_synced_at');
   // An organisation always has at least one profile (yours), so an empty
   // answer means the request failed — keep the names we already have.
   if(!rows.length) return; // a failed fetch is never "no people" — keep what we have and try again next time

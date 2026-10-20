@@ -22,7 +22,7 @@ window.openFinNewPo = async function(siteId){
     </div>
     <p class="sectiontitle" style="margin:10px 0 4px;">Items</p>
     <div id="finNpoLines"></div>
-    <button class="ghostbtn" style="width:100%;margin:6px 0 10px;" onclick="finNpoAdd()">+ Add item</button>
+    <div class="row-gap" style="margin:6px 0 10px;"><button class="ghostbtn" style="flex:1;" onclick="finNpoAdd()">+ Add item</button><button class="ghostbtn" style="flex:1;" onclick="openShopPicker('${siteId}','po')">From the shopping list</button></div>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Delivery</label><select id="finNpoDel"><option value="delivery">Deliver to site</option><option value="collection">Collection</option></select></div>
       <div class="formfield"><label class="field-label">Required by</label><input type="date" id="finNpoReq"></div>

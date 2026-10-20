@@ -23,7 +23,7 @@ const FIN_SECTIONS = [
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications','#/finance/sales/apps'], ['certs','Certificates','#/finance/sales/certs'], ['invoices','Invoices','#/finance/sales/invoices'], ['receipts','Receipts','#/finance/sales/receipts'], ['retention','Retention','#/finance/sales/retention']],
-  purchases: [['orders','Orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['inbox','Invoice inbox','#/finance/inbox'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers']],
+  purchases: [['orders','Orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['inbox','Invoice inbox','#/finance/inbox'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
 };
 function finSectionNav(active){
@@ -238,6 +238,7 @@ async function renderFinSales(sub){
 let finPiFilter = 'approve';
 async function renderFinPurchases(sub){
   if(!finGuard()) return;
+  if(sub==='pricebook' && typeof renderFinPriceBook==='function') return renderFinPriceBook();
   sub = ['orders','invoices','plant','suppliers'].includes(sub) ? sub : 'orders';
   const __gen = RENDER_GEN;
   const [pinvs, pos, inbox, hires, suppliers] = await Promise.all([

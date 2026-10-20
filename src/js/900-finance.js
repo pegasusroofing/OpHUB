@@ -72,6 +72,7 @@ async function renderFinanceSettings(){
   const vatOpts = Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${st.default_vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('');
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('settings')}
+    <div class="card" id="finCostAccess"><p class="stub">Loading…</p></div>
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? `<div class="finshort"><button class="ghostbtn" onclick="go('#/fin-team')">Team</button>${isFullManager(ME)?`<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>`:''}<button class="ghostbtn" onclick="go('#/account')">My account</button></div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project numbers</p>
@@ -128,6 +129,7 @@ async function renderFinanceSettings(){
     ${typeof finXeroSettingsHtml==='function' ? finXeroSettingsHtml(st) : ''}
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
   `, {title:'Finance settings', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
+  if(typeof finCostsAccessFill==='function') finCostsAccessFill();
 }
 window.saveFinanceSettings = async function(){
   const auto = document.getElementById('finAutoJob').checked;
@@ -200,9 +202,9 @@ async function renderSiteFinance(siteId){
 
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="finFcSlot"></div>
-    ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
-    ${finInvoicesCardHtml(siteId, invs)}
-    ${finPurchasingCardHtml(siteId, pords, pinvs)}
+    <div id="fin-a-apps"></div>${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
+    <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
+    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
     <div id="finScSlot"></div>
     ${finLabourCardHtml(siteId, lab)}
     ${finPlantCardHtml(siteId, hires)}
@@ -258,6 +260,7 @@ async function renderSiteFinance(siteId){
 
 
   `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  if(typeof finAfterProjectRender==='function') finAfterProjectRender();
   // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).
   if(typeof finLoadBook==='function') finLoadBook(siteId).then(b=>{
     if(__gen !== RENDER_GEN) return;

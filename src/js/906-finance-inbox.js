@@ -181,6 +181,7 @@ window.finInboxFile = async function(id){
     file_path:it.file_path, file_name:it.file_name, created_by:ME.id});
   if(!pi || !pi[0]) return;
   await dbUpdate('fin_inbox', id, {status:'filed', site_id:siteId, po_id:poId||null, purchase_invoice_id:pi[0].id});
+  if(typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(pi[0].id).then(r=>{ if(r && r.notes.length) toast(r.notes.length+' line difference'+(r.notes.length===1?'':'s')+' with the PO — see Purchases'); });
   toast(flags.length ? 'Filed and flagged: '+flags[0] : 'Filed — waiting for approval');
   render();
 };
