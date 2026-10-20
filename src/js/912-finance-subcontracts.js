@@ -23,7 +23,7 @@ function finSubcontractsCardHtml(siteId, b){
       <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.number)} · ${escapeHtml(sc.name)} ${waiting?`<span class="finpill warn">${waiting} to certify</span>`:''}</span>
         <span class="pmrow-s">${escapeHtml(sc.description||'')}${sc.description?' · ':''}certified ${finMoney(lastC?lastC.certified_gross:0, 0)}${sc.order_value!=null?' of '+finMoney(sc.order_value, 0):''}</span></span>
       <span class="finval">${sc.order_value!=null?finMoney(sc.order_value, 0):''}</span></button>`; }).join('')
-      : `<p class="stub" style="margin:8px 0 0;">No subcontract orders on this job. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
+      : `<p class="stub" style="margin:8px 0 0;">No subcontract orders on this project. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
   </div>`;
 }
 
@@ -254,7 +254,7 @@ window.openFinSubNotice = async function(id){
   page.drawText(a.payless ? 'PAY LESS NOTICE' : 'PAYMENT NOTICE', {x:44, y:841.89-64, size:11, font:bold, color:PDFLib.rgb(1,1,1)});
   let y = 720;
   const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); const t = String(v==null?'—':v); const w = (b?bold:reg).widthOfTextAtSize(t, b?12:10.5); page.drawText(t, {x:551-w, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
-  kv('To', sc.name); kv('Subcontract order', sc.number+(sc.description?' — '+sc.description:'')); kv('Job', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
+  kv('To', sc.name); kv('Subcontract order', sc.number+(sc.description?' — '+sc.description:'')); kv('Project', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
   y -= 6; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:LINE}); y -= 8;
   kv('Amount applied for (gross to date)', finMoney(a.applied_gross)); kv('Amount certified (gross to date)', finMoney(a.certified_gross));
   kv('Less retention @ '+sc.retention_pct+'%', '−'+finMoney(a.retention)); kv('Less contra charges to date', '−'+finMoney(a.contra)); kv('Less previously certified', '−'+finMoney(a.previous));

@@ -117,7 +117,7 @@ async function finBuildPoPdf(po, site, st, supplier){
       txt((site&&site.name)||'', M, by, {font:bold, size:10.5}); by -= 13;
       finWrap(site ? (typeof fullSiteAddress==='function' ? fullSiteAddress(site) : [site.address, site.postcode].filter(Boolean).join(', ')) : '', reg, 10, 240).slice(0,4).forEach(l=>{ txt(l, M, by); by -= 13; });
     } else { txt('Supplier’s branch — we will collect', M, by); by -= 13; }
-    const det = [['PO number', po.number], ['Date', finDate(String(po.created_at||'').slice(0,10))], ['Job no.', (site&&site.job_number)||'—'], ['Required by', po.required_by ? finDate(po.required_by) : 'Please advise'], ['Ordered by', po.ordered_by_name||'']];
+    const det = [['PO number', po.number], ['Date', finDate(String(po.created_at||'').slice(0,10))], ['Project no.', (site&&site.job_number)||'—'], ['Required by', po.required_by ? finDate(po.required_by) : 'Please advise'], ['Ordered by', po.ordered_by_name||'']];
     let dy = y;
     det.forEach(([k,v])=>{ txt(k, 330, dy, {size:9, color:SLATE}); txt(v, 420, dy, {font:bold, size:10}); dy -= 15; });
     y = Math.min(by, dy) - 20;

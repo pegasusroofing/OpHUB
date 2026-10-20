@@ -6,28 +6,25 @@
      Jobs            jobs list · clients
      Sales           applications · certificates · invoices · receipts · retention   (money in)
      Purchases       orders · supplier invoices · invoice inbox · plant hire · suppliers (money out)
-     Subcontractors  orders · applications · payments
-     Labour          timesheets · payments & CIS · rates & workers
+     Subcontractors & labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
      Reports
      Settings        (Team, Suppliers, My account for Finance-only companies)
    On a computer: section bar + sub-tabs. On a phone: section grid + sub-tabs.
    ============================================================ */
 const FIN_SECTIONS = [
   {k:'overview', l:'Overview', go:'#/finance'},
-  {k:'jobs', l:'Jobs', go:'#/finance/jobs'},
+  {k:'jobs', l:'Projects', go:'#/finance/jobs'},
   {k:'sales', l:'Sales', go:'#/finance/sales'},
   {k:'purchases', l:'Purchases', go:'#/finance/purchases'},
-  {k:'subs', l:'Subcontractors', go:'#/finance/subs'},
-  {k:'labour', l:'Labour', go:'#/finance/labour'},
+  {k:'subs', l:'Subcontractors & labour', go:'#/finance/subs'},
   {k:'reports', l:'Reports', go:'#/finance/reports'},
   {k:'settings', l:'Settings', go:'#/finance/settings'},
 ];
 const FIN_SUBS = {
-  jobs: [['list','Jobs','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
+  jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications','#/finance/sales/apps'], ['certs','Certificates','#/finance/sales/certs'], ['invoices','Invoices','#/finance/sales/invoices'], ['receipts','Receipts','#/finance/sales/receipts'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['orders','Orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['inbox','Invoice inbox','#/finance/inbox'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers']],
-  subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments']],
-  labour: [['week','Timesheets','#/finance/labour'], ['cis','Payments & CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
+  subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
 };
 function finSectionNav(active){
   return `<nav class="finsecnav" aria-label="Finance sections">${FIN_SECTIONS.map(s=>`<button type="button" class="${s.k===active?'on':''}" onclick="go('${s.go}')">${s.l}</button>`).join('')}</nav>`;
@@ -50,8 +47,8 @@ window.finPickJob = function(title, fnName){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${escapeHtml(title)}</h3>
-    <p class="stub" style="margin:0 0 10px;">Which job is it for?</p>
-    <div class="formfield"><input type="text" placeholder="Search jobs" oninput="liveFilter(this.value,'#finPickList')"></div>
+    <p class="stub" style="margin:0 0 10px;">Which project is it for?</p>
+    <div class="formfield"><input type="text" placeholder="Search projects" oninput="liveFilter(this.value,'#finPickList')"></div>
     <div id="finPickList">${jobs.map(s=>`<button type="button" class="pmrow finrow" data-lf="${lfText([s.job_number, s.name, s.client_name].join(' '))}" onclick="document.getElementById('finPickOverlay').style.display='none';${fnName}('${s.id}')"><span class="finjobno">${escapeHtml(s.job_number||'—')}</span><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'')}</span></span></button>`).join('')}<div class="empty lf-empty" style="display:none;">No match.</div></div>
     <button class="geo-modal-cancel" onclick="document.getElementById('finPickOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -99,8 +96,8 @@ async function renderFinanceHome(){
   if(subApps.length) todo.push({tone:'warn', t:'Subcontractor applications to certify', s:'Send a payment or pay less notice in time', n:subApps.length, go:'#/finance/subs/apps', pre:"finSaFilter='received';"});
   if(retDue.length) todo.push({tone:'blue', t:'Retention to claim back', s:retDue.map(x=>finRepJobOr(x.s)).join(', '), n:retDue.length, go:'#/finance/sales/retention'});
   if(longHire.length) todo.push({tone:'warn', t:'Plant on hire over 4 weeks', s:longHire.map(h=>h.item).join(', '), n:longHire.length, go:'#/finance/purchases/plant'});
-  if(noPo.length) todo.push({tone:'grey', t:'Live jobs with no client PO', s:noPo.map(finRepJobOr).join(', '), n:noPo.length, go:one(noPo, s=>`#/site/${s.id}/finance`, '#/finance/jobs')});
-  if(noValue.length) todo.push({tone:'grey', t:'Live jobs with no contract value', s:noValue.map(finRepJobOr).join(', '), n:noValue.length, go:one(noValue, s=>`#/site/${s.id}/finance`, '#/finance/jobs')});
+  if(noPo.length) todo.push({tone:'grey', t:'Live projects with no client PO', s:noPo.map(finRepJobOr).join(', '), n:noPo.length, go:one(noPo, s=>`#/site/${s.id}/finance`, '#/finance/jobs')});
+  if(noValue.length) todo.push({tone:'grey', t:'Live projects with no contract value', s:noValue.map(finRepJobOr).join(', '), n:noValue.length, go:one(noValue, s=>`#/site/${s.id}/finance`, '#/finance/jobs')});
   const fo = typeof isFinanceOnly==='function' && isFinanceOnly();
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('overview')}
@@ -146,16 +143,16 @@ async function renderFinJobs(sub){
     const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
     const counts = {live:0, upcoming:0, closed:0, all:sites.length}; sites.forEach(s=>{ counts[finSiteStatus(s)] = (counts[finSiteStatus(s)]||0)+1; });
     const shown = sites.filter(s=>finHomeTab==='all' || finSiteStatus(s)===finHomeTab);
-    body = finSecHead('Jobs', fo && isFullManager(ME) ? '+ New job' : '', 'openFinNewJob()')
+    body = finSecHead('Projects', fo && isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
       + `<div class="pmchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search job no., name, client or PO', 'finJobList')
+      + finSearchHtml('Search project no., name, client or PO', 'finJobList')
       + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
           <span class="finjobno ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span>
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span></span>
-          <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'jobs.');
+          <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');
   }
   document.getElementById('app').innerHTML = shell(`${finSectionNav('jobs')}${finSubTabs('jobs', sub==='clients'?'clients':'list')}${body}`,
-    {title:'Jobs', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
+    {title:'Projects', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
 }
 
 /* ================= Sales (money in) ================= */
@@ -184,7 +181,7 @@ async function renderFinSales(sub){
     const list = apps.filter(F[finAppFilter]);
     body = finSecHead('Applications for payment', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<div class="pmchips">${[['open','Draft & submitted'],['draft','Drafts'],['submitted','Waiting for certificate'],['all','All']].map(([k,l])=>finChip(finAppFilter===k, l, apps.filter(F[k]).length, `finAppFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search job', 'finSalesList')
+      + finSearchHtml('Search project', 'finSalesList')
       + finListHtml('finSalesList', list.map(a=>`<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText(finJobTag(a.site_id))}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">Application ${a.number} <span class="finpill ${a.status==='certified'?'ok':a.status==='submitted'?'blue':'grey'}">${escapeHtml(a.status[0].toUpperCase()+a.status.slice(1))}</span></span><span class="pmrow-s">${escapeHtml(finJobTag(a.site_id))}</span><span class="pmrow-s">Valuation ${finDate(a.valuation_date)}${a.final_date?' · final date '+finDate(a.final_date):''}</span></span>
           <span class="finval">${finMoney(a.net_due)}<em>applied (net)</em></span></button>`), 'No applications here.');
@@ -192,7 +189,7 @@ async function renderFinSales(sub){
     const list = apps.filter(a=>a.cert_net!=null && a.status!=='void');
     body = finSecHead('Payment certificates') + `<p class="stub" style="margin:-4px 0 12px;">What clients have certified against each application. Record a certificate on the application itself.</p>`
       + (certNotInv.length ? `<div class="card fintodo">${certNotInv.map(a=>`<button type="button" class="fintodo-i" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')"><span class="fintodo-n t-warn">£</span><span class="fintodo-t"><b>Raise the invoice — ${escapeHtml(finJobTag(a.site_id))} app ${a.number}</b><em>Certified ${finMoney(a.cert_net)}</em></span><span class="fintodo-c">›</span></button>`).join('')}</div>` : '')
-      + finSearchHtml('Search job', 'finSalesList')
+      + finSearchHtml('Search project', 'finSalesList')
       + finListHtml('finSalesList', list.map(a=>{ const short = finRound(Number(a.net_due||0)-Number(a.cert_net||0)); const inv = invBy[a.invoice_id]; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText(finJobTag(a.site_id))}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(finJobTag(a.site_id))} · app ${a.number} ${a.cert_is_payless?'<span class="finpill bad">Pay less</span>':''}</span><span class="pmrow-s">Certified ${a.cert_date?finDate(a.cert_date):''} · applied ${finMoney(a.net_due)}${short>0.009?` · <span style="color:var(--red);">${finMoney(short)} short</span>`:''}</span><span class="pmrow-s">${inv?'Invoice '+escapeHtml(inv.number||''):'<span style="color:var(--warn);">Not invoiced yet</span>'}</span></span>
           <span class="finval">${finMoney(a.cert_net)}<em>certified (net)</em></span></button>`; }), 'No certificates yet.');
@@ -202,7 +199,7 @@ async function renderFinSales(sub){
     const list = (finInvFilter==='all' ? invs : live).filter(F[finInvFilter]);
     body = finSecHead('Sales invoices', '+ New invoice', "finPickJob('New invoice','newFinInvoice')")
       + `<div class="pmchips">${[['outstanding','Owed'],['overdue','Overdue'],['draft','Drafts'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finInvFilter===k, l, (k==='all'?invs:live).filter(F[k]).length, `finInvFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search invoice no., job or client', 'finSalesList')
+      + finSearchHtml('Search invoice no., project or client', 'finSalesList')
       + finListHtml('finSalesList', list.map(i=>`<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, i.bill_name, finJobTag(i.site_id)].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(finJobTag(i.site_id))} · ${escapeHtml(i.bill_name||'')}</span><span class="pmrow-s">${i.issue_date?'Issued '+finDate(i.issue_date):'Not issued'}${i.due_date?' · due '+finDate(i.due_date):''}</span></span>
           <span class="finval">${finMoney(i.total)}${finInvOutstanding(i)>0 && finInvOutstanding(i)<Number(i.total) ? `<em>${finMoney(finInvOutstanding(i))} owed</em>` : ''}</span></button>`), 'No invoices here.');
@@ -210,7 +207,7 @@ async function renderFinSales(sub){
     const month = finToday().slice(0,7);
     const tm = finRound(pays.filter(p=>String(p.paid_on).startsWith(month)).reduce((t,p)=>t+Number(p.amount||0),0));
     body = finSecHead('Receipts') + `<p class="stub" style="margin:-4px 0 12px;">Money received against your invoices — ${finMoney(tm)} so far this month. Record a payment on the invoice; payments made in Xero come across too.</p>`
-      + finSearchHtml('Search invoice, job or note', 'finSalesList')
+      + finSearchHtml('Search invoice, project or note', 'finSalesList')
       + finListHtml('finSalesList', pays.map(p=>{ const i = invBy[p.invoice_id] || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, i.bill_name, finJobTag(i.site_id), p.note].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${finDate(p.paid_on)} · ${escapeHtml(i.number||'Invoice')}</span><span class="pmrow-s">${escapeHtml(finJobTag(i.site_id))} · ${escapeHtml(i.bill_name||'')}</span>${p.note?`<span class="pmrow-s">${escapeHtml(p.note)}</span>`:''}</span>
           <span class="finval" style="color:var(--ok);">${finMoney(p.amount)}</span></button>`; }), 'No payments received yet.');
@@ -219,7 +216,7 @@ async function renderFinSales(sub){
     const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
     const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
-    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">${finMoney(total)} held by clients across ${rows.length} job${rows.length===1?'':'s'}. Set the practical completion date on the job to get release dates and reminders.</p>`
+    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">${finMoney(total)} held by clients across ${rows.length} job${rows.length===1?'':'s'}. Set the practical completion date on the project to get release dates and reminders.</p>`
       + finListHtml('finSalesList', rows.map(x=>{ const d = finRetentionDates(x.jf, st); return `<button type="button" class="pmrow pmrow-card finrow" onclick="go('#/site/${x.s.id}/finance')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(finRepJobOr(x.s))}</span><span class="pmrow-s">${escapeHtml(x.s.client_name||'')}</span><span class="pmrow-s">${d.first ? '1st half '+finDate(d.first)+(x.jf.ret1_invoice_id?' (claimed)':'')+' · 2nd half '+finDate(d.second)+(x.jf.ret2_invoice_id?' (claimed)':'') : '<span style="color:var(--warn);">No practical completion date yet</span>'}</span></span>
           <span class="finval">${finMoney(x.held)}</span></button>`; }), 'No retention held.');
@@ -261,8 +258,8 @@ async function renderFinPurchases(sub){
   let body = '';
   if(sub==='orders'){
     body = finSecHead('Purchase orders', '+ New PO', "finPickJob('New purchase order','openFinNewPo')")
-      + `<p class="stub" style="margin:-4px 0 12px;">${openPos.length} open · ${finMoney(committed, 0)} ordered but not invoiced yet. Material orders sent from a job’s Materials tile appear here automatically.</p>`
-      + finSearchHtml('Search PO, supplier or job', 'finPurList')
+      + `<p class="stub" style="margin:-4px 0 12px;">${openPos.length} open · ${finMoney(committed, 0)} ordered but not invoiced yet. Material orders sent from a project’s Materials tile appear here automatically.</p>`
+      + finSearchHtml('Search PO, supplier or project', 'finPurList')
       + finListHtml('finPurList', pos.map(p=>{ const inv = finPoInvoiced(p, live); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([p.number, p.supplier_name, finJobTag(p.site_id)].join(' '))}" onclick="go('#/site/${p.site_id}/finance/po/${p.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span><span class="pmrow-s">${escapeHtml(p.supplier_name||'')} · ${escapeHtml(finJobTag(p.site_id))}</span><span class="pmrow-s">${finDate(String(p.created_at).slice(0,10))}${inv?' · invoiced '+finMoney(inv):''}</span></span>
           <span class="finval">${p.value!=null?finMoney(p.value):'<em>No value</em>'}</span></button>`; }), 'No purchase orders yet.');
@@ -271,9 +268,9 @@ async function renderFinPurchases(sub){
     if(!F[finPiFilter]) finPiFilter = 'approve';
     const list = pinvs.filter(F[finPiFilter]);
     body = finSecHead('Supplier invoices', '+ Supplier invoice', "finPickJob('Add supplier invoice','openPurchaseInvoiceForm')")
-      + (inbox.length ? `<button type="button" class="fintodo-i card" onclick="go('#/finance/inbox')"><span class="fintodo-n t-blue">${inbox.length}</span><span class="fintodo-t"><b>Invoices in the inbox to file</b><em>Read automatically — check them and file them to a job</em></span><span class="fintodo-c">›</span></button>` : '')
+      + (inbox.length ? `<button type="button" class="fintodo-i card" onclick="go('#/finance/inbox')"><span class="fintodo-n t-blue">${inbox.length}</span><span class="fintodo-t"><b>Invoices in the inbox to file</b><em>Read automatically — check them and file them to a project</em></span><span class="fintodo-c">›</span></button>` : '')
       + `<div class="pmchips">${[['approve','To approve'],['unpaid','Approved, not paid'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finPiFilter===k, l, pinvs.filter(F[k]).length, `finPiFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search supplier, invoice no. or job', 'finPurList')
+      + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
       + finListHtml('finPurList', list.map(piRow), 'No supplier invoices here.');
   } else if(sub==='plant'){
     const off = hires.filter(h=>h.off_hire).slice(0, 40);
@@ -328,7 +325,7 @@ async function renderFinSubsSection(sub){
   let body = '';
   if(sub==='orders'){
     body = finSecHead('Subcontract orders', '+ Subcontract order', "finPickJob('New subcontract order','openFinSubcontract')")
-      + finSearchHtml('Search subcontractor or job', 'finSubList')
+      + finSearchHtml('Search subcontractor or project', 'finSubList')
       + finListHtml('finSubList', scs.map(sc=>{ const l = lastCert(sc.id); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([sc.name, sc.number, sc.description, finJobTag(sc.site_id)].join(' '))}" onclick="go('#/site/${sc.site_id}/finance/sub/${sc.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.name)} <span class="finpill grey">${escapeHtml(sc.number)}</span>${sc.status==='complete'?' <span class="finpill ok">Complete</span>':''}</span><span class="pmrow-s">${escapeHtml(finJobTag(sc.site_id))}${sc.description?' · '+escapeHtml(sc.description):''}</span><span class="pmrow-s">Certified ${finMoney(l?l.certified_gross:0)}${sc.order_value!=null?' of '+finMoney(sc.order_value):''} · retention ${finMoney(l?l.retention:0)}</span></span>
           <span class="finval">${sc.order_value!=null?finMoney(sc.order_value, 0):''}</span></button>`; }), 'No subcontract orders yet.');
@@ -338,11 +335,11 @@ async function renderFinSubsSection(sub){
     const list = sapps.filter(a=>a.status!=='paid' || finSaFilter==='all').filter(F[finSaFilter]);
     body = finSecHead('Subcontractor applications') + `<p class="stub" style="margin:-4px 0 12px;">Record an application on the subcontract order. Certify it and send the payment (or pay less) notice before the final date for payment.</p>`
       + `<div class="pmchips">${[['open','Not paid'],['received','To certify'],['certified','Certified, to pay'],['all','All']].map(([k,l])=>finChip(finSaFilter===k, l, sapps.filter(F[k]).length, `finSaFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search subcontractor or job', 'finSubList') + finListHtml('finSubList', list.map(appRow), 'No applications here.');
+      + finSearchHtml('Search subcontractor or project', 'finSubList') + finListHtml('finSubList', list.map(appRow), 'No applications here.');
   } else {
     const paid = sapps.filter(a=>a.status==='paid').sort((x,y)=>String(y.paid_on).localeCompare(String(x.paid_on)));
-    body = finSecHead('Payments to subcontractors') + `<p class="stub" style="margin:-4px 0 12px;">Paid applications. Each one is also in Labour › Payments &amp; CIS for your CIS return.</p>`
-      + finSearchHtml('Search subcontractor or job', 'finSubList') + finListHtml('finSubList', paid.map(appRow), 'No payments yet.');
+    body = finSecHead('Payments to subcontractors') + `<p class="stub" style="margin:-4px 0 12px;">Paid applications. Each one is also in the CIS tab for your CIS return.</p>`
+      + finSearchHtml('Search subcontractor or project', 'finSubList') + finListHtml('finSubList', paid.map(appRow), 'No payments yet.');
   }
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('subs')}
@@ -354,5 +351,5 @@ async function renderFinSubsSection(sub){
     </div>
     ${finSubTabs('subs', sub, {apps:toCert.length})}
     ${body}
-  `, {title:'Subcontractors', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
+  `, {title:'Subcontractors', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
 }

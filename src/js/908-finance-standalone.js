@@ -39,11 +39,10 @@ function renderFinNoAccess(){
 function finOnlyNavItems(){
   return [
     {k:'finance', ic:'pound', lbl:'Overview', go:'#/finance'},
-    {k:'finance/jobs', ic:'projects', lbl:'Jobs', go:'#/finance/jobs'},
+    {k:'finance/jobs', ic:'projects', lbl:'Projects', go:'#/finance/jobs'},
     {k:'finance/sales', ic:'list', lbl:'Sales', go:'#/finance/sales'},
     {k:'finance/purchases', ic:'truck', lbl:'Purchases', go:'#/finance/purchases'},
-    {k:'finance/subs', ic:'tools', lbl:'Subcontractors', go:'#/finance/subs'},
-    {k:'finance/labour', ic:'users', lbl:'Labour', go:'#/finance/labour'},
+    {k:'finance/subs', ic:'tools', lbl:'Subcontractors & labour', go:'#/finance/subs'},
     {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},
@@ -55,7 +54,7 @@ function finOnlyNavItems(){
 // ('new' = the New job button, 'more' = Suppliers / Team / My account).
 function finOnlyHomeButtonsHtml(part){
   if(!isFinanceOnly()) return '';
-  if(part==='new') return isFullManager(ME) ? `<button class="darkbtn finshort-main" onclick="openFinNewJob()">+ New job</button>` : '';
+  if(part==='new') return isFullManager(ME) ? `<button class="darkbtn finshort-main" onclick="openFinNewJob()">+ New project</button>` : '';
   return `${isFullManager(ME) ? `<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>` : ''}
     <button class="ghostbtn" onclick="go('#/fin-team')">Team</button>
     <button class="ghostbtn" onclick="go('#/account')">My account</button>`;
@@ -69,10 +68,10 @@ window.openFinNewJob = function(){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   const auto = ORG && ORG.auto_job_numbers;
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>New job</h3>
-    <div class="formfield"><label class="field-label">Job name</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
+    <h3>New project</h3>
+    <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Job number</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:'placeholder="e.g. 2662"'}></div>
+      <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:'placeholder="e.g. 2662"'}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
     <div class="formfield"><label class="field-label">Client</label><input type="text" id="finNjClient" placeholder="Company you invoice"></div>
@@ -82,8 +81,8 @@ window.openFinNewJob = function(){
       <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finNjPc"></div>
       <div class="formfield"><label class="field-label">Start date</label><input type="date" id="finNjStart"></div>
     </div>
-    ${auto ? '' : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Tip: switch on automatic job numbers in Finance › Settings.</p>`}
-    <button class="darkbtn" style="width:100%;" id="finNjSave" onclick="saveFinNewJob()">Create job</button>
+    ${auto ? '' : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Tip: switch on automatic project numbers in Finance › Settings.</p>`}
+    <button class="darkbtn" style="width:100%;" id="finNjSave" onclick="saveFinNewJob()">Create project</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finJobOverlay').style.display='none'">Cancel</button>
   </div>`;
   ov.style.display = 'flex';
@@ -91,8 +90,8 @@ window.openFinNewJob = function(){
 };
 window.saveFinNewJob = async function(){
   const name = finVal('finNjName'), no = finVal('finNjNo'), email = finVal('finNjEmail');
-  if(!name){ toast('Give the job a name.'); return; }
-  if(!(ORG && ORG.auto_job_numbers) && !no){ toast('Enter a job number.'); return; }
+  if(!name){ toast('Give the project a name.'); return; }
+  if(!(ORG && ORG.auto_job_numbers) && !no){ toast('Enter a project number.'); return; }
   if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
   const btn = document.getElementById('finNjSave'); if(btn){ btn.disabled = true; btn.textContent = 'Creating…'; }
   const newId = crypto.randomUUID();
@@ -101,15 +100,15 @@ window.saveFinNewJob = async function(){
     client_name:finVal('finNjClient')||null, client_email:email||null, created_by:ME.id};
   // Plain insert then re-read (the "return the row" form can be refused by the policy).
   const res = await sbFetch('/rest/v1/sites', {method:'POST', body:JSON.stringify(row)});
-  if(btn){ btn.disabled = false; btn.textContent = 'Create job'; }
-  if(!res.ok){ toast('Could not create the job — '+(await safeErr(res))); return; }
+  if(btn){ btn.disabled = false; btn.textContent = 'Create project'; }
+  if(!res.ok){ toast('Could not create the project — '+(await safeErr(res))); return; }
   const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
   if(sitesRes.ok) SITES = sitesRes.data;
   const made = SITES.find(x=>x.id===newId) || row;
   if(email) await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_name:row.client_name, billing_email:email, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
-  toast('Job '+(made.job_number||'')+' created');
+  toast('Project '+(made.job_number||'')+' created');
   go('#/site/'+newId+'/finance');
 };
 // Job card on the job's Finance page (Finance-only companies edit the job here).
@@ -117,8 +116,8 @@ function finJobEditHtml(site){
   if(!isFinanceOnly() || !isFullManager(ME)) return '';
   const st = typeof siteStatusKey==='function' ? siteStatusKey(site) : (site.status||'live');
   return `<div class="card">
-    <p class="sectiontitle" style="margin-top:0;">Job</p>
-    <div class="formfield"><label class="field-label">Job name</label><input type="text" id="finJeName" value="${escapeHtml(site.name||'')}"></div>
+    <p class="sectiontitle" style="margin-top:0;">Project</p>
+    <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finJeName" value="${escapeHtml(site.name||'')}"></div>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Status</label><select id="finJeStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${st===k?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Start date</label><input type="date" id="finJeStart" value="${escapeHtml(site.start_date||'')}"></div>
@@ -135,7 +134,7 @@ function finJobEditPatch(site){
   const st = finVal('finJeStatus');
   const cur = typeof siteStatusKey==='function' ? siteStatusKey(site) : site.status;
   if(st && st !== cur){ p.status = st; if(st==='closed'){ p.closed_at = new Date().toISOString(); p.closed_by = ME.id; } else { p.closed_at = null; p.closed_by = null; } }
-  if(!p.name) return {error:'A job needs a name.'};
+  if(!p.name) return {error:'A project needs a name.'};
   const changed = Object.keys(p).some(k=>String(p[k]==null?'':p[k]) !== String(site[k]==null?'':site[k]));
   return changed ? p : null;
 }

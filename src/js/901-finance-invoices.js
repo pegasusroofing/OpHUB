@@ -136,7 +136,7 @@ function renderFinInvoiceDraft(site, inv, pos){
       </div>
       <div class="formfield"><label class="field-label">Client PO</label>
         ${poOpts.length ? `<select id="finInvPo" onchange="finInvDraft.client_po=this.value||null">${poOpts.map(p=>`<option value="${escapeHtml(p)}" ${d.client_po===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}<option value="" ${!d.client_po?'selected':''}>No PO</option></select>`
-          : `<input type="text" id="finInvPo" value="${escapeHtml(d.client_po||'')}" placeholder="No client PO on this job yet" oninput="finInvDraft.client_po=this.value||null">`}
+          : `<input type="text" id="finInvPo" value="${escapeHtml(d.client_po||'')}" placeholder="No client PO on this project yet" oninput="finInvDraft.client_po=this.value||null">`}
       </div>
     </div>
     <div class="card">
@@ -365,7 +365,7 @@ async function finBuildInvoicePdf(inv, site, st){
     let by = y-15;
     txt(inv.bill_name||'', M, by, {font:bold, size:11}); by -= 14;
     finWrap(inv.bill_address||'', reg, 10, 230).forEach(l=>{ txt(l, M, by); by -= 13; });
-    const det = [['Invoice no.', inv.number||'Draft'], ['Invoice date', finDate(inv.issue_date)], ['Due date', finDate(inv.due_date)], ['Job no.', (site&&site.job_number)||'—'], ['Your PO', inv.client_po||'—'], ['Site', (site&&site.name)||'']];
+    const det = [['Invoice no.', inv.number||'Draft'], ['Invoice date', finDate(inv.issue_date)], ['Due date', finDate(inv.due_date)], ['Project no.', (site&&site.job_number)||'—'], ['Your PO', inv.client_po||'—'], ['Site', (site&&site.name)||'']];
     let dy = y;
     det.forEach(([k,v])=>{ txt(k, 330, dy, {size:9, color:SLATE}); const lines = finWrap(v, bold, 10, W-M-420); lines.forEach((l,i)=>{ txt(l, 420, dy-(i*12), {font:bold, size:10}); }); dy -= 15 + (lines.length-1)*12; });
     if(site && site.address){ finWrap(typeof fullSiteAddress==='function' ? fullSiteAddress(site) : site.address, reg, 9, W-M-420).slice(0,3).forEach(l=>{ txt(l, 420, dy+3, {size:9, color:SLATE}); dy -= 11; }); }

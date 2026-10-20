@@ -74,18 +74,18 @@ async function renderFinanceSettings(){
     ${finSectionNav('settings')}
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? `<div class="finshort"><button class="ghostbtn" onclick="go('#/fin-team')">Team</button>${isFullManager(ME)?`<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>`:''}<button class="ghostbtn" onclick="go('#/account')">My account</button></div>` : ''}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Job numbers</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">When this is on, every new job gets the next number automatically and nobody types one in. A number can’t be used twice.</p>
-      <label class="finswitch"><input type="checkbox" id="finAutoJob" ${auto?'checked':''}> Give new jobs the next number automatically</label>
+      <p class="sectiontitle" style="margin-top:0;">Project numbers</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">When this is on, every new project gets the next number automatically and nobody types one in. A number can’t be used twice.</p>
+      <label class="finswitch"><input type="checkbox" id="finAutoJob" ${auto?'checked':''}> Give new projects the next number automatically</label>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Prefix (optional)</label><input type="text" id="finJobPrefix" maxlength="12" placeholder="e.g. RTB-" value="${escapeHtml((ORG&&ORG.job_number_prefix)||'')}"></div>
         <div class="formfield"><label class="field-label">Next number</label><input type="number" id="finJobNext" min="1" step="1" value="${escapeHtml(String(next))}"></div>
       </div>
-      <p class="stub" style="margin:0;font-style:normal;">Your highest job number so far is ${finSuggestedNextJobNumber()-1}, so the next free one is ${finSuggestedNextJobNumber()}.</p>
+      <p class="stub" style="margin:0;font-style:normal;">Your highest project number so far is ${finSuggestedNextJobNumber()-1}, so the next free one is ${finSuggestedNextJobNumber()}.</p>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Purchase orders</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a job’s Materials tile becomes a purchase order numbered by job (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a project’s Materials tile becomes a purchase order numbered by project (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
       <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
       <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
     </div>
@@ -98,8 +98,8 @@ async function renderFinanceSettings(){
       <p class="stub" style="margin:0;font-style:normal;">Used when invoices are added in the next step. Next invoice: <b>${escapeHtml((st.invoice_prefix||'')+st.next_invoice_number)}</b></p>
     </div>
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Defaults for new jobs</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Each job starts with these and can be changed on its own Finance page.</p>
+      <p class="sectiontitle" style="margin-top:0;">Defaults for new projects</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Each project starts with these and can be changed on its own Finance page.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finDefRet" min="0" max="100" step="0.5" value="${escapeHtml(String(st.default_retention_pct))}"></div>
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finDefAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${st.app_reminder_day||''}"></div>
@@ -135,10 +135,10 @@ window.saveFinanceSettings = async function(){
   const nextJob = finInt(finVal('finJobNext'));
   const invNext = finInt(finVal('finInvNext'));
   const ret = finNum(finVal('finDefRet')), due = finInt(finVal('finDefDue')), fin = finInt(finVal('finDefFinal')), appDay = finInt(finVal('finDefAppDay'));
-  if(auto && (!nextJob || nextJob < 1)){ toast('Enter the next job number.'); return; }
+  if(auto && (!nextJob || nextJob < 1)){ toast('Enter the next project number.'); return; }
   if(auto){
     const clash = SITES.find(s=>String(s.job_number||'').trim().toLowerCase() === (prefix+nextJob).toLowerCase());
-    if(clash){ toast('Job number '+prefix+nextJob+' is already used on '+clash.name+'. Pick a higher number.'); return; }
+    if(clash){ toast('Project number '+prefix+nextJob+' is already used on '+clash.name+'. Pick a higher number.'); return; }
   }
   if(!invNext || invNext < 1){ toast('Enter the next invoice number.'); return; }
   if(ret===null || isNaN(ret) || ret < 0 || ret > 100){ toast('Retention must be between 0 and 100%.'); return; }
@@ -192,7 +192,7 @@ async function renderSiteFinance(siteId){
   document.getElementById('app').innerHTML = shell(`
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
     <div class="card finhead">
-      <div><div class="finhead-l">Job no.</div><div class="finhead-v">${escapeHtml(site.job_number||'—')}</div></div>
+      <div><div class="finhead-l">Project no.</div><div class="finhead-v">${escapeHtml(site.job_number||'—')}</div></div>
       <div><div class="finhead-l">Client</div><div class="finhead-v">${escapeHtml(site.client_name||'—')}</div></div>
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
@@ -214,7 +214,7 @@ async function renderSiteFinance(siteId){
         <p class="sectiontitle" style="margin:0;">Client purchase orders</p>
         <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openClientPoForm('${siteId}')">+ Add PO</button>
       </div>
-      <p class="stub" style="margin:4px 0 10px;font-style:normal;">The main PO goes on every invoice, application and certificate for this job. Add another PO for variations if the client issues one.</p>
+      <p class="stub" style="margin:4px 0 10px;font-style:normal;">The main PO goes on every invoice, application and certificate for this project. Add another PO for variations if the client issues one.</p>
       ${pos.length ? pos.map(p=>`
         <div class="finpo">
           <div class="finpo-main">
@@ -231,9 +231,9 @@ async function renderSiteFinance(siteId){
 
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Job details</p>
+      <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Job number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
+        <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
         <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${items.length?'disabled title="Set by the contract breakdown"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
@@ -247,14 +247,14 @@ async function renderSiteFinance(siteId){
 
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Billing</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Who invoices and applications go to. Filled from the job’s client details to start with. ${typeof finXeroConnected==='function' && finXeroConnected() ? 'Find the client in Xero to pull their details; anything Xero is missing is added when an invoice is sent.' : 'Once Xero is connected (Finance › Settings) you can pull these from Xero.'}</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Who invoices and applications go to. Filled from the project’s client details to start with. ${typeof finXeroConnected==='function' && finXeroConnected() ? 'Find the client in Xero to pull their details; anything Xero is missing is added when an invoice is sent.' : 'Once Xero is connected (Finance › Settings) you can pull these from Xero.'}</p>
       ${typeof finXeroBillingHtml==='function' ? finXeroBillingHtml() : ''}
       <div class="formfield"><label class="field-label">Bill to (company name)</label><input type="text" id="finBillName" value="${escapeHtml(pick('billing_name', site.client_name||''))}"></div>
       <div class="formfield"><label class="field-label">Billing address</label><textarea id="finBillAddr" rows="3">${escapeHtml(jf.billing_address||'')}</textarea></div>
       <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finBillEmail" value="${escapeHtml(pick('billing_email', site.client_email||''))}"></div>
-      <div class="formfield"><label class="field-label">Notes</label><textarea id="finNotes" rows="2" placeholder="Anything about payment on this job">${escapeHtml(jf.notes||'')}</textarea></div>
+      <div class="formfield"><label class="field-label">Notes</label><textarea id="finNotes" rows="2" placeholder="Anything about payment on this project">${escapeHtml(jf.notes||'')}</textarea></div>
     </div>
-    <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save job details'}</button>
+    <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save project details'}</button>
 
 
   `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
@@ -286,7 +286,7 @@ window.saveSiteFinance = async function(siteId){
   // Job number lives on the job itself (everyone sees it).
   const jobNo = finVal('finJobNo');
   if(site && jobNo !== String(site.job_number||'')){
-    if(!jobNo){ toast('A job needs a job number.'); done(); return; }
+    if(!jobNo){ toast('A project needs a project number.'); done(); return; }
     const row = await dbUpdate('sites', siteId, {job_number:jobNo});
     if(!row){ done(); return; }
     Object.assign(site, row);
@@ -299,7 +299,7 @@ window.saveSiteFinance = async function(siteId){
   })});
   done();
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
-  toast('Job details saved');
+  toast('Project details saved');
   render();
 };
 

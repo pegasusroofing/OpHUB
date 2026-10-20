@@ -1735,3 +1735,4 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 @media (max-width:600px){ .finsecnav{grid-template-columns:repeat(4,1fr);} .finsecnav button{font-size:12.5px;padding:10px 2px;} }
 .fincli-jobs{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;}
 .fincli-jobs .linkbtn{margin:0;font-size:12.5px;}
+@media (max-width:600px){ .finsecnav button{white-space:normal;line-height:1.2;display:flex;align-items:center;justify-content:center;} }

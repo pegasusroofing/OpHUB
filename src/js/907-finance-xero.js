@@ -37,7 +37,7 @@ function finXeroSettingsHtml(st){
         <div class="formfield"><label class="field-label">Sales account (invoices)</label><input type="text" id="finXSales" list="finXAccts" value="${escapeHtml(st.xero_sales_account||'200')}"></div>
         <div class="formfield"><label class="field-label">Materials account (bills)</label><input type="text" id="finXPurch" list="finXAccts" value="${escapeHtml(st.xero_purchase_account||'310')}"></div>
         <div class="formfield"><label class="field-label">Subcontract labour account</label><input type="text" id="finXLabour" list="finXAccts" value="${escapeHtml(st.xero_labour_account||'320')}"></div>
-        <div class="formfield"><label class="field-label">Job tracking category</label><input type="text" id="finXTrack" list="finXTracks" value="${escapeHtml(st.xero_tracking_name||'Job')}"></div>
+        <div class="formfield"><label class="field-label">Xero tracking category</label><input type="text" id="finXTrack" list="finXTracks" value="${escapeHtml(st.xero_tracking_name||'Job')}"></div>
       </div>
       <datalist id="finXAccts"></datalist><datalist id="finXTracks"></datalist>
       <div id="finXAcctsMsg" class="stub" style="margin:0 0 8px;font-style:normal;">Account codes are the numbers in your Xero chart of accounts. <button class="linkbtn" style="color:var(--blue);" onclick="finXeroLoadAccounts()">Load them from Xero</button></div>
@@ -47,7 +47,7 @@ function finXeroSettingsHtml(st){
         <button class="ghostbtn" style="flex:1;" onclick="finXeroPullPayments(true)">Check Xero for payments</button>
         <button class="ghostbtn" style="flex:1;color:var(--red);" onclick="finXeroDisconnect()">Disconnect</button>
       </div>
-      <p class="stub" style="margin:8px 0 0;font-style:normal;">Jobs go into Xero under a tracking category (default “Job”) — create it once in Xero (Settings › Tracking categories) and OpHUB adds each job to it. CIS: set each subcontractor up as a CIS subcontractor in Xero so Xero works out the deduction on their bill.</p>`
+      <p class="stub" style="margin:8px 0 0;font-style:normal;">Projects go into Xero under a tracking category (default “Job”) — create it once in Xero (Settings › Tracking categories) and OpHUB adds each project to it. CIS: set each subcontractor up as a CIS subcontractor in Xero so Xero works out the deduction on their bill.</p>`
     : `<p class="stub" style="margin:0 0 10px;font-style:normal;">Connect your Xero company so invoices, supplier bills and subcontractor payments go across, and payments come back. Nothing is sent until you connect.</p>
       <button class="darkbtn" style="width:100%;" id="finXConnect" onclick="finXeroConnect()">Connect to Xero</button>
       <div id="finXeroMsg"></div>`}

@@ -66,7 +66,7 @@ async function renderFinCosts(siteId){
     </div>
     <div id="finCostTbl"></div>
     <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; supplier invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
-  `, {title:'Job costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
+  `, {title:'Project costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finCostPaint();
 }
 window.finCostTab = function(k){ finCosts.tab = k; render(); };
@@ -143,13 +143,13 @@ window.setFinPiCostCode = async function(id, code){
 function finCostExportName(ext){
   const s = SITES.find(x=>x.id===finCosts.siteId) || {};
   const tab = finCosts.tab==='all' ? 'All costs' : finCosts.tab==='committed' ? 'Committed' : FIN_COST_CATS[finCosts.tab];
-  return ('Job costs - '+(s.job_number?s.job_number+' ':'')+(s.name||'')+' - '+tab+' - '+finToday()).replace(/[\\/:*?"<>|]+/g,'')+'.'+ext;
+  return ('Project costs - '+(s.job_number?s.job_number+' ':'')+(s.name||'')+' - '+tab+' - '+finToday()).replace(/[\\/:*?"<>|]+/g,'')+'.'+ext;
 }
 window.finCostExportXlsx = async function(){
   if(!(await loadLib('ExcelJS'))){ toast('Could not load the Excel tool — check your connection.'); return; }
   const rows = finCostsShown(); const s = SITES.find(x=>x.id===finCosts.siteId) || {};
   const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Costs', {views:[{state:'frozen', ySplit:4}]});
-  ws.getCell('A1').value = 'Job costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''); ws.getCell('A1').font = {bold:true, size:14};
+  ws.getCell('A1').value = 'Project costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''); ws.getCell('A1').font = {bold:true, size:14};
   ws.getCell('A2').value = (ORG&&ORG.name||'')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · exported '+finDate(finToday())+' · excl. VAT';
   const head = ['Date','Type','Description','Supplier / person','Ref','Status','Net £'];
   ws.getRow(4).values = head; ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
@@ -172,7 +172,7 @@ window.finCostExportPdf = async function(){
   const fit = (t, f, sz, w)=>{ t = String(t||''); while(t && f.widthOfTextAtSize(t, sz) > w-6) t = t.slice(0,-2); return t; };
   const newPage = ()=>{
     page = pdf.addPage([W, H]); y = H-M;
-    page.drawText('Job costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''), {x:M, y:y-12, size:14, font:bold, color:INK});
+    page.drawText('Project costs — '+(s.job_number?s.job_number+' · ':'')+(s.name||''), {x:M, y:y-12, size:14, font:bold, color:INK});
     page.drawText((ORG&&ORG.name||'')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · '+finDate(finToday())+' · excl. VAT', {x:M, y:y-28, size:9, font:reg, color:SLATE});
     y -= 50; let x = M;
     ['Date','Type','Description','Supplier / person','Ref','Status','Net £'].forEach((h,i)=>{ const c = cols[i]; const tw = bold.widthOfTextAtSize(h, 8.5); page.drawText(h, {x: c.r ? x+c.w-tw-3 : x+3, y, size:8.5, font:bold, color:SLATE}); x += c.w; });

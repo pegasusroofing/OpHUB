@@ -158,7 +158,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const [st, jfRows, apps, pos] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId), dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=number,status,cert_retention'), dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number')]);
   const jf = jfRows[0] || {};
   const amt = finRound(finRetentionHeld(apps)/2);
-  if(!amt){ toast('No retention held on this job yet.'); return; }
+  if(!amt){ toast('No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const today = finToday();

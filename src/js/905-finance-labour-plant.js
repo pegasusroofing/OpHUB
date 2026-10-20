@@ -58,7 +58,7 @@ function finLabourCardHtml(siteId, lab){
     <p class="stub" style="margin:4px 0 8px;font-style:normal;">${typeof isFinanceOnly==='function' && isFinanceOnly() ? 'From timesheets, at each person’s day rate.' : 'From site sign-in (a day per person per date) at each person’s day rate, plus anything added by hand.'}${lab.noRate?` <b style="color:var(--warn);">${lab.noRate} ${lab.noRate===1?'person has':'people have'} no day rate yet</b> — <a href="#/finance/labour/rates">set rates</a>.`:''}</p>
     ${lab.people.map(p=>`<div class="finkv"><span>${escapeHtml(finPersonName(p.user_id))} · ${p.days} day${p.days===1?'':'s'}${p.rate!=null?' × '+finMoney(p.rate):''}</span><b>${p.rate!=null?finMoney(p.cost):'<span class="finpill warn">No rate</span>'}</b></div>`).join('')}
     ${lab.manual.map(m=>`<div class="finkv"><span>${escapeHtml(m.name||finPersonName(m.user_id))} · ${finDate(m.work_date)}${m.description?' · '+escapeHtml(m.description):''} <button class="linkbtn" onclick="deleteFinManualLabour('${m.id}')">remove</button></span><b>${finMoney(m.amount)}</b></div>`).join('')}
-    ${!lab.people.length && !lab.manual.length ? `<p class="stub" style="margin:0;font-style:normal;">No labour on this job yet.</p>` : `<div class="finkv big"><span>Labour to date</span><b>${finMoney(lab.cost)}</b></div>`}
+    ${!lab.people.length && !lab.manual.length ? `<p class="stub" style="margin:0;font-style:normal;">No labour on this project yet.</p>` : `<div class="finkv big"><span>Labour to date</span><b>${finMoney(lab.cost)}</b></div>`}
   </div>`;
 }
 window.openFinManualLabour = async function(siteId, date){
@@ -73,8 +73,8 @@ window.openFinManualLabour = async function(siteId, date){
   const jobs = SITES.filter(x=>finSiteStatus(x)!=='closed').sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${siteId ? 'Add labour' : 'Add timesheet'}</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">${siteId ? 'For work not captured by sign-in: price work, a gang, or someone without the app.' : 'Days worked by a person on a job. Their day rate fills in the amount.'}</p>
-    ${siteId ? '' : `<div class="formfield"><label class="field-label">Job</label><select id="finLabJob"><option value="">Choose…</option>${jobs.map(j=>`<option value="${j.id}">${escapeHtml((j.job_number?j.job_number+' · ':'')+j.name)}</option>`).join('')}</select></div>`}
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${siteId ? 'For work not captured by sign-in: price work, a gang, or someone without the app.' : 'Days worked by a person on a project. Their day rate fills in the amount.'}</p>
+    ${siteId ? '' : `<div class="formfield"><label class="field-label">Project</label><select id="finLabJob"><option value="">Choose…</option>${jobs.map(j=>`<option value="${j.id}">${escapeHtml((j.job_number?j.job_number+' · ':'')+j.name)}</option>`).join('')}</select></div>`}
     <div class="formfield"><label class="field-label">Who</label><select id="finLabWho" onchange="finLabAuto()"><option value="">Someone else (type a name)…</option>
       ${workers.length ? `<optgroup label="Workers">${workers.map(w=>`<option value="w:${w.id}">${escapeHtml(w.name||w.trading_name||'Worker')}</option>`).join('')}</optgroup>` : ''}
       ${people.length ? `<optgroup label="App users">${people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</optgroup>` : ''}</select></div>
@@ -96,7 +96,7 @@ window.finLabAuto = function(){
   if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) el.value = finRound(days*Number(r.day_rate)); }
 };
 window.saveFinManualLabour = async function(siteId){
-  if(!siteId){ siteId = finVal('finLabJob'); if(!siteId){ toast('Choose the job.'); return; } }
+  if(!siteId){ siteId = finVal('finLabJob'); if(!siteId){ toast('Choose the project.'); return; } }
   const who = finVal('finLabWho'), name = finVal('finLabName'), amt = finNum(finVal('finLabAmt')), days = finNum(finVal('finLabDays'));
   if(!who && !name){ toast('Choose who, or type a name.'); return; }
   if(amt===null || isNaN(amt)){ toast('Enter the amount.'); return; }
@@ -121,7 +121,7 @@ function finPlantCardHtml(siteId, hires){
     </div>
     ${hires.length ? hires.map(h=>{ const c = finPlantCost(h); const long = !h.off_hire && c.days > 28; return `<div class="finkv" style="cursor:pointer;" onclick="openFinPlantForm('${siteId}','${h.id}')"><span><b style="color:var(--ink);">${escapeHtml(h.item)}</b>${h.supplier_name?' · '+escapeHtml(h.supplier_name):''}<em style="display:block;font-style:normal;font-size:12px;">${finDate(h.on_hire)} → ${h.off_hire?finDate(h.off_hire):'<span style="color:'+(long?'var(--red)':'var(--ok)')+';font-weight:700;">on hire '+c.weeks+' wk</span>'} · ${finMoney(h.rate)}/${h.rate_period}</em></span><b>${finMoney(c.cost)}</b></div>`; }).join('')
       + `<div class="finkv big"><span>Plant to date${on.length?' ('+on.length+' on hire)':''}</span><b>${finMoney(total)}</b></div>`
-      : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No plant on hire for this job.</p>`}
+      : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No plant on hire for this project.</p>`}
   </div>`;
 }
 window.openFinPlantForm = async function(siteId, id){
@@ -190,7 +190,7 @@ async function renderFinLabour(){
   const payBy = {}; pays.forEach(p=>{ payBy[finPersonKey(p)] = p; });
   const fmtW = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric', month:'short'});
   document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('labour')}${finSubTabs('labour','week')}
+    ${finSectionNav('subs')}${finSubTabs('subs','week')}
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <button class="ghostbtn" style="width:auto;" onclick="finLabWeek=finAddDays(finLabWeek,-7);render()">‹</button>
       <div style="text-align:center;"><div class="finhead-l">Week</div><div class="finhead-v">${fmtW(from)} – ${fmtW(to)}</div></div>
@@ -203,13 +203,13 @@ async function renderFinLabour(){
       <div style="display:flex;justify-content:space-between;align-items:center;"><p class="sectiontitle" style="margin:0;">Labour this week</p><b>${finMoney(total)}</b></div>
       ${list.length ? list.map(p=>{ const pay = payBy[p.key]; return `<div class="finlabrow">
         <div><b>${escapeHtml(nameOf(p))}</b> <span class="finpill ${p.pay_type==='paye'?'grey':'blue'}">${p.pay_type==='paye'?'PAYE':'Sub · CIS '+p.cis+'%'}</span>
-          <div class="stub" style="margin:2px 0 0;font-style:normal;">${Object.keys(p.sites).map(s=>{ const st = SITES.find(x=>x.id===s)||{}; return escapeHtml((st.job_number||'')+' '+(st.name||'Job'))+' ×'+p.sites[s]; }).join(' · ')}</div></div>
+          <div class="stub" style="margin:2px 0 0;font-style:normal;">${Object.keys(p.sites).map(s=>{ const st = SITES.find(x=>x.id===s)||{}; return escapeHtml((st.job_number||'')+' '+(st.name||'Project'))+' ×'+p.sites[s]; }).join(' · ')}</div></div>
         <div style="text-align:right;"><b>${p.amount!=null?finMoney(p.amount):'<span class="finpill warn">No rate</span>'}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${p.days ? p.days+' sign-in day'+(p.days===1?'':'s')+(p.rate!=null?' × '+finMoney(p.rate):'') : ''}${p.days && p.timesheet ? ' + ' : ''}${p.timesheet ? 'timesheet '+finMoney(p.extra) : ''}</div>
           ${p.pay_type!=='paye' && !p.key.startsWith('n:') ? (pay ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/finance/labour/payment/${pay.id}')">${pay.status==='paid'?'Paid':'Payment '+pay.status}</button>` : (p.amount!=null ? `<button class="linkbtn" style="color:var(--blue);" onclick="newFinSubPayment('${p.key}')">Make payment</button>` : '')) : ''}</div>
       </div>`; }).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No labour this week — nobody signed in on site and no timesheets added.</p>`}
     </div>
     ${pays.filter(p=>!people[finPersonKey(p)]).map(p=>`<button class="pmrow pmrow-card finrow" onclick="go('#/finance/labour/payment/${p.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.name)}</span><span class="pmrow-s">Payment ${p.status}</span></span><span class="finval">${finMoney(p.net_pay)}</span></button>`).join('')}
-  `, {title:'Labour', subtitle:'OpHUB Finance · timesheets', back:finSecBack(), tabs:false});
+  `, {title:'Timesheets', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
 }
 window.newFinSubPayment = async function(key){
   const from = finLabWeek, to = finAddDays(from, 6);
@@ -321,13 +321,13 @@ async function renderFinLabourRates(){
       <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="saveFinRate('${key}')">Save</button>${isW ? `<button class="ghostbtn" style="flex:none;width:auto;" onclick="finWorkerActive('${r.id}', ${r.active===false})">${r.active===false?'Make active':'Not working for us'}</button>` : ''}</div>
     </div>`;
   document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('labour')}${finSubTabs('labour','rates')}
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each job. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
+    ${finSectionNav('subs')}${finSubTabs('subs','rates')}
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each project. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
     <button class="darkbtn" style="width:100%;margin-bottom:12px;" onclick="finAddWorker()">+ Add a worker</button>
     ${workers.map(w=>card('w:'+w.id, w.name||w.trading_name||'Worker', w, true)).join('')}
     ${people.map(p=>card(p.id, p.name, rates[p.id]||{}, false)).join('')}
     ${!workers.length && !people.length ? '<div class="empty">No one yet — add a worker.</div>' : ''}
-  `, {title:'Rates & workers', subtitle:'OpHUB Finance · labour', back:finSecBack(), tabs:false});
+  `, {title:'Rates & workers', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
 }
 window.finAddWorker = async function(){
   const name = String(await customPrompt('Worker or subcontractor name') || '').trim();
@@ -373,7 +373,7 @@ async function renderFinCis(){
   const tot = rows.reduce((t,r)=>({gross:t.gross+r.gross, cis:t.cis+r.cis}), {gross:0, cis:0});
   const shift = n=>{ const d = new Date(finCisMonth+'T12:00:00'); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
   document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('labour')}${finSubTabs('labour','cis')}
+    ${finSectionNav('subs')}${finSubTabs('subs','cis')}
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <button class="ghostbtn" style="width:auto;" onclick="finCisMonth='${shift(-1)}';render()">‹</button>
       <div style="text-align:center;"><div class="finhead-l">Tax month</div><div class="finhead-v">${finDate(start)} – ${finDate(end)}</div></div>
@@ -386,7 +386,7 @@ async function renderFinCis(){
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
-  `, {title:'Payments & CIS', subtitle:'OpHUB Finance · labour', back:finSecBack(), tabs:false});
+  `, {title:'CIS', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
 }
 
 /* ---- payment and deduction statement PDF ---- */

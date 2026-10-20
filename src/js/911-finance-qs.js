@@ -123,7 +123,7 @@ function finJobCostCardFromForecast(siteId, fc){
   const waiting = finRound(fc.lines.filter(l=>l.waiting && l.cat!=='labour').reduce((t,l)=>t+l.net,0));
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
-      <p class="sectiontitle" style="margin:0;">Job cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+      <p class="sectiontitle" style="margin:0;">Project cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
       <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="finCosts=null;go('#/site/${siteId}/finance/costs')">All costs ›</button>
     </div>
     <div class="fincost">

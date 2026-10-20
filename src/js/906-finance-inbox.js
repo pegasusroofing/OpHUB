@@ -98,7 +98,7 @@ async function renderFinInbox(){
     ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Add supplier invoices</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of supplier invoices, as many as you like. The app reads each one and finds the job from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of supplier invoices, as many as you like. The app reads each one and finds the project from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
       <input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" onchange="finInboxUpload(this.files)">
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('new','To file')}${chip('filed','Filed')}${chip('ignored','Ignored')}</div>
@@ -117,7 +117,7 @@ function finInboxCardHtml(it, pos, sites){
       <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View</button>
     </div>
     ${ex.read===false ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--warn);">${ex.photo?'A photo can’t be read automatically — type the details in.':'This PDF has no readable text — type the details in.'}</p>` : (ex.po_number ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--ok);">Found our PO ${escapeHtml(ex.po_number)}${ex.po_id?'':' (not recognised)'}</p>` : '')}
-    ${done ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">${it.status==='filed'?'Filed to '+escapeHtml(((SITES.find(s=>s.id===it.site_id)||{}).name)||'a job'):'Ignored'}${it.status==='ignored'?` · <button class="linkbtn" style="color:var(--blue);" onclick="finInboxSet('${it.id}','new')">put back</button>`:''}</p>` : `
+    ${done ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">${it.status==='filed'?'Filed to '+escapeHtml(((SITES.find(s=>s.id===it.site_id)||{}).name)||'a project'):'Ignored'}${it.status==='ignored'?` · <button class="linkbtn" style="color:var(--blue);" onclick="finInboxSet('${it.id}','new')">put back</button>`:''}</p>` : `
     <div class="fingrid2" style="margin-top:8px;">
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" data-k="supplier" value="${v(ex.supplier)}"></div>
       <div class="formfield"><label class="field-label">Invoice no.</label><input type="text" data-k="invoice_no" value="${v(ex.invoice_no)}"></div>
@@ -125,10 +125,10 @@ function finInboxCardHtml(it, pos, sites){
       <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-k="net" value="${v(ex.net)}"></div>
       <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-k="vat" value="${v(ex.vat)}"></div>
       <div class="formfield"><label class="field-label">Total £</label><input type="text" inputmode="decimal" data-k="total" value="${v(ex.total)}"></div>
-      <div class="formfield"><label class="field-label">Job</label><select data-k="site_id" onchange="finInboxPickJob('${it.id}', this.value)"><option value="">Choose the job…</option>${sites.map(s=>`<option value="${s.id}" ${it.site_id===s.id?'selected':''}>${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
+      <div class="formfield"><label class="field-label">Project</label><select data-k="site_id" onchange="finInboxPickJob('${it.id}', this.value)"><option value="">Choose the project…</option>${sites.map(s=>`<option value="${s.id}" ${it.site_id===s.id?'selected':''}>${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">PO</label><select data-k="po_id"><option value="">No PO</option>${posFor.map(p=>`<option value="${p.id}" ${it.po_id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select></div>
     </div>
-    <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="finInboxFile('${it.id}')">File to job</button><button class="ghostbtn" style="flex:1;" onclick="finInboxSet('${it.id}','ignored')">Ignore</button></div>`}
+    <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="finInboxFile('${it.id}')">File to project</button><button class="ghostbtn" style="flex:1;" onclick="finInboxSet('${it.id}','ignored')">Ignore</button></div>`}
   </div>`;
 }
 window.finInboxPickJob = async function(id, siteId){ await dbUpdate('fin_inbox', id, {site_id:siteId||null, po_id:null}); render(); };
@@ -154,7 +154,7 @@ window.finInboxFile = async function(id){
   const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!it) return;
   const siteId = g('site_id'), poId = g('po_id'), supplier = g('supplier'), no = g('invoice_no');
   let net = finNum(g('net')), vat = finNum(g('vat')), total = finNum(g('total'));
-  if(!siteId){ toast('Choose the job.'); return; }
+  if(!siteId){ toast('Choose the project.'); return; }
   if(!supplier){ toast('Enter the supplier.'); return; }
   if((net===null || isNaN(net)) && total!==null && !isNaN(total)){ net = finRound(total/1.2); vat = finRound(total-net); }
   if(net===null || isNaN(net)){ toast('Enter the net amount (or the total).'); return; }

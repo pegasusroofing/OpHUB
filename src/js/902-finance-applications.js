@@ -112,7 +112,7 @@ async function renderFinContract(siteId){
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
-    ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This job already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
+    ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Breakdown</p>
@@ -126,7 +126,7 @@ async function renderFinContract(siteId){
       </div>
     </div>
     <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save breakdown</button>
-    <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the job’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.</p>
+    <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.</p>
   `, {title:'Contract breakdown', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finContractPaint();
 }
@@ -446,7 +446,7 @@ async function renderFinApplication(siteId, appId){
             <label>Value £<input type="text" inputmode="decimal" value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
             <label>% done<input type="text" inputmode="decimal" class="finpct" value="${finPct(v.pct)}" oninput="finAppSet('variations',${i},'pct',this.value)"></label>`}
             <b id="finAppG-variations-${i}">—</b>
-          </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this job — add them in the job’s Variations register.</p>`}
+          </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this project — add them in the project’s Variations register.</p>`}
       ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finAppAddVar()">+ Add a variation not in the app</button>`}
     </div>
     <div class="card">
@@ -586,7 +586,7 @@ async function finAppExcelBytes(a){
   const t = ws.addRow(['', (ORG&&ORG.name)||'']); t.getCell(2).font = {bold:true, size:16, color:{argb:'FF'+brand}};
   const t2 = ws.addRow(['', 'Application for payment No. '+a.number]); t2.getCell(2).font = {bold:true, size:13};
   ws.addRow([]);
-  const info = [['Client', jf.billing_name||site.client_name||''], ['Job', site.name||''], ['Job no.', site.job_number||''], ['Client PO', a.client_po||''], ['Valuation date', a.valuation_date?finDate(a.valuation_date):''], ['Due date', a.due_date?finDate(a.due_date):''], ['Final date for payment', a.final_date?finDate(a.final_date):'']];
+  const info = [['Client', jf.billing_name||site.client_name||''], ['Project', site.name||''], ['Project no.', site.job_number||''], ['Client PO', a.client_po||''], ['Valuation date', a.valuation_date?finDate(a.valuation_date):''], ['Due date', a.due_date?finDate(a.due_date):''], ['Final date for payment', a.final_date?finDate(a.final_date):'']];
   info.forEach(([k,v])=>{ const r = ws.addRow(['', k, v]); r.getCell(2).font = {bold:true, color:{argb:'FF5B6472'}}; r.getCell(3).font = {bold:true}; });
   ws.addRow([]);
   const head = ws.addRow(['ID', 'Ref', 'Description', 'Qty', 'Unit', 'Rate', 'Contract value', '% complete', 'Value to date', 'Section to date']);
