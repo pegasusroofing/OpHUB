@@ -120,8 +120,8 @@ function finXeroRowHtml(kind, rec){
     : ['approved','paid'].includes(rec.status);
   if(!can && !rec.xero_id) return '';
   return `<div class="finxero" id="finXero-${rec.id}">
-    ${rec.xero_id ? `<span class="ok">✓ In Xero${rec.xero_synced_at?' · '+finDate(String(rec.xero_synced_at).slice(0,10)):''}</span>` : `<span>Not in Xero yet</span>`}
-    ${can ? `<button class="ghostbtn" onclick="finXeroPush('${kind}','${rec.id}')">${rec.xero_id?'Update in Xero':'Send to Xero'}</button>` : ''}
+    ${rec.xero_id ? `<span class="ok">✓ Posted to Xero${rec.xero_synced_at?' · '+finDate(String(rec.xero_synced_at).slice(0,10)):''}</span>` : rec.xero_post===false ? `<span>Set not to post to Xero</span>` : `<span>Not posted to Xero yet</span>`}
+    ${can && !rec.xero_id ? `<button class="ghostbtn" onclick="finXeroPush('${kind}','${rec.id}')">Post to Xero</button>` : ''}
     ${rec.xero_error ? `<div class="err">Last try: ${escapeHtml(rec.xero_error)}</div>` : ''}
   </div>`;
 }
@@ -129,21 +129,26 @@ window.finXeroPush = async function(kind, id, quiet){
   const box = document.getElementById('finXero-'+id);
   const btn = box && box.querySelector('button');
   if(btn){ btn.disabled = true; btn.textContent = 'Sending…'; }
+  const tbl = {invoice:'fin_invoices', bill:'purchase_invoices', sub:'fin_sub_payments'}[kind];
+  if(tbl && !quiet) await sbFetch('/rest/v1/'+tbl+'?id=eq.'+id, {method:'PATCH', body:JSON.stringify({xero_post:true})}).catch(()=>null);
   const j = await finXeroCall(FIN_XERO_KIND[kind], {id});
   if(j.error){
     toast('Xero: '+j.error);
     if(btn){ btn.disabled = false; btn.textContent = 'Try again'; }
     return false;
   }
-  if(!quiet || j.warning) toast(j.warning ? 'Sent to Xero — '+j.warning : 'Sent to Xero');
+  if(!quiet || j.warning) toast(j.warning ? 'Posted to Xero — '+j.warning : 'Posted to Xero');
   if(!quiet) render();
   return true;
 };
 // Called after issuing an invoice / approving a supplier invoice.
 async function finXeroAuto(kind, id){
   if(!finXeroConnected() || !FIN_SETTINGS.xero_auto) return;
+  const tbl = {invoice:'fin_invoices', bill:'purchase_invoices', sub:'fin_sub_payments'}[kind];
+  const rec = tbl ? (await dbSelect(tbl, 'id=eq.'+id+'&select=xero_post,xero_id'))[0] : null;
+  if(rec && (rec.xero_post===false || rec.xero_id)) return;
   const ok = await finXeroPush(kind, id, true);
-  if(ok) toast('Also sent to Xero');
+  if(ok) toast('Also posted to Xero');
 }
 // A voided invoice that is already in Xero gets voided there too.
 async function finXeroVoid(inv){
@@ -262,4 +267,40 @@ window.saveFinNewCustomer = async function(){
   window.__finXeroContacts = [c]; finXeroUseContact(0);
   finCustLocal = null;
   document.getElementById('finCustOverlay').style.display = 'none';
+};
+
+/* ---------- "Ready for Xero" on the Finance home: tick several and post them once ---------- */
+async function finXeroReadyLoad(){
+  if(!finXeroConnected()) return [];
+  const [invs, bills, pays] = await Promise.all([
+    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&xero_id=is.null&status=in.(issued,sent,part_paid,paid)&select=id,site_id,number,bill_name,issue_date,total,xero_post&order=issue_date.asc&limit=300'),
+    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&xero_id=is.null&status=eq.approved&select=id,site_id,supplier_name,invoice_no,invoice_date,total,xero_post&order=invoice_date.asc&limit=300'),
+    dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&xero_id=is.null&status=in.(approved,paid)&select=id,name,invoice_no,period_start,gross,xero_post&order=period_start.asc&limit=300'),
+  ]);
+  const on = r=>r.xero_post!==false;
+  return [].concat(
+    invs.filter(on).map(i=>({kind:'invoice', id:i.id, t:'Sales invoice '+(i.number||''), s:[i.bill_name, finJobTag(i.site_id)].filter(Boolean).join(' · '), d:i.issue_date, v:i.total})),
+    bills.filter(on).map(b=>({kind:'bill', id:b.id, t:'Supplier invoice '+(b.invoice_no||''), s:[b.supplier_name, finJobTag(b.site_id)].filter(Boolean).join(' · '), d:b.invoice_date, v:b.total})),
+    pays.filter(on).map(p=>({kind:'sub', id:p.id, t:'Operative invoice '+(p.invoice_no||''), s:p.name||'', d:p.period_start, v:p.gross})));
+}
+function finXeroReadyHtml(list){
+  if(!list.length) return '';
+  window.__finXr = list;
+  return `<div class="card finxr">
+    <div class="finxr-head"><p class="sectiontitle" style="margin:0;">Ready to post to Xero <span class="finpill blue">${list.length}</span></p>
+      <label class="finxr-all"><input type="checkbox" onchange="document.querySelectorAll('.finxr-cb').forEach(c=>c.checked=this.checked);finXrCount()"> All</label></div>
+    ${list.map((x,i)=>`<label class="finxr-row"><input type="checkbox" class="finxr-cb" data-i="${i}" onchange="finXrCount()"><span class="finxr-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}${x.d?' · '+finDate(x.d):''}</em></span><span class="finxr-v">${finMoney(x.v)}</span></label>`).join('')}
+    <button class="darkbtn" id="finXrGo" disabled style="width:100%;margin-top:10px;" onclick="finXrPost()">Post ticked to Xero</button>
+    <p class="stub" style="margin:6px 0 0;font-style:normal;">Each one can only be posted once. To keep one out of Xero, open it and untick “Post to Xero”.</p>
+  </div>`;
+}
+window.finXrCount = function(){ const n = document.querySelectorAll('.finxr-cb:checked').length; const b = document.getElementById('finXrGo'); if(b){ b.disabled = !n; b.textContent = n ? 'Post '+n+' to Xero' : 'Post ticked to Xero'; } };
+window.finXrPost = async function(){
+  const picks = [...document.querySelectorAll('.finxr-cb:checked')].map(c=>(window.__finXr||[])[Number(c.dataset.i)]).filter(Boolean);
+  if(!picks.length) return;
+  const b = document.getElementById('finXrGo'); if(b){ b.disabled = true; }
+  let ok = 0, bad = 0;
+  for(const x of picks){ if(b) b.textContent = 'Posting '+(ok+bad+1)+' of '+picks.length+'…'; const j = await finXeroCall(FIN_XERO_KIND[x.kind], {id:x.id}); if(j.error) bad++; else ok++; }
+  toast(ok+' posted to Xero'+(bad ? ' · '+bad+' failed (see each one for why)' : ''));
+  render();
 };

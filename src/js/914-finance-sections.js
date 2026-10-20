@@ -22,7 +22,7 @@ const FIN_SECTIONS = [
 ];
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
-  sales: [['apps','Applications','#/finance/sales/apps'], ['certs','Certificates','#/finance/sales/certs'], ['invoices','Invoices','#/finance/sales/invoices'], ['receipts','Receipts','#/finance/sales/receipts'], ['retention','Retention','#/finance/sales/retention']],
+  sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['orders','Orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['inbox','Invoice inbox','#/finance/inbox'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['orders','Orders','#/finance/subs/orders'], ['apps','Applications','#/finance/subs/apps'], ['payments','Payments','#/finance/subs/payments'], ['week','Labour & timesheets','#/finance/labour'], ['payrun','Pay run','#/finance/labour/payrun'], ['cis','CIS','#/finance/labour/cis'], ['rates','Rates & workers','#/finance/labour/rates']],
 };
@@ -73,6 +73,7 @@ async function renderFinanceHome(){
     dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&select=id'),
     dbSelect('fin_sub_apps', 'org_id=eq.'+ME.org_id+'&status=eq.received&select=id'),
   ]);
+  const xeroReady = typeof finXeroReadyLoad==='function' ? await finXeroReadyLoad() : [];
   if(__gen !== RENDER_GEN) return;
   if(typeof finXeroMaybePull==='function') finXeroMaybePull();
   const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
@@ -108,6 +109,7 @@ async function renderFinanceHome(){
       <div class="pmstat" onclick="finInvFilter='overdue';go('#/finance/sales/invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
       <div class="pmstat" onclick="go('#/finance/sales/retention')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by clients</span></div>
     </div>
+    ${typeof finXeroReadyHtml==='function' ? finXeroReadyHtml(xeroReady) : ''}
     ${todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${x.pre||''}go('${x.go}')"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
@@ -177,84 +179,7 @@ async function renderFinJobs(sub){
 }
 
 /* ================= Sales (money in) ================= */
-let finInvFilter = 'outstanding', finAppFilter = 'open';
-async function renderFinSales(sub){
-  if(!finGuard()) return;
-  sub = ['apps','certs','invoices','receipts','retention'].includes(sub) ? sub : 'apps';
-  const __gen = RENDER_GEN;
-  const [invs, apps, pays, jf, st] = await Promise.all([
-    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
-    sub==='receipts' ? dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&order=paid_on.desc&limit=2000') : Promise.resolve([]),
-    sub==='retention' ? dbSelect('job_finance', 'org_id=eq.'+ME.org_id) : Promise.resolve([]),
-    finLoadSettings(),
-  ]);
-  if(__gen !== RENDER_GEN) return;
-  const live = invs.filter(i=>i.status!=='void');
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0);
-  const awaitingCert = apps.filter(a=>a.status==='submitted');
-  const certNotInv = apps.filter(a=>a.status==='certified' && !a.invoice_id);
-  const invBy = {}; invs.forEach(i=>invBy[i.id]=i);
-  let body = '';
-  if(sub==='apps'){
-    const F = {open:a=>['draft','submitted'].includes(a.status), draft:a=>a.status==='draft', submitted:a=>a.status==='submitted', all:a=>a.status!=='void'};
-    if(!F[finAppFilter]) finAppFilter = 'open';
-    const list = apps.filter(F[finAppFilter]);
-    body = finSecHead('Applications for payment', '+ New application', "finPickJob('New application','newFinApplication')")
-      + `<div class="pmchips">${[['open','Draft & submitted'],['draft','Drafts'],['submitted','Waiting for certificate'],['all','All']].map(([k,l])=>finChip(finAppFilter===k, l, apps.filter(F[k]).length, `finAppFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search project', 'finSalesList')
-      + finListHtml('finSalesList', list.map(a=>`<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText(finJobTag(a.site_id))}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
-          <span class="pmrow-txt"><span class="pmrow-t">Application ${a.number} <span class="finpill ${a.status==='certified'?'ok':a.status==='submitted'?'blue':'grey'}">${escapeHtml(a.status[0].toUpperCase()+a.status.slice(1))}</span></span><span class="pmrow-s">${escapeHtml(finJobTag(a.site_id))}</span><span class="pmrow-s">Valuation ${finDate(a.valuation_date)}${a.final_date?' · final date '+finDate(a.final_date):''}</span></span>
-          <span class="finval">${finMoney(a.net_due)}<em>applied (net)</em></span></button>`), 'No applications here.');
-  } else if(sub==='certs'){
-    const list = apps.filter(a=>a.cert_net!=null && a.status!=='void');
-    body = finSecHead('Payment certificates') + `<p class="stub" style="margin:-4px 0 12px;">What clients have certified against each application. Record a certificate on the application itself.</p>`
-      + (certNotInv.length ? `<div class="card fintodo">${certNotInv.map(a=>`<button type="button" class="fintodo-i" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')"><span class="fintodo-n t-warn">£</span><span class="fintodo-t"><b>Raise the invoice — ${escapeHtml(finJobTag(a.site_id))} app ${a.number}</b><em>Certified ${finMoney(a.cert_net)}</em></span><span class="fintodo-c">›</span></button>`).join('')}</div>` : '')
-      + finSearchHtml('Search project', 'finSalesList')
-      + finListHtml('finSalesList', list.map(a=>{ const short = finRound(Number(a.net_due||0)-Number(a.cert_net||0)); const inv = invBy[a.invoice_id]; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText(finJobTag(a.site_id))}" onclick="go('#/site/${a.site_id}/finance/application/${a.id}')">
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(finJobTag(a.site_id))} · app ${a.number} ${a.cert_is_payless?'<span class="finpill bad">Pay less</span>':''}</span><span class="pmrow-s">Certified ${a.cert_date?finDate(a.cert_date):''} · applied ${finMoney(a.net_due)}${short>0.009?` · <span style="color:var(--red);">${finMoney(short)} short</span>`:''}</span><span class="pmrow-s">${inv?'Invoice '+escapeHtml(inv.number||''):'<span style="color:var(--warn);">Not invoiced yet</span>'}</span></span>
-          <span class="finval">${finMoney(a.cert_net)}<em>certified (net)</em></span></button>`; }), 'No certificates yet.');
-  } else if(sub==='invoices'){
-    const F = {outstanding:i=>finInvOutstanding(i)>0, overdue:finInvOverdue, draft:i=>i.status==='draft', paid:i=>i.status==='paid', all:()=>true};
-    if(!F[finInvFilter]) finInvFilter = 'outstanding';
-    const list = (finInvFilter==='all' ? invs : live).filter(F[finInvFilter]);
-    body = finSecHead('Sales invoices', '+ New invoice', "finPickJob('New invoice','newFinInvoice')")
-      + `<div class="pmchips">${[['outstanding','Owed'],['overdue','Overdue'],['draft','Drafts'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finInvFilter===k, l, (k==='all'?invs:live).filter(F[k]).length, `finInvFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search invoice no., project or client', 'finSalesList')
-      + finListHtml('finSalesList', list.map(i=>`<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, i.bill_name, finJobTag(i.site_id)].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(finJobTag(i.site_id))} · ${escapeHtml(i.bill_name||'')}</span><span class="pmrow-s">${i.issue_date?'Issued '+finDate(i.issue_date):'Not issued'}${i.due_date?' · due '+finDate(i.due_date):''}</span></span>
-          <span class="finval">${finMoney(i.total)}${finInvOutstanding(i)>0 && finInvOutstanding(i)<Number(i.total) ? `<em>${finMoney(finInvOutstanding(i))} owed</em>` : ''}</span></button>`), 'No invoices here.');
-  } else if(sub==='receipts'){
-    const month = finToday().slice(0,7);
-    const tm = finRound(pays.filter(p=>String(p.paid_on).startsWith(month)).reduce((t,p)=>t+Number(p.amount||0),0));
-    body = finSecHead('Receipts') + `<p class="stub" style="margin:-4px 0 12px;">Money received against your invoices — ${finMoney(tm)} so far this month. Record a payment on the invoice; payments made in Xero come across too.</p>`
-      + finSearchHtml('Search invoice, project or note', 'finSalesList')
-      + finListHtml('finSalesList', pays.map(p=>{ const i = invBy[p.invoice_id] || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, i.bill_name, finJobTag(i.site_id), p.note].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
-          <span class="pmrow-txt"><span class="pmrow-t">${finDate(p.paid_on)} · ${escapeHtml(i.number||'Invoice')}</span><span class="pmrow-s">${escapeHtml(finJobTag(i.site_id))} · ${escapeHtml(i.bill_name||'')}</span>${p.note?`<span class="pmrow-s">${escapeHtml(p.note)}</span>`:''}</span>
-          <span class="finval" style="color:var(--ok);">${finMoney(p.amount)}</span></button>`; }), 'No payments received yet.');
-  } else {
-    const jfBy = {}; jf.forEach(r=>jfBy[r.site_id]=r);
-    const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id]||[]).push(a); });
-    const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
-    const total = rows.reduce((t,x)=>t+x.held,0);
-    body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">${finMoney(total)} held by clients across ${rows.length} job${rows.length===1?'':'s'}. Set the practical completion date on the project to get release dates and reminders.</p>`
-      + finListHtml('finSalesList', rows.map(x=>{ const d = finRetentionDates(x.jf, st); return `<button type="button" class="pmrow pmrow-card finrow" onclick="go('#/site/${x.s.id}/finance')">
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(finRepJobOr(x.s))}</span><span class="pmrow-s">${escapeHtml(x.s.client_name||'')}</span><span class="pmrow-s">${d.first ? '1st half '+finDate(d.first)+(x.jf.ret1_invoice_id?' (claimed)':'')+' · 2nd half '+finDate(d.second)+(x.jf.ret2_invoice_id?' (claimed)':'') : '<span style="color:var(--warn);">No practical completion date yet</span>'}</span></span>
-          <span class="finval">${finMoney(x.held)}</span></button>`; }), 'No retention held.');
-  }
-  document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('sales')}
-    <div class="pmstats finstats">
-      <div class="pmstat" onclick="finInvFilter='outstanding';go('#/finance/sales/invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
-      <div class="pmstat" onclick="finInvFilter='overdue';go('#/finance/sales/invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
-      <div class="pmstat" onclick="finAppFilter='submitted';go('#/finance/sales/apps')"><b>${awaitingCert.length}</b><span>Applications waiting for a certificate</span></div>
-      <div class="pmstat" onclick="go('#/finance/sales/certs')"><b>${certNotInv.length}</b><span>Certified, not invoiced</span></div>
-    </div>
-    ${finSubTabs('sales', sub, {certs:certNotInv.length})}
-    ${body}
-  `, {title:'Sales', subtitle:'OpHUB Finance · money in', back:finSecBack(), tabs:false});
-}
-
+let finInvFilter = 'outstanding', finAppFilter = 'open'; // finAppFilter kept for old links
 /* ================= Purchases (money out) ================= */
 let finPiFilter = 'approve';
 let finPurSup = '', finPurJob = '', finPurStatus = '';

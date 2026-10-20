@@ -29,6 +29,7 @@ function finCertSlotRender(a){
       <div class="formfield"><label class="field-label">Copy of the certificate (optional)</label><input type="file" accept="application/pdf,image/*" onchange="finCertFile=this.files[0]||null"></div>
       <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finCertNotes" placeholder="e.g. reason for any shortfall"></div>
       <div id="finCertDiff" class="stub" style="margin:0 0 10px;font-style:normal;"></div>
+      <label class="finswitch finxpost" style="margin:0 0 12px;"><input type="checkbox" id="finCertInvoice" checked> <span><b>Raise and issue the invoice now</b><br><span class="stub" style="font-style:normal;">For the net due, numbered and saved as a PDF ready to email.</span></span></label>
       <button class="darkbtn" style="width:100%;" id="finCertSave" onclick="saveFinCertificate('${a.site_id}','${a.id}')">Save certificate</button>
     </div>`;
     finCertCalc();
@@ -76,7 +77,10 @@ window.saveFinCertificate = async function(siteId, appId){
   const r = await dbUpdate('fin_applications', appId, row);
   if(btn){ btn.disabled = false; btn.textContent = 'Save certificate'; }
   if(!r) return;
-  finCertFile = null; finApp = null; toast('Certificate saved'); render();
+  finCertFile = null; finApp = null;
+  const inv = document.getElementById('finCertInvoice');
+  if(inv && inv.checked && Number(row.cert_net)>0){ await raiseInvoiceFromCert(siteId, appId, true); return; }
+  toast('Certificate saved'); render();
 };
 window.clearFinCertificate = async function(appId){
   const btn = event && event.target;
@@ -85,7 +89,7 @@ window.clearFinCertificate = async function(appId){
   if(r){ finApp = null; render(); }
 };
 // The invoice for a certificate: its lines ARE the certificate breakdown.
-window.raiseInvoiceFromCert = async function(siteId, appId){
+window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
   const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
   if(a.invoice_id){ go(`#/site/${siteId}/finance/invoice/${a.invoice_id}`); return; }
   const site = SITES.find(s=>s.id===siteId) || {};
@@ -96,6 +100,7 @@ window.raiseInvoiceFromCert = async function(siteId, appId){
   if(Number(a.cert_previous||0)) lines.push({description:'Less previously certified', amount:-finRound(a.cert_previous)});
   if(Number(a.cert_discount||0)) lines.push({description:'Less discount', amount:-finRound(a.cert_discount)});
   const today = finToday();
+  lines.forEach(l=>{ l.vat = finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:a.final_date || finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
@@ -106,6 +111,11 @@ window.raiseInvoiceFromCert = async function(siteId, appId){
   if(!rows || !rows[0]) return;
   await dbUpdate('fin_applications', appId, {invoice_id:rows[0].id, status:'invoiced'});
   finApp = null;
+  if(issueNow){
+    if(!rows[0].bill_name){ toast('Certificate saved — add who the invoice is to, then issue it.'); go(`#/site/${siteId}/finance/invoice/${rows[0].id}`); return; }
+    const issued = await finIssueInvoiceById(rows[0].id);
+    if(issued){ go(`#/site/${siteId}/finance/invoice/${rows[0].id}`); return; }
+  }
   go(`#/site/${siteId}/finance/invoice/${rows[0].id}`);
 };
 

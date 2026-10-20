@@ -48,25 +48,6 @@ function finInvTotalsRowsHtml(t){
 }
 
 /* ---------- list on the job's Finance page ---------- */
-function finInvoicesCardHtml(siteId, invs){
-  const live = invs.filter(i=>i.status!=='void');
-  const invoiced = live.filter(i=>i.status!=='draft').reduce((t,i)=>t+Number(i.net||0), 0);
-  const owed = live.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  return `<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <p class="sectiontitle" style="margin:0;">Invoices</p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="newFinInvoice('${siteId}')">+ New invoice</button>
-    </div>
-    ${invs.length ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">Invoiced <b>${finMoney(invoiced)}</b> excl. VAT · Owed <b style="${owed?'color:var(--warn);':''}">${finMoney(owed)}</b></p>
-      ${invs.map(i=>`<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/invoice/${i.id}')">
-        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft invoice')} ${finInvPill(i)}</span>
-          <span class="pmrow-s">${i.issue_date?finDate(i.issue_date):'Not issued'}${i.due_date && i.status!=='draft'?' · due '+finDate(i.due_date):''}${(i.lines||[])[0]&&(i.lines||[])[0].description?' · '+escapeHtml(String(i.lines[0].description).split('\n')[0].slice(0,50)):''}</span></span>
-        <span class="finval">${finMoney(i.total)}</span>
-      </button>`).join('')}`
-    : `<div class="empty" style="margin:8px 0 0;">No invoices yet.</div>`}
-  </div>`;
-}
-
 /* ---------- create a draft ---------- */
 window.newFinInvoice = async function(siteId){
   const site = SITES.find(s=>s.id===siteId); if(!site) return;
@@ -178,11 +159,14 @@ function renderFinInvoiceDraft(site, inv, pos){
     <div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">Note on the invoice (optional)</label><textarea id="finInvNotes" rows="2" oninput="finInvDraft.notes=this.value">${escapeHtml(d.notes||'')}</textarea></div>
     </div>
-    <button class="darkbtn" style="width:100%;" id="finInvIssue" onclick="issueFinInvoice('${site.id}')">Issue invoice</button>
-    <div class="row-gap" style="margin-top:10px;">
-      <button class="ghostbtn" style="flex:1;" onclick="saveFinInvoiceDraft(true)">Save draft</button>
-      <button class="ghostbtn" style="flex:1;color:var(--red);" onclick="deleteFinInvoiceDraft('${site.id}')">Delete draft</button>
+    <div class="card">
+      <label class="finswitch finxpost"><input type="checkbox" ${d.xero_post!==false?'checked':''} onchange="finInvDraft.xero_post=this.checked"> <span><b>Post to Xero</b><br><span class="stub" style="font-style:normal;">${typeof finXeroConnected==='function' && finXeroConnected() ? (finSettings().xero_auto ? 'Goes to Xero as soon as it’s issued.' : 'You can post it from the Finance home page once it’s issued.') : 'When Xero is connected. Untick for invoices you don’t want in Xero.'}</span></span></label>
     </div>
+    <div class="fininv-actions">
+      <button class="ghostbtn" onclick="saveFinInvoiceDraft(true)">Save draft</button>
+      <button class="darkbtn" id="finInvIssue" onclick="issueFinInvoice('${site.id}')">Issue invoice…</button>
+    </div>
+    <button class="linkbtn" style="margin-top:12px;color:var(--red);" onclick="deleteFinInvoiceDraft('${site.id}')">Delete this draft</button>
   `, {title:'New invoice', subtitle:site.name, back:`#/site/${site.id}/finance`, siteId:site.id, tabs:false});
   finInvPaintTotals();
 }
@@ -211,7 +195,7 @@ function finInvDraftRow(){
   const lines = d.lines.map(l=>({description:String(l.description||'').trim(), amount:(l.amount===null||isNaN(l.amount))?null:finRound(l.amount), vat:FIN_INV_VAT[l.vat]?l.vat:finInvVatFromTreatment(d.vat_treatment, d.vat_rate)})).filter(l=>l.description || l.amount!==null);
   const t = finInvTotals(lines, d.vat_treatment, d.vat_rate);
   return {issue_date:d.issue_date||null, due_date:d.due_date||null, client_po:d.client_po||null, bill_name:d.bill_name||null, bill_address:d.bill_address||null,
-    bill_email:(d.bill_email||'').trim()||null, vat_treatment:lines.length ? finInvTreatmentOf(t) : (d.vat_treatment||'standard'), lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, notes:d.notes||null, updated_at:new Date().toISOString()};
+    bill_email:(d.bill_email||'').trim()||null, vat_treatment:lines.length ? finInvTreatmentOf(t) : (d.vat_treatment||'standard'), lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, notes:d.notes||null, xero_post:d.xero_post!==false, updated_at:new Date().toISOString()};
 }
 window.saveFinInvoiceDraft = async function(showToast){
   if(!finInvDraft) return null;
@@ -232,22 +216,33 @@ window.issueFinInvoice = async function(siteId){
   if(!row.bill_name){ toast('Add who the invoice is to.'); return; }
   if(!row.issue_date || !row.due_date){ toast('Add the invoice date and due date.'); return; }
   if(row.bill_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.bill_email)){ toast('Enter a valid accounts email.'); return; }
-  const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice'; } };
+  if(!await customConfirm(`Issue this invoice for ${finMoney(row.total)}${row.vat?' (incl. VAT)':''}?\n\nIt gets the next invoice number and can’t be changed afterwards.`, {confirmLabel:'Issue invoice'})) return;
+  const btn = document.getElementById('finInvIssue'); const reset = ()=>{ if(btn){ btn.disabled=false; btn.textContent='Issue invoice…'; } };
   if(btn){ btn.disabled = true; btn.textContent = 'Issuing…'; }
   const saved = await dbUpdate('fin_invoices', finInvDraft.id, row);
   if(!saved){ reset(); return; }
-  const res = await sbFetch('/rest/v1/rpc/fin_take_invoice_number', {method:'POST', body:'{}'});
-  if(!res.ok){ toast('Could not get an invoice number — '+(await safeErr(res))); reset(); return; }
-  const number = await res.json();
-  const issued = await dbUpdate('fin_invoices', finInvDraft.id, {number, status:'issued'});
+  const issued = await finIssueInvoiceById(finInvDraft.id);
   if(!issued){ reset(); return; }
-  if(btn) btn.textContent = 'Making the PDF…';
-  await finStoreInvoicePdf(issued);
   finInvDraft = null;
-  toast('Invoice '+number+' issued');
   render();
-  if(typeof finXeroAuto==='function') finXeroAuto('invoice', issued.id);
 };
+// Gives a saved draft its number, marks it issued, stores the PDF, posts to Xero if set to. Returns the invoice or null.
+async function finIssueInvoiceById(id){
+  let number = null;
+  try{
+    const res = await sbFetch('/rest/v1/rpc/fin_take_invoice_number', {method:'POST', body:'{}'});
+    if(!res.ok){ toast('Could not get an invoice number — '+(await safeErr(res))); return null; }
+    number = await res.json();
+  }catch(e){ toast('Could not get an invoice number — check your signal.'); return null; }
+  if(Array.isArray(number)) number = number[0];
+  if(!number || typeof number !== 'string'){ toast('Could not get an invoice number — try again. The invoice is still a draft.'); return null; }
+  const issued = await dbUpdate('fin_invoices', id, {number, status:'issued'});
+  if(!issued) return null;
+  await finStoreInvoicePdf(issued);
+  toast('Invoice '+number+' issued');
+  if(issued.xero_post!==false && typeof finXeroAuto==='function') finXeroAuto('invoice', issued.id);
+  return issued;
+}
 // Builds the PDF and keeps it with the invoice (finance-docs/<org>/<site>/invoices/...).
 async function finStoreInvoicePdf(inv){
   const site = SITES.find(s=>s.id===inv.site_id);

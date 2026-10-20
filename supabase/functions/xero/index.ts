@@ -279,6 +279,9 @@ Deno.serve(async (req) => {
       const { data: inv } = await admin.from('fin_invoices').select('*').eq('id', body.id).eq('org_id', orgId).maybeSingle();
       if (!inv) return json({ error: 'Invoice not found' }, 404);
       if (inv.status === 'draft') return json({ error: 'Issue the invoice first' }, 400);
+      // Posted once only. The one exception: voiding an invoice that's already in Xero voids it there too.
+      if (inv.xero_id && inv.status !== 'void') return json({ error: 'Already posted to Xero' }, 400);
+      if (!inv.xero_id && inv.xero_post === false) return json({ error: 'This invoice is set not to post to Xero' }, 400);
       const { data: site } = await admin.from('sites').select('name, job_number').eq('id', inv.site_id).maybeSingle();
       try {
         const contact = await contactFor(call, inv.bill_name, inv.bill_email, inv.bill_address);
@@ -311,6 +314,8 @@ Deno.serve(async (req) => {
       const { data: pi } = await admin.from('purchase_invoices').select('*').eq('id', body.id).eq('org_id', orgId).maybeSingle();
       if (!pi) return json({ error: 'Purchase invoice not found' }, 404);
       if (pi.status !== 'approved') return json({ error: 'Approve it first' }, 400);
+      if (pi.xero_id) return json({ error: 'Already posted to Xero' }, 400);
+      if (pi.xero_post === false) return json({ error: 'This invoice is set not to post to Xero' }, 400);
       const [{ data: site }, { data: po }] = await Promise.all([
         admin.from('sites').select('name, job_number').eq('id', pi.site_id).maybeSingle(),
         pi.po_id ? admin.from('purchase_orders').select('number').eq('id', pi.po_id).maybeSingle() : Promise.resolve({ data: null }),
@@ -343,12 +348,14 @@ Deno.serve(async (req) => {
       const { data: p } = await admin.from('fin_sub_payments').select('*').eq('id', body.id).eq('org_id', orgId).maybeSingle();
       if (!p) return json({ error: 'Payment not found' }, 404);
       if (!['approved', 'paid'].includes(p.status)) return json({ error: 'Approve it first' }, 400);
+      if (p.xero_id) return json({ error: 'Already posted to Xero' }, 400);
+      if (p.xero_post === false) return json({ error: 'This one is set not to post to Xero' }, 400);
       try {
         const contact = await contactFor(call, p.name || 'Subcontractor', null, null);
         const items: any[] = [];
         if (r2(p.labour)) items.push({ Description: `Labour ${p.period_start} to ${p.period_end}`, Quantity: 1, UnitAmount: r2(p.labour), AccountCode: s.xero_labour_account || '320', TaxType: 'NONE' });
         if (r2(p.materials)) items.push({ Description: `Materials ${p.period_start} to ${p.period_end}`, Quantity: 1, UnitAmount: r2(p.materials), AccountCode: s.xero_purchase_account || '310', TaxType: 'NONE' });
-        const x: any = { Type: 'ACCPAY', Contact: contact, Reference: `CIS ${p.period_start}–${p.period_end}`, Date: p.paid_on || p.period_end, DueDate: p.paid_on || p.period_end, LineAmountTypes: 'NoTax', Status: 'AUTHORISED', LineItems: items };
+        const x: any = { Type: 'ACCPAY', Contact: contact, InvoiceNumber: p.invoice_no || undefined, Reference: `CIS ${p.period_start}–${p.period_end}`, Date: p.paid_on || p.period_end, DueDate: p.paid_on || p.period_end, LineAmountTypes: 'NoTax', Status: 'AUTHORISED', LineItems: items };
         if (p.xero_id) x.InvoiceID = p.xero_id;
         const r = await call('POST', '/Invoices', { Invoices: [x] });
         const xi = r.Invoices[0];

@@ -90,21 +90,6 @@ function finContractCardHtml(siteId, items, jf){
     <p class="stub" style="margin:4px 0 0;font-style:normal;">${priced.length ? `${heads?heads+' section'+(heads===1?'':'s')+' · ':''}${priced.length} item${priced.length===1?'':'s'} · total <b>${finMoney(total)}</b>${jf&&jf.contract_file_name?' · from '+escapeHtml(jf.contract_file_name):''}` : 'Upload the priced breakdown (Excel or PDF) or type it in, with headers, sub-headers, quantities, units and rates. Applications are valued against it.'}</p>
   </div>`;
 }
-function finApplicationsCardHtml(siteId, apps, due){
-  return `<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <p class="sectiontitle" style="margin:0;">Applications</p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="newFinApplication('${siteId}')">+ New application</button>
-    </div>
-    ${due ? `<div class="finchecks" style="margin:8px 0 0;"><span>This month’s application is due</span></div>` : ''}
-    ${apps.length ? apps.map(a=>`<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/application/${a.id}')">
-        <span class="pmrow-txt"><span class="pmrow-t">Application ${a.number} ${finAppPill(a)}</span>
-          <span class="pmrow-s">${finDate(a.valuation_date)} · gross ${finMoney(a.gross)}${a.cert_net!=null?' · certified '+finMoney(a.cert_net):''}</span></span>
-        <span class="finval">${finMoney(a.cert_net!=null ? a.cert_net : a.net_due)}</span>
-      </button>`).join('') : `<div class="empty" style="margin:8px 0 0;">No applications yet.</div>`}
-  </div>`;
-}
-
 /* ---------------- Contract breakdown page ---------------- */
 let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
 function finContractSnapOf(rows){ return JSON.stringify(rows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'',r.cost==null?null:r.cost,r.cost_basis||'',r.cost_pct==null?null:r.cost_pct])); }

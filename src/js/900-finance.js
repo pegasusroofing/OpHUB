@@ -211,7 +211,7 @@ async function renderSiteFinance(siteId){
     <div id="finFcSlot"></div>
     </div>
     <div class="finptab" data-t="sales">
-    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live') : ''}
+    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
     <div class="card">
