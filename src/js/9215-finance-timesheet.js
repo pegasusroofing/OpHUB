@@ -57,6 +57,8 @@ async function finTsLoad(){
   // A row whose money isn't days × rate was price work: keep its price.
   Object.values(rows).forEach(row=>{ const calc = t.rate!=null ? finRound(row._days*t.rate) : null; if(calc===null || Math.abs(calc - row._amt) > 0.01) row.price = finRound(row._amt); delete row._amt; delete row._days; });
   t.rows = Object.values(rows);
+  t.push = {};
+  try{ (await dbSelect('wage_pushes', 'org_id=eq.'+ME.org_id+'&person_key=eq.'+encodeURIComponent(k)+'&week_start=eq.'+from)).forEach(p=>{ t.push[p.site_id] = p; }); }catch(e){}
 }
 function finTsRowDays(r){ return finRound(r.d.reduce((s,x)=>s+(Number(x)||0),0)); }
 function finTsRowAmount(r){ if(r.price!=null && !isNaN(r.price)) return finRound(r.price); return finTs.rate!=null ? finRound(finTsRowDays(r)*finTs.rate) : 0; }
@@ -84,7 +86,7 @@ window.finTsPaint = function(){
       <div class="fints-h"><span>Project</span>${anySubs?'<span>Plot</span>':''}${dates.map((d,i)=>`<span class="c">${FIN_TS_DAYS[i]}<em>${fmt(d)}</em></span>`).join('')}<span class="c">Days</span><span class="c">Price work £</span><span class="r">Cost</span><span></span></div>
       ${t.rows.map((r,i)=>{ const subs = FIN_SUBJOBS[r.site_id]||[]; return `<div class="fints-r ${anySubs?'subs':''}">
         <label class="fints-p"><span>Project</span><select onchange="finTsSite(${i}, this.value)"><option value="">Choose…</option>${jobs.map(j=>`<option value="${j.id}" ${r.site_id===j.id?'selected':''}>${escapeHtml((j.job_number?j.job_number+' · ':'')+j.name)}</option>`).join('')}</select>
-          <input type="text" class="fints-desc" placeholder="What for (optional)" value="${escapeHtml(r.desc||'')}" oninput="finTs.rows[${i}].desc=this.value"></label>
+          <input type="text" class="fints-desc" placeholder="What for (optional)" value="${escapeHtml(r.desc||'')}" oninput="finTs.rows[${i}].desc=this.value">${t.push && t.push[r.site_id] && typeof finWagePushChip==='function' ? `<span class="fints-pm">PM: ${finWagePushChip(t.push[r.site_id])}</span>` : ''}</label>
         ${anySubs ? `<label><span>Plot</span>${subs.length ? `<select onchange="finTs.rows[${i}].sub=this.value"><option value="">Whole project</option>${subs.map(a=>`<option value="${a.id}" ${r.sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '<em class="stub">—</em>'}</label>` : ''}
         ${r.d.map((v,j)=>`<label class="c"><span>${FIN_TS_DAYS[j]}</span><input type="text" inputmode="decimal" class="fints-d" value="${v!=null&&v!==0?v:''}" placeholder="–" oninput="finTsDay(${i},${j},this.value)"></label>`).join('')}
         <b class="c" id="finTsD-${i}">${finTsRowDays(r)||'–'}</b>
@@ -152,6 +154,7 @@ window.saveFinTimesheet = async function(){
   // Replace what was booked by hand for this person and week.
   for(const id of t.ids){ if(!(await dbDelete('fin_labour_manual', id))){ toast('Couldn’t update the old entries — try again.'); return; } }
   if(rows.length){ const res = await sbFetch('/rest/v1/fin_labour_manual', {method:'POST', body:JSON.stringify(rows)}); if(!res.ok){ toast('Save failed — '+(await safeErr(res))); t.ids = []; return; } }
+  if(typeof finWagePush==='function') await finWagePush(t, rows);
   document.getElementById('finTsOverlay').style.display = 'none';
   toast(rows.length ? 'Timesheet saved — '+finRound(used.reduce((s,r)=>s+finTsRowDays(r),0))+' days on '+new Set(used.map(r=>r.site_id)).size+' project'+(new Set(used.map(r=>r.site_id)).size===1?'':'s') : 'Timesheet cleared');
   finTs = null; render();

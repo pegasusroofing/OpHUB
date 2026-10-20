@@ -136,6 +136,8 @@ async function attach(call: any, invoiceId: string, path: string | null, name: s
 
 const jobLabel = (site: any) => site ? [site.job_number, site.name].filter(Boolean).join(' ') : '';
 const salesTax = (t: string) => t === 'reverse_charge' ? 'DRCHARGESUPPLY20' : t === 'zero' ? 'ZERORATEDOUTPUT' : 'OUTPUT2';
+// VAT chosen on each invoice line in OpHUB -> Xero UK tax type.
+const LINE_TAX: Record<string, string> = { '20': 'OUTPUT2', '5': 'RROUTPUT', '0': 'ZERORATEDOUTPUT', 'ex': 'EXEMPTOUTPUT', 'rc20': 'DRCHARGESUPPLY20', 'rc5': 'DRCHARGESUPPLY5' };
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -284,7 +286,7 @@ Deno.serve(async (req) => {
         const tax = salesTax(inv.vat_treatment);
         const lines = (inv.lines || []).filter((l: any) => r2(l.amount) !== 0).map((l: any) => ({
           Description: String(l.description || '').slice(0, 4000) || 'Works', Quantity: 1, UnitAmount: r2(l.amount),
-          AccountCode: s.xero_sales_account || '200', TaxType: tax, Tracking: tracking,
+          AccountCode: s.xero_sales_account || '200', TaxType: (l.vat && LINE_TAX[l.vat]) || tax, Tracking: tracking,
         }));
         const x: any = {
           Type: 'ACCREC', Contact: contact, InvoiceNumber: inv.number, Reference: [inv.client_po, site?.job_number].filter(Boolean).join(' / ').slice(0, 255),

@@ -962,7 +962,9 @@ async function renderPriceTile(siteId){
   const showSheets = PRICE_BUILDER_LIVE && canManage;
   const sheetCount = showSheets ? (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+(canUsePriceBuilder() ? '' : '&status=eq.issued')+'&select=id')).length : 0;
 
+  const wagePushHtml = canManage && typeof pmWagePushesHtml==='function' ? await pmWagePushesHtml(siteId, openElements) : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${wagePushHtml}
     ${isMultiSite ? `
     <div class="filterrow" style="margin-bottom:14px;">
       ${subAddressesList.map(a=>`<div class="filterchip ${selectedSubId===a.id?'active':''}" onclick="priceSubAddrSelected['${siteId}']='${a.id}';render()">${escapeHtml(a.name)}</div>`).join('') || `<div class="stub" style="margin:0;">No addresses added yet — add one from Site Settings › Multi-Site.</div>`}

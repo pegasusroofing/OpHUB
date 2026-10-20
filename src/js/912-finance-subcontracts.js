@@ -37,7 +37,8 @@ window.openFinSubcontract = async function(siteId, id){
   const v = k=>sc && sc[k]!=null ? escapeHtml(String(sc[k])) : '';
   window.__finScWorkers = FIN_WORKERS;
   await finSubJobsLoad(siteId);
-  ov.innerHTML = `<div class="geo-modal-card" style="max-width:540px;">
+  finScLines = [];
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:640px;">
     <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
     <div class="fingrid2">
@@ -54,6 +55,7 @@ window.openFinSubcontract = async function(siteId, id){
       ${sc ? `<div class="formfield"><label class="field-label">Status</label><select id="finScStatus"><option value="active" ${sc.status!=='complete'?'selected':''}>Active</option><option value="complete" ${sc.status==='complete'?'selected':''}>Complete</option></select></div>` : ''}
     </div>
     ${finSubJobSelectHtml('finScSub', siteId, sc ? sc.sub_job_id||'' : '')}
+    ${await finScSheetBlockHtml(siteId, sc)}
     <input type="hidden" id="finScWorker" value="${v('worker_id')}">
     <button class="darkbtn" style="width:100%;" onclick="saveFinSubcontract('${siteId}','${sc?sc.id:''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finScOverlay').style.display='none'">Cancel</button>
@@ -67,7 +69,8 @@ window.finScPickWorker = function(id){
 };
 window.saveFinSubcontract = async function(siteId, id){
   const name = finVal('finScName'); if(!name){ toast('Enter the subcontractor’s name.'); return; }
-  const val = finNum(finVal('finScVal')), ret = finNum(finVal('finScRet'));
+  const linesTot = finScLinesTotal();
+  const val = linesTot!=null ? linesTot : finNum(finVal('finScVal')), ret = finNum(finVal('finScRet'));
   if(ret===null || isNaN(ret) || ret<0 || ret>20){ toast('Retention should be between 0 and 20%.'); return; }
   const row = {name, email:finVal('finScEmail')||null, description:finVal('finScDesc')||null, order_value:(val===null||isNaN(val))?null:finRound(val), retention_pct:ret, cis_rate:Number(finVal('finScCis')||20), utr:finVal('finScUtr')||null, vat_registered:finVal('finScVat')==='true', worker_id:finVal('finScWorker')||null};
   if(id){ const st = finVal('finScStatus'); if(st) row.status = st; }
@@ -80,6 +83,8 @@ window.saveFinSubcontract = async function(siteId, id){
     r = await dbInsert('fin_subcontracts', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
   }
   if(!r) return;
+  const saved = Array.isArray(r) ? r[0] : r;
+  if(saved) await finScSyncSheet(siteId, Object.assign({}, saved, row, {id: saved.id || id}));
   document.getElementById('finScOverlay').style.display = 'none';
   toast('Subcontract order saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
@@ -105,6 +110,7 @@ async function renderFinSubcontract(siteId, scId){
     </div>
     <div class="card">
       <div class="finkv"><span>Work</span><b style="white-space:normal;">${escapeHtml(sc.description||'—')}</b></div>
+      ${sc.price_sheet_id ? `<div class="finkv"><span>Price sheet</span><b><button class="linkbtn" onclick="go('#/site/${siteId}/pricebuilder/view/${sc.price_sheet_id}')">${sc.source==='price_sheet'?'From the PM’s price file':'In the project’s price file'} ›</button></b></div>` : ''}
       <div class="finkv"><span>Retention · CIS</span><b>${sc.retention_pct}% · ${FIN_CIS_LABEL[sc.cis_rate]||sc.cis_rate+'%'}</b></div>
       <div class="finkv"><span>UTR</span><b>${escapeHtml(sc.utr||'—')}</b></div>
       <div class="finkv"><span>Contra charges to date</span><b>${finMoney(contra)}</b></div>
@@ -273,3 +279,73 @@ window.openFinSubNotice = async function(id){
   if(st.company_address) page.drawText(String(st.company_address).replace(/\s*\n\s*/g, ', ').slice(0,110), {x:44, y:40, size:8.5, font:reg, color:SLATE});
   viewPdfInApp(await pdf.save(), (a.payless?'Pay less notice':'Payment notice')+' - '+sc.number+' app '+a.number+'.pdf');
 };
+
+/* ---------- subcontract order <-> PM price sheet ----------
+   An order made here can go into the project's Price file as an issued price
+   sheet (its own Pricing Element), so the PM books it in like any other.
+   A sheet a PM issues comes into Finance as an order by itself (database
+   trigger fin_sheet_to_order), and its value stays in step when re-issued. */
+let finScLines = [];
+async function finScSheetBlockHtml(siteId, sc){
+  if(sc && sc.price_sheet_id){
+    const sh = (await dbSelect('price_builder_sheets', 'id=eq.'+sc.price_sheet_id+'&select=id,title,status,total'))[0];
+    return `<div class="finscsheet"><b>Price sheet</b> ${sh ? escapeHtml(sh.title||'')+' · '+(sh.status==='issued'?'issued':'draft')+' · '+finMoney(sh.total) : 'linked'}<br><span class="stub" style="font-style:normal;">${sc.source==='price_sheet' ? 'Made by the PM — change the items on the price sheet and re-issue it; the order value follows.' : 'Changing the order value here updates a one-line sheet; for more lines, edit the sheet.'}</span></div>`;
+  }
+  const els = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&closed=eq.false&select=id,name&order=sort_order.asc');
+  return `<div class="finscsheet">
+    <label class="finscsheet-on"><input type="checkbox" id="finScToSheet" ${sc?'':'checked'} onchange="document.getElementById('finScSheetMore').hidden=!this.checked"> Add to the project’s Price file for the PM</label>
+    <div id="finScSheetMore" ${sc?'hidden':''}>
+      <div class="formfield" style="margin-top:8px;"><label class="field-label">Price tile</label><select id="finScEl"><option value="">New tile named after the work</option>${els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}</select></div>
+      <label class="field-label">Lines (optional — otherwise one line for the order value)</label>
+      <div id="finScLines"></div>
+      <button type="button" class="ghostbtn" style="width:100%;margin-top:4px;" onclick="finScLines.push({name:'',qty:1,unit:'item',rate:null});finScLinesPaint()">+ Add a line</button>
+    </div>
+  </div>`;
+}
+window.finScLinesPaint = function(){
+  const box = document.getElementById('finScLines'); if(!box) return;
+  box.innerHTML = finScLines.map((l,i)=>`<div class="finscline">
+    <input type="text" placeholder="Item" value="${escapeHtml(l.name||'')}" oninput="finScLines[${i}].name=this.value">
+    <input type="text" inputmode="decimal" placeholder="Qty" value="${l.qty!=null?l.qty:''}" oninput="finScLines[${i}].qty=finNum(this.value);finScLinesTot()">
+    <input type="text" placeholder="Unit" value="${escapeHtml(l.unit||'')}" oninput="finScLines[${i}].unit=this.value">
+    <input type="text" inputmode="decimal" placeholder="Rate £" value="${l.rate!=null?l.rate:''}" oninput="finScLines[${i}].rate=finNum(this.value);finScLinesTot()">
+    <button type="button" class="linkbtn" onclick="finScLines.splice(${i},1);finScLinesPaint();finScLinesTot()">×</button></div>`).join('');
+};
+function finScLinesTotal(){
+  const ls = finScLines.filter(l=>l.name && Number(l.qty) && l.rate!=null && !isNaN(l.rate));
+  return ls.length ? finRound(ls.reduce((t,l)=>t+Number(l.qty)*Number(l.rate),0)) : null;
+}
+window.finScLinesTot = function(){ const t = finScLinesTotal(); const el = document.getElementById('finScVal'); if(el && t!=null){ if(typeof finSetMoney==='function') finSetMoney(el, t); else el.value = t; } };
+// After saving an order: make its price sheet (new) or keep a linked one-line sheet's value in step.
+async function finScSyncSheet(siteId, sc){
+  try{
+    if(sc.price_sheet_id){
+      const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sc.price_sheet_id+'&select=id');
+      if(items.length===1 && sc.order_value!=null && sc.source!=='price_sheet'){
+        await dbUpdate('price_builder_sheet_items', items[0].id, {rate:sc.order_value, quantity:1, line_total:sc.order_value, name:sc.description||sc.name});
+        const sh = await dbUpdate('price_builder_sheets', sc.price_sheet_id, {total:sc.order_value, subcontractor_name:sc.name, updated_at:new Date().toISOString()});
+        const el = sh && sh.pricing_element_id; if(el) await dbUpdate('pricing_elements', el, {price_total:sc.order_value});
+      }
+      return;
+    }
+    const on = document.getElementById('finScToSheet'); if(!on || !on.checked) return;
+    const lines = finScLines.filter(l=>l.name && Number(l.qty) && l.rate!=null && !isNaN(l.rate));
+    const rows = lines.length ? lines.map(l=>({name:l.name, unit:l.unit||'item', quantity:Number(l.qty), rate:finRound(l.rate), line_total:finRound(Number(l.qty)*Number(l.rate))}))
+      : [{name:sc.description || ('Subcontract — '+sc.name), unit:'item', quantity:1, rate:finRound(sc.order_value||0), line_total:finRound(sc.order_value||0)}];
+    const total = finRound(rows.reduce((t,r)=>t+r.line_total,0));
+    const title = (sc.description || 'Subcontract') + ' — ' + sc.name;
+    let elId = finVal('finScEl');
+    if(!elId){
+      const ex = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&select=sort_order&order=sort_order.desc&limit=1');
+      const made = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id:null, name:sc.description || sc.name, sort_order: ex.length ? Number(ex[0].sort_order||0)+1 : 0, price_total:total, created_by:ME.id});
+      elId = made && made[0] ? made[0].id : null;
+    }
+    const assigned = [];
+    const w = sc.worker_id && FIN_WORKERS ? FIN_WORKERS[sc.worker_id] : null; if(w && w.user_id) assigned.push(w.user_id);
+    const sh = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name:sc.name, status:'issued', total, created_by:ME.id, issued_by:ME.id, issued_at:new Date().toISOString(), pricing_element_id:elId, assigned_user_ids:assigned, fin_subcontract_id:sc.id});
+    if(!sh || !sh[0]){ toast('Order saved, but the price sheet wasn’t made — try again from the order.'); return; }
+    await dbInsert('price_builder_sheet_items', rows.map((r,i)=>Object.assign({sheet_id:sh[0].id, category:'Subcontract', sort_order:i, is_manual_rate:true}, r)));
+    await dbUpdate('fin_subcontracts', sc.id, {price_sheet_id:sh[0].id, source:'finance'});
+    if(elId && !finVal('finScEl')) {} else if(elId) { const el = (await dbSelect('pricing_elements', 'id=eq.'+elId+'&select=price_total'))[0]; if(el) await dbUpdate('pricing_elements', elId, {price_total:finRound(Number(el.price_total||0)+total)}); }
+  }catch(e){ console.error('price sheet sync', e); }
+}

@@ -15,12 +15,36 @@ function finInvPill(inv){
   return `<span class="finpill ${cls}">${FIN_INV_STATUS[inv.status]||inv.status}</span>`;
 }
 // Net / VAT / total for a set of lines.
+// VAT per line. Lines saved before per-line VAT have no `vat` and use the invoice's treatment.
+const FIN_INV_VAT = {'20':{l:'20%', r:20}, '5':{l:'5%', r:5}, 'rc20':{l:'Reverse charge 20%', r:20, rc:true}, 'rc5':{l:'Reverse charge 5%', r:5, rc:true}, '0':{l:'Zero rated', r:0}, 'ex':{l:'No VAT / exempt', r:0}};
+function finInvVatFromTreatment(t, rate){ return t==='reverse_charge' ? (Number(rate)===5?'rc5':'rc20') : t==='zero' ? '0' : (Number(rate)===5?'5':'20'); }
+function finInvLineVat(l, t, rate){ return (l && FIN_INV_VAT[l.vat]) ? l.vat : finInvVatFromTreatment(t, rate); }
+// Net / VAT charged / reverse-charge VAT (paid by the client to HMRC) / total, plus a by-rate breakdown.
 function finInvTotals(lines, vatTreatment, vatRate){
-  const net = finRound((lines||[]).reduce((t,l)=>t + (Number(l.amount)||0), 0));
+  const by = {}; let net = 0, vat = 0, vatDue = 0;
+  (lines||[]).forEach(l=>{
+    const a = Number(l.amount)||0; net += a;
+    const k = finInvLineVat(l, vatTreatment, vatRate), c = FIN_INV_VAT[k];
+    const b = by[k] = by[k] || {net:0, vat:0}; b.net += a;
+    const v = a*c.r/100;
+    if(c.rc){ vatDue += v; b.vat += v; } else { vat += v; b.vat += v; }
+  });
+  Object.values(by).forEach(b=>{ b.net = finRound(b.net); b.vat = finRound(b.vat); });
+  net = finRound(net); vat = finRound(vat); vatDue = finRound(vatDue);
   const rate = Number(vatRate||20);
-  const vatDue = finRound(net*rate/100);
-  const vat = vatTreatment==='standard' ? vatDue : 0;
-  return {net, vat, total:finRound(net+vat), vatDue, rate};
+  return {net, vat, total:finRound(net+vat), vatDue, rate, by, mixed:Object.keys(by).length>1};
+}
+// The invoice-level treatment that best describes its lines (for the database / reports).
+function finInvTreatmentOf(t){ const ks = Object.keys(t.by||{}); if(ks.some(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0)) return 'standard'; if(ks.some(k=>FIN_INV_VAT[k].rc)) return 'reverse_charge'; return 'zero'; }
+// Totals rows (screen): one VAT row per rate, and the reverse-charge figure on its own.
+function finInvTotalsRowsHtml(t){
+  const ks = Object.keys(t.by||{});
+  const vatRows = ks.filter(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0).map(k=>`<div class="finkv fintot"><span>VAT @ ${FIN_INV_VAT[k].l}${t.mixed?` <em class="stub" style="font-style:normal;">on ${finMoney(t.by[k].net)}</em>`:''}</span><b>${finMoney(t.by[k].vat)}</b></div>`).join('');
+  return `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
+    ${vatRows || `<div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>`}
+    <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>
+    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
+      <p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge on ${finMoney(ks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0))} — not added to the total; printed on the invoice and sent to Xero.</p></div>` : ''}`;
 }
 
 /* ---------- list on the job's Finance page ---------- */
@@ -98,10 +122,8 @@ async function renderFinInvoice(siteId, invId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
-      ${(inv.lines||[]).map(l=>`<div class="finkv"><span style="white-space:pre-wrap;">${escapeHtml(l.description||'')}</span><b>${finMoney(l.amount)}</b></div>`).join('')}
-      <div class="finkv fintot"><span>Net</span><b>${finMoney(inv.net)}</b></div>
-      <div class="finkv fintot"><span>VAT ${inv.vat_treatment==='standard'?t.rate+'%':inv.vat_treatment==='reverse_charge'?'(reverse charge)':'(zero rated)'}</span><b>${finMoney(inv.vat)}</b></div>
-      <div class="finkv fintot big"><span>Total</span><b>${finMoney(inv.total)}</b></div>
+      ${(inv.lines||[]).map(l=>`<div class="finkv"><span style="white-space:pre-wrap;">${escapeHtml(l.description||'')}${t.mixed?` <em class="finvatchip">${FIN_INV_VAT[finInvLineVat(l, inv.vat_treatment, inv.vat_rate)].l}</em>`:''}</span><b>${finMoney(l.amount)}</b></div>`).join('')}
+      ${finInvTotalsRowsHtml(t)}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
@@ -124,6 +146,7 @@ function renderFinInvoiceDraft(site, inv, pos){
   if(!finInvDraft || finInvDraft.id!==inv.id) finInvDraft = JSON.parse(JSON.stringify(inv));
   const d = finInvDraft;
   if(!Array.isArray(d.lines) || !d.lines.length) d.lines = [{description:'', amount:null}];
+  d.lines.forEach(l=>{ if(!FIN_INV_VAT[l.vat]) l.vat = finInvVatFromTreatment(d.vat_treatment, d.vat_rate); });
   const poOpts = pos.map(p=>p.po_number);
   if(d.client_po && !poOpts.includes(d.client_po)) poOpts.push(d.client_po);
   document.getElementById('app').innerHTML = shell(`
@@ -149,7 +172,7 @@ function renderFinInvoiceDraft(site, inv, pos){
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
       <div id="finInvLines">${d.lines.map((l,i)=>finInvLineHtml(l,i)).join('')}</div>
       <button class="ghostbtn" style="width:100%;margin-top:4px;" onclick="finInvAddLine()">+ Add line</button>
-      <div class="formfield" style="margin-top:12px;"><label class="field-label">VAT</label><select id="finInvVat" onchange="finInvDraft.vat_treatment=this.value;finInvPaintTotals()">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${d.vat_treatment===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
+      <div class="formfield" style="margin-top:12px;"><label class="field-label">VAT for all lines</label><select id="finInvVat" onchange="finInvVatAll(this.value)"><option value="">Mixed — set on each line</option>${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${finInvVatCommon()===k?'selected':''}>${FIN_INV_VAT[k].l}</option>`).join('')}</select></div>
       <div id="finInvTotals"></div>
     </div>
     <div class="card">
@@ -168,26 +191,27 @@ function finInvLineHtml(l, i){
     <textarea rows="2" placeholder="Description" oninput="finInvDraft.lines[${i}].description=this.value">${escapeHtml(l.description||'')}</textarea>
     <div class="finline-r">
       <input type="text" inputmode="decimal" data-money placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
+      <select class="finline-vat" title="VAT on this line" onchange="finInvDraft.lines[${i}].vat=this.value;finInvSyncAll();finInvPaintTotals()">${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${l.vat===k?'selected':''}>${FIN_INV_VAT[k].l}</option>`).join('')}</select>
       ${finInvDraft.lines.length>1 ? `<button class="linkbtn" onclick="finInvRemoveLine(${i})">remove</button>` : ''}
     </div>
   </div>`;
 }
-window.finInvAddLine = function(){ finInvDraft.lines.push({description:'', amount:null}); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); };
+function finInvVatCommon(){ const ks = Array.from(new Set((finInvDraft.lines||[]).map(l=>l.vat))); return ks.length===1 ? ks[0] : ''; }
+function finInvSyncAll(){ const el = document.getElementById('finInvVat'); if(el) el.value = finInvVatCommon(); }
+window.finInvVatAll = function(k){ if(!FIN_INV_VAT[k]) return; finInvDraft.lines.forEach(l=>l.vat = k); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); finInvPaintTotals(); };
+window.finInvAddLine = function(){ const last = finInvDraft.lines[finInvDraft.lines.length-1]; finInvDraft.lines.push({description:'', amount:null, vat:(last&&last.vat)||finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate)}); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); };
 window.finInvRemoveLine = function(i){ finInvDraft.lines.splice(i,1); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,j)=>finInvLineHtml(l,j)).join(''); finInvPaintTotals(); };
 window.finInvPaintTotals = function(){
   const el = document.getElementById('finInvTotals'); if(!el || !finInvDraft) return;
-  const t = finInvTotals(finInvDraft.lines.map(l=>({amount:isNaN(l.amount)?0:l.amount})), finInvDraft.vat_treatment, finInvDraft.vat_rate);
-  el.innerHTML = `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
-    <div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>
-    ${finInvDraft.vat_treatment==='reverse_charge' ? `<p class="stub" style="margin:2px 0 6px;font-style:normal;">Reverse charge: the client pays ${finMoney(t.vatDue)} VAT to HMRC. This is printed on the invoice.</p>` : ''}
-    <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>`;
+  const t = finInvTotals(finInvDraft.lines.map(l=>({amount:isNaN(l.amount)?0:l.amount, vat:l.vat})), finInvDraft.vat_treatment, finInvDraft.vat_rate);
+  el.innerHTML = finInvTotalsRowsHtml(t);
 };
 function finInvDraftRow(){
   const d = finInvDraft;
-  const lines = d.lines.map(l=>({description:String(l.description||'').trim(), amount:(l.amount===null||isNaN(l.amount))?null:finRound(l.amount)})).filter(l=>l.description || l.amount!==null);
+  const lines = d.lines.map(l=>({description:String(l.description||'').trim(), amount:(l.amount===null||isNaN(l.amount))?null:finRound(l.amount), vat:FIN_INV_VAT[l.vat]?l.vat:finInvVatFromTreatment(d.vat_treatment, d.vat_rate)})).filter(l=>l.description || l.amount!==null);
   const t = finInvTotals(lines, d.vat_treatment, d.vat_rate);
   return {issue_date:d.issue_date||null, due_date:d.due_date||null, client_po:d.client_po||null, bill_name:d.bill_name||null, bill_address:d.bill_address||null,
-    bill_email:(d.bill_email||'').trim()||null, vat_treatment:d.vat_treatment||'standard', lines, net:t.net, vat:t.vat, total:t.total, notes:d.notes||null, updated_at:new Date().toISOString()};
+    bill_email:(d.bill_email||'').trim()||null, vat_treatment:lines.length ? finInvTreatmentOf(t) : (d.vat_treatment||'standard'), lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, notes:d.notes||null, updated_at:new Date().toISOString()};
 }
 window.saveFinInvoiceDraft = async function(showToast){
   if(!finInvDraft) return null;
@@ -374,10 +398,12 @@ async function finBuildInvoicePdf(inv, site, st){
     page.drawRectangle({x:M, y:y-6, width:W-2*M, height:22, color:PDFLib.rgb(0.95,0.96,0.97)});
     txt('DESCRIPTION', M+8, y+1, {font:bold, size:8.5, color:SLATE}); right('AMOUNT (£)', W-M-8, y+1, {font:bold, size:8.5, color:SLATE});
     y -= 26;
+    const mixedVat = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate).mixed;
     for(const l of (inv.lines||[])){
-      const lines = finWrap(l.description||'', reg, 10, W-2*M-130);
+      const lines = finWrap(l.description||'', reg, 10, W-2*M-(mixedVat?240:130));
       if(y - lines.length*13 < 170){ page = pdf.addPage([W, H]); y = H-M; }
       lines.forEach((ln,i)=>{ txt(ln, M+8, y-i*13); });
+      if(mixedVat) right('VAT '+FIN_INV_VAT[finInvLineVat(l, inv.vat_treatment, inv.vat_rate)].l, W-M-110, y, {size:8.5, color:SLATE});
       right(Number(l.amount||0).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), W-M-8, y);
       const last = y - (lines.length-1)*13;
       page.drawLine({start:{x:M, y:last-7}, end:{x:W-M, y:last-7}, thickness:0.6, color:LINE});
@@ -389,12 +415,17 @@ async function finBuildInvoicePdf(inv, site, st){
     const t = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
     const tot = (k, v, big)=>{ txt(k, W-M-210, y, {font:big?bold:reg, size:big?12:10, color:big?INK:SLATE}); right(v, W-M-8, y, {font:bold, size:big?12:10}); y -= big?20:16; };
     tot('Net', finMoney(inv.net));
-    tot(inv.vat_treatment==='standard' ? 'VAT @ '+t.rate+'%' : inv.vat_treatment==='reverse_charge' ? 'VAT (reverse charge)' : 'VAT (zero rated)', finMoney(inv.vat));
+    const vks = Object.keys(t.by);
+    const chg = vks.filter(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0);
+    if(chg.length) chg.forEach(k=>tot('VAT @ '+FIN_INV_VAT[k].l+(t.mixed?' on '+finMoney(t.by[k].net):''), finMoney(t.by[k].vat)));
+    else tot(t.vatDue ? 'VAT (reverse charge)' : 'VAT (zero rated)', finMoney(inv.vat));
     page.drawLine({start:{x:W-M-210, y:y+10}, end:{x:W-M, y:y+10}, thickness:1, color:INK});
     y -= 4; tot('Total due', finMoney(inv.total), true);
-    if(inv.vat_treatment==='reverse_charge'){
+    if(t.vatDue){
       y -= 4;
-      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT at '+t.rate+'% on this supply: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
+      const rcNet = vks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0);
+      tot('Reverse charge VAT', finMoney(t.vatDue));
+      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT on '+finMoney(rcNet)+' of this supply: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
     }
     if(inv.notes){ y -= 6; finWrap(inv.notes, reg, 10, W-2*M).forEach(l=>{ txt(l, M, y); y -= 13; }); }
     // Footer: payment details

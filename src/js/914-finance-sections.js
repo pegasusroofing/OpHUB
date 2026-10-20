@@ -117,6 +117,12 @@ async function renderFinanceHome(){
 
 /* ================= Jobs ================= */
 let finJobFilt = {pm:'', client:'', sort:'noza'};
+// Client filter: any part of the client's name, no re-draw while typing.
+function finCliHide(txt){ const q = String(finJobFilt.client||'').trim().toLowerCase(); return q && !String(txt||'').toLowerCase().includes(q) ? 'fincli-hide' : ''; }
+window.finJobCli = function(v){
+  finJobFilt.client = v;
+  document.querySelectorAll('#finJobList [data-cli]').forEach(r=>r.classList.toggle('fincli-hide', !!finCliHide(r.getAttribute('data-cli'))));
+};
 async function renderFinJobs(sub){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -146,7 +152,7 @@ async function renderFinJobs(sub){
     await loadAllProfiles();
     const cliOf = s=>(jfBy[s.id]||{}).billing_name || s.client_name || '';
     const f = finJobFilt;
-    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && (!f.client || cliOf(s)===f.client));
+    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && true);
     const num = s=>String(s.job_number||''), nm = s=>String(s.name||'');
     const cmp = {az:(a,b)=>nm(a).localeCompare(nm(b)), za:(a,b)=>nm(b).localeCompare(nm(a)), noaz:(a,b)=>num(a).localeCompare(num(b), undefined, {numeric:true}), noza:(a,b)=>num(b).localeCompare(num(a), undefined, {numeric:true}), start:(a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))}[f.sort];
     if(cmp) shown = shown.slice().sort(cmp);
@@ -154,14 +160,14 @@ async function renderFinJobs(sub){
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     const filtHtml = `<div class="finjobfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
-      <label>Client<select onchange="finJobFilt.client=this.value;render()"><option value="">All clients</option>${clients.map(c=>`<option value="${escapeHtml(c)}" ${f.client===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label>
+      <label>Client<input type="search" placeholder="Type any part of the client" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
-      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear filters</button>` : ''}
+      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;
-    body = finSecHead('Projects', fo && isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
-      + `<div class="pmchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
+    body = finSecHead('Projects', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
+      + `<div class="pmchips finjobchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
       + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
-      + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
+      + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow ${finCliHide(cliOf(s)+' '+(s.client_name||''))}" data-cli="${escapeHtml((cliOf(s)+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
           <span class="finjobno ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span>
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span><span class="pmrow-s finjobstart">${s.start_date ? 'Start '+finDate(s.start_date) : 'No start date'}</span></span>
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');

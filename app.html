@@ -2018,6 +2018,43 @@ html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
 .finxw-new{background:#e7f6ec;color:#17733a;}
 .finxw-ok{background:#eef2f7;color:#475569;}
 .finxw-tag{background:#e6f1fb;color:#0b5394;margin:0 4px 0 0;}
+.fincli-hide{display:none !important;}
+.finjobfilt input{padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--ink);width:100%;box-sizing:border-box;}
+@media (max-width:640px){
+  .finjobfilt{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;}
+  .finjobfilt label{font-size:10.5px;gap:2px;max-width:none;min-width:0;}
+  .finjobfilt select,.finjobfilt input{padding:0 6px !important;font-size:12.5px !important;border-radius:8px;min-height:0 !important;height:32px !important;}
+  .finjobfilt .linkbtn{grid-column:1/-1;padding:0;justify-self:start;font-size:12px;}
+}
+/* invoice VAT per line */
+.finline-vat{margin-top:6px;width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff;}
+.finvatchip{font-style:normal;font-size:11px;font-weight:600;color:var(--slate);background:#eef2f7;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap;}
+.finrc{margin-top:8px;padding:8px 10px;border-radius:10px;background:#fff7e6;border:1px solid #f3d9a4;}
+.finrc .finkv{margin:0;}
+.finscsheet{margin:6px 0 10px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px;background:#fafbfc;font-size:13.5px;}
+.finscsheet-on{display:flex;gap:8px;align-items:center;font-weight:700;cursor:pointer;}
+.finscsheet-on input{width:auto;}
+.finscline{display:grid;grid-template-columns:1fr 60px 64px 90px 22px;gap:6px;margin-top:6px;align-items:center;}
+.finscline input{padding:7px 8px;font-size:13px;min-width:0;}
+/* wages from timesheets in the Price tile */
+.pmwp{margin-bottom:14px;border:1.5px solid #f3d9a4;background:#fffaf0;}
+.pmwp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;font-size:14px;}
+.pmwp-row{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-top:1px solid #f1e3c2;}
+.pmwp-who{display:flex;flex-direction:column;min-width:0;font-size:13.5px;}
+.pmwp-who span{font-size:12px;color:var(--slate);}
+.pmwp-amt{font-weight:800;font-size:14px;align-self:center;}
+.pmwp-act{grid-column:1/-1;display:grid;grid-template-columns:1fr 70px auto auto;gap:6px;align-items:center;}
+.pmwp-act select,.pmwp-act input{padding:7px 8px;font-size:13px;border:1px solid var(--line);border-radius:8px;min-width:0;background:#fff;}
+.pmwp-act button{width:auto;padding:8px 10px;font-size:12px;white-space:nowrap;}
+@media (max-width:640px){ .pmwp-act{display:flex;flex-wrap:wrap;} .pmwp-act select{flex:1 1 55%;} .pmwp-act input{flex:0 0 72px;} .pmwp-act button{flex:1 1 40%;font-size:11.5px;padding:9px 6px;} }
+.fints-pm{display:block;margin-top:4px;font-size:11.5px;color:var(--slate);}
+.geo-modal-overlay[id^="fin"] .geo-modal-card{max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+@media (max-width:640px){
+  .finjobfilt select,.finjobfilt input{line-height:1.2;padding-top:0;padding-bottom:0;-webkit-appearance:none;appearance:none;}
+  .finjobfilt select{background-image:linear-gradient(45deg,transparent 50%,var(--slate) 50%),linear-gradient(135deg,var(--slate) 50%,transparent 50%);background-position:calc(100% - 11px) 50%,calc(100% - 7px) 50%;background-size:4px 4px;background-repeat:no-repeat;padding-right:18px;text-overflow:ellipsis;}
+  .finjobchips{flex-wrap:nowrap;overflow-x:auto;gap:6px;margin:10px 0 8px;scrollbar-width:none;}
+  .finjobchips .pmchip{height:30px !important;padding:0 10px !important;font-size:12px !important;white-space:nowrap;flex:none;}
+}
 </style>
 </head>
 <body>
@@ -16913,7 +16950,9 @@ async function renderPriceTile(siteId){
   const showSheets = PRICE_BUILDER_LIVE && canManage;
   const sheetCount = showSheets ? (await dbSelect('price_builder_sheets', 'site_id=eq.'+siteId+(canUsePriceBuilder() ? '' : '&status=eq.issued')+'&select=id')).length : 0;
 
+  const wagePushHtml = canManage && typeof pmWagePushesHtml==='function' ? await pmWagePushesHtml(siteId, openElements) : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+    ${wagePushHtml}
     ${isMultiSite ? `
     <div class="filterrow" style="margin-bottom:14px;">
       ${subAddressesList.map(a=>`<div class="filterchip ${selectedSubId===a.id?'active':''}" onclick="priceSubAddrSelected['${siteId}']='${a.id}';render()">${escapeHtml(a.name)}</div>`).join('') || `<div class="stub" style="margin:0;">No addresses added yet — add one from Site Settings › Multi-Site.</div>`}
@@ -46143,7 +46182,6 @@ async function renderSiteFinance(siteId){
     ${finProjTabsHtml(siteId, bt)}
     <div class="finptab" data-t="overview">
     <div id="finFcSlot"></div>
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     </div>
     <div class="finptab" data-t="sales">
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live') : ''}
@@ -46170,6 +46208,7 @@ async function renderSiteFinance(siteId){
     </div>
     </div>
     <div class="finptab" data-t="purchases">
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
     ${finPlantCardHtml(siteId, hires)}
     </div>
@@ -46370,12 +46409,36 @@ function finInvPill(inv){
   return `<span class="finpill ${cls}">${FIN_INV_STATUS[inv.status]||inv.status}</span>`;
 }
 // Net / VAT / total for a set of lines.
+// VAT per line. Lines saved before per-line VAT have no `vat` and use the invoice's treatment.
+const FIN_INV_VAT = {'20':{l:'20%', r:20}, '5':{l:'5%', r:5}, 'rc20':{l:'Reverse charge 20%', r:20, rc:true}, 'rc5':{l:'Reverse charge 5%', r:5, rc:true}, '0':{l:'Zero rated', r:0}, 'ex':{l:'No VAT / exempt', r:0}};
+function finInvVatFromTreatment(t, rate){ return t==='reverse_charge' ? (Number(rate)===5?'rc5':'rc20') : t==='zero' ? '0' : (Number(rate)===5?'5':'20'); }
+function finInvLineVat(l, t, rate){ return (l && FIN_INV_VAT[l.vat]) ? l.vat : finInvVatFromTreatment(t, rate); }
+// Net / VAT charged / reverse-charge VAT (paid by the client to HMRC) / total, plus a by-rate breakdown.
 function finInvTotals(lines, vatTreatment, vatRate){
-  const net = finRound((lines||[]).reduce((t,l)=>t + (Number(l.amount)||0), 0));
+  const by = {}; let net = 0, vat = 0, vatDue = 0;
+  (lines||[]).forEach(l=>{
+    const a = Number(l.amount)||0; net += a;
+    const k = finInvLineVat(l, vatTreatment, vatRate), c = FIN_INV_VAT[k];
+    const b = by[k] = by[k] || {net:0, vat:0}; b.net += a;
+    const v = a*c.r/100;
+    if(c.rc){ vatDue += v; b.vat += v; } else { vat += v; b.vat += v; }
+  });
+  Object.values(by).forEach(b=>{ b.net = finRound(b.net); b.vat = finRound(b.vat); });
+  net = finRound(net); vat = finRound(vat); vatDue = finRound(vatDue);
   const rate = Number(vatRate||20);
-  const vatDue = finRound(net*rate/100);
-  const vat = vatTreatment==='standard' ? vatDue : 0;
-  return {net, vat, total:finRound(net+vat), vatDue, rate};
+  return {net, vat, total:finRound(net+vat), vatDue, rate, by, mixed:Object.keys(by).length>1};
+}
+// The invoice-level treatment that best describes its lines (for the database / reports).
+function finInvTreatmentOf(t){ const ks = Object.keys(t.by||{}); if(ks.some(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0)) return 'standard'; if(ks.some(k=>FIN_INV_VAT[k].rc)) return 'reverse_charge'; return 'zero'; }
+// Totals rows (screen): one VAT row per rate, and the reverse-charge figure on its own.
+function finInvTotalsRowsHtml(t){
+  const ks = Object.keys(t.by||{});
+  const vatRows = ks.filter(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0).map(k=>`<div class="finkv fintot"><span>VAT @ ${FIN_INV_VAT[k].l}${t.mixed?` <em class="stub" style="font-style:normal;">on ${finMoney(t.by[k].net)}</em>`:''}</span><b>${finMoney(t.by[k].vat)}</b></div>`).join('');
+  return `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
+    ${vatRows || `<div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>`}
+    <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>
+    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
+      <p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge on ${finMoney(ks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0))} — not added to the total; printed on the invoice and sent to Xero.</p></div>` : ''}`;
 }
 
 /* ---------- list on the job's Finance page ---------- */
@@ -46453,10 +46516,8 @@ async function renderFinInvoice(siteId, invId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
-      ${(inv.lines||[]).map(l=>`<div class="finkv"><span style="white-space:pre-wrap;">${escapeHtml(l.description||'')}</span><b>${finMoney(l.amount)}</b></div>`).join('')}
-      <div class="finkv fintot"><span>Net</span><b>${finMoney(inv.net)}</b></div>
-      <div class="finkv fintot"><span>VAT ${inv.vat_treatment==='standard'?t.rate+'%':inv.vat_treatment==='reverse_charge'?'(reverse charge)':'(zero rated)'}</span><b>${finMoney(inv.vat)}</b></div>
-      <div class="finkv fintot big"><span>Total</span><b>${finMoney(inv.total)}</b></div>
+      ${(inv.lines||[]).map(l=>`<div class="finkv"><span style="white-space:pre-wrap;">${escapeHtml(l.description||'')}${t.mixed?` <em class="finvatchip">${FIN_INV_VAT[finInvLineVat(l, inv.vat_treatment, inv.vat_rate)].l}</em>`:''}</span><b>${finMoney(l.amount)}</b></div>`).join('')}
+      ${finInvTotalsRowsHtml(t)}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
@@ -46479,6 +46540,7 @@ function renderFinInvoiceDraft(site, inv, pos){
   if(!finInvDraft || finInvDraft.id!==inv.id) finInvDraft = JSON.parse(JSON.stringify(inv));
   const d = finInvDraft;
   if(!Array.isArray(d.lines) || !d.lines.length) d.lines = [{description:'', amount:null}];
+  d.lines.forEach(l=>{ if(!FIN_INV_VAT[l.vat]) l.vat = finInvVatFromTreatment(d.vat_treatment, d.vat_rate); });
   const poOpts = pos.map(p=>p.po_number);
   if(d.client_po && !poOpts.includes(d.client_po)) poOpts.push(d.client_po);
   document.getElementById('app').innerHTML = shell(`
@@ -46504,7 +46566,7 @@ function renderFinInvoiceDraft(site, inv, pos){
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
       <div id="finInvLines">${d.lines.map((l,i)=>finInvLineHtml(l,i)).join('')}</div>
       <button class="ghostbtn" style="width:100%;margin-top:4px;" onclick="finInvAddLine()">+ Add line</button>
-      <div class="formfield" style="margin-top:12px;"><label class="field-label">VAT</label><select id="finInvVat" onchange="finInvDraft.vat_treatment=this.value;finInvPaintTotals()">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${d.vat_treatment===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
+      <div class="formfield" style="margin-top:12px;"><label class="field-label">VAT for all lines</label><select id="finInvVat" onchange="finInvVatAll(this.value)"><option value="">Mixed — set on each line</option>${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${finInvVatCommon()===k?'selected':''}>${FIN_INV_VAT[k].l}</option>`).join('')}</select></div>
       <div id="finInvTotals"></div>
     </div>
     <div class="card">
@@ -46523,26 +46585,27 @@ function finInvLineHtml(l, i){
     <textarea rows="2" placeholder="Description" oninput="finInvDraft.lines[${i}].description=this.value">${escapeHtml(l.description||'')}</textarea>
     <div class="finline-r">
       <input type="text" inputmode="decimal" data-money placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
+      <select class="finline-vat" title="VAT on this line" onchange="finInvDraft.lines[${i}].vat=this.value;finInvSyncAll();finInvPaintTotals()">${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${l.vat===k?'selected':''}>${FIN_INV_VAT[k].l}</option>`).join('')}</select>
       ${finInvDraft.lines.length>1 ? `<button class="linkbtn" onclick="finInvRemoveLine(${i})">remove</button>` : ''}
     </div>
   </div>`;
 }
-window.finInvAddLine = function(){ finInvDraft.lines.push({description:'', amount:null}); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); };
+function finInvVatCommon(){ const ks = Array.from(new Set((finInvDraft.lines||[]).map(l=>l.vat))); return ks.length===1 ? ks[0] : ''; }
+function finInvSyncAll(){ const el = document.getElementById('finInvVat'); if(el) el.value = finInvVatCommon(); }
+window.finInvVatAll = function(k){ if(!FIN_INV_VAT[k]) return; finInvDraft.lines.forEach(l=>l.vat = k); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); finInvPaintTotals(); };
+window.finInvAddLine = function(){ const last = finInvDraft.lines[finInvDraft.lines.length-1]; finInvDraft.lines.push({description:'', amount:null, vat:(last&&last.vat)||finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate)}); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,i)=>finInvLineHtml(l,i)).join(''); };
 window.finInvRemoveLine = function(i){ finInvDraft.lines.splice(i,1); document.getElementById('finInvLines').innerHTML = finInvDraft.lines.map((l,j)=>finInvLineHtml(l,j)).join(''); finInvPaintTotals(); };
 window.finInvPaintTotals = function(){
   const el = document.getElementById('finInvTotals'); if(!el || !finInvDraft) return;
-  const t = finInvTotals(finInvDraft.lines.map(l=>({amount:isNaN(l.amount)?0:l.amount})), finInvDraft.vat_treatment, finInvDraft.vat_rate);
-  el.innerHTML = `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
-    <div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>
-    ${finInvDraft.vat_treatment==='reverse_charge' ? `<p class="stub" style="margin:2px 0 6px;font-style:normal;">Reverse charge: the client pays ${finMoney(t.vatDue)} VAT to HMRC. This is printed on the invoice.</p>` : ''}
-    <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>`;
+  const t = finInvTotals(finInvDraft.lines.map(l=>({amount:isNaN(l.amount)?0:l.amount, vat:l.vat})), finInvDraft.vat_treatment, finInvDraft.vat_rate);
+  el.innerHTML = finInvTotalsRowsHtml(t);
 };
 function finInvDraftRow(){
   const d = finInvDraft;
-  const lines = d.lines.map(l=>({description:String(l.description||'').trim(), amount:(l.amount===null||isNaN(l.amount))?null:finRound(l.amount)})).filter(l=>l.description || l.amount!==null);
+  const lines = d.lines.map(l=>({description:String(l.description||'').trim(), amount:(l.amount===null||isNaN(l.amount))?null:finRound(l.amount), vat:FIN_INV_VAT[l.vat]?l.vat:finInvVatFromTreatment(d.vat_treatment, d.vat_rate)})).filter(l=>l.description || l.amount!==null);
   const t = finInvTotals(lines, d.vat_treatment, d.vat_rate);
   return {issue_date:d.issue_date||null, due_date:d.due_date||null, client_po:d.client_po||null, bill_name:d.bill_name||null, bill_address:d.bill_address||null,
-    bill_email:(d.bill_email||'').trim()||null, vat_treatment:d.vat_treatment||'standard', lines, net:t.net, vat:t.vat, total:t.total, notes:d.notes||null, updated_at:new Date().toISOString()};
+    bill_email:(d.bill_email||'').trim()||null, vat_treatment:lines.length ? finInvTreatmentOf(t) : (d.vat_treatment||'standard'), lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, notes:d.notes||null, updated_at:new Date().toISOString()};
 }
 window.saveFinInvoiceDraft = async function(showToast){
   if(!finInvDraft) return null;
@@ -46729,10 +46792,12 @@ async function finBuildInvoicePdf(inv, site, st){
     page.drawRectangle({x:M, y:y-6, width:W-2*M, height:22, color:PDFLib.rgb(0.95,0.96,0.97)});
     txt('DESCRIPTION', M+8, y+1, {font:bold, size:8.5, color:SLATE}); right('AMOUNT (£)', W-M-8, y+1, {font:bold, size:8.5, color:SLATE});
     y -= 26;
+    const mixedVat = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate).mixed;
     for(const l of (inv.lines||[])){
-      const lines = finWrap(l.description||'', reg, 10, W-2*M-130);
+      const lines = finWrap(l.description||'', reg, 10, W-2*M-(mixedVat?240:130));
       if(y - lines.length*13 < 170){ page = pdf.addPage([W, H]); y = H-M; }
       lines.forEach((ln,i)=>{ txt(ln, M+8, y-i*13); });
+      if(mixedVat) right('VAT '+FIN_INV_VAT[finInvLineVat(l, inv.vat_treatment, inv.vat_rate)].l, W-M-110, y, {size:8.5, color:SLATE});
       right(Number(l.amount||0).toLocaleString('en-GB',{minimumFractionDigits:2, maximumFractionDigits:2}), W-M-8, y);
       const last = y - (lines.length-1)*13;
       page.drawLine({start:{x:M, y:last-7}, end:{x:W-M, y:last-7}, thickness:0.6, color:LINE});
@@ -46744,12 +46809,17 @@ async function finBuildInvoicePdf(inv, site, st){
     const t = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
     const tot = (k, v, big)=>{ txt(k, W-M-210, y, {font:big?bold:reg, size:big?12:10, color:big?INK:SLATE}); right(v, W-M-8, y, {font:bold, size:big?12:10}); y -= big?20:16; };
     tot('Net', finMoney(inv.net));
-    tot(inv.vat_treatment==='standard' ? 'VAT @ '+t.rate+'%' : inv.vat_treatment==='reverse_charge' ? 'VAT (reverse charge)' : 'VAT (zero rated)', finMoney(inv.vat));
+    const vks = Object.keys(t.by);
+    const chg = vks.filter(k=>!FIN_INV_VAT[k].rc && FIN_INV_VAT[k].r>0);
+    if(chg.length) chg.forEach(k=>tot('VAT @ '+FIN_INV_VAT[k].l+(t.mixed?' on '+finMoney(t.by[k].net):''), finMoney(t.by[k].vat)));
+    else tot(t.vatDue ? 'VAT (reverse charge)' : 'VAT (zero rated)', finMoney(inv.vat));
     page.drawLine({start:{x:W-M-210, y:y+10}, end:{x:W-M, y:y+10}, thickness:1, color:INK});
     y -= 4; tot('Total due', finMoney(inv.total), true);
-    if(inv.vat_treatment==='reverse_charge'){
+    if(t.vatDue){
       y -= 4;
-      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT at '+t.rate+'% on this supply: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
+      const rcNet = vks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0);
+      tot('Reverse charge VAT', finMoney(t.vatDue));
+      finWrap('Reverse charge: customer to account to HMRC for the VAT. VAT on '+finMoney(rcNet)+' of this supply: '+finMoney(t.vatDue)+'. (Domestic reverse charge for building and construction services.)', reg, 9, W-2*M).forEach(l=>{ txt(l, M, y, {size:9, color:SLATE}); y -= 12; });
     }
     if(inv.notes){ y -= 6; finWrap(inv.notes, reg, 10, W-2*M).forEach(l=>{ txt(l, M, y); y -= 13; }); }
     // Footer: payment details
@@ -46789,6 +46859,14 @@ function finItemValue(r){
   const q = finNum(r.qty), rt = finNum(r.rate);
   if(q!==null && !isNaN(q) && rt!==null && !isNaN(rt)) return finRound(q*rt);
   const v = finNum(r.value); return (v===null || isNaN(v)) ? null : finRound(v);
+}
+// VAT that goes with an application amount: added on (standard), or the reverse-charge figure the client pays HMRC.
+function finAppVatTreat(jf){ return (jf && jf.vat_treatment) || finSettings().default_vat || 'standard'; }
+function finAppVatHtml(net, jf){
+  const t = finAppVatTreat(jf), v = finRound(Number(net||0)*0.2);
+  if(t==='reverse_charge') return `<div class="finrc"><div class="finkv"><span>Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(v)}</b></div><p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge — not added to the amount due. Shown on the application and the invoice.</p></div>`;
+  if(t==='standard') return `<div class="finkv"><span>VAT @ 20%</span><b>${finMoney(v)}</b></div><div class="finkv"><span>Total incl. VAT</span><b>${finMoney(finRound(Number(net||0)+v))}</b></div>`;
+  return '';
 }
 function finAppCalc(app, contractValue, retLimitPct, previous){
   const lines = (app.lines||[]).map(l=>finIsItem(l) ? Object.assign({}, l, {gross: finRound(Number(l.value||0)*finPct(l.pct)/100)}) : Object.assign({}, l, {gross:0}));
@@ -47409,6 +47487,7 @@ window.finAppPaint = function(){
     <div class="finkv"><span>Less retention @ ${finPct(finApp.retention_pct)}%${finAppCtx.jf.retention_limit_pct?' (limit '+finAppCtx.jf.retention_limit_pct+'%)':''}</span><b>−${finMoney(c.retention)}</b></div>
     <div class="finkv"><span>Less previously certified</span><b>−${finMoney(c.previous)}</b></div>
     <div class="finkv big"><span>Amount due this application</span><b>${finMoney(c.net_due)}</b></div>
+    ${finAppVatHtml(c.net_due, finAppCtx.jf)}
     <p class="stub" style="margin:6px 0 0;font-style:normal;">Excl. VAT. An application isn’t a VAT invoice; the invoice follows the certificate.</p>`;
   const h = document.getElementById('finAppDueHead'); if(h) h.textContent = finMoney(c.net_due);
   return c;
@@ -47488,7 +47567,10 @@ async function finAppExcelBytes(a){
   const rr = ws.addRow(['', '', 'Retention %', null, null, null, null, finPct(a.retention_pct), null]); rr.getCell(3).alignment = {horizontal:'right'}; rr.getCell(8).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF6DB'}};
   const ret = sum('Less retention', jf.retention_limit_pct && jf.contract_value ? `-MIN(ROUND(I${g}*H${rr.number}/100,2),${finRound(jf.contract_value*jf.retention_limit_pct/100)})` : `-ROUND(I${g}*H${rr.number}/100,2)`, -c.retention);
   const prev = sum('Less previously certified', `-${finRound(a.previous||0)}`, -finRound(a.previous||0));
-  sum('Amount due this application (excl. VAT)', `I${g}+I${ret}+I${prev}`, c.net_due, true);
+  const due = sum('Amount due this application (excl. VAT)', `I${g}+I${ret}+I${prev}`, c.net_due, true);
+  const vt = finAppVatTreat(jf);
+  if(vt==='reverse_charge') sum('Reverse charge VAT @ 20% (client pays HMRC — not added)', `ROUND(I${due}*0.2,2)`, finRound(c.net_due*0.2));
+  else if(vt==='standard'){ const vr = sum('VAT @ 20%', `ROUND(I${due}*0.2,2)`, finRound(c.net_due*0.2)); sum('Total incl. VAT', `I${due}+I${vr}`, finRound(c.net_due*1.2), true); }
   ws.addRow([]);
   const note = ws.addRow(['', '', 'This application is not a VAT invoice. Edit the yellow % cells and upload this file back to OpHUB to update it.']); note.getCell(3).font = {italic:true, color:{argb:'FF5B6472'}};
   ws.views = [{state:'frozen', ySplit:head.number}];
@@ -47753,7 +47835,7 @@ window.raiseInvoiceFromCert = async function(siteId, appId){
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:a.final_date || finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
     client_po:a.client_po||null, bill_name:jf.billing_name||site.client_name||null, bill_address:jf.billing_address||null, bill_email:jf.billing_email||site.client_email||null,
-    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, total:t.total, source:'certificate', source_id:appId, created_by:ME.id,
+    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, source:'certificate', source_id:appId, created_by:ME.id,
     notes:'Net due: '+finMoney(a.cert_net)+' (excl. VAT) as certified.',
   });
   if(!rows || !rows[0]) return;
@@ -47823,7 +47905,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
     client_po:(pos[0]||{}).po_number||null, bill_name:jf.billing_name||site.client_name||null, bill_address:jf.billing_address||null, bill_email:jf.billing_email||site.client_email||null,
-    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, total:t.total, source:'retention', created_by:ME.id,
+    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, source:'retention', created_by:ME.id,
   });
   if(!rows || !rows[0]) return;
   const patch = {site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString()}; patch[n===1?'ret1_invoice_id':'ret2_invoice_id'] = rows[0].id;
@@ -47882,12 +47964,10 @@ function finJobCost(jf, invs, pos, pinvs, labour, plant, other){
 function finJobCostCardHtml(c, siteId){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
-      <p class="sectiontitle" style="margin:0;">Project cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+      <p class="sectiontitle" style="margin:0;">Costs to date — breakdown <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
       ${siteId ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/costs')">All costs ›</button>` : ''}
     </div>
     <div class="fincost">
-      <div><span>Contract value</span><b>${finMoney(c.contract, 0)}</b></div>
-      <div><span>Invoiced to client</span><b>${finMoney(c.invoiced, 0)}</b></div>
       <div><span>Supplier invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
       <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
       <div><span>Labour</span><b>${finMoney(c.labour, 0)}</b></div>
@@ -47895,7 +47975,6 @@ function finJobCostCardHtml(c, siteId){
       ${c.other ? `<div><span>Other costs</span><b>${finMoney(c.other, 0)}</b></div>` : ''}
     </div>
     <div class="finkv big" style="margin-top:8px;"><span>Costs to date</span><b>${finMoney(c.spent, 0)}</b></div>
-    ${c.margin!=null ? `<div class="finkv"><span>Invoiced less costs</span><b style="color:${c.margin<0?'var(--red)':'var(--ok)'};">${finMoney(c.margin, 0)}</b></div>` : ''}
   </div>`;
 }
 function finPurchasingCardHtml(siteId, pos, pinvs){
@@ -49126,7 +49205,8 @@ function finOnlyHomeButtonsHtml(part){
 
 /* ---------- jobs ---------- */
 const FIN_JOB_STATUS = {upcoming:'Upcoming', live:'Live', closed:'Closed'};
-window.openFinNewJob = function(){
+window.openFinNewJob = async function(){
+  if(!isFinanceOnly()) await loadAllProfiles();
   let ov = document.getElementById('finJobOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finJobOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
@@ -49139,6 +49219,10 @@ window.openFinNewJob = function(){
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
     <div class="formfield"><label class="field-label">How do you get paid?</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
+    ${isFinanceOnly() ? '' : `<div class="fingrid2">
+      <div class="formfield"><label class="field-label">Project manager</label><select id="finNjPm"><option value="">Choose later</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
+      <div class="formfield"><label class="field-label">Type of job</label><select id="finNjKind"><option value="">Single site</option><option value="multi">Multi-site (plots)</option><option value="repair">Repairs contract</option></select></div>
+    </div>`}
     <div class="formfield"><label class="field-label">Client</label><input type="text" id="finNjClient" placeholder="Company you invoice"></div>
     <div class="formfield"><label class="field-label">Client accounts email</label><input type="email" id="finNjEmail"></div>
     <div class="formfield"><label class="field-label">Site address</label><input type="text" id="finNjAddr"></div>
@@ -49165,6 +49249,7 @@ window.saveFinNewJob = async function(){
   const row = {id:newId, org_id:ME.org_id, name, address:finVal('finNjAddr')||null, postcode:finVal('finNjPc')||null,
     job_number: (ORG && ORG.auto_job_numbers) ? null : no, status:finVal('finNjStatus')||'live', start_date:finVal('finNjStart')||null,
     client_name:finVal('finNjClient')||null, client_email:email||null, created_by:ME.id};
+  if(document.getElementById('finNjPm')){ row.responsible_pm_id = finVal('finNjPm')||null; const k = finVal('finNjKind'); row.multi_site = k==='multi'; row.repair_contract = k==='repair'; }
   // Plain insert then re-read (the "return the row" form can be refused by the policy).
   const res = await sbFetch('/rest/v1/sites', {method:'POST', body:JSON.stringify(row)});
   if(btn){ btn.disabled = false; btn.textContent = 'Create project'; }
@@ -49172,6 +49257,8 @@ window.saveFinNewJob = async function(){
   const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
   if(sitesRes.ok) SITES = sitesRes.data;
   const made = SITES.find(x=>x.id===newId) || row;
+  // Set up in Finance = set up in Projects too: same folders and toolbox talks as a project made there.
+  if(!isFinanceOnly() && SITES.find(x=>x.id===newId)){ try{ await Promise.all([typeof preloadTbtBankForSite==='function' ? preloadTbtBankForSite(made) : null, typeof preloadDrawingFoldersForSite==='function' ? preloadDrawingFoldersForSite(made) : null]); }catch(e){} }
   await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
@@ -50210,7 +50297,8 @@ window.openFinSubcontract = async function(siteId, id){
   const v = k=>sc && sc[k]!=null ? escapeHtml(String(sc[k])) : '';
   window.__finScWorkers = FIN_WORKERS;
   await finSubJobsLoad(siteId);
-  ov.innerHTML = `<div class="geo-modal-card" style="max-width:540px;">
+  finScLines = [];
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:640px;">
     <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
     <div class="fingrid2">
@@ -50227,6 +50315,7 @@ window.openFinSubcontract = async function(siteId, id){
       ${sc ? `<div class="formfield"><label class="field-label">Status</label><select id="finScStatus"><option value="active" ${sc.status!=='complete'?'selected':''}>Active</option><option value="complete" ${sc.status==='complete'?'selected':''}>Complete</option></select></div>` : ''}
     </div>
     ${finSubJobSelectHtml('finScSub', siteId, sc ? sc.sub_job_id||'' : '')}
+    ${await finScSheetBlockHtml(siteId, sc)}
     <input type="hidden" id="finScWorker" value="${v('worker_id')}">
     <button class="darkbtn" style="width:100%;" onclick="saveFinSubcontract('${siteId}','${sc?sc.id:''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finScOverlay').style.display='none'">Cancel</button>
@@ -50240,7 +50329,8 @@ window.finScPickWorker = function(id){
 };
 window.saveFinSubcontract = async function(siteId, id){
   const name = finVal('finScName'); if(!name){ toast('Enter the subcontractor’s name.'); return; }
-  const val = finNum(finVal('finScVal')), ret = finNum(finVal('finScRet'));
+  const linesTot = finScLinesTotal();
+  const val = linesTot!=null ? linesTot : finNum(finVal('finScVal')), ret = finNum(finVal('finScRet'));
   if(ret===null || isNaN(ret) || ret<0 || ret>20){ toast('Retention should be between 0 and 20%.'); return; }
   const row = {name, email:finVal('finScEmail')||null, description:finVal('finScDesc')||null, order_value:(val===null||isNaN(val))?null:finRound(val), retention_pct:ret, cis_rate:Number(finVal('finScCis')||20), utr:finVal('finScUtr')||null, vat_registered:finVal('finScVat')==='true', worker_id:finVal('finScWorker')||null};
   if(id){ const st = finVal('finScStatus'); if(st) row.status = st; }
@@ -50253,6 +50343,8 @@ window.saveFinSubcontract = async function(siteId, id){
     r = await dbInsert('fin_subcontracts', Object.assign({org_id:ME.org_id, site_id:siteId, seq, number:'SC-'+String(seq).padStart(3,'0'), created_by:ME.id}, row));
   }
   if(!r) return;
+  const saved = Array.isArray(r) ? r[0] : r;
+  if(saved) await finScSyncSheet(siteId, Object.assign({}, saved, row, {id: saved.id || id}));
   document.getElementById('finScOverlay').style.display = 'none';
   toast('Subcontract order saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
@@ -50278,6 +50370,7 @@ async function renderFinSubcontract(siteId, scId){
     </div>
     <div class="card">
       <div class="finkv"><span>Work</span><b style="white-space:normal;">${escapeHtml(sc.description||'—')}</b></div>
+      ${sc.price_sheet_id ? `<div class="finkv"><span>Price sheet</span><b><button class="linkbtn" onclick="go('#/site/${siteId}/pricebuilder/view/${sc.price_sheet_id}')">${sc.source==='price_sheet'?'From the PM’s price file':'In the project’s price file'} ›</button></b></div>` : ''}
       <div class="finkv"><span>Retention · CIS</span><b>${sc.retention_pct}% · ${FIN_CIS_LABEL[sc.cis_rate]||sc.cis_rate+'%'}</b></div>
       <div class="finkv"><span>UTR</span><b>${escapeHtml(sc.utr||'—')}</b></div>
       <div class="finkv"><span>Contra charges to date</span><b>${finMoney(contra)}</b></div>
@@ -50446,6 +50539,76 @@ window.openFinSubNotice = async function(id){
   if(st.company_address) page.drawText(String(st.company_address).replace(/\s*\n\s*/g, ', ').slice(0,110), {x:44, y:40, size:8.5, font:reg, color:SLATE});
   viewPdfInApp(await pdf.save(), (a.payless?'Pay less notice':'Payment notice')+' - '+sc.number+' app '+a.number+'.pdf');
 };
+
+/* ---------- subcontract order <-> PM price sheet ----------
+   An order made here can go into the project's Price file as an issued price
+   sheet (its own Pricing Element), so the PM books it in like any other.
+   A sheet a PM issues comes into Finance as an order by itself (database
+   trigger fin_sheet_to_order), and its value stays in step when re-issued. */
+let finScLines = [];
+async function finScSheetBlockHtml(siteId, sc){
+  if(sc && sc.price_sheet_id){
+    const sh = (await dbSelect('price_builder_sheets', 'id=eq.'+sc.price_sheet_id+'&select=id,title,status,total'))[0];
+    return `<div class="finscsheet"><b>Price sheet</b> ${sh ? escapeHtml(sh.title||'')+' · '+(sh.status==='issued'?'issued':'draft')+' · '+finMoney(sh.total) : 'linked'}<br><span class="stub" style="font-style:normal;">${sc.source==='price_sheet' ? 'Made by the PM — change the items on the price sheet and re-issue it; the order value follows.' : 'Changing the order value here updates a one-line sheet; for more lines, edit the sheet.'}</span></div>`;
+  }
+  const els = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&closed=eq.false&select=id,name&order=sort_order.asc');
+  return `<div class="finscsheet">
+    <label class="finscsheet-on"><input type="checkbox" id="finScToSheet" ${sc?'':'checked'} onchange="document.getElementById('finScSheetMore').hidden=!this.checked"> Add to the project’s Price file for the PM</label>
+    <div id="finScSheetMore" ${sc?'hidden':''}>
+      <div class="formfield" style="margin-top:8px;"><label class="field-label">Price tile</label><select id="finScEl"><option value="">New tile named after the work</option>${els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}</select></div>
+      <label class="field-label">Lines (optional — otherwise one line for the order value)</label>
+      <div id="finScLines"></div>
+      <button type="button" class="ghostbtn" style="width:100%;margin-top:4px;" onclick="finScLines.push({name:'',qty:1,unit:'item',rate:null});finScLinesPaint()">+ Add a line</button>
+    </div>
+  </div>`;
+}
+window.finScLinesPaint = function(){
+  const box = document.getElementById('finScLines'); if(!box) return;
+  box.innerHTML = finScLines.map((l,i)=>`<div class="finscline">
+    <input type="text" placeholder="Item" value="${escapeHtml(l.name||'')}" oninput="finScLines[${i}].name=this.value">
+    <input type="text" inputmode="decimal" placeholder="Qty" value="${l.qty!=null?l.qty:''}" oninput="finScLines[${i}].qty=finNum(this.value);finScLinesTot()">
+    <input type="text" placeholder="Unit" value="${escapeHtml(l.unit||'')}" oninput="finScLines[${i}].unit=this.value">
+    <input type="text" inputmode="decimal" placeholder="Rate £" value="${l.rate!=null?l.rate:''}" oninput="finScLines[${i}].rate=finNum(this.value);finScLinesTot()">
+    <button type="button" class="linkbtn" onclick="finScLines.splice(${i},1);finScLinesPaint();finScLinesTot()">×</button></div>`).join('');
+};
+function finScLinesTotal(){
+  const ls = finScLines.filter(l=>l.name && Number(l.qty) && l.rate!=null && !isNaN(l.rate));
+  return ls.length ? finRound(ls.reduce((t,l)=>t+Number(l.qty)*Number(l.rate),0)) : null;
+}
+window.finScLinesTot = function(){ const t = finScLinesTotal(); const el = document.getElementById('finScVal'); if(el && t!=null){ if(typeof finSetMoney==='function') finSetMoney(el, t); else el.value = t; } };
+// After saving an order: make its price sheet (new) or keep a linked one-line sheet's value in step.
+async function finScSyncSheet(siteId, sc){
+  try{
+    if(sc.price_sheet_id){
+      const items = await dbSelect('price_builder_sheet_items', 'sheet_id=eq.'+sc.price_sheet_id+'&select=id');
+      if(items.length===1 && sc.order_value!=null && sc.source!=='price_sheet'){
+        await dbUpdate('price_builder_sheet_items', items[0].id, {rate:sc.order_value, quantity:1, line_total:sc.order_value, name:sc.description||sc.name});
+        const sh = await dbUpdate('price_builder_sheets', sc.price_sheet_id, {total:sc.order_value, subcontractor_name:sc.name, updated_at:new Date().toISOString()});
+        const el = sh && sh.pricing_element_id; if(el) await dbUpdate('pricing_elements', el, {price_total:sc.order_value});
+      }
+      return;
+    }
+    const on = document.getElementById('finScToSheet'); if(!on || !on.checked) return;
+    const lines = finScLines.filter(l=>l.name && Number(l.qty) && l.rate!=null && !isNaN(l.rate));
+    const rows = lines.length ? lines.map(l=>({name:l.name, unit:l.unit||'item', quantity:Number(l.qty), rate:finRound(l.rate), line_total:finRound(Number(l.qty)*Number(l.rate))}))
+      : [{name:sc.description || ('Subcontract — '+sc.name), unit:'item', quantity:1, rate:finRound(sc.order_value||0), line_total:finRound(sc.order_value||0)}];
+    const total = finRound(rows.reduce((t,r)=>t+r.line_total,0));
+    const title = (sc.description || 'Subcontract') + ' — ' + sc.name;
+    let elId = finVal('finScEl');
+    if(!elId){
+      const ex = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+'&select=sort_order&order=sort_order.desc&limit=1');
+      const made = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id:null, name:sc.description || sc.name, sort_order: ex.length ? Number(ex[0].sort_order||0)+1 : 0, price_total:total, created_by:ME.id});
+      elId = made && made[0] ? made[0].id : null;
+    }
+    const assigned = [];
+    const w = sc.worker_id && FIN_WORKERS ? FIN_WORKERS[sc.worker_id] : null; if(w && w.user_id) assigned.push(w.user_id);
+    const sh = await dbInsert('price_builder_sheets', {org_id:ME.org_id, site_id:siteId, title, subcontractor_name:sc.name, status:'issued', total, created_by:ME.id, issued_by:ME.id, issued_at:new Date().toISOString(), pricing_element_id:elId, assigned_user_ids:assigned, fin_subcontract_id:sc.id});
+    if(!sh || !sh[0]){ toast('Order saved, but the price sheet wasn’t made — try again from the order.'); return; }
+    await dbInsert('price_builder_sheet_items', rows.map((r,i)=>Object.assign({sheet_id:sh[0].id, category:'Subcontract', sort_order:i, is_manual_rate:true}, r)));
+    await dbUpdate('fin_subcontracts', sc.id, {price_sheet_id:sh[0].id, source:'finance'});
+    if(elId && !finVal('finScEl')) {} else if(elId) { const el = (await dbSelect('pricing_elements', 'id=eq.'+elId+'&select=price_total'))[0]; if(el) await dbUpdate('pricing_elements', elId, {price_total:finRound(Number(el.price_total||0)+total)}); }
+  }catch(e){ console.error('price sheet sync', e); }
+}
 
 /* ============================================================
    OpHUB Finance — Reports   #/finance/reports  ·  #/finance/reports/<id>
@@ -50815,6 +50978,12 @@ async function renderFinanceHome(){
 
 /* ================= Jobs ================= */
 let finJobFilt = {pm:'', client:'', sort:'noza'};
+// Client filter: any part of the client's name, no re-draw while typing.
+function finCliHide(txt){ const q = String(finJobFilt.client||'').trim().toLowerCase(); return q && !String(txt||'').toLowerCase().includes(q) ? 'fincli-hide' : ''; }
+window.finJobCli = function(v){
+  finJobFilt.client = v;
+  document.querySelectorAll('#finJobList [data-cli]').forEach(r=>r.classList.toggle('fincli-hide', !!finCliHide(r.getAttribute('data-cli'))));
+};
 async function renderFinJobs(sub){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -50844,7 +51013,7 @@ async function renderFinJobs(sub){
     await loadAllProfiles();
     const cliOf = s=>(jfBy[s.id]||{}).billing_name || s.client_name || '';
     const f = finJobFilt;
-    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && (!f.client || cliOf(s)===f.client));
+    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && true);
     const num = s=>String(s.job_number||''), nm = s=>String(s.name||'');
     const cmp = {az:(a,b)=>nm(a).localeCompare(nm(b)), za:(a,b)=>nm(b).localeCompare(nm(a)), noaz:(a,b)=>num(a).localeCompare(num(b), undefined, {numeric:true}), noza:(a,b)=>num(b).localeCompare(num(a), undefined, {numeric:true}), start:(a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))}[f.sort];
     if(cmp) shown = shown.slice().sort(cmp);
@@ -50852,14 +51021,14 @@ async function renderFinJobs(sub){
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     const filtHtml = `<div class="finjobfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
-      <label>Client<select onchange="finJobFilt.client=this.value;render()"><option value="">All clients</option>${clients.map(c=>`<option value="${escapeHtml(c)}" ${f.client===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label>
+      <label>Client<input type="search" placeholder="Type any part of the client" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
-      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear filters</button>` : ''}
+      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;
-    body = finSecHead('Projects', fo && isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
-      + `<div class="pmchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
+    body = finSecHead('Projects', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
+      + `<div class="pmchips finjobchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
       + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
-      + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
+      + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow ${finCliHide(cliOf(s)+' '+(s.client_name||''))}" data-cli="${escapeHtml((cliOf(s)+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
           <span class="finjobno ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span>
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span><span class="pmrow-s finjobstart">${s.start_date ? 'Start '+finDate(s.start_date) : 'No start date'}</span></span>
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');
@@ -52419,6 +52588,8 @@ async function finTsLoad(){
   // A row whose money isn't days × rate was price work: keep its price.
   Object.values(rows).forEach(row=>{ const calc = t.rate!=null ? finRound(row._days*t.rate) : null; if(calc===null || Math.abs(calc - row._amt) > 0.01) row.price = finRound(row._amt); delete row._amt; delete row._days; });
   t.rows = Object.values(rows);
+  t.push = {};
+  try{ (await dbSelect('wage_pushes', 'org_id=eq.'+ME.org_id+'&person_key=eq.'+encodeURIComponent(k)+'&week_start=eq.'+from)).forEach(p=>{ t.push[p.site_id] = p; }); }catch(e){}
 }
 function finTsRowDays(r){ return finRound(r.d.reduce((s,x)=>s+(Number(x)||0),0)); }
 function finTsRowAmount(r){ if(r.price!=null && !isNaN(r.price)) return finRound(r.price); return finTs.rate!=null ? finRound(finTsRowDays(r)*finTs.rate) : 0; }
@@ -52446,7 +52617,7 @@ window.finTsPaint = function(){
       <div class="fints-h"><span>Project</span>${anySubs?'<span>Plot</span>':''}${dates.map((d,i)=>`<span class="c">${FIN_TS_DAYS[i]}<em>${fmt(d)}</em></span>`).join('')}<span class="c">Days</span><span class="c">Price work £</span><span class="r">Cost</span><span></span></div>
       ${t.rows.map((r,i)=>{ const subs = FIN_SUBJOBS[r.site_id]||[]; return `<div class="fints-r ${anySubs?'subs':''}">
         <label class="fints-p"><span>Project</span><select onchange="finTsSite(${i}, this.value)"><option value="">Choose…</option>${jobs.map(j=>`<option value="${j.id}" ${r.site_id===j.id?'selected':''}>${escapeHtml((j.job_number?j.job_number+' · ':'')+j.name)}</option>`).join('')}</select>
-          <input type="text" class="fints-desc" placeholder="What for (optional)" value="${escapeHtml(r.desc||'')}" oninput="finTs.rows[${i}].desc=this.value"></label>
+          <input type="text" class="fints-desc" placeholder="What for (optional)" value="${escapeHtml(r.desc||'')}" oninput="finTs.rows[${i}].desc=this.value">${t.push && t.push[r.site_id] && typeof finWagePushChip==='function' ? `<span class="fints-pm">PM: ${finWagePushChip(t.push[r.site_id])}</span>` : ''}</label>
         ${anySubs ? `<label><span>Plot</span>${subs.length ? `<select onchange="finTs.rows[${i}].sub=this.value"><option value="">Whole project</option>${subs.map(a=>`<option value="${a.id}" ${r.sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '<em class="stub">—</em>'}</label>` : ''}
         ${r.d.map((v,j)=>`<label class="c"><span>${FIN_TS_DAYS[j]}</span><input type="text" inputmode="decimal" class="fints-d" value="${v!=null&&v!==0?v:''}" placeholder="–" oninput="finTsDay(${i},${j},this.value)"></label>`).join('')}
         <b class="c" id="finTsD-${i}">${finTsRowDays(r)||'–'}</b>
@@ -52514,6 +52685,7 @@ window.saveFinTimesheet = async function(){
   // Replace what was booked by hand for this person and week.
   for(const id of t.ids){ if(!(await dbDelete('fin_labour_manual', id))){ toast('Couldn’t update the old entries — try again.'); return; } }
   if(rows.length){ const res = await sbFetch('/rest/v1/fin_labour_manual', {method:'POST', body:JSON.stringify(rows)}); if(!res.ok){ toast('Save failed — '+(await safeErr(res))); t.ids = []; return; } }
+  if(typeof finWagePush==='function') await finWagePush(t, rows);
   document.getElementById('finTsOverlay').style.display = 'none';
   toast(rows.length ? 'Timesheet saved — '+finRound(used.reduce((s,r)=>s+finTsRowDays(r),0))+' days on '+new Set(used.map(r=>r.site_id)).size+' project'+(new Set(used.map(r=>r.site_id)).size===1?'':'s') : 'Timesheet cleared');
   finTs = null; render();
@@ -52616,6 +52788,102 @@ window.saveFinXeroWorkers = async function(){
   const ov = document.getElementById('finXwOverlay'); if(ov) ov.style.display = 'none';
   finXw = null;
   toast([added ? added+' added' : '', updated ? updated+' updated' : '', failed ? failed+' failed' : ''].filter(Boolean).join(', ') || 'Nothing changed');
+  render();
+};
+
+/* ============================================================
+   Wages from Finance timesheets -> the PM's Price tile.
+   Saving a timesheet in Finance sends each person's week on each project
+   to that project's PMs (table wage_pushes). In the Price tile the PM
+   books it either against a price (a Pricing Element / price sheet, as a
+   labour wage for a week — the same as typing it in "Labour wages this
+   week") or to general costs (not against any price). Finance sees what
+   the PM decided on the timesheet and the project's labour list.
+   ============================================================ */
+// Finance side: called after a timesheet is saved (t = finTs, rows = fin_labour_manual rows written).
+async function finWagePush(t, rows){
+  try{
+    const key = t.key, week = t.week;
+    const isW = key.startsWith('w:'), isN = key.startsWith('n:');
+    const who = isN ? key.slice(2) : finPersonName(key);
+    const bySite = {};
+    rows.forEach(r=>{ const b = bySite[r.site_id] = bySite[r.site_id] || {days:0, amount:0, desc:new Set()}; b.days += Number(r.days||0); b.amount += Number(r.amount||0); if(r.description) b.desc.add(r.description); });
+    const existing = await dbSelect('wage_pushes', 'org_id=eq.'+ME.org_id+'&person_key=eq.'+encodeURIComponent(key)+'&week_start=eq.'+week);
+    const exBy = {}; existing.forEach(e=>{ exBy[e.site_id] = e; });
+    for(const siteId of Object.keys(bySite)){
+      const b = bySite[siteId], amount = finRound(b.amount), days = finRound(b.days);
+      const row = {org_id:ME.org_id, site_id:siteId, src_key:[key, week, siteId].join('|'), person_key:key, operative_id:(!isW && !isN) ? key : null, person_name:who, week_start:week, days, amount, description:Array.from(b.desc).join(', ')||null, status:'pending', created_by:ME.id};
+      const ex = exBy[siteId];
+      if(!ex){ await dbInsert('wage_pushes', row); continue; }
+      if(Number(ex.amount)===amount && Number(ex.days)===days && ex.status!=='withdrawn') continue;
+      const patch = {amount, days, description:row.description};
+      if(ex.status==='withdrawn') patch.status = 'pending';
+      await dbUpdate('wage_pushes', ex.id, patch);
+      // Already booked against a price: keep the PM's wage line in step.
+      if(ex.status==='price' && ex.price_entry_id) await sbFetch('/rest/v1/price_week_operative_entries?id=eq.'+ex.price_entry_id, {method:'PATCH', body:JSON.stringify({amount, updated_at:new Date().toISOString()})});
+    }
+    // Projects taken off the timesheet.
+    for(const e of existing){
+      if(bySite[e.site_id]) continue;
+      if(e.status==='pending') await dbDelete('wage_pushes', e.id);
+      else if(e.status!=='withdrawn') await dbUpdate('wage_pushes', e.id, {status:'withdrawn', amount:0});
+    }
+  }catch(e){ console.error('wage push', e); }
+}
+const FIN_WP_LABEL = {pending:'With PM', price:'On price', general:'General costs', withdrawn:'Taken off'};
+function finWagePushChip(p){
+  if(!p) return '';
+  const cls = {pending:'warn', price:'ok', general:'blue', withdrawn:'grey'}[p.status] || 'grey';
+  return `<span class="finpill ${cls}" title="${escapeHtml(p.pm_note||'')}">${FIN_WP_LABEL[p.status]||p.status}${p.status==='price' && p.week_number ? ' · wk '+p.week_number : ''}</span>`;
+}
+
+/* ---------- PM side (Price tile) ---------- */
+let pmWpOpen = true;
+async function pmWagePushesHtml(siteId, elements){
+  let rows = [];
+  try{ rows = await dbSelect('wage_pushes', 'site_id=eq.'+siteId+'&status=eq.pending&order=week_start.asc'); }catch(e){ return ''; }
+  if(!rows.length) return '';
+  const els = (elements||[]).filter(e=>!e.closed);
+  window.__pmWpEls = els;
+  const total = rows.reduce((t,r)=>t+Number(r.amount||0),0);
+  const wkDate = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+  return `<div class="card pmwp">
+    <div class="pmwp-head" onclick="pmWpOpen=!pmWpOpen;render()"><span><b>Wages to book</b> <span class="finpill warn">${rows.length}</span></span><span>${fmt2dp(total)} ${pmWpOpen?'▲':'▼'}</span></div>
+    ${pmWpOpen ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">From the office timesheets. Book each one against a price (it goes into that tile’s labour wages for the week you choose) or to general costs.</p>
+    ${rows.map(r=>`<div class="pmwp-row" id="pmwp-${r.id}">
+      <div class="pmwp-who"><b>${escapeHtml(r.person_name||'Worker')}</b><span>w/c ${wkDate(r.week_start)} · ${Number(r.days||0)} day${Number(r.days)===1?'':'s'}${r.description?' · '+escapeHtml(r.description):''}</span></div>
+      <div class="pmwp-amt">${fmt2dp(r.amount)}</div>
+      <div class="pmwp-act">
+        <select class="pmwp-el">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
+        <input class="pmwp-wk" type="number" min="1" step="1" placeholder="Week" title="Price week number">
+        <button class="darkbtn" ${els.length?'':'disabled'} onclick="pmWagePushBook('${siteId}','${r.id}','price')">Book to price</button>
+        <button class="ghostbtn" onclick="pmWagePushBook('${siteId}','${r.id}','general')">General costs</button>
+      </div></div>`).join('')}` : ''}
+  </div>`;
+}
+window.pmWagePushBook = async function(siteId, id, how){
+  const box = document.getElementById('pmwp-'+id); if(!box) return;
+  const p = (await dbSelect('wage_pushes', 'id=eq.'+id))[0]; if(!p || p.status!=='pending'){ render(); return; }
+  const patch = {status:how, decided_by:ME.id, decided_at:new Date().toISOString()};
+  if(how==='price'){
+    const elId = box.querySelector('.pmwp-el').value; if(!elId){ toast('Add a price tile first.'); return; }
+    let wk = Number(box.querySelector('.pmwp-wk').value);
+    if(!wk){
+      const last = await dbSelect('price_weeks', 'element_id=eq.'+elId+'&select=week_number&order=week_number.desc&limit=1');
+      wk = last.length ? Number(last[0].week_number) : 1;
+      if(!await customConfirm(`Book ${fmt2dp(p.amount)} for ${p.person_name} to week ${wk} of this price?`)) return;
+    }
+    const entry = {site_id:siteId, element_id:elId, week_number:wk, amount:Number(p.amount||0), entered_by:ME.id, updated_at:new Date().toISOString()};
+    if(p.operative_id) Object.assign(entry, {operative_id:p.operative_id, kind:'extra_operative'}); else Object.assign(entry, {operative_id:null, kind:'cost', label:p.person_name||'Worker'});
+    const res = await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(entry)});
+    if(!res.ok){ toast('Not booked — '+(await safeErr(res))); return; }
+    const made = (await res.json())[0];
+    Object.assign(patch, {element_id:elId, week_number:wk, price_entry_id:made ? made.id : null});
+    // Elements without a price sheet add their wage lines up into the week's booked-in figure.
+    try{ const sh = await dbSelect('price_builder_sheets', 'pricing_element_id=eq.'+elId+'&select=id&limit=1'); if(!sh.length && typeof rollUpPriceWeekFromOperativeEntries==='function') await rollUpPriceWeekFromOperativeEntries(elId, siteId, wk); }catch(e){}
+  }
+  if(!(await dbUpdate('wage_pushes', id, patch))) return;
+  toast(how==='price' ? 'Booked to the price' : 'Booked to general costs');
   render();
 };
 

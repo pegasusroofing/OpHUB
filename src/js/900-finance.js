@@ -209,7 +209,6 @@ async function renderSiteFinance(siteId){
     ${finProjTabsHtml(siteId, bt)}
     <div class="finptab" data-t="overview">
     <div id="finFcSlot"></div>
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     </div>
     <div class="finptab" data-t="sales">
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live') : ''}
@@ -236,6 +235,7 @@ async function renderSiteFinance(siteId){
     </div>
     </div>
     <div class="finptab" data-t="purchases">
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
     ${finPlantCardHtml(siteId, hires)}
     </div>

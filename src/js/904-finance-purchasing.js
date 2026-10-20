@@ -48,12 +48,10 @@ function finJobCost(jf, invs, pos, pinvs, labour, plant, other){
 function finJobCostCardHtml(c, siteId){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
-      <p class="sectiontitle" style="margin:0;">Project cost to date <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
+      <p class="sectiontitle" style="margin:0;">Costs to date — breakdown <span class="stub" style="font-style:normal;text-transform:none;letter-spacing:0;">excl. VAT</span></p>
       ${siteId ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/costs')">All costs ›</button>` : ''}
     </div>
     <div class="fincost">
-      <div><span>Contract value</span><b>${finMoney(c.contract, 0)}</b></div>
-      <div><span>Invoiced to client</span><b>${finMoney(c.invoiced, 0)}</b></div>
       <div><span>Supplier invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
       <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
       <div><span>Labour</span><b>${finMoney(c.labour, 0)}</b></div>
@@ -61,7 +59,6 @@ function finJobCostCardHtml(c, siteId){
       ${c.other ? `<div><span>Other costs</span><b>${finMoney(c.other, 0)}</b></div>` : ''}
     </div>
     <div class="finkv big" style="margin-top:8px;"><span>Costs to date</span><b>${finMoney(c.spent, 0)}</b></div>
-    ${c.margin!=null ? `<div class="finkv"><span>Invoiced less costs</span><b style="color:${c.margin<0?'var(--red)':'var(--ok)'};">${finMoney(c.margin, 0)}</b></div>` : ''}
   </div>`;
 }
 function finPurchasingCardHtml(siteId, pos, pinvs){

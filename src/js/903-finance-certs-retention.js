@@ -100,7 +100,7 @@ window.raiseInvoiceFromCert = async function(siteId, appId){
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:a.final_date || finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
     client_po:a.client_po||null, bill_name:jf.billing_name||site.client_name||null, bill_address:jf.billing_address||null, bill_email:jf.billing_email||site.client_email||null,
-    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, total:t.total, source:'certificate', source_id:appId, created_by:ME.id,
+    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, source:'certificate', source_id:appId, created_by:ME.id,
     notes:'Net due: '+finMoney(a.cert_net)+' (excl. VAT) as certified.',
   });
   if(!rows || !rows[0]) return;
@@ -170,7 +170,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
     client_po:(pos[0]||{}).po_number||null, bill_name:jf.billing_name||site.client_name||null, bill_address:jf.billing_address||null, bill_email:jf.billing_email||site.client_email||null,
-    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, total:t.total, source:'retention', created_by:ME.id,
+    vat_treatment:jf.vat_treatment||st.default_vat||'standard', lines, net:t.net, vat:t.vat, rc_vat:t.vatDue, total:t.total, source:'retention', created_by:ME.id,
   });
   if(!rows || !rows[0]) return;
   const patch = {site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString()}; patch[n===1?'ret1_invoice_id':'ret2_invoice_id'] = rows[0].id;

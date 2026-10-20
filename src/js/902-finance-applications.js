@@ -20,6 +20,14 @@ function finItemValue(r){
   if(q!==null && !isNaN(q) && rt!==null && !isNaN(rt)) return finRound(q*rt);
   const v = finNum(r.value); return (v===null || isNaN(v)) ? null : finRound(v);
 }
+// VAT that goes with an application amount: added on (standard), or the reverse-charge figure the client pays HMRC.
+function finAppVatTreat(jf){ return (jf && jf.vat_treatment) || finSettings().default_vat || 'standard'; }
+function finAppVatHtml(net, jf){
+  const t = finAppVatTreat(jf), v = finRound(Number(net||0)*0.2);
+  if(t==='reverse_charge') return `<div class="finrc"><div class="finkv"><span>Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(v)}</b></div><p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge — not added to the amount due. Shown on the application and the invoice.</p></div>`;
+  if(t==='standard') return `<div class="finkv"><span>VAT @ 20%</span><b>${finMoney(v)}</b></div><div class="finkv"><span>Total incl. VAT</span><b>${finMoney(finRound(Number(net||0)+v))}</b></div>`;
+  return '';
+}
 function finAppCalc(app, contractValue, retLimitPct, previous){
   const lines = (app.lines||[]).map(l=>finIsItem(l) ? Object.assign({}, l, {gross: finRound(Number(l.value||0)*finPct(l.pct)/100)}) : Object.assign({}, l, {gross:0}));
   const variations = (app.variations||[]).map(v=>Object.assign({}, v, {gross: finRound(Number(v.value||0)*finPct(v.pct)/100)}));
@@ -639,6 +647,7 @@ window.finAppPaint = function(){
     <div class="finkv"><span>Less retention @ ${finPct(finApp.retention_pct)}%${finAppCtx.jf.retention_limit_pct?' (limit '+finAppCtx.jf.retention_limit_pct+'%)':''}</span><b>−${finMoney(c.retention)}</b></div>
     <div class="finkv"><span>Less previously certified</span><b>−${finMoney(c.previous)}</b></div>
     <div class="finkv big"><span>Amount due this application</span><b>${finMoney(c.net_due)}</b></div>
+    ${finAppVatHtml(c.net_due, finAppCtx.jf)}
     <p class="stub" style="margin:6px 0 0;font-style:normal;">Excl. VAT. An application isn’t a VAT invoice; the invoice follows the certificate.</p>`;
   const h = document.getElementById('finAppDueHead'); if(h) h.textContent = finMoney(c.net_due);
   return c;
@@ -718,7 +727,10 @@ async function finAppExcelBytes(a){
   const rr = ws.addRow(['', '', 'Retention %', null, null, null, null, finPct(a.retention_pct), null]); rr.getCell(3).alignment = {horizontal:'right'}; rr.getCell(8).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF6DB'}};
   const ret = sum('Less retention', jf.retention_limit_pct && jf.contract_value ? `-MIN(ROUND(I${g}*H${rr.number}/100,2),${finRound(jf.contract_value*jf.retention_limit_pct/100)})` : `-ROUND(I${g}*H${rr.number}/100,2)`, -c.retention);
   const prev = sum('Less previously certified', `-${finRound(a.previous||0)}`, -finRound(a.previous||0));
-  sum('Amount due this application (excl. VAT)', `I${g}+I${ret}+I${prev}`, c.net_due, true);
+  const due = sum('Amount due this application (excl. VAT)', `I${g}+I${ret}+I${prev}`, c.net_due, true);
+  const vt = finAppVatTreat(jf);
+  if(vt==='reverse_charge') sum('Reverse charge VAT @ 20% (client pays HMRC — not added)', `ROUND(I${due}*0.2,2)`, finRound(c.net_due*0.2));
+  else if(vt==='standard'){ const vr = sum('VAT @ 20%', `ROUND(I${due}*0.2,2)`, finRound(c.net_due*0.2)); sum('Total incl. VAT', `I${due}+I${vr}`, finRound(c.net_due*1.2), true); }
   ws.addRow([]);
   const note = ws.addRow(['', '', 'This application is not a VAT invoice. Edit the yellow % cells and upload this file back to OpHUB to update it.']); note.getCell(3).font = {italic:true, color:{argb:'FF5B6472'}};
   ws.views = [{state:'frozen', ySplit:head.number}];
