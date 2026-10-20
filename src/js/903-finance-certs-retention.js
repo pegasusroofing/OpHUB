@@ -15,17 +15,17 @@ function finCertSlotRender(a){
   if(a.cert_net==null){
     const appliedPrev = Number(a.previous||0);
     el.innerHTML = `<div class="card" style="margin-top:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Payment certificate</p>
+      <p class="sectiontitle" style="margin-top:0;">Client’s certificate ${finHelp('certified')}</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Certificate date</label><input type="date" id="finCertDate" value="${finToday()}"></div>
         <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" data-money id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Retention held (£) ${finHelp('retention')}</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" data-money id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" data-money id="finCertDisc" value="0" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" data-money id="finCertNet" value="${finRound(a.net_due)}"></div>
       </div>
-      <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice</label>
+      <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice ${finHelp('payless')}</label>
       <div class="formfield"><label class="field-label">Copy of the certificate (optional)</label><input type="file" accept="application/pdf,image/*" onchange="finCertFile=this.files[0]||null"></div>
       <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finCertNotes" placeholder="e.g. reason for any shortfall"></div>
       <div id="finCertDiff" class="stub" style="margin:0 0 10px;font-style:normal;"></div>

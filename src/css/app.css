@@ -2029,10 +2029,10 @@ html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
 .pmwp-who{display:flex;flex-direction:column;min-width:0;font-size:13.5px;}
 .pmwp-who span{font-size:12px;color:var(--slate);}
 .pmwp-amt{font-weight:800;font-size:14px;align-self:center;}
-.pmwp-act{grid-column:1/-1;display:grid;grid-template-columns:1fr 70px auto auto;gap:6px;align-items:center;}
+.pmwp-act{grid-column:1/-1;display:grid;grid-template-columns:1fr 150px auto auto;gap:6px;align-items:center;}
 .pmwp-act select,.pmwp-act input{padding:7px 8px;font-size:13px;border:1px solid var(--line);border-radius:8px;min-width:0;background:#fff;}
 .pmwp-act button{width:auto;padding:8px 10px;font-size:12px;white-space:nowrap;}
-@media (max-width:640px){ .pmwp-act{display:flex;flex-wrap:wrap;} .pmwp-act select{flex:1 1 55%;} .pmwp-act input{flex:0 0 72px;} .pmwp-act button{flex:1 1 40%;font-size:11.5px;padding:9px 6px;} }
+@media (max-width:640px){ .pmwp-act{display:flex;flex-wrap:wrap;} .pmwp-act select{flex:1 1 55%;} .pmwp-act select.pmwp-wk{flex:0 0 140px;} .pmwp-act button{flex:1 1 40%;font-size:11.5px;padding:9px 6px;} }
 .fints-pm{display:block;margin-top:4px;font-size:11.5px;color:var(--slate);}
 .geo-modal-overlay[id^="fin"] .geo-modal-card{max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
 @media (max-width:640px){
@@ -2161,3 +2161,9 @@ html.finmode .finptabs button.on,html.finmode .finsubtabs button.on{color:#11182
 @media (max-width:640px){ .finopline{grid-template-columns:1fr 110px;} .finopline input[type=text]:not([data-money]){grid-column:1/-1;order:3;} .finopline .linkbtn{order:4;} }
 html.finmode input[type=file]{font-size:13px;color:var(--slate);width:100%;}
 html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600;color:var(--ink);background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:7px 12px;margin-right:10px;cursor:pointer;}
+.toast{z-index:10050 !important;}
+.finhelp{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:10.5px;font-weight:800;cursor:help;vertical-align:1px;margin-left:3px;text-transform:none;letter-spacing:0;}
+.finhelp:hover{background:#d1d5db;}
+@media (max-width:640px){
+  html.finmode .finsecnav.finscroll,html.finmode .finsubtabs.finscroll{-webkit-mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 36px),transparent);padding-right:28px !important;}
+}

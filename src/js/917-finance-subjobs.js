@@ -211,7 +211,7 @@ function finAllocBlockHtml(table, row, ctx){
   const kind = finSubKind(row.site_id);
   let txt = finAllocText(row, ctx);
   if(txt && table==='purchase_invoices' && row.po_id && !row.sub_job_id && !(row.split && row.split.length)) txt += ' (same as the PO)';
-  return `<div class="finkv finalloc"><span>Booked to</span><b>${escapeHtml(txt || (kind ? 'Whole project (not allocated)' : 'This project'))} <button type="button" class="linkbtn" onclick="openFinSplit('${table}','${row.id}')">${txt && txt.startsWith('Split') ? 'Change split' : (kind ? 'Allocate / split' : 'Split')}</button></b></div>`;
+  return `<div class="finkv finalloc"><span>Booked to</span><b>${escapeHtml(txt || (kind ? finJobTag(row.site_id)+' — whole job' : finJobTag(row.site_id)))} <button type="button" class="linkbtn" onclick="openFinSplit('${table}','${row.id}')">${txt && txt.startsWith('Split') ? 'Change split' : (kind ? 'Allocate / split' : 'Split')}</button></b></div>`;
 }
 
 /* ---------- overview page: costs by plot / repair job ---------- */

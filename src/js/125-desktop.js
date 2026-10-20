@@ -64,7 +64,7 @@ function deskSidebar(opts){
       {k:'account', ic:'gear', lbl:'Settings', go:'#/account'},
     ];
   }
-  let activeTop = inSite ? 'sites' : (top || (usesPmHome(ME) ? 'home' : 'sites'));
+  let activeTop = inSite ? (parts[2]==='finance' && typeof isFinanceUser==='function' && isFinanceUser() ? 'finance' : 'sites') : (top || (usesPmHome(ME) ? 'home' : 'sites'));
   if(finOnly){ activeTop = inSite ? 'finance' : (top==='finance' && parts[1]==='inbox') ? 'finance/purchases' : (top==='finance' && ['jobs','sales','purchases','subs','labour','settings','reports'].includes(parts[1]) ? 'finance/'+parts[1] : (top||'finance')); if(activeTop==='finance/labour') activeTop = 'finance/subs'; }
   const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${i.go}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
   let siteHtml = '';
@@ -76,6 +76,8 @@ function deskSidebar(opts){
       {k:'hs', ic:'shield', lbl:'Health & Safety', go:`#/site/${siteId}/hs`},
       {k:'checkin', ic:'pin', lbl:'Check In', go:`#/site/${siteId}/checkin`},
       {k:'messages', ic:'chat', lbl:'Inbox', go:`#/site/${siteId}/messages`, badge:(typeof currentUnreadMsgs!=='undefined' && currentUnreadMsgs)||0},
+      s && s.price_enabled && isManager(ME) ? {k:'price', ic:'pound', lbl:'Price', go:`#/site/${siteId}/price`} : null,
+      typeof isFinanceUser==='function' && isFinanceUser() ? {k:'finance', ic:'chart', lbl:'Finance', go:`#/site/${siteId}/finance`} : null,
       isManager(ME) ? {k:'team', ic:'gear', lbl:'Project settings', go:`#/site/${siteId}/team`} : null,
     ].filter(Boolean);
     siteHtml = `<div class="desknav-sec">This project</div>

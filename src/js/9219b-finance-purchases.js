@@ -360,3 +360,15 @@ window.pmReplyInvoice = async function(id){
   if(!res.ok){ toast('Not sent — '+(await safeErr(res))); return; }
   toast('Sent back to the office'); render();
 };
+
+// A PO whose value has been fully invoiced (approved) is closed as "Invoiced"; reopened if an invoice is rejected.
+async function finPoMaybeClose(poId){
+  try{
+    const po = (await dbSelect('purchase_orders', 'id=eq.'+poId+'&select=id,status,value'))[0];
+    if(!po || po.value==null || po.status==='cancelled') return;
+    const inv = await dbSelect('purchase_invoices', 'po_id=eq.'+poId+'&status=eq.approved&select=net');
+    const done = inv.reduce((t,i)=>t+Number(i.net||0),0) >= Number(po.value) - 0.005;
+    if(done && po.status==='open') await dbUpdate('purchase_orders', poId, {status:'invoiced'});
+    else if(!done && po.status==='invoiced') await dbUpdate('purchase_orders', poId, {status:'open'});
+  }catch(e){}
+}

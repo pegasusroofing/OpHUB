@@ -45,6 +45,8 @@ function finWagePushChip(p){
 }
 
 /* ---------- PM side (Price tile) ---------- */
+// Week choices for a price tile: its existing weeks (latest first, picked) and a new one.
+function pmWpWeekOpts(elId){ const m = (window.__pmWpMax||{})[elId] || 0; const o = []; if(m) o.push(`<option value="${m}" selected>Week ${m} (latest)</option>`); o.push(`<option value="${m+1}" ${m?'':'selected'}>Week ${m+1} (new week)</option>`); for(let w=m-1; w>=1; w--) o.push(`<option value="${w}">Week ${w}</option>`); return o.join(''); }
 let pmWpOpen = true;
 async function pmWagePushesHtml(siteId, elements){
   let rows = [];
@@ -52,6 +54,9 @@ async function pmWagePushesHtml(siteId, elements){
   if(!rows.length) return '';
   const els = (elements||[]).filter(e=>!e.closed);
   window.__pmWpEls = els;
+  const wks = els.length ? await dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number') : [];
+  const maxW = {}; wks.forEach(w=>{ maxW[w.element_id] = Math.max(maxW[w.element_id]||0, Number(w.week_number)||0); });
+  window.__pmWpMax = maxW;
   const total = rows.reduce((t,r)=>t+Number(r.amount||0),0);
   const wkDate = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'});
   return `<div class="card pmwp">
@@ -61,8 +66,8 @@ async function pmWagePushesHtml(siteId, elements){
       <div class="pmwp-who"><b>${escapeHtml(r.person_name||'Worker')}</b><span>w/c ${wkDate(r.week_start)} · ${Number(r.days||0)} day${Number(r.days)===1?'':'s'}${r.description?' · '+escapeHtml(r.description):''}</span></div>
       <div class="pmwp-amt">${fmt2dp(r.amount)}</div>
       <div class="pmwp-act">
-        <select class="pmwp-el">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
-        <input class="pmwp-wk" type="number" min="1" step="1" placeholder="Week" title="Price week number">
+        <select class="pmwp-el" onchange="this.nextElementSibling.innerHTML=pmWpWeekOpts(this.value)">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
+        <select class="pmwp-wk" title="Which week of the price">${els.length ? pmWpWeekOpts(els[0].id) : ''}</select>
         <button class="darkbtn" ${els.length?'':'disabled'} onclick="pmWagePushBook('${siteId}','${r.id}','price')">Book to price</button>
         <button class="ghostbtn" onclick="pmWagePushBook('${siteId}','${r.id}','general')">General costs</button>
       </div></div>`).join('')}` : ''}
@@ -74,12 +79,7 @@ window.pmWagePushBook = async function(siteId, id, how){
   const patch = {status:how, decided_by:ME.id, decided_at:new Date().toISOString()};
   if(how==='price'){
     const elId = box.querySelector('.pmwp-el').value; if(!elId){ toast('Add a price tile first.'); return; }
-    let wk = Number(box.querySelector('.pmwp-wk').value);
-    if(!wk){
-      const last = await dbSelect('price_weeks', 'element_id=eq.'+elId+'&select=week_number&order=week_number.desc&limit=1');
-      wk = last.length ? Number(last[0].week_number) : 1;
-      if(!await customConfirm(`Book ${fmt2dp(p.amount)} for ${p.person_name} to week ${wk} of this price?`)) return;
-    }
+    const wk = Number(box.querySelector('.pmwp-wk').value) || 1;
     const entry = {site_id:siteId, element_id:elId, week_number:wk, amount:Number(p.amount||0), entered_by:ME.id, updated_at:new Date().toISOString()};
     if(p.operative_id) Object.assign(entry, {operative_id:p.operative_id, kind:'extra_operative'}); else Object.assign(entry, {operative_id:null, kind:'cost', label:p.person_name||'Worker'});
     const res = await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(entry)});

@@ -62,12 +62,17 @@ async function renderSiteHome(siteId){
         can = grant.length>0;
       }
     }
-    let pending = 0;
+    let pending = 0, wages = 0;
     if(can && isManager(ME)){
-      const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-      pending = pendingAw.length;
+      const [pendingAw, wp] = await Promise.all([
+        dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+        dbSelect('wage_pushes', 'site_id=eq.'+siteId+'&status=eq.pending&select=id').catch(()=>[]),
+      ]);
+      pending = pendingAw.length; wages = (wp||[]).length;
     }
-    return {can, pending};
+    // PMs/admin can switch pricing on from the job's home (it used to be hidden in Project settings).
+    const canTurnOn = !site.price_enabled && isFullManager(ME) && (ME.role==='admin' || site.responsible_pm_id===ME.id || !site.responsible_pm_id);
+    return {can, pending, wages, canTurnOn};
   })();
   const hsGapPromise = (async ()=>{
     if(!isManager(ME)) return false;
@@ -211,10 +216,14 @@ async function renderSiteHome(siteId){
         </div>`);
       // Messages/Inbox is reached via the bottom bar only now — no separate
       // Home tile (it was a duplicate entry point, see the bottom tabbar).
-      if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
+      if(canSeePrice){ const wn = priceInfo.wages||0, bn = pendingVariationCount + wn; regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
           <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
-          <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
-          ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
+          <div class="lbl">Price</div><div class="sub">${wn ? wn+' wage'+(wn>1?'s':'')+' to book' : pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
+          ${bn?`<span class="badge-count">${bn}</span>`:''}
+        </div>`); }
+      else if(priceInfo.canTurnOn) regularTiles.push(`<div class="tile" style="opacity:.75;" onclick="siteTurnOnPrice('${siteId}')">
+          <div class="icon" style="background:#F1F2F4;color:#5B6472;">💷</div>
+          <div class="lbl">Price</div><div class="sub">Off — tap to turn on</div>
         </div>`);
       if(typeof isFinanceUser==='function' && isFinanceUser()) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/finance')">
           <div class="icon" style="background:#E6F2EC;color:#1E6B45;">${ophIcon('pound', 20)}</div>
@@ -304,3 +313,11 @@ async function maybeShowSignNag(siteId){
 // signing the RAMS) shows whatever is still left to sign.
 window.addEventListener('hashchange', ()=>{ closeSignNag(); if(!/^#\/site\/[^/]+\/home/.test(location.hash||'')) signNagSite = null; });
 window.closeSignNag = function(){ const ov = document.getElementById('signNagOverlay'); if(ov) ov.style.display = 'none'; };
+
+window.siteTurnOnPrice = async function(siteId){
+  if(!await customConfirm('Turn on pricing for this job? You’ll be able to add the price, price sheets and book wages against it. Only you (and anyone you give access) can see it.', {confirmLabel:'Turn on pricing'})) return;
+  const row = await dbUpdate('sites', siteId, {price_enabled:true});
+  if(!row) return;
+  const s = SITES.find(x=>x.id===siteId); if(s) s.price_enabled = true;
+  go('#/site/'+siteId+'/price');
+};

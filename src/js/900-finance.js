@@ -204,7 +204,7 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
-    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="ghostbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">Change to ${bt==='invoice'?'applications':'invoices'}</button></div>` : finBillingChoiceHtml(siteId)}
+    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="linkbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">change</button></div>` : finBillingChoiceHtml(siteId)}
 
     ${finProjTabsHtml(siteId, bt)}
     <div class="finptab" data-t="overview">
@@ -276,7 +276,7 @@ async function renderSiteFinance(siteId){
     </div>
 
 
-  `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  `, {title:(site.job_number?site.job_number+' · ':'')+site.name, subtitle:'Finance'+(site.client_name?' · '+site.client_name:''), back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance/jobs' : `#/site/${siteId}/home`, siteId, tabs:false});
   finProjTabShow(finProjTabCur(siteId));
   if(typeof finAfterProjectRender==='function') finAfterProjectRender();
   // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).

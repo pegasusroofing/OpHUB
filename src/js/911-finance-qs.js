@@ -185,7 +185,7 @@ function finJobCostCardFromForecast(siteId, fc){
 }
 function finForecastCardHtml(siteId, fc){
   window.__finFcLast = {siteId, fc};
-  const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
+  const pctCol = p=>p==null || Math.abs(p)<0.005 ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
   const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
   const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
   const tile = (label, val, foot, extra, style)=>`<div class="fintile"><span class="fintile-l">${label}</span><b style="${style||''}">${val}</b>${extra||''}<span class="fintile-f">${foot}</span></div>`;
@@ -202,19 +202,20 @@ function finForecastCardHtml(siteId, fc){
       </div>
     </div>
     <div class="fintiles">
-      ${tile('Forecast value', finMoney(fc.ffa, 0), 'Original '+(fc.origValue!=null?finMoney(fc.origValue, 0):'—'), diff(fc.ffa, fc.origValue))}
-      ${tile('Forecast budget', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? 'No budget yet' : 'Original '+(fc.origCost!=null?finMoney(fc.origCost, 0):'—')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
-      ${tile('Forecast margin', finMoney(fc.forecastMargin, 0), 'Original '+(fc.origMargin!=null?finMoney(fc.origMargin, 0):'—'), diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))}
-      ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
-      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
-      ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
+      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?'Started at '+finMoney(fc.origValue, 0)+(Math.abs((fc.ffa||0)-fc.origValue)>=0.5 && !fc.vAgreed ? ' · contract changed since' : ''):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
+      ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?'Started at '+finMoney(fc.origCost, 0):'')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
+      ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
+        : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?'Started at '+finMoney(fc.origMargin, 0):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
+          + tile('Expected profit %', finPctTxt(fc.forecastMarginPct), fc.origMarginPct!=null?'Started at '+finPctTxt(fc.origMarginPct):'&nbsp;', '', pctCol(fc.forecastMarginPct))}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced so far' : 'Work valued so far', finMoney(fc.sales, 0), finPctTxt(salesP)+' of the job', bar(salesP))}
+      ${tile('Cost so far', finMoney(fc.costToDate, 0), (fc.budgetTotal ? finPctTxt(costP)+' of budget' : '')+(fc.committedTotal ? (fc.budgetTotal?' · ':'')+'+ '+finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : (fc.budgetTotal?'':'&nbsp;')), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
       ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
-        return tile('Margin to date'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
-          + tile('Margin to date %', finPctTxt(mp), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(mp)); })()}
+        return tile('Profit so far'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
+          + tile('Profit so far %', finPctTxt(mp), 'On '+on.label, '', pctCol(mp)); })()}
     </div>
-    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
-    ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`
-      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Original set ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Reset original to today</button></b></div>`}
+    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · agreed variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · waiting for agreement '+finMoney(fc.vPending, 0):''}</span><b>Expected final cost ${finMoney(fc.forecastCost, 0)}</b></div>
+    ${noOrig ? `<div class="finkv"><span>Save today’s value and budget as the starting point, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Save starting point</button></b></div>`
+      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Starting point saved ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Update to today’s figures</button></b></div>`}
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} schedule line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 }

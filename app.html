@@ -2043,10 +2043,10 @@ html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
 .pmwp-who{display:flex;flex-direction:column;min-width:0;font-size:13.5px;}
 .pmwp-who span{font-size:12px;color:var(--slate);}
 .pmwp-amt{font-weight:800;font-size:14px;align-self:center;}
-.pmwp-act{grid-column:1/-1;display:grid;grid-template-columns:1fr 70px auto auto;gap:6px;align-items:center;}
+.pmwp-act{grid-column:1/-1;display:grid;grid-template-columns:1fr 150px auto auto;gap:6px;align-items:center;}
 .pmwp-act select,.pmwp-act input{padding:7px 8px;font-size:13px;border:1px solid var(--line);border-radius:8px;min-width:0;background:#fff;}
 .pmwp-act button{width:auto;padding:8px 10px;font-size:12px;white-space:nowrap;}
-@media (max-width:640px){ .pmwp-act{display:flex;flex-wrap:wrap;} .pmwp-act select{flex:1 1 55%;} .pmwp-act input{flex:0 0 72px;} .pmwp-act button{flex:1 1 40%;font-size:11.5px;padding:9px 6px;} }
+@media (max-width:640px){ .pmwp-act{display:flex;flex-wrap:wrap;} .pmwp-act select{flex:1 1 55%;} .pmwp-act select.pmwp-wk{flex:0 0 140px;} .pmwp-act button{flex:1 1 40%;font-size:11.5px;padding:9px 6px;} }
 .fints-pm{display:block;margin-top:4px;font-size:11.5px;color:var(--slate);}
 .geo-modal-overlay[id^="fin"] .geo-modal-card{max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
 @media (max-width:640px){
@@ -2175,6 +2175,12 @@ html.finmode .finptabs button.on,html.finmode .finsubtabs button.on{color:#11182
 @media (max-width:640px){ .finopline{grid-template-columns:1fr 110px;} .finopline input[type=text]:not([data-money]){grid-column:1/-1;order:3;} .finopline .linkbtn{order:4;} }
 html.finmode input[type=file]{font-size:13px;color:var(--slate);width:100%;}
 html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600;color:var(--ink);background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:7px 12px;margin-right:10px;cursor:pointer;}
+.toast{z-index:10050 !important;}
+.finhelp{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:#e5e7eb;color:#374151;font-size:10.5px;font-weight:800;cursor:help;vertical-align:1px;margin-left:3px;text-transform:none;letter-spacing:0;}
+.finhelp:hover{background:#d1d5db;}
+@media (max-width:640px){
+  html.finmode .finsecnav.finscroll,html.finmode .finsubtabs.finscroll{-webkit-mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 0,#000 calc(100% - 36px),transparent);padding-right:28px !important;}
+}
 </style>
 </head>
 <body>
@@ -5515,7 +5521,7 @@ function deskSidebar(opts){
       {k:'account', ic:'gear', lbl:'Settings', go:'#/account'},
     ];
   }
-  let activeTop = inSite ? 'sites' : (top || (usesPmHome(ME) ? 'home' : 'sites'));
+  let activeTop = inSite ? (parts[2]==='finance' && typeof isFinanceUser==='function' && isFinanceUser() ? 'finance' : 'sites') : (top || (usesPmHome(ME) ? 'home' : 'sites'));
   if(finOnly){ activeTop = inSite ? 'finance' : (top==='finance' && parts[1]==='inbox') ? 'finance/purchases' : (top==='finance' && ['jobs','sales','purchases','subs','labour','settings','reports'].includes(parts[1]) ? 'finance/'+parts[1] : (top||'finance')); if(activeTop==='finance/labour') activeTop = 'finance/subs'; }
   const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${i.go}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
   let siteHtml = '';
@@ -5527,6 +5533,8 @@ function deskSidebar(opts){
       {k:'hs', ic:'shield', lbl:'Health & Safety', go:`#/site/${siteId}/hs`},
       {k:'checkin', ic:'pin', lbl:'Check In', go:`#/site/${siteId}/checkin`},
       {k:'messages', ic:'chat', lbl:'Inbox', go:`#/site/${siteId}/messages`, badge:(typeof currentUnreadMsgs!=='undefined' && currentUnreadMsgs)||0},
+      s && s.price_enabled && isManager(ME) ? {k:'price', ic:'pound', lbl:'Price', go:`#/site/${siteId}/price`} : null,
+      typeof isFinanceUser==='function' && isFinanceUser() ? {k:'finance', ic:'chart', lbl:'Finance', go:`#/site/${siteId}/finance`} : null,
       isManager(ME) ? {k:'team', ic:'gear', lbl:'Project settings', go:`#/site/${siteId}/team`} : null,
     ].filter(Boolean);
     siteHtml = `<div class="desknav-sec">This project</div>
@@ -12318,12 +12326,17 @@ async function renderSiteHome(siteId){
         can = grant.length>0;
       }
     }
-    let pending = 0;
+    let pending = 0, wages = 0;
     if(can && isManager(ME)){
-      const pendingAw = await dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id');
-      pending = pendingAw.length;
+      const [pendingAw, wp] = await Promise.all([
+        dbSelect('additional_works_requests', 'site_id=eq.'+siteId+'&status=eq.pending&select=id'),
+        dbSelect('wage_pushes', 'site_id=eq.'+siteId+'&status=eq.pending&select=id').catch(()=>[]),
+      ]);
+      pending = pendingAw.length; wages = (wp||[]).length;
     }
-    return {can, pending};
+    // PMs/admin can switch pricing on from the job's home (it used to be hidden in Project settings).
+    const canTurnOn = !site.price_enabled && isFullManager(ME) && (ME.role==='admin' || site.responsible_pm_id===ME.id || !site.responsible_pm_id);
+    return {can, pending, wages, canTurnOn};
   })();
   const hsGapPromise = (async ()=>{
     if(!isManager(ME)) return false;
@@ -12467,10 +12480,14 @@ async function renderSiteHome(siteId){
         </div>`);
       // Messages/Inbox is reached via the bottom bar only now — no separate
       // Home tile (it was a duplicate entry point, see the bottom tabbar).
-      if(canSeePrice) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
+      if(canSeePrice){ const wn = priceInfo.wages||0, bn = pendingVariationCount + wn; regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/price')">
           <div class="icon" style="background:#FFF3D9;color:#8A6300;">💷</div>
-          <div class="lbl">Price</div><div class="sub">${pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
-          ${pendingVariationCount?`<span class="badge-count">${pendingVariationCount}</span>`:''}
+          <div class="lbl">Price</div><div class="sub">${wn ? wn+' wage'+(wn>1?'s':'')+' to book' : pendingVariationCount ? pendingVariationCount+' variation'+(pendingVariationCount>1?'s':'')+' pending' : 'Restricted access'}</div>
+          ${bn?`<span class="badge-count">${bn}</span>`:''}
+        </div>`); }
+      else if(priceInfo.canTurnOn) regularTiles.push(`<div class="tile" style="opacity:.75;" onclick="siteTurnOnPrice('${siteId}')">
+          <div class="icon" style="background:#F1F2F4;color:#5B6472;">💷</div>
+          <div class="lbl">Price</div><div class="sub">Off — tap to turn on</div>
         </div>`);
       if(typeof isFinanceUser==='function' && isFinanceUser()) regularTiles.push(`<div class="tile" onclick="go('#/site/${siteId}/finance')">
           <div class="icon" style="background:#E6F2EC;color:#1E6B45;">${ophIcon('pound', 20)}</div>
@@ -12560,6 +12577,14 @@ async function maybeShowSignNag(siteId){
 // signing the RAMS) shows whatever is still left to sign.
 window.addEventListener('hashchange', ()=>{ closeSignNag(); if(!/^#\/site\/[^/]+\/home/.test(location.hash||'')) signNagSite = null; });
 window.closeSignNag = function(){ const ov = document.getElementById('signNagOverlay'); if(ov) ov.style.display = 'none'; };
+
+window.siteTurnOnPrice = async function(siteId){
+  if(!await customConfirm('Turn on pricing for this job? You’ll be able to add the price, price sheets and book wages against it. Only you (and anyone you give access) can see it.', {confirmLabel:'Turn on pricing'})) return;
+  const row = await dbUpdate('sites', siteId, {price_enabled:true});
+  if(!row) return;
+  const s = SITES.find(x=>x.id===siteId); if(s) s.price_enabled = true;
+  go('#/site/'+siteId+'/price');
+};
 
 /* ================= Maintenance / Repair Contract =================
    A repair_contract site's "Home" is a list of individual repair jobs
@@ -46300,7 +46325,7 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
-    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="ghostbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">Change to ${bt==='invoice'?'applications':'invoices'}</button></div>` : finBillingChoiceHtml(siteId)}
+    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="linkbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">change</button></div>` : finBillingChoiceHtml(siteId)}
 
     ${finProjTabsHtml(siteId, bt)}
     <div class="finptab" data-t="overview">
@@ -46372,7 +46397,7 @@ async function renderSiteFinance(siteId){
     </div>
 
 
-  `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  `, {title:(site.job_number?site.job_number+' · ':'')+site.name, subtitle:'Finance'+(site.client_name?' · '+site.client_name:''), back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance/jobs' : `#/site/${siteId}/home`, siteId, tabs:false});
   finProjTabShow(finProjTabCur(siteId));
   if(typeof finAfterProjectRender==='function') finAfterProjectRender();
   // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).
@@ -46560,7 +46585,7 @@ function finInvTotalsRowsHtml(t){
   return `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
     ${vatRows || `<div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>`}
     <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>
-    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
+    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT ${finHelp('reverse')} <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
       <p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge on ${finMoney(ks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0))} — not added to the total; printed on the invoice and sent to Xero.</p></div>` : ''}`;
 }
 
@@ -46615,7 +46640,7 @@ async function renderFinInvoice(siteId, invId){
       <div class="finkv"><span>Issued</span><b>${finDate(inv.issue_date)}</b></div>
       <div class="finkv"><span>Due</span><b>${finDate(inv.due_date)}</b></div>
       <div class="finkv"><span>Client PO</span><b>${escapeHtml(inv.client_po||'—')}</b></div>
-      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||'—')}</b></div>
+      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||site.client_name||'—')}</b></div>
       <div class="finkv"><span>Sent</span><b>${inv.sent_at ? finDate(inv.sent_at.slice(0,10))+(inv.sent_to?' to '+escapeHtml(inv.sent_to):'') : 'Not emailed yet'}</b></div>
     </div>
     <div class="card">
@@ -46625,7 +46650,8 @@ async function renderFinInvoice(siteId, invId){
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
-      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
+      ${inv.status!=='void' ? `<button class="${finInvOverdue(inv)?'ghostbtn':'darkbtn'}" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
+      ${finInvOverdue(inv) ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}','reminder')">Send a reminder</button>` : ''}
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('invoice', inv) : ''}
     ${inv.status!=='void' ? `<div class="card" style="margin-top:14px;">
@@ -46817,16 +46843,16 @@ window.deleteFinPayment = async function(id){
 };
 
 /* ---------- email ---------- */
-window.openFinEmail = async function(siteId, invId){
+window.openFinEmail = async function(siteId, invId, mode){
   const inv = (await dbSelect('fin_invoices', 'id=eq.'+invId))[0]; if(!inv) return;
   let ov = document.getElementById('finMailOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finMailOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>Email invoice ${escapeHtml(inv.number||'')}</h3>
+    <h3>${mode==='reminder'?'Reminder for':'Email'} invoice ${escapeHtml(inv.number||'')}</h3>
     <div class="formfield"><label class="field-label">To</label><input type="text" id="finMailTo" value="${escapeHtml(inv.bill_email||'')}" placeholder="accounts@client.co.uk (use commas for more than one)"></div>
     <label class="finswitch"><input type="checkbox" id="finMailMe" checked> Send me a copy (${escapeHtml(ME.email||'')})</label>
-    <div class="formfield"><label class="field-label">Message (optional)</label><textarea id="finMailMsg" rows="3" placeholder="Added under the invoice details"></textarea></div>
+    <div class="formfield"><label class="field-label">Message (optional)</label><textarea id="finMailMsg" rows="3" placeholder="Added under the invoice details">${mode==='reminder' ? escapeHtml(`This invoice was due on ${finDate(inv.due_date)} and ${finMoney(finInvOutstanding(inv))} is still outstanding. Please could you let us know when it will be paid?`) : ''}</textarea></div>
     <button class="darkbtn" style="width:100%;" id="finMailSend" onclick="sendFinEmail('${siteId}','${invId}')">Send</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finMailOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -47853,17 +47879,17 @@ function finCertSlotRender(a){
   if(a.cert_net==null){
     const appliedPrev = Number(a.previous||0);
     el.innerHTML = `<div class="card" style="margin-top:14px;">
-      <p class="sectiontitle" style="margin-top:0;">Payment certificate</p>
+      <p class="sectiontitle" style="margin-top:0;">Client’s certificate ${finHelp('certified')}</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Certificate date</label><input type="date" id="finCertDate" value="${finToday()}"></div>
         <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" data-money id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Retention held (£) ${finHelp('retention')}</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" data-money id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" data-money id="finCertDisc" value="0" oninput="finCertCalc()"></div>
         <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" data-money id="finCertNet" value="${finRound(a.net_due)}"></div>
       </div>
-      <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice</label>
+      <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice ${finHelp('payless')}</label>
       <div class="formfield"><label class="field-label">Copy of the certificate (optional)</label><input type="file" accept="application/pdf,image/*" onchange="finCertFile=this.files[0]||null"></div>
       <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finCertNotes" placeholder="e.g. reason for any shortfall"></div>
       <div id="finCertDiff" class="stub" style="margin:0 0 10px;font-style:normal;"></div>
@@ -48338,6 +48364,7 @@ window.setPurchaseInvoiceStatus = async function(id, status){
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(status==='approved' ? 'Approved' : status==='rejected' ? 'Rejected' : 'Updated'); render();
   if(status==='approved' && typeof finXeroAuto==='function') finXeroAuto('bill', id);
+  if(r.po_id && typeof finPoMaybeClose==='function') finPoMaybeClose(r.po_id);
 };
 window.queryPurchaseInvoice = function(id){
   const card = document.querySelector('#finPiOverlay .geo-modal-card'); if(!card) return;
@@ -48447,79 +48474,6 @@ window.deleteFinPlant = async function(id){
 
 /* ---------------- Labour & CIS (company-wide) ---------------- */
 let finLabWeek = null;
-/* ---- rates ---- */
-async function renderFinLabourRates(){
-  if(!finGuard()) return;
-  const __gen = RENDER_GEN;
-  await loadAllProfiles();
-  const rates = await finLoadRates();
-  if(!FIN_SETTINGS) await finLoadSettings();
-  if(__gen !== RENDER_GEN) return;
-  const people = Object.values(PROFILES).filter(p=>['operative','site_manager'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
-  const workers = Object.values(FIN_WORKERS).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-  const card = (key, title, r, isW)=>`<div class="card finrate" id="finRate-${key}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>${escapeHtml(title)}</b><span class="stub" style="margin:0;font-style:normal;">${(r.xero_contact_id||r.xero_employee_id)?'<span class="finxw-tag">From Xero</span> ':''}${isW?(r.active===false?'Not active':'Worker'):'App user'}</span></div>
-      <div class="fingrid3" style="margin-top:6px;">
-        ${isW ? `<div class="formfield"><label class="field-label">Name</label><input type="text" data-k="name" value="${escapeHtml(r.name||'')}"></div>
-        <div class="formfield"><label class="field-label">Email (for statements)</label><input type="email" data-k="email" value="${escapeHtml(r.email||'')}"></div>` : ''}
-        <div class="formfield"><label class="field-label">Pay</label><select data-k="pay_type"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>Subcontractor</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE</option></select></div>
-        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}">${r.rate_note?`<span class="finrate-src">${escapeHtml(r.rate_note)}</span>`:''}</div>
-        <div class="formfield"><label class="field-label">CIS</label><select data-k="cis_rate">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
-        <div class="formfield"><label class="field-label">UTR</label><input type="text" data-k="utr" value="${escapeHtml(r.utr||'')}"></div>
-        <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>
-        <div class="formfield"><label class="field-label">VAT registered</label><select data-k="vat_registered"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes</option></select></div>
-      </div>
-      ${r.pay_type!=='paye' ? `<div class="fingrid3 finrate-bank">
-        <div class="formfield"><label class="field-label">Bank account name</label><input type="text" data-k="bank_account_name" value="${escapeHtml(r.bank_account_name||'')}" autocomplete="off"></div>
-        <div class="formfield"><label class="field-label">Sort code</label><input type="text" inputmode="numeric" data-k="bank_sort_code" placeholder="00-00-00" value="${escapeHtml(r.bank_sort_code?finSortCode(r.bank_sort_code):'')}" autocomplete="off"></div>
-        <div class="formfield"><label class="field-label">Account number</label><input type="text" inputmode="numeric" data-k="bank_account_no" placeholder="8 digits" value="${escapeHtml(r.bank_account_no||'')}" autocomplete="off"></div>
-      </div>` : ''}
-      <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="saveFinRate('${key}')">Save</button>${isW ? `<button class="ghostbtn" style="flex:none;width:auto;" onclick="finWorkerActive('${r.id}', ${r.active===false})">${r.active===false?'Make active':'Not working for us'}</button>` : ''}</div>
-    </div>`;
-  document.getElementById('app').innerHTML = shell(`
-    ${finSectionNav('subs')}${finSubTabs('subs','rates')}
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each project. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
-    <div class="row-gap" style="margin:0 0 12px;"><button class="darkbtn" style="flex:1;" onclick="finAddWorker()">+ Add a worker</button>${finXeroConnected() ? `<button class="ghostbtn" style="flex:1;" onclick="openFinXeroWorkers()">Bring in from Xero</button>` : ''}</div>
-    ${finXeroConnected() ? '' : '<p class="stub" style="margin:-6px 0 12px;font-style:normal;">Connect Xero in Finance › Settings to bring your subcontractors, CIS rates and PAYE staff in from Xero.</p>'}
-    ${workers.map(w=>card('w:'+w.id, w.name||w.trading_name||'Worker', w, true)).join('')}
-    ${people.map(p=>card(p.id, p.name, rates[p.id]||{}, false)).join('')}
-    ${!workers.length && !people.length ? '<div class="empty">No one yet — add a worker.</div>' : ''}
-  `, {title:'Rates & workers', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
-}
-window.finAddWorker = async function(){
-  const name = String(await customPrompt('Worker or subcontractor name') || '').trim();
-  if(!name) return;
-  const r = await dbInsert('fin_labour_rates', {org_id:ME.org_id, user_id:null, name, pay_type:'subcontractor', cis_rate:20, vat_registered:false, updated_at:new Date().toISOString()});
-  if(r){ toast(name+' added — fill in their rate and CIS details'); render(); }
-};
-window.finWorkerActive = async function(id, on){
-  if(await dbUpdate('fin_labour_rates', id, {active:!!on})){ toast(on?'Active again':'Hidden from timesheets'); render(); }
-};
-window.saveFinRate = async function(key){
-  const card = document.getElementById('finRate-'+key); if(!card) return;
-  const v = k=>{ const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value.trim() : ''; };
-  const rate = finNum(v('day_rate'));
-  if(rate!==null && isNaN(rate)){ toast('Day rate must be a number.'); return; }
-  const row = {pay_type:v('pay_type')||'subcontractor', day_rate:rate, cis_rate:Number(v('cis_rate')||20), utr:v('utr')||null, trading_name:v('trading_name')||null, vat_registered:v('vat_registered')==='true', updated_at:new Date().toISOString()};
-  if(card.querySelector('[data-k="bank_sort_code"]')){
-    const sc = v('bank_sort_code').replace(/\D/g,''), an = v('bank_account_no').replace(/\D/g,'');
-    if(sc && sc.length!==6){ toast('Sort code should be 6 numbers.'); return; }
-    if(an && an.length!==8){ toast('Account number should be 8 numbers.'); return; }
-    Object.assign(row, {bank_account_name:v('bank_account_name')||null, bank_sort_code:sc||null, bank_account_no:an||null});
-  }
-  if(String(key).startsWith('w:')){
-    const email = v('email');
-    if(!v('name')){ toast('Enter their name.'); return; }
-    if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
-    const r = await dbUpdate('fin_labour_rates', key.slice(2), Object.assign(row, {name:v('name'), email:email||null}));
-    if(!r) return;
-    toast('Saved '+v('name')); return;
-  }
-  const res = await sbFetch('/rest/v1/fin_labour_rates?on_conflict=org_id,user_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({org_id:ME.org_id, user_id:key}, row))});
-  if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
-  toast('Saved '+finPersonName(key));
-};
-
 /* ---- CIS summary by tax month (6th to 5th) ---- */
 let finCisMonth = null; // the 6th that starts the tax month
 function finTaxMonthStart(iso){ const d = new Date((iso||finToday())+'T12:00:00'); if(d.getDate() < 6) d.setMonth(d.getMonth()-1); d.setDate(6); return d.toISOString().slice(0,10); }
@@ -49169,12 +49123,13 @@ window.openFinNewJob = async function(){
   const auto = ORG && ORG.auto_job_numbers;
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>New project</h3>
-    <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
+    <div class="formfield"><label class="field-label">Project name *</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:'placeholder="e.g. 2662"'}></div>
+      <div class="formfield"><label class="field-label">Project number *</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:`value="${escapeHtml(finNextJobNoGuess())}"`}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
-    <div class="formfield"><label class="field-label">How do you get paid?</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
+    <div class="formfield"><label class="field-label">How do you get paid? *</label><select id="finNjBt" onchange="document.getElementById('finNjCvWrap').hidden=this.value!=='invoice'"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
+    <div class="formfield" id="finNjCvWrap" hidden><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
     ${isFinanceOnly() ? '' : `<div class="fingrid2">
       <div class="formfield"><label class="field-label">Project manager</label><select id="finNjPm"><option value="">Choose later</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Type of job</label><select id="finNjKind"><option value="">Single site</option><option value="multi">Multi-site (plots)</option><option value="repair">Repairs contract</option></select></div>
@@ -49215,7 +49170,7 @@ window.saveFinNewJob = async function(){
   const made = SITES.find(x=>x.id===newId) || row;
   // Set up in Finance = set up in Projects too: same folders and toolbox talks as a project made there.
   if(!isFinanceOnly() && SITES.find(x=>x.id===newId)){ try{ await Promise.all([typeof preloadTbtBankForSite==='function' ? preloadTbtBankForSite(made) : null, typeof preloadDrawingFoldersForSite==='function' ? preloadDrawingFoldersForSite(made) : null]); }catch(e){} }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, contract_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, original_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
   toast('Project '+(made.job_number||'')+' created');
@@ -49223,15 +49178,17 @@ window.saveFinNewJob = async function(){
 };
 // Job card on the job's Finance page (Finance-only companies edit the job here).
 function finJobEditHtml(site){
-  if(!isFinanceOnly() || !isFullManager(ME)) return '';
+  if(!isFullManager(ME)) return '';
   const st = typeof siteStatusKey==='function' ? siteStatusKey(site) : (site.status||'live');
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Project</p>
+    <p class="stub" style="margin:-6px 0 10px;font-style:normal;">The same details as on the project itself — change them here or there and both update.</p>
     <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finJeName" value="${escapeHtml(site.name||'')}"></div>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Status</label><select id="finJeStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${st===k?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Start date</label><input type="date" id="finJeStart" value="${escapeHtml(site.start_date||'')}"></div>
     </div>
+    ${isFinanceOnly() ? '' : `<div class="formfield"><label class="field-label">Project manager</label><select id="finJePm"><option value="">None yet</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>`}
     <div class="formfield"><label class="field-label">Client</label><input type="text" id="finJeClient" value="${escapeHtml(site.client_name||'')}"></div>
     <div class="formfield"><label class="field-label">Site address</label><input type="text" id="finJeAddr" value="${escapeHtml(site.address||'')}"></div>
     <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finJePc" value="${escapeHtml(site.postcode||'')}"></div>
@@ -49241,6 +49198,7 @@ function finJobEditHtml(site){
 function finJobEditPatch(site){
   if(!document.getElementById('finJeName')) return null;
   const p = {name:finVal('finJeName'), client_name:finVal('finJeClient')||null, address:finVal('finJeAddr')||null, postcode:finVal('finJePc')||null, start_date:finVal('finJeStart')||null};
+  if(document.getElementById('finJePm')) p.responsible_pm_id = finVal('finJePm')||null;
   const st = finVal('finJeStatus');
   const cur = typeof siteStatusKey==='function' ? siteStatusKey(site) : site.status;
   if(st && st !== cur){ p.status = st; if(st==='closed'){ p.closed_at = new Date().toISOString(); p.closed_by = ME.id; } else { p.closed_at = null; p.closed_by = null; } }
@@ -49317,6 +49275,15 @@ window.finTeamEmail = async function(){
   if(!res.ok || d.error){ toast(d.error || 'Could not send the invite.'); return; }
   toast('Invite sent to '+email); finTeamInvite = null; render();
 };
+
+// Next project number in the style already used (e.g. J103 → J104, 2661 → 2662).
+function finNextJobNoGuess(){
+  const by = {};
+  SITES.forEach(x=>{ const m = /^([A-Za-z\-\/ ]*)(\d+)$/.exec(String(x.job_number||'').trim()); if(!m) return; const k = m[1]+'|'+m[2].length; const b = by[k] = by[k] || {p:m[1], len:m[2].length, max:0, n:0}; b.n++; b.max = Math.max(b.max, Number(m[2])); });
+  const best = Object.values(by).sort((a,b)=>b.n-a.n || b.max-a.max)[0];
+  if(!best) return '';
+  return best.p + String(best.max+1).padStart(best.len, '0');
+}
 
 /* ============================================================
    OpHUB Finance — raise a purchase order from Finance
@@ -49976,7 +49943,7 @@ function finJobCostCardFromForecast(siteId, fc){
 }
 function finForecastCardHtml(siteId, fc){
   window.__finFcLast = {siteId, fc};
-  const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
+  const pctCol = p=>p==null || Math.abs(p)<0.005 ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
   const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
   const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
   const tile = (label, val, foot, extra, style)=>`<div class="fintile"><span class="fintile-l">${label}</span><b style="${style||''}">${val}</b>${extra||''}<span class="fintile-f">${foot}</span></div>`;
@@ -49993,19 +49960,20 @@ function finForecastCardHtml(siteId, fc){
       </div>
     </div>
     <div class="fintiles">
-      ${tile('Forecast value', finMoney(fc.ffa, 0), 'Original '+(fc.origValue!=null?finMoney(fc.origValue, 0):'—'), diff(fc.ffa, fc.origValue))}
-      ${tile('Forecast budget', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? 'No budget yet' : 'Original '+(fc.origCost!=null?finMoney(fc.origCost, 0):'—')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
-      ${tile('Forecast margin', finMoney(fc.forecastMargin, 0), 'Original '+(fc.origMargin!=null?finMoney(fc.origMargin, 0):'—'), diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))}
-      ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
-      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
-      ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
+      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?'Started at '+finMoney(fc.origValue, 0)+(Math.abs((fc.ffa||0)-fc.origValue)>=0.5 && !fc.vAgreed ? ' · contract changed since' : ''):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
+      ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?'Started at '+finMoney(fc.origCost, 0):'')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
+      ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
+        : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?'Started at '+finMoney(fc.origMargin, 0):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
+          + tile('Expected profit %', finPctTxt(fc.forecastMarginPct), fc.origMarginPct!=null?'Started at '+finPctTxt(fc.origMarginPct):'&nbsp;', '', pctCol(fc.forecastMarginPct))}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced so far' : 'Work valued so far', finMoney(fc.sales, 0), finPctTxt(salesP)+' of the job', bar(salesP))}
+      ${tile('Cost so far', finMoney(fc.costToDate, 0), (fc.budgetTotal ? finPctTxt(costP)+' of budget' : '')+(fc.committedTotal ? (fc.budgetTotal?' · ':'')+'+ '+finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : (fc.budgetTotal?'':'&nbsp;')), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
       ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
-        return tile('Margin to date'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
-          + tile('Margin to date %', finPctTxt(mp), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(mp)); })()}
+        return tile('Profit so far'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
+          + tile('Profit so far %', finPctTxt(mp), 'On '+on.label, '', pctCol(mp)); })()}
     </div>
-    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
-    ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`
-      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Original set ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Reset original to today</button></b></div>`}
+    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · agreed variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · waiting for agreement '+finMoney(fc.vPending, 0):''}</span><b>Expected final cost ${finMoney(fc.forecastCost, 0)}</b></div>
+    ${noOrig ? `<div class="finkv"><span>Save today’s value and budget as the starting point, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Save starting point</button></b></div>`
+      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Starting point saved ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Update to today’s figures</button></b></div>`}
     ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} schedule line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 }
@@ -50270,7 +50238,7 @@ window.openFinSubcontract = async function(siteId, id){
     <div class="formfield"><label class="field-label">Work</label><input type="text" id="finScDesc" value="${v('description')}" placeholder="e.g. Leadwork to all valleys and abutments"></div>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Order value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finScVal" value="${v('order_value')}"></div>
-      <div class="formfield"><label class="field-label">Retention %</label><input type="text" inputmode="decimal" id="finScRet" value="${sc?sc.retention_pct:5}"></div>
+      <div class="formfield"><label class="field-label">Retention % ${finHelp('retention')}</label><input type="text" inputmode="decimal" id="finScRet" value="${sc?sc.retention_pct:5}"></div>
       <div class="formfield"><label class="field-label">CIS</label><select id="finScCis">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(sc?sc.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">UTR</label><input type="text" id="finScUtr" value="${v('utr')}"></div>
       <div class="formfield"><label class="field-label">VAT registered</label><select id="finScVat"><option value="false">No</option><option value="true" ${sc&&sc.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
@@ -50378,14 +50346,14 @@ window.openFinSubApp = async function(siteId, scId, appId){
     <p class="stub" style="margin:0 0 12px;">All figures are <b>to date</b> (cumulative), excl. VAT. Last application: ${finMoney(finSa.prevApplied)} applied.</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Application date</label><input type="date" id="finSaDate" value="${appDate}" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Final date for payment</label><input type="date" id="finSaFinal" value="${v('final_date', finAddDays(appDate, 30))}" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Final date for payment ${finHelp('finaldate')}</label><input type="date" id="finSaFinal" value="${v('final_date', finAddDays(appDate, 30))}" ${locked?'disabled':''}></div>
       <div class="formfield"><label class="field-label">Applied for, gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaApplied" value="${v('applied_gross')}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
       <div class="formfield"><label class="field-label">Of which materials to date £</label><input type="text" inputmode="decimal" data-money id="finSaMat" value="${v('materials_part', finSa.prevM||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <p class="sectiontitle" style="margin:6px 0 10px;">Your certificate</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Certified gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaCert" value="${v('certified_gross')}" placeholder="Leave blank until you’ve checked it" oninput="finSaPaint()" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Contra charges to date £</label><input type="text" inputmode="decimal" data-money id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Contra charges to date £ ${finHelp('contra')}</label><input type="text" inputmode="decimal" data-money id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <div class="formfield"><label class="field-label">Contra / reason for paying less (shown on the notice)</label><textarea id="finSaReason" rows="2" ${locked?'disabled':''}>${escapeHtml(a&&(a.payless_reason||a.contra_note)||'')}</textarea></div>
     <div id="finSaSum"></div>
@@ -51729,7 +51697,7 @@ function finAllocBlockHtml(table, row, ctx){
   const kind = finSubKind(row.site_id);
   let txt = finAllocText(row, ctx);
   if(txt && table==='purchase_invoices' && row.po_id && !row.sub_job_id && !(row.split && row.split.length)) txt += ' (same as the PO)';
-  return `<div class="finkv finalloc"><span>Booked to</span><b>${escapeHtml(txt || (kind ? 'Whole project (not allocated)' : 'This project'))} <button type="button" class="linkbtn" onclick="openFinSplit('${table}','${row.id}')">${txt && txt.startsWith('Split') ? 'Change split' : (kind ? 'Allocate / split' : 'Split')}</button></b></div>`;
+  return `<div class="finkv finalloc"><span>Booked to</span><b>${escapeHtml(txt || (kind ? finJobTag(row.site_id)+' — whole job' : finJobTag(row.site_id)))} <button type="button" class="linkbtn" onclick="openFinSplit('${table}','${row.id}')">${txt && txt.startsWith('Split') ? 'Change split' : (kind ? 'Allocate / split' : 'Split')}</button></b></div>`;
 }
 
 /* ---------- overview page: costs by plot / repair job ---------- */
@@ -52438,6 +52406,8 @@ function finWagePushChip(p){
 }
 
 /* ---------- PM side (Price tile) ---------- */
+// Week choices for a price tile: its existing weeks (latest first, picked) and a new one.
+function pmWpWeekOpts(elId){ const m = (window.__pmWpMax||{})[elId] || 0; const o = []; if(m) o.push(`<option value="${m}" selected>Week ${m} (latest)</option>`); o.push(`<option value="${m+1}" ${m?'':'selected'}>Week ${m+1} (new week)</option>`); for(let w=m-1; w>=1; w--) o.push(`<option value="${w}">Week ${w}</option>`); return o.join(''); }
 let pmWpOpen = true;
 async function pmWagePushesHtml(siteId, elements){
   let rows = [];
@@ -52445,6 +52415,9 @@ async function pmWagePushesHtml(siteId, elements){
   if(!rows.length) return '';
   const els = (elements||[]).filter(e=>!e.closed);
   window.__pmWpEls = els;
+  const wks = els.length ? await dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number') : [];
+  const maxW = {}; wks.forEach(w=>{ maxW[w.element_id] = Math.max(maxW[w.element_id]||0, Number(w.week_number)||0); });
+  window.__pmWpMax = maxW;
   const total = rows.reduce((t,r)=>t+Number(r.amount||0),0);
   const wkDate = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'});
   return `<div class="card pmwp">
@@ -52454,8 +52427,8 @@ async function pmWagePushesHtml(siteId, elements){
       <div class="pmwp-who"><b>${escapeHtml(r.person_name||'Worker')}</b><span>w/c ${wkDate(r.week_start)} · ${Number(r.days||0)} day${Number(r.days)===1?'':'s'}${r.description?' · '+escapeHtml(r.description):''}</span></div>
       <div class="pmwp-amt">${fmt2dp(r.amount)}</div>
       <div class="pmwp-act">
-        <select class="pmwp-el">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
-        <input class="pmwp-wk" type="number" min="1" step="1" placeholder="Week" title="Price week number">
+        <select class="pmwp-el" onchange="this.nextElementSibling.innerHTML=pmWpWeekOpts(this.value)">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
+        <select class="pmwp-wk" title="Which week of the price">${els.length ? pmWpWeekOpts(els[0].id) : ''}</select>
         <button class="darkbtn" ${els.length?'':'disabled'} onclick="pmWagePushBook('${siteId}','${r.id}','price')">Book to price</button>
         <button class="ghostbtn" onclick="pmWagePushBook('${siteId}','${r.id}','general')">General costs</button>
       </div></div>`).join('')}` : ''}
@@ -52467,12 +52440,7 @@ window.pmWagePushBook = async function(siteId, id, how){
   const patch = {status:how, decided_by:ME.id, decided_at:new Date().toISOString()};
   if(how==='price'){
     const elId = box.querySelector('.pmwp-el').value; if(!elId){ toast('Add a price tile first.'); return; }
-    let wk = Number(box.querySelector('.pmwp-wk').value);
-    if(!wk){
-      const last = await dbSelect('price_weeks', 'element_id=eq.'+elId+'&select=week_number&order=week_number.desc&limit=1');
-      wk = last.length ? Number(last[0].week_number) : 1;
-      if(!await customConfirm(`Book ${fmt2dp(p.amount)} for ${p.person_name} to week ${wk} of this price?`)) return;
-    }
+    const wk = Number(box.querySelector('.pmwp-wk').value) || 1;
     const entry = {site_id:siteId, element_id:elId, week_number:wk, amount:Number(p.amount||0), entered_by:ME.id, updated_at:new Date().toISOString()};
     if(p.operative_id) Object.assign(entry, {operative_id:p.operative_id, kind:'extra_operative'}); else Object.assign(entry, {operative_id:null, kind:'cost', label:p.person_name||'Worker'});
     const res = await sbFetch('/rest/v1/price_week_operative_entries', {method:'POST', headers:{'Prefer':'return=representation'}, body:JSON.stringify(entry)});
@@ -52616,17 +52584,18 @@ async function renderFinSales(sub){
   if(!finGuard()) return;
   if(sub==='certs'){ finSalesAppF = 'certified'; sub = 'apps'; }
   if(sub==='receipts') sub = 'invoices';
-  sub = ['apps','invoices','retention'].includes(sub) ? sub : 'apps';
+  sub = ['apps','invoices','retention'].includes(sub) ? sub : null;
   const __gen = RENDER_GEN;
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
     dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&paid_on=gte.'+finToday().slice(0,7)+'-01&select=amount'),
-    sub==='retention' ? dbSelect('job_finance', 'org_id=eq.'+ME.org_id) : Promise.resolve([]),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
   ]);
   if(__gen !== RENDER_GEN) return;
   const invs = finCleanEmptyDrafts(invs0);
+  if(!sub) sub = apps.some(a=>['draft','submitted','certified'].includes(finAppStage(a).k)) ? 'apps' : 'invoices';
   const live = invs.filter(i=>i.status!=='void');
   const owed = live.reduce((t,i)=>t+finInvOutstanding(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0);
   const received = finRound(pays.reduce((t,p)=>t+Number(p.amount||0),0));
@@ -53038,6 +53007,18 @@ window.pmReplyInvoice = async function(id){
   toast('Sent back to the office'); render();
 };
 
+// A PO whose value has been fully invoiced (approved) is closed as "Invoiced"; reopened if an invoice is rejected.
+async function finPoMaybeClose(poId){
+  try{
+    const po = (await dbSelect('purchase_orders', 'id=eq.'+poId+'&select=id,status,value'))[0];
+    if(!po || po.value==null || po.status==='cancelled') return;
+    const inv = await dbSelect('purchase_invoices', 'po_id=eq.'+poId+'&status=eq.approved&select=net');
+    const done = inv.reduce((t,i)=>t+Number(i.net||0),0) >= Number(po.value) - 0.005;
+    if(done && po.status==='open') await dbUpdate('purchase_orders', poId, {status:'invoiced'});
+    else if(!done && po.status==='invoiced') await dbUpdate('purchase_orders', poId, {status:'open'});
+  }catch(e){}
+}
+
 /* ============================================================
    OpHUB Finance — Subcontractors & labour, rebuilt around how RTB works:
    operatives INVOICE us (no timesheets).
@@ -53427,6 +53408,138 @@ window.finOpCancel = async function(id){
   await finOpPushToPm({id, lines:[]}, '');
   toast('Cancelled'); go('#/finance/subs/opinv');
 };
+
+/* ============================================================
+   OpHUB Finance — People & rates (Subcontractors & labour).
+   One row per person (operatives who invoice you, subcontractors and PAYE
+   staff); "Edit" opens one form with everything: pay type, day rate, CIS,
+   UTR, VAT and bank details. Bank details only show the last 4 digits in
+   the list. App users (operatives with a login) are listed too.
+   ============================================================ */
+let finPplF = 'active';
+async function renderFinLabourRates(){
+  if(!finGuard()) return;
+  const __gen = RENDER_GEN;
+  await loadAllProfiles();
+  const rates = await finLoadRates();
+  if(!FIN_SETTINGS) await finLoadSettings();
+  if(__gen !== RENDER_GEN) return;
+  const users = Object.values(PROFILES).filter(p=>['operative','site_manager'].includes(p.role) && p.org_id===ME.org_id);
+  const rows = Object.values(FIN_WORKERS).map(w=>({key:'w:'+w.id, name:w.trading_name||w.name||'Worker', r:w, app:false}))
+    .concat(users.map(u=>({key:u.id, name:(rates[u.id]||{}).trading_name || u.name, r:rates[u.id]||{}, app:true})))
+    .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const F = {active:x=>x.r.active!==false, subs:x=>x.r.active!==false && x.r.pay_type!=='paye', paye:x=>x.r.active!==false && x.r.pay_type==='paye', left:x=>x.r.active===false, all:()=>true};
+  if(!F[finPplF]) finPplF = 'active';
+  const list = rows.filter(F[finPplF]);
+  const bank = r=>finBankOk(r) ? `${escapeHtml(finSortCode(r.bank_sort_code))} · ••${escapeHtml(String(r.bank_account_no).replace(/\D/g,'').slice(-4))}` : (r.pay_type==='paye' ? '<span class="stub" style="margin:0;">Payroll</span>' : '<span class="finpill warn">Missing</span>');
+  document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('subs')}${finSubTabs('subs','rates')}
+    ${finSecHead('People & rates', '+ Add a person', "openFinPerson('')")}
+    <p class="stub" style="margin:-4px 0 10px;">Everyone you pay: operatives and subcontractors who invoice you (CIS), and PAYE staff (their day rate prices their days on site).${typeof finXeroConnected==='function' && finXeroConnected() ? ` <button class="linkbtn" onclick="openFinXeroWorkers()">Bring people in from Xero</button>` : ''}</p>
+    <div class="pmchips">${[['active','Everyone'],['subs','Invoice us (CIS)'],['paye','PAYE staff'],['left','No longer working for us'],['all','All']].map(([k,l])=>finChip(finPplF===k, l, rows.filter(F[k]).length, `finPplF='${k}';render()`)).join('')}</div>
+    ${finSearchHtml('Search name', 'finPplList')}
+    <div id="finPplList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
+      <thead><tr><th>Name</th><th>Pay</th><th class="num">Day rate</th><th>CIS</th><th>UTR</th><th>Bank</th><th></th></tr></thead>
+      <tbody>${list.map(x=>`<tr class="click" data-lf="${lfText(x.name+' '+(x.r.name||''))}" onclick="openFinPerson('${jsAttr(x.key)}')">
+        <td data-l="Name" class="d"><b>${escapeHtml(x.name)}</b>${x.app?'<div class="fininv-addr">Has the app</div>':''}${(x.r.xero_contact_id||x.r.xero_employee_id)?' <span class="finxw-tag">From Xero</span>':''}</td>
+        <td data-l="Pay">${x.r.pay_type==='paye'?'PAYE':'Invoices us'}</td>
+        <td data-l="Day rate" class="num">${x.r.day_rate!=null?finMoney(x.r.day_rate):'—'}</td>
+        <td data-l="CIS">${x.r.pay_type==='paye'?'—':(FIN_CIS_LABEL[x.r.cis_rate!=null?x.r.cis_rate:20]||'')}</td>
+        <td data-l="UTR">${x.r.pay_type==='paye'?'—':(x.r.utr?escapeHtml(x.r.utr):'<span class="finpill warn">Missing</span>')}</td>
+        <td data-l="Bank">${bank(x.r)}</td>
+        <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinPerson('${jsAttr(x.key)}')">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No one here yet.</div>'}</div>
+  `, {title:'People & rates', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+}
+window.openFinPerson = async function(key){
+  const rates = await finLoadRates(); await loadAllProfiles();
+  const isNew = !key, isApp = key && !key.startsWith('w:');
+  const r = key ? (rates[key] || {}) : {pay_type:'subcontractor', cis_rate:20};
+  const name = isApp ? (PROFILES[key]||{}).name : (r.name||'');
+  let ov = document.getElementById('finPplOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finPplOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  const v = x=>escapeHtml(x==null?'':String(x));
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:620px;">
+    <h3>${isNew ? 'Add a person' : escapeHtml(name||'Person')}</h3>
+    ${isApp ? `<p class="stub" style="margin:0 0 10px;font-style:normal;">Has the app (${escapeHtml((PROFILES[key]||{}).email||'')}). Their name comes from their app account.</p>` : ''}
+    <div class="fingrid2">
+      ${isApp ? '' : `<div class="formfield"><label class="field-label">Name *</label><input type="text" id="fpName" value="${v(r.name)}" placeholder="e.g. Sam Slater"></div>`}
+      <div class="formfield"><label class="field-label">Trading / company name</label><input type="text" id="fpTrading" value="${v(r.trading_name)}" placeholder="If they invoice as a company"></div>
+      <div class="formfield"><label class="field-label">How they’re paid</label><select id="fpPay" onchange="document.getElementById('fpCisWrap').hidden=this.value==='paye'"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>They invoice us (CIS)</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE (on our payroll)</option></select></div>
+      <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money id="fpRate" value="${r.day_rate!=null?r.day_rate:''}"></div>
+      ${isApp ? '' : `<div class="formfield"><label class="field-label">Email (for CIS statements)</label><input type="email" id="fpEmail" value="${v(r.email)}"></div>`}
+    </div>
+    <div id="fpCisWrap" ${r.pay_type==='paye'?'hidden':''}>
+      <div class="fingrid2">
+        <div class="formfield"><label class="field-label">CIS deduction ${finHelp('cis')}</label><select id="fpCis">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
+        <div class="formfield"><label class="field-label">UTR ${finHelp('utr')}</label><input type="text" inputmode="numeric" id="fpUtr" value="${v(r.utr)}" placeholder="10 digits"></div>
+        <div class="formfield"><label class="field-label">VAT registered</label><select id="fpVat"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
+      </div>
+      <p class="sectiontitle" style="margin:8px 0 6px;">Bank details (for the pay run)</p>
+      <div class="fingrid3">
+        <div class="formfield"><label class="field-label">Account name</label><input type="text" id="fpBankName" value="${v(r.bank_account_name)}" autocomplete="off"></div>
+        <div class="formfield"><label class="field-label">Sort code</label><input type="text" inputmode="numeric" id="fpSort" value="${r.bank_sort_code?v(finSortCode(r.bank_sort_code)):''}" placeholder="00-00-00" autocomplete="off"></div>
+        <div class="formfield"><label class="field-label">Account number</label><input type="text" inputmode="numeric" id="fpAcc" value="${v(r.bank_account_no)}" placeholder="8 digits" autocomplete="off"></div>
+      </div>
+    </div>
+    <button class="darkbtn" style="width:100%;margin-top:8px;" onclick="saveFinPerson('${jsAttr(key||'')}')">${isNew?'Add person':'Save'}</button>
+    ${!isNew && !isApp ? `<button class="linkbtn" style="margin-top:12px;color:var(--slate);" onclick="finPersonActive('${jsAttr(key)}', ${r.active===false})">${r.active===false?'Working for us again':'No longer working for us'}</button>` : ''}
+    <button class="geo-modal-cancel" onclick="document.getElementById('finPplOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  setTimeout(()=>{ const el = document.getElementById(isApp ? 'fpTrading' : 'fpName'); if(el && isNew) el.focus(); }, 50);
+};
+window.saveFinPerson = async function(key){
+  const isNew = !key, isApp = key && !key.startsWith('w:');
+  const rate = finNum(finVal('fpRate'));
+  if(rate!==null && isNaN(rate)){ toast('Day rate must be a number.'); return; }
+  const pay = finVal('fpPay') || 'subcontractor';
+  const sc = finVal('fpSort').replace(/\D/g,''), an = finVal('fpAcc').replace(/\D/g,''), utr = finVal('fpUtr').replace(/\s/g,'');
+  if(sc && sc.length!==6){ toast('Sort code should be 6 numbers.'); return; }
+  if(an && an.length!==8){ toast('Account number should be 8 numbers.'); return; }
+  if(utr && !/^\d{10}$/.test(utr)){ toast('A UTR is 10 numbers.'); return; }
+  const row = {pay_type:pay, day_rate:rate, trading_name:finVal('fpTrading')||null, updated_at:new Date().toISOString()};
+  if(pay!=='paye') Object.assign(row, {cis_rate:Number(finVal('fpCis')||20), utr:utr||null, vat_registered:finVal('fpVat')==='true', bank_account_name:finVal('fpBankName')||null, bank_sort_code:sc||null, bank_account_no:an||null});
+  if(!isApp){
+    const nm = finVal('fpName'); if(!nm){ toast('Enter their name.'); return; }
+    const em = finVal('fpEmail'); if(em && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){ toast('Check the email address.'); return; }
+    Object.assign(row, {name:nm, email:em||null});
+  }
+  let ok;
+  if(isNew) ok = await dbInsert('fin_labour_rates', Object.assign({org_id:ME.org_id, user_id:null, active:true}, row));
+  else if(isApp){ const res = await sbFetch('/rest/v1/fin_labour_rates?on_conflict=org_id,user_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({org_id:ME.org_id, user_id:key}, row))}); ok = res.ok; if(!ok) toast('Save failed — '+(await safeErr(res))); }
+  else ok = await dbUpdate('fin_labour_rates', key.slice(2), row);
+  if(!ok) return;
+  document.getElementById('finPplOverlay').style.display = 'none';
+  toast(isNew ? 'Added' : 'Saved'); render();
+};
+window.finPersonActive = async function(key, on){
+  if(await dbUpdate('fin_labour_rates', key.slice(2), {active:!!on})){ document.getElementById('finPplOverlay').style.display = 'none'; toast(on ? 'Back on the list' : 'Moved to “No longer working for us”'); render(); }
+};
+
+/* ---------- plain-English help for trade / accounts words ---------- */
+const FIN_HELP = {
+  cis:'Construction Industry Scheme: you take tax off a subcontractor’s labour (20% if registered, 30% if not verified, 0% if they have gross status) and pay it to HMRC each month.',
+  utr:'Unique Taxpayer Reference: the 10-digit tax number HMRC gives every self-employed person or company. Needed for the monthly CIS return.',
+  retention:'Money the client holds back (often 3–5%) until the work is signed off. Half usually comes back at practical completion, half at the end of the defects period.',
+  certified:'The amount the client (or their QS) agrees you’re owed — the payment certificate. It can be less than you applied for.',
+  payless:'A notice saying you (or the client) will pay less than the amount applied for, and why. It must be sent before the final date for payment.',
+  contra:'Charges taken off a subcontractor’s payment, e.g. for damage, clearing up or materials you supplied.',
+  committed:'Ordered on a purchase order but not invoiced by the supplier yet.',
+  reverse:'Domestic reverse charge (construction): on CIS work between VAT-registered businesses the customer pays the VAT straight to HMRC, so it isn’t added to the invoice total.',
+  valuation:'The value of the work done so far, used for the application.',
+  finaldate:'The last day a payment can be made under the contract. A pay-less notice must be sent before it.',
+};
+function finHelp(k){ const t = FIN_HELP[k]; if(!t) return ''; return `<button type="button" class="finhelp" title="${escapeHtml(t)}" onclick="event.preventDefault();event.stopPropagation();customAlert(this.title)">?</button>`; }
+
+/* ---------- phones: scroll the chosen Finance tab into view ---------- */
+(function(){
+  if(typeof MutationObserver==='undefined') return;
+  let t = null;
+  const run = ()=>{ document.querySelectorAll('.finsecnav, .finsubtabs').forEach(nav=>{ if(nav.scrollWidth <= nav.clientWidth + 2) { nav.classList.remove('finscroll'); return; } nav.classList.add('finscroll'); const on = nav.querySelector('button.on'); if(on){ const x = on.offsetLeft - (nav.clientWidth - on.offsetWidth)/2; nav.scrollLeft = Math.max(0, x); } }); };
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 500); new MutationObserver(()=>{ clearTimeout(t); t = setTimeout(run, 30); }).observe(app, {childList:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
 
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).

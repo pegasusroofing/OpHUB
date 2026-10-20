@@ -70,12 +70,13 @@ window.openFinNewJob = async function(){
   const auto = ORG && ORG.auto_job_numbers;
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>New project</h3>
-    <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
+    <div class="formfield"><label class="field-label">Project name *</label><input type="text" id="finNjName" placeholder="e.g. Richardson Court re-roof"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:'placeholder="e.g. 2662"'}></div>
+      <div class="formfield"><label class="field-label">Project number *</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:`value="${escapeHtml(finNextJobNoGuess())}"`}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
-    <div class="formfield"><label class="field-label">How do you get paid?</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
+    <div class="formfield"><label class="field-label">How do you get paid? *</label><select id="finNjBt" onchange="document.getElementById('finNjCvWrap').hidden=this.value!=='invoice'"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
+    <div class="formfield" id="finNjCvWrap" hidden><label class="field-label">Contract value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finNjCv" placeholder="Leave blank if not known yet"></div>
     ${isFinanceOnly() ? '' : `<div class="fingrid2">
       <div class="formfield"><label class="field-label">Project manager</label><select id="finNjPm"><option value="">Choose later</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Type of job</label><select id="finNjKind"><option value="">Single site</option><option value="multi">Multi-site (plots)</option><option value="repair">Repairs contract</option></select></div>
@@ -116,7 +117,7 @@ window.saveFinNewJob = async function(){
   const made = SITES.find(x=>x.id===newId) || row;
   // Set up in Finance = set up in Projects too: same folders and toolbox talks as a project made there.
   if(!isFinanceOnly() && SITES.find(x=>x.id===newId)){ try{ await Promise.all([typeof preloadTbtBankForSite==='function' ? preloadTbtBankForSite(made) : null, typeof preloadDrawingFoldersForSite==='function' ? preloadDrawingFoldersForSite(made) : null]); }catch(e){} }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, contract_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, original_value:(bt==='invoice' && finNum(finVal('finNjCv'))) ? finRound(finNum(finVal('finNjCv'))) : null, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
   toast('Project '+(made.job_number||'')+' created');
@@ -124,15 +125,17 @@ window.saveFinNewJob = async function(){
 };
 // Job card on the job's Finance page (Finance-only companies edit the job here).
 function finJobEditHtml(site){
-  if(!isFinanceOnly() || !isFullManager(ME)) return '';
+  if(!isFullManager(ME)) return '';
   const st = typeof siteStatusKey==='function' ? siteStatusKey(site) : (site.status||'live');
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Project</p>
+    <p class="stub" style="margin:-6px 0 10px;font-style:normal;">The same details as on the project itself — change them here or there and both update.</p>
     <div class="formfield"><label class="field-label">Project name</label><input type="text" id="finJeName" value="${escapeHtml(site.name||'')}"></div>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Status</label><select id="finJeStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${st===k?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Start date</label><input type="date" id="finJeStart" value="${escapeHtml(site.start_date||'')}"></div>
     </div>
+    ${isFinanceOnly() ? '' : `<div class="formfield"><label class="field-label">Project manager</label><select id="finJePm"><option value="">None yet</option>${Object.values(PROFILES||{}).filter(p=>isFullManager(p) && p.org_id===ME.org_id).sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>`<option value="${p.id}" ${site.responsible_pm_id===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></div>`}
     <div class="formfield"><label class="field-label">Client</label><input type="text" id="finJeClient" value="${escapeHtml(site.client_name||'')}"></div>
     <div class="formfield"><label class="field-label">Site address</label><input type="text" id="finJeAddr" value="${escapeHtml(site.address||'')}"></div>
     <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finJePc" value="${escapeHtml(site.postcode||'')}"></div>
@@ -142,6 +145,7 @@ function finJobEditHtml(site){
 function finJobEditPatch(site){
   if(!document.getElementById('finJeName')) return null;
   const p = {name:finVal('finJeName'), client_name:finVal('finJeClient')||null, address:finVal('finJeAddr')||null, postcode:finVal('finJePc')||null, start_date:finVal('finJeStart')||null};
+  if(document.getElementById('finJePm')) p.responsible_pm_id = finVal('finJePm')||null;
   const st = finVal('finJeStatus');
   const cur = typeof siteStatusKey==='function' ? siteStatusKey(site) : site.status;
   if(st && st !== cur){ p.status = st; if(st==='closed'){ p.closed_at = new Date().toISOString(); p.closed_by = ME.id; } else { p.closed_at = null; p.closed_by = null; } }
@@ -218,3 +222,12 @@ window.finTeamEmail = async function(){
   if(!res.ok || d.error){ toast(d.error || 'Could not send the invite.'); return; }
   toast('Invite sent to '+email); finTeamInvite = null; render();
 };
+
+// Next project number in the style already used (e.g. J103 → J104, 2661 → 2662).
+function finNextJobNoGuess(){
+  const by = {};
+  SITES.forEach(x=>{ const m = /^([A-Za-z\-\/ ]*)(\d+)$/.exec(String(x.job_number||'').trim()); if(!m) return; const k = m[1]+'|'+m[2].length; const b = by[k] = by[k] || {p:m[1], len:m[2].length, max:0, n:0}; b.n++; b.max = Math.max(b.max, Number(m[2])); });
+  const best = Object.values(by).sort((a,b)=>b.n-a.n || b.max-a.max)[0];
+  if(!best) return '';
+  return best.p + String(best.max+1).padStart(best.len, '0');
+}

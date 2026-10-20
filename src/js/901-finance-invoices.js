@@ -43,7 +43,7 @@ function finInvTotalsRowsHtml(t){
   return `<div class="finkv fintot"><span>Net</span><b>${finMoney(t.net)}</b></div>
     ${vatRows || `<div class="finkv fintot"><span>VAT</span><b>${finMoney(t.vat)}</b></div>`}
     <div class="finkv fintot big"><span>Total</span><b>${finMoney(t.total)}</b></div>
-    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
+    ${t.vatDue ? `<div class="finrc"><div class="finkv"><span>Reverse charge VAT ${finHelp('reverse')} <em class="stub" style="font-style:normal;">client pays HMRC</em></span><b>${finMoney(t.vatDue)}</b></div>
       <p class="stub" style="margin:2px 0 0;font-style:normal;">Domestic reverse charge on ${finMoney(ks.filter(k=>FIN_INV_VAT[k].rc).reduce((a,k)=>a+t.by[k].net,0))} — not added to the total; printed on the invoice and sent to Xero.</p></div>` : ''}`;
 }
 
@@ -98,7 +98,7 @@ async function renderFinInvoice(siteId, invId){
       <div class="finkv"><span>Issued</span><b>${finDate(inv.issue_date)}</b></div>
       <div class="finkv"><span>Due</span><b>${finDate(inv.due_date)}</b></div>
       <div class="finkv"><span>Client PO</span><b>${escapeHtml(inv.client_po||'—')}</b></div>
-      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||'—')}</b></div>
+      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||site.client_name||'—')}</b></div>
       <div class="finkv"><span>Sent</span><b>${inv.sent_at ? finDate(inv.sent_at.slice(0,10))+(inv.sent_to?' to '+escapeHtml(inv.sent_to):'') : 'Not emailed yet'}</b></div>
     </div>
     <div class="card">
@@ -108,7 +108,8 @@ async function renderFinInvoice(siteId, invId){
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
-      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
+      ${inv.status!=='void' ? `<button class="${finInvOverdue(inv)?'ghostbtn':'darkbtn'}" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
+      ${finInvOverdue(inv) ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}','reminder')">Send a reminder</button>` : ''}
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('invoice', inv) : ''}
     ${inv.status!=='void' ? `<div class="card" style="margin-top:14px;">
@@ -300,16 +301,16 @@ window.deleteFinPayment = async function(id){
 };
 
 /* ---------- email ---------- */
-window.openFinEmail = async function(siteId, invId){
+window.openFinEmail = async function(siteId, invId, mode){
   const inv = (await dbSelect('fin_invoices', 'id=eq.'+invId))[0]; if(!inv) return;
   let ov = document.getElementById('finMailOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finMailOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>Email invoice ${escapeHtml(inv.number||'')}</h3>
+    <h3>${mode==='reminder'?'Reminder for':'Email'} invoice ${escapeHtml(inv.number||'')}</h3>
     <div class="formfield"><label class="field-label">To</label><input type="text" id="finMailTo" value="${escapeHtml(inv.bill_email||'')}" placeholder="accounts@client.co.uk (use commas for more than one)"></div>
     <label class="finswitch"><input type="checkbox" id="finMailMe" checked> Send me a copy (${escapeHtml(ME.email||'')})</label>
-    <div class="formfield"><label class="field-label">Message (optional)</label><textarea id="finMailMsg" rows="3" placeholder="Added under the invoice details"></textarea></div>
+    <div class="formfield"><label class="field-label">Message (optional)</label><textarea id="finMailMsg" rows="3" placeholder="Added under the invoice details">${mode==='reminder' ? escapeHtml(`This invoice was due on ${finDate(inv.due_date)} and ${finMoney(finInvOutstanding(inv))} is still outstanding. Please could you let us know when it will be paid?`) : ''}</textarea></div>
     <button class="darkbtn" style="width:100%;" id="finMailSend" onclick="sendFinEmail('${siteId}','${invId}')">Send</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finMailOverlay').style.display='none'">Cancel</button>
   </div>`;

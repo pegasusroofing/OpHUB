@@ -91,17 +91,18 @@ async function renderFinSales(sub){
   if(!finGuard()) return;
   if(sub==='certs'){ finSalesAppF = 'certified'; sub = 'apps'; }
   if(sub==='receipts') sub = 'invoices';
-  sub = ['apps','invoices','retention'].includes(sub) ? sub : 'apps';
+  sub = ['apps','invoices','retention'].includes(sub) ? sub : null;
   const __gen = RENDER_GEN;
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
     dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&paid_on=gte.'+finToday().slice(0,7)+'-01&select=amount'),
-    sub==='retention' ? dbSelect('job_finance', 'org_id=eq.'+ME.org_id) : Promise.resolve([]),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
   ]);
   if(__gen !== RENDER_GEN) return;
   const invs = finCleanEmptyDrafts(invs0);
+  if(!sub) sub = apps.some(a=>['draft','submitted','certified'].includes(finAppStage(a).k)) ? 'apps' : 'invoices';
   const live = invs.filter(i=>i.status!=='void');
   const owed = live.reduce((t,i)=>t+finInvOutstanding(i),0), overdue = live.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i),0);
   const received = finRound(pays.reduce((t,p)=>t+Number(p.amount||0),0));

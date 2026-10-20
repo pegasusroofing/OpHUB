@@ -309,6 +309,7 @@ window.setPurchaseInvoiceStatus = async function(id, status){
   document.getElementById('finPiOverlay').style.display = 'none';
   toast(status==='approved' ? 'Approved' : status==='rejected' ? 'Rejected' : 'Updated'); render();
   if(status==='approved' && typeof finXeroAuto==='function') finXeroAuto('bill', id);
+  if(r.po_id && typeof finPoMaybeClose==='function') finPoMaybeClose(r.po_id);
 };
 window.queryPurchaseInvoice = function(id){
   const card = document.querySelector('#finPiOverlay .geo-modal-card'); if(!card) return;
