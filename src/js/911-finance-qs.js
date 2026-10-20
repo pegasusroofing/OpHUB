@@ -139,7 +139,7 @@ function finJobForecast(b, siteId){
   const ov = jf.original_value!=null ? Number(jf.original_value) : null, oc = jf.original_cost!=null ? Number(jf.original_cost) : null;
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   return {lines, cats, actual, committed, budget, toComplete, tcSet, forecast, jf, contract, vAgreed, vPending, vInstructed, ffa,
-    valuation, certified, invoiced, owed, retHeld, costToDate, committedTotal, forecastCost,
+    valuation, certified, invoiced, owed, retHeld, applied: lastApp ? Number(lastApp.gross||0) : 0, costToDate, committedTotal, forecastCost,
     budgetTotal, budgetSource, schedCost, schedCostedN:schedCosted.length, schedItemsN:schedItems.length, varCost, toCompleteSched, sales,
     salesMargin: finRound(sales - costToDate), salesMarginPct: sales ? finRound((sales-costToDate)/sales*100) : null,
     origValue:ov, origCost:oc, origMargin: ov!=null && oc!=null ? finRound(ov-oc) : null, origMarginPct: ov && oc!=null ? finRound((ov-oc)/ov*100) : null,
@@ -169,6 +169,7 @@ function finJobCostCardFromForecast(siteId, fc){
   </div>`;
 }
 function finForecastCardHtml(siteId, fc){
+  window.__finFcLast = {siteId, fc};
   const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
   const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
   const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
@@ -192,8 +193,9 @@ function finForecastCardHtml(siteId, fc){
       ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
       ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
       ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
-      ${tile('Margin to date', finMoney(fc.salesMargin, 0), 'Value less cost so far', '', pctCol(fc.salesMargin))}
-      ${tile('Margin to date %', finPctTxt(fc.salesMarginPct), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(fc.salesMarginPct))}
+      ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
+        return tile('Margin to date'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
+          + tile('Margin to date %', finPctTxt(mp), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(mp)); })()}
     </div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`

@@ -1874,6 +1874,18 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finhome-t em{font-style:normal;font-size:12.5px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .finhome-t b.sk{background:#F0F2F5;border-radius:6px;width:70%;height:24px;}
 @media (max-width:600px){ .finhome-t{padding:10px 10px;} .finhome-t b{font-size:16px;} .finhome-t span{font-size:10.5px;letter-spacing:.02em;} .finhome-t em{font-size:11px;} .finhome-t b small{display:block;font-size:11.5px;} }
+/* margin basis ⋯ menu (921) */
+.finhome-hd,.fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.finmb{position:relative;display:inline-flex;text-transform:none;letter-spacing:0;}
+.finmb-b{border:0;background:#F1F3F6;color:var(--ink);border-radius:8px;width:28px;height:22px;line-height:1;font-size:16px;font-weight:800;cursor:pointer;padding:0;}
+.finmb-b:hover{background:#E6E9EF;}
+.finmb-m{display:none;position:absolute;right:0;top:26px;z-index:30;background:#fff;border:1px solid #E1E4EA;border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.14);padding:6px;min-width:230px;flex-direction:column;}
+.finmb.open .finmb-m{display:flex;}
+.finmb-h{font-size:11px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;padding:6px 10px 4px;}
+.finmb-m button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:8px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap;}
+.finmb-m button:hover{background:#F4F6FA;}
+.finmb-m button.on{color:#1E6B45;}
+.finhome{overflow:visible;}
 </style>
 </head>
 <body>
@@ -49571,7 +49583,7 @@ function finJobForecast(b, siteId){
   const ov = jf.original_value!=null ? Number(jf.original_value) : null, oc = jf.original_cost!=null ? Number(jf.original_cost) : null;
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   return {lines, cats, actual, committed, budget, toComplete, tcSet, forecast, jf, contract, vAgreed, vPending, vInstructed, ffa,
-    valuation, certified, invoiced, owed, retHeld, costToDate, committedTotal, forecastCost,
+    valuation, certified, invoiced, owed, retHeld, applied: lastApp ? Number(lastApp.gross||0) : 0, costToDate, committedTotal, forecastCost,
     budgetTotal, budgetSource, schedCost, schedCostedN:schedCosted.length, schedItemsN:schedItems.length, varCost, toCompleteSched, sales,
     salesMargin: finRound(sales - costToDate), salesMarginPct: sales ? finRound((sales-costToDate)/sales*100) : null,
     origValue:ov, origCost:oc, origMargin: ov!=null && oc!=null ? finRound(ov-oc) : null, origMarginPct: ov && oc!=null ? finRound((ov-oc)/ov*100) : null,
@@ -49601,6 +49613,7 @@ function finJobCostCardFromForecast(siteId, fc){
   </div>`;
 }
 function finForecastCardHtml(siteId, fc){
+  window.__finFcLast = {siteId, fc};
   const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
   const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
   const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
@@ -49624,8 +49637,9 @@ function finForecastCardHtml(siteId, fc){
       ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
       ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
       ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
-      ${tile('Margin to date', finMoney(fc.salesMargin, 0), 'Value less cost so far', '', pctCol(fc.salesMargin))}
-      ${tile('Margin to date %', finPctTxt(fc.salesMarginPct), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(fc.salesMarginPct))}
+      ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
+        return tile('Margin to date'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
+          + tile('Margin to date %', finPctTxt(mp), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(mp)); })()}
     </div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`
@@ -51860,26 +51874,60 @@ window.finMonExport = function(kind){
 function finHomeStripHtml(siteId){
   if(typeof isFinanceUser!=='function' || !isFinanceUser() || !(ORG && ORG.has_finance)) return '';
   setTimeout(()=>finHomeStripFill(siteId), 0);
-  return `<button type="button" class="finhome" id="finHomeStrip" onclick="go('#/site/${siteId}/finance')" aria-label="Open project finance">
+  return `<div role="button" tabindex="0" class="finhome" id="finHomeStrip" onclick="go('#/site/${siteId}/finance')" onkeydown="if(event.key==='Enter')go('#/site/${siteId}/finance')" aria-label="Open project finance">
     <div class="finhome-t"><span>Costs to date</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
     <div class="finhome-t"><span>Invoiced to date</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
     <div class="finhome-t"><span>Profit margin</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
-  </button>`;
+  </div>`;
 }
 async function finHomeStripFill(siteId){
   const gen = RENDER_GEN;
   let fc;
   try{ const b = await finLoadBook(siteId); fc = finJobForecast(b, siteId); }catch(e){ console.error(e); return; }
   const el = document.getElementById('finHomeStrip'); if(!el || gen !== RENDER_GEN) return;
-  const applied = fc.valuation || 0;
-  const isInv = fc.sales===fc.invoiced && fc.sales!==fc.valuation;
-  const value = isInv ? fc.invoiced : (applied || fc.invoiced);
-  const margin = finRound(value - fc.costToDate), pct = value ? finRound(margin/value*100) : null;
+  window.__finHomeFc = {siteId, fc};
+  finHomeStripPaint();
+}
+
+/* ---------- what the margin is measured against (⋯ menu) ---------- */
+const FIN_MBASIS = {applied:'Applied', certified:'Certified', invoiced:'Invoiced'};
+function finMarginBasisGet(){ try{ const v = localStorage.getItem('ophub.finMarginBasis'); return FIN_MBASIS[v] ? v : 'auto'; }catch(e){ return 'auto'; } }
+// The value the margin is worked out on. 'auto' = certified if there is one, else applied, else invoiced
+// (invoice-only projects: invoiced).
+function finMarginOn(fc, basis){
+  basis = basis || finMarginBasisGet();
+  if(basis==='applied') return {value:fc.applied||0, label:'applied', basis};
+  if(basis==='certified') return {value:fc.certified||0, label:'certified', basis};
+  if(basis==='invoiced') return {value:fc.invoiced||0, label:'invoiced', basis};
+  if(fc.certified) return {value:fc.certified, label:'certified', basis:'auto'};
+  if(fc.applied) return {value:fc.applied, label:'applied', basis:'auto'};
+  return {value:fc.invoiced||0, label:'invoiced', basis:'auto'};
+}
+function finMarginMenuHtml(){
+  const cur = finMarginBasisGet();
+  return `<span class="finmb"><button type="button" class="finmb-b" aria-label="Measure margin against" onclick="event.stopPropagation();this.parentNode.classList.toggle('open')">⋯</button>
+    <span class="finmb-m" onclick="event.stopPropagation()"><span class="finmb-h">Measure margin against</span>
+      ${[['auto','Latest (certified, else applied)'],['applied','Applied'],['certified','Certified'],['invoiced','Invoiced']].map(([k,l])=>`<button type="button" class="${cur===k?'on':''}" onclick="finMarginBasisSet('${k}')">${cur===k?'✓ ':''}${l}</button>`).join('')}
+    </span></span>`;
+}
+window.finMarginBasisSet = function(k){
+  try{ if(k==='auto') localStorage.removeItem('ophub.finMarginBasis'); else localStorage.setItem('ophub.finMarginBasis', k); }catch(e){}
+  finHomeStripPaint();
+  if(document.getElementById('finFcSlot') && window.__finFcLast) document.getElementById('finFcSlot').innerHTML = finForecastCardHtml(window.__finFcLast.siteId, window.__finFcLast.fc);
+  toast('Margin measured against '+(k==='auto' ? 'the latest (certified, else applied)' : FIN_MBASIS[k].toLowerCase()));
+};
+document.addEventListener('click', ()=>document.querySelectorAll('.finmb.open').forEach(x=>x.classList.remove('open')));
+function finHomeStripPaint(){
+  const el = document.getElementById('finHomeStrip'); const d = window.__finHomeFc; if(!el || !d) return;
+  const fc = d.fc;
+  const prog = fc.certified || fc.applied || 0;
+  const on = finMarginOn(fc);
+  const value = on.value, margin = finRound(value - fc.costToDate), pct = value ? finRound(margin/value*100) : null;
   const col = margin<0 ? 'var(--red)' : (value ? 'var(--ok,#1E6B45)' : 'var(--ink)');
   el.innerHTML = `
     <div class="finhome-t"><span>Costs to date</span><b>${finMoney(fc.costToDate, 0)}</b><em>${fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' ordered' : (fc.budgetTotal ? finPctTxt(finRound(fc.costToDate/fc.budgetTotal*100))+' of budget' : '&nbsp;')}</em></div>
-    <div class="finhome-t"><span>Invoiced to date</span><b>${finMoney(fc.invoiced, 0)}</b><em>${applied ? (fc.certified ? 'Certified ' : 'Applied ')+finMoney(applied, 0) : (fc.ffa ? 'of '+finMoney(fc.ffa, 0) : '&nbsp;')}</em></div>
-    <div class="finhome-t"><span>Profit margin</span><b style="color:${col};">${value ? finMoney(margin, 0)+' <small>'+finPctTxt(pct)+'</small>' : '—'}</b><em>${value ? 'on '+finMoney(value, 0)+(isInv || !applied ? ' invoiced' : (fc.certified ? ' certified' : ' applied')) : 'Nothing applied or invoiced yet'}</em></div>`;
+    <div class="finhome-t"><span>Invoiced to date</span><b>${finMoney(fc.invoiced, 0)}</b><em>${prog ? (fc.certified ? 'Certified ' : 'Applied ')+finMoney(prog, 0) : (fc.ffa ? 'of '+finMoney(fc.ffa, 0) : '&nbsp;')}</em></div>
+    <div class="finhome-t"><span class="finhome-hd">Profit margin ${finMarginMenuHtml()}</span><b style="color:${col};">${value ? finMoney(margin, 0)+' <small>'+finPctTxt(pct)+'</small>' : '—'}</b><em>${value ? 'on '+finMoney(value, 0)+' '+on.label : 'Nothing '+(on.basis==='auto' ? 'applied or invoiced' : on.label)+' yet'}</em></div>`;
 }
 </script>
 </body>

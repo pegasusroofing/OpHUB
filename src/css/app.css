@@ -1860,3 +1860,15 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finhome-t em{font-style:normal;font-size:12.5px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .finhome-t b.sk{background:#F0F2F5;border-radius:6px;width:70%;height:24px;}
 @media (max-width:600px){ .finhome-t{padding:10px 10px;} .finhome-t b{font-size:16px;} .finhome-t span{font-size:10.5px;letter-spacing:.02em;} .finhome-t em{font-size:11px;} .finhome-t b small{display:block;font-size:11.5px;} }
+/* margin basis ⋯ menu (921) */
+.finhome-hd,.fintile-l{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.finmb{position:relative;display:inline-flex;text-transform:none;letter-spacing:0;}
+.finmb-b{border:0;background:#F1F3F6;color:var(--ink);border-radius:8px;width:28px;height:22px;line-height:1;font-size:16px;font-weight:800;cursor:pointer;padding:0;}
+.finmb-b:hover{background:#E6E9EF;}
+.finmb-m{display:none;position:absolute;right:0;top:26px;z-index:30;background:#fff;border:1px solid #E1E4EA;border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,.14);padding:6px;min-width:230px;flex-direction:column;}
+.finmb.open .finmb-m{display:flex;}
+.finmb-h{font-size:11px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;padding:6px 10px 4px;}
+.finmb-m button{border:0;background:none;text-align:left;padding:9px 10px;border-radius:8px;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;white-space:nowrap;}
+.finmb-m button:hover{background:#F4F6FA;}
+.finmb-m button.on{color:#1E6B45;}
+.finhome{overflow:visible;}
