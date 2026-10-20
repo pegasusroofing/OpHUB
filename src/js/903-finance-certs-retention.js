@@ -18,11 +18,11 @@ function finCertSlotRender(a){
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Certificate date</label><input type="date" id="finCertDate" value="${finToday()}"></div>
-        <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" id="finCertDisc" value="0" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" id="finCertNet" value="${finRound(a.net_due)}"></div>
+        <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" data-money id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" data-money id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" data-money id="finCertDisc" value="0" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" data-money id="finCertNet" value="${finRound(a.net_due)}"></div>
       </div>
       <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice</label>
       <div class="formfield"><label class="field-label">Copy of the certificate (optional)</label><input type="file" accept="application/pdf,image/*" onchange="finCertFile=this.files[0]||null"></div>
@@ -56,7 +56,7 @@ function finCertSlotRender(a){
 window.finCertCalc = function(){
   const g = finNum(finVal('finCertGross'))||0, r = finNum(finVal('finCertRet'))||0, p = finNum(finVal('finCertPrev'))||0, d = finNum(finVal('finCertDisc'))||0;
   const net = finRound(g - r - p - d);
-  const el = document.getElementById('finCertNet'); if(el) el.value = net;
+  const el = document.getElementById('finCertNet'); if(el) finSetMoney(el, net);
   const a = finApp || {};
   const diffEl = document.getElementById('finCertDiff');
   if(diffEl && a.net_due!=null){ const diff = finRound(net - Number(a.net_due)); diffEl.innerHTML = diff ? `<b style="color:${diff<0?'var(--red)':'var(--ok)'};">${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> compared with the ${finMoney(a.net_due)} applied for.` : 'Matches what was applied for.'; }

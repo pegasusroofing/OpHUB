@@ -16,6 +16,7 @@ const FIN_DOC_TYPES = [
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
   {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
+  {k:'monthly', l:'Monthly report', go:id=>`#/site/${id}/finance/monthly`},
   {k:'budget', l:'Budget & forecast', go:id=>`#/site/${id}/finance/budget`},
   {k:'contract', l:'Priced schedule of works', go:id=>`#/site/${id}/finance/contract`},
 ];
@@ -31,7 +32,7 @@ const FIN_NEW_TYPES = [
 ];
 function finCurrentDocType(parts){
   const p = parts[3] || '';
-  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
+  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', monthly:'monthly', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
 }
 function finShellPrefix(opts){
   if(typeof isFinanceUser!=='function' || !isFinanceUser()) return '';

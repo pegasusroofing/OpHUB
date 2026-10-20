@@ -46,7 +46,7 @@ window.openFinSubcontract = async function(siteId, id){
     </div>
     <div class="formfield"><label class="field-label">Work</label><input type="text" id="finScDesc" value="${v('description')}" placeholder="e.g. Leadwork to all valleys and abutments"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Order value £ (excl. VAT)</label><input type="text" inputmode="decimal" id="finScVal" value="${v('order_value')}"></div>
+      <div class="formfield"><label class="field-label">Order value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finScVal" value="${v('order_value')}"></div>
       <div class="formfield"><label class="field-label">Retention %</label><input type="text" inputmode="decimal" id="finScRet" value="${sc?sc.retention_pct:5}"></div>
       <div class="formfield"><label class="field-label">CIS</label><select id="finScCis">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(sc?sc.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">UTR</label><input type="text" id="finScUtr" value="${v('utr')}"></div>
@@ -151,13 +151,13 @@ window.openFinSubApp = async function(siteId, scId, appId){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Application date</label><input type="date" id="finSaDate" value="${appDate}" ${locked?'disabled':''}></div>
       <div class="formfield"><label class="field-label">Final date for payment</label><input type="date" id="finSaFinal" value="${v('final_date', finAddDays(appDate, 30))}" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Applied for, gross to date £</label><input type="text" inputmode="decimal" id="finSaApplied" value="${v('applied_gross')}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Of which materials to date £</label><input type="text" inputmode="decimal" id="finSaMat" value="${v('materials_part', finSa.prevM||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Applied for, gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaApplied" value="${v('applied_gross')}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Of which materials to date £</label><input type="text" inputmode="decimal" data-money id="finSaMat" value="${v('materials_part', finSa.prevM||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <p class="sectiontitle" style="margin:6px 0 10px;">Your certificate</p>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Certified gross to date £</label><input type="text" inputmode="decimal" id="finSaCert" value="${v('certified_gross')}" placeholder="Leave blank until you’ve checked it" oninput="finSaPaint()" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Contra charges to date £</label><input type="text" inputmode="decimal" id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Certified gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaCert" value="${v('certified_gross')}" placeholder="Leave blank until you’ve checked it" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Contra charges to date £</label><input type="text" inputmode="decimal" data-money id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <div class="formfield"><label class="field-label">Contra / reason for paying less (shown on the notice)</label><textarea id="finSaReason" rows="2" ${locked?'disabled':''}>${escapeHtml(a&&(a.payless_reason||a.contra_note)||'')}</textarea></div>
     <div id="finSaSum"></div>

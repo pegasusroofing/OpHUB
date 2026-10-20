@@ -286,7 +286,7 @@ window.finPartsPaint = function(){
     <thead><tr>${cols.map(c=>`<th class="${c.money?'num':''}">${escapeHtml(c.l)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r=>`<tr class="click ${r.id==='none'?'finparts-un':''}" onclick="go('#/site/${finParts.siteId}/finance/costs?sub=${r.id}')">${cols.map((c,i)=>i===0
       ? `<td class="d" data-l="${escapeHtml(c.l)}"><b>${escapeHtml(r.name)}</b>${r.detail||r.status?`<em class="finparts-s">${escapeHtml([r.detail, r.status].filter(Boolean).join(' · '))}</em>`:''}</td>`
-      : c.k==='value' && finParts.editValues && r.id!=='none' && finParts.rows.includes(r) ? `<td class="num" data-l="Value" onclick="event.stopPropagation()"><input type="text" inputmode="decimal" class="finvalin" placeholder="£ value" value="${r.value!=null?r.value:''}" onchange="setFinSubValue('${finParts.siteId}','${r.id}',this.value)"></td>`
+      : c.k==='value' && finParts.editValues && r.id!=='none' && finParts.rows.includes(r) ? `<td class="num" data-l="Value" onclick="event.stopPropagation()"><input type="text" inputmode="decimal" data-money class="finvalin" placeholder="£ value" value="${r.value!=null?r.value:''}" onchange="setFinSubValue('${finParts.siteId}','${r.id}',this.value)"></td>`
       : `<td class="num" data-l="${escapeHtml(c.l)}" ${c.k==='margin' && Number(r[c.k])<0?'style="color:var(--red);"':''}>${r[c.k]==null ? '—' : (Number(r[c.k]) ? finMoney(r[c.k]) : '<span class="stub">–</span>')}</td>`).join('')}</tr>`).join('')}</tbody>
     <tfoot><tr>${cols.map((c,i)=>`<td class="${c.money?'num':''}">${i===0 ? 'Total' : finMoney(sum(c.k))}</td>`).join('')}</tr></tfoot>
   </table></div>`;

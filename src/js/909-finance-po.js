@@ -44,7 +44,7 @@ function finNpoPaint(){
     <div class="finitem-in">
       <label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
       <label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m2, nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
-      <label>Rate £<input type="text" inputmode="decimal" value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
+      <label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
       <b id="finNpoL-${i}">${finMoney(l.amount)}</b>
       ${finNewPo.lines.length>1 ? `<button class="linkbtn" onclick="finNpoDel(${i})">✕</button>` : ''}
     </div></div>`).join('');

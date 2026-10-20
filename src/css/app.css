@@ -1795,3 +1795,57 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finsitepct{font-style:normal;font-weight:700;color:#1E6B45;}
 .finsitepct.ahead{color:#B0740F;}
 .finvalin{width:110px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;text-align:right;}
+/* Finance — schedule cost price + bulk (902) */
+.fincosttool-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.fincosttool-row select{flex:1 1 220px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;}
+.fincosttool-row .ghostbtn,.fincosttool-row .darkbtn{width:auto;margin:0;padding:9px 14px;}
+.finpctin{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:#fff;width:110px;}
+.finpctin input{border:0;width:100%;padding:9px 0;font:inherit;font-size:15px;text-align:right;outline:none;background:none;}
+.finpctin span{color:var(--slate);font-weight:700;}
+.fincontot{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.finbulkbar{flex-wrap:wrap;align-items:center;gap:6px 14px;background:#F4F6FA;border-radius:10px;padding:8px 12px;margin:10px 0 0;font-size:14px;}
+.finbulkbar .linkbtn{font-weight:700;}
+.finbulk-plot{display:inline-flex;gap:6px;align-items:center;}
+.finbulk-plot select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff;}
+.fincsel{width:18px;height:18px;flex:none;margin:0 6px 0 0;accent-color:var(--ink);cursor:pointer;}
+.fincrow.item.sel{background:#F4F6FA;}
+.fincrow-mg{font-size:12.5px;color:#1E6B45;font-weight:600;margin:4px 0 0;min-height:0;}
+.fincrow-mg .neg{color:var(--red);}
+.fincrow-mg em{color:var(--slate);font-weight:400;}
+.fincrow-nums{grid-template-columns:0.8fr 0.8fr 1fr 1.2fr 1.2fr;}
+@media (max-width:600px){ .fincrow-nums{grid-template-columns:1fr 1fr 1fr;} }
+/* Finance — project summary tiles (911) */
+.fintiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+@media (max-width:900px){ .fintiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.fintile{border:1px solid #ECEEF2;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;background:#fff;}
+.fintile-l{font-size:12.5px;color:var(--slate);font-weight:600;}
+.fintile b{font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.fintile i{font-style:normal;font-size:12px;font-weight:700;}
+.fintile i.up{color:var(--ok,#1E6B45);} .fintile i.down{color:var(--red);}
+.fintile-f{font-size:12px;color:var(--slate);border-top:1px solid #F0F2F5;padding-top:6px;margin-top:auto;}
+.finbar{height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;}
+.finbar span{display:block;height:100%;background:#2F6FED;border-radius:99px;}
+.finbar.warn span{background:#E08A00;}
+@media (max-width:600px){ .fintile b{font-size:17px;} .fintile{padding:10px 12px;} }
+/* Finance — monthly report (920) */
+.finmon-wrap{overflow-x:auto;}
+.finmon{min-width:max-content;}
+.finmon th:first-child,.finmon td:first-child{position:sticky;left:0;background:#fff;z-index:1;min-width:170px;}
+.finmon th.cur,.finmon td.cur{background:#F2F6FF;}
+.finmon tr.finmon-g td{background:#F4F6FA;font-weight:800;cursor:pointer;}
+.finmon tr.finmon-g td:first-child{background:#F4F6FA;}
+.finmon td.num,.finmon th.num{white-space:nowrap;min-width:96px;}
+@media (max-width:760px){
+  table.fincosttbl.finmon{display:table !important;width:auto;background:#fff;border:1px solid var(--line);}
+  .finmon thead{display:table-header-group !important;} .finmon tbody{display:table-row-group !important;}
+  .finmon tbody tr{display:table-row !important;padding:0;border:0;border-radius:0;margin:0;}
+  .finmon td,.finmon th{display:table-cell !important;width:auto !important;padding:7px 10px !important;border-bottom:1px solid #F0F2F5 !important;font-size:13px;}
+  .finmon th:first-child,.finmon td:first-child{min-width:130px;}
+}
+.finapptools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;}
+.finapptools .finseg{margin:0;}
+.finapptools .finseg button{padding:5px 14px;}
+.fincrow-head{grid-template-columns:22px 64px 1fr;align-items:center;}
+.fincrow-head .fincsel{width:18px;height:18px;margin:0;}
+.finbulkbar .linkbtn{white-space:nowrap;}
+.fincrow-foot .fincrow-plot{min-width:112px;flex:0 1 160px;}

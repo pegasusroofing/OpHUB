@@ -128,7 +128,7 @@ async function renderFinPo(siteId, poId){
     </div>
     ${po.status!=='cancelled' ? `<div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
-        <div class="row-gap"><input type="text" inputmode="decimal" id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
+        <div class="row-gap"><input type="text" inputmode="decimal" data-money id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
       </div>
       <p class="stub" style="margin:6px 0 0;font-style:normal;">${po.value_estimated && po.value!=null ? '<b style="color:var(--warn);">Estimate</b> — some items are priced from the price book or not priced yet. ' : ''}${po.source==='finance' ? 'Set from the priced items; change it if the supplier’s price changes.' : 'Priced from the shopping list or price book where possible; upload the supplier’s quote to price it properly, or the invoice will price it when it arrives.'} Invoices over this value are flagged.</p>
       <label class="ghostbtn" style="width:100%;margin-top:10px;cursor:pointer;">Price from a supplier quote (PDF, photo or Excel)<input type="file" accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPoFromQuote('${siteId}','${po.id}',this)"></label>
@@ -187,10 +187,10 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
       <div class="formfield"><label class="field-label">${receipt?'Receipt / ref no.':'Invoice number'}</label><input type="text" id="finPiNo"></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPiDate" value="${finToday()}"></div>
       <div class="formfield"><label class="field-label">Due date (blank = 30 days)</label><input type="date" id="finPiDue"></div>
-      <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" id="finPiNet" oninput="finPiCalc('net')"></div>
-      <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" id="finPiVat" oninput="finPiCalc('vat')"></div>
+      <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" data-money id="finPiNet" oninput="finPiCalc('net')"></div>
+      <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" data-money id="finPiVat" oninput="finPiCalc('vat')"></div>
     </div>
-    <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" id="finPiTotal" oninput="finPiCalc('total')"></div>
+    <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" data-money id="finPiTotal" oninput="finPiCalc('total')"></div>
     <div class="formfield"><label class="field-label">What it’s for (optional)</label><input type="text" id="finPiDesc" placeholder="e.g. battens, fixings"></div>
     ${finSubJobSelectHtml('finPiSub', siteId, '', finSubNoun(siteId)+(receipt ? '' : ' (blank = same as the PO)'))}
     <div class="formfield"><label class="field-label">Cost type</label><select id="finPiCat">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}">${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
@@ -207,7 +207,7 @@ let finPiLast = 'net';
 window.finPiCalc = function(which){
   finPiLast = which;
   const n = finNum(finVal('finPiNet')), v = finNum(finVal('finPiVat')), t = finNum(finVal('finPiTotal'));
-  const set = (id, x)=>{ const el = document.getElementById(id); if(el) el.value = x; };
+  const set = (id, x)=>{ const el = document.getElementById(id); if(el) finSetMoney(el, x); };
   if(which==='net' && n!==null && !isNaN(n)){ const vat = finRound(n*0.2); set('finPiVat', vat); set('finPiTotal', finRound(n+vat)); }
   else if(which==='vat' && n!==null && !isNaN(n) && v!==null && !isNaN(v)){ set('finPiTotal', finRound(n+v)); }
   else if(which==='total' && t!==null && !isNaN(t) && (n===null || isNaN(n))){ const net = finRound(t/1.2); set('finPiNet', net); set('finPiVat', finRound(t-net)); }

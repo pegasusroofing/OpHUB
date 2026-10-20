@@ -148,7 +148,7 @@ async function renderFinReport(id){
       ${has('dates') ? `<label>From<input type="date" value="${f.from}" onchange="finRep.f.from=this.value;finRepRun()"></label><label>To<input type="date" value="${f.to}" onchange="finRep.f.to=this.value;finRepRun()"></label>` : ''}
       ${has('varstatus') ? `<label>Status<select onchange="finRep.f.varstatus=this.value;finRepRun()"><option value="">Any</option>${Object.keys(FIN_VAR_STATUS).map(k=>`<option value="${k}" ${f.varstatus===k?'selected':''}>${FIN_VAR_STATUS[k]}</option>`).join('')}</select></label>` : ''}
       ${has('postatus') ? `<label>PO status<select onchange="finRep.f.postatus=this.value;finRepRun()"><option value="">Any</option>${Object.keys(FIN_PO_STATUS).map(k=>`<option value="${k}" ${f.postatus===k?'selected':''}>${FIN_PO_STATUS[k]}</option>`).join('')}</select></label>` : ''}
-      ${has('opening') ? `<label>Opening bank balance £<input type="text" inputmode="decimal" value="${escapeHtml(String(f.opening||''))}" onchange="finRep.f.opening=finNum(this.value)||0;finRepRun()"></label>` : ''}
+      ${has('opening') ? `<label>Opening bank balance £<input type="text" inputmode="decimal" data-money value="${escapeHtml(String(f.opening||''))}" onchange="finRep.f.opening=finNum(this.value)||0;finRepRun()"></label>` : ''}
       <div class="fincosttools-b">
         <button class="ghostbtn" onclick="finRepExport('xlsx')">Excel</button>
         <button class="ghostbtn" onclick="finRepExport('pdf')">PDF</button>
@@ -214,8 +214,8 @@ async function finExportTable(kind, o){
     ws.getCell('A1').value = o.title; ws.getCell('A1').font = {bold:true, size:14};
     ws.getCell('A2').value = head;
     ws.getRow(4).values = o.cols.map(c=>c.l); ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
-    o.rows.forEach((r,i)=>{ const row = ws.getRow(5+i); row.values = o.cols.map(c=>{ const v = r[c.k]; if(v==null || v==='') return null; if(c.date) return new Date(v+'T12:00:00'); if(c.money||c.num) return Number(v); if(c.pct) return Number(v)/100; return String(v); }); o.cols.forEach((c,j)=>{ const cell = row.getCell(j+1); if(c.money) cell.numFmt = '#,##0.00;[Red]-#,##0.00'; if(c.pct) cell.numFmt = '0.0%'; if(c.date) cell.numFmt = 'dd/mm/yyyy'; }); });
-    if(totKeys.length && o.rows.length){ const tr = ws.getRow(5+o.rows.length); tr.getCell(1).value = 'Total'; o.cols.forEach((c,j)=>{ if(totKeys.includes(c.k)){ const col = ws.getColumn(j+1).letter; tr.getCell(j+1).value = {formula:`SUM(${col}5:${col}${4+o.rows.length})`}; tr.getCell(j+1).numFmt = '#,##0.00;[Red]-#,##0.00'; } }); tr.font = {bold:true}; }
+    o.rows.forEach((r,i)=>{ const row = ws.getRow(5+i); row.values = o.cols.map(c=>{ const v = r[c.k]; if(v==null || v==='') return null; if(c.date) return new Date(v+'T12:00:00'); if(c.money||c.num) return Number(v); if(c.pct) return Number(v)/100; return String(v); }); o.cols.forEach((c,j)=>{ const cell = row.getCell(j+1); if(c.money) cell.numFmt = '£#,##0.00;[Red]-£#,##0.00'; if(c.pct) cell.numFmt = '0.0%'; if(c.date) cell.numFmt = 'dd/mm/yyyy'; }); });
+    if(totKeys.length && o.rows.length){ const tr = ws.getRow(5+o.rows.length); tr.getCell(1).value = 'Total'; o.cols.forEach((c,j)=>{ if(totKeys.includes(c.k)){ const col = ws.getColumn(j+1).letter; tr.getCell(j+1).value = {formula:`SUM(${col}5:${col}${4+o.rows.length})`}; tr.getCell(j+1).numFmt = '£#,##0.00;[Red]-£#,##0.00'; } }); tr.font = {bold:true}; }
     if(o.note) ws.getCell('A'+(7+o.rows.length)).value = o.note;
     o.cols.forEach((c,j)=>ws.getColumn(j+1).width = c.money ? 15 : Math.max(10, Math.round((c.w||80)/6)));
     ws.autoFilter = {from:{row:4, column:1}, to:{row:4, column:o.cols.length}};

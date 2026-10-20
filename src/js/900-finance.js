@@ -202,8 +202,8 @@ async function renderSiteFinance(siteId){
     </div>
     ${bt ? '' : finBillingChoiceHtml(siteId)}
 
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="finFcSlot"></div>
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live') : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
@@ -238,7 +238,7 @@ async function renderSiteFinance(siteId){
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
@@ -297,8 +297,10 @@ window.saveSiteFinance = async function(siteId){
     if(!row){ done(); return; }
     Object.assign(site, row);
   }
+  const jfPrev = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
-    site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
+    ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
     due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -323,7 +325,7 @@ window.openClientPoForm = async function(siteId, poId){
       <h3>${po ? 'Edit client PO' : 'Add client PO'}</h3>
       <div class="formfield"><label class="field-label">PO number</label><input type="text" id="finPoNo" value="${escapeHtml(po?po.po_number:'')}" placeholder="As shown on the client’s order"></div>
       <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
+        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
         <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
       </div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>

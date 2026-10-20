@@ -1809,6 +1809,60 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finsitepct{font-style:normal;font-weight:700;color:#1E6B45;}
 .finsitepct.ahead{color:#B0740F;}
 .finvalin{width:110px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;text-align:right;}
+/* Finance — schedule cost price + bulk (902) */
+.fincosttool-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.fincosttool-row select{flex:1 1 220px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;}
+.fincosttool-row .ghostbtn,.fincosttool-row .darkbtn{width:auto;margin:0;padding:9px 14px;}
+.finpctin{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:#fff;width:110px;}
+.finpctin input{border:0;width:100%;padding:9px 0;font:inherit;font-size:15px;text-align:right;outline:none;background:none;}
+.finpctin span{color:var(--slate);font-weight:700;}
+.fincontot{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.finbulkbar{flex-wrap:wrap;align-items:center;gap:6px 14px;background:#F4F6FA;border-radius:10px;padding:8px 12px;margin:10px 0 0;font-size:14px;}
+.finbulkbar .linkbtn{font-weight:700;}
+.finbulk-plot{display:inline-flex;gap:6px;align-items:center;}
+.finbulk-plot select{padding:5px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff;}
+.fincsel{width:18px;height:18px;flex:none;margin:0 6px 0 0;accent-color:var(--ink);cursor:pointer;}
+.fincrow.item.sel{background:#F4F6FA;}
+.fincrow-mg{font-size:12.5px;color:#1E6B45;font-weight:600;margin:4px 0 0;min-height:0;}
+.fincrow-mg .neg{color:var(--red);}
+.fincrow-mg em{color:var(--slate);font-weight:400;}
+.fincrow-nums{grid-template-columns:0.8fr 0.8fr 1fr 1.2fr 1.2fr;}
+@media (max-width:600px){ .fincrow-nums{grid-template-columns:1fr 1fr 1fr;} }
+/* Finance — project summary tiles (911) */
+.fintiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+@media (max-width:900px){ .fintiles{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.fintile{border:1px solid #ECEEF2;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;background:#fff;}
+.fintile-l{font-size:12.5px;color:var(--slate);font-weight:600;}
+.fintile b{font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.fintile i{font-style:normal;font-size:12px;font-weight:700;}
+.fintile i.up{color:var(--ok,#1E6B45);} .fintile i.down{color:var(--red);}
+.fintile-f{font-size:12px;color:var(--slate);border-top:1px solid #F0F2F5;padding-top:6px;margin-top:auto;}
+.finbar{height:6px;border-radius:99px;background:#EEF1F6;overflow:hidden;}
+.finbar span{display:block;height:100%;background:#2F6FED;border-radius:99px;}
+.finbar.warn span{background:#E08A00;}
+@media (max-width:600px){ .fintile b{font-size:17px;} .fintile{padding:10px 12px;} }
+/* Finance — monthly report (920) */
+.finmon-wrap{overflow-x:auto;}
+.finmon{min-width:max-content;}
+.finmon th:first-child,.finmon td:first-child{position:sticky;left:0;background:#fff;z-index:1;min-width:170px;}
+.finmon th.cur,.finmon td.cur{background:#F2F6FF;}
+.finmon tr.finmon-g td{background:#F4F6FA;font-weight:800;cursor:pointer;}
+.finmon tr.finmon-g td:first-child{background:#F4F6FA;}
+.finmon td.num,.finmon th.num{white-space:nowrap;min-width:96px;}
+@media (max-width:760px){
+  table.fincosttbl.finmon{display:table !important;width:auto;background:#fff;border:1px solid var(--line);}
+  .finmon thead{display:table-header-group !important;} .finmon tbody{display:table-row-group !important;}
+  .finmon tbody tr{display:table-row !important;padding:0;border:0;border-radius:0;margin:0;}
+  .finmon td,.finmon th{display:table-cell !important;width:auto !important;padding:7px 10px !important;border-bottom:1px solid #F0F2F5 !important;font-size:13px;}
+  .finmon th:first-child,.finmon td:first-child{min-width:130px;}
+}
+.finapptools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;}
+.finapptools .finseg{margin:0;}
+.finapptools .finseg button{padding:5px 14px;}
+.fincrow-head{grid-template-columns:22px 64px 1fr;align-items:center;}
+.fincrow-head .fincsel{width:18px;height:18px;margin:0;}
+.finbulkbar .linkbtn{white-space:nowrap;}
+.fincrow-foot .fincrow-plot{min-width:112px;flex:0 1 160px;}
 </style>
 </head>
 <body>
@@ -45690,7 +45744,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='parts') return renderFinParts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='parts') return renderFinParts(siteId); if(parts[3]==='monthly') return renderFinMonthly(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='shopping') return renderFinShopping(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }
@@ -45923,8 +45977,8 @@ async function renderSiteFinance(siteId){
     </div>
     ${bt ? '' : finBillingChoiceHtml(siteId)}
 
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="finFcSlot"></div>
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live') : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
@@ -45959,7 +46013,7 @@ async function renderSiteFinance(siteId){
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
@@ -46018,8 +46072,10 @@ window.saveSiteFinance = async function(siteId){
     if(!row){ done(); return; }
     Object.assign(site, row);
   }
+  const jfPrev = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
-    site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
+    ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
     due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
@@ -46044,7 +46100,7 @@ window.openClientPoForm = async function(siteId, poId){
       <h3>${po ? 'Edit client PO' : 'Add client PO'}</h3>
       <div class="formfield"><label class="field-label">PO number</label><input type="text" id="finPoNo" value="${escapeHtml(po?po.po_number:'')}" placeholder="As shown on the client’s order"></div>
       <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
+        <div class="formfield"><label class="field-label">Value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPoVal" value="${po&&po.value!=null?escapeHtml(String(po.value)):''}" placeholder="Optional"></div>
         <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPoDate" value="${po&&po.po_date?po.po_date:''}"></div>
       </div>
       <div class="formfield"><label class="field-label">What it covers</label><input type="text" id="finPoDesc" value="${escapeHtml(po&&po.description||'')}" placeholder="e.g. Main contract, Variation 2"></div>
@@ -46291,7 +46347,7 @@ function finInvLineHtml(l, i){
   return `<div class="finline">
     <textarea rows="2" placeholder="Description" oninput="finInvDraft.lines[${i}].description=this.value">${escapeHtml(l.description||'')}</textarea>
     <div class="finline-r">
-      <input type="text" inputmode="decimal" placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
+      <input type="text" inputmode="decimal" data-money placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
       ${finInvDraft.lines.length>1 ? `<button class="linkbtn" onclick="finInvRemoveLine(${i})">remove</button>` : ''}
     </div>
   </div>`;
@@ -46381,7 +46437,7 @@ window.openFinPayment = function(invId, outstanding){
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>Record payment</h3>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Amount received (£)</label><input type="text" inputmode="decimal" id="finPayAmt" value="${outstanding}"></div>
+      <div class="formfield"><label class="field-label">Amount received (£)</label><input type="text" inputmode="decimal" data-money id="finPayAmt" value="${outstanding}"></div>
       <div class="formfield"><label class="field-label">Date received</label><input type="date" id="finPayDate" value="${finToday()}"></div>
     </div>
     <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" id="finPayNote" placeholder="e.g. BACS, remittance ref"></div>
@@ -46627,7 +46683,8 @@ function finApplicationsCardHtml(siteId, apps, due){
 
 /* ---------------- Contract breakdown page ---------------- */
 let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
-function finContractIsDirty(){ return !!finContractRows && JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||''])) !== finContractSnap; }
+function finContractSnapOf(rows){ return JSON.stringify(rows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'',r.cost==null?null:r.cost,r.cost_basis||'',r.cost_pct==null?null:r.cost_pct])); }
+function finContractIsDirty(){ return !!finContractRows && finContractSnapOf(finContractRows) !== finContractSnap; }
 const FIN_KIND_LABEL = {section:'Header', subsection:'Sub-header', item:'Item'};
 async function renderFinContract(siteId){
   if(!finGuard()) return;
@@ -46642,9 +46699,9 @@ async function renderFinContract(siteId){
   ]);
   if(__gen !== RENDER_GEN) return;
   if(finContractSite !== siteId || !finContractRows){
-    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, sub:i.sub_job_id||''}));
+    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, sub:i.sub_job_id||'', cost:i.cost!=null?Number(i.cost):null, cost_basis:i.cost_basis||'', cost_pct:i.cost_pct!=null?Number(i.cost_pct):null}));
     finContractSite = siteId; finContractFile = null;
-    finContractSnap = JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'']));
+    finContractSnap = finContractSnapOf(finContractRows);
   }
   const jf = jfRows[0] || {};
   document.getElementById('app').innerHTML = shell(`
@@ -46657,11 +46714,23 @@ async function renderFinContract(siteId){
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
     ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <p class="sectiontitle" style="margin:0;">Schedule</p>
-        <span class="finval" id="finContractTotal"></span>
+    <div class="card fincosttool">
+      <p class="sectiontitle" style="margin-top:0;">Cost price (your budget)</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.</p>
+      <div class="fincosttool-row">
+        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
+        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
+        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
+        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
       </div>
+      <p class="stub" id="finCtEg" style="margin:8px 0 0;font-style:normal;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <p class="sectiontitle" style="margin:0;">Schedule</p>
+        <span class="fincontot"><span class="finval" id="finContractTotal"></span><span class="stub" id="finContractCostTot" style="margin:0;font-style:normal;"></span></span>
+      </div>
+      <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
       <div id="finContractList" style="margin-top:8px;"></div>
       <div class="row-gap" style="flex-wrap:wrap;margin-top:8px;">
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Header</button>
@@ -46682,38 +46751,47 @@ function finContractPaint(){
   const ctl = i=>plotSel(i)+`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
-        <div class="fincrow-head"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+        <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
           <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value"></div>
         <div class="fincrow-foot">${ctl(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
     const auto = finNum(r.qty)!==null && finNum(r.rate)!==null;
-    return `<div class="fincrow item">
-      <div class="fincrow-head"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+    return `<div class="fincrow item ${r._sel?'sel':''}">
+      <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick this line" ${r._sel?'checked':''} onchange="finContractTick(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
         <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea></div>
       <div class="fincrow-nums">
         <label>Qty<input type="text" inputmode="decimal" value="${r.qty!=null&&!isNaN(r.qty)?escapeHtml(String(r.qty)):''}" oninput="finContractSetNum(${i},'qty',this.value)"></label>
         <label>Unit<input type="text" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
-        <label>Rate £<input type="text" inputmode="decimal" value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
-        <label>Value £<input type="text" inputmode="decimal" id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
+        <label>Rate £<input type="text" inputmode="decimal" data-money value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
+        <label>Value £<input type="text" inputmode="decimal" data-money id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
+        <label>Cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
       </div>
+      <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
       <div class="fincrow-foot">${ctl(i)}</div>
     </div>`;
   }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
   finContractPaintTotal();
+  finContractBulkPaint();
 }
 window.finContractSetNum = function(i, key, v){
   const r = finContractRows[i]; r[key] = finNum(v);
   const auto = finNum(r.qty)!==null && !isNaN(finNum(r.qty)) && finNum(r.rate)!==null && !isNaN(finNum(r.rate));
   const vEl = document.getElementById('finCVal-'+i);
-  if(vEl && key!=='value'){ vEl.disabled = auto; if(auto) vEl.value = finItemValue(r); }
+  if(vEl && key!=='value'){ vEl.disabled = auto; if(auto) finSetMoney(vEl, finItemValue(r)); }
   if(auto) r.value = finItemValue(r);
+  if(r.cost_basis && r.cost_pct!=null){ r.cost = finCostFromPct(finItemValue(r), r.cost_basis, r.cost_pct); finSetMoney(document.getElementById('finCCost-'+i), r.cost); }
+  const mg = document.getElementById('finCMg-'+i); if(mg) mg.innerHTML = finContractMgTxt(r);
   finContractPaintTotal();
 };
 window.finContractMove = function(i, d){ const j = i+d; if(j<0 || j>=finContractRows.length) return; const t = finContractRows[i]; finContractRows[i] = finContractRows[j]; finContractRows[j] = t; finContractPaint(); };
 window.finContractPaintTotal = function(){
   const items = finContractRows.filter(finIsItem);
-  const t = document.getElementById('finContractTotal'); if(t) t.textContent = finMoney(items.reduce((s,r)=>s+(Number(finItemValue(r))||0),0));
+  const sell = items.reduce((s,r)=>s+(Number(finItemValue(r))||0),0);
+  const t = document.getElementById('finContractTotal'); if(t) t.textContent = finMoney(sell);
+  const costed = items.filter(r=>r.cost!=null && !isNaN(r.cost)); const cost = costed.reduce((s,r)=>s+Number(r.cost),0);
+  const ct = document.getElementById('finContractCostTot');
+  if(ct) ct.innerHTML = costed.length ? `Cost ${finMoney(cost)} · margin ${finPctTxt(sell ? (sell-cost)/sell*100 : null)}${costed.length<items.length ? ` · <span style="color:var(--warn,#B0740F);">${items.length-costed.length} line${items.length-costed.length===1?'':'s'} without a cost</span>` : ''}` : 'No costs yet';
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   Object.keys(tot).forEach(i=>{ const el = document.getElementById('finCTot-'+i); if(el) el.textContent = finMoney(tot[i].value); });
 };
@@ -46721,7 +46799,7 @@ window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', desc
 window.saveFinContract = async function(siteId){
   const rows = finContractRows.map(r=>({id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
-      rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r)}))
+      rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r), cost:(r.cost==null||isNaN(r.cost))?null:finRound(Number(r.cost)), cost_basis:r.cost_basis||null, cost_pct:r.cost_pct==null?null:Number(r.cost_pct)}))
     .filter(r=>r.description || r.value!==null);
   if(rows.some(r=>!r.description)){ toast('Every line needs a description.'); return; }
   if(rows.some(r=>finIsItem(r) && r.value===null)){ toast('Every item needs a value (quantity × rate, or a lump sum).'); return; }
@@ -46730,7 +46808,7 @@ window.saveFinContract = async function(siteId){
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
   for(const e of existing) if(!keep.has(e.id)) await dbDelete('fin_contract_items', e.id);
   for(let i=0;i<rows.length;i++){
-    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub};
+    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub, cost: finIsItem(r) ? r.cost : null, cost_basis: finIsItem(r) && r.cost!=null ? r.cost_basis : null, cost_pct: finIsItem(r) && r.cost!=null && r.cost_basis ? r.cost_pct : null};
     if(r.id && existing.some(e=>e.id===r.id)) await dbUpdate('fin_contract_items', r.id, data);
     else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; }
     // Copied in from the site schedule: link the task / section to this line.
@@ -46738,7 +46816,13 @@ window.saveFinContract = async function(siteId){
     if(r.id && r._sec_id) await dbUpdate('schedule_sections', r._sec_id, {contract_item_id:r.id});
   }
   const total = finRound(rows.filter(finIsItem).reduce((t,r)=>t+r.value, 0));
-  const patch = {site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
+  const costTotal = finRound(rows.filter(r=>finIsItem(r) && r.cost!=null).reduce((t,r)=>t+r.cost, 0));
+  const allCosted = rows.filter(finIsItem).every(r=>r.cost!=null);
+  const jfNow = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const base = {};
+  if(jfNow.original_value==null){ base.original_value = total; base.original_at = new Date().toISOString(); }
+  if(jfNow.original_cost==null && allCosted && costTotal){ base.original_cost = costTotal; if(!base.original_at) base.original_at = new Date().toISOString(); }
+  const patch = {...base, site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
   if(finContractFile){
     const safe = finContractFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
@@ -46818,7 +46902,11 @@ function finGuessColumns(rows){
   const body = rows.slice(header+1, header+400);
   let desc = findFirst(/^(description|details|item description|work|element)/);
   if(desc<0){ let best=-1; for(let c=0;c<width;c++){ const t = body.reduce((s,r)=>s+(typeof r[c]==='string'?Math.min(60,r[c].trim().length):0),0); if(t>best){ best=t; desc=c; } } }
-  let amount = find(/^(amount|total|£|value|price|sum|cost)/);
+  // A "cost price" column next to a "sell price" column (Coreloops-style exports): read both.
+  const costCol = findFirst(/^(cost price|cost rate|nett cost|net cost|our cost|budget|cost)/);
+  let amount = find(/^(sell|sale)/);
+  if(amount<0) amount = find(/^(amount|total|£|value|price|sum)/);
+  if(amount<0 && costCol<0) amount = find(/^cost/);
   if(amount<0){ let bestN=-1; for(let c=width-1;c>=0;c--){ if(c===desc) continue; const n = body.filter(r=>finNumCell(r[c])).length; if(n>bestN){ bestN=n; amount=c; } } }
   let qty = findFirst(/^(qty|quantity|quant)/), unit = findFirst(/^(unit|units|uom)$/), rate = findFirst(/^(rate|unit rate|£\/unit)/);
   // No headings for them: look for a unit-looking text column and the numbers either side of it.
@@ -46827,7 +46915,7 @@ function finGuessColumns(rows){
   if(unit>=0 && rate<0 && unit+1<width && unit+1!==amount) rate = unit+1;
   let ref = findFirst(/^(ref|item|no\.?|code)$/);
   if(ref<0){ for(let c=0;c<desc;c++){ const n = body.filter(r=>String(r[c]||'').trim().length && String(r[c]).trim().length<=8).length; if(n > body.length*0.3){ ref = c; break; } } }
-  return {header, cols:{desc, ref, qty, unit, rate, amount}};
+  return {header, cols:{desc, ref, qty, unit, rate, amount, cost: costCol!==amount ? costCol : -1}};
 }
 function finImportRows(){
   if(!finImport) return [];
@@ -46842,11 +46930,12 @@ function finImportRows(){
     const qty = c.qty>=0 ? finNumCell(r[c.qty]) : null;
     const rate = c.rate>=0 ? finNumCell(r[c.rate]) : null;
     const unit = c.unit>=0 ? String(r[c.unit]==null?'':r[c.unit]).trim() : '';
+    const cost = c.cost>=0 ? finNumCell(r[c.cost]) : null;
     if(!desc && !amt) return;
     let value = amt;
     if((value===null || value===0) && qty!==null && rate!==null) value = finRound(qty*rate);
     if(value!==null && value!==0){
-      out.push({kind: FIN_TOTAL_RE.test(desc) ? 'skip' : 'item', ref, description:desc||ref, qty, unit, rate, value:finRound(value)});
+      out.push({kind: FIN_TOTAL_RE.test(desc) ? 'skip' : 'item', ref, description:desc||ref, qty, unit, rate, value:finRound(value), cost:cost!=null?finRound(cost):null});
     } else if(desc){
       // No money on the row: a header. Capitals, bold or a whole-number ref → header; otherwise sub-header.
       const top = (desc===desc.toUpperCase() && /[A-Z]/.test(desc)) || (/^[A-Z0-9]{1,3}$/.test(ref));
@@ -46872,7 +46961,7 @@ function finImportShow(){
     <h3>Check the breakdown</h3>
     ${finImport.kind==='sheet' ? `
       <div class="formfield"><label class="field-label">Sheet</label><select onchange="finImportSet('sheet', this.value)">${Object.keys(finImport.sheets).map(n=>`<option ${n===finImport.sheet?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
-      <details class="fincols"><summary>Columns</summary><div class="fingrid3">${colSel('ref','Ref')}${colSel('desc','Description')}${colSel('qty','Quantity')}${colSel('unit','Unit')}${colSel('rate','Rate')}${colSel('amount','Amount')}</div></details>` : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Read from the PDF. Lines ending in an amount are items; short lines in capitals are headers.</p>`}
+      <details class="fincols"><summary>Columns</summary><div class="fingrid3">${colSel('ref','Ref')}${colSel('desc','Description')}${colSel('qty','Quantity')}${colSel('unit','Unit')}${colSel('rate','Rate')}${colSel('amount','Amount (sell)')}${colSel('cost','Cost price')}</div></details>` : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Read from the PDF. Lines ending in an amount are items; short lines in capitals are headers.</p>`}
     <p class="stub" style="margin:6px 0;font-style:normal;" id="finImportSum">${used.length} item${used.length===1?'':'s'} · total <b>${finMoney(total)}</b>. Change any line’s type; totals are skipped so nothing is counted twice.</p>
     <div class="finimport">${rows.length ? rows.map((r,i)=>`<div class="finimport-r k-${r.kind}">
         <select onchange="finImport.preview[${i}].kind=this.value;finImportSync()">${Object.keys(kinds).map(k=>`<option value="${k}" ${r.kind===k?'selected':''}>${kinds[k]}</option>`).join('')}</select>
@@ -46897,12 +46986,12 @@ window.finImportSync = function(){
 };
 window.finImportUse = function(){
   const kept = (finImport.preview||[]).filter(r=>r.kind!=='skip' && !(r.kind==='item' && (r.value===null || r.value===undefined)));
-  finContractRows = kept.map(r=>({kind:r.kind, ref:r.ref||'', description:r.description, qty:r.kind==='item'?(r.qty??null):null, unit:r.kind==='item'?(r.unit||''):'', rate:r.kind==='item'?(r.rate??null):null, value:r.kind==='item'?r.value:null}));
+  finContractRows = kept.map(r=>({kind:r.kind, ref:r.ref||'', description:r.description, qty:r.kind==='item'?(r.qty??null):null, unit:r.kind==='item'?(r.unit||''):'', rate:r.kind==='item'?(r.rate??null):null, value:r.kind==='item'?r.value:null, cost:r.kind==='item' && r.cost!=null ? r.cost : null, cost_basis:'', cost_pct:null, sub:''}));
   // A quantity and rate that don't multiply up to the amount: keep the amount as a lump sum.
   finContractRows.forEach(r=>{ if(r.kind==='item' && r.qty!=null && r.rate!=null && Math.abs(finRound(r.qty*r.rate) - r.value) > 1){ r.qty = null; r.rate = null; } });
   document.getElementById('finImportOverlay').style.display = 'none';
   finContractPaint();
-  toast(kept.length+' lines ready — check them and tap Save breakdown');
+  toast(kept.length+' lines ready — check them and tap Save schedule');
 };
 
 /* ---------------- Applications ---------------- */
@@ -46946,7 +47035,7 @@ window.newFinApplication = async function(siteId){
   if(ins && ins[0]) go(`#/site/${siteId}/finance/application/${ins[0].id}`);
 };
 
-let finApp = null, finAppCtx = null, finAppCollapsed = {};
+let finApp = null, finAppCtx = null, finAppCollapsed = {}, finAppMode = 'pct', finAppValued = false;
 async function renderFinApplication(siteId, appId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -46984,7 +47073,7 @@ async function renderFinApplication(siteId, appId){
     <div class="card finappcard">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <p class="sectiontitle" style="margin:0;">Contract works</p>
-        <span class="stub" style="margin:0;font-style:normal;">${locked ? '' : 'Enter % complete, or the quantity done'}</span>
+        <div class="finapptools" id="finAppTools"></div>
       </div>
       ${!locked && Object.keys(siteProgress).length ? `<div class="finnote ${spAhead?'warn':'ok'}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>${spAhead ? `Site progress is ahead on <b style="display:inline;">${spAhead} line${spAhead===1?'':'s'}</b> (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</span>${spAhead ? `<button class="ghostbtn" style="width:auto;margin:0;padding:7px 12px;" onclick="finAppUseSiteProgress()">Use site progress</button>` : ''}</div>` : ''}
       <div id="finAppLines"></div>
@@ -46995,7 +47084,7 @@ async function renderFinApplication(siteId, appId){
           <div class="finitem-d">${locked ? escapeHtml(v.description) : `<input type="text" value="${escapeHtml(v.description||'')}" placeholder="Variation" oninput="finApp.variations[${i}].description=this.value">`}</div>
           <div class="finitem-in">
             ${locked ? `<span class="finitem-sum">Value ${finMoney(v.value)} · ${finPct(v.pct)}%</span>` : `
-            <label>Value £<input type="text" inputmode="decimal" value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
+            <label>Value £<input type="text" inputmode="decimal" data-money value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
             <label>% done<input type="text" inputmode="decimal" class="finpct" value="${finPct(v.pct)}" oninput="finAppSet('variations',${i},'pct',this.value)"></label>`}
             <b id="finAppG-variations-${i}">—</b>
           </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this project — add them in the project’s Variations register.</p>`}
@@ -47005,7 +47094,7 @@ async function renderFinApplication(siteId, appId){
       <p class="sectiontitle" style="margin-top:0;">Dayworks</p>
       ${(finApp.dayworks||[]).map((d,i)=>`<div class="finitem">
           <div class="finitem-d">${locked ? escapeHtml(d.description) : `<input type="text" value="${escapeHtml(d.description||'')}" placeholder="Description" oninput="finApp.dayworks[${i}].description=this.value">`}</div>
-          <div class="finitem-in">${locked ? '' : `<label>Value £<input type="text" inputmode="decimal" value="${d.value!=null?escapeHtml(String(d.value)):''}" oninput="finAppSet('dayworks',${i},'value',this.value)"></label>`}<b id="finAppG-dayworks-${i}">—</b></div>
+          <div class="finitem-in">${locked ? '' : `<label>Value £<input type="text" inputmode="decimal" data-money value="${d.value!=null?escapeHtml(String(d.value)):''}" oninput="finAppSet('dayworks',${i},'value',this.value)"></label>`}<b id="finAppG-dayworks-${i}">—</b></div>
         </div>`).join('') || `<p class="stub" style="margin:0;font-style:normal;">None.</p>`}
       ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finApp.dayworks.push({description:'',value:null});finAppSaveSoft().then(render)">+ Add daywork</button>`}
     </div>
@@ -47043,20 +47132,45 @@ function finAppPaintLines(){
       html += `<div class="finapphead sub" onclick="finAppToggle(${i})"><span><span class="finarrow">${hiddenSub?'▶':'▼'}</span>${escapeHtml(l.ref?l.ref+' ':'')}${escapeHtml(l.description)}</span><b id="finAppH-${i}"></b></div>`;
       return; }
     if(hiddenSec || hiddenSub) return;
+    if(finAppValued && !finPct(l.pct)) return;
     const hasQty = l.qty!=null && !isNaN(Number(l.qty)) && Number(l.qty)!==0;
     const done = hasQty ? finRound(Number(l.qty)*finPct(l.pct)/100) : null;
+    const gdone = finRound(Number(l.value||0)*finPct(l.pct)/100);
+    const mode = finAppMode==='qty' && !hasQty ? 'pct' : finAppMode;
     html += `<div class="finitem">
       <div class="finitem-d">${escapeHtml(l.ref?l.ref+' · ':'')}${escapeHtml(l.description)}
         <em>${hasQty ? `${finQtyFmt(l.qty)} ${escapeHtml(l.unit||'')} × ${finRateFmt(l.rate)} = ` : (l.unit?escapeHtml(l.unit)+' · ':'')+'Value '}${finMoney(l.value)}${finAppCtx.siteProgress && finAppCtx.siteProgress[l.item_id]!=null ? ` · <span class="finsitepct ${finAppCtx.siteProgress[l.item_id] > finPct(l.pct) ? 'ahead' : ''}">site ${finAppCtx.siteProgress[l.item_id]}%</span>` : ''}</em></div>
       <div class="finitem-in">
         ${locked ? `<span class="finitem-sum">${finPct(l.pct)}%${hasQty?' · '+finQtyFmt(done)+' '+escapeHtml(l.unit||'')+' done':''}</span>` : `
-        <label>% done<input type="text" inputmode="decimal" class="finpct" id="finAppP-${i}" value="${finPct(l.pct)}" oninput="finAppSetLine(${i},'pct',this.value)"></label>
-        ${hasQty ? `<label>${escapeHtml(l.unit||'Qty')} done<input type="text" inputmode="decimal" id="finAppQ-${i}" value="${String(done)}" oninput="finAppSetLine(${i},'qty',this.value)"></label>` : ''}`}
+        ${mode==='pct' ? `<label>% done<input type="text" inputmode="decimal" class="finpct" id="finAppP-${i}" value="${finPct(l.pct)}" oninput="finAppSetLine(${i},'pct',this.value)"></label>` : ''}
+        ${mode==='gbp' ? `<label>£ to date<input type="text" inputmode="decimal" data-money id="finAppM-${i}" value="${gdone}" oninput="finAppSetLine(${i},'gbp',this.value)"></label>` : ''}
+        ${mode==='qty' || (mode==='pct' && hasQty) ? `<label>${escapeHtml(l.unit||'Qty')} done<input type="text" inputmode="decimal" id="finAppQ-${i}" value="${String(done)}" oninput="finAppSetLine(${i},'qty',this.value)"></label>` : ''}
+        <span class="finitem-sum" id="finAppS-${i}">${finAppLineSum(l, mode)}</span>`}
         <b id="finAppG-lines-${i}">—</b>
       </div></div>`;
   });
-  el.innerHTML = html;
+  el.innerHTML = html || `<div class="empty" style="margin:8px 0 0;">${finAppValued ? 'Nothing valued yet.' : 'No lines.'}</div>`;
+  finAppToolsPaint();
 }
+function finAppLineSum(l, mode){
+  const hasQty = l.qty!=null && !isNaN(Number(l.qty)) && Number(l.qty)!==0;
+  const p = finPct(l.pct), g = finRound(Number(l.value||0)*p/100);
+  const bits = [];
+  if(mode!=='pct') bits.push(p+'%');
+  if(mode!=='gbp') bits.push(finMoney(g));
+  if(hasQty && mode==='gbp') bits.push(finQtyFmt(finRound(Number(l.qty)*p/100))+' '+escapeHtml(l.unit||''));
+  return bits.join(' · ');
+}
+function finAppToolsPaint(){
+  const el = document.getElementById('finAppTools'); if(!el) return;
+  const secs = (finApp.lines||[]).map((l,i)=>l.kind==='section'||l.kind==='subsection' ? i : -1).filter(i=>i>-1);
+  const allShut = secs.length && secs.every(i=>finAppCollapsed[i]);
+  el.innerHTML = `${finAppCtx.locked ? '' : `<div class="finseg" role="tablist" title="Enter by"><button type="button" class="${finAppMode==='pct'?'on':''}" onclick="finAppSetMode('pct')">%</button><button type="button" class="${finAppMode==='gbp'?'on':''}" onclick="finAppSetMode('gbp')">£</button><button type="button" class="${finAppMode==='qty'?'on':''}" onclick="finAppSetMode('qty')">Qty</button></div>`}
+    <label class="finswitch" style="margin:0;"><input type="checkbox" ${finAppValued?'checked':''} onchange="finAppValued=this.checked;finAppPaintLines();finAppPaint()"> Valued only</label>
+    ${secs.length ? `<button type="button" class="linkbtn" onclick="finAppCollapseAll(${allShut?'false':'true'})">${allShut?'Expand all':'Collapse all'}</button>` : ''}`;
+}
+window.finAppSetMode = function(m){ finAppMode = m; finAppPaintLines(); finAppPaint(); };
+window.finAppCollapseAll = function(shut){ (finApp.lines||[]).forEach((l,i)=>{ if(l.kind==='section'||l.kind==='subsection') finAppCollapsed[i] = !!shut; }); finAppPaintLines(); finAppPaint(); };
 window.finAppToggle = function(i){ finAppCollapsed[i] = !finAppCollapsed[i]; finAppPaintLines(); finAppPaint(); };
 window.finAppFillGroup = function(i, pct){
   const lines = finApp.lines; const level = lines[i].kind;
@@ -47069,13 +47183,17 @@ window.finAppFillGroup = function(i, pct){
 };
 window.finAppSetLine = function(i, key, v){
   const l = finApp.lines[i];
-  if(key==='pct'){
+  if(key==='gbp'){
+    const n = finNum(v), val = Number(l.value||0);
+    if(val && n!==null && !isNaN(n)) l.pct = finPct(n/val*100);
+  } else if(key==='pct'){
     l.pct = finPct(v);
     const q = document.getElementById('finAppQ-'+i); if(q && l.qty) q.value = finRound(Number(l.qty)*l.pct/100);
   } else {
     const n = finNum(v); const tot = Number(l.qty||0);
     if(tot && n!==null && !isNaN(n)){ l.pct = finPct(n/tot*100); const p = document.getElementById('finAppP-'+i); if(p) p.value = l.pct; }
   }
+  const sEl = document.getElementById('finAppS-'+i); if(sEl) sEl.innerHTML = finAppLineSum(l, finAppMode);
   finAppPaint();
 };
 window.finAppSet = function(path, i, key, v){
@@ -47277,6 +47395,69 @@ window.sendFinAppEmail = async function(siteId, appId){
   finApp = null; toast('Application emailed'); render();
 };
 
+/* ---------- cost price per line: % margin / mark-up, manual, bulk (Andy, 20 Oct) ---------- */
+// margin m% of the sale price: cost = sale × (1 − m/100). mark-up k% on cost: cost = sale ÷ (1 + k/100).
+function finCostFromPct(sale, basis, pct){
+  const s = Number(sale), p = Number(pct); if(isNaN(s) || isNaN(p)) return null;
+  return finRound(basis==='markup' ? s/(1+p/100) : s*(1-p/100));
+}
+function finContractMgTxt(r){
+  const v = Number(finItemValue(r)), c = r.cost;
+  if(c==null || isNaN(c) || !v) return '';
+  const m = (v-c)/v*100, k = c ? (v-c)/c*100 : null;
+  return `<span class="${m<0?'neg':''}">Margin ${finPctTxt(finRound(m))}${k!=null?' · mark-up '+finPctTxt(finRound(k)):''}</span>${r.cost_basis && r.cost_pct!=null ? ` <em>(set at ${finRound(r.cost_pct)}% ${r.cost_basis==='markup'?'mark-up':'margin'})</em>` : ''}`;
+}
+window.finContractSetCost = function(i, v){
+  const r = finContractRows[i]; const n = finNum(v);
+  r.cost = (n===null || isNaN(n)) ? null : n; r.cost_basis = ''; r.cost_pct = null; // typed by hand
+  const mg = document.getElementById('finCMg-'+i); if(mg) mg.innerHTML = finContractMgTxt(r);
+  finContractPaintTotal();
+};
+function finContractGroupRange(i){
+  const rows = finContractRows, level = rows[i].kind, out = [];
+  for(let j=i+1;j<rows.length;j++){ const k = rows[j].kind; if(k==='section' || (level==='subsection' && k==='subsection')) break; if(finIsItem(rows[j])) out.push(j); }
+  return out;
+}
+function finContractGroupTicked(i){ const r = finContractGroupRange(i); return r.length>0 && r.every(j=>finContractRows[j]._sel); }
+window.finContractTick = function(i, on){ finContractRows[i]._sel = !!on; finContractPaint(); };
+window.finContractTickGroup = function(i, on){ finContractGroupRange(i).forEach(j=>finContractRows[j]._sel = !!on); finContractPaint(); };
+window.finContractTickAll = function(on){ finContractRows.forEach(r=>{ if(finIsItem(r)) r._sel = !!on; }); finContractPaint(); };
+function finContractSelIdx(){ return finContractRows.map((r,i)=>r._sel && finIsItem(r) ? i : -1).filter(i=>i>-1); }
+window.finContractApplyPct = function(onlyTicked){
+  const pct = finNum(finVal('finCtPct')), basis = finVal('finCtBasis') || 'margin';
+  if(pct===null || isNaN(pct) || pct<0 || (basis==='margin' && pct>=100)){ toast(basis==='margin' ? 'Enter a margin between 0 and 99%.' : 'Enter a mark-up %.'); return; }
+  const idx = onlyTicked ? finContractSelIdx() : finContractRows.map((r,i)=>finIsItem(r)?i:-1).filter(i=>i>-1);
+  if(!idx.length){ toast(onlyTicked ? 'Tick some lines first.' : 'No lines yet.'); return; }
+  let n = 0;
+  idx.forEach(i=>{ const r = finContractRows[i]; const v = finItemValue(r); if(v==null) return; r.cost_basis = basis; r.cost_pct = pct; r.cost = finCostFromPct(v, basis, pct); n++; });
+  finContractPaint();
+  toast(n+' line'+(n===1?'':'s')+' costed at '+pct+'% '+(basis==='markup'?'mark-up':'margin')+' — save to keep it');
+};
+window.finContractBulk = async function(action){
+  const idx = finContractSelIdx(); if(!idx.length) return;
+  if(action==='clear'){ idx.forEach(i=>{ const r = finContractRows[i]; r.cost = null; r.cost_basis = ''; r.cost_pct = null; }); }
+  else if(action==='plot'){ const v = finVal('finCtBulkPlot'); idx.forEach(i=>finContractRows[i].sub = v); }
+  else if(action==='unit'){ const u = await customPrompt('Unit for the ticked lines (e.g. m², nr, item)'); if(u===null) return; idx.forEach(i=>finContractRows[i].unit = String(u).trim()); }
+  else if(action==='remove'){ if(!(await customConfirm('Remove '+idx.length+' ticked line'+(idx.length===1?'':'s')+'?'))) return; idx.slice().reverse().forEach(i=>finContractRows.splice(i,1)); }
+  finContractPaint();
+};
+function finContractBulkPaint(){
+  const el = document.getElementById('finCtBulk'); const btn = document.getElementById('finCtSelBtn');
+  const idx = finContractSelIdx(); const items = finContractRows.filter(finIsItem).length;
+  if(btn){ btn.disabled = !idx.length; btn.textContent = idx.length ? 'Apply to '+idx.length+' ticked' : 'Apply to ticked'; }
+  if(!el) return;
+  const subs = FIN_SUBJOBS[finContractSite] || [];
+  el.style.display = 'flex';
+  el.innerHTML = idx.length ? `<b>${idx.length} ticked</b>
+    <button class="linkbtn" onclick="document.getElementById('finCtPct').focus()">Margin / mark-up ↑</button>
+    ${subs.length ? `<span class="finbulk-plot"><select id="finCtBulkPlot"><option value="">No plot</option>${subs.map(a=>`<option value="${a.id}">${escapeHtml(a.short)}</option>`).join('')}</select><button class="linkbtn" onclick="finContractBulk('plot')">Set plot</button></span>` : ''}
+    <button class="linkbtn" onclick="finContractBulk('unit')">Set unit</button>
+    <button class="linkbtn" onclick="finContractBulk('clear')">Clear costs</button>
+    <button class="linkbtn" style="color:var(--red);" onclick="finContractBulk('remove')">Remove</button>
+    <button class="linkbtn" onclick="finContractTickAll(false)">Untick all</button>`
+    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a header) to change them together.</span>` : '');
+}
+
 /* ================= OpHUB FINANCE — A3 Payment certificates + A4 Retention =================
    A3: the client's certificate (or pay-less notice) is recorded against its
    application: total certified, retention, previously certified, discount,
@@ -47297,11 +47478,11 @@ function finCertSlotRender(a){
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When the client’s certificate (or pay-less notice) comes back, enter its figures. They start as what you applied for.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Certificate date</label><input type="date" id="finCertDate" value="${finToday()}"></div>
-        <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" id="finCertDisc" value="0" oninput="finCertCalc()"></div>
-        <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" id="finCertNet" value="${finRound(a.net_due)}"></div>
+        <div class="formfield"><label class="field-label">Total certified to date (£)</label><input type="text" inputmode="decimal" data-money id="finCertGross" value="${finRound(a.gross)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Retention held (£)</label><input type="text" inputmode="decimal" data-money id="finCertRet" value="${finRound(a.retention)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Previously certified (£)</label><input type="text" inputmode="decimal" data-money id="finCertPrev" value="${finRound(appliedPrev)}" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Discount, if any (£)</label><input type="text" inputmode="decimal" data-money id="finCertDisc" value="0" oninput="finCertCalc()"></div>
+        <div class="formfield"><label class="field-label">Net due (£)</label><input type="text" inputmode="decimal" data-money id="finCertNet" value="${finRound(a.net_due)}"></div>
       </div>
       <label class="finswitch"><input type="checkbox" id="finCertPayless"> This is a pay-less notice</label>
       <div class="formfield"><label class="field-label">Copy of the certificate (optional)</label><input type="file" accept="application/pdf,image/*" onchange="finCertFile=this.files[0]||null"></div>
@@ -47335,7 +47516,7 @@ function finCertSlotRender(a){
 window.finCertCalc = function(){
   const g = finNum(finVal('finCertGross'))||0, r = finNum(finVal('finCertRet'))||0, p = finNum(finVal('finCertPrev'))||0, d = finNum(finVal('finCertDisc'))||0;
   const net = finRound(g - r - p - d);
-  const el = document.getElementById('finCertNet'); if(el) el.value = net;
+  const el = document.getElementById('finCertNet'); if(el) finSetMoney(el, net);
   const a = finApp || {};
   const diffEl = document.getElementById('finCertDiff');
   if(diffEl && a.net_due!=null){ const diff = finRound(net - Number(a.net_due)); diffEl.innerHTML = diff ? `<b style="color:${diff<0?'var(--red)':'var(--ok)'};">${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> compared with the ${finMoney(a.net_due)} applied for.` : 'Matches what was applied for.'; }
@@ -47582,7 +47763,7 @@ async function renderFinPo(siteId, poId){
     </div>
     ${po.status!=='cancelled' ? `<div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
-        <div class="row-gap"><input type="text" inputmode="decimal" id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
+        <div class="row-gap"><input type="text" inputmode="decimal" data-money id="finPoValue" value="${po.value!=null?escapeHtml(String(po.value)):''}" placeholder="From the supplier’s quote or price list" style="flex:1;"><button class="darkbtn" style="width:auto;flex:none;" onclick="saveFinPoValue('${po.id}')">Save</button></div>
       </div>
       <p class="stub" style="margin:6px 0 0;font-style:normal;">${po.value_estimated && po.value!=null ? '<b style="color:var(--warn);">Estimate</b> — some items are priced from the price book or not priced yet. ' : ''}${po.source==='finance' ? 'Set from the priced items; change it if the supplier’s price changes.' : 'Priced from the shopping list or price book where possible; upload the supplier’s quote to price it properly, or the invoice will price it when it arrives.'} Invoices over this value are flagged.</p>
       <label class="ghostbtn" style="width:100%;margin-top:10px;cursor:pointer;">Price from a supplier quote (PDF, photo or Excel)<input type="file" accept=".pdf,image/*,.xlsx,.xls,.csv" style="display:none;" onchange="finPoFromQuote('${siteId}','${po.id}',this)"></label>
@@ -47641,10 +47822,10 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
       <div class="formfield"><label class="field-label">${receipt?'Receipt / ref no.':'Invoice number'}</label><input type="text" id="finPiNo"></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPiDate" value="${finToday()}"></div>
       <div class="formfield"><label class="field-label">Due date (blank = 30 days)</label><input type="date" id="finPiDue"></div>
-      <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" id="finPiNet" oninput="finPiCalc('net')"></div>
-      <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" id="finPiVat" oninput="finPiCalc('vat')"></div>
+      <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" data-money id="finPiNet" oninput="finPiCalc('net')"></div>
+      <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" data-money id="finPiVat" oninput="finPiCalc('vat')"></div>
     </div>
-    <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" id="finPiTotal" oninput="finPiCalc('total')"></div>
+    <div class="formfield"><label class="field-label">Total (£)</label><input type="text" inputmode="decimal" data-money id="finPiTotal" oninput="finPiCalc('total')"></div>
     <div class="formfield"><label class="field-label">What it’s for (optional)</label><input type="text" id="finPiDesc" placeholder="e.g. battens, fixings"></div>
     ${finSubJobSelectHtml('finPiSub', siteId, '', finSubNoun(siteId)+(receipt ? '' : ' (blank = same as the PO)'))}
     <div class="formfield"><label class="field-label">Cost type</label><select id="finPiCat">${Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}">${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
@@ -47661,7 +47842,7 @@ let finPiLast = 'net';
 window.finPiCalc = function(which){
   finPiLast = which;
   const n = finNum(finVal('finPiNet')), v = finNum(finVal('finPiVat')), t = finNum(finVal('finPiTotal'));
-  const set = (id, x)=>{ const el = document.getElementById(id); if(el) el.value = x; };
+  const set = (id, x)=>{ const el = document.getElementById(id); if(el) finSetMoney(el, x); };
   if(which==='net' && n!==null && !isNaN(n)){ const vat = finRound(n*0.2); set('finPiVat', vat); set('finPiTotal', finRound(n+vat)); }
   else if(which==='vat' && n!==null && !isNaN(n) && v!==null && !isNaN(v)){ set('finPiTotal', finRound(n+v)); }
   else if(which==='total' && t!==null && !isNaN(t) && (n===null || isNaN(n))){ const net = finRound(t/1.2); set('finPiNet', net); set('finPiVat', finRound(t-net)); }
@@ -47858,7 +48039,7 @@ window.openFinManualLabour = async function(siteId, date){
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finLabDate" value="${date||finToday()}"></div>
       <div class="formfield"><label class="field-label">Days</label><input type="text" inputmode="decimal" id="finLabDays" oninput="finLabAuto()"></div>
     </div>
-    <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" id="finLabAmt"></div>
+    <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" data-money id="finLabAmt"></div>
     <div class="formfield"><label class="field-label">What for</label><input type="text" id="finLabDesc" placeholder="e.g. price work, lead to valleys"></div>
     ${siteId ? finSubJobSelectHtml('finLabSub', siteId, '') : ''}
     <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId||''}')">Save</button>
@@ -47869,7 +48050,7 @@ window.openFinManualLabour = async function(siteId, date){
 window.finLabAuto = function(){
   const who = finVal('finLabWho'), days = finNum(finVal('finLabDays'));
   const r = (window.__finLabRates||{})[who];
-  if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) el.value = finRound(days*Number(r.day_rate)); }
+  if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) finSetMoney(el, finRound(days*Number(r.day_rate))); }
 };
 window.saveFinManualLabour = async function(siteId){
   if(!siteId){ siteId = finVal('finLabJob'); if(!siteId){ toast('Choose the project.'); return; } }
@@ -47914,7 +48095,7 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Hire ref / contract no.</label><input type="text" id="finPlRef" value="${escapeHtml(h&&h.hire_ref||'')}"></div>
       <div class="formfield"><label class="field-label">On hire</label><input type="date" id="finPlOn" value="${h?h.on_hire:finToday()}"></div>
       <div class="formfield"><label class="field-label">Off hire</label><input type="date" id="finPlOff" value="${h&&h.off_hire||''}"></div>
-      <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" id="finPlRate" value="${h?h.rate:''}"></div>
+      <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" data-money id="finPlRate" value="${h?h.rate:''}"></div>
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
@@ -48031,11 +48212,11 @@ async function renderFinSubPayment(id){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Labour</p>
       ${finPay.lines.map((l,i)=>{ const st = SITES.find(x=>x.id===l.site_id)||{}; return `<div class="finitem"><div class="finitem-d">${escapeHtml((st.job_number?st.job_number+' · ':'')+(st.name||l.description||'Labour'))}</div>
-        <div class="finitem-in">${locked ? `<span class="finitem-sum">${l.days} day${l.days==1?'':'s'} × ${finMoney(l.rate)}</span>` : `<label>Days<input type="text" inputmode="decimal" value="${l.days}" oninput="finPaySet(${i},'days',this.value)"></label><label>Rate £<input type="text" inputmode="decimal" value="${l.rate}" oninput="finPaySet(${i},'rate',this.value)"></label>`}<b id="finPayL-${i}">${finMoney(l.amount)}</b></div></div>`; }).join('')}
+        <div class="finitem-in">${locked ? `<span class="finitem-sum">${l.days} day${l.days==1?'':'s'} × ${finMoney(l.rate)}</span>` : `<label>Days<input type="text" inputmode="decimal" value="${l.days}" oninput="finPaySet(${i},'days',this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate}" oninput="finPaySet(${i},'rate',this.value)"></label>`}<b id="finPayL-${i}">${finMoney(l.amount)}</b></div></div>`; }).join('')}
     </div>
     <div class="card">
       <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Materials they supplied (£, no CIS)</label><input type="text" inputmode="decimal" id="finPayMat" value="${finPay.materials||0}" ${locked?'disabled':''} oninput="finPay.materials=finNum(this.value)||0;finPayPaint()"></div>
+        <div class="formfield"><label class="field-label">Materials they supplied (£, no CIS)</label><input type="text" inputmode="decimal" data-money id="finPayMat" value="${finPay.materials||0}" ${locked?'disabled':''} oninput="finPay.materials=finNum(this.value)||0;finPayPaint()"></div>
         <div class="formfield"><label class="field-label">CIS rate</label><select id="finPayCis" ${locked?'disabled':''} onchange="finPay.cis_rate=+this.value;finPayPaint()">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(finPay.cis_rate)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       <div id="finPaySum"></div>
@@ -48092,7 +48273,7 @@ async function renderFinLabourRates(){
         ${isW ? `<div class="formfield"><label class="field-label">Name</label><input type="text" data-k="name" value="${escapeHtml(r.name||'')}"></div>
         <div class="formfield"><label class="field-label">Email (for statements)</label><input type="email" data-k="email" value="${escapeHtml(r.email||'')}"></div>` : ''}
         <div class="formfield"><label class="field-label">Pay</label><select data-k="pay_type"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>Subcontractor</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE</option></select></div>
-        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
+        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
         <div class="formfield"><label class="field-label">CIS</label><select data-k="cis_rate">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
         <div class="formfield"><label class="field-label">UTR</label><input type="text" data-k="utr" value="${escapeHtml(r.utr||'')}"></div>
         <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>
@@ -48318,9 +48499,9 @@ function finInboxCardHtml(it, pos, sites){
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" data-k="supplier" value="${v(ex.supplier)}"></div>
       <div class="formfield"><label class="field-label">Invoice no.</label><input type="text" data-k="invoice_no" value="${v(ex.invoice_no)}"></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" data-k="date" value="${v(ex.date)}"></div>
-      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-k="net" value="${v(ex.net)}"></div>
-      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-k="vat" value="${v(ex.vat)}"></div>
-      <div class="formfield"><label class="field-label">Total £</label><input type="text" inputmode="decimal" data-k="total" value="${v(ex.total)}"></div>
+      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-money data-k="net" value="${v(ex.net)}"></div>
+      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-money data-k="vat" value="${v(ex.vat)}"></div>
+      <div class="formfield"><label class="field-label">Total £</label><input type="text" inputmode="decimal" data-money data-k="total" value="${v(ex.total)}"></div>
       <div class="formfield"><label class="field-label">Project</label><select data-k="site_id" onchange="finInboxPickJob('${it.id}', this.value)"><option value="">Choose the project…</option>${sites.map(s=>`<option value="${s.id}" ${it.site_id===s.id?'selected':''}>${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">PO</label><select data-k="po_id"><option value="">No PO</option>${posFor.map(p=>`<option value="${p.id}" ${it.po_id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select></div>
     </div>
@@ -48848,7 +49029,7 @@ function finNpoPaint(){
     <div class="finitem-in">
       <label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
       <label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m2, nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
-      <label>Rate £<input type="text" inputmode="decimal" value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
+      <label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
       <b id="finNpoL-${i}">${finMoney(l.amount)}</b>
       ${finNewPo.lines.length>1 ? `<button class="linkbtn" onclick="finNpoDel(${i})">✕</button>` : ''}
     </div></div>`).join('');
@@ -49150,8 +49331,8 @@ window.openFinJobCost = async function(siteId, id){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" id="finJcSup" value="${escapeHtml(x&&x.supplier||'')}"></div>
       <div class="formfield"><label class="field-label">Ref</label><input type="text" id="finJcRef" value="${escapeHtml(x&&x.ref||'')}"></div>
-      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" id="finJcNet" value="${x?x.net:''}"></div>
-      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" id="finJcVat" value="${x?x.vat:''}"></div>
+      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-money id="finJcNet" value="${x?x.net:''}"></div>
+      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-money id="finJcVat" value="${x?x.vat:''}"></div>
     </div>
     <button class="darkbtn" style="width:100%;" onclick="saveFinJobCost('${siteId}','${x?x.id:''}')">Save</button>
     ${x ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finJcOverlay').style.display='none';openFinSplit('fin_job_costs','${x.id}')">Split across ${FIN_SUBJOBS[siteId]&&FIN_SUBJOBS[siteId].length?escapeHtml(finSubNoun(siteId, true).toLowerCase())+' / ':''}projects</button>` : ''}
@@ -49195,8 +49376,8 @@ window.finCostExportXlsx = async function(){
   ws.getCell('A2').value = (ORG&&ORG.name||'')+(finCosts.sub ? ' · '+(finCosts.sub==='none' ? 'Not allocated' : finSubLabel(finCosts.siteId, finCosts.sub)) : '')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · exported '+finDate(finToday())+' · excl. VAT';
   const head = ['Date','Type','Description','Supplier / person','Ref','Status','Net £', finCosts.hasSubs ? finSubNoun(finCosts.siteId) : null].filter(Boolean);
   ws.getRow(4).values = head; ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
-  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)].concat(finCosts.hasSubs ? [l.sub ? finSubLabel(finCosts.siteId, l.sub) : 'Not allocated'] : []); r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '#,##0.00'; });
-  const tr = ws.getRow(5+rows.length); tr.getCell(6).value = 'Total'; tr.getCell(7).value = rows.length ? {formula:`SUM(G5:G${4+rows.length})`} : 0; tr.font = {bold:true}; tr.getCell(7).numFmt = '#,##0.00';
+  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)].concat(finCosts.hasSubs ? [l.sub ? finSubLabel(finCosts.siteId, l.sub) : 'Not allocated'] : []); r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '£#,##0.00'; });
+  const tr = ws.getRow(5+rows.length); tr.getCell(6).value = 'Total'; tr.getCell(7).value = rows.length ? {formula:`SUM(G5:G${4+rows.length})`} : 0; tr.font = {bold:true}; tr.getCell(7).numFmt = '£#,##0.00';
   [12,14,48,26,20,14,14,30].forEach((w,i)=>ws.getColumn(i+1).width = w);
   ws.autoFilter = {from:'A4', to:finCosts.hasSubs ? 'H4' : 'G4'};
   const buf = await wb.xlsx.writeBuffer();
@@ -49253,7 +49434,7 @@ async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
   // Rows that can be split across projects are also fetched when another project's row has a share here.
   const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
-  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos] = await Promise.all([
+  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items] = await Promise.all([
     dbSelect('job_finance', f),
     dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
     dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
@@ -49269,9 +49450,10 @@ async function finLoadBook(siteId){
     dbSelect('fin_sub_apps', f+'&order=number.asc'),
     finLoadRates(),
     dbSelect('client_pos', f+'&order=is_primary.desc,created_at.asc'),
+    dbSelect('fin_contract_items', f+'&select=id,site_id,kind,value,cost,sub_job_id,position&order=position.asc&limit=20000'),
   ]);
   await loadAllProfiles();
-  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos};
+  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items};
 }
 function finBy(arr, siteId){ return (arr||[]).filter(x=>x.site_id===siteId); }
 
@@ -49357,11 +49539,30 @@ function finJobForecast(b, siteId){
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void');
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
   const owed = finRound(invs.reduce((t,i)=>t+finInvOutstanding(i),0));
-  const costToDate = sum(actual), committedTotal = sum(committed), forecastCost = sum(forecast);
+  const costToDate = sum(actual), committedTotal = sum(committed);
+  let forecastCost = sum(forecast);
+  // Budget: the category budgets if any are set, otherwise the priced schedule's cost prices
+  // (plus the cost estimate of variations agreed / submitted).
+  const schedItems = finBy(b.items, siteId).filter(i=>!i.kind || i.kind==='item');
+  const schedCosted = schedItems.filter(i=>i.cost!=null);
+  const schedCost = finRound(schedCosted.reduce((t,i)=>t+Number(i.cost||0),0));
+  const varCost = finRound(vars.filter(v=>['agreed','priced','submitted'].includes(v.status)).reduce((t,v)=>t+Number(v.cost_estimate||0),0));
+  const catBudget = cats.some(k=>budget[k]!=null);
+  let budgetTotal = catBudget ? sum(budget) : null, budgetSource = catBudget ? 'categories' : null, toCompleteSched = 0;
+  if(!catBudget && schedCosted.length){
+    budgetTotal = finRound(schedCost + varCost); budgetSource = 'schedule';
+    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal));
+    forecastCost = finRound(forecastCost + toCompleteSched);
+  }
+  const sales = finBillingType(jf, schedItems.length, apps.length)==='invoice' ? invoiced : valuation;
+  const ov = jf.original_value!=null ? Number(jf.original_value) : null, oc = jf.original_cost!=null ? Number(jf.original_cost) : null;
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   return {lines, cats, actual, committed, budget, toComplete, tcSet, forecast, jf, contract, vAgreed, vPending, vInstructed, ffa,
     valuation, certified, invoiced, owed, retHeld, costToDate, committedTotal, forecastCost,
-    budgetTotal: cats.some(k=>budget[k]!=null) ? sum(budget) : null,
+    budgetTotal, budgetSource, schedCost, schedCostedN:schedCosted.length, schedItemsN:schedItems.length, varCost, toCompleteSched, sales,
+    salesMargin: finRound(sales - costToDate), salesMarginPct: sales ? finRound((sales-costToDate)/sales*100) : null,
+    origValue:ov, origCost:oc, origMargin: ov!=null && oc!=null ? finRound(ov-oc) : null, origMarginPct: ov && oc!=null ? finRound((ov-oc)/ov*100) : null,
+    forecastBudget: budgetTotal,
     marginToDate: finRound(valuation - costToDate), marginToDatePct: valuation ? finRound((valuation-costToDate)/valuation*100) : null,
     forecastMargin: finRound(ffa - forecastCost), forecastMarginPct: ffa ? finRound((ffa-forecastCost)/ffa*100) : null};
 }
@@ -49387,25 +49588,45 @@ function finJobCostCardFromForecast(siteId, fc){
   </div>`;
 }
 function finForecastCardHtml(siteId, fc){
-  const m = fc.forecastMargin, col = m<0 ? 'var(--red)' : 'var(--ok)';
+  const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
+  const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
+  const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
+  const tile = (label, val, foot, extra, style)=>`<div class="fintile"><span class="fintile-l">${label}</span><b style="${style||''}">${val}</b>${extra||''}<span class="fintile-f">${foot}</span></div>`;
+  const salesP = fc.ffa ? finRound(fc.sales/fc.ffa*100) : null;
+  const costP = fc.budgetTotal ? finRound(fc.costToDate/fc.budgetTotal*100) : null;
+  const noOrig = fc.origValue==null && fc.origCost==null;
   return `<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-      <p class="sectiontitle" style="margin:0;">Final account &amp; forecast</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <p class="sectiontitle" style="margin:0;">Project summary</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/variations')">Variations</button>
-        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/budget')">Budget &amp; forecast ›</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/monthly')">Monthly report</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/variations')">Variations</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/budget')">Budget ›</button>
       </div>
     </div>
-    <div class="fincost">
-      <div><span>Contract</span><b>${finMoney(fc.contract, 0)}</b></div>
-      <div><span>Variations agreed</span><b>${finMoney(fc.vAgreed, 0)}</b>${fc.vPending?`<em>+ ${finMoney(fc.vPending, 0)} submitted, not agreed</em>`:''}</div>
-      <div><span>Forecast final account</span><b>${finMoney(fc.ffa, 0)}</b></div>
-      <div><span>Forecast final cost</span><b>${finMoney(fc.forecastCost, 0)}</b>${fc.budgetTotal==null?`<em style="color:var(--slate);">No budget set yet</em>`:''}</div>
+    <div class="fintiles">
+      ${tile('Forecast value', finMoney(fc.ffa, 0), 'Original '+(fc.origValue!=null?finMoney(fc.origValue, 0):'—'), diff(fc.ffa, fc.origValue))}
+      ${tile('Forecast budget', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? 'No budget yet' : 'Original '+(fc.origCost!=null?finMoney(fc.origCost, 0):'—')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
+      ${tile('Forecast margin', finMoney(fc.forecastMargin, 0), 'Original '+(fc.origMargin!=null?finMoney(fc.origMargin, 0):'—'), diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))}
+      ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
+      ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
+      ${tile('Margin to date', finMoney(fc.salesMargin, 0), 'Value less cost so far', '', pctCol(fc.salesMargin))}
+      ${tile('Margin to date %', finPctTxt(fc.salesMarginPct), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(fc.salesMarginPct))}
     </div>
-    <div class="finkv big" style="margin-top:8px;"><span>Forecast margin</span><b style="color:${col};">${finMoney(m, 0)} · ${finPctTxt(fc.forecastMarginPct)}</b></div>
-    <div class="finkv"><span>Valuation to date less costs to date</span><b>${finMoney(fc.marginToDate, 0)} · ${finPctTxt(fc.marginToDatePct)}</b></div>
+    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
+    ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`
+      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Original set ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Reset original to today</button></b></div>`}
+    ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} schedule line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 }
+window.finSetOriginal = async function(siteId){
+  const b = await finLoadBook(siteId); const fc = finJobForecast(b, siteId);
+  if(!(await customConfirm(`Set the original to today’s figures?\n\nValue ${finMoney(fc.ffa)} · budget ${fc.budgetTotal!=null?finMoney(fc.budgetTotal):'none'}`))) return;
+  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, original_value:fc.ffa, original_cost:fc.budgetTotal, original_at:new Date().toISOString(), updated_at:new Date().toISOString(), updated_by:ME.id})});
+  if(!res.ok){ toast('Could not save — '+(await safeErr(res))); return; }
+  toast('Original set'); render();
+};
 
 /* ---------- Budget & forecast page ---------- */
 let finBud = null;
@@ -49417,7 +49638,7 @@ async function renderFinBudget(siteId){
   if(__gen !== RENDER_GEN) return;
   const fc = finJobForecast(b, siteId);
   finBud = {siteId, fc};
-  const cell = (k, f)=>`<input type="text" inputmode="decimal" data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? String(fc.toComplete[k]||0) : '0'}" oninput="finBudPaint()">`;
+  const cell = (k, f)=>`<input type="text" inputmode="decimal" data-money data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? finMoneyIn(fc.toComplete[k]||0) : '£0.00'}" oninput="finBudPaint()">`;
   document.getElementById('app').innerHTML = shell(`
     <div class="pmstats finstats">
       <div class="pmstat"><b>${finMoney(fc.ffa, 0)}</b><span>Forecast final account</span></div>
@@ -49425,6 +49646,7 @@ async function renderFinBudget(siteId){
       <div class="pmstat"><b id="finBudFm">${finMoney(fc.forecastMargin, 0)}</b><span>Forecast margin</span></div>
       <div class="pmstat"><b id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</b><span>Forecast margin %</span></div>
     </div>
+    ${fc.budgetSource==='schedule' ? `<div class="finnote ok">The budget is coming from the cost prices on the priced schedule of works: <b style="display:inline;">${finMoney(fc.schedCost)}</b>${fc.varCost?' + '+finMoney(fc.varCost)+' variation costs':''}. Type budgets by cost type below only if you want to split it up instead.</div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Value</p>
       <div class="finkv"><span>Contract value</span><b>${finMoney(fc.contract)}</b></div>
@@ -49475,7 +49697,7 @@ window.finBudPaint = function(){
     const f = document.getElementById('finBudF-'+k); if(f) f.textContent = finMoney(x.forecast);
     const v = document.getElementById('finBudV-'+k); if(v){ if(x.budget==null){ v.textContent = '—'; v.style.color = ''; } else { const d = finRound(x.budget - x.forecast); v.textContent = (d<0?'over ':'under ')+finMoney(Math.abs(d)); v.style.color = d<0 ? 'var(--red)' : 'var(--ok)'; } }
     const tcIn = document.querySelector(`.finbudtbl input[data-c="${k}"][data-k="to_complete"]`);
-    if(tcIn && x.to_complete==null) tcIn.placeholder = String(x.tcEff);
+    if(tcIn && x.to_complete==null) tcIn.placeholder = finMoneyIn(x.tcEff);
   });
   const set = (id, t, c)=>{ const el = document.getElementById(id); if(el){ el.textContent = t; if(c!==undefined) el.style.color = c; } };
   set('finBudTB', anyB ? finMoney(tb) : '—'); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
@@ -49488,6 +49710,10 @@ window.saveFinBudget = async function(siteId){
   const rows = Object.keys(r).map(k=>({org_id:ME.org_id, site_id:siteId, category:k, budget:r[k].budget, to_complete:r[k].to_complete, updated_at:new Date().toISOString(), updated_by:ME.id}));
   const res = await sbFetch('/rest/v1/fin_job_budgets?on_conflict=site_id,category', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(rows)});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  // First budget on an invoice project becomes the original budget.
+  const jfNow = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const tot = finRound(Object.values(r).reduce((t,x)=>t+(Number(x.budget)||0),0));
+  if(jfNow.original_cost==null && tot) await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, original_cost:tot, original_value:jfNow.original_value!=null?jfNow.original_value:(jfNow.contract_value!=null?Number(jfNow.contract_value):null), original_at:jfNow.original_at||new Date().toISOString()})});
   toast('Budget & forecast saved'); render();
 };
 
@@ -49563,10 +49789,10 @@ window.openFinVariation = async function(siteId, id){
       <div class="formfield"><label class="field-label">Instruction ref (AI / CVI no.)</label><input type="text" id="finVaRef" value="${val('instruction_ref')}"></div>
       <div class="formfield"><label class="field-label">Instructed on</label><input type="date" id="finVaOn" value="${v&&v.instructed_on||finToday()}"></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finVaStatus">${Object.keys(FIN_VAR_STATUS).map(k=>`<option value="${k}" ${(v?v.status:'instructed')===k?'selected':''}>${FIN_VAR_STATUS[k]}</option>`).join('')}</select></div>
-      <div class="formfield"><label class="field-label">Our cost estimate £</label><input type="text" inputmode="decimal" id="finVaCost" value="${val('cost_estimate')}"></div>
-      <div class="formfield"><label class="field-label">Quoted to client £</label><input type="text" inputmode="decimal" id="finVaQuote" value="${val('quoted')}"></div>
+      <div class="formfield"><label class="field-label">Our cost estimate £</label><input type="text" inputmode="decimal" data-money id="finVaCost" value="${val('cost_estimate')}"></div>
+      <div class="formfield"><label class="field-label">Quoted to client £</label><input type="text" inputmode="decimal" data-money id="finVaQuote" value="${val('quoted')}"></div>
       <div class="formfield"><label class="field-label">Submitted on</label><input type="date" id="finVaSub" value="${v&&v.submitted_on||''}"></div>
-      <div class="formfield"><label class="field-label">Agreed value £</label><input type="text" inputmode="decimal" id="finVaAgreed" value="${val('agreed_value')}"></div>
+      <div class="formfield"><label class="field-label">Agreed value £</label><input type="text" inputmode="decimal" data-money id="finVaAgreed" value="${val('agreed_value')}"></div>
       <div class="formfield"><label class="field-label">Agreed on</label><input type="date" id="finVaAgOn" value="${v&&v.agreed_on||''}"></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><textarea id="finVaNotes" rows="2">${val('notes')}</textarea></div>
@@ -49652,7 +49878,7 @@ window.openFinSubcontract = async function(siteId, id){
     </div>
     <div class="formfield"><label class="field-label">Work</label><input type="text" id="finScDesc" value="${v('description')}" placeholder="e.g. Leadwork to all valleys and abutments"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Order value £ (excl. VAT)</label><input type="text" inputmode="decimal" id="finScVal" value="${v('order_value')}"></div>
+      <div class="formfield"><label class="field-label">Order value £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finScVal" value="${v('order_value')}"></div>
       <div class="formfield"><label class="field-label">Retention %</label><input type="text" inputmode="decimal" id="finScRet" value="${sc?sc.retention_pct:5}"></div>
       <div class="formfield"><label class="field-label">CIS</label><select id="finScCis">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(sc?sc.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">UTR</label><input type="text" id="finScUtr" value="${v('utr')}"></div>
@@ -49757,13 +49983,13 @@ window.openFinSubApp = async function(siteId, scId, appId){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Application date</label><input type="date" id="finSaDate" value="${appDate}" ${locked?'disabled':''}></div>
       <div class="formfield"><label class="field-label">Final date for payment</label><input type="date" id="finSaFinal" value="${v('final_date', finAddDays(appDate, 30))}" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Applied for, gross to date £</label><input type="text" inputmode="decimal" id="finSaApplied" value="${v('applied_gross')}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Of which materials to date £</label><input type="text" inputmode="decimal" id="finSaMat" value="${v('materials_part', finSa.prevM||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Applied for, gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaApplied" value="${v('applied_gross')}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Of which materials to date £</label><input type="text" inputmode="decimal" data-money id="finSaMat" value="${v('materials_part', finSa.prevM||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <p class="sectiontitle" style="margin:6px 0 10px;">Your certificate</p>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Certified gross to date £</label><input type="text" inputmode="decimal" id="finSaCert" value="${v('certified_gross')}" placeholder="Leave blank until you’ve checked it" oninput="finSaPaint()" ${locked?'disabled':''}></div>
-      <div class="formfield"><label class="field-label">Contra charges to date £</label><input type="text" inputmode="decimal" id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Certified gross to date £</label><input type="text" inputmode="decimal" data-money id="finSaCert" value="${v('certified_gross')}" placeholder="Leave blank until you’ve checked it" oninput="finSaPaint()" ${locked?'disabled':''}></div>
+      <div class="formfield"><label class="field-label">Contra charges to date £</label><input type="text" inputmode="decimal" data-money id="finSaContra" value="${v('contra', finSa.prevContra||0)}" oninput="finSaPaint()" ${locked?'disabled':''}></div>
     </div>
     <div class="formfield"><label class="field-label">Contra / reason for paying less (shown on the notice)</label><textarea id="finSaReason" rows="2" ${locked?'disabled':''}>${escapeHtml(a&&(a.payless_reason||a.contra_note)||'')}</textarea></div>
     <div id="finSaSum"></div>
@@ -50029,7 +50255,7 @@ async function renderFinReport(id){
       ${has('dates') ? `<label>From<input type="date" value="${f.from}" onchange="finRep.f.from=this.value;finRepRun()"></label><label>To<input type="date" value="${f.to}" onchange="finRep.f.to=this.value;finRepRun()"></label>` : ''}
       ${has('varstatus') ? `<label>Status<select onchange="finRep.f.varstatus=this.value;finRepRun()"><option value="">Any</option>${Object.keys(FIN_VAR_STATUS).map(k=>`<option value="${k}" ${f.varstatus===k?'selected':''}>${FIN_VAR_STATUS[k]}</option>`).join('')}</select></label>` : ''}
       ${has('postatus') ? `<label>PO status<select onchange="finRep.f.postatus=this.value;finRepRun()"><option value="">Any</option>${Object.keys(FIN_PO_STATUS).map(k=>`<option value="${k}" ${f.postatus===k?'selected':''}>${FIN_PO_STATUS[k]}</option>`).join('')}</select></label>` : ''}
-      ${has('opening') ? `<label>Opening bank balance £<input type="text" inputmode="decimal" value="${escapeHtml(String(f.opening||''))}" onchange="finRep.f.opening=finNum(this.value)||0;finRepRun()"></label>` : ''}
+      ${has('opening') ? `<label>Opening bank balance £<input type="text" inputmode="decimal" data-money value="${escapeHtml(String(f.opening||''))}" onchange="finRep.f.opening=finNum(this.value)||0;finRepRun()"></label>` : ''}
       <div class="fincosttools-b">
         <button class="ghostbtn" onclick="finRepExport('xlsx')">Excel</button>
         <button class="ghostbtn" onclick="finRepExport('pdf')">PDF</button>
@@ -50095,8 +50321,8 @@ async function finExportTable(kind, o){
     ws.getCell('A1').value = o.title; ws.getCell('A1').font = {bold:true, size:14};
     ws.getCell('A2').value = head;
     ws.getRow(4).values = o.cols.map(c=>c.l); ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
-    o.rows.forEach((r,i)=>{ const row = ws.getRow(5+i); row.values = o.cols.map(c=>{ const v = r[c.k]; if(v==null || v==='') return null; if(c.date) return new Date(v+'T12:00:00'); if(c.money||c.num) return Number(v); if(c.pct) return Number(v)/100; return String(v); }); o.cols.forEach((c,j)=>{ const cell = row.getCell(j+1); if(c.money) cell.numFmt = '#,##0.00;[Red]-#,##0.00'; if(c.pct) cell.numFmt = '0.0%'; if(c.date) cell.numFmt = 'dd/mm/yyyy'; }); });
-    if(totKeys.length && o.rows.length){ const tr = ws.getRow(5+o.rows.length); tr.getCell(1).value = 'Total'; o.cols.forEach((c,j)=>{ if(totKeys.includes(c.k)){ const col = ws.getColumn(j+1).letter; tr.getCell(j+1).value = {formula:`SUM(${col}5:${col}${4+o.rows.length})`}; tr.getCell(j+1).numFmt = '#,##0.00;[Red]-#,##0.00'; } }); tr.font = {bold:true}; }
+    o.rows.forEach((r,i)=>{ const row = ws.getRow(5+i); row.values = o.cols.map(c=>{ const v = r[c.k]; if(v==null || v==='') return null; if(c.date) return new Date(v+'T12:00:00'); if(c.money||c.num) return Number(v); if(c.pct) return Number(v)/100; return String(v); }); o.cols.forEach((c,j)=>{ const cell = row.getCell(j+1); if(c.money) cell.numFmt = '£#,##0.00;[Red]-£#,##0.00'; if(c.pct) cell.numFmt = '0.0%'; if(c.date) cell.numFmt = 'dd/mm/yyyy'; }); });
+    if(totKeys.length && o.rows.length){ const tr = ws.getRow(5+o.rows.length); tr.getCell(1).value = 'Total'; o.cols.forEach((c,j)=>{ if(totKeys.includes(c.k)){ const col = ws.getColumn(j+1).letter; tr.getCell(j+1).value = {formula:`SUM(${col}5:${col}${4+o.rows.length})`}; tr.getCell(j+1).numFmt = '£#,##0.00;[Red]-£#,##0.00'; } }); tr.font = {bold:true}; }
     if(o.note) ws.getCell('A'+(7+o.rows.length)).value = o.note;
     o.cols.forEach((c,j)=>ws.getColumn(j+1).width = c.money ? 15 : Math.max(10, Math.round((c.w||80)/6)));
     ws.autoFilter = {from:{row:4, column:1}, to:{row:4, column:o.cols.length}};
@@ -50732,7 +50958,7 @@ window.openFinPriceRow = async function(id){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Code</label><input type="text" id="finPbCode" value="${v('code')}"></div>
       <div class="formfield"><label class="field-label">Unit</label><input type="text" id="finPbUnit" value="${v('unit')}" placeholder="nr, m2, roll"></div>
-      <div class="formfield"><label class="field-label">Price £ (excl. VAT)</label><input type="text" inputmode="decimal" id="finPbRate" value="${v('rate')}"></div>
+      <div class="formfield"><label class="field-label">Price £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPbRate" value="${v('rate')}"></div>
     </div>
     <button class="darkbtn" style="width:100%;" onclick="saveFinPriceRow('${r?r.id:''}')">Save</button>
     ${r ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteFinPriceRow('${r.id}')">Remove</button>` : ''}
@@ -50784,7 +51010,7 @@ async function renderFinShopping(siteId){
     ${items.length ? finSearchHtml('Search the list', 'finShopList') : ''}
     <div id="finShopList">${Object.keys(bySup).map(s=>`<p class="sectiontitle" style="margin-top:16px;">${escapeHtml(s)}</p>${bySup[s].map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, s].join(' '))}" style="${i.active?'':'opacity:.5;'}">
         <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
-        <span class="finval"><input type="text" inputmode="decimal" class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
+        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
       <div class="empty lf-empty" style="display:none;">No match.</div></div>
     ${quotes.length ? `<p class="sectiontitle" style="margin-top:22px;">Quotes used</p>${quotes.map(q=>`<div class="finkv"><span>${escapeHtml(q.supplier_name||'')} ${escapeHtml(q.quote_no||'')} · ${finDate(String(q.created_at).slice(0,10))}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'')}')">view</button>`:''}</b></div>`).join('')}` : ''}
   `, {title:'Shopping list', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
@@ -50805,7 +51031,7 @@ function finShopPaintDraft(){
   box.innerHTML = `<div class="formfield"><label class="field-label">Supplier name</label><input type="text" value="${escapeHtml(d.supplier_name||'')}" oninput="finShopDraft.supplier_name=this.value"></div>
     <p class="stub" style="margin:0 0 8px;">${d.lines.length} lines found. Untick anything that shouldn’t be on the list, and correct any wording.</p>
     ${d.lines.map((l,i)=>`<div class="finitem"><label class="finswitch" style="margin:0;"><input type="checkbox" ${l.keep?'checked':''} onchange="finShopDraft.lines[${i}].keep=this.checked"><input type="text" value="${escapeHtml(l.description)}" oninput="finShopDraft.lines[${i}].description=this.value" style="flex:1;"></label>
-      <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
+      <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
     <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items to the shopping list</button>`;
 }
 window.finShopSave = async function(){
@@ -50898,6 +51124,7 @@ const FIN_DOC_TYPES = [
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
   {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
+  {k:'monthly', l:'Monthly report', go:id=>`#/site/${id}/finance/monthly`},
   {k:'budget', l:'Budget & forecast', go:id=>`#/site/${id}/finance/budget`},
   {k:'contract', l:'Priced schedule of works', go:id=>`#/site/${id}/finance/contract`},
 ];
@@ -50913,7 +51140,7 @@ const FIN_NEW_TYPES = [
 ];
 function finCurrentDocType(parts){
   const p = parts[3] || '';
-  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
+  return {invoice:'invoices', application:'apps', po:'pos', sub:'subs', costs:'costs', parts:'parts', monthly:'monthly', budget:'budget', variations:'variations', shopping:'shopping', contract:'contract'}[p] || 'overview';
 }
 function finShellPrefix(opts){
   if(typeof isFinanceUser!=='function' || !isFinanceUser()) return '';
@@ -51254,7 +51481,7 @@ window.finPartsPaint = function(){
     <thead><tr>${cols.map(c=>`<th class="${c.money?'num':''}">${escapeHtml(c.l)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r=>`<tr class="click ${r.id==='none'?'finparts-un':''}" onclick="go('#/site/${finParts.siteId}/finance/costs?sub=${r.id}')">${cols.map((c,i)=>i===0
       ? `<td class="d" data-l="${escapeHtml(c.l)}"><b>${escapeHtml(r.name)}</b>${r.detail||r.status?`<em class="finparts-s">${escapeHtml([r.detail, r.status].filter(Boolean).join(' · '))}</em>`:''}</td>`
-      : c.k==='value' && finParts.editValues && r.id!=='none' && finParts.rows.includes(r) ? `<td class="num" data-l="Value" onclick="event.stopPropagation()"><input type="text" inputmode="decimal" class="finvalin" placeholder="£ value" value="${r.value!=null?r.value:''}" onchange="setFinSubValue('${finParts.siteId}','${r.id}',this.value)"></td>`
+      : c.k==='value' && finParts.editValues && r.id!=='none' && finParts.rows.includes(r) ? `<td class="num" data-l="Value" onclick="event.stopPropagation()"><input type="text" inputmode="decimal" data-money class="finvalin" placeholder="£ value" value="${r.value!=null?r.value:''}" onchange="setFinSubValue('${finParts.siteId}','${r.id}',this.value)"></td>`
       : `<td class="num" data-l="${escapeHtml(c.l)}" ${c.k==='margin' && Number(r[c.k])<0?'style="color:var(--red);"':''}>${r[c.k]==null ? '—' : (Number(r[c.k]) ? finMoney(r[c.k]) : '<span class="stub">–</span>')}</td>`).join('')}</tr>`).join('')}</tbody>
     <tfoot><tr>${cols.map((c,i)=>`<td class="${c.money?'num':''}">${i===0 ? 'Total' : finMoney(sum(c.k))}</td>`).join('')}</tr></tfoot>
   </table></div>`;
@@ -51465,6 +51692,149 @@ window.finAppUseSiteProgress = function(){
   (finApp.lines||[]).forEach(l=>{ if(finIsItem(l) && sp[l.item_id]!=null && sp[l.item_id] > finPct(l.pct)){ l.pct = finPct(sp[l.item_id]); n++; } });
   finAppPaintLines(); finAppPaint();
   toast(n ? n+' line'+(n===1?'':'s')+' updated from site progress — check, then Save' : 'Already matches site progress');
+};
+
+/* ============================================================
+   OpHUB Finance — money boxes always read "£12,000.00" (Andy, 20 Oct:
+   "anywhere there is money… commas and the £ sign built in").
+   Any <input data-money> shows £ and commas; while you're typing in it
+   it shows the plain number, and it's formatted again when you leave it.
+   finNum() already ignores £ and commas, so saving is unchanged.
+   ============================================================ */
+function finMoneyIn(v){
+  const n = finNum(v);
+  if(n===null || isNaN(n)) return v==null ? '' : String(v);
+  const dp = Math.abs(n*100 - Math.round(n*100)) > 1e-6 ? 4 : 2; // rates can have 4 decimals
+  return (n<0?'-':'')+'£'+Math.abs(n).toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:dp});
+}
+function finMoneyRaw(v){ const n = finNum(v); return (n===null || isNaN(n)) ? (v==null?'':String(v)) : String(n); }
+// Set a money box from code (keeps the £ format unless the person is typing in it).
+function finSetMoney(el, v){ if(!el) return; el.value = (document.activeElement===el) ? finMoneyRaw(v) : finMoneyIn(v); }
+function finMoneyFormatAll(root){
+  (root || document).querySelectorAll('input[data-money]').forEach(el=>{
+    if(el===document.activeElement || el.dataset.mfmt===el.value) return;
+    if(el.value!=='') el.value = finMoneyIn(el.value);
+    if(el.placeholder && /^\s*£?\s*[\d.,]+\s*$/.test(el.placeholder)) el.placeholder = finMoneyIn(el.placeholder);
+    el.dataset.mfmt = el.value;
+  });
+}
+(function(){
+  if(typeof document==='undefined') return;
+  document.addEventListener('focusin', e=>{ const el = e.target; if(el && el.matches && el.matches('input[data-money]') && !el.readOnly){ el.value = finMoneyRaw(el.value); try{ el.select(); }catch(_){} } });
+  document.addEventListener('focusout', e=>{ const el = e.target; if(el && el.matches && el.matches('input[data-money]')){ if(el.value!=='') el.value = finMoneyIn(el.value); el.dataset.mfmt = el.value; } });
+  let pending = false;
+  const run = ()=>{ pending = false; finMoneyFormatAll(); };
+  const start = ()=>{ new MutationObserver(()=>{ if(!pending){ pending = true; requestAnimationFrame(run); } }).observe(document.body, {childList:true, subtree:true}); run(); };
+  if(document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
+/* ============================================================
+   OpHUB Finance — monthly project report (Coreloops-style cost report).
+   #/site/<id>/finance/monthly
+   One column per month: applied, certified, invoiced and actual costs in
+   the month, then a total column with the forecast value, budget and
+   final cost. Grouped: Total, then each plot / repair job, then
+   "Not allocated". Excel / PDF export.
+   ============================================================ */
+let finMon = null;
+function finMonthKey(d){ return d ? String(d).slice(0,7) : ''; }
+function finMonthLabel(k){ const [y,m] = k.split('-').map(Number); return new Date(y, m-1, 1).toLocaleDateString('en-GB', {month:'short', year:'numeric'}); }
+async function renderFinMonthly(siteId){
+  if(!finGuard()) return;
+  const __gen = RENDER_GEN;
+  const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
+  const [b, subs] = await Promise.all([finLoadBook(siteId), finSubJobsLoad(siteId)]);
+  const jf = finBy(b.jf, siteId)[0] || {};
+  const bt = finBillingType(jf, finBy(b.items, siteId).length, finBy(b.apps, siteId).length);
+  const sv = subs.length ? await finSubValues(siteId, bt) : {values:{}};
+  if(__gen !== RENDER_GEN) return;
+  const fc = finJobForecast(b, siteId);
+  const lines = fc.lines;
+  const apps = finBy(b.apps, siteId).filter(a=>a.status!=='void' && a.status!=='draft').sort((x,y)=>x.number-y.number);
+  const invs = finBy(b.invs, siteId).filter(i=>!['void','draft'].includes(i.status));
+  const items = finBy(b.items, siteId);
+  const plots = finItemPlots(items);
+  // Groups: '' = total, sub ids, 'none' = not allocated.
+  const groups = [{id:'all', name:'Total'}].concat(subs.length ? subs.map(a=>({id:a.id, name:a.label})).concat([{id:'none', name:'Not allocated'}]) : []);
+  const blank = ()=>({applied:{}, certified:{}, invoiced:{}, cost:{}});
+  const data = {}; groups.forEach(g=>data[g.id] = blank());
+  const add = (g, row, m, v)=>{ if(!data[g] || !m || !v) return; data[g][row][m] = finRound((data[g][row][m]||0) + v); };
+  const months = new Set();
+  // Applied / certified in the period = this application's cumulative less the last one.
+  let prevG = 0, prevC = 0; const prevPlot = {};
+  apps.forEach(a=>{
+    const m = finMonthKey(a.valuation_date); months.add(m);
+    const g = Number(a.gross||0); add('all', 'applied', m, finRound(g - prevG)); prevG = g;
+    if(a.cert_gross!=null){ const cm = finMonthKey(a.cert_date || a.valuation_date); months.add(cm); add('all', 'certified', cm, finRound(Number(a.cert_gross) - prevC)); prevC = Number(a.cert_gross); }
+    if(subs.length){
+      const byPlot = {};
+      (a.lines||[]).forEach(l=>{ if(!finIsItem(l)) return; const k = plots[l.item_id] || 'none'; byPlot[k] = (byPlot[k]||0) + Number(l.value||0)*finPct(l.pct)/100; });
+      Object.keys(Object.assign({}, byPlot, prevPlot)).forEach(k=>{ const now = finRound(byPlot[k]||0); add(data[k] ? k : 'none', 'applied', m, finRound(now - (prevPlot[k]||0))); prevPlot[k] = now; });
+    }
+  });
+  invs.forEach(i=>{ const m = finMonthKey(i.issue_date || i.created_at); months.add(m); add('all', 'invoiced', m, Number(i.net||0)); });
+  lines.filter(l=>l.cat!=='committed').forEach(l=>{ const m = finMonthKey(l.date); if(!m) return; months.add(m); add('all', 'cost', m, l.net); if(subs.length) add(l.sub && data[l.sub] ? l.sub : 'none', 'cost', m, l.net); });
+  months.add(finMonthKey(finToday()));
+  const ms = Array.from(months).filter(Boolean).sort();
+  // fill gaps between first and last month
+  const all = []; if(ms.length){ let [y,mo] = ms[0].split('-').map(Number); const [ly,lm] = ms[ms.length-1].split('-').map(Number); while(y<ly || (y===ly && mo<=lm)){ all.push(y+'-'+String(mo).padStart(2,'0')); mo++; if(mo>12){ mo=1; y++; } } }
+  // Per-group forecast figures (total column).
+  const schedCostBy = {}; items.filter(finIsItem).forEach(i=>{ if(i.cost==null) return; const k = plots[i.id] || 'none'; schedCostBy[k] = finRound((schedCostBy[k]||0) + Number(i.cost)); });
+  const committedBy = {}; lines.filter(l=>l.cat==='committed').forEach(l=>{ const k = l.sub && data[l.sub] ? l.sub : 'none'; committedBy[k] = finRound((committedBy[k]||0) + l.net); });
+  const fcast = {all:{value:fc.ffa, budget:fc.budgetTotal, final:fc.forecastCost}};
+  groups.slice(1).forEach(g=>{
+    const k = g.id, value = k==='none' ? (sv.values['']!=null ? sv.values[''] : null) : (sv.values[k]!=null ? sv.values[k] : null);
+    const spent = finRound(Object.values(data[k].cost).reduce((t,v)=>t+v,0)), com = committedBy[k]||0, budget = schedCostBy[k]!=null ? schedCostBy[k] : null;
+    fcast[k] = {value, budget, final: finRound(Math.max(budget||0, spent + com))};
+  });
+  finMon = {siteId, site, groups, data, months:all, fcast, open:finMon && finMon.siteId===siteId ? finMon.open : {all:true}, view:finMon && finMon.siteId===siteId ? finMon.view : 'month'};
+  document.getElementById('app').innerHTML = shell(`
+    <div class="fincosttools">
+      <div class="finseg" style="margin:0;"><button type="button" class="${finMon.view==='month'?'on':''}" onclick="finMon.view='month';finMonPaint()">In the month</button><button type="button" class="${finMon.view==='cum'?'on':''}" onclick="finMon.view='cum';finMonPaint()">Running total</button></div>
+      <div class="fincosttools-b">
+        <button class="ghostbtn" onclick="finMonExport('xlsx')">Excel</button>
+        <button class="ghostbtn" onclick="finMonExport('pdf')">PDF</button>
+      </div>
+    </div>
+    <div id="finMonTbl"></div>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Applied and certified = the change from the last application. Actual costs are by invoice / work date. Forecast value, budget and final cost are in the total column.${groups.length>1?' Plot figures use the plot on each schedule line and each cost.':''}</p>
+  `, {title:'Monthly report', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
+  finMonPaint();
+}
+const FIN_MON_ROWS = [{k:'applied', l:'Applied'}, {k:'certified', l:'Certified', totalOnly:true}, {k:'invoiced', l:'Invoiced'}, {k:'cost', l:'Actual costs'}];
+function finMonRows(){
+  const M = finMon, out = [];
+  M.groups.forEach(g=>{
+    const d = M.data[g.id], f = M.fcast[g.id] || {};
+    const rows = FIN_MON_ROWS.filter(r=>g.id==='all' || !['certified','invoiced'].includes(r.k)).map(r=>{
+      let run = 0; const vals = M.months.map(m=>{ const v = d[r.k][m]||0; run = finRound(run+v); return M.view==='cum' ? run : v; });
+      return {g, label:r.l, vals, total:finRound(Object.values(d[r.k]).reduce((t,v)=>t+v,0))};
+    });
+    rows.push({g, label:'Forecast value', vals:null, total:f.value});
+    rows.push({g, label:'Forecast budget', vals:null, total:f.budget});
+    rows.push({g, label:'Forecast final cost', vals:null, total:f.final});
+    out.push({g, rows});
+  });
+  return out;
+}
+window.finMonPaint = function(){
+  const box = document.getElementById('finMonTbl'); if(!box || !finMon) return;
+  const M = finMon, cur = finMonthKey(finToday());
+  const cell = v=>v==null ? '' : (v ? finMoney(v) : '<span class="stub">£0.00</span>');
+  box.innerHTML = `<div class="finreptbl-wrap finmon-wrap"><table class="fincosttbl finmon">
+    <thead><tr><th>Cost report</th>${M.months.map(m=>`<th class="num ${m===cur?'cur':''}">${finMonthLabel(m)}</th>`).join('')}<th class="num">Total</th></tr></thead>
+    <tbody>${finMonRows().map(({g, rows})=>`
+      <tr class="finmon-g" onclick="finMon.open['${g.id}']=!finMon.open['${g.id}'];finMonPaint()"><td colspan="${M.months.length+2}"><span class="finarrow">${M.open[g.id]?'▼':'▶'}</span> ${escapeHtml(g.name)}</td></tr>
+      ${M.open[g.id] ? rows.map(r=>`<tr><td class="d">${escapeHtml(r.label)}</td>${M.months.map((m,i)=>`<td class="num ${m===cur?'cur':''}">${r.vals ? cell(r.vals[i]) : ''}</td>`).join('')}<td class="num"><b>${r.total==null ? '—' : finMoney(r.total)}</b></td></tr>`).join('') : ''}`).join('')}
+    </tbody></table></div>`;
+};
+window.finMonExport = function(kind){
+  const M = finMon; if(!M) return;
+  const cols = [{k:'g', l:'Group'}, {k:'label', l:'Row'}].concat(M.months.map((m,i)=>({k:'m'+i, l:finMonthLabel(m), money:true}))).concat([{k:'total', l:'Total', money:true}]);
+  const rows = [];
+  finMonRows().forEach(({g, rows:rs})=>rs.forEach(r=>{ const o = {g:g.name, label:r.label, total:r.total}; if(r.vals) r.vals.forEach((v,i)=>o['m'+i] = v); rows.push(o); }));
+  const s = M.site;
+  return finExportTable(kind, {title:'Monthly report — '+(s.job_number?s.job_number+' ':'')+s.name, subtitle:M.view==='cum'?'Running totals':'In the month', cols, rows, name:'Monthly report - '+(s.job_number||s.name)});
 };
 </script>
 </body>

@@ -84,7 +84,7 @@ window.openFinManualLabour = async function(siteId, date){
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finLabDate" value="${date||finToday()}"></div>
       <div class="formfield"><label class="field-label">Days</label><input type="text" inputmode="decimal" id="finLabDays" oninput="finLabAuto()"></div>
     </div>
-    <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" id="finLabAmt"></div>
+    <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" data-money id="finLabAmt"></div>
     <div class="formfield"><label class="field-label">What for</label><input type="text" id="finLabDesc" placeholder="e.g. price work, lead to valleys"></div>
     ${siteId ? finSubJobSelectHtml('finLabSub', siteId, '') : ''}
     <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId||''}')">Save</button>
@@ -95,7 +95,7 @@ window.openFinManualLabour = async function(siteId, date){
 window.finLabAuto = function(){
   const who = finVal('finLabWho'), days = finNum(finVal('finLabDays'));
   const r = (window.__finLabRates||{})[who];
-  if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) el.value = finRound(days*Number(r.day_rate)); }
+  if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) finSetMoney(el, finRound(days*Number(r.day_rate))); }
 };
 window.saveFinManualLabour = async function(siteId){
   if(!siteId){ siteId = finVal('finLabJob'); if(!siteId){ toast('Choose the project.'); return; } }
@@ -140,7 +140,7 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Hire ref / contract no.</label><input type="text" id="finPlRef" value="${escapeHtml(h&&h.hire_ref||'')}"></div>
       <div class="formfield"><label class="field-label">On hire</label><input type="date" id="finPlOn" value="${h?h.on_hire:finToday()}"></div>
       <div class="formfield"><label class="field-label">Off hire</label><input type="date" id="finPlOff" value="${h&&h.off_hire||''}"></div>
-      <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" id="finPlRate" value="${h?h.rate:''}"></div>
+      <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" data-money id="finPlRate" value="${h?h.rate:''}"></div>
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
@@ -257,11 +257,11 @@ async function renderFinSubPayment(id){
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Labour</p>
       ${finPay.lines.map((l,i)=>{ const st = SITES.find(x=>x.id===l.site_id)||{}; return `<div class="finitem"><div class="finitem-d">${escapeHtml((st.job_number?st.job_number+' · ':'')+(st.name||l.description||'Labour'))}</div>
-        <div class="finitem-in">${locked ? `<span class="finitem-sum">${l.days} day${l.days==1?'':'s'} × ${finMoney(l.rate)}</span>` : `<label>Days<input type="text" inputmode="decimal" value="${l.days}" oninput="finPaySet(${i},'days',this.value)"></label><label>Rate £<input type="text" inputmode="decimal" value="${l.rate}" oninput="finPaySet(${i},'rate',this.value)"></label>`}<b id="finPayL-${i}">${finMoney(l.amount)}</b></div></div>`; }).join('')}
+        <div class="finitem-in">${locked ? `<span class="finitem-sum">${l.days} day${l.days==1?'':'s'} × ${finMoney(l.rate)}</span>` : `<label>Days<input type="text" inputmode="decimal" value="${l.days}" oninput="finPaySet(${i},'days',this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate}" oninput="finPaySet(${i},'rate',this.value)"></label>`}<b id="finPayL-${i}">${finMoney(l.amount)}</b></div></div>`; }).join('')}
     </div>
     <div class="card">
       <div class="fingrid2">
-        <div class="formfield"><label class="field-label">Materials they supplied (£, no CIS)</label><input type="text" inputmode="decimal" id="finPayMat" value="${finPay.materials||0}" ${locked?'disabled':''} oninput="finPay.materials=finNum(this.value)||0;finPayPaint()"></div>
+        <div class="formfield"><label class="field-label">Materials they supplied (£, no CIS)</label><input type="text" inputmode="decimal" data-money id="finPayMat" value="${finPay.materials||0}" ${locked?'disabled':''} oninput="finPay.materials=finNum(this.value)||0;finPayPaint()"></div>
         <div class="formfield"><label class="field-label">CIS rate</label><select id="finPayCis" ${locked?'disabled':''} onchange="finPay.cis_rate=+this.value;finPayPaint()">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(finPay.cis_rate)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       <div id="finPaySum"></div>
@@ -318,7 +318,7 @@ async function renderFinLabourRates(){
         ${isW ? `<div class="formfield"><label class="field-label">Name</label><input type="text" data-k="name" value="${escapeHtml(r.name||'')}"></div>
         <div class="formfield"><label class="field-label">Email (for statements)</label><input type="email" data-k="email" value="${escapeHtml(r.email||'')}"></div>` : ''}
         <div class="formfield"><label class="field-label">Pay</label><select data-k="pay_type"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>Subcontractor</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE</option></select></div>
-        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
+        <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
         <div class="formfield"><label class="field-label">CIS</label><select data-k="cis_rate">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
         <div class="formfield"><label class="field-label">UTR</label><input type="text" data-k="utr" value="${escapeHtml(r.utr||'')}"></div>
         <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>

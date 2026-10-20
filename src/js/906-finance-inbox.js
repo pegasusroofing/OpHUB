@@ -122,9 +122,9 @@ function finInboxCardHtml(it, pos, sites){
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" data-k="supplier" value="${v(ex.supplier)}"></div>
       <div class="formfield"><label class="field-label">Invoice no.</label><input type="text" data-k="invoice_no" value="${v(ex.invoice_no)}"></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" data-k="date" value="${v(ex.date)}"></div>
-      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-k="net" value="${v(ex.net)}"></div>
-      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-k="vat" value="${v(ex.vat)}"></div>
-      <div class="formfield"><label class="field-label">Total £</label><input type="text" inputmode="decimal" data-k="total" value="${v(ex.total)}"></div>
+      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-money data-k="net" value="${v(ex.net)}"></div>
+      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-money data-k="vat" value="${v(ex.vat)}"></div>
+      <div class="formfield"><label class="field-label">Total £</label><input type="text" inputmode="decimal" data-money data-k="total" value="${v(ex.total)}"></div>
       <div class="formfield"><label class="field-label">Project</label><select data-k="site_id" onchange="finInboxPickJob('${it.id}', this.value)"><option value="">Choose the project…</option>${sites.map(s=>`<option value="${s.id}" ${it.site_id===s.id?'selected':''}>${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">PO</label><select data-k="po_id"><option value="">No PO</option>${posFor.map(p=>`<option value="${p.id}" ${it.po_id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select></div>
     </div>

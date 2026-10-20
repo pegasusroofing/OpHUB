@@ -245,7 +245,7 @@ window.openFinPriceRow = async function(id){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Code</label><input type="text" id="finPbCode" value="${v('code')}"></div>
       <div class="formfield"><label class="field-label">Unit</label><input type="text" id="finPbUnit" value="${v('unit')}" placeholder="nr, m2, roll"></div>
-      <div class="formfield"><label class="field-label">Price £ (excl. VAT)</label><input type="text" inputmode="decimal" id="finPbRate" value="${v('rate')}"></div>
+      <div class="formfield"><label class="field-label">Price £ (excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finPbRate" value="${v('rate')}"></div>
     </div>
     <button class="darkbtn" style="width:100%;" onclick="saveFinPriceRow('${r?r.id:''}')">Save</button>
     ${r ? `<button class="ghostbtn" style="width:100%;margin-top:8px;color:var(--red);" onclick="deleteFinPriceRow('${r.id}')">Remove</button>` : ''}
@@ -297,7 +297,7 @@ async function renderFinShopping(siteId){
     ${items.length ? finSearchHtml('Search the list', 'finShopList') : ''}
     <div id="finShopList">${Object.keys(bySup).map(s=>`<p class="sectiontitle" style="margin-top:16px;">${escapeHtml(s)}</p>${bySup[s].map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, s].join(' '))}" style="${i.active?'':'opacity:.5;'}">
         <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
-        <span class="finval"><input type="text" inputmode="decimal" class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
+        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
       <div class="empty lf-empty" style="display:none;">No match.</div></div>
     ${quotes.length ? `<p class="sectiontitle" style="margin-top:22px;">Quotes used</p>${quotes.map(q=>`<div class="finkv"><span>${escapeHtml(q.supplier_name||'')} ${escapeHtml(q.quote_no||'')} · ${finDate(String(q.created_at).slice(0,10))}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'')}')">view</button>`:''}</b></div>`).join('')}` : ''}
   `, {title:'Shopping list', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
@@ -318,7 +318,7 @@ function finShopPaintDraft(){
   box.innerHTML = `<div class="formfield"><label class="field-label">Supplier name</label><input type="text" value="${escapeHtml(d.supplier_name||'')}" oninput="finShopDraft.supplier_name=this.value"></div>
     <p class="stub" style="margin:0 0 8px;">${d.lines.length} lines found. Untick anything that shouldn’t be on the list, and correct any wording.</p>
     ${d.lines.map((l,i)=>`<div class="finitem"><label class="finswitch" style="margin:0;"><input type="checkbox" ${l.keep?'checked':''} onchange="finShopDraft.lines[${i}].keep=this.checked"><input type="text" value="${escapeHtml(l.description)}" oninput="finShopDraft.lines[${i}].description=this.value" style="flex:1;"></label>
-      <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
+      <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
     <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items to the shopping list</button>`;
 }
 window.finShopSave = async function(){

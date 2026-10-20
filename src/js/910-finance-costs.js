@@ -139,8 +139,8 @@ window.openFinJobCost = async function(siteId, id){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Supplier</label><input type="text" id="finJcSup" value="${escapeHtml(x&&x.supplier||'')}"></div>
       <div class="formfield"><label class="field-label">Ref</label><input type="text" id="finJcRef" value="${escapeHtml(x&&x.ref||'')}"></div>
-      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" id="finJcNet" value="${x?x.net:''}"></div>
-      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" id="finJcVat" value="${x?x.vat:''}"></div>
+      <div class="formfield"><label class="field-label">Net £</label><input type="text" inputmode="decimal" data-money id="finJcNet" value="${x?x.net:''}"></div>
+      <div class="formfield"><label class="field-label">VAT £</label><input type="text" inputmode="decimal" data-money id="finJcVat" value="${x?x.vat:''}"></div>
     </div>
     <button class="darkbtn" style="width:100%;" onclick="saveFinJobCost('${siteId}','${x?x.id:''}')">Save</button>
     ${x ? `<button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="document.getElementById('finJcOverlay').style.display='none';openFinSplit('fin_job_costs','${x.id}')">Split across ${FIN_SUBJOBS[siteId]&&FIN_SUBJOBS[siteId].length?escapeHtml(finSubNoun(siteId, true).toLowerCase())+' / ':''}projects</button>` : ''}
@@ -184,8 +184,8 @@ window.finCostExportXlsx = async function(){
   ws.getCell('A2').value = (ORG&&ORG.name||'')+(finCosts.sub ? ' · '+(finCosts.sub==='none' ? 'Not allocated' : finSubLabel(finCosts.siteId, finCosts.sub)) : '')+' · '+(finCosts.tab==='all'?'All costs':finCosts.tab==='committed'?'Committed':FIN_COST_CATS[finCosts.tab])+' · exported '+finDate(finToday())+' · excl. VAT';
   const head = ['Date','Type','Description','Supplier / person','Ref','Status','Net £', finCosts.hasSubs ? finSubNoun(finCosts.siteId) : null].filter(Boolean);
   ws.getRow(4).values = head; ws.getRow(4).font = {bold:true}; ws.getRow(4).fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFEEF1F4'}};
-  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)].concat(finCosts.hasSubs ? [l.sub ? finSubLabel(finCosts.siteId, l.sub) : 'Not allocated'] : []); r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '#,##0.00'; });
-  const tr = ws.getRow(5+rows.length); tr.getCell(6).value = 'Total'; tr.getCell(7).value = rows.length ? {formula:`SUM(G5:G${4+rows.length})`} : 0; tr.font = {bold:true}; tr.getCell(7).numFmt = '#,##0.00';
+  rows.forEach((l,i)=>{ const r = ws.getRow(5+i); r.values = [l.date ? new Date(l.date+'T12:00:00') : '', FIN_COST_CATS[l.cat]||'Committed', l.desc, l.who, l.ref, l.status, finRound(l.net)].concat(finCosts.hasSubs ? [l.sub ? finSubLabel(finCosts.siteId, l.sub) : 'Not allocated'] : []); r.getCell(1).numFmt = 'dd/mm/yyyy'; r.getCell(7).numFmt = '£#,##0.00'; });
+  const tr = ws.getRow(5+rows.length); tr.getCell(6).value = 'Total'; tr.getCell(7).value = rows.length ? {formula:`SUM(G5:G${4+rows.length})`} : 0; tr.font = {bold:true}; tr.getCell(7).numFmt = '£#,##0.00';
   [12,14,48,26,20,14,14,30].forEach((w,i)=>ws.getColumn(i+1).width = w);
   ws.autoFilter = {from:'A4', to:finCosts.hasSubs ? 'H4' : 'G4'};
   const buf = await wb.xlsx.writeBuffer();

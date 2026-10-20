@@ -167,7 +167,7 @@ function finInvLineHtml(l, i){
   return `<div class="finline">
     <textarea rows="2" placeholder="Description" oninput="finInvDraft.lines[${i}].description=this.value">${escapeHtml(l.description||'')}</textarea>
     <div class="finline-r">
-      <input type="text" inputmode="decimal" placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
+      <input type="text" inputmode="decimal" data-money placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
       ${finInvDraft.lines.length>1 ? `<button class="linkbtn" onclick="finInvRemoveLine(${i})">remove</button>` : ''}
     </div>
   </div>`;
@@ -257,7 +257,7 @@ window.openFinPayment = function(invId, outstanding){
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>Record payment</h3>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Amount received (£)</label><input type="text" inputmode="decimal" id="finPayAmt" value="${outstanding}"></div>
+      <div class="formfield"><label class="field-label">Amount received (£)</label><input type="text" inputmode="decimal" data-money id="finPayAmt" value="${outstanding}"></div>
       <div class="formfield"><label class="field-label">Date received</label><input type="date" id="finPayDate" value="${finToday()}"></div>
     </div>
     <div class="formfield"><label class="field-label">Note (optional)</label><input type="text" id="finPayNote" placeholder="e.g. BACS, remittance ref"></div>

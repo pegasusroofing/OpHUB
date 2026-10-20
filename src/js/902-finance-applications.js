@@ -89,7 +89,8 @@ function finApplicationsCardHtml(siteId, apps, due){
 
 /* ---------------- Contract breakdown page ---------------- */
 let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
-function finContractIsDirty(){ return !!finContractRows && JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||''])) !== finContractSnap; }
+function finContractSnapOf(rows){ return JSON.stringify(rows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'',r.cost==null?null:r.cost,r.cost_basis||'',r.cost_pct==null?null:r.cost_pct])); }
+function finContractIsDirty(){ return !!finContractRows && finContractSnapOf(finContractRows) !== finContractSnap; }
 const FIN_KIND_LABEL = {section:'Header', subsection:'Sub-header', item:'Item'};
 async function renderFinContract(siteId){
   if(!finGuard()) return;
@@ -104,9 +105,9 @@ async function renderFinContract(siteId){
   ]);
   if(__gen !== RENDER_GEN) return;
   if(finContractSite !== siteId || !finContractRows){
-    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, sub:i.sub_job_id||''}));
+    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, sub:i.sub_job_id||'', cost:i.cost!=null?Number(i.cost):null, cost_basis:i.cost_basis||'', cost_pct:i.cost_pct!=null?Number(i.cost_pct):null}));
     finContractSite = siteId; finContractFile = null;
-    finContractSnap = JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'']));
+    finContractSnap = finContractSnapOf(finContractRows);
   }
   const jf = jfRows[0] || {};
   document.getElementById('app').innerHTML = shell(`
@@ -119,11 +120,23 @@ async function renderFinContract(siteId){
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
     ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
-    <div class="card">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <p class="sectiontitle" style="margin:0;">Schedule</p>
-        <span class="finval" id="finContractTotal"></span>
+    <div class="card fincosttool">
+      <p class="sectiontitle" style="margin-top:0;">Cost price (your budget)</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.</p>
+      <div class="fincosttool-row">
+        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
+        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
+        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
+        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
       </div>
+      <p class="stub" id="finCtEg" style="margin:8px 0 0;font-style:normal;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33.</p>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <p class="sectiontitle" style="margin:0;">Schedule</p>
+        <span class="fincontot"><span class="finval" id="finContractTotal"></span><span class="stub" id="finContractCostTot" style="margin:0;font-style:normal;"></span></span>
+      </div>
+      <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
       <div id="finContractList" style="margin-top:8px;"></div>
       <div class="row-gap" style="flex-wrap:wrap;margin-top:8px;">
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('section')">+ Header</button>
@@ -144,38 +157,47 @@ function finContractPaint(){
   const ctl = i=>plotSel(i)+`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
-        <div class="fincrow-head"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+        <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick everything under this" ${finContractGroupTicked(i)?'checked':''} onchange="finContractTickGroup(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
           <input type="text" class="fincrow-title" placeholder="${r.kind==='section'?'Header, e.g. Main roof':'Sub-header, e.g. Slating'}" value="${escapeHtml(r.description||'')}" oninput="finContractRows[${i}].description=this.value"></div>
         <div class="fincrow-foot">${ctl(i)}<b id="finCTot-${i}">${finMoney((tot[i]||{}).value)}</b></div>
       </div>`;
     const v = finItemValue(r);
     const auto = finNum(r.qty)!==null && finNum(r.rate)!==null;
-    return `<div class="fincrow item">
-      <div class="fincrow-head"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
+    return `<div class="fincrow item ${r._sel?'sel':''}">
+      <div class="fincrow-head"><input type="checkbox" class="fincsel" aria-label="Tick this line" ${r._sel?'checked':''} onchange="finContractTick(${i}, this.checked)"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
         <textarea rows="1" placeholder="Description" oninput="finContractRows[${i}].description=this.value">${escapeHtml(r.description||'')}</textarea></div>
       <div class="fincrow-nums">
         <label>Qty<input type="text" inputmode="decimal" value="${r.qty!=null&&!isNaN(r.qty)?escapeHtml(String(r.qty)):''}" oninput="finContractSetNum(${i},'qty',this.value)"></label>
         <label>Unit<input type="text" value="${escapeHtml(r.unit||'')}" placeholder="m², nr" oninput="finContractRows[${i}].unit=this.value"></label>
-        <label>Rate £<input type="text" inputmode="decimal" value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
-        <label>Value £<input type="text" inputmode="decimal" id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
+        <label>Rate £<input type="text" inputmode="decimal" data-money value="${r.rate!=null&&!isNaN(r.rate)?escapeHtml(String(r.rate)):''}" oninput="finContractSetNum(${i},'rate',this.value)"></label>
+        <label>Value £<input type="text" inputmode="decimal" data-money id="finCVal-${i}" value="${v!=null?escapeHtml(String(v)):''}" ${auto?'disabled':''} oninput="finContractSetNum(${i},'value',this.value)"></label>
+        <label>Cost £<input type="text" inputmode="decimal" data-money id="finCCost-${i}" value="${r.cost!=null?escapeHtml(String(r.cost)):''}" placeholder="—" oninput="finContractSetCost(${i}, this.value)"></label>
       </div>
+      <div class="fincrow-mg" id="finCMg-${i}">${finContractMgTxt(r)}</div>
       <div class="fincrow-foot">${ctl(i)}</div>
     </div>`;
   }).join('') : `<div class="empty" style="margin:0;">No lines yet. Upload a file or add a header and items.</div>`;
   finContractPaintTotal();
+  finContractBulkPaint();
 }
 window.finContractSetNum = function(i, key, v){
   const r = finContractRows[i]; r[key] = finNum(v);
   const auto = finNum(r.qty)!==null && !isNaN(finNum(r.qty)) && finNum(r.rate)!==null && !isNaN(finNum(r.rate));
   const vEl = document.getElementById('finCVal-'+i);
-  if(vEl && key!=='value'){ vEl.disabled = auto; if(auto) vEl.value = finItemValue(r); }
+  if(vEl && key!=='value'){ vEl.disabled = auto; if(auto) finSetMoney(vEl, finItemValue(r)); }
   if(auto) r.value = finItemValue(r);
+  if(r.cost_basis && r.cost_pct!=null){ r.cost = finCostFromPct(finItemValue(r), r.cost_basis, r.cost_pct); finSetMoney(document.getElementById('finCCost-'+i), r.cost); }
+  const mg = document.getElementById('finCMg-'+i); if(mg) mg.innerHTML = finContractMgTxt(r);
   finContractPaintTotal();
 };
 window.finContractMove = function(i, d){ const j = i+d; if(j<0 || j>=finContractRows.length) return; const t = finContractRows[i]; finContractRows[i] = finContractRows[j]; finContractRows[j] = t; finContractPaint(); };
 window.finContractPaintTotal = function(){
   const items = finContractRows.filter(finIsItem);
-  const t = document.getElementById('finContractTotal'); if(t) t.textContent = finMoney(items.reduce((s,r)=>s+(Number(finItemValue(r))||0),0));
+  const sell = items.reduce((s,r)=>s+(Number(finItemValue(r))||0),0);
+  const t = document.getElementById('finContractTotal'); if(t) t.textContent = finMoney(sell);
+  const costed = items.filter(r=>r.cost!=null && !isNaN(r.cost)); const cost = costed.reduce((s,r)=>s+Number(r.cost),0);
+  const ct = document.getElementById('finContractCostTot');
+  if(ct) ct.innerHTML = costed.length ? `Cost ${finMoney(cost)} · margin ${finPctTxt(sell ? (sell-cost)/sell*100 : null)}${costed.length<items.length ? ` · <span style="color:var(--warn,#B0740F);">${items.length-costed.length} line${items.length-costed.length===1?'':'s'} without a cost</span>` : ''}` : 'No costs yet';
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
   Object.keys(tot).forEach(i=>{ const el = document.getElementById('finCTot-'+i); if(el) el.textContent = finMoney(tot[i].value); });
 };
@@ -183,7 +205,7 @@ window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', desc
 window.saveFinContract = async function(siteId){
   const rows = finContractRows.map(r=>({id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
-      rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r)}))
+      rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r), cost:(r.cost==null||isNaN(r.cost))?null:finRound(Number(r.cost)), cost_basis:r.cost_basis||null, cost_pct:r.cost_pct==null?null:Number(r.cost_pct)}))
     .filter(r=>r.description || r.value!==null);
   if(rows.some(r=>!r.description)){ toast('Every line needs a description.'); return; }
   if(rows.some(r=>finIsItem(r) && r.value===null)){ toast('Every item needs a value (quantity × rate, or a lump sum).'); return; }
@@ -192,7 +214,7 @@ window.saveFinContract = async function(siteId){
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
   for(const e of existing) if(!keep.has(e.id)) await dbDelete('fin_contract_items', e.id);
   for(let i=0;i<rows.length;i++){
-    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub};
+    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub, cost: finIsItem(r) ? r.cost : null, cost_basis: finIsItem(r) && r.cost!=null ? r.cost_basis : null, cost_pct: finIsItem(r) && r.cost!=null && r.cost_basis ? r.cost_pct : null};
     if(r.id && existing.some(e=>e.id===r.id)) await dbUpdate('fin_contract_items', r.id, data);
     else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; }
     // Copied in from the site schedule: link the task / section to this line.
@@ -200,7 +222,13 @@ window.saveFinContract = async function(siteId){
     if(r.id && r._sec_id) await dbUpdate('schedule_sections', r._sec_id, {contract_item_id:r.id});
   }
   const total = finRound(rows.filter(finIsItem).reduce((t,r)=>t+r.value, 0));
-  const patch = {site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
+  const costTotal = finRound(rows.filter(r=>finIsItem(r) && r.cost!=null).reduce((t,r)=>t+r.cost, 0));
+  const allCosted = rows.filter(finIsItem).every(r=>r.cost!=null);
+  const jfNow = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const base = {};
+  if(jfNow.original_value==null){ base.original_value = total; base.original_at = new Date().toISOString(); }
+  if(jfNow.original_cost==null && allCosted && costTotal){ base.original_cost = costTotal; if(!base.original_at) base.original_at = new Date().toISOString(); }
+  const patch = {...base, site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
   if(finContractFile){
     const safe = finContractFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
@@ -280,7 +308,11 @@ function finGuessColumns(rows){
   const body = rows.slice(header+1, header+400);
   let desc = findFirst(/^(description|details|item description|work|element)/);
   if(desc<0){ let best=-1; for(let c=0;c<width;c++){ const t = body.reduce((s,r)=>s+(typeof r[c]==='string'?Math.min(60,r[c].trim().length):0),0); if(t>best){ best=t; desc=c; } } }
-  let amount = find(/^(amount|total|£|value|price|sum|cost)/);
+  // A "cost price" column next to a "sell price" column (Coreloops-style exports): read both.
+  const costCol = findFirst(/^(cost price|cost rate|nett cost|net cost|our cost|budget|cost)/);
+  let amount = find(/^(sell|sale)/);
+  if(amount<0) amount = find(/^(amount|total|£|value|price|sum)/);
+  if(amount<0 && costCol<0) amount = find(/^cost/);
   if(amount<0){ let bestN=-1; for(let c=width-1;c>=0;c--){ if(c===desc) continue; const n = body.filter(r=>finNumCell(r[c])).length; if(n>bestN){ bestN=n; amount=c; } } }
   let qty = findFirst(/^(qty|quantity|quant)/), unit = findFirst(/^(unit|units|uom)$/), rate = findFirst(/^(rate|unit rate|£\/unit)/);
   // No headings for them: look for a unit-looking text column and the numbers either side of it.
@@ -289,7 +321,7 @@ function finGuessColumns(rows){
   if(unit>=0 && rate<0 && unit+1<width && unit+1!==amount) rate = unit+1;
   let ref = findFirst(/^(ref|item|no\.?|code)$/);
   if(ref<0){ for(let c=0;c<desc;c++){ const n = body.filter(r=>String(r[c]||'').trim().length && String(r[c]).trim().length<=8).length; if(n > body.length*0.3){ ref = c; break; } } }
-  return {header, cols:{desc, ref, qty, unit, rate, amount}};
+  return {header, cols:{desc, ref, qty, unit, rate, amount, cost: costCol!==amount ? costCol : -1}};
 }
 function finImportRows(){
   if(!finImport) return [];
@@ -304,11 +336,12 @@ function finImportRows(){
     const qty = c.qty>=0 ? finNumCell(r[c.qty]) : null;
     const rate = c.rate>=0 ? finNumCell(r[c.rate]) : null;
     const unit = c.unit>=0 ? String(r[c.unit]==null?'':r[c.unit]).trim() : '';
+    const cost = c.cost>=0 ? finNumCell(r[c.cost]) : null;
     if(!desc && !amt) return;
     let value = amt;
     if((value===null || value===0) && qty!==null && rate!==null) value = finRound(qty*rate);
     if(value!==null && value!==0){
-      out.push({kind: FIN_TOTAL_RE.test(desc) ? 'skip' : 'item', ref, description:desc||ref, qty, unit, rate, value:finRound(value)});
+      out.push({kind: FIN_TOTAL_RE.test(desc) ? 'skip' : 'item', ref, description:desc||ref, qty, unit, rate, value:finRound(value), cost:cost!=null?finRound(cost):null});
     } else if(desc){
       // No money on the row: a header. Capitals, bold or a whole-number ref → header; otherwise sub-header.
       const top = (desc===desc.toUpperCase() && /[A-Z]/.test(desc)) || (/^[A-Z0-9]{1,3}$/.test(ref));
@@ -334,7 +367,7 @@ function finImportShow(){
     <h3>Check the breakdown</h3>
     ${finImport.kind==='sheet' ? `
       <div class="formfield"><label class="field-label">Sheet</label><select onchange="finImportSet('sheet', this.value)">${Object.keys(finImport.sheets).map(n=>`<option ${n===finImport.sheet?'selected':''}>${escapeHtml(n)}</option>`).join('')}</select></div>
-      <details class="fincols"><summary>Columns</summary><div class="fingrid3">${colSel('ref','Ref')}${colSel('desc','Description')}${colSel('qty','Quantity')}${colSel('unit','Unit')}${colSel('rate','Rate')}${colSel('amount','Amount')}</div></details>` : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Read from the PDF. Lines ending in an amount are items; short lines in capitals are headers.</p>`}
+      <details class="fincols"><summary>Columns</summary><div class="fingrid3">${colSel('ref','Ref')}${colSel('desc','Description')}${colSel('qty','Quantity')}${colSel('unit','Unit')}${colSel('rate','Rate')}${colSel('amount','Amount (sell)')}${colSel('cost','Cost price')}</div></details>` : `<p class="stub" style="margin:0 0 8px;font-style:normal;">Read from the PDF. Lines ending in an amount are items; short lines in capitals are headers.</p>`}
     <p class="stub" style="margin:6px 0;font-style:normal;" id="finImportSum">${used.length} item${used.length===1?'':'s'} · total <b>${finMoney(total)}</b>. Change any line’s type; totals are skipped so nothing is counted twice.</p>
     <div class="finimport">${rows.length ? rows.map((r,i)=>`<div class="finimport-r k-${r.kind}">
         <select onchange="finImport.preview[${i}].kind=this.value;finImportSync()">${Object.keys(kinds).map(k=>`<option value="${k}" ${r.kind===k?'selected':''}>${kinds[k]}</option>`).join('')}</select>
@@ -359,12 +392,12 @@ window.finImportSync = function(){
 };
 window.finImportUse = function(){
   const kept = (finImport.preview||[]).filter(r=>r.kind!=='skip' && !(r.kind==='item' && (r.value===null || r.value===undefined)));
-  finContractRows = kept.map(r=>({kind:r.kind, ref:r.ref||'', description:r.description, qty:r.kind==='item'?(r.qty??null):null, unit:r.kind==='item'?(r.unit||''):'', rate:r.kind==='item'?(r.rate??null):null, value:r.kind==='item'?r.value:null}));
+  finContractRows = kept.map(r=>({kind:r.kind, ref:r.ref||'', description:r.description, qty:r.kind==='item'?(r.qty??null):null, unit:r.kind==='item'?(r.unit||''):'', rate:r.kind==='item'?(r.rate??null):null, value:r.kind==='item'?r.value:null, cost:r.kind==='item' && r.cost!=null ? r.cost : null, cost_basis:'', cost_pct:null, sub:''}));
   // A quantity and rate that don't multiply up to the amount: keep the amount as a lump sum.
   finContractRows.forEach(r=>{ if(r.kind==='item' && r.qty!=null && r.rate!=null && Math.abs(finRound(r.qty*r.rate) - r.value) > 1){ r.qty = null; r.rate = null; } });
   document.getElementById('finImportOverlay').style.display = 'none';
   finContractPaint();
-  toast(kept.length+' lines ready — check them and tap Save breakdown');
+  toast(kept.length+' lines ready — check them and tap Save schedule');
 };
 
 /* ---------------- Applications ---------------- */
@@ -408,7 +441,7 @@ window.newFinApplication = async function(siteId){
   if(ins && ins[0]) go(`#/site/${siteId}/finance/application/${ins[0].id}`);
 };
 
-let finApp = null, finAppCtx = null, finAppCollapsed = {};
+let finApp = null, finAppCtx = null, finAppCollapsed = {}, finAppMode = 'pct', finAppValued = false;
 async function renderFinApplication(siteId, appId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -446,7 +479,7 @@ async function renderFinApplication(siteId, appId){
     <div class="card finappcard">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <p class="sectiontitle" style="margin:0;">Contract works</p>
-        <span class="stub" style="margin:0;font-style:normal;">${locked ? '' : 'Enter % complete, or the quantity done'}</span>
+        <div class="finapptools" id="finAppTools"></div>
       </div>
       ${!locked && Object.keys(siteProgress).length ? `<div class="finnote ${spAhead?'warn':'ok'}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>${spAhead ? `Site progress is ahead on <b style="display:inline;">${spAhead} line${spAhead===1?'':'s'}</b> (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</span>${spAhead ? `<button class="ghostbtn" style="width:auto;margin:0;padding:7px 12px;" onclick="finAppUseSiteProgress()">Use site progress</button>` : ''}</div>` : ''}
       <div id="finAppLines"></div>
@@ -457,7 +490,7 @@ async function renderFinApplication(siteId, appId){
           <div class="finitem-d">${locked ? escapeHtml(v.description) : `<input type="text" value="${escapeHtml(v.description||'')}" placeholder="Variation" oninput="finApp.variations[${i}].description=this.value">`}</div>
           <div class="finitem-in">
             ${locked ? `<span class="finitem-sum">Value ${finMoney(v.value)} · ${finPct(v.pct)}%</span>` : `
-            <label>Value £<input type="text" inputmode="decimal" value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
+            <label>Value £<input type="text" inputmode="decimal" data-money value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
             <label>% done<input type="text" inputmode="decimal" class="finpct" value="${finPct(v.pct)}" oninput="finAppSet('variations',${i},'pct',this.value)"></label>`}
             <b id="finAppG-variations-${i}">—</b>
           </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this project — add them in the project’s Variations register.</p>`}
@@ -467,7 +500,7 @@ async function renderFinApplication(siteId, appId){
       <p class="sectiontitle" style="margin-top:0;">Dayworks</p>
       ${(finApp.dayworks||[]).map((d,i)=>`<div class="finitem">
           <div class="finitem-d">${locked ? escapeHtml(d.description) : `<input type="text" value="${escapeHtml(d.description||'')}" placeholder="Description" oninput="finApp.dayworks[${i}].description=this.value">`}</div>
-          <div class="finitem-in">${locked ? '' : `<label>Value £<input type="text" inputmode="decimal" value="${d.value!=null?escapeHtml(String(d.value)):''}" oninput="finAppSet('dayworks',${i},'value',this.value)"></label>`}<b id="finAppG-dayworks-${i}">—</b></div>
+          <div class="finitem-in">${locked ? '' : `<label>Value £<input type="text" inputmode="decimal" data-money value="${d.value!=null?escapeHtml(String(d.value)):''}" oninput="finAppSet('dayworks',${i},'value',this.value)"></label>`}<b id="finAppG-dayworks-${i}">—</b></div>
         </div>`).join('') || `<p class="stub" style="margin:0;font-style:normal;">None.</p>`}
       ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finApp.dayworks.push({description:'',value:null});finAppSaveSoft().then(render)">+ Add daywork</button>`}
     </div>
@@ -505,20 +538,45 @@ function finAppPaintLines(){
       html += `<div class="finapphead sub" onclick="finAppToggle(${i})"><span><span class="finarrow">${hiddenSub?'▶':'▼'}</span>${escapeHtml(l.ref?l.ref+' ':'')}${escapeHtml(l.description)}</span><b id="finAppH-${i}"></b></div>`;
       return; }
     if(hiddenSec || hiddenSub) return;
+    if(finAppValued && !finPct(l.pct)) return;
     const hasQty = l.qty!=null && !isNaN(Number(l.qty)) && Number(l.qty)!==0;
     const done = hasQty ? finRound(Number(l.qty)*finPct(l.pct)/100) : null;
+    const gdone = finRound(Number(l.value||0)*finPct(l.pct)/100);
+    const mode = finAppMode==='qty' && !hasQty ? 'pct' : finAppMode;
     html += `<div class="finitem">
       <div class="finitem-d">${escapeHtml(l.ref?l.ref+' · ':'')}${escapeHtml(l.description)}
         <em>${hasQty ? `${finQtyFmt(l.qty)} ${escapeHtml(l.unit||'')} × ${finRateFmt(l.rate)} = ` : (l.unit?escapeHtml(l.unit)+' · ':'')+'Value '}${finMoney(l.value)}${finAppCtx.siteProgress && finAppCtx.siteProgress[l.item_id]!=null ? ` · <span class="finsitepct ${finAppCtx.siteProgress[l.item_id] > finPct(l.pct) ? 'ahead' : ''}">site ${finAppCtx.siteProgress[l.item_id]}%</span>` : ''}</em></div>
       <div class="finitem-in">
         ${locked ? `<span class="finitem-sum">${finPct(l.pct)}%${hasQty?' · '+finQtyFmt(done)+' '+escapeHtml(l.unit||'')+' done':''}</span>` : `
-        <label>% done<input type="text" inputmode="decimal" class="finpct" id="finAppP-${i}" value="${finPct(l.pct)}" oninput="finAppSetLine(${i},'pct',this.value)"></label>
-        ${hasQty ? `<label>${escapeHtml(l.unit||'Qty')} done<input type="text" inputmode="decimal" id="finAppQ-${i}" value="${String(done)}" oninput="finAppSetLine(${i},'qty',this.value)"></label>` : ''}`}
+        ${mode==='pct' ? `<label>% done<input type="text" inputmode="decimal" class="finpct" id="finAppP-${i}" value="${finPct(l.pct)}" oninput="finAppSetLine(${i},'pct',this.value)"></label>` : ''}
+        ${mode==='gbp' ? `<label>£ to date<input type="text" inputmode="decimal" data-money id="finAppM-${i}" value="${gdone}" oninput="finAppSetLine(${i},'gbp',this.value)"></label>` : ''}
+        ${mode==='qty' || (mode==='pct' && hasQty) ? `<label>${escapeHtml(l.unit||'Qty')} done<input type="text" inputmode="decimal" id="finAppQ-${i}" value="${String(done)}" oninput="finAppSetLine(${i},'qty',this.value)"></label>` : ''}
+        <span class="finitem-sum" id="finAppS-${i}">${finAppLineSum(l, mode)}</span>`}
         <b id="finAppG-lines-${i}">—</b>
       </div></div>`;
   });
-  el.innerHTML = html;
+  el.innerHTML = html || `<div class="empty" style="margin:8px 0 0;">${finAppValued ? 'Nothing valued yet.' : 'No lines.'}</div>`;
+  finAppToolsPaint();
 }
+function finAppLineSum(l, mode){
+  const hasQty = l.qty!=null && !isNaN(Number(l.qty)) && Number(l.qty)!==0;
+  const p = finPct(l.pct), g = finRound(Number(l.value||0)*p/100);
+  const bits = [];
+  if(mode!=='pct') bits.push(p+'%');
+  if(mode!=='gbp') bits.push(finMoney(g));
+  if(hasQty && mode==='gbp') bits.push(finQtyFmt(finRound(Number(l.qty)*p/100))+' '+escapeHtml(l.unit||''));
+  return bits.join(' · ');
+}
+function finAppToolsPaint(){
+  const el = document.getElementById('finAppTools'); if(!el) return;
+  const secs = (finApp.lines||[]).map((l,i)=>l.kind==='section'||l.kind==='subsection' ? i : -1).filter(i=>i>-1);
+  const allShut = secs.length && secs.every(i=>finAppCollapsed[i]);
+  el.innerHTML = `${finAppCtx.locked ? '' : `<div class="finseg" role="tablist" title="Enter by"><button type="button" class="${finAppMode==='pct'?'on':''}" onclick="finAppSetMode('pct')">%</button><button type="button" class="${finAppMode==='gbp'?'on':''}" onclick="finAppSetMode('gbp')">£</button><button type="button" class="${finAppMode==='qty'?'on':''}" onclick="finAppSetMode('qty')">Qty</button></div>`}
+    <label class="finswitch" style="margin:0;"><input type="checkbox" ${finAppValued?'checked':''} onchange="finAppValued=this.checked;finAppPaintLines();finAppPaint()"> Valued only</label>
+    ${secs.length ? `<button type="button" class="linkbtn" onclick="finAppCollapseAll(${allShut?'false':'true'})">${allShut?'Expand all':'Collapse all'}</button>` : ''}`;
+}
+window.finAppSetMode = function(m){ finAppMode = m; finAppPaintLines(); finAppPaint(); };
+window.finAppCollapseAll = function(shut){ (finApp.lines||[]).forEach((l,i)=>{ if(l.kind==='section'||l.kind==='subsection') finAppCollapsed[i] = !!shut; }); finAppPaintLines(); finAppPaint(); };
 window.finAppToggle = function(i){ finAppCollapsed[i] = !finAppCollapsed[i]; finAppPaintLines(); finAppPaint(); };
 window.finAppFillGroup = function(i, pct){
   const lines = finApp.lines; const level = lines[i].kind;
@@ -531,13 +589,17 @@ window.finAppFillGroup = function(i, pct){
 };
 window.finAppSetLine = function(i, key, v){
   const l = finApp.lines[i];
-  if(key==='pct'){
+  if(key==='gbp'){
+    const n = finNum(v), val = Number(l.value||0);
+    if(val && n!==null && !isNaN(n)) l.pct = finPct(n/val*100);
+  } else if(key==='pct'){
     l.pct = finPct(v);
     const q = document.getElementById('finAppQ-'+i); if(q && l.qty) q.value = finRound(Number(l.qty)*l.pct/100);
   } else {
     const n = finNum(v); const tot = Number(l.qty||0);
     if(tot && n!==null && !isNaN(n)){ l.pct = finPct(n/tot*100); const p = document.getElementById('finAppP-'+i); if(p) p.value = l.pct; }
   }
+  const sEl = document.getElementById('finAppS-'+i); if(sEl) sEl.innerHTML = finAppLineSum(l, finAppMode);
   finAppPaint();
 };
 window.finAppSet = function(path, i, key, v){
@@ -738,3 +800,66 @@ window.sendFinAppEmail = async function(siteId, appId){
   document.getElementById('finMailOverlay').style.display = 'none';
   finApp = null; toast('Application emailed'); render();
 };
+
+/* ---------- cost price per line: % margin / mark-up, manual, bulk (Andy, 20 Oct) ---------- */
+// margin m% of the sale price: cost = sale × (1 − m/100). mark-up k% on cost: cost = sale ÷ (1 + k/100).
+function finCostFromPct(sale, basis, pct){
+  const s = Number(sale), p = Number(pct); if(isNaN(s) || isNaN(p)) return null;
+  return finRound(basis==='markup' ? s/(1+p/100) : s*(1-p/100));
+}
+function finContractMgTxt(r){
+  const v = Number(finItemValue(r)), c = r.cost;
+  if(c==null || isNaN(c) || !v) return '';
+  const m = (v-c)/v*100, k = c ? (v-c)/c*100 : null;
+  return `<span class="${m<0?'neg':''}">Margin ${finPctTxt(finRound(m))}${k!=null?' · mark-up '+finPctTxt(finRound(k)):''}</span>${r.cost_basis && r.cost_pct!=null ? ` <em>(set at ${finRound(r.cost_pct)}% ${r.cost_basis==='markup'?'mark-up':'margin'})</em>` : ''}`;
+}
+window.finContractSetCost = function(i, v){
+  const r = finContractRows[i]; const n = finNum(v);
+  r.cost = (n===null || isNaN(n)) ? null : n; r.cost_basis = ''; r.cost_pct = null; // typed by hand
+  const mg = document.getElementById('finCMg-'+i); if(mg) mg.innerHTML = finContractMgTxt(r);
+  finContractPaintTotal();
+};
+function finContractGroupRange(i){
+  const rows = finContractRows, level = rows[i].kind, out = [];
+  for(let j=i+1;j<rows.length;j++){ const k = rows[j].kind; if(k==='section' || (level==='subsection' && k==='subsection')) break; if(finIsItem(rows[j])) out.push(j); }
+  return out;
+}
+function finContractGroupTicked(i){ const r = finContractGroupRange(i); return r.length>0 && r.every(j=>finContractRows[j]._sel); }
+window.finContractTick = function(i, on){ finContractRows[i]._sel = !!on; finContractPaint(); };
+window.finContractTickGroup = function(i, on){ finContractGroupRange(i).forEach(j=>finContractRows[j]._sel = !!on); finContractPaint(); };
+window.finContractTickAll = function(on){ finContractRows.forEach(r=>{ if(finIsItem(r)) r._sel = !!on; }); finContractPaint(); };
+function finContractSelIdx(){ return finContractRows.map((r,i)=>r._sel && finIsItem(r) ? i : -1).filter(i=>i>-1); }
+window.finContractApplyPct = function(onlyTicked){
+  const pct = finNum(finVal('finCtPct')), basis = finVal('finCtBasis') || 'margin';
+  if(pct===null || isNaN(pct) || pct<0 || (basis==='margin' && pct>=100)){ toast(basis==='margin' ? 'Enter a margin between 0 and 99%.' : 'Enter a mark-up %.'); return; }
+  const idx = onlyTicked ? finContractSelIdx() : finContractRows.map((r,i)=>finIsItem(r)?i:-1).filter(i=>i>-1);
+  if(!idx.length){ toast(onlyTicked ? 'Tick some lines first.' : 'No lines yet.'); return; }
+  let n = 0;
+  idx.forEach(i=>{ const r = finContractRows[i]; const v = finItemValue(r); if(v==null) return; r.cost_basis = basis; r.cost_pct = pct; r.cost = finCostFromPct(v, basis, pct); n++; });
+  finContractPaint();
+  toast(n+' line'+(n===1?'':'s')+' costed at '+pct+'% '+(basis==='markup'?'mark-up':'margin')+' — save to keep it');
+};
+window.finContractBulk = async function(action){
+  const idx = finContractSelIdx(); if(!idx.length) return;
+  if(action==='clear'){ idx.forEach(i=>{ const r = finContractRows[i]; r.cost = null; r.cost_basis = ''; r.cost_pct = null; }); }
+  else if(action==='plot'){ const v = finVal('finCtBulkPlot'); idx.forEach(i=>finContractRows[i].sub = v); }
+  else if(action==='unit'){ const u = await customPrompt('Unit for the ticked lines (e.g. m², nr, item)'); if(u===null) return; idx.forEach(i=>finContractRows[i].unit = String(u).trim()); }
+  else if(action==='remove'){ if(!(await customConfirm('Remove '+idx.length+' ticked line'+(idx.length===1?'':'s')+'?'))) return; idx.slice().reverse().forEach(i=>finContractRows.splice(i,1)); }
+  finContractPaint();
+};
+function finContractBulkPaint(){
+  const el = document.getElementById('finCtBulk'); const btn = document.getElementById('finCtSelBtn');
+  const idx = finContractSelIdx(); const items = finContractRows.filter(finIsItem).length;
+  if(btn){ btn.disabled = !idx.length; btn.textContent = idx.length ? 'Apply to '+idx.length+' ticked' : 'Apply to ticked'; }
+  if(!el) return;
+  const subs = FIN_SUBJOBS[finContractSite] || [];
+  el.style.display = 'flex';
+  el.innerHTML = idx.length ? `<b>${idx.length} ticked</b>
+    <button class="linkbtn" onclick="document.getElementById('finCtPct').focus()">Margin / mark-up ↑</button>
+    ${subs.length ? `<span class="finbulk-plot"><select id="finCtBulkPlot"><option value="">No plot</option>${subs.map(a=>`<option value="${a.id}">${escapeHtml(a.short)}</option>`).join('')}</select><button class="linkbtn" onclick="finContractBulk('plot')">Set plot</button></span>` : ''}
+    <button class="linkbtn" onclick="finContractBulk('unit')">Set unit</button>
+    <button class="linkbtn" onclick="finContractBulk('clear')">Clear costs</button>
+    <button class="linkbtn" style="color:var(--red);" onclick="finContractBulk('remove')">Remove</button>
+    <button class="linkbtn" onclick="finContractTickAll(false)">Untick all</button>`
+    : (items ? `<button class="linkbtn" onclick="finContractTickAll(true)">Tick all ${items} lines</button><span class="stub" style="margin:0;font-style:normal;">Tick lines (or a header) to change them together.</span>` : '');
+}

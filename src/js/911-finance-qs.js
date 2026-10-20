@@ -15,7 +15,7 @@ async function finLoadBook(siteId){
   const f = siteId ? 'site_id=eq.'+siteId : 'org_id=eq.'+ME.org_id;
   // Rows that can be split across projects are also fetched when another project's row has a share here.
   const fs = siteId ? 'or=(site_id.eq.'+siteId+',split_sites.cs.{'+siteId+'})' : f;
-  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos] = await Promise.all([
+  const [jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items] = await Promise.all([
     dbSelect('job_finance', f),
     dbSelect('fin_invoices', f+'&status=neq.draft&limit=5000'),
     dbSelect('fin_applications', f+'&order=number.asc&limit=5000'),
@@ -31,9 +31,10 @@ async function finLoadBook(siteId){
     dbSelect('fin_sub_apps', f+'&order=number.asc'),
     finLoadRates(),
     dbSelect('client_pos', f+'&order=is_primary.desc,created_at.asc'),
+    dbSelect('fin_contract_items', f+'&select=id,site_id,kind,value,cost,sub_job_id,position&order=position.asc&limit=20000'),
   ]);
   await loadAllProfiles();
-  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos};
+  return {siteId, jf, invs, apps, pinvs, pos, cks, manual, hires, extra, budgets, vars, scs, sapps, rates, cpos, items};
 }
 function finBy(arr, siteId){ return (arr||[]).filter(x=>x.site_id===siteId); }
 
@@ -119,11 +120,30 @@ function finJobForecast(b, siteId){
   const invs = finBy(b.invs, siteId).filter(i=>i.status!=='void');
   const invoiced = finRound(invs.reduce((t,i)=>t+Number(i.net||0),0));
   const owed = finRound(invs.reduce((t,i)=>t+finInvOutstanding(i),0));
-  const costToDate = sum(actual), committedTotal = sum(committed), forecastCost = sum(forecast);
+  const costToDate = sum(actual), committedTotal = sum(committed);
+  let forecastCost = sum(forecast);
+  // Budget: the category budgets if any are set, otherwise the priced schedule's cost prices
+  // (plus the cost estimate of variations agreed / submitted).
+  const schedItems = finBy(b.items, siteId).filter(i=>!i.kind || i.kind==='item');
+  const schedCosted = schedItems.filter(i=>i.cost!=null);
+  const schedCost = finRound(schedCosted.reduce((t,i)=>t+Number(i.cost||0),0));
+  const varCost = finRound(vars.filter(v=>['agreed','priced','submitted'].includes(v.status)).reduce((t,v)=>t+Number(v.cost_estimate||0),0));
+  const catBudget = cats.some(k=>budget[k]!=null);
+  let budgetTotal = catBudget ? sum(budget) : null, budgetSource = catBudget ? 'categories' : null, toCompleteSched = 0;
+  if(!catBudget && schedCosted.length){
+    budgetTotal = finRound(schedCost + varCost); budgetSource = 'schedule';
+    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal));
+    forecastCost = finRound(forecastCost + toCompleteSched);
+  }
+  const sales = finBillingType(jf, schedItems.length, apps.length)==='invoice' ? invoiced : valuation;
+  const ov = jf.original_value!=null ? Number(jf.original_value) : null, oc = jf.original_cost!=null ? Number(jf.original_cost) : null;
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   return {lines, cats, actual, committed, budget, toComplete, tcSet, forecast, jf, contract, vAgreed, vPending, vInstructed, ffa,
     valuation, certified, invoiced, owed, retHeld, costToDate, committedTotal, forecastCost,
-    budgetTotal: cats.some(k=>budget[k]!=null) ? sum(budget) : null,
+    budgetTotal, budgetSource, schedCost, schedCostedN:schedCosted.length, schedItemsN:schedItems.length, varCost, toCompleteSched, sales,
+    salesMargin: finRound(sales - costToDate), salesMarginPct: sales ? finRound((sales-costToDate)/sales*100) : null,
+    origValue:ov, origCost:oc, origMargin: ov!=null && oc!=null ? finRound(ov-oc) : null, origMarginPct: ov && oc!=null ? finRound((ov-oc)/ov*100) : null,
+    forecastBudget: budgetTotal,
     marginToDate: finRound(valuation - costToDate), marginToDatePct: valuation ? finRound((valuation-costToDate)/valuation*100) : null,
     forecastMargin: finRound(ffa - forecastCost), forecastMarginPct: ffa ? finRound((ffa-forecastCost)/ffa*100) : null};
 }
@@ -149,25 +169,45 @@ function finJobCostCardFromForecast(siteId, fc){
   </div>`;
 }
 function finForecastCardHtml(siteId, fc){
-  const m = fc.forecastMargin, col = m<0 ? 'var(--red)' : 'var(--ok)';
+  const pctCol = p=>p==null ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
+  const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
+  const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
+  const tile = (label, val, foot, extra, style)=>`<div class="fintile"><span class="fintile-l">${label}</span><b style="${style||''}">${val}</b>${extra||''}<span class="fintile-f">${foot}</span></div>`;
+  const salesP = fc.ffa ? finRound(fc.sales/fc.ffa*100) : null;
+  const costP = fc.budgetTotal ? finRound(fc.costToDate/fc.budgetTotal*100) : null;
+  const noOrig = fc.origValue==null && fc.origCost==null;
   return `<div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-      <p class="sectiontitle" style="margin:0;">Final account &amp; forecast</p>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <p class="sectiontitle" style="margin:0;">Project summary</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/variations')">Variations</button>
-        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/budget')">Budget &amp; forecast ›</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/monthly')">Monthly report</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/variations')">Variations</button>
+        <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;margin:0;" onclick="go('#/site/${siteId}/finance/budget')">Budget ›</button>
       </div>
     </div>
-    <div class="fincost">
-      <div><span>Contract</span><b>${finMoney(fc.contract, 0)}</b></div>
-      <div><span>Variations agreed</span><b>${finMoney(fc.vAgreed, 0)}</b>${fc.vPending?`<em>+ ${finMoney(fc.vPending, 0)} submitted, not agreed</em>`:''}</div>
-      <div><span>Forecast final account</span><b>${finMoney(fc.ffa, 0)}</b></div>
-      <div><span>Forecast final cost</span><b>${finMoney(fc.forecastCost, 0)}</b>${fc.budgetTotal==null?`<em style="color:var(--slate);">No budget set yet</em>`:''}</div>
+    <div class="fintiles">
+      ${tile('Forecast value', finMoney(fc.ffa, 0), 'Original '+(fc.origValue!=null?finMoney(fc.origValue, 0):'—'), diff(fc.ffa, fc.origValue))}
+      ${tile('Forecast budget', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? 'No budget yet' : 'Original '+(fc.origCost!=null?finMoney(fc.origCost, 0):'—')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
+      ${tile('Forecast margin', finMoney(fc.forecastMargin, 0), 'Original '+(fc.origMargin!=null?finMoney(fc.origMargin, 0):'—'), diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))}
+      ${tile('Forecast margin %', finPctTxt(fc.forecastMarginPct), 'Original '+finPctTxt(fc.origMarginPct), '', pctCol(fc.forecastMarginPct))}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced' : 'Valuation to date', finMoney(fc.sales, 0), 'Progress '+finPctTxt(salesP), bar(salesP))}
+      ${tile('Cost to date', finMoney(fc.costToDate, 0), fc.budgetTotal ? 'Of budget '+finPctTxt(costP) : (fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' committed' : 'No budget yet'), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
+      ${tile('Margin to date', finMoney(fc.salesMargin, 0), 'Value less cost so far', '', pctCol(fc.salesMargin))}
+      ${tile('Margin to date %', finPctTxt(fc.salesMarginPct), fc.committedTotal ? finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : '&nbsp;', '', pctCol(fc.salesMarginPct))}
     </div>
-    <div class="finkv big" style="margin-top:8px;"><span>Forecast margin</span><b style="color:${col};">${finMoney(m, 0)} · ${finPctTxt(fc.forecastMarginPct)}</b></div>
-    <div class="finkv"><span>Valuation to date less costs to date</span><b>${finMoney(fc.marginToDate, 0)} · ${finPctTxt(fc.marginToDatePct)}</b></div>
+    <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · variations agreed ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · submitted '+finMoney(fc.vPending, 0):''}</span><b>Forecast final cost ${finMoney(fc.forecastCost, 0)}</b></div>
+    ${noOrig ? `<div class="finkv"><span>Lock today’s value and budget as the original, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Set original</button></b></div>`
+      : `<div class="finkv"><span class="stub" style="margin:0;font-style:normal;">Original set ${fc.jf.original_at ? finDate(String(fc.jf.original_at).slice(0,10)) : ''}</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Reset original to today</button></b></div>`}
+    ${fc.budgetSource==='schedule' && fc.schedCostedN < fc.schedItemsN ? `<div class="finnote warn">${fc.schedItemsN - fc.schedCostedN} schedule line${fc.schedItemsN - fc.schedCostedN===1?' has':'s have'} no cost price yet, so the budget is low. <a href="#/site/${siteId}/finance/contract">Add costs</a></div>` : ''}
   </div>`;
 }
+window.finSetOriginal = async function(siteId){
+  const b = await finLoadBook(siteId); const fc = finJobForecast(b, siteId);
+  if(!(await customConfirm(`Set the original to today’s figures?\n\nValue ${finMoney(fc.ffa)} · budget ${fc.budgetTotal!=null?finMoney(fc.budgetTotal):'none'}`))) return;
+  const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, original_value:fc.ffa, original_cost:fc.budgetTotal, original_at:new Date().toISOString(), updated_at:new Date().toISOString(), updated_by:ME.id})});
+  if(!res.ok){ toast('Could not save — '+(await safeErr(res))); return; }
+  toast('Original set'); render();
+};
 
 /* ---------- Budget & forecast page ---------- */
 let finBud = null;
@@ -179,7 +219,7 @@ async function renderFinBudget(siteId){
   if(__gen !== RENDER_GEN) return;
   const fc = finJobForecast(b, siteId);
   finBud = {siteId, fc};
-  const cell = (k, f)=>`<input type="text" inputmode="decimal" data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? String(fc.toComplete[k]||0) : '0'}" oninput="finBudPaint()">`;
+  const cell = (k, f)=>`<input type="text" inputmode="decimal" data-money data-k="${f}" data-c="${k}" value="${f==='budget' ? (fc.budget[k]!=null?fc.budget[k]:'') : (fc.tcSet[k]?fc.toComplete[k]:'')}" placeholder="${f==='to_complete' ? finMoneyIn(fc.toComplete[k]||0) : '£0.00'}" oninput="finBudPaint()">`;
   document.getElementById('app').innerHTML = shell(`
     <div class="pmstats finstats">
       <div class="pmstat"><b>${finMoney(fc.ffa, 0)}</b><span>Forecast final account</span></div>
@@ -187,6 +227,7 @@ async function renderFinBudget(siteId){
       <div class="pmstat"><b id="finBudFm">${finMoney(fc.forecastMargin, 0)}</b><span>Forecast margin</span></div>
       <div class="pmstat"><b id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</b><span>Forecast margin %</span></div>
     </div>
+    ${fc.budgetSource==='schedule' ? `<div class="finnote ok">The budget is coming from the cost prices on the priced schedule of works: <b style="display:inline;">${finMoney(fc.schedCost)}</b>${fc.varCost?' + '+finMoney(fc.varCost)+' variation costs':''}. Type budgets by cost type below only if you want to split it up instead.</div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Value</p>
       <div class="finkv"><span>Contract value</span><b>${finMoney(fc.contract)}</b></div>
@@ -237,7 +278,7 @@ window.finBudPaint = function(){
     const f = document.getElementById('finBudF-'+k); if(f) f.textContent = finMoney(x.forecast);
     const v = document.getElementById('finBudV-'+k); if(v){ if(x.budget==null){ v.textContent = '—'; v.style.color = ''; } else { const d = finRound(x.budget - x.forecast); v.textContent = (d<0?'over ':'under ')+finMoney(Math.abs(d)); v.style.color = d<0 ? 'var(--red)' : 'var(--ok)'; } }
     const tcIn = document.querySelector(`.finbudtbl input[data-c="${k}"][data-k="to_complete"]`);
-    if(tcIn && x.to_complete==null) tcIn.placeholder = String(x.tcEff);
+    if(tcIn && x.to_complete==null) tcIn.placeholder = finMoneyIn(x.tcEff);
   });
   const set = (id, t, c)=>{ const el = document.getElementById(id); if(el){ el.textContent = t; if(c!==undefined) el.style.color = c; } };
   set('finBudTB', anyB ? finMoney(tb) : '—'); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
@@ -250,6 +291,10 @@ window.saveFinBudget = async function(siteId){
   const rows = Object.keys(r).map(k=>({org_id:ME.org_id, site_id:siteId, category:k, budget:r[k].budget, to_complete:r[k].to_complete, updated_at:new Date().toISOString(), updated_by:ME.id}));
   const res = await sbFetch('/rest/v1/fin_job_budgets?on_conflict=site_id,category', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(rows)});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
+  // First budget on an invoice project becomes the original budget.
+  const jfNow = (await dbSelect('job_finance', 'site_id=eq.'+siteId))[0] || {};
+  const tot = finRound(Object.values(r).reduce((t,x)=>t+(Number(x.budget)||0),0));
+  if(jfNow.original_cost==null && tot) await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, original_cost:tot, original_value:jfNow.original_value!=null?jfNow.original_value:(jfNow.contract_value!=null?Number(jfNow.contract_value):null), original_at:jfNow.original_at||new Date().toISOString()})});
   toast('Budget & forecast saved'); render();
 };
 
@@ -325,10 +370,10 @@ window.openFinVariation = async function(siteId, id){
       <div class="formfield"><label class="field-label">Instruction ref (AI / CVI no.)</label><input type="text" id="finVaRef" value="${val('instruction_ref')}"></div>
       <div class="formfield"><label class="field-label">Instructed on</label><input type="date" id="finVaOn" value="${v&&v.instructed_on||finToday()}"></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finVaStatus">${Object.keys(FIN_VAR_STATUS).map(k=>`<option value="${k}" ${(v?v.status:'instructed')===k?'selected':''}>${FIN_VAR_STATUS[k]}</option>`).join('')}</select></div>
-      <div class="formfield"><label class="field-label">Our cost estimate £</label><input type="text" inputmode="decimal" id="finVaCost" value="${val('cost_estimate')}"></div>
-      <div class="formfield"><label class="field-label">Quoted to client £</label><input type="text" inputmode="decimal" id="finVaQuote" value="${val('quoted')}"></div>
+      <div class="formfield"><label class="field-label">Our cost estimate £</label><input type="text" inputmode="decimal" data-money id="finVaCost" value="${val('cost_estimate')}"></div>
+      <div class="formfield"><label class="field-label">Quoted to client £</label><input type="text" inputmode="decimal" data-money id="finVaQuote" value="${val('quoted')}"></div>
       <div class="formfield"><label class="field-label">Submitted on</label><input type="date" id="finVaSub" value="${v&&v.submitted_on||''}"></div>
-      <div class="formfield"><label class="field-label">Agreed value £</label><input type="text" inputmode="decimal" id="finVaAgreed" value="${val('agreed_value')}"></div>
+      <div class="formfield"><label class="field-label">Agreed value £</label><input type="text" inputmode="decimal" data-money id="finVaAgreed" value="${val('agreed_value')}"></div>
       <div class="formfield"><label class="field-label">Agreed on</label><input type="date" id="finVaAgOn" value="${v&&v.agreed_on||''}"></div>
     </div>
     <div class="formfield"><label class="field-label">Notes</label><textarea id="finVaNotes" rows="2">${val('notes')}</textarea></div>
