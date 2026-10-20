@@ -143,7 +143,7 @@ function shell(innerHtml, opts){
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
           <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
-            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
         `}

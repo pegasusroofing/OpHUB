@@ -211,6 +211,24 @@
         </ul>
         <div class="btn btn-ghost btn-block choose">Choose Enterprise</div>
       </div>
+      <!-- OpHUB Finance on its own. Hidden until its Stripe prices
+           (rtb_finance_monthly / rtb_finance_setup) exist: show it with
+           pricing.html?tier=finance, then remove "hidden" to go live. -->
+      <div class="pricecard" data-tier="finance" id="financeCard" hidden onclick="selectPlan('finance')">
+        <h3>OpHUB Finance</h3>
+        <p class="setupfee">Pricing tailored to your team</p>
+        <p class="desc">The money side of every job, on its own — no site app needed.</p>
+        <ul>
+          <li>Jobs with automatic job numbers &amp; client POs</li>
+          <li>Contract breakdowns, applications for payment &amp; certificates</li>
+          <li>Invoices, payments, retention &amp; reminders</li>
+          <li>Purchase orders &amp; supplier invoice checking</li>
+          <li>Invoice inbox that reads supplier invoices</li>
+          <li>Labour, timesheets, CIS payments &amp; statements</li>
+          <li>Plant hire · job cost &amp; margin · Xero link</li>
+        </ul>
+        <div class="btn btn-ghost btn-block choose">Choose Finance</div>
+      </div>
     </div>
   </div>
 </div>
@@ -266,6 +284,7 @@
     starter: { name: 'OpHUB Basic' },
     growth: { name: 'OpHUB Pro' },
     enterprise: { name: 'OpHUB Enterprise' },
+    finance: { name: 'OpHUB Finance' },
   };
   let tier = null;
   function selectPlan(t){
@@ -280,6 +299,7 @@
   // plan, e.g. pricing.html?tier=growth, instead of landing with nothing chosen.
   (function preselectFromQuery(){
     const t = new URLSearchParams(location.search).get('tier');
+    if(t==='finance'){ const fc = document.getElementById('financeCard'); if(fc) fc.hidden = false; }
     if(t && PLAN_INFO[t]){
       selectPlan(t);
       document.getElementById('checkoutSection').scrollIntoView({behavior:'smooth', block:'start'});

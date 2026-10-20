@@ -1523,3 +1523,50 @@ details.fincols{margin:0 0 6px;} details.fincols summary{cursor:pointer;font-wei
 .finxero .ok{color:var(--ok);font-weight:600;}
 .finxero .ghostbtn{width:auto;flex:none;padding:6px 12px;}
 .finxero .err{flex-basis:100%;color:var(--red);font-size:12px;}
+/* OpHUB Finance — job costs ledger */
+.fincostsum{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:12px;}
+.fincostsum-i{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card,#fff);cursor:pointer;text-align:left;font:inherit;color:inherit;}
+.fincostsum-i span{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#5B6472);}
+.fincostsum-i b{font-size:18px;}
+.fincostsum-i em{font-style:normal;font-size:11.5px;color:var(--muted,#5B6472);}
+.fincostsum-i.on{border-color:var(--ink,#111);box-shadow:inset 0 0 0 1px var(--ink,#111);}
+.fincostsum-i.com{border-style:dashed;}
+.fincosttools{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;}
+.fincosttools input[type=search]{flex:1 1 240px;min-width:0;}
+.fincosttools label{display:flex;flex-direction:column;font-size:11px;font-weight:700;color:var(--muted,#5B6472);gap:2px;}
+.fincosttools label input{width:150px;}
+.fincosttools-b{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;}
+.fincosttools-b button{width:auto;padding:8px 12px;}
+.fincosttbl{width:100%;border-collapse:collapse;background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px;}
+.fincosttbl th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#5B6472);padding:10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap;background:#F7F8FA;}
+.fincosttbl td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+.fincosttbl .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.fincosttbl tr.click{cursor:pointer;}
+.fincosttbl tr.click:hover td{background:#F7F8FA;}
+.fincosttbl tfoot td{font-weight:800;border-bottom:0;background:#F7F8FA;}
+.fincat{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11.5px;font-weight:700;background:#EEF1F4;}
+.fincat.c-materials{background:#E7F0FB;color:#1F4F8A;}.fincat.c-labour{background:#EAF6EE;color:#1E6B45;}.fincat.c-plant{background:#FFF3E0;color:#8A5300;}
+.fincat.c-subcontract{background:#F1EAFB;color:#5B2D91;}.fincat.c-overheads{background:#FDECEE;color:#9B1C2C;}.fincat.c-committed{background:#F1F2F4;color:#5B6472;}
+@media (max-width:760px){
+  .fincosttools label input{width:130px;}
+  .fincosttools-b{margin-left:0;width:100%;}
+  .fincosttools-b button{flex:1;}
+  .fincosttbl, .fincosttbl tbody, .fincosttbl tr, .fincosttbl td, .fincosttbl tfoot{display:block;width:100%;}
+  .fincosttbl{border:0;background:none;}
+  .fincosttbl thead{display:none;}
+  .fincosttbl tbody tr{background:var(--card,#fff);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;padding:8px 12px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;}
+  .fincosttbl td{border:0;padding:0;}
+  .fincosttbl td.d{grid-column:1;font-weight:700;order:-2;}
+  .fincosttbl td.num{grid-column:2;grid-row:1;font-weight:800;}
+  .fincosttbl td[data-l="Date"]{font-size:12px;color:var(--muted,#5B6472);}
+  .fincosttbl td[data-l="Supplier / person"], .fincosttbl td[data-l="Ref"]{font-size:12.5px;color:var(--muted,#5B6472);}
+  .fincosttbl td:empty{display:none;}
+  .fincosttbl tfoot tr{display:flex;justify-content:space-between;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#F7F8FA;}
+  .fincosttbl tfoot td{width:auto;background:none;}
+}
+.fincosttools input{height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;box-sizing:border-box;}
+@media (max-width:760px){
+  .fincosttools input[type=search]{flex:1 1 100%;}
+  .fincosttools label{flex:1 1 40%;}
+  .fincosttools label input{width:100%;}
+}

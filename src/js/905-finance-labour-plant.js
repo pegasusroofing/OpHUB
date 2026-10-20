@@ -11,14 +11,21 @@
 const FIN_CIS_LABEL = {0:'Gross (0%)', 20:'Standard (20%)', 30:'Unverified (30%)'};
 function finMonday(iso){ const d = new Date((iso||finToday())+'T12:00:00'); const w = (d.getDay()+6)%7; d.setDate(d.getDate()-w); return d.toISOString().slice(0,10); }
 function finIsoDay(ts){ const d = new Date(ts); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function finPersonName(id){ return (PROFILES[id] && PROFILES[id].name) || 'Unknown'; }
+// People are app users (key = user id) or workers set up in Finance with no
+// app login (key = 'w:<fin_labour_rates id>') — e.g. Finance-only companies.
+let FIN_WORKERS = {};
+function finPersonName(id){
+  if(id && String(id).startsWith('w:')){ const w = FIN_WORKERS[String(id).slice(2)]; return (w && (w.name || w.trading_name)) || 'Worker'; }
+  return (PROFILES[id] && PROFILES[id].name) || 'Unknown';
+}
+function finPersonKey(r){ return r.user_id || (r.worker_id ? 'w:'+r.worker_id : 'n:'+(r.name||'')); }
 // One day per person per job per date with a check-in.
 function finLabourDaysFrom(checkins){
   const seen = new Set(), out = [];
   checkins.forEach(c=>{ if(c.type && c.type!=='in') return; const d = finIsoDay(c.ts); const k = c.user_id+'|'+c.site_id+'|'+d; if(seen.has(k)) return; seen.add(k); out.push({user_id:c.user_id, site_id:c.site_id, date:d}); });
   return out;
 }
-async function finLoadRates(){ const rows = await dbSelect('fin_labour_rates', 'org_id=eq.'+ME.org_id); const m = {}; rows.forEach(r=>{ m[r.user_id] = r; }); return m; }
+async function finLoadRates(){ const rows = await dbSelect('fin_labour_rates', 'org_id=eq.'+ME.org_id); const m = {}; FIN_WORKERS = {}; rows.forEach(r=>{ if(r.user_id) m[r.user_id] = r; else { m['w:'+r.id] = r; FIN_WORKERS[r.id] = r; } }); return m; }
 // Labour cost on one job: sign-in days × rate + manual entries.
 async function finJobLabour(siteId){
   const [cks, manual, rates] = await Promise.all([
@@ -46,41 +53,55 @@ function finLabourCardHtml(siteId, lab){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <p class="sectiontitle" style="margin:0;">Labour</p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinManualLabour('${siteId}')">+ Add labour</button>
+      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinManualLabour('${siteId}')">${typeof isFinanceOnly==='function' && isFinanceOnly() ? '+ Add timesheet' : '+ Add labour'}</button>
     </div>
-    <p class="stub" style="margin:4px 0 8px;font-style:normal;">From site sign-in (a day per person per date) at each person’s day rate, plus anything added by hand.${lab.noRate?` <b style="color:var(--warn);">${lab.noRate} ${lab.noRate===1?'person has':'people have'} no day rate yet</b> — <a href="#/finance/labour/rates">set rates</a>.`:''}</p>
+    <p class="stub" style="margin:4px 0 8px;font-style:normal;">${typeof isFinanceOnly==='function' && isFinanceOnly() ? 'From timesheets, at each person’s day rate.' : 'From site sign-in (a day per person per date) at each person’s day rate, plus anything added by hand.'}${lab.noRate?` <b style="color:var(--warn);">${lab.noRate} ${lab.noRate===1?'person has':'people have'} no day rate yet</b> — <a href="#/finance/labour/rates">set rates</a>.`:''}</p>
     ${lab.people.map(p=>`<div class="finkv"><span>${escapeHtml(finPersonName(p.user_id))} · ${p.days} day${p.days===1?'':'s'}${p.rate!=null?' × '+finMoney(p.rate):''}</span><b>${p.rate!=null?finMoney(p.cost):'<span class="finpill warn">No rate</span>'}</b></div>`).join('')}
     ${lab.manual.map(m=>`<div class="finkv"><span>${escapeHtml(m.name||finPersonName(m.user_id))} · ${finDate(m.work_date)}${m.description?' · '+escapeHtml(m.description):''} <button class="linkbtn" onclick="deleteFinManualLabour('${m.id}')">remove</button></span><b>${finMoney(m.amount)}</b></div>`).join('')}
     ${!lab.people.length && !lab.manual.length ? `<p class="stub" style="margin:0;font-style:normal;">No labour on this job yet.</p>` : `<div class="finkv big"><span>Labour to date</span><b>${finMoney(lab.cost)}</b></div>`}
   </div>`;
 }
-window.openFinManualLabour = async function(siteId){
+window.openFinManualLabour = async function(siteId, date){
   await loadAllProfiles();
+  const rates = await finLoadRates();
   const people = Object.values(PROFILES).filter(p=>['operative','site_manager','pm'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
+  const workers = Object.values(FIN_WORKERS).filter(w=>w.active!==false).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  window.__finLabRates = rates;
   let ov = document.getElementById('finLabOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finLabOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  const jobs = SITES.filter(x=>finSiteStatus(x)!=='closed').sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>Add labour</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">For work not captured by sign-in: price work, a gang, or someone without the app.</p>
-    <div class="formfield"><label class="field-label">Who</label><select id="finLabWho"><option value="">Someone not in the app…</option>${people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</select></div>
-    <div class="formfield"><label class="field-label">Name (if not in the app)</label><input type="text" id="finLabName"></div>
+    <h3>${siteId ? 'Add labour' : 'Add timesheet'}</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${siteId ? 'For work not captured by sign-in: price work, a gang, or someone without the app.' : 'Days worked by a person on a job. Their day rate fills in the amount.'}</p>
+    ${siteId ? '' : `<div class="formfield"><label class="field-label">Job</label><select id="finLabJob"><option value="">Choose…</option>${jobs.map(j=>`<option value="${j.id}">${escapeHtml((j.job_number?j.job_number+' · ':'')+j.name)}</option>`).join('')}</select></div>`}
+    <div class="formfield"><label class="field-label">Who</label><select id="finLabWho" onchange="finLabAuto()"><option value="">Someone else (type a name)…</option>
+      ${workers.length ? `<optgroup label="Workers">${workers.map(w=>`<option value="w:${w.id}">${escapeHtml(w.name||w.trading_name||'Worker')}</option>`).join('')}</optgroup>` : ''}
+      ${people.length ? `<optgroup label="App users">${people.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('')}</optgroup>` : ''}</select></div>
+    <div class="formfield"><label class="field-label">Name (if not listed)</label><input type="text" id="finLabName"></div>
     <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Date</label><input type="date" id="finLabDate" value="${finToday()}"></div>
-      <div class="formfield"><label class="field-label">Days (optional)</label><input type="text" inputmode="decimal" id="finLabDays"></div>
+      <div class="formfield"><label class="field-label">Date</label><input type="date" id="finLabDate" value="${date||finToday()}"></div>
+      <div class="formfield"><label class="field-label">Days</label><input type="text" inputmode="decimal" id="finLabDays" oninput="finLabAuto()"></div>
     </div>
     <div class="formfield"><label class="field-label">Amount (£)</label><input type="text" inputmode="decimal" id="finLabAmt"></div>
     <div class="formfield"><label class="field-label">What for</label><input type="text" id="finLabDesc" placeholder="e.g. price work, lead to valleys"></div>
-    <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId}')">Save</button>
+    <button class="darkbtn" style="width:100%;" onclick="saveFinManualLabour('${siteId||''}')">Save</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finLabOverlay').style.display='none'">Cancel</button>
   </div>`;
   ov.style.display = 'flex';
 };
+window.finLabAuto = function(){
+  const who = finVal('finLabWho'), days = finNum(finVal('finLabDays'));
+  const r = (window.__finLabRates||{})[who];
+  if(r && r.day_rate!=null && days!==null && !isNaN(days)){ const el = document.getElementById('finLabAmt'); if(el) el.value = finRound(days*Number(r.day_rate)); }
+};
 window.saveFinManualLabour = async function(siteId){
+  if(!siteId){ siteId = finVal('finLabJob'); if(!siteId){ toast('Choose the job.'); return; } }
   const who = finVal('finLabWho'), name = finVal('finLabName'), amt = finNum(finVal('finLabAmt')), days = finNum(finVal('finLabDays'));
   if(!who && !name){ toast('Choose who, or type a name.'); return; }
   if(amt===null || isNaN(amt)){ toast('Enter the amount.'); return; }
-  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, user_id:who||null, name:who?null:name, work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
+  const isW = who.startsWith('w:');
+  const r = await dbInsert('fin_labour_manual', {org_id:ME.org_id, site_id:siteId, user_id:(who && !isW)?who:null, worker_id:isW?who.slice(2):null, name:isW?finPersonName(who):(who?null:name), work_date:finVal('finLabDate')||finToday(), days:(days===null||isNaN(days))?null:days, amount:finRound(amt), description:finVal('finLabDesc')||null, created_by:ME.id});
   if(!r) return;
   document.getElementById('finLabOverlay').style.display = 'none'; toast('Labour added'); render();
 };
@@ -152,18 +173,21 @@ async function renderFinLabour(){
   if(!finLabWeek) finLabWeek = finMonday(finAddDays(finToday(), -7));
   const from = finLabWeek, to = finAddDays(from, 6);
   await loadAllProfiles();
-  const [cks, rates, pays] = await Promise.all([
+  const [cks, rates, pays, manual] = await Promise.all([
     dbSelect('checkins', 'type=eq.in&ts=gte.'+from+'T00:00:00&ts=lte.'+to+'T23:59:59&select=user_id,site_id,ts,type&limit=20000'),
     finLoadRates(),
     dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&period_start=eq.'+from+'&status=neq.void'),
+    dbSelect('fin_labour_manual', 'org_id=eq.'+ME.org_id+'&work_date=gte.'+from+'&work_date=lte.'+to),
   ]);
   if(__gen !== RENDER_GEN) return;
   const days = finLabourDaysFrom(cks);
   const people = {};
-  days.forEach(d=>{ const p = people[d.user_id] = people[d.user_id] || {user_id:d.user_id, sites:{}, days:0}; p.sites[d.site_id] = (p.sites[d.site_id]||0)+1; p.days++; });
-  const list = Object.values(people).map(p=>{ const r = rates[p.user_id] || {}; return Object.assign(p, {rate:r.day_rate!=null?Number(r.day_rate):null, pay_type:r.pay_type||'subcontractor', cis:r.cis_rate!=null?r.cis_rate:20, amount: r.day_rate!=null ? finRound(p.days*Number(r.day_rate)) : null}); }).sort((a,b)=>finPersonName(a.user_id).localeCompare(finPersonName(b.user_id)));
+  days.forEach(d=>{ const p = people[d.user_id] = people[d.user_id] || {key:d.user_id, sites:{}, days:0, extra:0}; p.sites[d.site_id] = (p.sites[d.site_id]||0)+1; p.days++; });
+  manual.forEach(m=>{ const k = finPersonKey(m); const p = people[k] = people[k] || {key:k, name:m.name, sites:{}, days:0, extra:0}; p.sites[m.site_id] = (p.sites[m.site_id]||0)+Number(m.days||0); p.extra += Number(m.amount||0); p.timesheet = true; });
+  const nameOf = p=>p.key.startsWith('n:') ? (p.name||'Someone') : finPersonName(p.key);
+  const list = Object.values(people).map(p=>{ const r = rates[p.key] || {}; const signIn = r.day_rate!=null ? finRound(p.days*Number(r.day_rate)) : (p.days ? null : 0); return Object.assign(p, {rate:r.day_rate!=null?Number(r.day_rate):null, pay_type:r.pay_type||'subcontractor', cis:r.cis_rate!=null?r.cis_rate:20, amount: signIn===null ? null : finRound(signIn+p.extra)}); }).sort((a,b)=>nameOf(a).localeCompare(nameOf(b)));
   const total = list.reduce((t,p)=>t+(p.amount||0), 0);
-  const payBy = {}; pays.forEach(p=>{ if(p.user_id) payBy[p.user_id] = p; });
+  const payBy = {}; pays.forEach(p=>{ payBy[finPersonKey(p)] = p; });
   const fmtW = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric', month:'short'});
   document.getElementById('app').innerHTML = shell(`
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -174,31 +198,36 @@ async function renderFinLabour(){
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:12px;">
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/labour/rates')">Rates &amp; CIS details</button>
       <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/labour/cis')">CIS summary</button>
+      <button class="darkbtn" style="flex:1;" onclick="openFinManualLabour(null, finLabWeek)">+ Add timesheet</button>
     </div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;"><p class="sectiontitle" style="margin:0;">From site sign-in</p><b>${finMoney(total)}</b></div>
-      ${list.length ? list.map(p=>{ const pay = payBy[p.user_id]; return `<div class="finlabrow">
-        <div><b>${escapeHtml(finPersonName(p.user_id))}</b> <span class="finpill ${p.pay_type==='paye'?'grey':'blue'}">${p.pay_type==='paye'?'PAYE':'Sub · CIS '+p.cis+'%'}</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;"><p class="sectiontitle" style="margin:0;">Labour this week</p><b>${finMoney(total)}</b></div>
+      ${list.length ? list.map(p=>{ const pay = payBy[p.key]; return `<div class="finlabrow">
+        <div><b>${escapeHtml(nameOf(p))}</b> <span class="finpill ${p.pay_type==='paye'?'grey':'blue'}">${p.pay_type==='paye'?'PAYE':'Sub · CIS '+p.cis+'%'}</span>
           <div class="stub" style="margin:2px 0 0;font-style:normal;">${Object.keys(p.sites).map(s=>{ const st = SITES.find(x=>x.id===s)||{}; return escapeHtml((st.job_number||'')+' '+(st.name||'Job'))+' ×'+p.sites[s]; }).join(' · ')}</div></div>
-        <div style="text-align:right;"><b>${p.amount!=null?finMoney(p.amount):'<span class="finpill warn">No rate</span>'}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${p.days} day${p.days===1?'':'s'}${p.rate!=null?' × '+finMoney(p.rate):''}</div>
-          ${p.pay_type!=='paye' ? (pay ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/finance/labour/payment/${pay.id}')">${pay.status==='paid'?'Paid':'Payment '+pay.status}</button>` : (p.rate!=null ? `<button class="linkbtn" style="color:var(--blue);" onclick="newFinSubPayment('${p.user_id}')">Make payment</button>` : '')) : ''}</div>
-      </div>`; }).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">Nobody signed in on site this week.</p>`}
+        <div style="text-align:right;"><b>${p.amount!=null?finMoney(p.amount):'<span class="finpill warn">No rate</span>'}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${p.days ? p.days+' sign-in day'+(p.days===1?'':'s')+(p.rate!=null?' × '+finMoney(p.rate):'') : ''}${p.days && p.timesheet ? ' + ' : ''}${p.timesheet ? 'timesheet '+finMoney(p.extra) : ''}</div>
+          ${p.pay_type!=='paye' && !p.key.startsWith('n:') ? (pay ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/finance/labour/payment/${pay.id}')">${pay.status==='paid'?'Paid':'Payment '+pay.status}</button>` : (p.amount!=null ? `<button class="linkbtn" style="color:var(--blue);" onclick="newFinSubPayment('${p.key}')">Make payment</button>` : '')) : ''}</div>
+      </div>`; }).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No labour this week — nobody signed in on site and no timesheets added.</p>`}
     </div>
-    ${pays.filter(p=>!p.user_id || !people[p.user_id]).map(p=>`<button class="pmrow pmrow-card finrow" onclick="go('#/finance/labour/payment/${p.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.name)}</span><span class="pmrow-s">Payment ${p.status}</span></span><span class="finval">${finMoney(p.net_pay)}</span></button>`).join('')}
+    ${pays.filter(p=>!people[finPersonKey(p)]).map(p=>`<button class="pmrow pmrow-card finrow" onclick="go('#/finance/labour/payment/${p.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.name)}</span><span class="pmrow-s">Payment ${p.status}</span></span><span class="finval">${finMoney(p.net_pay)}</span></button>`).join('')}
   `, {title:'Labour & CIS', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
 }
-window.newFinSubPayment = async function(userId){
+window.newFinSubPayment = async function(key){
   const from = finLabWeek, to = finAddDays(from, 6);
-  const [cks, rates] = await Promise.all([
-    dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+from+'T00:00:00&ts=lte.'+to+'T23:59:59&select=user_id,site_id,ts,type'),
+  const isW = String(key).startsWith('w:'), userId = isW ? null : key, wid = isW ? key.slice(2) : null;
+  const [cks, man, rates] = await Promise.all([
+    userId ? dbSelect('checkins', 'user_id=eq.'+userId+'&type=eq.in&ts=gte.'+from+'T00:00:00&ts=lte.'+to+'T23:59:59&select=user_id,site_id,ts,type') : Promise.resolve([]),
+    dbSelect('fin_labour_manual', (userId ? 'user_id=eq.'+userId : 'worker_id=eq.'+wid)+'&work_date=gte.'+from+'&work_date=lte.'+to),
     finLoadRates(),
   ]);
-  const r = rates[userId] || {};
+  const r = rates[key] || {};
   const bySite = {}; finLabourDaysFrom(cks).forEach(d=>{ bySite[d.site_id] = (bySite[d.site_id]||0)+1; });
   const lines = Object.keys(bySite).map(s=>({site_id:s, days:bySite[s], rate:Number(r.day_rate||0), amount:finRound(bySite[s]*Number(r.day_rate||0))}));
+  man.forEach(m=>{ const d = Number(m.days||0) || 1; lines.push({site_id:m.site_id, days:d, rate:finRound(Number(m.amount||0)/d), amount:finRound(m.amount), description:m.description||null}); });
+  if(!lines.length){ toast('No labour for them this week.'); return; }
   const labour = finRound(lines.reduce((t,l)=>t+l.amount,0)), cis = r.cis_rate!=null ? r.cis_rate : 20;
   const ded = finRound(labour*cis/100);
-  const rows = await dbInsert('fin_sub_payments', {org_id:ME.org_id, user_id:userId, name:r.trading_name || finPersonName(userId), period_start:from, period_end:to, lines, labour, materials:0, gross:labour, cis_rate:cis, cis_deduction:ded, net_pay:finRound(labour-ded), status:'draft', created_by:ME.id});
+  const rows = await dbInsert('fin_sub_payments', {org_id:ME.org_id, user_id:userId, worker_id:wid, name:r.trading_name || finPersonName(key), period_start:from, period_end:to, lines, labour, materials:0, gross:labour, cis_rate:cis, cis_deduction:ded, net_pay:finRound(labour-ded), status:'draft', created_by:ME.id});
   if(rows && rows[0]) go('#/finance/labour/payment/'+rows[0].id);
 };
 let finPay = null;
@@ -211,7 +240,7 @@ async function renderFinSubPayment(id){
   if(__gen !== RENDER_GEN) return;
   if(!p){ toast('Payment not found.'); go('#/finance/labour'); return; }
   if(!finPay || finPay.id!==p.id) finPay = JSON.parse(JSON.stringify(p));
-  const r = (p.user_id && rates[p.user_id]) || {};
+  const r = rates[finPersonKey(p)] || {};
   const locked = p.status==='paid' || p.status==='void';
   document.getElementById('app').innerHTML = shell(`
     <div class="card finhead">
@@ -277,11 +306,12 @@ async function renderFinLabourRates(){
   const rates = await finLoadRates();
   if(__gen !== RENDER_GEN) return;
   const people = Object.values(PROFILES).filter(p=>['operative','site_manager'].includes(p.role)).sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById('app').innerHTML = shell(`
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price the labour on each job from site sign-in. CIS details are used on subcontractor payments and statements. Only you can see these.</p>
-    ${people.map(p=>{ const r = rates[p.id] || {}; return `<div class="card finrate" id="finRate-${p.id}">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>${escapeHtml(p.name)}</b><span class="stub" style="margin:0;font-style:normal;">${r.updated_at?'Saved':''}</span></div>
+  const workers = Object.values(FIN_WORKERS).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+  const card = (key, title, r, isW)=>`<div class="card finrate" id="finRate-${key}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><b>${escapeHtml(title)}</b><span class="stub" style="margin:0;font-style:normal;">${isW?(r.active===false?'Not active':'Worker'):'App user'}</span></div>
       <div class="fingrid3" style="margin-top:6px;">
+        ${isW ? `<div class="formfield"><label class="field-label">Name</label><input type="text" data-k="name" value="${escapeHtml(r.name||'')}"></div>
+        <div class="formfield"><label class="field-label">Email (for statements)</label><input type="email" data-k="email" value="${escapeHtml(r.email||'')}"></div>` : ''}
         <div class="formfield"><label class="field-label">Pay</label><select data-k="pay_type"><option value="subcontractor" ${r.pay_type!=='paye'?'selected':''}>Subcontractor</option><option value="paye" ${r.pay_type==='paye'?'selected':''}>PAYE</option></select></div>
         <div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-k="day_rate" value="${r.day_rate!=null?r.day_rate:''}"></div>
         <div class="formfield"><label class="field-label">CIS</label><select data-k="cis_rate">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>
@@ -289,19 +319,42 @@ async function renderFinLabourRates(){
         <div class="formfield"><label class="field-label">Trading name</label><input type="text" data-k="trading_name" value="${escapeHtml(r.trading_name||'')}"></div>
         <div class="formfield"><label class="field-label">VAT registered</label><select data-k="vat_registered"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes</option></select></div>
       </div>
-      <button class="ghostbtn" style="width:100%;" onclick="saveFinRate('${p.id}')">Save</button>
-    </div>`; }).join('') || '<div class="empty">No operatives yet.</div>'}
+      <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="saveFinRate('${key}')">Save</button>${isW ? `<button class="ghostbtn" style="flex:none;width:auto;" onclick="finWorkerActive('${r.id}', ${r.active===false})">${r.active===false?'Make active':'Not working for us'}</button>` : ''}</div>
+    </div>`;
+  document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each job. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
+    <button class="darkbtn" style="width:100%;margin-bottom:12px;" onclick="finAddWorker()">+ Add a worker</button>
+    ${workers.map(w=>card('w:'+w.id, w.name||w.trading_name||'Worker', w, true)).join('')}
+    ${people.map(p=>card(p.id, p.name, rates[p.id]||{}, false)).join('')}
+    ${!workers.length && !people.length ? '<div class="empty">No one yet — add a worker.</div>' : ''}
   `, {title:'Rates & CIS details', subtitle:'OpHUB Finance', back:'#/finance/labour', tabs:false});
 }
-window.saveFinRate = async function(userId){
-  const card = document.getElementById('finRate-'+userId); if(!card) return;
+window.finAddWorker = async function(){
+  const name = String(await customPrompt('Worker or subcontractor name') || '').trim();
+  if(!name) return;
+  const r = await dbInsert('fin_labour_rates', {org_id:ME.org_id, user_id:null, name, pay_type:'subcontractor', cis_rate:20, vat_registered:false, updated_at:new Date().toISOString()});
+  if(r){ toast(name+' added — fill in their rate and CIS details'); render(); }
+};
+window.finWorkerActive = async function(id, on){
+  if(await dbUpdate('fin_labour_rates', id, {active:!!on})){ toast(on?'Active again':'Hidden from timesheets'); render(); }
+};
+window.saveFinRate = async function(key){
+  const card = document.getElementById('finRate-'+key); if(!card) return;
   const v = k=>{ const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value.trim() : ''; };
   const rate = finNum(v('day_rate'));
   if(rate!==null && isNaN(rate)){ toast('Day rate must be a number.'); return; }
-  const res = await sbFetch('/rest/v1/fin_labour_rates?on_conflict=org_id,user_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({
-    org_id:ME.org_id, user_id:userId, pay_type:v('pay_type')||'subcontractor', day_rate:rate, cis_rate:Number(v('cis_rate')||20), utr:v('utr')||null, trading_name:v('trading_name')||null, vat_registered:v('vat_registered')==='true', updated_at:new Date().toISOString()})});
+  const row = {pay_type:v('pay_type')||'subcontractor', day_rate:rate, cis_rate:Number(v('cis_rate')||20), utr:v('utr')||null, trading_name:v('trading_name')||null, vat_registered:v('vat_registered')==='true', updated_at:new Date().toISOString()};
+  if(String(key).startsWith('w:')){
+    const email = v('email');
+    if(!v('name')){ toast('Enter their name.'); return; }
+    if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
+    const r = await dbUpdate('fin_labour_rates', key.slice(2), Object.assign(row, {name:v('name'), email:email||null}));
+    if(!r) return;
+    toast('Saved '+v('name')); return;
+  }
+  const res = await sbFetch('/rest/v1/fin_labour_rates?on_conflict=org_id,user_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(Object.assign({org_id:ME.org_id, user_id:key}, row))});
   if(!res.ok){ toast('Save failed — '+(await safeErr(res))); return; }
-  toast('Saved '+finPersonName(userId));
+  toast('Saved '+finPersonName(key));
 };
 
 /* ---- CIS summary by tax month (6th to 5th) ---- */
@@ -315,7 +368,7 @@ async function renderFinCis(){
   const [pays, rates] = await Promise.all([dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&status=eq.paid&paid_on=gte.'+start+'&paid_on=lte.'+end+'&order=name.asc'), finLoadRates()]);
   if(__gen !== RENDER_GEN) return;
   const by = {};
-  pays.forEach(p=>{ const k = p.user_id || p.name; const b = by[k] = by[k] || {name:p.name, user_id:p.user_id, gross:0, materials:0, cis:0, net:0, n:0}; b.gross += Number(p.gross); b.materials += Number(p.materials); b.cis += Number(p.cis_deduction); b.net += Number(p.net_pay); b.n++; });
+  pays.forEach(p=>{ const k = finPersonKey(p); const b = by[k] = by[k] || {name:p.name, key:k, gross:0, materials:0, cis:0, net:0, n:0}; b.gross += Number(p.gross); b.materials += Number(p.materials); b.cis += Number(p.cis_deduction); b.net += Number(p.net_pay); b.n++; });
   const rows = Object.values(by);
   const tot = rows.reduce((t,r)=>({gross:t.gross+r.gross, cis:t.cis+r.cis}), {gross:0, cis:0});
   const shift = n=>{ const d = new Date(finCisMonth+'T12:00:00'); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
@@ -328,7 +381,7 @@ async function renderFinCis(){
     <div class="pmstats finstats" style="grid-template-columns:1fr 1fr;"><div class="pmstat"><b>${finMoney(tot.gross)}</b><span>Paid to subcontractors</span></div><div class="pmstat"><b>${finMoney(tot.cis)}</b><span>CIS deducted (to pay HMRC)</span></div></div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">For the monthly CIS return</p>
-      ${rows.length ? rows.map(r=>{ const rr = (r.user_id && rates[r.user_id]) || {}; return `<div class="finlabrow"><div><b>${escapeHtml(r.name)}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">UTR ${escapeHtml(rr.utr||'missing')} · ${r.n} payment${r.n===1?'':'s'}</div></div>
+      ${rows.length ? rows.map(r=>{ const rr = rates[r.key] || {}; return `<div class="finlabrow"><div><b>${escapeHtml(r.name)}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">UTR ${escapeHtml(rr.utr||'missing')} · ${r.n} payment${r.n===1?'':'s'}</div></div>
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
@@ -339,7 +392,7 @@ async function renderFinCis(){
 window.openFinCisStatement = async function(id){
   const p = (await dbSelect('fin_sub_payments', 'id=eq.'+id))[0]; if(!p) return;
   const [st, rates] = await Promise.all([finLoadSettings(), finLoadRates()]);
-  const r = (p.user_id && rates[p.user_id]) || {};
+  const r = rates[finPersonKey(p)] || {};
   if(!(await loadLib('PDFLib'))){ toast('Could not load the PDF tool.'); return; }
   const pdf = await PDFLib.PDFDocument.create(); const page = pdf.addPage([595.28, 841.89]);
   const reg = await pdf.embedFont(PDFLib.StandardFonts.Helvetica), bold = await pdf.embedFont(PDFLib.StandardFonts.HelveticaBold);

@@ -59,7 +59,7 @@ async function renderAdmin(){
           <img src="${orgLogoUrl(o)}" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'" style="width:36px;height:36px;border-radius:8px;object-fit:cover;">
           <div style="flex:1;min-width:0;">
             <div style="font-weight:800;font-size:14.5px;">${escapeHtml(o.name)}</div>
-            <div class="stub" style="margin:0;">${escapeHtml(PLAN_LABEL[o.plan_tier] || o.plan_tier)} · ${sub ? `${escapeHtml(sub.status)}` : 'no Stripe subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
+            <div class="stub" style="margin:0;">${o.has_pm===false ? 'OpHUB Finance only' : escapeHtml(PLAN_LABEL[o.plan_tier] || o.plan_tier)+(o.has_finance?' + Finance':'')} · ${sub ? `${escapeHtml(sub.status)}` : 'no Stripe subscription'} · ${people.length} member${people.length===1?'':'s'}</div>
           </div>
           <span class="stub" style="margin:0;font-size:16px;">${expanded?'▲':'▼'}</span>
         </div>
@@ -72,6 +72,12 @@ async function renderAdmin(){
                 <option value="growth" ${o.plan_tier==='growth'?'selected':''}>OpHUB Pro</option>
                 <option value="enterprise" ${o.plan_tier==='enterprise'?'selected':''}>OpHUB Enterprise</option>
               </select>
+            </div>
+            <div class="formfield" onclick="event.stopPropagation();">
+              <label class="field-label">Modules</label>
+              <label class="finswitch"><input type="checkbox" ${o.has_pm!==false?'checked':''} onchange="setOrgModules('${o.id}','has_pm',this.checked)"> Project management (site app)</label>
+              <label class="finswitch"><input type="checkbox" ${o.has_finance?'checked':''} onchange="setOrgModules('${o.id}','has_finance',this.checked)"> OpHUB Finance</label>
+              <p class="stub" style="margin:2px 0 0;font-size:11.5px;">Finance only = project management off. Finance is then given per person by their admin.</p>
             </div>
             <button class="darkbtn" style="margin:10px 0 0;" onclick="event.stopPropagation();superadminOpenCompany('${o.id}','${jsAttr(o.name)}')">🛠 Open this company's app</button>
             <p class="stub" style="margin:4px 0 0;font-size:11.5px;">Go inside as their admin to look into issues or fix things. A bar at the top lets you exit.</p>
@@ -95,6 +101,18 @@ async function renderAdmin(){
     </p>
   `, {title:'Platform Admin', subtitle:'OpHUB · all companies', tabs:false}); }
 }
+window.setOrgModules = async function(orgId, key, on){
+  if(key==='has_pm' && !on && !await customConfirm('Make this company Finance only? Their people will only see OpHUB Finance.')){ render(); return; }
+  const patch = {}; patch[key] = !!on;
+  if(key==='has_pm' && !on) patch.has_finance = true;
+  const row = await dbUpdate('organizations', orgId, patch);
+  if(!row) return;
+  // Their admins get Finance straight away so someone can get in and set it up.
+  if(patch.has_finance || (key==='has_pm' && !on)){
+    try{ await sbFetch('/rest/v1/profiles?org_id=eq.'+orgId+'&role=eq.admin', {method:'PATCH', body:JSON.stringify({finance_enabled:true})}); }catch(e){}
+  }
+  toast('Modules updated'); render();
+};
 window.setOrgPlanTier = async function(orgId, tier){
   const row = await dbUpdate('organizations', orgId, {plan_tier: tier});
   if(row){ toast('Package updated — '+(PLAN_LABEL[tier]||tier)); render(); }

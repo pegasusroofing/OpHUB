@@ -54,10 +54,11 @@ function ophIcon(name, size, sw){
 function usesPmHome(u){ return !!u && isFullManager(u); }
 // #(op-home) Operatives get the same style of home page, with only what they can already see.
 function usesOpHome(u){ return !!u && u.role==='operative'; }
-function homeHash(){ return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/sites'; }
+function homeHash(){ if(typeof isFinanceOnly==='function' && isFinanceOnly()) return '#/finance'; return (usesPmHome(ME) || usesOpHome(ME)) ? '#/home' : '#/sites'; }
 // The bold header line / logo goes to the project list (Andy, 11 Oct) -
 // the Home page is reached from the Home button on the Projects bottom bar.
 window.goHome = function(){
+  if(typeof isFinanceOnly==='function' && isFinanceOnly()){ go('#/finance'); return; }
   // On the Projects list itself the header takes you up to Home instead.
   const p = String(location.hash||'').split('?')[0];
   const homeUser = usesPmHome(ME) || usesOpHome(ME);

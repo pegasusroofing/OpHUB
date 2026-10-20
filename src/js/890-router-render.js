@@ -56,12 +56,14 @@ async function renderRoute(){
   if(typeof joinBusy!=='undefined' && joinBusy && preParts[0]==='join') return renderJoin(preParts[1]);
   if(ME.role==='superadmin'){ return renderAdmin(); }
   if(ME.role==='admin' && !ME._support && ORG && !ORG.logo_path){ return renderCompanySetup(); }
+  // Finance-only companies: just the Finance app (908-finance-standalone.js).
+  if(typeof isFinanceOnly==='function' && isFinanceOnly()){ const fr = finOnlyRoute(preParts); if(fr!==undefined) return fr; }
   // Compulsory H&S Policy sign-off — blocks the whole app for every role
   // except superadmin until the current policy is signed (or re-signed,
   // once its expiry rolls the cycle over). The signature route itself stays
   // reachable so someone with no adopted signature yet can go set one up
   // and come straight back.
-  if(preParts[0]!=='signature' && !ME._support && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
+  if(preParts[0]!=='signature' && !ME._support && !(typeof isFinanceOnly==='function' && isFinanceOnly()) && await checkHsPolicyGate()){ return renderHsPolicyGate(); }
   const parts = parseRoute();
   // Delivery drivers get their own simplified home instead of the normal
   // site list — they don't work "on a site" the way operatives do, so
@@ -447,7 +449,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); return renderSiteFinance(siteId); }
   }
   renderSites();
 }

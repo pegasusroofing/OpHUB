@@ -30,7 +30,10 @@ function deskSidebar(opts){
   const hubN = (typeof homeExtras!=='undefined' && homeExtras && homeExtras.count) || 0;
   const dlvN = (typeof deliveryRequestsCount!=='undefined' && deliveryRequestsCount) || 0;
   let items;
-  if(ME.role==='driver'){
+  const finOnly = typeof isFinanceOnly==='function' && isFinanceOnly();
+  if(finOnly){
+    items = finOnlyNavItems();
+  } else if(ME.role==='driver'){
     items = [
       {k:'driver', ic:'truck', lbl:'My schedule', go:'#/driver'},
       {k:'account', ic:'gear', lbl:'Settings', go:'#/account'},
@@ -61,10 +64,11 @@ function deskSidebar(opts){
       {k:'account', ic:'gear', lbl:'Settings', go:'#/account'},
     ];
   }
-  const activeTop = inSite ? 'sites' : (top || (usesPmHome(ME) ? 'home' : 'sites'));
+  let activeTop = inSite ? 'sites' : (top || (usesPmHome(ME) ? 'home' : 'sites'));
+  if(finOnly){ activeTop = inSite ? 'finance' : (top==='finance' && ['inbox','labour','settings'].includes(parts[1]) ? 'finance/'+parts[1] : (top||'finance')); }
   const row = (i, active)=>`<button type="button" class="desknav-i ${active?'on':''}" onclick="${i.pre||''}go('${i.go}')">${ophIcon(i.ic, 18)}<span>${escapeHtml(i.lbl)}</span>${i.badge?`<b class="desknav-badge">${i.badge}</b>`:''}</button>`;
   let siteHtml = '';
-  if(siteId){
+  if(siteId && !finOnly){
     const s = SITES.find(x=>x.id===siteId);
     const sitems = [
       {k:'home', ic:'home', lbl:'Project home', go:`#/site/${siteId}/home`},
@@ -83,7 +87,7 @@ function deskSidebar(opts){
         <img src="${orgLogoUrl(ORG)}" alt="" onerror="this.onerror=null;this.src='${OPHUB_LOGO_INLINE}'">
         <div><div class="desknav-org">${escapeHtml((ORG && ORG.name) || 'OpHUB')}</div><div class="desknav-app">OpHUB</div></div>
       </div>
-      ${isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : ''}
+      ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : (isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : '')}
       <nav>${items.map(i=>row(i, activeTop===i.k)).join('')}</nav>
       ${siteHtml}
       <div class="desknav-foot">

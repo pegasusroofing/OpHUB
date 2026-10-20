@@ -6,7 +6,7 @@
    (#/finance/settings), a Finance tile on each job (#/site/<id>/finance) with
    job details and client PO numbers, automatic job numbers, and the per-user
    switch in Admin Centre › Users. */
-function isFinanceUser(){ return !!(ME && ME.finance_enabled === true); }
+function isFinanceUser(){ return !!(ME && ME.finance_enabled === true && !(ORG && ORG.has_pm===false && ORG.has_finance===false)); }
 window.isFinanceUser = isFinanceUser;
 
 let FIN_SETTINGS = null;           // this company's fin_settings row (or null = defaults)
@@ -53,6 +53,7 @@ window.finNextJobNumberLabel = finNextJobNumberLabel;
 function finSiteStatus(s){ return typeof siteStatusKey==='function' ? siteStatusKey(s) : (s.status||'live'); }
 function finGuard(){
   if(isFinanceUser()) return true;
+  if(typeof isFinanceOnly==='function' && isFinanceOnly()){ renderFinNoAccess(); return false; }
   toast('OpHUB Finance isn’t switched on for your account.');
   go(typeof homeHash==='function' ? homeHash() : '#/sites');
   return false;
@@ -93,7 +94,7 @@ async function renderFinanceHome(){
   const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
   const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
   document.getElementById('app').innerHTML = shell(`
-    <div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>
+    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>'}
     <div class="pmstats finstats">
       <div class="pmstat"><b>${finMoney(liveValue, 0)}</b><span>Live contract value</span></div>
       <div class="pmstat"><b>${liveSites.length}</b><span>Live jobs</span></div>
@@ -105,6 +106,7 @@ async function renderFinanceHome(){
     ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
     <div class="finchecks">${inbox.length ? `<span style="cursor:pointer;background:var(--blue-bg);color:var(--blue);" onclick="go('#/finance/inbox')">${inbox.length} invoice${inbox.length===1?'':'s'} in the inbox to file</span>` : ''}${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
+    ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml() : ''}
     <div class="row-gap" style="margin:4px 0 12px;flex-wrap:wrap;">
       <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/inbox')">📥 Invoice inbox</button>
       <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/labour')">👷 Labour &amp; CIS</button>
@@ -131,7 +133,7 @@ async function renderFinanceHome(){
       }).join('')}
       <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:finHomeTab==='approve'?toApprove.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
     </div>
-  `, {title:'OpHUB Finance', subtitle:'All jobs', back:homeHash(), tabs:false});
+  `, {title:'OpHUB Finance', subtitle:typeof isFinanceOnly==='function' && isFinanceOnly() ? ((ORG&&ORG.name)||'All jobs') : 'All jobs', back:typeof isFinanceOnly==='function' && isFinanceOnly() ? null : homeHash(), tabs:false});
 }
 
 /* ---------- Finance settings ---------- */
@@ -241,7 +243,7 @@ async function renderSiteFinance(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
-  const [st, jfRows, pos, invs, items, apps, pords, pinvs, lab, hires] = await Promise.all([
+  const [st, jfRows, pos, invs, items, apps, pords, pinvs, lab, hires, xcosts] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
@@ -252,6 +254,7 @@ async function renderSiteFinance(siteId){
     dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
     finJobLabour(siteId),
     dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc'),
+    dbSelect('fin_job_costs', 'site_id=eq.'+siteId+'&select=net'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
@@ -260,7 +263,7 @@ async function renderSiteFinance(siteId){
   const vat = pick('vat_treatment', st.default_vat);
   const poTotal = pos.reduce((t,p)=>t+Number(p.value||0), 0);
   document.getElementById('app').innerHTML = shell(`
-    <div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>
+    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
     <div class="card finhead">
       <div><div class="finhead-l">Job no.</div><div class="finhead-v">${escapeHtml(site.job_number||'—')}</div></div>
       <div><div class="finhead-l">Client</div><div class="finhead-v">${escapeHtml(site.client_name||'—')}</div></div>
@@ -268,7 +271,7 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
 
-    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0)))}
+    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
     ${finPurchasingCardHtml(siteId, pords, pinvs)}
@@ -297,6 +300,7 @@ async function renderSiteFinance(siteId){
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
 
+    ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Job details</p>
       <div class="fingrid2">
@@ -324,7 +328,7 @@ async function renderSiteFinance(siteId){
     <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save job details'}</button>
 
 
-  `, {title:'Finance', subtitle:site.name, back:`#/site/${siteId}/home`, siteId, tabs:false});
+  `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
 }
 window.saveSiteFinance = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
@@ -339,6 +343,9 @@ window.saveSiteFinance = async function(siteId){
   if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Enter a valid accounts email.'); return; }
   const btn = document.getElementById('finJobSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const done = ()=>{ if(btn){ btn.disabled = false; btn.textContent = 'Save changes'; } };
+  const jobPatch = typeof finJobEditPatch==='function' && site ? finJobEditPatch(site) : null;
+  if(jobPatch && jobPatch.error){ toast(jobPatch.error); done(); return; }
+  if(jobPatch){ const row = await dbUpdate('sites', siteId, jobPatch); if(!row){ done(); return; } Object.assign(site, row); }
   // Job number lives on the job itself (everyone sees it).
   const jobNo = finVal('finJobNo');
   if(site && jobNo !== String(site.job_number||'')){
