@@ -79,6 +79,7 @@ async function renderRoute(){
   }
   if(!parts.length && usesPmHome(ME)){ return renderPmHome(); }
   if(!parts.length && usesOpHome(ME)){ return renderOpHome(); }
+  if(parts[0]==='to-book' && typeof renderPmToBook==='function') return renderPmToBook();
   if(parts[0]==='home'){ return usesPmHome(ME) ? renderPmHome() : usesOpHome(ME) ? renderOpHome() : renderSites(); }
   if(!parts.length || parts[0]==='sites'){ return renderSites(); }
   if(parts[0]==='hr'){

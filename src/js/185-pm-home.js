@@ -121,7 +121,8 @@ async function renderPmHome(){
   // These four don't depend on each other — fetch them together (used to be
   // four round trips one after another on every Home open).
   if(Date.now() - pmDlvReqAt > 30000){ deliveryRequestsCount = null; pmDlvReqAt = Date.now(); }
-  const [repR, dlvR, tdR, osR] = await Promise.allSettled([loadPmReports(), deliveryRequestsBadgeCount(), loadPmTodos(), loadOnSiteNow()]);
+  const [repR, dlvR, tdR, osR, tbR] = await Promise.allSettled([loadPmReports(), deliveryRequestsBadgeCount(), loadPmTodos(), loadOnSiteNow(), typeof pmToBookCounts==='function' ? pmToBookCounts() : Promise.resolve({inv:0, wages:0})]);
+  const toBook = tbR.status==='fulfilled' && tbR.value ? tbR.value : {inv:0, wages:0};
   if(repR.status==='fulfilled' && repR.value) reports = repR.value;
   if(dlvR.status==='fulfilled') dlvReqN = dlvR.value || 0;
   if(tdR.status==='fulfilled' && tdR.value) todos = tdR.value;
@@ -154,6 +155,7 @@ async function renderPmHome(){
         <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
         <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
       </div>` : ''}
+    ${toBook.inv || toBook.wages ? `<button type="button" class="pmneeds" onclick="go('#/to-book')"><span class="pmneeds-ic">£</span><span class="pmneeds-t"><b>Needs you</b><em>${[toBook.inv ? toBook.inv+' supplier invoice'+(toBook.inv===1?'':'s')+' to book to a job' : '', toBook.wages ? toBook.wages+' wage'+(toBook.wages===1?'':'s')+' to book to a price' : ''].filter(Boolean).join(' · ')}</em></span>${ophIcon('chevron', 18, 2.2)}</button>` : ''}
     <div class="pmstats">
       ${stat(live.length, 'Live jobs', "go('#/sites')")}
       ${stat(onSiteN, 'On site now', "go('#/onsite')")}
@@ -167,6 +169,7 @@ async function renderPmHome(){
     </button>
     ${siteMapMiniCardHtml()}
     <div class="pmtiles pmtiles-home">
+      ${typeof isFinanceUser==='function' && isFinanceUser() ? tile('pound', 'green', 'OpHUB Finance', 'Money in &amp; out', "go('#/finance')") : ''}
       ${tile('chart', 'teal', 'Dashboard', 'Company overview', "go('#/dashboard')")}
       ${tile('calendar', 'green', 'Calendar', 'All projects', "go('#/calendar')")}
       ${tile('bell', 'orange', 'HUB', hubCount ? hubCount+' notification'+(hubCount===1?'':'s') : 'Notifications &amp; messages', "go('#/hub')", hubCount)}
@@ -175,7 +178,6 @@ async function renderPmHome(){
       ${tile('admin', 'blue', 'Operatives', 'Certifications, training, tools', "go('#/operatives?from=%23%2Fhome')")}
       ${tile('users', 'purple', 'HR', 'Holidays, policies & handbook', "go('#/hr')")}
       ${tile('gear', 'grey', 'Admin', 'Team, libraries, settings', "go('#/team')")}
-      ${typeof isFinanceUser==='function' && isFinanceUser() ? tile('pound', 'green', 'OpHUB Finance', 'Jobs, POs, invoices', "go('#/finance')").replace('class="pmtile"', 'class="pmtile" style="grid-column:1 / -1;"') : ''}
     </div>
     ${mine.length ? `
       <p class="sectiontitle" style="margin:18px 0 8px;">Pick up where you left off</p>
