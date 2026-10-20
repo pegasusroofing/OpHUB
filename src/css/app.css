@@ -1660,3 +1660,37 @@ html.finmode .fincrow-nums{gap:8px;margin-top:10px;}
 html.finmode .fincrow-nums label{font-size:12px;gap:4px;}
 html.finmode .fincrow-head input, html.finmode .fincrow-head textarea, html.finmode .fincrow-nums input{font-size:15px;}
 html.finmode .fincrow-foot{margin-top:8px;}
+/* OpHUB Finance — reports, budget */
+.finrepgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-bottom:22px;}
+.finrepcard{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:16px 18px;background:#fff;border:1px solid #ECEEF2;border-radius:16px;}
+.finrepcard:hover{border-color:var(--ink);}
+.finrepcard b{font-size:15.5px;color:var(--ink);}
+.finrepcard span{font-size:13.5px;color:var(--slate);line-height:1.45;}
+.finreptbl-wrap{overflow-x:auto;}
+.finreptbl th{white-space:normal;min-width:70px;vertical-align:bottom;}
+.finreptbl td{white-space:nowrap;}
+.finreptbl td.d{white-space:normal;min-width:140px;}
+.fincosttools select{height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;min-width:150px;}
+.finbudtbl input{width:110px;text-align:right;height:38px;padding:6px 10px;}
+@media (max-width:760px){
+  .finbudtbl tbody tr{grid-template-columns:1fr 1fr;}
+  .finbudtbl td{display:flex;justify-content:space-between;align-items:center;gap:8px;grid-column:1 / -1;font-size:14px;}
+  .finbudtbl td::before{content:attr(data-l);color:var(--slate);font-size:12.5px;font-weight:600;}
+  .finbudtbl td.d{font-size:15.5px;}
+  .finbudtbl td.d::before{content:none;}
+  .finbudtbl td.num{grid-row:auto;grid-column:1 / -1;font-weight:600;}
+  .finbudtbl input{width:130px;}
+  .finreptbl tbody tr{grid-template-columns:1fr;}
+  .finreptbl td{display:flex;justify-content:space-between;gap:10px;grid-column:1 / -1 !important;grid-row:auto !important;font-size:13.5px;white-space:normal;}
+  .finreptbl td::before{content:attr(data-l);color:var(--slate);font-size:12px;font-weight:600;}
+  .finreptbl td.d{font-size:15px;font-weight:700;}
+  .finreptbl td.d::before{content:none;}
+  .finreptbl tfoot tr{flex-wrap:wrap;gap:6px;}
+  .fincosttools select{flex:1 1 100%;}
+}
+/* Finance forms can be long: let the pop-up scroll inside the screen */
+html.finmode .geo-modal-card{max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:16px;padding:22px;}
+html.finmode .geo-modal-card h3{font-size:18px;margin:0 0 14px;}
+html.desk.finmode .scrollarea > #finRepOut{max-width:none;}
+html.desk .finreptbl{font-size:13px;}
+html.desk .finreptbl th, html.desk .finreptbl td{padding:9px 8px;}

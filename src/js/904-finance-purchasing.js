@@ -180,6 +180,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">${receipt?'Receipt / ref no.':'Invoice number'}</label><input type="text" id="finPiNo"></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finPiDate" value="${finToday()}"></div>
+      <div class="formfield"><label class="field-label">Due date (blank = 30 days)</label><input type="date" id="finPiDue"></div>
       <div class="formfield"><label class="field-label">Net (£)</label><input type="text" inputmode="decimal" id="finPiNet" oninput="finPiCalc('net')"></div>
       <div class="formfield"><label class="field-label">VAT (£)</label><input type="text" inputmode="decimal" id="finPiVat" oninput="finPiCalc('vat')"></div>
     </div>
@@ -235,7 +236,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const row = {org_id:ME.org_id, site_id:siteId, po_id:poId||null, no_po:!poId, kind:receipt?'receipt':'invoice', supplier_id:po?po.supplier_id:null, supplier_name:supplier,
     invoice_no:no||null, invoice_date:finVal('finPiDate')||finToday(), net:finRound(net), vat:finRound(vat), total:total!==null&&!isNaN(total)?finRound(total):finRound(net+vat),
-    description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
+    due_date:finVal('finPiDue')||null, description:finVal('finPiDesc')||null, cost_code:finVal('finPiCat')||'materials', status: flags.length ? 'query' : 'to_approve', query_note: flags.length ? flags.join('; ') : null, created_by:ME.id};
   if(finPiFile){
     const safe = finPiFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/purchase/'+uid()+'-'+safe, finPiFile, finPiFile.type||'application/octet-stream');
@@ -270,6 +271,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
     ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
     ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
+    ${i.status==='approved' ? (i.paid_on ? `<p class="stub" style="margin:8px 0 0;color:var(--ok);">Paid ${finDate(i.paid_on)} <button class="linkbtn" onclick="setFinPiPaid('${i.id}', null)">undo</button></p>` : `<div class="finkv"><span>Due</span><b>${finDate(i.due_date || finAddDays(i.invoice_date, 30))}</b></div><button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="setFinPiPaid('${i.id}', finToday())">Mark paid today</button>`) : ''}
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('bill', i) : ''}
     <div class="row-gap" style="margin-top:8px;">
       ${i.status!=='query' ? `<button class="ghostbtn" style="flex:1;" onclick="queryPurchaseInvoice('${i.id}')">Query</button>` : ''}
@@ -278,6 +280,12 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <button class="geo-modal-cancel" onclick="document.getElementById('finPiOverlay').style.display='none'">Close</button>
   </div>`;
   ov.style.display = 'flex';
+};
+window.setFinPiPaid = async function(id, date){
+  const r = await dbUpdate('purchase_invoices', id, {paid_on:date});
+  if(!r) return;
+  document.getElementById('finPiOverlay').style.display = 'none';
+  toast(date ? 'Marked paid' : 'Paid date removed'); render();
 };
 window.setPurchaseInvoiceStatus = async function(id, status){
   const patch = {status};

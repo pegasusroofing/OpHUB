@@ -359,27 +359,31 @@ window.finImportUse = function(){
 /* ---------------- Applications ---------------- */
 window.newFinApplication = async function(siteId){
   const site = SITES.find(s=>s.id===siteId); if(!site) return;
-  const [st, jfRows, pos, items, apps, vars] = await Promise.all([
+  const [st, jfRows, pos, items, apps, vars, fvars] = await Promise.all([
     finLoadSettings(),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number'),
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&order=number.desc'),
     dbSelect('variations', 'site_id=eq.'+siteId+'&approval_status=eq.approved&order=created_at.asc'),
+    dbSelect('fin_variations', 'site_id=eq.'+siteId+'&status=in.(priced,submitted,agreed)&order=seq.asc'),
   ]);
   if(!items.filter(finIsItem).length){ toast('Set up the contract breakdown first.'); go(`#/site/${siteId}/finance/contract`); return; }
   const jf = jfRows[0] || {};
   const last = apps.find(a=>a.status!=='void');
   const lastPct = {}; ((last&&last.lines)||[]).forEach(l=>{ if(finIsItem(l)) lastPct[l.item_id] = l.pct; });
-  const lastVar = {}; ((last&&last.variations)||[]).forEach(v=>{ if(v.variation_id) lastVar[v.variation_id] = v; });
+  const lastVar = {}, lastFinVar = {}; ((last&&last.variations)||[]).forEach(v=>{ if(v.variation_id) lastVar[v.variation_id] = v; if(v.fin_variation_id) lastFinVar[v.fin_variation_id] = v; });
   const appDay = finAppDayFor(jf, st);
   const today = finToday();
   let val = today;
   if(appDay){ const d = new Date(); const day = Math.min(appDay, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()); val = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'); }
   const dueDays = jf.due_days!=null ? jf.due_days : st.default_due_days, finalDays = jf.final_days!=null ? jf.final_days : st.default_final_days;
   const due = finAddDays(val, dueDays);
-  const varRows = vars.map(v=>{ const prev = lastVar[v.id]; const amt = finNum(v.cost_impact); return {variation_id:v.id, description:v.description||'Variation', value: prev ? prev.value : ((amt===null||isNaN(amt))?0:amt), pct: prev ? prev.pct : 100}; });
-  ((last&&last.variations)||[]).filter(v=>!v.variation_id).forEach(v=>varRows.push(Object.assign({}, v)));
+  // Variations register (911) first: agreed at the agreed value, priced/submitted at the quoted value.
+  const linkedSite = new Set(fvars.map(v=>v.variation_id).filter(Boolean));
+  const varRows = fvars.map(v=>{ const prev = lastFinVar[v.id]; const val = v.status==='agreed' && v.agreed_value!=null ? Number(v.agreed_value) : Number(v.quoted||0); return {fin_variation_id:v.id, variation_id:v.variation_id||null, description:v.number+' '+v.title+(v.status==='agreed'?'':' (not yet agreed)'), value:val, pct: prev ? prev.pct : 100}; });
+  vars.filter(v=>!linkedSite.has(v.id)).map(v=>{ const prev = lastVar[v.id]; const amt = finNum(v.cost_impact); return {variation_id:v.id, description:v.description||'Variation', value: prev ? prev.value : ((amt===null||isNaN(amt))?0:amt), pct: prev ? prev.pct : 100}; }).forEach(r=>varRows.push(r));
+  ((last&&last.variations)||[]).filter(v=>!v.variation_id && !v.fin_variation_id).forEach(v=>varRows.push(Object.assign({}, v)));
   const row = {
     org_id:ME.org_id, site_id:siteId, number:(apps[0] ? apps[0].number : 0)+1, status:'draft',
     valuation_date:val, due_date:due, final_date:finAddDays(due, finalDays), client_po:(pos[0]||{}).po_number||null,
@@ -442,7 +446,7 @@ async function renderFinApplication(siteId, appId){
             <label>Value £<input type="text" inputmode="decimal" value="${v.value!=null?escapeHtml(String(v.value)):''}" oninput="finAppSet('variations',${i},'value',this.value)"></label>
             <label>% done<input type="text" inputmode="decimal" class="finpct" value="${finPct(v.pct)}" oninput="finAppSet('variations',${i},'pct',this.value)"></label>`}
             <b id="finAppG-variations-${i}">—</b>
-          </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No approved variations on this job.</p>`}
+          </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this job — add them in the job’s Variations register.</p>`}
       ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finAppAddVar()">+ Add a variation not in the app</button>`}
     </div>
     <div class="card">

@@ -191,7 +191,7 @@ async function renderRoute(){
     return renderVehicleChecklistsAdmin();
   }
   if(parts[0]==='subform') return renderSubForm();
-  if(parts[0]==='finance'){ if(parts[1]==='settings') return renderFinanceSettings(); if(parts[1]==='labour'){ if(parts[2]==='rates') return renderFinLabourRates(); if(parts[2]==='cis') return renderFinCis(); if(parts[2]==='payment' && parts[3]) return renderFinSubPayment(parts[3]); return renderFinLabour(); } if(parts[1]==='inbox' && typeof renderFinInbox==='function') return renderFinInbox(); return renderFinanceHome(); }
+  if(parts[0]==='finance'){ if(parts[1]==='settings') return renderFinanceSettings(); if(parts[1]==='labour'){ if(parts[2]==='rates') return renderFinLabourRates(); if(parts[2]==='cis') return renderFinCis(); if(parts[2]==='payment' && parts[3]) return renderFinSubPayment(parts[3]); return renderFinLabour(); } if(parts[1]==='inbox' && typeof renderFinInbox==='function') return renderFinInbox(); if(parts[1]==='reports') return parts[2] ? renderFinReport(parts[2]) : renderFinReports(); return renderFinanceHome(); }
   if(parts[0]==='operatives'){
     if(!ME || !isManager(ME)){ go('#/sites'); return; }
     if(parts[1] && parts[2]==='onedrive-folder') return renderOneDriveFolderPicker(null);
@@ -449,7 +449,7 @@ async function renderRoute(){
       return renderPriceBuilderSheets(siteId);
     }
     if(page==='calendar') return renderSiteCalendar(siteId);
-    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); return renderSiteFinance(siteId); }
+    if(page==='finance'){ if(parts[3]==='invoice' && parts[4]) return renderFinInvoice(siteId, parts[4]); if(parts[3]==='application' && parts[4]) return renderFinApplication(siteId, parts[4]); if(parts[3]==='contract') return renderFinContract(siteId); if(parts[3]==='po' && parts[4]) return renderFinPo(siteId, parts[4]); if(parts[3]==='costs') return renderFinCosts(siteId); if(parts[3]==='budget') return renderFinBudget(siteId); if(parts[3]==='variations') return renderFinVariations(siteId); if(parts[3]==='sub' && parts[4]) return renderFinSubcontract(siteId, parts[4]); return renderSiteFinance(siteId); }
   }
   renderSites();
 }

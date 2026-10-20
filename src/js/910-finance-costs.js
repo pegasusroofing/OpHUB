@@ -8,48 +8,13 @@
    (committed), sign-in labour days × rate, timesheets, plant hires, and
    costs added here (fin_job_costs).
    ============================================================ */
-const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Overheads', other:'Other'};
+const FIN_COST_CATS = {materials:'Materials', labour:'Labour', plant:'Plant', subcontract:'Subcontract', overheads:'Prelims & overheads', other:'Other'};
 let finCosts = null; // {siteId, tab, q, from, to, sort, dir, lines}
 
+// Built from the job's "book" (911) so the ledger, job page and reports agree.
 async function finJobCostLines(siteId){
-  const [pinvs, pos, cks, manual, hires, extra, rates] = await Promise.all([
-    dbSelect('purchase_invoices', 'site_id=eq.'+siteId+'&status=neq.rejected&order=invoice_date.desc'),
-    dbSelect('purchase_orders', 'site_id=eq.'+siteId+'&status=eq.open'),
-    dbSelect('checkins', 'site_id=eq.'+siteId+'&type=eq.in&select=user_id,site_id,ts,type&order=ts.desc&limit=20000'),
-    dbSelect('fin_labour_manual', 'site_id=eq.'+siteId+'&order=work_date.desc'),
-    dbSelect('fin_plant_hires', 'site_id=eq.'+siteId+'&order=on_hire.desc'),
-    dbSelect('fin_job_costs', 'site_id=eq.'+siteId+'&order=cost_date.desc'),
-    finLoadRates(),
-  ]);
-  await loadAllProfiles();
-  const poBy = {}; pos.forEach(p=>{ poBy[p.id] = p; });
-  const lines = [];
-  pinvs.forEach(i=>{
-    const cat = FIN_COST_CATS[i.cost_code] ? i.cost_code : 'materials';
-    lines.push({key:'pi:'+i.id, date:i.invoice_date, cat, desc:i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'), who:i.supplier_name||'', ref:[i.invoice_no, poBy[i.po_id] && poBy[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:Number(i.net||0), open:`openPurchaseInvoiceView('${siteId}','${i.id}')`});
-  });
-  const allPinvs = pinvs;
-  pos.forEach(p=>{
-    if(p.value==null) return;
-    const left = finRound(Number(p.value) - finPoInvoiced(p, allPinvs));
-    if(left <= 0) return;
-    lines.push({key:'po:'+p.id, date:String(p.created_at||'').slice(0,10), cat:'committed', desc:'Ordered, not invoiced yet', who:p.supplier_name||'', ref:p.number, status:'Committed', net:left, open:`go('#/site/${siteId}/finance/po/${p.id}')`});
-  });
-  finLabourDaysFrom(cks).forEach(d=>{
-    const r = rates[d.user_id];
-    lines.push({key:'ck:'+d.user_id+d.date, date:d.date, cat:'labour', desc:'Day on site (sign-in)', who:finPersonName(d.user_id), ref:'', status:r && r.day_rate!=null ? '' : 'No day rate', waiting:!(r && r.day_rate!=null), net:r && r.day_rate!=null ? Number(r.day_rate) : 0});
-  });
-  manual.forEach(m=>{
-    lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0)});
-  });
-  hires.forEach(h=>{
-    const c = finPlantCost(h);
-    lines.push({key:'ph:'+h.id, date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')', who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:c.cost, open:`openFinPlantForm('${siteId}','${h.id}')`});
-  });
-  extra.forEach(x=>{
-    lines.push({key:'jc:'+x.id, date:x.cost_date, cat:FIN_COST_CATS[x.category] ? x.category : 'other', desc:x.description, who:x.supplier||'', ref:x.ref||'', status:'', net:Number(x.net||0), open:`openFinJobCost('${siteId}','${x.id}')`});
-  });
-  return lines;
+  const b = await finLoadBook(siteId);
+  return finCostLinesFromBook(b, siteId);
 }
 
 function finCostsShown(){

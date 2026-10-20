@@ -41,6 +41,7 @@ function finOnlyNavItems(){
     {k:'finance', ic:'pound', lbl:'Jobs & money', go:'#/finance'},
     {k:'finance/inbox', ic:'list', lbl:'Invoice inbox', go:'#/finance/inbox'},
     {k:'finance/labour', ic:'users', lbl:'Labour & CIS', go:'#/finance/labour'},
+    {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
     {k:'suppliers', ic:'truck', lbl:'Suppliers', go:'#/suppliers', show: isFullManager(ME)},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},

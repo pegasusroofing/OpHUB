@@ -368,7 +368,7 @@ async function renderFinCis(){
   const [pays, rates] = await Promise.all([dbSelect('fin_sub_payments', 'org_id=eq.'+ME.org_id+'&status=eq.paid&paid_on=gte.'+start+'&paid_on=lte.'+end+'&order=name.asc'), finLoadRates()]);
   if(__gen !== RENDER_GEN) return;
   const by = {};
-  pays.forEach(p=>{ const k = finPersonKey(p); const b = by[k] = by[k] || {name:p.name, key:k, gross:0, materials:0, cis:0, net:0, n:0}; b.gross += Number(p.gross); b.materials += Number(p.materials); b.cis += Number(p.cis_deduction); b.net += Number(p.net_pay); b.n++; });
+  pays.forEach(p=>{ const k = finPersonKey(p); const b = by[k] = by[k] || {name:p.name, key:k, utr:p.utr, gross:0, materials:0, cis:0, net:0, n:0}; b.gross += Number(p.gross); b.materials += Number(p.materials); b.cis += Number(p.cis_deduction); b.net += Number(p.net_pay); b.n++; });
   const rows = Object.values(by);
   const tot = rows.reduce((t,r)=>({gross:t.gross+r.gross, cis:t.cis+r.cis}), {gross:0, cis:0});
   const shift = n=>{ const d = new Date(finCisMonth+'T12:00:00'); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
@@ -381,7 +381,7 @@ async function renderFinCis(){
     <div class="pmstats finstats" style="grid-template-columns:1fr 1fr;"><div class="pmstat"><b>${finMoney(tot.gross)}</b><span>Paid to subcontractors</span></div><div class="pmstat"><b>${finMoney(tot.cis)}</b><span>CIS deducted (to pay HMRC)</span></div></div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">For the monthly CIS return</p>
-      ${rows.length ? rows.map(r=>{ const rr = rates[r.key] || {}; return `<div class="finlabrow"><div><b>${escapeHtml(r.name)}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">UTR ${escapeHtml(rr.utr||'missing')} · ${r.n} payment${r.n===1?'':'s'}</div></div>
+      ${rows.length ? rows.map(r=>{ const rr = rates[r.key] || {}; return `<div class="finlabrow"><div><b>${escapeHtml(r.name)}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">UTR ${escapeHtml(rr.utr||r.utr||'missing')} · ${r.n} payment${r.n===1?'':'s'}</div></div>
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
@@ -404,7 +404,7 @@ window.openFinCisStatement = async function(id){
   let y = 720; const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); page.drawText(String(v||'—'), {x:300, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
   const taxEnd = (()=>{ const d = new Date((p.paid_on||p.period_end)+'T12:00:00'); if(d.getDate()>5) d.setMonth(d.getMonth()+1); d.setDate(5); return d.toISOString().slice(0,10); })();
   kv('Contractor', (ORG&&ORG.name)||''); kv('Contractor UTR', st.contractor_utr); kv('Employer reference', st.employer_ref);
-  y -= 8; kv('Subcontractor', p.name); kv('Subcontractor UTR', r.utr); kv('Tax month ending', finDate(taxEnd)); kv('Work period', finDate(p.period_start)+' – '+finDate(p.period_end)); kv('Paid on', p.paid_on ? finDate(p.paid_on) : 'Not paid yet');
+  y -= 8; kv('Subcontractor', p.name); kv('Subcontractor UTR', r.utr || p.utr); kv('Tax month ending', finDate(taxEnd)); kv('Work period', finDate(p.period_start)+' – '+finDate(p.period_end)); kv('Paid on', p.paid_on ? finDate(p.paid_on) : 'Not paid yet');
   y -= 8; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:PDFLib.rgb(0.86,0.88,0.9)}); y -= 8;
   kv('Gross amount paid (excl. VAT)', finMoney(p.gross)); kv('Less cost of materials', finMoney(p.materials)); kv('Amount liable to deduction', finMoney(p.labour));
   kv('Amount deducted ('+p.cis_rate+'%)', finMoney(p.cis_deduction), true); kv('Amount payable', finMoney(p.net_pay), true);

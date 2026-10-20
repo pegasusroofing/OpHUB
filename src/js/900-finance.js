@@ -110,6 +110,7 @@ async function renderFinanceHome(){
       ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('new') : ''}
       <button class="ghostbtn" onclick="go('#/finance/inbox')">Invoice inbox</button>
       <button class="ghostbtn" onclick="go('#/finance/labour')">Labour &amp; CIS</button>
+      <button class="ghostbtn" onclick="go('#/finance/reports')">Reports</button>
       ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('more') : ''}
       <button class="ghostbtn" onclick="go('#/finance/settings')">Settings</button>
     </div>
@@ -272,10 +273,12 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
 
-    ${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
+    <div id="finFcSlot"></div>
     ${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
     ${finInvoicesCardHtml(siteId, invs)}
     ${finPurchasingCardHtml(siteId, pords, pinvs)}
+    <div id="finScSlot"></div>
     ${finLabourCardHtml(siteId, lab)}
     ${finPlantCardHtml(siteId, hires)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
@@ -330,6 +333,14 @@ async function renderSiteFinance(siteId){
 
 
   `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).
+  if(typeof finLoadBook==='function') finLoadBook(siteId).then(b=>{
+    if(__gen !== RENDER_GEN) return;
+    const fc = finJobForecast(b, siteId);
+    const fs = document.getElementById('finFcSlot'); if(fs) fs.innerHTML = finForecastCardHtml(siteId, fc);
+    const js = document.getElementById('finJcSlot'); if(js) js.innerHTML = finJobCostCardFromForecast(siteId, fc);
+    const ss = document.getElementById('finScSlot'); if(ss && typeof finSubcontractsCardHtml==='function') ss.innerHTML = finSubcontractsCardHtml(siteId, b);
+  }).catch(e=>console.error(e));
 }
 window.saveSiteFinance = async function(siteId){
   const site = SITES.find(s=>s.id===siteId);
