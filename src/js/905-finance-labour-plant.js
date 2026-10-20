@@ -265,7 +265,7 @@ async function renderFinSubPayment(id){
     <div class="row-gap" style="flex-wrap:wrap;">
       ${p.status==='draft' ? `<button class="darkbtn" style="flex:1;" onclick="saveFinSubPayment('approved')">Save &amp; approve</button><button class="ghostbtn" style="flex:1;" onclick="saveFinSubPayment('draft')">Save draft</button>` : ''}
       ${p.status==='approved' ? `<button class="darkbtn" style="flex:1;" onclick="saveFinSubPayment('paid')">Mark paid today</button>` : ''}
-      <button class="ghostbtn" style="flex:1;" onclick="openFinCisStatement('${p.id}')">📄 Payment statement</button>
+      <button class="ghostbtn" style="flex:1;" onclick="openFinCisStatement('${p.id}')">Payment statement</button>
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('sub', p) : ''}
     ${p.status!=='paid' && p.status!=='void' ? `<button class="ghostbtn" style="width:100%;margin-top:10px;color:var(--red);" onclick="voidFinSubPayment('${p.id}')">Cancel this payment</button>` : ''}

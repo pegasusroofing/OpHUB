@@ -136,8 +136,8 @@ async function renderFinPo(siteId, poId){
       ${pinvs.length ? pinvs.map(i=>finPiRowHtml(siteId, i)).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">None yet.</p>`}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:8px;">
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoPdf('${po.id}')">📄 PO PDF</button>
-      ${po.status!=='cancelled' && po.source==='finance' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoEmail('${siteId}','${po.id}')">✉️ ${po.sent_at?'Email again':'Email to supplier'}</button>` : ''}
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoPdf('${po.id}')">PO PDF</button>
+      ${po.status!=='cancelled' && po.source==='finance' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoEmail('${siteId}','${po.id}')">${po.sent_at?'Email again':'Email to supplier'}</button>` : ''}
     </div>
     ${po.sent_at ? `<p class="stub" style="margin:0 0 8px;font-style:normal;">Emailed ${finDate(po.sent_at.slice(0,10))} to ${escapeHtml(po.sent_to||'')}</p>` : ''}
     <div class="row-gap" style="flex-wrap:wrap;">
@@ -268,7 +268,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
     <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>
     <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
-    ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">📄 View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
+    ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
     ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('bill', i) : ''}
     <div class="row-gap" style="margin-top:8px;">

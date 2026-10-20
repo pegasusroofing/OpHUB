@@ -456,11 +456,11 @@ async function renderFinApplication(siteId, appId){
     <div class="card" id="finAppSummary"></div>
     ${locked ? '' : `<div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" id="finAppSave" onclick="saveFinApplication(true)">Save</button>
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinAppEmail('${siteId}','${a.id}')">✉️ Email</button>
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinAppEmail('${siteId}','${a.id}')">Email</button>
     </div>`}
     <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
-      <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="downloadFinAppExcel('${a.id}')">⬇️ Excel</button>
-      ${locked ? '' : `<label class="ghostbtn" style="flex:1;min-width:140px;text-align:center;cursor:pointer;">⬆️ Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
+      <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="downloadFinAppExcel('${a.id}')">Excel</button>
+      ${locked ? '' : `<label class="ghostbtn" style="flex:1;min-width:140px;text-align:center;cursor:pointer;">Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
     </div>
     ${['submitted','certified','invoiced'].includes(a.status) ? `<div id="finCertSlot"></div>` : ''}
     ${a.status==='draft' ? `<button class="ghostbtn" style="width:100%;margin-top:14px;color:var(--red);" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}

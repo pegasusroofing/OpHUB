@@ -106,11 +106,12 @@ async function renderFinanceHome(){
     ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
     <div class="finchecks">${inbox.length ? `<span style="cursor:pointer;background:var(--blue-bg);color:var(--blue);" onclick="go('#/finance/inbox')">${inbox.length} invoice${inbox.length===1?'':'s'} in the inbox to file</span>` : ''}${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
-    ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml() : ''}
-    <div class="row-gap" style="margin:4px 0 12px;flex-wrap:wrap;">
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/inbox')">📥 Invoice inbox</button>
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/labour')">👷 Labour &amp; CIS</button>
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/settings')">⚙️ Settings</button>
+    <div class="finshort ${typeof isFinanceOnly==='function' && isFinanceOnly() ? 'fo' : ''}">
+      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('new') : ''}
+      <button class="ghostbtn" onclick="go('#/finance/inbox')">Invoice inbox</button>
+      <button class="ghostbtn" onclick="go('#/finance/labour')">Labour &amp; CIS</button>
+      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('more') : ''}
+      <button class="ghostbtn" onclick="go('#/finance/settings')">Settings</button>
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
@@ -293,7 +294,7 @@ async function renderSiteFinance(siteId){
             <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
           </div>
           <div class="finpo-act">
-            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">📄 View</button>` : ''}
+            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')

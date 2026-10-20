@@ -104,8 +104,8 @@ async function renderFinInvoice(siteId, invId){
       <div class="finkv fintot big"><span>Total</span><b>${finMoney(inv.total)}</b></div>
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">📄 View PDF</button>
-      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">✉️ Email</button>` : ''}
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
+      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('invoice', inv) : ''}
     ${inv.status!=='void' ? `<div class="card" style="margin-top:14px;">

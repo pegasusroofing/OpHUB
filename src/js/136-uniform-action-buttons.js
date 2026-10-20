@@ -19,6 +19,8 @@ function uniformActionLabel(t){
   return icon ? icon+' '+txt : null;
 }
 function uniformActionButtons(root){
+  // OpHUB Finance has its own clean button style (no icons) — leave it alone.
+  if(document.documentElement.classList.contains('finmode')) return;
   try{
     (root || document).querySelectorAll('button, label.ghostbtn, label.darkbtn').forEach(el=>{
       if(el.dataset.act) return;

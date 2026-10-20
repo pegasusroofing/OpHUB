@@ -48,15 +48,14 @@ function finOnlyNavItems(){
   ].filter(i=>i.show!==false);
 }
 
-// Extra buttons on the Finance home for Finance-only companies.
-function finOnlyHomeButtonsHtml(){
+// Extra buttons on the Finance home for Finance-only companies
+// ('new' = the New job button, 'more' = Suppliers / Team / My account).
+function finOnlyHomeButtonsHtml(part){
   if(!isFinanceOnly()) return '';
-  return `<div class="row-gap" style="margin:0 0 12px;flex-wrap:wrap;">
-    ${isFullManager(ME) ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinNewJob()">+ New job</button>` : ''}
-    ${isFullManager(ME) ? `<button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/suppliers')">🏷️ Suppliers</button>` : ''}
-    <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/fin-team')">👥 Team</button>
-    <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/account')">👤 My account</button>
-  </div>`;
+  if(part==='new') return isFullManager(ME) ? `<button class="darkbtn finshort-main" onclick="openFinNewJob()">+ New job</button>` : '';
+  return `${isFullManager(ME) ? `<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>` : ''}
+    <button class="ghostbtn" onclick="go('#/fin-team')">Team</button>
+    <button class="ghostbtn" onclick="go('#/account')">My account</button>`;
 }
 
 /* ---------- jobs ---------- */

@@ -94,8 +94,8 @@ async function renderFinCosts(siteId){
       <label>From<input type="date" value="${finCosts.from}" onchange="finCosts.from=this.value;finCostPaint()"></label>
       <label>To<input type="date" value="${finCosts.to}" onchange="finCosts.to=this.value;finCostPaint()"></label>
       <div class="fincosttools-b">
-        <button class="ghostbtn" onclick="finCostExportXlsx()">⬇️ Excel</button>
-        <button class="ghostbtn" onclick="finCostExportPdf()">📄 PDF</button>
+        <button class="ghostbtn" onclick="finCostExportXlsx()">Excel</button>
+        <button class="ghostbtn" onclick="finCostExportPdf()">PDF</button>
         <button class="darkbtn" onclick="openFinJobCost('${siteId}')">+ Add cost</button>
       </div>
     </div>

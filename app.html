@@ -1584,6 +1584,96 @@ details.fincols{margin:0 0 6px;} details.fincols summary{cursor:pointer;font-wei
   .fincosttools label{flex:1 1 40%;}
   .fincosttools label input{width:100%;}
 }
+/* ===== OpHUB Finance — clean modern buttons (Andy, 20 Oct): normal-case
+   text, solid fill for the main action, soft grey for the rest, no outlines.
+   Only on Finance pages (html.finmode is set by shell()). ===== */
+html.finmode .darkbtn, html.finmode .primarybtn, html.finmode .ghostbtn{
+  text-transform:none;letter-spacing:0;font-weight:600;font-size:14px;line-height:1.2;
+  border:0;border-radius:10px;padding:11px 14px;min-height:42px;box-shadow:none;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  transition:background .15s ease,box-shadow .15s ease,transform .1s ease;
+}
+html.finmode .darkbtn, html.finmode .primarybtn{background:var(--brand1);color:#fff;}
+html.finmode .darkbtn:hover, html.finmode .primarybtn:hover{box-shadow:inset 0 0 0 100px rgba(0,0,0,.08);}
+html.finmode .ghostbtn{background:#EDF0F3;color:var(--ink);}
+html.finmode .ghostbtn:hover{background:#E2E6EB;}
+html.finmode .darkbtn:disabled, html.finmode .ghostbtn:disabled{background:#EDF0F3;color:#9AA1AA;box-shadow:none;}
+html.finmode .darkbtn:active, html.finmode .ghostbtn:active{transform:scale(.98);}
+/* small buttons drawn with an inline padding (e.g. "+ Add PO") stay compact */
+html.finmode .ghostbtn[style*="padding:6px"], html.finmode .ghostbtn[style*="padding:5px"], html.finmode .darkbtn[style*="padding:6px"]{min-height:34px;font-size:13px;}
+/* red-text "danger" buttons: soft red instead of grey */
+html.finmode .ghostbtn[style*="color:var(--red)"]{background:#FDECEE;}
+html.finmode .linkbtn{color:var(--brand1);text-decoration:none;font-weight:600;font-size:13px;}
+html.finmode .linkbtn:hover{text-decoration:underline;}
+html.finmode .geo-modal-cancel{font-weight:600;color:var(--slate,#5B6472);text-transform:none;letter-spacing:0;}
+html.finmode label.ghostbtn{cursor:pointer;}
+/* ===== OpHUB Finance — more breathing room (Andy, 20 Oct: "very cramped") ===== */
+html.finmode .scrollarea{padding:18px 16px calc(96px + env(safe-area-inset-bottom));}
+html.desk.finmode .scrollarea{padding:32px 48px 48px;}
+html.desk.finmode .scrollarea > *{max-width:1160px;margin-left:auto;margin-right:auto;}
+html.finmode .card{padding:18px 18px;margin-bottom:16px;border-radius:16px;}
+html.desk.finmode .card{padding:22px 24px;}
+html.finmode .sectiontitle{font-size:12px;letter-spacing:.06em;margin:2px 0 14px;}
+html.finmode .stub{font-size:13.5px;line-height:1.55;color:var(--slate);font-style:normal;}
+html.finmode .finkv{padding:12px 0;font-size:15px;line-height:1.45;gap:16px;}
+html.finmode .finkv.big b, html.finmode .finkv.big span{font-size:18px;}
+html.finmode .finhead{gap:18px 16px;}
+html.finmode .finhead-l{font-size:12px;letter-spacing:.05em;}
+html.finmode .finhead-v{font-size:18px;margin-top:4px;}
+html.finmode .fincost{gap:12px;}
+html.finmode .fincost > div{padding:14px 16px;border-radius:14px;}
+html.finmode .fincost span{font-size:13px;margin-bottom:2px;}
+html.finmode .fincost b{font-size:21px;}
+html.finmode .fincost em{font-size:12.5px;margin-top:2px;}
+html.finmode .pmstats{gap:12px;margin-bottom:16px;}
+html.finmode .finstats .pmstat{padding:16px 16px;gap:4px;}
+html.finmode .finstats .pmstat b{font-size:22px;}
+html.finmode .finstats .pmstat span{font-size:12.5px;}
+html.finmode .finchecks{gap:8px;margin:0 0 16px;}
+html.finmode .finchecks span{font-size:13px;padding:7px 12px;}
+html.finmode .pmchips{gap:8px;margin-bottom:14px !important;}
+html.finmode .pmchip{height:38px;padding:0 15px;font-size:13.5px;}
+html.finmode .pmrow{padding:15px 6px;gap:14px;}
+html.finmode .pmrow-card{margin-bottom:10px;padding:14px 16px;border-radius:14px;}
+html.finmode .pmrow-t{font-size:15.5px;}
+html.finmode .pmrow-s{font-size:13px;margin-top:3px;}
+html.finmode .finjobno{font-size:14px;padding:10px 8px;min-width:64px;}
+html.finmode .finval{font-size:15.5px;}
+html.finmode .formfield{margin-bottom:16px;}
+html.finmode .field-label{font-size:12.5px;margin-bottom:6px;}
+html.finmode input[type=text], html.finmode input[type=email], html.finmode input[type=number], html.finmode input[type=date], html.finmode input[type=search], html.finmode textarea, html.finmode select{font-size:15px;padding:11px 12px;border-radius:10px;}
+html.finmode .finitem{padding:16px 2px;}
+html.finmode .finlabrow{padding:14px 0;font-size:15px;line-height:1.45;}
+html.finmode .row-gap{gap:10px;}
+html.finmode .empty{padding:22px 12px;font-size:14px;}
+html.finmode .finbanner{padding:12px 14px;margin-bottom:16px;}
+html.finmode .geo-modal-card .formfield{margin-bottom:14px;}
+/* home shortcuts: one tidy grid */
+.finshort{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 18px;}
+.finshort .ghostbtn, .finshort .darkbtn{width:100%;}
+@media (max-width:600px){ .finshort{grid-template-columns:1fr 1fr;} .finshort .finshort-main{grid-column:1 / -1;} }
+html.desk .finshort.fo{display:none;} /* Finance-only on a computer: these are in the left menu */
+html.desk.finmode .fincost{grid-template-columns:repeat(4,minmax(0,1fr));}
+/* application / breakdown lines — larger, airier */
+html.finmode .finitem-d{font-size:15.5px;line-height:1.4;}
+html.finmode .finitem-d em{font-size:13.5px;margin-top:4px;}
+html.finmode .finitem-in{gap:10px;margin-top:10px;}
+html.finmode .finitem-in label{font-size:12px;gap:4px;width:104px;}
+html.finmode .finitem-in b{font-size:16px;}
+html.finmode .finapphead.sec{padding:12px 14px;margin-top:18px;font-size:15.5px;border-radius:12px;}
+html.finmode .finapphead.sub{padding:10px 14px;margin-top:12px;font-size:14.5px;border-radius:10px;}
+html.finmode .finapphead b{font-size:14.5px;}
+html.finmode .finapphead b em{font-size:12px;}
+html.finmode .finappfill{padding:8px 2px 2px;gap:18px;}
+html.finmode .finappfill .linkbtn{font-size:13.5px;}
+html.finmode .finapprow{padding:12px 0;font-size:15px;gap:10px;}
+html.finmode .finapprow-d em{font-size:13px;}
+html.finmode .fincrow{padding:14px 0;}
+html.finmode .fincrow.section, html.finmode .fincrow.subsection{padding:12px;}
+html.finmode .fincrow-nums{gap:8px;margin-top:10px;}
+html.finmode .fincrow-nums label{font-size:12px;gap:4px;}
+html.finmode .fincrow-head input, html.finmode .fincrow-head textarea, html.finmode .fincrow-nums input{font-size:15px;}
+html.finmode .fincrow-foot{margin-top:8px;}
 </style>
 </head>
 <body>
@@ -5294,6 +5384,8 @@ function navBackFor(defaultBack){
 }
 function shell(innerHtml, opts){
   opts = opts||{};
+  // Finance pages get Finance's own button style (html.finmode in app.css).
+  { const h = String(location.hash||''); document.documentElement.classList.toggle('finmode', /^#\/finance(\/|$)|^#\/fin-team|^#\/site\/[^/]+\/finance(\/|$)/.test(h)); }
   { const cur = String(location.hash||''); if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur); }
   if(opts.back) opts.back = navBackFor(opts.back);
   CURRENT_BACK_HASH = opts.back || null;
@@ -5672,6 +5764,8 @@ function uniformActionLabel(t){
   return icon ? icon+' '+txt : null;
 }
 function uniformActionButtons(root){
+  // OpHUB Finance has its own clean button style (no icons) — leave it alone.
+  if(document.documentElement.classList.contains('finmode')) return;
   try{
     (root || document).querySelectorAll('button, label.ghostbtn, label.darkbtn').forEach(el=>{
       if(el.dataset.act) return;
@@ -45563,11 +45657,12 @@ async function renderFinanceHome(){
     ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
     <div class="finchecks">${inbox.length ? `<span style="cursor:pointer;background:var(--blue-bg);color:var(--blue);" onclick="go('#/finance/inbox')">${inbox.length} invoice${inbox.length===1?'':'s'} in the inbox to file</span>` : ''}${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
     </div>
-    ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml() : ''}
-    <div class="row-gap" style="margin:4px 0 12px;flex-wrap:wrap;">
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/inbox')">📥 Invoice inbox</button>
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/labour')">👷 Labour &amp; CIS</button>
-      <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/finance/settings')">⚙️ Settings</button>
+    <div class="finshort ${typeof isFinanceOnly==='function' && isFinanceOnly() ? 'fo' : ''}">
+      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('new') : ''}
+      <button class="ghostbtn" onclick="go('#/finance/inbox')">Invoice inbox</button>
+      <button class="ghostbtn" onclick="go('#/finance/labour')">Labour &amp; CIS</button>
+      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('more') : ''}
+      <button class="ghostbtn" onclick="go('#/finance/settings')">Settings</button>
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
     <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
@@ -45750,7 +45845,7 @@ async function renderSiteFinance(siteId){
             <div class="stub" style="margin:2px 0 0;font-style:normal;">${[p.value!=null?finMoney(p.value):'', p.po_date?new Date(p.po_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'', p.description||''].filter(Boolean).map(escapeHtml).join(' · ') || 'No value or date'}</div>
           </div>
           <div class="finpo-act">
-            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">📄 View</button>` : ''}
+            ${p.file_path ? `<button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoFile('${p.id}')">View</button>` : ''}
             <button class="ghostbtn" style="padding:5px 10px;width:auto;" onclick="openClientPoForm('${siteId}','${p.id}')">Edit</button>
           </div>
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
@@ -46021,8 +46116,8 @@ async function renderFinInvoice(siteId, invId){
       <div class="finkv fintot big"><span>Total</span><b>${finMoney(inv.total)}</b></div>
     </div>
     <div class="row-gap" style="flex-wrap:wrap;">
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">📄 View PDF</button>
-      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">✉️ Email</button>` : ''}
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinInvoicePdf('${inv.id}')">View PDF</button>
+      ${inv.status!=='void' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinEmail('${siteId}','${inv.id}')">Email</button>` : ''}
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('invoice', inv) : ''}
     ${inv.status!=='void' ? `<div class="card" style="margin-top:14px;">
@@ -46787,11 +46882,11 @@ async function renderFinApplication(siteId, appId){
     <div class="card" id="finAppSummary"></div>
     ${locked ? '' : `<div class="row-gap" style="flex-wrap:wrap;">
       <button class="darkbtn" style="flex:1;min-width:140px;" id="finAppSave" onclick="saveFinApplication(true)">Save</button>
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinAppEmail('${siteId}','${a.id}')">✉️ Email</button>
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinAppEmail('${siteId}','${a.id}')">Email</button>
     </div>`}
     <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
-      <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="downloadFinAppExcel('${a.id}')">⬇️ Excel</button>
-      ${locked ? '' : `<label class="ghostbtn" style="flex:1;min-width:140px;text-align:center;cursor:pointer;">⬆️ Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
+      <button class="ghostbtn" style="flex:1;min-width:140px;" onclick="downloadFinAppExcel('${a.id}')">Excel</button>
+      ${locked ? '' : `<label class="ghostbtn" style="flex:1;min-width:140px;text-align:center;cursor:pointer;">Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
     </div>
     ${['submitted','certified','invoiced'].includes(a.status) ? `<div id="finCertSlot"></div>` : ''}
     ${a.status==='draft' ? `<button class="ghostbtn" style="width:100%;margin-top:14px;color:var(--red);" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
@@ -47100,7 +47195,7 @@ function finCertSlotRender(a){
     ${diff ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> compared with the ${finMoney(a.net_due)} applied for.</p>` : `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--ok);">Certified in full.</p>`}
     ${a.cert_notes ? `<p class="stub" style="margin:6px 0 0;font-style:normal;">${escapeHtml(a.cert_notes)}</p>` : ''}
     <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
-      ${a.cert_file_path ? `<button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinDoc('${jsAttr(a.cert_file_path)}','${jsAttr(a.cert_file_name||'')}')">📄 Certificate</button>` : ''}
+      ${a.cert_file_path ? `<button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinDoc('${jsAttr(a.cert_file_path)}','${jsAttr(a.cert_file_name||'')}')">Certificate</button>` : ''}
       ${a.invoice_id ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">🧾 Open invoice</button>`
         : `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="raiseInvoiceFromCert('${a.site_id}','${a.id}')">🧾 Raise invoice</button>`}
     </div>
@@ -47365,8 +47460,8 @@ async function renderFinPo(siteId, poId){
       ${pinvs.length ? pinvs.map(i=>finPiRowHtml(siteId, i)).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">None yet.</p>`}
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:8px;">
-      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoPdf('${po.id}')">📄 PO PDF</button>
-      ${po.status!=='cancelled' && po.source==='finance' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoEmail('${siteId}','${po.id}')">✉️ ${po.sent_at?'Email again':'Email to supplier'}</button>` : ''}
+      <button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoPdf('${po.id}')">PO PDF</button>
+      ${po.status!=='cancelled' && po.source==='finance' ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinPoEmail('${siteId}','${po.id}')">${po.sent_at?'Email again':'Email to supplier'}</button>` : ''}
     </div>
     ${po.sent_at ? `<p class="stub" style="margin:0 0 8px;font-style:normal;">Emailed ${finDate(po.sent_at.slice(0,10))} to ${escapeHtml(po.sent_to||'')}</p>` : ''}
     <div class="row-gap" style="flex-wrap:wrap;">
@@ -47497,7 +47592,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
     <div class="finkv"><span>Net</span><b>${finMoney(i.net)}</b></div>
     <div class="finkv"><span>VAT</span><b>${finMoney(i.vat)}</b></div>
     <div class="finkv big"><span>Total</span><b>${finMoney(i.total)}</b></div>
-    ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">📄 View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
+    ${i.file_path ? `<button class="ghostbtn" style="width:100%;margin:8px 0;" onclick="openFinDoc('${jsAttr(i.file_path)}','${jsAttr(i.file_name||'')}')">View ${i.kind==='receipt'?'receipt':'invoice'}</button>` : ''}
     ${i.status!=='approved' ? `<button class="darkbtn" style="width:100%;margin-top:8px;" onclick="setPurchaseInvoiceStatus('${i.id}','approved')">✓ Approve</button>` : `<p class="stub" style="margin:8px 0 0;font-style:normal;color:var(--ok);">Approved ${i.approved_at?finDate(i.approved_at.slice(0,10)):''}</p>`}
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('bill', i) : ''}
     <div class="row-gap" style="margin-top:8px;">
@@ -47794,7 +47889,7 @@ async function renderFinSubPayment(id){
     <div class="row-gap" style="flex-wrap:wrap;">
       ${p.status==='draft' ? `<button class="darkbtn" style="flex:1;" onclick="saveFinSubPayment('approved')">Save &amp; approve</button><button class="ghostbtn" style="flex:1;" onclick="saveFinSubPayment('draft')">Save draft</button>` : ''}
       ${p.status==='approved' ? `<button class="darkbtn" style="flex:1;" onclick="saveFinSubPayment('paid')">Mark paid today</button>` : ''}
-      <button class="ghostbtn" style="flex:1;" onclick="openFinCisStatement('${p.id}')">📄 Payment statement</button>
+      <button class="ghostbtn" style="flex:1;" onclick="openFinCisStatement('${p.id}')">Payment statement</button>
     </div>
     ${typeof finXeroRowHtml==='function' ? finXeroRowHtml('sub', p) : ''}
     ${p.status!=='paid' && p.status!=='void' ? `<button class="ghostbtn" style="width:100%;margin-top:10px;color:var(--red);" onclick="voidFinSubPayment('${p.id}')">Cancel this payment</button>` : ''}
@@ -48056,7 +48151,7 @@ function finInboxCardHtml(it, pos, sites){
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
       <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</b>
         <div class="stub" style="margin:2px 0 0;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Uploaded'} · ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</div></div>
-      <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">📄 View</button>
+      <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View</button>
     </div>
     ${ex.read===false ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--warn);">${ex.photo?'A photo can’t be read automatically — type the details in.':'This PDF has no readable text — type the details in.'}</p>` : (ex.po_number ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--ok);">Found our PO ${escapeHtml(ex.po_number)}${ex.po_id?'':' (not recognised)'}</p>` : '')}
     ${done ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">${it.status==='filed'?'Filed to '+escapeHtml(((SITES.find(s=>s.id===it.site_id)||{}).name)||'a job'):'Ignored'}${it.status==='ignored'?` · <button class="linkbtn" style="color:var(--blue);" onclick="finInboxSet('${it.id}','new')">put back</button>`:''}</p>` : `
@@ -48384,15 +48479,14 @@ function finOnlyNavItems(){
   ].filter(i=>i.show!==false);
 }
 
-// Extra buttons on the Finance home for Finance-only companies.
-function finOnlyHomeButtonsHtml(){
+// Extra buttons on the Finance home for Finance-only companies
+// ('new' = the New job button, 'more' = Suppliers / Team / My account).
+function finOnlyHomeButtonsHtml(part){
   if(!isFinanceOnly()) return '';
-  return `<div class="row-gap" style="margin:0 0 12px;flex-wrap:wrap;">
-    ${isFullManager(ME) ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="openFinNewJob()">+ New job</button>` : ''}
-    ${isFullManager(ME) ? `<button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/suppliers')">🏷️ Suppliers</button>` : ''}
-    <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/fin-team')">👥 Team</button>
-    <button class="ghostbtn" style="flex:1;min-width:120px;" onclick="go('#/account')">👤 My account</button>
-  </div>`;
+  if(part==='new') return isFullManager(ME) ? `<button class="darkbtn finshort-main" onclick="openFinNewJob()">+ New job</button>` : '';
+  return `${isFullManager(ME) ? `<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>` : ''}
+    <button class="ghostbtn" onclick="go('#/fin-team')">Team</button>
+    <button class="ghostbtn" onclick="go('#/account')">My account</button>`;
 }
 
 /* ---------- jobs ---------- */
@@ -48843,8 +48937,8 @@ async function renderFinCosts(siteId){
       <label>From<input type="date" value="${finCosts.from}" onchange="finCosts.from=this.value;finCostPaint()"></label>
       <label>To<input type="date" value="${finCosts.to}" onchange="finCosts.to=this.value;finCostPaint()"></label>
       <div class="fincosttools-b">
-        <button class="ghostbtn" onclick="finCostExportXlsx()">⬇️ Excel</button>
-        <button class="ghostbtn" onclick="finCostExportPdf()">📄 PDF</button>
+        <button class="ghostbtn" onclick="finCostExportXlsx()">Excel</button>
+        <button class="ghostbtn" onclick="finCostExportPdf()">PDF</button>
         <button class="darkbtn" onclick="openFinJobCost('${siteId}')">+ Add cost</button>
       </div>
     </div>

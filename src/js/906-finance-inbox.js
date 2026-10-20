@@ -112,7 +112,7 @@ function finInboxCardHtml(it, pos, sites){
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
       <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</b>
         <div class="stub" style="margin:2px 0 0;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Uploaded'} · ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</div></div>
-      <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">📄 View</button>
+      <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View</button>
     </div>
     ${ex.read===false ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--warn);">${ex.photo?'A photo can’t be read automatically — type the details in.':'This PDF has no readable text — type the details in.'}</p>` : (ex.po_number ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--ok);">Found our PO ${escapeHtml(ex.po_number)}${ex.po_id?'':' (not recognised)'}</p>` : '')}
     ${done ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">${it.status==='filed'?'Filed to '+escapeHtml(((SITES.find(s=>s.id===it.site_id)||{}).name)||'a job'):'Ignored'}${it.status==='ignored'?` · <button class="linkbtn" style="color:var(--blue);" onclick="finInboxSet('${it.id}','new')">put back</button>`:''}</p>` : `

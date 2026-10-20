@@ -1570,3 +1570,93 @@ details.fincols{margin:0 0 6px;} details.fincols summary{cursor:pointer;font-wei
   .fincosttools label{flex:1 1 40%;}
   .fincosttools label input{width:100%;}
 }
+/* ===== OpHUB Finance — clean modern buttons (Andy, 20 Oct): normal-case
+   text, solid fill for the main action, soft grey for the rest, no outlines.
+   Only on Finance pages (html.finmode is set by shell()). ===== */
+html.finmode .darkbtn, html.finmode .primarybtn, html.finmode .ghostbtn{
+  text-transform:none;letter-spacing:0;font-weight:600;font-size:14px;line-height:1.2;
+  border:0;border-radius:10px;padding:11px 14px;min-height:42px;box-shadow:none;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  transition:background .15s ease,box-shadow .15s ease,transform .1s ease;
+}
+html.finmode .darkbtn, html.finmode .primarybtn{background:var(--brand1);color:#fff;}
+html.finmode .darkbtn:hover, html.finmode .primarybtn:hover{box-shadow:inset 0 0 0 100px rgba(0,0,0,.08);}
+html.finmode .ghostbtn{background:#EDF0F3;color:var(--ink);}
+html.finmode .ghostbtn:hover{background:#E2E6EB;}
+html.finmode .darkbtn:disabled, html.finmode .ghostbtn:disabled{background:#EDF0F3;color:#9AA1AA;box-shadow:none;}
+html.finmode .darkbtn:active, html.finmode .ghostbtn:active{transform:scale(.98);}
+/* small buttons drawn with an inline padding (e.g. "+ Add PO") stay compact */
+html.finmode .ghostbtn[style*="padding:6px"], html.finmode .ghostbtn[style*="padding:5px"], html.finmode .darkbtn[style*="padding:6px"]{min-height:34px;font-size:13px;}
+/* red-text "danger" buttons: soft red instead of grey */
+html.finmode .ghostbtn[style*="color:var(--red)"]{background:#FDECEE;}
+html.finmode .linkbtn{color:var(--brand1);text-decoration:none;font-weight:600;font-size:13px;}
+html.finmode .linkbtn:hover{text-decoration:underline;}
+html.finmode .geo-modal-cancel{font-weight:600;color:var(--slate,#5B6472);text-transform:none;letter-spacing:0;}
+html.finmode label.ghostbtn{cursor:pointer;}
+/* ===== OpHUB Finance — more breathing room (Andy, 20 Oct: "very cramped") ===== */
+html.finmode .scrollarea{padding:18px 16px calc(96px + env(safe-area-inset-bottom));}
+html.desk.finmode .scrollarea{padding:32px 48px 48px;}
+html.desk.finmode .scrollarea > *{max-width:1160px;margin-left:auto;margin-right:auto;}
+html.finmode .card{padding:18px 18px;margin-bottom:16px;border-radius:16px;}
+html.desk.finmode .card{padding:22px 24px;}
+html.finmode .sectiontitle{font-size:12px;letter-spacing:.06em;margin:2px 0 14px;}
+html.finmode .stub{font-size:13.5px;line-height:1.55;color:var(--slate);font-style:normal;}
+html.finmode .finkv{padding:12px 0;font-size:15px;line-height:1.45;gap:16px;}
+html.finmode .finkv.big b, html.finmode .finkv.big span{font-size:18px;}
+html.finmode .finhead{gap:18px 16px;}
+html.finmode .finhead-l{font-size:12px;letter-spacing:.05em;}
+html.finmode .finhead-v{font-size:18px;margin-top:4px;}
+html.finmode .fincost{gap:12px;}
+html.finmode .fincost > div{padding:14px 16px;border-radius:14px;}
+html.finmode .fincost span{font-size:13px;margin-bottom:2px;}
+html.finmode .fincost b{font-size:21px;}
+html.finmode .fincost em{font-size:12.5px;margin-top:2px;}
+html.finmode .pmstats{gap:12px;margin-bottom:16px;}
+html.finmode .finstats .pmstat{padding:16px 16px;gap:4px;}
+html.finmode .finstats .pmstat b{font-size:22px;}
+html.finmode .finstats .pmstat span{font-size:12.5px;}
+html.finmode .finchecks{gap:8px;margin:0 0 16px;}
+html.finmode .finchecks span{font-size:13px;padding:7px 12px;}
+html.finmode .pmchips{gap:8px;margin-bottom:14px !important;}
+html.finmode .pmchip{height:38px;padding:0 15px;font-size:13.5px;}
+html.finmode .pmrow{padding:15px 6px;gap:14px;}
+html.finmode .pmrow-card{margin-bottom:10px;padding:14px 16px;border-radius:14px;}
+html.finmode .pmrow-t{font-size:15.5px;}
+html.finmode .pmrow-s{font-size:13px;margin-top:3px;}
+html.finmode .finjobno{font-size:14px;padding:10px 8px;min-width:64px;}
+html.finmode .finval{font-size:15.5px;}
+html.finmode .formfield{margin-bottom:16px;}
+html.finmode .field-label{font-size:12.5px;margin-bottom:6px;}
+html.finmode input[type=text], html.finmode input[type=email], html.finmode input[type=number], html.finmode input[type=date], html.finmode input[type=search], html.finmode textarea, html.finmode select{font-size:15px;padding:11px 12px;border-radius:10px;}
+html.finmode .finitem{padding:16px 2px;}
+html.finmode .finlabrow{padding:14px 0;font-size:15px;line-height:1.45;}
+html.finmode .row-gap{gap:10px;}
+html.finmode .empty{padding:22px 12px;font-size:14px;}
+html.finmode .finbanner{padding:12px 14px;margin-bottom:16px;}
+html.finmode .geo-modal-card .formfield{margin-bottom:14px;}
+/* home shortcuts: one tidy grid */
+.finshort{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 18px;}
+.finshort .ghostbtn, .finshort .darkbtn{width:100%;}
+@media (max-width:600px){ .finshort{grid-template-columns:1fr 1fr;} .finshort .finshort-main{grid-column:1 / -1;} }
+html.desk .finshort.fo{display:none;} /* Finance-only on a computer: these are in the left menu */
+html.desk.finmode .fincost{grid-template-columns:repeat(4,minmax(0,1fr));}
+/* application / breakdown lines — larger, airier */
+html.finmode .finitem-d{font-size:15.5px;line-height:1.4;}
+html.finmode .finitem-d em{font-size:13.5px;margin-top:4px;}
+html.finmode .finitem-in{gap:10px;margin-top:10px;}
+html.finmode .finitem-in label{font-size:12px;gap:4px;width:104px;}
+html.finmode .finitem-in b{font-size:16px;}
+html.finmode .finapphead.sec{padding:12px 14px;margin-top:18px;font-size:15.5px;border-radius:12px;}
+html.finmode .finapphead.sub{padding:10px 14px;margin-top:12px;font-size:14.5px;border-radius:10px;}
+html.finmode .finapphead b{font-size:14.5px;}
+html.finmode .finapphead b em{font-size:12px;}
+html.finmode .finappfill{padding:8px 2px 2px;gap:18px;}
+html.finmode .finappfill .linkbtn{font-size:13.5px;}
+html.finmode .finapprow{padding:12px 0;font-size:15px;gap:10px;}
+html.finmode .finapprow-d em{font-size:13px;}
+html.finmode .fincrow{padding:14px 0;}
+html.finmode .fincrow.section, html.finmode .fincrow.subsection{padding:12px;}
+html.finmode .fincrow-nums{gap:8px;margin-top:10px;}
+html.finmode .fincrow-nums label{font-size:12px;gap:4px;}
+html.finmode .fincrow-head input, html.finmode .fincrow-head textarea, html.finmode .fincrow-nums input{font-size:15px;}
+html.finmode .fincrow-foot{margin-top:8px;}

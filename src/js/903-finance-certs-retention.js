@@ -46,7 +46,7 @@ function finCertSlotRender(a){
     ${diff ? `<p class="stub" style="margin:6px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> compared with the ${finMoney(a.net_due)} applied for.</p>` : `<p class="stub" style="margin:6px 0 0;font-style:normal;color:var(--ok);">Certified in full.</p>`}
     ${a.cert_notes ? `<p class="stub" style="margin:6px 0 0;font-style:normal;">${escapeHtml(a.cert_notes)}</p>` : ''}
     <div class="row-gap" style="flex-wrap:wrap;margin-top:10px;">
-      ${a.cert_file_path ? `<button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinDoc('${jsAttr(a.cert_file_path)}','${jsAttr(a.cert_file_name||'')}')">📄 Certificate</button>` : ''}
+      ${a.cert_file_path ? `<button class="ghostbtn" style="flex:1;min-width:140px;" onclick="openFinDoc('${jsAttr(a.cert_file_path)}','${jsAttr(a.cert_file_name||'')}')">Certificate</button>` : ''}
       ${a.invoice_id ? `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">🧾 Open invoice</button>`
         : `<button class="darkbtn" style="flex:1;min-width:140px;" onclick="raiseInvoiceFromCert('${a.site_id}','${a.id}')">🧾 Raise invoice</button>`}
     </div>
