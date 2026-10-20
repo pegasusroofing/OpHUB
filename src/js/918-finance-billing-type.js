@@ -224,9 +224,9 @@ function finAppDatesHtml(jf, st){
   const n = months.filter(m=>custom[m]).length;
   return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
     <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
-    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick another date (e.g. the client’s valuation calendar). Clear a box to go back to the day of the month.</p>
-    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || def;
-      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"></label>`; }).join('')}</div>
+    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick a date for it (e.g. the client’s valuation calendar). Leave a box empty to use the normal day.</p>
+    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || '';
+      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"><em>${def ? 'Normally '+finDate(def) : 'No day set'}</em></label>`; }).join('')}</div>
   </details>`;
 }
 // Only the months that differ from the day-of-month rule are stored.

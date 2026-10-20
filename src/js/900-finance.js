@@ -89,6 +89,7 @@ async function renderFinanceSettings(){
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a project’s Materials tile becomes a purchase order numbered by project (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
       <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
       <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
+      <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Invoice numbers</p>
@@ -155,7 +156,7 @@ window.saveFinanceSettings = async function(){
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
-    po_enabled: !!(document.getElementById('finPoOn')||{}).checked,
+    po_enabled: !!(document.getElementById('finPoOn')||{}).checked, po_vat_default: finVal('finPoVat') || '20',
     contractor_utr:finVal('finCoUtr')||null, employer_ref:finVal('finCoEmp')||null,
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,

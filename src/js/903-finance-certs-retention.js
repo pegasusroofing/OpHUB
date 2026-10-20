@@ -10,6 +10,7 @@
 /* ---------------- A3: certificate card on the application page ---------------- */
 let finCertFile = null;
 function finCertSlotRender(a){
+  if(finCertSlotRender._for !== a.id){ finCertFile = null; finCertSlotRender._for = a.id; }
   const el = document.getElementById('finCertSlot'); if(!el) return;
   if(a.cert_net==null){
     const appliedPrev = Number(a.previous||0);
@@ -86,6 +87,7 @@ window.clearFinCertificate = async function(appId){
 // The invoice for a certificate: its lines ARE the certificate breakdown.
 window.raiseInvoiceFromCert = async function(siteId, appId){
   const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
+  if(a.invoice_id){ go(`#/site/${siteId}/finance/invoice/${a.invoice_id}`); return; }
   const site = SITES.find(s=>s.id===siteId) || {};
   const [st, jfRows] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId)]);
   const jf = jfRows[0] || {};
@@ -113,7 +115,9 @@ function finRetentionHeld(apps){
   const c = apps.filter(a=>a.cert_retention!=null && a.status!=='void').sort((x,y)=>y.number-x.number)[0];
   return c ? finRound(c.cert_retention) : 0;
 }
-function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); d.setMonth(d.getMonth()+(Number(m)||0)); return d.toISOString().slice(0,10); }
+function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+(Number(m)||0)); const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); d.setDate(Math.min(day, last)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Retention halves: the second half takes the odd penny so the two add up to what's held.
+function finRetHalf(held, n){ const a = finRound(held/2); return n===1 ? a : finRound(held - a); }
 function finRetentionDates(jf, st){
   if(!jf || !jf.pc_date) return {first:null, second:null};
   const months = jf.defects_months!=null ? jf.defects_months : ((st&&st.default_defects_months)!=null ? st.default_defects_months : 12);
@@ -131,9 +135,8 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const held = finRetentionHeld(apps);
   const d = finRetentionDates(jf, st);
   const alerts = finRetentionAlerts(jf, st, held);
-  const half = finRound(held/2);
   const row = (n, date, invId)=>`<div class="finkv"><span>${n===1?'First half — at practical completion':'Second half — end of defects period'}<em style="display:block;font-style:normal;font-size:12px;">${date?finDate(date):'Set the practical completion date'}</em></span>
-      <b>${finMoney(half)} ${invId ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">invoice</button>` : (held && date ? `<button class="linkbtn" style="color:var(--blue);" onclick="raiseRetentionInvoice('${siteId}',${n})">raise invoice</button>` : '')}</b></div>`;
+      <b>${finMoney(finRetHalf(held, n))} ${invId ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">invoice</button>` : (held && date ? `<button class="linkbtn" style="color:var(--blue);" onclick="raiseRetentionInvoice('${siteId}',${n})">raise invoice</button>` : '')}</b></div>`;
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Retention</p>
     ${alerts.length ? `<div class="finchecks" style="margin:0 0 8px;">${alerts.map(x=>`<span>${x.half===1?'First':'Second'} half due ${finDate(x.date)}</span>`).join('')}</div>` : ''}
@@ -157,7 +160,9 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const site = SITES.find(s=>s.id===siteId) || {};
   const [st, jfRows, apps, pos] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId), dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=number,status,cert_retention'), dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number')]);
   const jf = jfRows[0] || {};
-  const amt = finRound(finRetentionHeld(apps)/2);
+  const already = n===1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
+  if(already){ go(`#/site/${siteId}/finance/invoice/${already}`); return; }
+  const amt = finRetHalf(finRetentionHeld(apps), n);
   if(!amt){ toast('No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
@@ -169,6 +174,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   });
   if(!rows || !rows[0]) return;
   const patch = {site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString()}; patch[n===1?'ret1_invoice_id':'ret2_invoice_id'] = rows[0].id;
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  const lk = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  if(!lk.ok) toast('Invoice made, but it couldn’t be linked to the retention — '+(await safeErr(lk)));
   go(`#/site/${siteId}/finance/invoice/${rows[0].id}`);
 };

@@ -143,6 +143,8 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" data-money id="finPlRate" value="${h?h.rate:''}"></div>
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
+    <div class="formfield"><label class="field-label">Cost of this hire comes from</label><select id="finPlFrom"><option value="rate" ${!h||h.cost_from!=='invoices'?'selected':''}>The hire rate × time on hire</option><option value="invoices" ${h&&h.cost_from==='invoices'?'selected':''}>The hire company’s invoices (rate is just for reference)</option></select></div>
+    <p class="stub" style="margin:-4px 0 10px;font-style:normal;font-size:12.5px;">Pick “invoices” if you’ll enter the hire company’s invoices as plant costs — otherwise the hire would be counted twice.</p>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
     ${h && h.split ? finAllocBlockHtml('fin_plant_hires', h) : finSubJobSelectHtml('finPlSub', siteId, h ? h.sub_job_id||'' : '')}
     <button class="darkbtn" style="width:100%;" onclick="saveFinPlant('${siteId}','${h?h.id:''}')">Save</button>
@@ -159,7 +161,7 @@ window.saveFinPlant = async function(siteId, id){
   if(!on){ toast('Enter the on-hire date.'); return; }
   if(rate===null || isNaN(rate)){ toast('Enter the hire rate.'); return; }
   if(off && off < on){ toast('Off-hire can’t be before on-hire.'); return; }
-  const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null};
+  const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null, cost_from:finVal('finPlFrom')||'rate'};
   if(document.getElementById('finPlSub')) row.sub_job_id = finVal('finPlSub')||null;
   const r = id ? await dbUpdate('fin_plant_hires', id, row) : await dbInsert('fin_plant_hires', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id}, row));
   if(!r) return;
@@ -409,7 +411,7 @@ window.openFinCisStatement = async function(id){
   page.drawText((ORG&&ORG.name)||'', {x:44, y:841.89-42, size:16, font:bold, color:PDFLib.rgb(1,1,1)});
   page.drawText('Payment and deduction statement', {x:44, y:841.89-60, size:10, font:reg, color:PDFLib.rgb(1,1,1)});
   let y = 720; const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); page.drawText(String(v||'—'), {x:300, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
-  const taxEnd = (()=>{ const d = new Date((p.paid_on||p.period_end)+'T12:00:00'); if(d.getDate()>5) d.setMonth(d.getMonth()+1); d.setDate(5); return d.toISOString().slice(0,10); })();
+  const taxEnd = (()=>{ const d = new Date((p.paid_on||p.period_end)+'T12:00:00'); const after = d.getDate()>5; d.setDate(5); if(after) d.setMonth(d.getMonth()+1); return d.toISOString().slice(0,10); })();
   kv('Contractor', (ORG&&ORG.name)||''); kv('Contractor UTR', st.contractor_utr); kv('Employer reference', st.employer_ref);
   y -= 8; kv('Subcontractor', p.name); kv('Subcontractor UTR', r.utr || p.utr); kv('Tax month ending', finDate(taxEnd)); kv('Work period', finDate(p.period_start)+' – '+finDate(p.period_end)); kv('Paid on', p.paid_on ? finDate(p.paid_on) : 'Not paid yet');
   y -= 8; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:PDFLib.rgb(0.86,0.88,0.9)}); y -= 8;

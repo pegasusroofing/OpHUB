@@ -228,6 +228,7 @@ window.deleteFinSubApp = async function(id){
 // Paying it also records a CIS payment (CIS summary, statements, Xero).
 window.markFinSubAppPaid = async function(id){
   const a = (await dbSelect('fin_sub_apps', 'id=eq.'+id))[0]; if(!a) return;
+  if(a.status==='paid'){ toast('Already marked paid.'); render(); return; }
   const sc = (await dbSelect('fin_subcontracts', 'id=eq.'+a.subcontract_id))[0]; if(!sc) return;
   const today = finToday();
   const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});

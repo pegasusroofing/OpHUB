@@ -1934,6 +1934,42 @@ html.desk.finmode .finsetpage > .card.fincoll{grid-column:auto;margin-bottom:12p
 .fincust-src.xero{background:#E3F2FB;color:#0B6FA4;} .fincust-src.local{background:#F1F3F6;color:var(--slate);}
 html.desk.finmode .finsetpage{align-items:start;}
 html.desk.finmode .finsetpage > *{margin-left:0 !important;margin-right:0 !important;width:100%;box-sizing:border-box;justify-self:stretch;}
+/* Finance — wide document builder (new PO) */
+.geo-modal-card.finbuilder{max-width:min(1280px, 96vw) !important;width:min(1280px, 96vw);max-height:calc(100dvh - 32px);overflow-y:auto;padding:20px 22px;}
+.finb-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.finb-x{border:0;background:#F1F3F6;border-radius:10px;width:36px;height:36px;font-size:16px;cursor:pointer;}
+.finb-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start;}
+.finb-main{min-width:0;}
+.finb-side{background:#F8F9FB;border:1px solid #ECEEF2;border-radius:14px;padding:14px 16px;position:sticky;top:0;}
+.finb-st{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:6px 0 8px;}
+.finb-th,.finb-row{display:grid;grid-template-columns:minmax(180px,1fr) 70px 80px 100px 130px 92px 96px 24px;gap:8px;align-items:center;}
+.finb-th{font-size:11.5px;font-weight:800;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;padding:0 0 6px;border-bottom:1px solid var(--line);}
+.finb-th .r{text-align:right;}
+.finb-row{padding:8px 0;border-bottom:1px solid #F0F2F5;}
+.finb-row label{display:flex;flex-direction:column;min-width:0;}
+.finb-row label > span{display:none;font-size:11px;font-weight:700;color:var(--slate);margin-bottom:2px;}
+.finb-row input,.finb-row select{width:100%;box-sizing:border-box;padding:8px 8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:#fff;min-width:0;}
+.finb-net{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.finb-add{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.finb-add .ghostbtn{width:auto;margin:0;}
+@media (max-width:980px){
+  .finb-grid{grid-template-columns:1fr;}
+  .finb-side{position:static;}
+  .finb-th{display:none;}
+  .finb-row{grid-template-columns:1fr 1fr 1fr;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;}
+  .finb-row .finb-d{grid-column:1 / -1;}
+  .finb-row label > span{display:block;}
+  .finb-net{grid-column:1 / 3;text-align:left;}
+}
+.finpoline-tags{display:block;font-style:normal;font-size:12px;color:var(--slate);margin-top:2px;}
+#shopPickList .qhide{display:none !important;}
+.finquotes{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:thin;}
+.finquote{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;font:inherit;cursor:pointer;max-width:280px;text-align:left;}
+.finquote b{font-size:14px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:250px;}
+.finquote em{font-style:normal;font-size:12px;color:var(--slate);}
+.finquote.on{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset;}
+.finappdates-g label em{font-style:normal;font-weight:500;font-size:11.5px;color:var(--slate);}
+html.finbusy .darkbtn, html.finbusy .geo-modal-card .ghostbtn{cursor:progress;}
 </style>
 </head>
 <body>
@@ -36958,7 +36994,7 @@ async function renderMaterialRequests(siteId){
       ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
       ${repairJobSelectHtml('matRepairJob', siteId)}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
-      ${(typeof isFinanceUser==='function' && isFinanceUser()) && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
+      ${(typeof isFinanceUser==='function' && isFinanceUser()) && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from a project quote</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
       <div class="row-gap">
         <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
         <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;min-width:0;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>
@@ -45939,6 +45975,7 @@ async function renderFinanceSettings(){
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a project’s Materials tile becomes a purchase order numbered by project (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
       <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
       <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
+      <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Invoice numbers</p>
@@ -46005,7 +46042,7 @@ window.saveFinanceSettings = async function(){
     org_id:ME.org_id, invoice_prefix:finVal('finInvPrefix'), next_invoice_number:invNext, default_retention_pct:ret,
     default_due_days:(due===null||isNaN(due))?30:due, default_final_days:(fin===null||isNaN(fin))?14:fin,
     default_vat:finVal('finDefVat')||'standard', app_reminder_day:appDay, updated_at:new Date().toISOString(), updated_by:ME.id,
-    po_enabled: !!(document.getElementById('finPoOn')||{}).checked,
+    po_enabled: !!(document.getElementById('finPoOn')||{}).checked, po_vat_default: finVal('finPoVat') || '20',
     contractor_utr:finVal('finCoUtr')||null, employer_ref:finVal('finCoEmp')||null,
     company_address:finVal('finCoAddr')||null, company_vat_no:finVal('finCoVat')||null, company_reg_no:finVal('finCoReg')||null,
     bank_name:finVal('finBank')||null, bank_account_name:finVal('finBankName')||null, bank_sort_code:finVal('finBankSort')||null,
@@ -46653,8 +46690,9 @@ async function finBuildInvoicePdf(inv, site, st){
       page.drawLine({start:{x:M, y:last-7}, end:{x:W-M, y:last-7}, thickness:0.6, color:LINE});
       y = last - 22;
     }
-    // Totals
+    // Totals (start a new page if they'd run into the payment details at the bottom)
     y -= 8;
+    if(y < 240){ page = pdf.addPage([W, H]); y = H-M; }
     const t = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
     const tot = (k, v, big)=>{ txt(k, W-M-210, y, {font:big?bold:reg, size:big?12:10, color:big?INK:SLATE}); right(v, W-M-8, y, {font:bold, size:big?12:10}); y -= big?20:16; };
     tot('Net', finMoney(inv.net));
@@ -46897,7 +46935,7 @@ window.finContractPaintTotal = function(){
 };
 window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null}); finContractPaint(); };
 window.saveFinContract = async function(siteId){
-  const rows = finContractRows.map(r=>({id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
+  const rows = finContractRows.map((r,_i)=>({_i, id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
       rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r), cost:(r.cost==null||isNaN(r.cost))?null:finRound(Number(r.cost)), cost_basis:r.cost_basis||null, cost_pct:r.cost_pct==null?null:Number(r.cost_pct)}))
     .filter(r=>r.description || r.value!==null);
@@ -46906,11 +46944,12 @@ window.saveFinContract = async function(siteId){
   const btn = document.getElementById('finContractSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
-  for(const e of existing) if(!keep.has(e.id)) await dbDelete('fin_contract_items', e.id);
+  let failed = 0;
+  for(const e of existing) if(!keep.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
   for(let i=0;i<rows.length;i++){
     const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub, cost: finIsItem(r) ? r.cost : null, cost_basis: finIsItem(r) && r.cost!=null ? r.cost_basis : null, cost_pct: finIsItem(r) && r.cost!=null && r.cost_basis ? r.cost_pct : null};
-    if(r.id && existing.some(e=>e.id===r.id)) await dbUpdate('fin_contract_items', r.id, data);
-    else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; }
+    if(r.id && existing.some(e=>e.id===r.id)){ if(!(await dbUpdate('fin_contract_items', r.id, data))) failed++; }
+    else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]){ r.id = ins[0].id; } else failed++; }
     // Copied in from the site schedule: link the task / section to this line.
     if(r.id && r._task_id) await dbUpdate('schedule_tasks', r._task_id, {contract_item_id:r.id});
     if(r.id && r._sec_id) await dbUpdate('schedule_sections', r._sec_id, {contract_item_id:r.id});
@@ -46928,7 +46967,14 @@ window.saveFinContract = async function(siteId){
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
     if(stored){ patch.contract_file_path = stored; patch.contract_file_name = finContractFile.name; }
   }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  const jr = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  if(failed || !jr.ok){
+    if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
+    toast(failed ? failed+' line'+(failed===1?'':'s')+' didn’t save — check your connection and tap Save again.' : 'The contract value didn’t update — '+(await safeErr(jr)));
+    // keep the rows on screen; give new lines their ids so a retry doesn't duplicate them
+    rows.forEach(r=>{ if(r.id && finContractRows[r._i]) finContractRows[r._i].id = r.id; });
+    return;
+  }
   finContractRows = null; finContractFile = null;
   if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
   toast('Schedule saved — contract value '+finMoney(total));
@@ -47147,6 +47193,7 @@ async function renderFinApplication(siteId, appId){
   if(__gen !== RENDER_GEN) return;
   const a = rows[0];
   if(!a || !site){ toast('Application not found.'); go(`#/site/${siteId}/finance`); return; }
+  if(!finApp || finApp.id!==a.id){ finAppCollapsed = {}; finAppValued = false; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
   finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['certified','invoiced','void'].includes(a.status), siteProgress};
@@ -47568,6 +47615,7 @@ function finContractBulkPaint(){
 /* ---------------- A3: certificate card on the application page ---------------- */
 let finCertFile = null;
 function finCertSlotRender(a){
+  if(finCertSlotRender._for !== a.id){ finCertFile = null; finCertSlotRender._for = a.id; }
   const el = document.getElementById('finCertSlot'); if(!el) return;
   if(a.cert_net==null){
     const appliedPrev = Number(a.previous||0);
@@ -47644,6 +47692,7 @@ window.clearFinCertificate = async function(appId){
 // The invoice for a certificate: its lines ARE the certificate breakdown.
 window.raiseInvoiceFromCert = async function(siteId, appId){
   const a = (await dbSelect('fin_applications', 'id=eq.'+appId))[0]; if(!a) return;
+  if(a.invoice_id){ go(`#/site/${siteId}/finance/invoice/${a.invoice_id}`); return; }
   const site = SITES.find(s=>s.id===siteId) || {};
   const [st, jfRows] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId)]);
   const jf = jfRows[0] || {};
@@ -47671,7 +47720,9 @@ function finRetentionHeld(apps){
   const c = apps.filter(a=>a.cert_retention!=null && a.status!=='void').sort((x,y)=>y.number-x.number)[0];
   return c ? finRound(c.cert_retention) : 0;
 }
-function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); d.setMonth(d.getMonth()+(Number(m)||0)); return d.toISOString().slice(0,10); }
+function finAddMonths(iso, m){ const d = new Date(iso+'T12:00:00'); const day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth()+(Number(m)||0)); const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); d.setDate(Math.min(day, last)); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Retention halves: the second half takes the odd penny so the two add up to what's held.
+function finRetHalf(held, n){ const a = finRound(held/2); return n===1 ? a : finRound(held - a); }
 function finRetentionDates(jf, st){
   if(!jf || !jf.pc_date) return {first:null, second:null};
   const months = jf.defects_months!=null ? jf.defects_months : ((st&&st.default_defects_months)!=null ? st.default_defects_months : 12);
@@ -47689,9 +47740,8 @@ function finRetentionCardHtml(siteId, jf, st, apps){
   const held = finRetentionHeld(apps);
   const d = finRetentionDates(jf, st);
   const alerts = finRetentionAlerts(jf, st, held);
-  const half = finRound(held/2);
   const row = (n, date, invId)=>`<div class="finkv"><span>${n===1?'First half — at practical completion':'Second half — end of defects period'}<em style="display:block;font-style:normal;font-size:12px;">${date?finDate(date):'Set the practical completion date'}</em></span>
-      <b>${finMoney(half)} ${invId ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">invoice</button>` : (held && date ? `<button class="linkbtn" style="color:var(--blue);" onclick="raiseRetentionInvoice('${siteId}',${n})">raise invoice</button>` : '')}</b></div>`;
+      <b>${finMoney(finRetHalf(held, n))} ${invId ? `<button class="linkbtn" style="color:var(--blue);" onclick="go('#/site/${siteId}/finance/invoice/${invId}')">invoice</button>` : (held && date ? `<button class="linkbtn" style="color:var(--blue);" onclick="raiseRetentionInvoice('${siteId}',${n})">raise invoice</button>` : '')}</b></div>`;
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Retention</p>
     ${alerts.length ? `<div class="finchecks" style="margin:0 0 8px;">${alerts.map(x=>`<span>${x.half===1?'First':'Second'} half due ${finDate(x.date)}</span>`).join('')}</div>` : ''}
@@ -47715,7 +47765,9 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const site = SITES.find(s=>s.id===siteId) || {};
   const [st, jfRows, apps, pos] = await Promise.all([finLoadSettings(), dbSelect('job_finance', 'site_id=eq.'+siteId), dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=number,status,cert_retention'), dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc&select=po_number')]);
   const jf = jfRows[0] || {};
-  const amt = finRound(finRetentionHeld(apps)/2);
+  const already = n===1 ? jf.ret1_invoice_id : jf.ret2_invoice_id;
+  if(already){ go(`#/site/${siteId}/finance/invoice/${already}`); return; }
+  const amt = finRetHalf(finRetentionHeld(apps), n);
   if(!amt){ toast('No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
@@ -47727,7 +47779,8 @@ window.raiseRetentionInvoice = async function(siteId, n){
   });
   if(!rows || !rows[0]) return;
   const patch = {site_id:siteId, org_id:ME.org_id, updated_at:new Date().toISOString()}; patch[n===1?'ret1_invoice_id':'ret2_invoice_id'] = rows[0].id;
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  const lk = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  if(!lk.ok) toast('Invoice made, but it couldn’t be linked to the retention — '+(await safeErr(lk)));
   go(`#/site/${siteId}/finance/invoice/${rows[0].id}`);
 };
 
@@ -47804,7 +47857,7 @@ function finPurchasingCardHtml(siteId, pos, pinvs){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Purchase orders</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Shopping list</button>
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Project quotes</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openFinNewPo('${siteId}')">+ New PO</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
@@ -47857,7 +47910,8 @@ async function renderFinPo(siteId, poId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Items</p>
-      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}${it.rate!=null?` × ${finMoney(it.rate)}${it.amount!=null?' = '+finMoney(it.amount):''} <em class="finrate-src">${{list:'shopping list',book:'price book — estimate',quote:'quote',invoice:'invoice'}[it.rate_source]||''}</em>`:''}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}${it.cost_code||it.vat_rate ? `<em class="finpoline-tags">${[it.cost_code ? (FIN_COST_CATS[it.cost_code]||it.cost_code) : '', it.vat_rate && typeof FIN_VAT_RATES!=='undefined' && FIN_VAT_RATES[it.vat_rate] ? 'VAT '+FIN_VAT_RATES[it.vat_rate].s : ''].filter(Boolean).join(' · ')}</em>` : ''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}${it.rate!=null?` × ${finMoney(it.rate)}${it.amount!=null?' = '+finMoney(it.amount):''} <em class="finrate-src">${{list:'shopping list',book:'price book — estimate',quote:'quote',invoice:'invoice'}[it.rate_source]||''}</em>`:''}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+      ${po.vat!=null ? `<div class="finkv" style="margin-top:6px;"><span>Subtotal</span><b>${finMoney(po.value)}</b></div><div class="finkv"><span>VAT</span><b>${finMoney(po.vat)}</b></div><div class="finkv big"><span>Total</span><b>${finMoney(po.total!=null?po.total:Number(po.value||0)+Number(po.vat||0))}</b></div>` : ''}
     </div>
     ${po.status!=='cancelled' ? `<div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
@@ -47886,7 +47940,11 @@ async function renderFinPo(siteId, poId){
 window.saveFinPoValue = async function(poId){
   const v = finNum(finVal('finPoValue'));
   if(v!==null && (isNaN(v) || v<0)){ toast('Enter the value as a number.'); return; }
-  const r = await dbUpdate('purchase_orders', poId, {value: v===null ? null : finRound(v)});
+  const old = (await dbSelect('purchase_orders', 'id=eq.'+poId+'&select=value,vat'))[0] || {};
+  const patch = {value: v===null ? null : finRound(v)};
+  // Keep the VAT in step with a typed value (same VAT mix as the lines).
+  if(old.vat!=null){ const ratio = old.value ? Number(old.vat)/Number(old.value) : 0.2; patch.vat = v===null ? null : finRound(v*ratio); patch.total = v===null ? null : finRound(v + patch.vat); }
+  const r = await dbUpdate('purchase_orders', poId, patch);
   if(r){ toast('PO value saved'); render(); }
 };
 window.setFinPoStatus = async function(poId, status){
@@ -48196,6 +48254,8 @@ window.openFinPlantForm = async function(siteId, id){
       <div class="formfield"><label class="field-label">Rate (£)</label><input type="text" inputmode="decimal" data-money id="finPlRate" value="${h?h.rate:''}"></div>
       <div class="formfield"><label class="field-label">Per</label><select id="finPlPer"><option value="week" ${!h||h.rate_period==='week'?'selected':''}>Week</option><option value="day" ${h&&h.rate_period==='day'?'selected':''}>Day</option></select></div>
     </div>
+    <div class="formfield"><label class="field-label">Cost of this hire comes from</label><select id="finPlFrom"><option value="rate" ${!h||h.cost_from!=='invoices'?'selected':''}>The hire rate × time on hire</option><option value="invoices" ${h&&h.cost_from==='invoices'?'selected':''}>The hire company’s invoices (rate is just for reference)</option></select></div>
+    <p class="stub" style="margin:-4px 0 10px;font-style:normal;font-size:12.5px;">Pick “invoices” if you’ll enter the hire company’s invoices as plant costs — otherwise the hire would be counted twice.</p>
     <div class="formfield"><label class="field-label">Notes</label><input type="text" id="finPlNotes" value="${escapeHtml(h&&h.notes||'')}"></div>
     ${h && h.split ? finAllocBlockHtml('fin_plant_hires', h) : finSubJobSelectHtml('finPlSub', siteId, h ? h.sub_job_id||'' : '')}
     <button class="darkbtn" style="width:100%;" onclick="saveFinPlant('${siteId}','${h?h.id:''}')">Save</button>
@@ -48212,7 +48272,7 @@ window.saveFinPlant = async function(siteId, id){
   if(!on){ toast('Enter the on-hire date.'); return; }
   if(rate===null || isNaN(rate)){ toast('Enter the hire rate.'); return; }
   if(off && off < on){ toast('Off-hire can’t be before on-hire.'); return; }
-  const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null};
+  const row = {item, supplier_name:finVal('finPlSup')||null, hire_ref:finVal('finPlRef')||null, on_hire:on, off_hire:off||null, rate:finRound(rate), rate_period:finVal('finPlPer')||'week', notes:finVal('finPlNotes')||null, cost_from:finVal('finPlFrom')||'rate'};
   if(document.getElementById('finPlSub')) row.sub_job_id = finVal('finPlSub')||null;
   const r = id ? await dbUpdate('fin_plant_hires', id, row) : await dbInsert('fin_plant_hires', Object.assign({org_id:ME.org_id, site_id:siteId, created_by:ME.id}, row));
   if(!r) return;
@@ -48462,7 +48522,7 @@ window.openFinCisStatement = async function(id){
   page.drawText((ORG&&ORG.name)||'', {x:44, y:841.89-42, size:16, font:bold, color:PDFLib.rgb(1,1,1)});
   page.drawText('Payment and deduction statement', {x:44, y:841.89-60, size:10, font:reg, color:PDFLib.rgb(1,1,1)});
   let y = 720; const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); page.drawText(String(v||'—'), {x:300, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
-  const taxEnd = (()=>{ const d = new Date((p.paid_on||p.period_end)+'T12:00:00'); if(d.getDate()>5) d.setMonth(d.getMonth()+1); d.setDate(5); return d.toISOString().slice(0,10); })();
+  const taxEnd = (()=>{ const d = new Date((p.paid_on||p.period_end)+'T12:00:00'); const after = d.getDate()>5; d.setDate(5); if(after) d.setMonth(d.getMonth()+1); return d.toISOString().slice(0,10); })();
   kv('Contractor', (ORG&&ORG.name)||''); kv('Contractor UTR', st.contractor_utr); kv('Employer reference', st.employer_ref);
   y -= 8; kv('Subcontractor', p.name); kv('Subcontractor UTR', r.utr || p.utr); kv('Tax month ending', finDate(taxEnd)); kv('Work period', finDate(p.period_start)+' – '+finDate(p.period_end)); kv('Paid on', p.paid_on ? finDate(p.paid_on) : 'Not paid yet');
   y -= 8; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:PDFLib.rgb(0.86,0.88,0.9)}); y -= 8;
@@ -48606,7 +48666,14 @@ function finInboxCardHtml(it, pos, sites){
     <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="finInboxFile('${it.id}')">File to project</button><button class="ghostbtn" style="flex:1;" onclick="finInboxSet('${it.id}','ignored')">Ignore</button></div>`}
   </div>`;
 }
-window.finInboxPickJob = async function(id, siteId){ await dbUpdate('fin_inbox', id, {site_id:siteId||null, po_id:null}); render(); };
+window.finInboxPickJob = async function(id, siteId){
+  // Keep anything typed on the card (supplier, invoice no., amounts) — it's rebuilt from 'extracted'.
+  const card = document.getElementById('finInb-'+id);
+  const it = (await dbSelect('fin_inbox', 'id=eq.'+id+'&select=extracted'))[0] || {};
+  const ex = Object.assign({}, it.extracted||{});
+  if(card) card.querySelectorAll('[data-k]').forEach(el=>{ const k = el.dataset.k; if(k==='site_id' || k==='po_id') return; ex[k] = el.dataset.money!==undefined ? (finNum(el.value)) : el.value.trim(); });
+  await dbUpdate('fin_inbox', id, {site_id:siteId||null, po_id:null, extracted:ex}); render();
+};
 window.finInboxSet = async function(id, status){ if(await dbUpdate('fin_inbox', id, {status})) render(); };
 window.finInboxUpload = async function(files){
   files = Array.from(files||[]); if(!files.length) return;
@@ -48627,6 +48694,7 @@ window.finInboxFile = async function(id){
   const card = document.getElementById('finInb-'+id); if(!card) return;
   const g = k=>{ const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value.trim() : ''; };
   const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!it) return;
+  if(it.status!=='new'){ toast('Already filed.'); render(); return; }
   const siteId = g('site_id'), poId = g('po_id'), supplier = g('supplier'), no = g('invoice_no');
   let net = finNum(g('net')), vat = finNum(g('vat')), total = finNum(g('total'));
   if(!siteId){ toast('Choose the project.'); return; }
@@ -48859,7 +48927,7 @@ window.finXeroFindContact = async function(){
 };
 window.finXeroUseContact = function(i){
   const c = (window.__finXeroContacts||[])[i]; if(!c) return;
-  const set = (id, v)=>{ const el = document.getElementById(id); if(el && v) el.value = v; };
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.value = v || ''; };
   set('finBillName', c.name); set('finBillAddr', c.address); set('finBillEmail', c.email);
   const q = document.getElementById('finCustQ'); if(q) q.value = '';
   const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = `<p class="stub" style="font-style:normal;color:var(--ok);margin:6px 0;">✓ ${escapeHtml(c.name)} filled in below — tap Save.</p>`;
@@ -49165,51 +49233,78 @@ window.finTeamEmail = async function(){
    and email it to the supplier.
    ============================================================ */
 let finNewPo = null;
+// VAT on a PO line. Default from Finance › Settings › Purchase orders; changeable per line.
+const FIN_VAT_RATES = {'20':{l:'20%', s:'20%', r:0.2}, '5':{l:'5%', s:'5%', r:0.05}, '0':{l:'0% (zero rated)', s:'0%', r:0}, 'ex':{l:'No VAT / exempt', s:'Exempt', r:0}, 'rc':{l:'Reverse charge (CIS)', s:'RC', r:0}};
+function finVatOf(l){ const v = FIN_VAT_RATES[l.vat] || FIN_VAT_RATES['20']; return finRound(Number(l.amount||0) * v.r); }
 window.openFinNewPo = async function(siteId){
-  const [suppliers] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finSubJobsLoad(siteId)]);
-  finNewPo = {siteId, suppliers, lines:[{description:'', qty:1, unit:'', rate:null, amount:0}]};
+  const [suppliers, st] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finLoadSettings(), finSubJobsLoad(siteId)]);
+  const vat = String((st && st.po_vat_default) || '20');
+  const site = SITES.find(x=>x.id===siteId) || {};
+  finNewPo = {siteId, suppliers, vat, lines:[{description:'', qty:1, unit:'', rate:null, amount:0, cost_code:'materials', vat}]};
   let ov = document.getElementById('finNpoOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finNpoOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `<div class="geo-modal-card" style="max-width:620px;">
-    <h3>New purchase order</h3>
-    <div class="formfield"><label class="field-label">Supplier</label>
-      <select id="finNpoSup" onchange="finNpoSupPicked(this.value)"><option value="">Choose…</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}<option value="__new">+ New supplier…</option></select></div>
-    <div id="finNpoNewSup" style="display:none;" class="fingrid2">
-      <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
-      <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
+  const codeOpts = sel=>Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}" ${sel===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('');
+  ov.innerHTML = `<div class="geo-modal-card finbuilder">
+    <div class="finb-head"><div><h3 style="margin:0;">New purchase order</h3><p class="stub" style="margin:2px 0 0;font-style:normal;">${escapeHtml((site.job_number?site.job_number+' · ':'')+(site.name||''))}</p></div>
+      <button type="button" class="finb-x" aria-label="Close" onclick="document.getElementById('finNpoOverlay').style.display='none'">✕</button></div>
+    <div class="finb-grid">
+      <div class="finb-main">
+        <div class="finb-th"><span>Description</span><span>Qty</span><span>Unit</span><span>Rate</span><span>Cost code</span><span>VAT</span><span class="r">Net</span><span></span></div>
+        <div id="finNpoLines"></div>
+        <div class="finb-add"><button class="ghostbtn" onclick="finNpoAdd()">+ Add line</button><button class="ghostbtn" onclick="openShopPicker('${siteId}','po')">From a project quote</button></div>
+      </div>
+      <aside class="finb-side">
+        <p class="finb-st">General</p>
+        <div class="formfield"><label class="field-label">Supplier</label>
+          <select id="finNpoSup" onchange="finNpoSupPicked(this.value)"><option value="">Choose…</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}<option value="__new">+ New supplier…</option></select></div>
+        <div id="finNpoNewSup" style="display:none;">
+          <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
+          <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
+        </div>
+        ${finSubJobSelectHtml('finNpoSub', siteId, '', finSubNoun(siteId)+' (split it after if it’s for several)')}
+        <div class="fingrid2">
+          <div class="formfield"><label class="field-label">Delivery</label><select id="finNpoDel"><option value="delivery">Deliver to site</option><option value="collection">Collection</option></select></div>
+          <div class="formfield"><label class="field-label">Required by</label><input type="date" id="finNpoReq"></div>
+        </div>
+        <div class="formfield"><label class="field-label">Your reference (optional)</label><input type="text" id="finNpoRef" placeholder="e.g. Quote Q-5521"></div>
+        <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
+        <p class="finb-st">VAT</p>
+        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
+        <p class="finb-st">Costs</p>
+        <div class="finkv"><span>Subtotal</span><b id="finNpoTot">£0.00</b></div>
+        <div class="finkv"><span>VAT</span><b id="finNpoVat">£0.00</b></div>
+        <div class="finkv big"><span>Total</span><b id="finNpoGross">£0.00</b></div>
+        <button class="darkbtn" style="width:100%;margin-top:10px;" id="finNpoSave" onclick="saveFinNewPo()">Raise PO</button>
+        <button class="geo-modal-cancel" onclick="document.getElementById('finNpoOverlay').style.display='none'">Cancel</button>
+      </aside>
     </div>
-    ${finSubJobSelectHtml('finNpoSub', siteId, '', 'For which '+finSubNoun(siteId).toLowerCase()+'? (split it after if it’s for several)')}
-    <p class="sectiontitle" style="margin:10px 0 4px;">Items</p>
-    <div id="finNpoLines"></div>
-    <div class="row-gap" style="margin:6px 0 10px;"><button class="ghostbtn" style="flex:1;" onclick="finNpoAdd()">+ Add item</button><button class="ghostbtn" style="flex:1;" onclick="openShopPicker('${siteId}','po')">From the shopping list</button></div>
-    <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Delivery</label><select id="finNpoDel"><option value="delivery">Deliver to site</option><option value="collection">Collection</option></select></div>
-      <div class="formfield"><label class="field-label">Required by</label><input type="date" id="finNpoReq"></div>
-    </div>
-    <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
-    <div class="finkv big"><span>PO value (excl. VAT)</span><b id="finNpoTot">£0.00</b></div>
-    <button class="darkbtn" style="width:100%;" id="finNpoSave" onclick="saveFinNewPo()">Raise PO</button>
-    <button class="geo-modal-cancel" onclick="document.getElementById('finNpoOverlay').style.display='none'">Cancel</button>
   </div>`;
+  window.__finNpoCodeOpts = codeOpts;
   ov.style.display = 'flex';
   finNpoPaint();
 };
 window.finNpoSupPicked = function(v){ const el = document.getElementById('finNpoNewSup'); if(el) el.style.display = v==='__new' ? '' : 'none'; };
 function finNpoPaint(){
   const box = document.getElementById('finNpoLines'); if(!box || !finNewPo) return;
-  box.innerHTML = finNewPo.lines.map((l,i)=>`<div class="finitem">
-    <div class="finitem-d"><input type="text" placeholder="Description" value="${escapeHtml(l.description)}" oninput="finNpoSet(${i},'description',this.value)" style="width:100%;"></div>
-    <div class="finitem-in">
-      <label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
-      <label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m2, nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
-      <label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
-      <b id="finNpoL-${i}">${finMoney(l.amount)}</b>
-      ${finNewPo.lines.length>1 ? `<button class="linkbtn" onclick="finNpoDel(${i})">✕</button>` : ''}
-    </div></div>`).join('');
+  const codeOpts = window.__finNpoCodeOpts;
+  box.innerHTML = finNewPo.lines.map((l,i)=>`<div class="finb-row">
+    <label class="finb-d"><span>Description</span><input type="text" placeholder="Description" value="${escapeHtml(l.description)}" oninput="finNpoSet(${i},'description',this.value)"></label>
+    <label><span>Qty</span><input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
+    <label><span>Unit</span><input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m², nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
+    <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
+    <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${codeOpts(l.cost_code||'materials')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
+    ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
+  </div>`).join('');
   finNpoTotal();
 }
-function finNpoTotal(){ const el = document.getElementById('finNpoTot'); if(el) el.textContent = finMoney(finNewPo.lines.reduce((t,l)=>t+Number(l.amount||0),0)); }
+function finNpoTotal(){
+  const net = finRound(finNewPo.lines.reduce((t,l)=>t+Number(l.amount||0),0)), vat = finRound(finNewPo.lines.reduce((t,l)=>t+finVatOf(l),0));
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = finMoney(v); };
+  set('finNpoTot', net); set('finNpoVat', vat); set('finNpoGross', finRound(net+vat));
+}
 window.finNpoSet = function(i, k, v){
   const l = finNewPo.lines[i]; if(!l) return;
   if(k==='qty' || k==='rate'){ const n = finNum(v); l[k] = (n===null || isNaN(n)) ? null : n; } else l[k] = v;
@@ -49217,7 +49312,8 @@ window.finNpoSet = function(i, k, v){
   const el = document.getElementById('finNpoL-'+i); if(el) el.textContent = finMoney(l.amount);
   finNpoTotal();
 };
-window.finNpoAdd = function(){ finNewPo.lines.push({description:'', qty:1, unit:'', rate:null, amount:0}); finNpoPaint(); };
+window.finNpoVatAll = function(v){ finNewPo.vat = v; finNewPo.lines.forEach(l=>l.vat = v); finNpoPaint(); };
+window.finNpoAdd = function(){ finNewPo.lines.push({description:'', qty:1, unit:'', rate:null, amount:0, cost_code:'materials', vat:finNewPo.vat||'20'}); finNpoPaint(); };
 window.finNpoDel = function(i){ finNewPo.lines.splice(i,1); finNpoPaint(); };
 window.saveFinNewPo = async function(){
   const n = finNewPo; if(!n) return;
@@ -49229,17 +49325,20 @@ window.saveFinNewPo = async function(){
     if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the supplier’s email.'); return; }
     const made = await dbInsert('suppliers', {org_id:ME.org_id, name:supName, email:email||null, created_by:ME.id});
     supId = made && made[0] ? made[0].id : null;
+    if(!supId){ toast('Could not add the supplier.'); return; }
   } else {
     const s = n.suppliers.find(x=>x.id===supId); supName = s ? s.name : '';
   }
-  const items = n.lines.filter(l=>String(l.description||'').trim()).map(l=>({item:l.description.trim(), qty:l.qty, unit:l.unit||null, rate:l.rate, amount:finRound(l.amount)}));
+  const items = n.lines.filter(l=>String(l.description||'').trim()).map(l=>({item:l.description.trim(), qty:l.qty, unit:l.unit||null, rate:l.rate, amount:finRound(l.amount), cost_code:l.cost_code||'materials', vat_rate:l.vat||'20', vat:finVatOf(l), shop_item_id:l.shop_item_id||undefined}));
   if(!items.length){ toast('Add at least one item.'); return; }
   const btn = document.getElementById('finNpoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Raising…'; }
   const res = await sbFetch('/rest/v1/rpc/fin_new_po', {method:'POST', body:JSON.stringify({p_site:n.siteId, p_supplier_id:supId||null, p_supplier_name:supName, p_items:items, p_required:finVal('finNpoReq')||null, p_note:finVal('finNpoNote')||null, p_delivery:finVal('finNpoDel')||'delivery'})});
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
-  const sub = finVal('finNpoSub'); if(sub && d && d.id) await dbUpdate('purchase_orders', d.id, {sub_job_id:sub});
+  const sub = finVal('finNpoSub');
+  const vatTot = finRound(items.reduce((t,x)=>t+Number(x.vat||0),0)), netTot = finRound(items.reduce((t,x)=>t+Number(x.amount||0),0));
+  if(d && d.id) await dbUpdate('purchase_orders', d.id, Object.assign({vat:vatTot, total:finRound(netTot+vatTot), reference:finVal('finNpoRef')||null, issue_date:finToday()}, sub ? {sub_job_id:sub} : {}));
   document.getElementById('finNpoOverlay').style.display = 'none';
   finNewPo = null;
   toast('PO '+d.number+' raised');
@@ -49298,7 +49397,13 @@ async function finBuildPoPdf(po, site, st, supplier){
       y = last - 22;
     }
     y -= 6;
-    if(po.value!=null){ txt('Order total (excl. VAT)', W-M-210, y, {font:bold, size:11}); right(finMoney(po.value), W-M-8, y, {font:bold, size:11}); y -= 22; }
+    if(po.value!=null){
+      if(po.vat!=null){
+        txt('Subtotal', W-M-210, y, {size:10}); right(finMoney(po.value), W-M-8, y, {size:10}); y -= 15;
+        txt('VAT', W-M-210, y, {size:10}); right(finMoney(po.vat), W-M-8, y, {size:10}); y -= 15;
+        txt('Order total', W-M-210, y, {font:bold, size:11}); right(finMoney(po.total!=null?po.total:Number(po.value)+Number(po.vat)), W-M-8, y, {font:bold, size:11}); y -= 22;
+      } else { txt('Order total (excl. VAT)', W-M-210, y, {font:bold, size:11}); right(finMoney(po.value), W-M-8, y, {font:bold, size:11}); y -= 22; }
+    }
     if(po.note){ txt('NOTES', M, y, {font:bold, size:8.5, color:SLATE}); y -= 14; finWrap(po.note, reg, 10, W-2*M).forEach(l=>{ txt(l, M, y); y -= 13; }); y -= 6; }
     finWrap('Please quote PO '+po.number+' on your delivery note and invoice. Invoices without a PO number, or over the value of this order, may be held.', reg, 9.5, W-2*M).forEach(l=>{ txt(l, M, y, {size:9.5, color:SLATE}); y -= 12; });
     const fy = 90;
@@ -49646,7 +49751,15 @@ function finCostLinesFromBook(b, siteId){
   });
   each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
     const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));
-    if(left > 0) lines.push({key:'po:'+p.id+':'+(a.sub||''), date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet'+tag(a), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
+    if(left <= 0) return;
+    // Split what's left across the lines' cost codes (plant, subcontract…), by value.
+    const byCode = {}; let codedTot = 0;
+    (p.items||[]).forEach(it=>{ const c = FIN_COST_CATS[it.cost_code] ? it.cost_code : 'materials'; const amt = Number(it.amount||0); if(amt>0){ byCode[c] = (byCode[c]||0) + amt; codedTot += amt; } });
+    const codes = codedTot ? Object.keys(byCode) : ['materials'];
+    codes.forEach(c=>{
+      const part = codedTot ? byCode[c]/codedTot : 1;
+      lines.push({key:'po:'+p.id+':'+(a.sub||'')+':'+c, date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:c, desc:'Ordered, not invoiced yet'+tag(a)+(codes.length>1?' — '+FIN_COST_CATS[c]:''), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share*part), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
+    });
   });
   // Sign-in days: a day split evenly over the plots / addresses signed into that day.
   const dayCks = finBy(b.cks, siteId), daySubs = {};
@@ -49662,7 +49775,7 @@ function finCostLinesFromBook(b, siteId){
   finBy(b.manual, siteId).forEach(m=>{
     lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m), sub:m.sub_job_id||null, share:1});
   });
-  each(b.hires, (h,a)=>{
+  each((b.hires||[]).filter(h=>h.cost_from!=='invoices'), (h,a)=>{
     const c = finPlantCost(h);
     lines.push({key:'ph:'+h.id+':'+(a.sub||''), date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')'+tag(a), who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:finRound(c.cost*a.share), sub:a.sub, share:a.share, src:{t:'fin_plant_hires', id:h.id}, open:`openFinPlantForm('${h.site_id}','${h.id}')`});
   });
@@ -49725,7 +49838,8 @@ function finJobForecast(b, siteId){
   let budgetTotal = catBudget ? sum(budget) : null, budgetSource = catBudget ? 'categories' : null, toCompleteSched = 0;
   if(!catBudget && schedCosted.length){
     budgetTotal = finRound(schedCost + varCost); budgetSource = 'schedule';
-    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal));
+    const typedTc = finRound(cats.reduce((t,k)=>t+(tcSet[k] ? Number(toComplete[k]||0) : 0), 0));
+    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal - typedTc));
     forecastCost = finRound(forecastCost + toCompleteSched);
   }
   const sales = finBillingType(jf, schedItems.length, apps.length)==='invoice' ? invoiced : valuation;
@@ -49876,7 +49990,8 @@ window.finBudPaint = function(){
     if(tcIn && x.to_complete==null) tcIn.placeholder = finMoneyIn(x.tcEff);
   });
   const set = (id, t, c)=>{ const el = document.getElementById(id); if(el){ el.textContent = t; if(c!==undefined) el.style.color = c; } };
-  set('finBudTB', anyB ? finMoney(tb) : '—'); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
+  if(!anyB && fc.budgetSource==='schedule'){ const extra = Math.max(0, finRound(fc.budgetTotal - fc.costToDate - fc.committedTotal - tt)); tf = finRound(tf + extra); tt = finRound(tt + extra); }
+  set('finBudTB', anyB ? finMoney(tb) : (fc.budgetSource==='schedule' ? finMoney(fc.budgetTotal) : '—')); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
   set('finBudTV', anyB ? ((tb-tf<0?'over ':'under ')+finMoney(Math.abs(finRound(tb-tf)))) : '—', anyB ? (tb-tf<0?'var(--red)':'var(--ok)') : '');
   const m = finRound(fc.ffa - tf);
   set('finBudFc', finMoney(tf, 0)); set('finBudFm', finMoney(m, 0), m<0?'var(--red)':''); set('finBudFp', fc.ffa ? finPctTxt(m/fc.ffa*100) : '—');
@@ -50236,6 +50351,7 @@ window.deleteFinSubApp = async function(id){
 // Paying it also records a CIS payment (CIS summary, statements, Xero).
 window.markFinSubAppPaid = async function(id){
   const a = (await dbSelect('fin_sub_apps', 'id=eq.'+id))[0]; if(!a) return;
+  if(a.status==='paid'){ toast('Already marked paid.'); render(); return; }
   const sc = (await dbSelect('fin_subcontracts', 'id=eq.'+a.subcontract_id))[0]; if(!sc) return;
   const today = finToday();
   const r = await dbUpdate('fin_sub_apps', id, {status:'paid', paid_on:today});
@@ -50292,8 +50408,8 @@ let finRep = null; // {id, f:{job, from, to, status, opening}, data}
 let finRepBook = null, finRepBookAt = 0;
 
 async function finRepBookLoad(){
-  if(finRepBook && Date.now() - finRepBookAt < 60000) return finRepBook;
-  finRepBook = await finLoadBook(null); finRepBookAt = Date.now();
+  if(finRepBook && Date.now() - finRepBookAt < 15000 && finRepBook.__route===location.hash) return finRepBook;
+  finRepBook = await finLoadBook(null); finRepBookAt = Date.now(); finRepBook.__route = location.hash;
   return finRepBook;
 }
 function finRepSites(f){
@@ -50312,7 +50428,7 @@ const FIN_REPORTS = [
   }},
   {id:'cvr', group:'qs', title:'Cost value reconciliation (CVR)', desc:'Value to date against cost to date, and the forecast at completion, project by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
-    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.valuation, cost:fc.costToDate, margin:fc.marginToDate, mpct:fc.marginToDatePct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
+    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.sales, cost:fc.costToDate, margin:fc.salesMargin, mpct:fc.salesMarginPct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
     return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'margin',l:'Margin to date',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders.'};
   }},
   {id:'ffa', group:'qs', title:'Forecast final account', desc:'Contract sum plus variations agreed, submitted and instructed, by project.', filters:['status','job'], run:async f=>{
@@ -50368,7 +50484,7 @@ const FIN_REPORTS = [
     for(let i=0;i<12;i++) weeks.push({wk:finAddDays(mon, i*7), inv:0, apps:0, sup:0, subs:0});
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
     (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
-    (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*1.2));
+    (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>{ const jf = finBy(b.jf, a.site_id)[0] || {}; const vt = jf.vat_treatment || 'standard'; put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*(vt==='standard'?1.2:1)); });
     (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
     let bal = Number(f.opening||0);
@@ -50783,6 +50899,7 @@ async function renderFinSales(sub){
 
 /* ================= Purchases (money out) ================= */
 let finPiFilter = 'approve';
+let finPurSup = '', finPurJob = '', finPurStatus = '';
 async function renderFinPurchases(sub){
   if(!finGuard()) return;
   if(sub==='pricebook' && typeof renderFinPriceBook==='function') return renderFinPriceBook();
@@ -50802,32 +50919,43 @@ async function renderFinPurchases(sub){
   const openPos = pos.filter(p=>p.status==='open');
   const committed = finRound(openPos.filter(p=>p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value)-finPoInvoiced(p, live)),0));
   const onHire = hires.filter(h=>!h.off_hire);
+  // Filters: supplier and project (and PO status) — Andy, 20 Oct.
+  const supKey = n=>String(n||'').trim().toLowerCase();
+  const supNames = {}; [].concat(pos, pinvs, hires).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
+  const jobIds = Array.from(new Set([].concat(pos, pinvs, hires).map(x=>x.site_id).filter(Boolean)));
+  const fOK = x=>(!finPurSup || supKey(x.supplier_name)===finPurSup) && (!finPurJob || x.site_id===finPurJob);
+  const filtBar = (withStatus)=>`<div class="finjobfilt">
+    <label>Supplier<select onchange="finPurSup=this.value;render()"><option value="">All suppliers</option>${Object.keys(supNames).sort().map(k=>`<option value="${escapeHtml(k)}" ${finPurSup===k?'selected':''}>${escapeHtml(supNames[k])}</option>`).join('')}</select></label>
+    <label>Project<select onchange="finPurJob=this.value;render()"><option value="">All projects</option>${jobIds.map(id=>[id, finJobTag(id)]).sort((a,b)=>a[1].localeCompare(b[1], undefined, {numeric:true})).map(([id,t])=>`<option value="${id}" ${finPurJob===id?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></label>
+    ${withStatus ? `<label>Status<select onchange="finPurStatus=this.value;render()">${[['','All'],['open','Open'],['invoiced','Invoiced'],['cancelled','Cancelled']].map(([k,l])=>`<option value="${k}" ${finPurStatus===k?'selected':''}>${l}</option>`).join('')}</select></label>` : ''}
+    ${finPurSup||finPurJob||(withStatus&&finPurStatus) ? `<button type="button" class="linkbtn" onclick="finPurSup='';finPurJob='';finPurStatus='';render()">Clear filters</button>` : ''}
+  </div>`;
   const piRow = i=>`<div data-lf="${lfText([i.supplier_name, i.invoice_no, finJobTag(i.site_id)].join(' '))}"><div class="finrowjob">${escapeHtml(finJobTag(i.site_id))}</div>${finPiRowHtml(i.site_id, i)}</div>`;
   let body = '';
   if(sub==='orders'){
     body = finSecHead('Purchase orders', '+ New PO', "finPickJob('New purchase order','openFinNewPo')")
       + `<p class="stub" style="margin:-4px 0 12px;">${openPos.length} open · ${finMoney(committed, 0)} ordered but not invoiced yet. Material orders sent from a project’s Materials tile appear here automatically.</p>`
-      + finSearchHtml('Search PO, supplier or project', 'finPurList')
-      + finListHtml('finPurList', pos.map(p=>{ const inv = finPoInvoiced(p, live); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([p.number, p.supplier_name, finJobTag(p.site_id)].join(' '))}" onclick="go('#/site/${p.site_id}/finance/po/${p.id}')">
+      + filtBar(true) + finSearchHtml('Search PO, supplier or project', 'finPurList')
+      + finListHtml('finPurList', pos.filter(p=>fOK(p) && (!finPurStatus || p.status===finPurStatus)).map(p=>{ const inv = finPoInvoiced(p, live); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([p.number, p.supplier_name, finJobTag(p.site_id)].join(' '))}" onclick="go('#/site/${p.site_id}/finance/po/${p.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span><span class="pmrow-s">${escapeHtml(p.supplier_name||'')} · ${escapeHtml(finJobTag(p.site_id))}</span><span class="pmrow-s">${finDate(String(p.created_at).slice(0,10))}${inv?' · invoiced '+finMoney(inv):''}</span></span>
           <span class="finval">${p.value!=null?finMoney(p.value):'<em>No value</em>'}</span></button>`; }), 'No purchase orders yet.');
   } else if(sub==='invoices'){
     const F = {approve:i=>['to_approve','query'].includes(i.status), unpaid:i=>i.status==='approved' && !i.paid_on, paid:i=>!!i.paid_on, all:()=>true};
     if(!F[finPiFilter]) finPiFilter = 'approve';
-    const list = pinvs.filter(F[finPiFilter]);
+    const list = pinvs.filter(F[finPiFilter]).filter(fOK);
     body = finSecHead('Supplier invoices', '+ Supplier invoice', "finPickJob('Add supplier invoice','openPurchaseInvoiceForm')")
       + (inbox.length ? `<button type="button" class="fintodo-i card" onclick="go('#/finance/inbox')"><span class="fintodo-n t-blue">${inbox.length}</span><span class="fintodo-t"><b>Invoices in the inbox to file</b><em>Read automatically — check them and file them to a project</em></span><span class="fintodo-c">›</span></button>` : '')
       + `<div class="pmchips">${[['approve','To approve'],['unpaid','Approved, not paid'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finPiFilter===k, l, pinvs.filter(F[k]).length, `finPiFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
+      + filtBar(false) + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
       + finListHtml('finPurList', list.map(piRow), 'No supplier invoices here.');
   } else if(sub==='plant'){
-    const off = hires.filter(h=>h.off_hire).slice(0, 40);
+    const off = hires.filter(h=>h.off_hire && fOK(h)).slice(0, 40);
     const row = h=>{ const c = finPlantCost(h); const long = !h.off_hire && c.days>28; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([h.item, h.supplier_name, finJobTag(h.site_id)].join(' '))}" onclick="openFinPlantForm('${h.site_id}','${h.id}')">
       <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(h.item)} ${h.off_hire?'<span class="finpill grey">Off hire</span>':`<span class="finpill ${long?'bad':'ok'}">On hire ${c.weeks} wk</span>`}</span><span class="pmrow-s">${escapeHtml(finJobTag(h.site_id))}${h.supplier_name?' · '+escapeHtml(h.supplier_name):''}</span><span class="pmrow-s">${finDate(h.on_hire)} → ${h.off_hire?finDate(h.off_hire):'now'} · ${finMoney(h.rate)}/${h.rate_period}</span></span>
       <span class="finval">${finMoney(c.cost, 0)}</span></button>`; };
     body = finSecHead('Plant hire', '+ Plant hire', "finPickJob('Add plant hire','openFinPlantForm')")
       + `<p class="stub" style="margin:-4px 0 12px;">${onHire.length} on hire · ${finMoney(onHire.reduce((t,h)=>t+finPlantCost(h).cost,0), 0)} so far. Tap one to off-hire it.</p>`
-      + finListHtml('finPurList', onHire.map(row), 'Nothing on hire.')
+      + filtBar(false) + finListHtml('finPurList', onHire.filter(fOK).map(row), 'Nothing on hire.')
       + (off.length ? `<p class="sectiontitle" style="margin-top:22px;">Recently off hire</p>${off.map(row).join('')}` : '');
   } else {
     const by = {}; suppliers.forEach(s=>{ by[s.name] = {name:s.name, email:s.email||'', spend:0, owed:0, n:0}; });
@@ -51174,38 +51302,55 @@ window.deleteFinPriceRow = async function(id){
 
 /* ---------- 4. project shopping list ---------- */
 let finShopDraft = null;
+let finQuoteSel = {}; // siteId -> quote id ('' = all quotes, 'manual' = added by hand)
 async function renderFinShopping(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
   const [items, prices, quotes, suppliers] = await Promise.all([
-    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&order=supplier_name.asc,position.asc'),
+    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('fin_shop_prices', 'org_id=eq.'+ME.org_id),
     dbSelect('fin_quotes', 'site_id=eq.'+siteId+'&purpose=eq.shopping&order=created_at.desc'),
     dbSelect('suppliers', 'select=id,name&order=name.asc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const rate = {}; prices.forEach(p=>rate[p.item_id] = p.rate);
-  const bySup = {}; items.forEach(i=>{ (bySup[i.supplier_name||'No supplier'] = bySup[i.supplier_name||'No supplier'] || []).push(i); });
+  const manual = items.filter(i=>!i.quote_id);
+  let sel = finQuoteSel[siteId] || '';
+  if(sel && sel!=='manual' && !quotes.some(q=>q.id===sel)) sel = '';
+  const shown = items.filter(i=>!sel || (sel==='manual' ? !i.quote_id : i.quote_id===sel));
+  const count = id=>items.filter(i=>i.quote_id===id).length;
+  const qTotal = id=>finRound(items.filter(i=>i.quote_id===id).reduce((t,i)=>t+(rate[i.id]!=null ? Number(rate[i.id])*Number(i.qty||1) : 0),0));
+  const qLabel = q=>[q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || 'Quote';
   document.getElementById('app').innerHTML = shell(`
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add a quote to the list</p>
-      <p class="stub" style="margin:0 0 12px;">Upload a supplier quote or price list (PDF, photo or Excel). Its lines become this project’s shopping list: the team pick items from it when they request materials, and POs are priced from it. Only Finance users and people you allow can see the prices.</p>
+      <p class="sectiontitle" style="margin-top:0;">Upload a project quote</p>
+      <p class="stub" style="margin:0 0 12px;">Upload a supplier quote or price list (PDF, photo or Excel). You can add as many as you need — one per supplier or per stage. The team pick items from them when they request materials, and POs are priced from them. Only Finance users and people you allow can see the prices.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Supplier</label><select id="finShopSup"><option value="">From the quote</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}</select></div>
-        <div class="formfield"><label class="field-label">Quote</label><input type="file" id="finShopFile" accept=".pdf,image/*,.xlsx,.xls,.csv" onchange="finShopRead('${siteId}', this)"></div>
+        <div class="formfield"><label class="field-label">Quote file</label><input type="file" id="finShopFile" accept=".pdf,image/*,.xlsx,.xls,.csv" onchange="finShopRead('${siteId}', this)"></div>
       </div>
       <div id="finShopDraft"></div>
     </div>
-    ${finSecHead('Shopping list', '+ Add an item', `finShopAddManual('${siteId}')`)}
-    ${items.length ? finSearchHtml('Search the list', 'finShopList') : ''}
-    <div id="finShopList">${Object.keys(bySup).map(s=>`<p class="sectiontitle" style="margin-top:16px;">${escapeHtml(s)}</p>${bySup[s].map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, s].join(' '))}" style="${i.active?'':'opacity:.5;'}">
-        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
-        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
+    ${finSecHead('Project quotes', '+ Add an item by hand', `finShopAddManual('${siteId}')`)}
+    ${quotes.length || manual.length ? `<div class="finquotes">
+      <button type="button" class="finquote ${!sel?'on':''}" onclick="finQuoteSel['${siteId}']='';render()"><b>All quotes</b><em>${items.length} item${items.length===1?'':'s'}</em></button>
+      ${quotes.map(q=>`<button type="button" class="finquote ${sel===q.id?'on':''}" onclick="finQuoteSel['${siteId}']='${q.id}';render()"><b>${escapeHtml(qLabel(q))}</b><em>${finDate(q.quote_date || String(q.created_at).slice(0,10))} · ${count(q.id)} item${count(q.id)===1?'':'s'}${qTotal(q.id)?' · '+finMoney(qTotal(q.id), 0):''}</em></button>`).join('')}
+      ${manual.length ? `<button type="button" class="finquote ${sel==='manual'?'on':''}" onclick="finQuoteSel['${siteId}']='manual';render()"><b>Added by hand</b><em>${manual.length} item${manual.length===1?'':'s'}</em></button>` : ''}
+    </div>` : ''}
+    ${sel && sel!=='manual' ? (()=>{ const q = quotes.find(x=>x.id===sel); return q ? `<div class="finkv" style="margin:0 0 6px;"><span>${escapeHtml(qLabel(q))}${q.file_name?' · '+escapeHtml(q.file_name):''}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'Quote')}')">View quote</button> `:''}<button class="linkbtn" onclick="finQuoteHideAll('${q.id}', ${count(q.id)})">Hide all from the team</button></b></div>` : ''; })() : ''}
+    ${shown.length ? finSearchHtml('Search these items', 'finShopList') : ''}
+    <div id="finShopList">${shown.map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" style="${i.active?'':'opacity:.5;'}">
+        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[sel ? '' : (i.quote_label || (i.quote_id ? '' : 'Added by hand')), i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
+        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
       <div class="empty lf-empty" style="display:none;">No match.</div></div>
-    ${quotes.length ? `<p class="sectiontitle" style="margin-top:22px;">Quotes used</p>${quotes.map(q=>`<div class="finkv"><span>${escapeHtml(q.supplier_name||'')} ${escapeHtml(q.quote_no||'')} · ${finDate(String(q.created_at).slice(0,10))}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'')}')">view</button>`:''}</b></div>`).join('')}` : ''}
-  `, {title:'Shopping list', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
+  `, {title:'Project quotes', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
+window.finQuoteHideAll = async function(quoteId, n){
+  if(!(await customConfirm('Hide all '+n+' items on this quote from the team? They stay here and you can show them again.'))) return;
+  const res = await sbFetch('/rest/v1/fin_shop_items?quote_id=eq.'+quoteId, {method:'PATCH', body:JSON.stringify({active:false})});
+  toast(res.ok ? 'Hidden from the team' : 'Could not hide them'); render();
+};
 window.finShopRead = async function(siteId, input){
   const f = input.files && input.files[0]; if(!f) return;
   const box = document.getElementById('finShopDraft'); if(box) box.innerHTML = '<p class="stub">Reading the quote…</p>';
@@ -51223,7 +51368,7 @@ function finShopPaintDraft(){
     <p class="stub" style="margin:0 0 8px;">${d.lines.length} lines found. Untick anything that shouldn’t be on the list, and correct any wording.</p>
     ${d.lines.map((l,i)=>`<div class="finitem"><label class="finswitch" style="margin:0;"><input type="checkbox" ${l.keep?'checked':''} onchange="finShopDraft.lines[${i}].keep=this.checked"><input type="text" value="${escapeHtml(l.description)}" oninput="finShopDraft.lines[${i}].description=this.value" style="flex:1;"></label>
       <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
-    <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items to the shopping list</button>`;
+    <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items as a project quote</button>`;
 }
 window.finShopSave = async function(){
   const d = finShopDraft; if(!d) return;
@@ -51232,13 +51377,13 @@ window.finShopSave = async function(){
   const quote = await dbInsert('fin_quotes', {org_id:ME.org_id, site_id:d.siteId, purpose:'shopping', supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, quote_no:d.data.doc_number||null, quote_date:d.data.doc_date||null, file_path:d.path||null, file_name:d.file, lines:keep, net:d.data.net||null, vat:d.data.vat||null, total:d.data.total||null, created_by:ME.id});
   const ex = await dbSelect('fin_shop_items', 'site_id=eq.'+d.siteId+'&select=position&order=position.desc&limit=1');
   let pos = ex[0] ? ex[0].position : 0;
-  const rows = keep.map(l=>({id:crypto.randomUUID(), org_id:ME.org_id, site_id:d.siteId, supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, code:l.code||null, description:String(l.description).trim().slice(0,300), unit:l.unit||null, qty:l.qty!=null?l.qty:null, quote_id:quote&&quote[0]?quote[0].id:null, position:++pos, active:true, created_by:ME.id}));
+  const rows = keep.map(l=>({id:crypto.randomUUID(), org_id:ME.org_id, site_id:d.siteId, supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, code:l.code||null, description:String(l.description).trim().slice(0,300), unit:l.unit||null, qty:l.qty!=null?l.qty:null, quote_id:quote&&quote[0]?quote[0].id:null, quote_label:[d.supplier_name, d.data.doc_number, finDate(d.data.doc_date || finToday())].filter(Boolean).join(' · ').slice(0,200), position:++pos, active:true, created_by:ME.id}));
   const ins = await sbFetch('/rest/v1/fin_shop_items', {method:'POST', body:JSON.stringify(rows)});
   if(!ins.ok){ toast('Could not save the list — '+(await safeErr(ins))); return; }
-  const pr = rows.map((r,i)=>({item_id:r.id, org_id:ME.org_id, rate:keep[i].unit_price!=null?finRound4(keep[i].unit_price):null})).filter(p=>p.rate!=null);
+  const pr = rows.map((r,i)=>({item_id:r.id, org_id:ME.org_id, rate:Number.isFinite(keep[i].unit_price)?finRound4(keep[i].unit_price):null})).filter(p=>p.rate!=null);
   if(pr.length) await sbFetch('/rest/v1/fin_shop_prices', {method:'POST', body:JSON.stringify(pr)});
   await finPriceBookSave(d.supplier_name, keep, 'quote', d.data.doc_number);
-  finShopDraft = null; toast(rows.length+' items added to the shopping list'); render();
+  finShopDraft = null; finQuoteSel[d.siteId] = quote && quote[0] ? quote[0].id : ''; toast(rows.length+' items added as a project quote'); render();
 };
 window.finShopSetRate = async function(itemId, v){
   const n = finNum(v); const rate = (n===null || isNaN(n)) ? null : finRound4(n);
@@ -51257,7 +51402,7 @@ window.finShopAddManual = async function(siteId){
 let finShopPick = null; // {id, description, unit, supplier_id, rate}
 window.openShopPicker = async function(siteId, mode){
   const [items, prices] = await Promise.all([
-    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&active=eq.true&order=supplier_name.asc,position.asc'),
+    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&active=eq.true&order=position.asc'),
     finCanSeeCosts() ? dbSelect('fin_shop_prices', 'org_id=eq.'+ME.org_id) : Promise.resolve([]),
   ]);
   const rate = {}; prices.forEach(p=>rate[p.item_id] = p.rate);
@@ -51266,12 +51411,13 @@ window.openShopPicker = async function(siteId, mode){
   if(!ov){ ov = document.createElement('div'); ov.id = 'shopPickOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:560px;max-height:calc(100dvh - 40px);overflow-y:auto;">
-    <h3>Project shopping list</h3>
-    ${items.length ? `<div class="formfield"><input type="text" placeholder="Search" oninput="liveFilter(this.value,'#shopPickList')"></div>
-    <div id="shopPickList">${items.map((i,k)=>`<button type="button" class="pmrow finrow" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="pickShopItem(${k},'${mode}')">
-      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.supplier_name, i.code, i.unit?'per '+i.unit:''].filter(Boolean).map(escapeHtml).join(' · ')}</span></span>
+    <h3>Project quotes</h3>
+    ${items.length ? `${(()=>{ const qs = {}; items.forEach(i=>{ const k = i.quote_id||'manual'; if(!qs[k]) qs[k] = i.quote_id ? (i.quote_label||'Quote') : 'Added by hand'; }); const keys = Object.keys(qs); return keys.length>1 ? `<div class="formfield"><label class="field-label">Which quote is this order from?</label><select onchange="finPickQuote(this.value)"><option value="">All quotes</option>${keys.map(k=>`<option value="${k}">${escapeHtml(qs[k])}</option>`).join('')}</select></div>` : ''; })()}
+    <div class="formfield"><input type="text" placeholder="Search" oninput="liveFilter(this.value,'#shopPickList')"></div>
+    <div id="shopPickList">${items.map((i,k)=>`<button type="button" class="pmrow finrow" data-q="${i.quote_id||'manual'}" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="pickShopItem(${k},'${mode}')">
+      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.quote_label || i.supplier_name, i.code, i.unit?'per '+i.unit:''].filter(Boolean).map(escapeHtml).join(' · ')}</span></span>
       ${rate[i.id]!=null ? `<span class="finval">${finMoney(rate[i.id])}</span>` : ''}</button>`).join('')}<div class="empty lf-empty" style="display:none;">No match.</div></div>`
-    : `<p class="stub">There’s no shopping list for this project yet. Finance can add one from a supplier quote (project › Finance › Shopping list).</p>`}
+    : `<p class="stub">There are no project quotes for this project yet. Finance can add them from a supplier quote (project › Finance › Project quotes).</p>`}
     <button class="geo-modal-cancel" onclick="document.getElementById('shopPickOverlay').style.display='none'">Close</button>
   </div>`;
   ov.style.display = 'flex';
@@ -51281,7 +51427,8 @@ window.pickShopItem = function(k, mode){
   finShopPick = {id:i.id, description:i.description, unit:i.unit||'', supplier_id:i.supplier_id||null, rate:(window.__shopRates||{})[i.id]};
   document.getElementById('shopPickOverlay').style.display = 'none';
   if(mode==='po' && typeof finNewPo!=='undefined' && finNewPo){
-    const line = {description:i.description, qty:1, unit:i.unit||'', rate:finShopPick.rate!=null?Number(finShopPick.rate):null, amount:0};
+    const line = {description:i.description, qty:1, unit:i.unit||'', rate:finShopPick.rate!=null?Number(finShopPick.rate):null, amount:0, cost_code:'materials', vat:finNewPo.vat||'20', shop_item_id:i.id};
+    const supSel = document.getElementById('finNpoSup'); if(supSel && !supSel.value && i.supplier_id && Array.from(supSel.options).some(o=>o.value===i.supplier_id)) supSel.value = i.supplier_id;
     line.amount = finRound(Number(line.qty||0)*Number(line.rate||0));
     const empty = finNewPo.lines.findIndex(l=>!String(l.description||'').trim());
     if(empty>-1) finNewPo.lines[empty] = line; else finNewPo.lines.push(line);
@@ -51289,13 +51436,15 @@ window.pickShopItem = function(k, mode){
   }
   const it = document.getElementById('matItem'); if(it){ it.value = i.description; }
   const q = document.getElementById('matQty'); if(q){ q.placeholder = i.unit ? 'Quantity ('+i.unit+')' : 'Quantity'; q.focus(); }
-  const tag = document.getElementById('matShopTag'); if(tag) tag.innerHTML = `From the shopping list${i.supplier_name?' · '+escapeHtml(i.supplier_name):''}${finShopPick.rate!=null?' · '+finMoney(finShopPick.rate)+(i.unit?'/'+escapeHtml(i.unit):''):''} <button class="linkbtn" onclick="finShopPick=null;this.parentNode.innerHTML=''">clear</button>`;
+  const tag = document.getElementById('matShopTag'); if(tag) tag.innerHTML = `From a project quote${i.supplier_name?' · '+escapeHtml(i.supplier_name):''}${finShopPick.rate!=null?' · '+finMoney(finShopPick.rate)+(i.unit?'/'+escapeHtml(i.unit):''):''} <button class="linkbtn" onclick="finShopPick=null;this.parentNode.innerHTML=''">clear</button>`;
 };
 // Used by addMaterial (760): the picked shopping-list item, if the text wasn't changed.
 function finShopPickFor(itemText){
   if(!finShopPick || String(itemText||'').trim()!==String(finShopPick.description).trim()) return null;
   return finShopPick;
 }
+
+window.finPickQuote = function(q){ document.querySelectorAll('#shopPickList [data-q]').forEach(b=>b.classList.toggle('qhide', !!q && b.dataset.q!==q)); };
 
 /* ============================================================
    OpHUB Finance — document switcher on every project page (Andy, 20 Oct:
@@ -51311,7 +51460,7 @@ const FIN_DOC_TYPES = [
   {k:'variations', l:'Variations', go:id=>`#/site/${id}/finance/variations`},
   {k:'pos', l:'Purchase orders', anchor:'fin-a-purchasing'},
   {k:'pinvs', l:'Supplier invoices', anchor:'fin-a-purchasing'},
-  {k:'shopping', l:'Shopping list', go:id=>`#/site/${id}/finance/shopping`},
+  {k:'shopping', l:'Project quotes', go:id=>`#/site/${id}/finance/shopping`},
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
   {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
@@ -51375,7 +51524,7 @@ async function finCostsAccessFill(){
   const canEdit = ME.role==='admin' && isFinanceUser();
   delete box.dataset.coll; box.classList.remove('fincoll');
   box.innerHTML = `<p class="sectiontitle" style="margin-top:0;">Who can see material costs</p>
-    <p class="stub" style="margin:-4px 0 10px;">Prices on the project shopping lists (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
+    <p class="stub" style="margin:-4px 0 10px;">Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
     ${people.map(p=>`<div class="finkv"><span>${escapeHtml(p.name)} <em class="stub" style="font-size:12px;">${escapeHtml(typeof personRoleLabel==='function'?personRoleLabel(p):p.role)}</em></span><b>${canEdit ? `<label class="finswitch" style="margin:0;"><input type="checkbox" ${p.see_costs?'checked':''} onchange="finSetSeeCosts('${p.id}', this.checked)"> ${p.see_costs?'Can see':'Hidden'}</label>` : (p.see_costs?'Can see':'Hidden')}</b></div>`).join('') || '<p class="stub">Nobody else in the team yet.</p>'}`;
   if(box.parentNode && box.parentNode.classList.contains('finsetpage')) finCollapseCards(box.parentNode, 'settings');
 }
@@ -51485,7 +51634,7 @@ window.openFinSplit = async function(table, id){
   if(Array.isArray(row.split) && row.split.length) rows = row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||'', v:Number(e.pct)}));
   else {
     let a = [{site_id:row.site_id, sub:row.sub_job_id||null, share:1}];
-    if(table==='purchase_invoices' && row.po_id && !row.sub_job_id){ const po = (await dbSelect('purchase_orders', 'id=eq.'+row.po_id))[0]; if(po){ const pa = finAllocs(po, {}); if(pa.some(x=>x.sub)) a = pa; } }
+    if(table==='purchase_invoices' && row.po_id && !row.sub_job_id){ const po = (await dbSelect('purchase_orders', 'id=eq.'+row.po_id))[0]; if(po){ const pa = finAllocs(po, {}); if(pa.some(x=>x.sub) || pa.some(x=>x.site_id!==row.site_id)) a = pa; } }
     else if(table==='purchase_orders') a = finAllocs(row, {});
     rows = a.map(x=>({site_id:x.site_id, sub:x.sub||'', v:finRound(x.share*100)}));
   }
@@ -51913,9 +52062,9 @@ function finAppDatesHtml(jf, st){
   const n = months.filter(m=>custom[m]).length;
   return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
     <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
-    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick another date (e.g. the client’s valuation calendar). Clear a box to go back to the day of the month.</p>
-    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || def;
-      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"></label>`; }).join('')}</div>
+    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick a date for it (e.g. the client’s valuation calendar). Leave a box empty to use the normal day.</p>
+    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || '';
+      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"><em>${def ? 'Normally '+finDate(def) : 'No day set'}</em></label>`; }).join('')}</div>
   </details>`;
 }
 // Only the months that differ from the day-of-month rule are stored.
@@ -52160,6 +52309,33 @@ function finHomeStripPaint(){
     <div class="finhome-t"><span>Invoiced to date</span><b>${finMoney(fc.invoiced, 0)}</b><em>${prog ? (fc.certified ? 'Certified ' : 'Applied ')+finMoney(prog, 0) : (fc.ffa ? 'of '+finMoney(fc.ffa, 0) : '&nbsp;')}</em></div>
     <div class="finhome-t"><span class="finhome-hd">Profit margin ${finMarginMenuHtml()}</span><b style="color:${col};">${value ? finMoney(margin, 0)+' <small>'+finPctTxt(pct)+'</small>' : '—'}</b><em>${value ? 'on '+finMoney(value, 0)+' '+on.label : 'Nothing '+(on.basis==='auto' ? 'applied or invoiced' : on.label)+' yet'}</em></div>`;
 }
+
+/* ============================================================
+   OpHUB Finance — no double taps (deep dive, 20 Oct).
+   Every Finance action that saves, sends or creates something ignores a
+   second tap while the first is still running, so a slow connection can't
+   make two payments, invoices, POs, applications or schedule tasks.
+   Wraps the global window.* functions once this file loads (it's last).
+   ============================================================ */
+(function(){
+  const pattern = /^(save|new|raise|mark|issue|send|void|delete|clear)[A-Z]/;
+  const extra = ['finInboxFile','finInboxUpload','finShopSave','finShopAddManual','finPoQuoteApply','finSendToSow','finSetOriginal','finQuoteHideAll','finAddWorker','finTeamNewInvite','finXeroPush','finXeroPullPayments','setFinBillingType','setFinPoStatus','setPurchaseInvoiceStatus','setFinPiPaid','uploadFinAppExcel','finContractUploadPicked','toggleFinanceAccess'];
+  const skip = new Set(['finAppSaveSoft']);
+  const running = new Set();
+  const wrap = name=>{
+    const fn = window[name];
+    if(typeof fn!=='function' || fn.__once || skip.has(name)) return;
+    if(fn.constructor && fn.constructor.name!=='AsyncFunction') return;
+    const w = async function(...args){
+      if(running.has(name)) return; // already working on it — ignore the second tap
+      running.add(name); document.documentElement.classList.add('finbusy');
+      try{ return await fn.apply(this, args); }
+      finally{ running.delete(name); if(!running.size) document.documentElement.classList.remove('finbusy'); }
+    };
+    w.__once = true; window[name] = w;
+  };
+  Object.keys(window).filter(k=>(pattern.test(k) && /Fin|Purchase|Client|Site|Retention|Invoice/.test(k)) || extra.includes(k)).forEach(wrap);
+})();
 </script>
 </body>
 </html>

@@ -213,7 +213,7 @@ window.finContractPaintTotal = function(){
 };
 window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null}); finContractPaint(); };
 window.saveFinContract = async function(siteId){
-  const rows = finContractRows.map(r=>({id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
+  const rows = finContractRows.map((r,_i)=>({_i, id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
       rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r), cost:(r.cost==null||isNaN(r.cost))?null:finRound(Number(r.cost)), cost_basis:r.cost_basis||null, cost_pct:r.cost_pct==null?null:Number(r.cost_pct)}))
     .filter(r=>r.description || r.value!==null);
@@ -222,11 +222,12 @@ window.saveFinContract = async function(siteId){
   const btn = document.getElementById('finContractSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const existing = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id');
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
-  for(const e of existing) if(!keep.has(e.id)) await dbDelete('fin_contract_items', e.id);
+  let failed = 0;
+  for(const e of existing) if(!keep.has(e.id)){ if(!(await dbDelete('fin_contract_items', e.id))) failed++; }
   for(let i=0;i<rows.length;i++){
     const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub, cost: finIsItem(r) ? r.cost : null, cost_basis: finIsItem(r) && r.cost!=null ? r.cost_basis : null, cost_pct: finIsItem(r) && r.cost!=null && r.cost_basis ? r.cost_pct : null};
-    if(r.id && existing.some(e=>e.id===r.id)) await dbUpdate('fin_contract_items', r.id, data);
-    else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; }
+    if(r.id && existing.some(e=>e.id===r.id)){ if(!(await dbUpdate('fin_contract_items', r.id, data))) failed++; }
+    else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]){ r.id = ins[0].id; } else failed++; }
     // Copied in from the site schedule: link the task / section to this line.
     if(r.id && r._task_id) await dbUpdate('schedule_tasks', r._task_id, {contract_item_id:r.id});
     if(r.id && r._sec_id) await dbUpdate('schedule_sections', r._sec_id, {contract_item_id:r.id});
@@ -244,7 +245,14 @@ window.saveFinContract = async function(siteId){
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
     if(stored){ patch.contract_file_path = stored; patch.contract_file_name = finContractFile.name; }
   }
-  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  const jr = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
+  if(failed || !jr.ok){
+    if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
+    toast(failed ? failed+' line'+(failed===1?'':'s')+' didn’t save — check your connection and tap Save again.' : 'The contract value didn’t update — '+(await safeErr(jr)));
+    // keep the rows on screen; give new lines their ids so a retry doesn't duplicate them
+    rows.forEach(r=>{ if(r.id && finContractRows[r._i]) finContractRows[r._i].id = r.id; });
+    return;
+  }
   finContractRows = null; finContractFile = null;
   if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
   toast('Schedule saved — contract value '+finMoney(total));
@@ -463,6 +471,7 @@ async function renderFinApplication(siteId, appId){
   if(__gen !== RENDER_GEN) return;
   const a = rows[0];
   if(!a || !site){ toast('Application not found.'); go(`#/site/${siteId}/finance`); return; }
+  if(!finApp || finApp.id!==a.id){ finAppCollapsed = {}; finAppValued = false; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
   finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['certified','invoiced','void'].includes(a.status), siteProgress};

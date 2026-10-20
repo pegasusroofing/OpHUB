@@ -97,7 +97,7 @@ window.openFinSplit = async function(table, id){
   if(Array.isArray(row.split) && row.split.length) rows = row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||'', v:Number(e.pct)}));
   else {
     let a = [{site_id:row.site_id, sub:row.sub_job_id||null, share:1}];
-    if(table==='purchase_invoices' && row.po_id && !row.sub_job_id){ const po = (await dbSelect('purchase_orders', 'id=eq.'+row.po_id))[0]; if(po){ const pa = finAllocs(po, {}); if(pa.some(x=>x.sub)) a = pa; } }
+    if(table==='purchase_invoices' && row.po_id && !row.sub_job_id){ const po = (await dbSelect('purchase_orders', 'id=eq.'+row.po_id))[0]; if(po){ const pa = finAllocs(po, {}); if(pa.some(x=>x.sub) || pa.some(x=>x.site_id!==row.site_id)) a = pa; } }
     else if(table==='purchase_orders') a = finAllocs(row, {});
     rows = a.map(x=>({site_id:x.site_id, sub:x.sub||'', v:finRound(x.share*100)}));
   }

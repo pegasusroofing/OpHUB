@@ -12,7 +12,7 @@ const FIN_DOC_TYPES = [
   {k:'variations', l:'Variations', go:id=>`#/site/${id}/finance/variations`},
   {k:'pos', l:'Purchase orders', anchor:'fin-a-purchasing'},
   {k:'pinvs', l:'Supplier invoices', anchor:'fin-a-purchasing'},
-  {k:'shopping', l:'Shopping list', go:id=>`#/site/${id}/finance/shopping`},
+  {k:'shopping', l:'Project quotes', go:id=>`#/site/${id}/finance/shopping`},
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
   {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
@@ -76,7 +76,7 @@ async function finCostsAccessFill(){
   const canEdit = ME.role==='admin' && isFinanceUser();
   delete box.dataset.coll; box.classList.remove('fincoll');
   box.innerHTML = `<p class="sectiontitle" style="margin-top:0;">Who can see material costs</p>
-    <p class="stub" style="margin:-4px 0 10px;">Prices on the project shopping lists (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
+    <p class="stub" style="margin:-4px 0 10px;">Prices on project quotes (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
     ${people.map(p=>`<div class="finkv"><span>${escapeHtml(p.name)} <em class="stub" style="font-size:12px;">${escapeHtml(typeof personRoleLabel==='function'?personRoleLabel(p):p.role)}</em></span><b>${canEdit ? `<label class="finswitch" style="margin:0;"><input type="checkbox" ${p.see_costs?'checked':''} onchange="finSetSeeCosts('${p.id}', this.checked)"> ${p.see_costs?'Can see':'Hidden'}</label>` : (p.see_costs?'Can see':'Hidden')}</b></div>`).join('') || '<p class="stub">Nobody else in the team yet.</p>'}`;
   if(box.parentNode && box.parentNode.classList.contains('finsetpage')) finCollapseCards(box.parentNode, 'settings');
 }

@@ -251,6 +251,7 @@ async function renderFinSales(sub){
 
 /* ================= Purchases (money out) ================= */
 let finPiFilter = 'approve';
+let finPurSup = '', finPurJob = '', finPurStatus = '';
 async function renderFinPurchases(sub){
   if(!finGuard()) return;
   if(sub==='pricebook' && typeof renderFinPriceBook==='function') return renderFinPriceBook();
@@ -270,32 +271,43 @@ async function renderFinPurchases(sub){
   const openPos = pos.filter(p=>p.status==='open');
   const committed = finRound(openPos.filter(p=>p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value)-finPoInvoiced(p, live)),0));
   const onHire = hires.filter(h=>!h.off_hire);
+  // Filters: supplier and project (and PO status) — Andy, 20 Oct.
+  const supKey = n=>String(n||'').trim().toLowerCase();
+  const supNames = {}; [].concat(pos, pinvs, hires).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
+  const jobIds = Array.from(new Set([].concat(pos, pinvs, hires).map(x=>x.site_id).filter(Boolean)));
+  const fOK = x=>(!finPurSup || supKey(x.supplier_name)===finPurSup) && (!finPurJob || x.site_id===finPurJob);
+  const filtBar = (withStatus)=>`<div class="finjobfilt">
+    <label>Supplier<select onchange="finPurSup=this.value;render()"><option value="">All suppliers</option>${Object.keys(supNames).sort().map(k=>`<option value="${escapeHtml(k)}" ${finPurSup===k?'selected':''}>${escapeHtml(supNames[k])}</option>`).join('')}</select></label>
+    <label>Project<select onchange="finPurJob=this.value;render()"><option value="">All projects</option>${jobIds.map(id=>[id, finJobTag(id)]).sort((a,b)=>a[1].localeCompare(b[1], undefined, {numeric:true})).map(([id,t])=>`<option value="${id}" ${finPurJob===id?'selected':''}>${escapeHtml(t)}</option>`).join('')}</select></label>
+    ${withStatus ? `<label>Status<select onchange="finPurStatus=this.value;render()">${[['','All'],['open','Open'],['invoiced','Invoiced'],['cancelled','Cancelled']].map(([k,l])=>`<option value="${k}" ${finPurStatus===k?'selected':''}>${l}</option>`).join('')}</select></label>` : ''}
+    ${finPurSup||finPurJob||(withStatus&&finPurStatus) ? `<button type="button" class="linkbtn" onclick="finPurSup='';finPurJob='';finPurStatus='';render()">Clear filters</button>` : ''}
+  </div>`;
   const piRow = i=>`<div data-lf="${lfText([i.supplier_name, i.invoice_no, finJobTag(i.site_id)].join(' '))}"><div class="finrowjob">${escapeHtml(finJobTag(i.site_id))}</div>${finPiRowHtml(i.site_id, i)}</div>`;
   let body = '';
   if(sub==='orders'){
     body = finSecHead('Purchase orders', '+ New PO', "finPickJob('New purchase order','openFinNewPo')")
       + `<p class="stub" style="margin:-4px 0 12px;">${openPos.length} open · ${finMoney(committed, 0)} ordered but not invoiced yet. Material orders sent from a project’s Materials tile appear here automatically.</p>`
-      + finSearchHtml('Search PO, supplier or project', 'finPurList')
-      + finListHtml('finPurList', pos.map(p=>{ const inv = finPoInvoiced(p, live); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([p.number, p.supplier_name, finJobTag(p.site_id)].join(' '))}" onclick="go('#/site/${p.site_id}/finance/po/${p.id}')">
+      + filtBar(true) + finSearchHtml('Search PO, supplier or project', 'finPurList')
+      + finListHtml('finPurList', pos.filter(p=>fOK(p) && (!finPurStatus || p.status===finPurStatus)).map(p=>{ const inv = finPoInvoiced(p, live); return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([p.number, p.supplier_name, finJobTag(p.site_id)].join(' '))}" onclick="go('#/site/${p.site_id}/finance/po/${p.id}')">
           <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span><span class="pmrow-s">${escapeHtml(p.supplier_name||'')} · ${escapeHtml(finJobTag(p.site_id))}</span><span class="pmrow-s">${finDate(String(p.created_at).slice(0,10))}${inv?' · invoiced '+finMoney(inv):''}</span></span>
           <span class="finval">${p.value!=null?finMoney(p.value):'<em>No value</em>'}</span></button>`; }), 'No purchase orders yet.');
   } else if(sub==='invoices'){
     const F = {approve:i=>['to_approve','query'].includes(i.status), unpaid:i=>i.status==='approved' && !i.paid_on, paid:i=>!!i.paid_on, all:()=>true};
     if(!F[finPiFilter]) finPiFilter = 'approve';
-    const list = pinvs.filter(F[finPiFilter]);
+    const list = pinvs.filter(F[finPiFilter]).filter(fOK);
     body = finSecHead('Supplier invoices', '+ Supplier invoice', "finPickJob('Add supplier invoice','openPurchaseInvoiceForm')")
       + (inbox.length ? `<button type="button" class="fintodo-i card" onclick="go('#/finance/inbox')"><span class="fintodo-n t-blue">${inbox.length}</span><span class="fintodo-t"><b>Invoices in the inbox to file</b><em>Read automatically — check them and file them to a project</em></span><span class="fintodo-c">›</span></button>` : '')
       + `<div class="pmchips">${[['approve','To approve'],['unpaid','Approved, not paid'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finPiFilter===k, l, pinvs.filter(F[k]).length, `finPiFilter='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
+      + filtBar(false) + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
       + finListHtml('finPurList', list.map(piRow), 'No supplier invoices here.');
   } else if(sub==='plant'){
-    const off = hires.filter(h=>h.off_hire).slice(0, 40);
+    const off = hires.filter(h=>h.off_hire && fOK(h)).slice(0, 40);
     const row = h=>{ const c = finPlantCost(h); const long = !h.off_hire && c.days>28; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([h.item, h.supplier_name, finJobTag(h.site_id)].join(' '))}" onclick="openFinPlantForm('${h.site_id}','${h.id}')">
       <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(h.item)} ${h.off_hire?'<span class="finpill grey">Off hire</span>':`<span class="finpill ${long?'bad':'ok'}">On hire ${c.weeks} wk</span>`}</span><span class="pmrow-s">${escapeHtml(finJobTag(h.site_id))}${h.supplier_name?' · '+escapeHtml(h.supplier_name):''}</span><span class="pmrow-s">${finDate(h.on_hire)} → ${h.off_hire?finDate(h.off_hire):'now'} · ${finMoney(h.rate)}/${h.rate_period}</span></span>
       <span class="finval">${finMoney(c.cost, 0)}</span></button>`; };
     body = finSecHead('Plant hire', '+ Plant hire', "finPickJob('Add plant hire','openFinPlantForm')")
       + `<p class="stub" style="margin:-4px 0 12px;">${onHire.length} on hire · ${finMoney(onHire.reduce((t,h)=>t+finPlantCost(h).cost,0), 0)} so far. Tap one to off-hire it.</p>`
-      + finListHtml('finPurList', onHire.map(row), 'Nothing on hire.')
+      + filtBar(false) + finListHtml('finPurList', onHire.filter(fOK).map(row), 'Nothing on hire.')
       + (off.length ? `<p class="sectiontitle" style="margin-top:22px;">Recently off hire</p>${off.map(row).join('')}` : '');
   } else {
     const by = {}; suppliers.forEach(s=>{ by[s.name] = {name:s.name, email:s.email||'', spend:0, owed:0, n:0}; });

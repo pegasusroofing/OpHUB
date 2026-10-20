@@ -6,51 +6,78 @@
    and email it to the supplier.
    ============================================================ */
 let finNewPo = null;
+// VAT on a PO line. Default from Finance › Settings › Purchase orders; changeable per line.
+const FIN_VAT_RATES = {'20':{l:'20%', s:'20%', r:0.2}, '5':{l:'5%', s:'5%', r:0.05}, '0':{l:'0% (zero rated)', s:'0%', r:0}, 'ex':{l:'No VAT / exempt', s:'Exempt', r:0}, 'rc':{l:'Reverse charge (CIS)', s:'RC', r:0}};
+function finVatOf(l){ const v = FIN_VAT_RATES[l.vat] || FIN_VAT_RATES['20']; return finRound(Number(l.amount||0) * v.r); }
 window.openFinNewPo = async function(siteId){
-  const [suppliers] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finSubJobsLoad(siteId)]);
-  finNewPo = {siteId, suppliers, lines:[{description:'', qty:1, unit:'', rate:null, amount:0}]};
+  const [suppliers, st] = await Promise.all([dbSelect('suppliers', 'select=id,name,email&order=name.asc'), finLoadSettings(), finSubJobsLoad(siteId)]);
+  const vat = String((st && st.po_vat_default) || '20');
+  const site = SITES.find(x=>x.id===siteId) || {};
+  finNewPo = {siteId, suppliers, vat, lines:[{description:'', qty:1, unit:'', rate:null, amount:0, cost_code:'materials', vat}]};
   let ov = document.getElementById('finNpoOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finNpoOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `<div class="geo-modal-card" style="max-width:620px;">
-    <h3>New purchase order</h3>
-    <div class="formfield"><label class="field-label">Supplier</label>
-      <select id="finNpoSup" onchange="finNpoSupPicked(this.value)"><option value="">Choose…</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}<option value="__new">+ New supplier…</option></select></div>
-    <div id="finNpoNewSup" style="display:none;" class="fingrid2">
-      <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
-      <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
+  const codeOpts = sel=>Object.keys(FIN_COST_CATS).filter(k=>k!=='labour').map(k=>`<option value="${k}" ${sel===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('');
+  ov.innerHTML = `<div class="geo-modal-card finbuilder">
+    <div class="finb-head"><div><h3 style="margin:0;">New purchase order</h3><p class="stub" style="margin:2px 0 0;font-style:normal;">${escapeHtml((site.job_number?site.job_number+' · ':'')+(site.name||''))}</p></div>
+      <button type="button" class="finb-x" aria-label="Close" onclick="document.getElementById('finNpoOverlay').style.display='none'">✕</button></div>
+    <div class="finb-grid">
+      <div class="finb-main">
+        <div class="finb-th"><span>Description</span><span>Qty</span><span>Unit</span><span>Rate</span><span>Cost code</span><span>VAT</span><span class="r">Net</span><span></span></div>
+        <div id="finNpoLines"></div>
+        <div class="finb-add"><button class="ghostbtn" onclick="finNpoAdd()">+ Add line</button><button class="ghostbtn" onclick="openShopPicker('${siteId}','po')">From a project quote</button></div>
+      </div>
+      <aside class="finb-side">
+        <p class="finb-st">General</p>
+        <div class="formfield"><label class="field-label">Supplier</label>
+          <select id="finNpoSup" onchange="finNpoSupPicked(this.value)"><option value="">Choose…</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}<option value="__new">+ New supplier…</option></select></div>
+        <div id="finNpoNewSup" style="display:none;">
+          <div class="formfield"><label class="field-label">Supplier name</label><input type="text" id="finNpoSupName"></div>
+          <div class="formfield"><label class="field-label">Orders email</label><input type="email" id="finNpoSupEmail"></div>
+        </div>
+        ${finSubJobSelectHtml('finNpoSub', siteId, '', finSubNoun(siteId)+' (split it after if it’s for several)')}
+        <div class="fingrid2">
+          <div class="formfield"><label class="field-label">Delivery</label><select id="finNpoDel"><option value="delivery">Deliver to site</option><option value="collection">Collection</option></select></div>
+          <div class="formfield"><label class="field-label">Required by</label><input type="date" id="finNpoReq"></div>
+        </div>
+        <div class="formfield"><label class="field-label">Your reference (optional)</label><input type="text" id="finNpoRef" placeholder="e.g. Quote Q-5521"></div>
+        <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
+        <p class="finb-st">VAT</p>
+        <div class="formfield"><label class="field-label">VAT for all lines</label><select id="finNpoVatAll" onchange="finNpoVatAll(this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
+        <p class="finb-st">Costs</p>
+        <div class="finkv"><span>Subtotal</span><b id="finNpoTot">£0.00</b></div>
+        <div class="finkv"><span>VAT</span><b id="finNpoVat">£0.00</b></div>
+        <div class="finkv big"><span>Total</span><b id="finNpoGross">£0.00</b></div>
+        <button class="darkbtn" style="width:100%;margin-top:10px;" id="finNpoSave" onclick="saveFinNewPo()">Raise PO</button>
+        <button class="geo-modal-cancel" onclick="document.getElementById('finNpoOverlay').style.display='none'">Cancel</button>
+      </aside>
     </div>
-    ${finSubJobSelectHtml('finNpoSub', siteId, '', 'For which '+finSubNoun(siteId).toLowerCase()+'? (split it after if it’s for several)')}
-    <p class="sectiontitle" style="margin:10px 0 4px;">Items</p>
-    <div id="finNpoLines"></div>
-    <div class="row-gap" style="margin:6px 0 10px;"><button class="ghostbtn" style="flex:1;" onclick="finNpoAdd()">+ Add item</button><button class="ghostbtn" style="flex:1;" onclick="openShopPicker('${siteId}','po')">From the shopping list</button></div>
-    <div class="fingrid2">
-      <div class="formfield"><label class="field-label">Delivery</label><select id="finNpoDel"><option value="delivery">Deliver to site</option><option value="collection">Collection</option></select></div>
-      <div class="formfield"><label class="field-label">Required by</label><input type="date" id="finNpoReq"></div>
-    </div>
-    <div class="formfield"><label class="field-label">Notes for the supplier</label><textarea id="finNpoNote" rows="2" placeholder="e.g. Call 30 minutes before delivery"></textarea></div>
-    <div class="finkv big"><span>PO value (excl. VAT)</span><b id="finNpoTot">£0.00</b></div>
-    <button class="darkbtn" style="width:100%;" id="finNpoSave" onclick="saveFinNewPo()">Raise PO</button>
-    <button class="geo-modal-cancel" onclick="document.getElementById('finNpoOverlay').style.display='none'">Cancel</button>
   </div>`;
+  window.__finNpoCodeOpts = codeOpts;
   ov.style.display = 'flex';
   finNpoPaint();
 };
 window.finNpoSupPicked = function(v){ const el = document.getElementById('finNpoNewSup'); if(el) el.style.display = v==='__new' ? '' : 'none'; };
 function finNpoPaint(){
   const box = document.getElementById('finNpoLines'); if(!box || !finNewPo) return;
-  box.innerHTML = finNewPo.lines.map((l,i)=>`<div class="finitem">
-    <div class="finitem-d"><input type="text" placeholder="Description" value="${escapeHtml(l.description)}" oninput="finNpoSet(${i},'description',this.value)" style="width:100%;"></div>
-    <div class="finitem-in">
-      <label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
-      <label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m2, nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
-      <label>Rate £<input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" oninput="finNpoSet(${i},'rate',this.value)"></label>
-      <b id="finNpoL-${i}">${finMoney(l.amount)}</b>
-      ${finNewPo.lines.length>1 ? `<button class="linkbtn" onclick="finNpoDel(${i})">✕</button>` : ''}
-    </div></div>`).join('');
+  const codeOpts = window.__finNpoCodeOpts;
+  box.innerHTML = finNewPo.lines.map((l,i)=>`<div class="finb-row">
+    <label class="finb-d"><span>Description</span><input type="text" placeholder="Description" value="${escapeHtml(l.description)}" oninput="finNpoSet(${i},'description',this.value)"></label>
+    <label><span>Qty</span><input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finNpoSet(${i},'qty',this.value)"></label>
+    <label><span>Unit</span><input type="text" value="${escapeHtml(l.unit||'')}" placeholder="m², nr" oninput="finNpoSet(${i},'unit',this.value)"></label>
+    <label><span>Rate</span><input type="text" inputmode="decimal" data-money value="${l.rate!=null?l.rate:''}" placeholder="£" oninput="finNpoSet(${i},'rate',this.value)"></label>
+    <label><span>Cost code</span><select onchange="finNpoSet(${i},'cost_code',this.value)">${codeOpts(l.cost_code||'materials')}</select></label>
+    <label><span>VAT</span><select onchange="finNpoSet(${i},'vat',this.value)">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${(l.vat||'20')===k?'selected':''}>${FIN_VAT_RATES[k].s}</option>`).join('')}</select></label>
+    <b class="finb-net" id="finNpoL-${i}">${finMoney(l.amount)}</b>
+    ${finNewPo.lines.length>1 ? `<button class="linkbtn finb-del" aria-label="Remove line" onclick="finNpoDel(${i})">✕</button>` : '<span></span>'}
+  </div>`).join('');
   finNpoTotal();
 }
-function finNpoTotal(){ const el = document.getElementById('finNpoTot'); if(el) el.textContent = finMoney(finNewPo.lines.reduce((t,l)=>t+Number(l.amount||0),0)); }
+function finNpoTotal(){
+  const net = finRound(finNewPo.lines.reduce((t,l)=>t+Number(l.amount||0),0)), vat = finRound(finNewPo.lines.reduce((t,l)=>t+finVatOf(l),0));
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = finMoney(v); };
+  set('finNpoTot', net); set('finNpoVat', vat); set('finNpoGross', finRound(net+vat));
+}
 window.finNpoSet = function(i, k, v){
   const l = finNewPo.lines[i]; if(!l) return;
   if(k==='qty' || k==='rate'){ const n = finNum(v); l[k] = (n===null || isNaN(n)) ? null : n; } else l[k] = v;
@@ -58,7 +85,8 @@ window.finNpoSet = function(i, k, v){
   const el = document.getElementById('finNpoL-'+i); if(el) el.textContent = finMoney(l.amount);
   finNpoTotal();
 };
-window.finNpoAdd = function(){ finNewPo.lines.push({description:'', qty:1, unit:'', rate:null, amount:0}); finNpoPaint(); };
+window.finNpoVatAll = function(v){ finNewPo.vat = v; finNewPo.lines.forEach(l=>l.vat = v); finNpoPaint(); };
+window.finNpoAdd = function(){ finNewPo.lines.push({description:'', qty:1, unit:'', rate:null, amount:0, cost_code:'materials', vat:finNewPo.vat||'20'}); finNpoPaint(); };
 window.finNpoDel = function(i){ finNewPo.lines.splice(i,1); finNpoPaint(); };
 window.saveFinNewPo = async function(){
   const n = finNewPo; if(!n) return;
@@ -70,17 +98,20 @@ window.saveFinNewPo = async function(){
     if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the supplier’s email.'); return; }
     const made = await dbInsert('suppliers', {org_id:ME.org_id, name:supName, email:email||null, created_by:ME.id});
     supId = made && made[0] ? made[0].id : null;
+    if(!supId){ toast('Could not add the supplier.'); return; }
   } else {
     const s = n.suppliers.find(x=>x.id===supId); supName = s ? s.name : '';
   }
-  const items = n.lines.filter(l=>String(l.description||'').trim()).map(l=>({item:l.description.trim(), qty:l.qty, unit:l.unit||null, rate:l.rate, amount:finRound(l.amount)}));
+  const items = n.lines.filter(l=>String(l.description||'').trim()).map(l=>({item:l.description.trim(), qty:l.qty, unit:l.unit||null, rate:l.rate, amount:finRound(l.amount), cost_code:l.cost_code||'materials', vat_rate:l.vat||'20', vat:finVatOf(l), shop_item_id:l.shop_item_id||undefined}));
   if(!items.length){ toast('Add at least one item.'); return; }
   const btn = document.getElementById('finNpoSave'); if(btn){ btn.disabled = true; btn.textContent = 'Raising…'; }
   const res = await sbFetch('/rest/v1/rpc/fin_new_po', {method:'POST', body:JSON.stringify({p_site:n.siteId, p_supplier_id:supId||null, p_supplier_name:supName, p_items:items, p_required:finVal('finNpoReq')||null, p_note:finVal('finNpoNote')||null, p_delivery:finVal('finNpoDel')||'delivery'})});
   if(btn){ btn.disabled = false; btn.textContent = 'Raise PO'; }
   if(!res.ok){ toast('Could not raise the PO — '+(await safeErr(res))); return; }
   const d = await res.json();
-  const sub = finVal('finNpoSub'); if(sub && d && d.id) await dbUpdate('purchase_orders', d.id, {sub_job_id:sub});
+  const sub = finVal('finNpoSub');
+  const vatTot = finRound(items.reduce((t,x)=>t+Number(x.vat||0),0)), netTot = finRound(items.reduce((t,x)=>t+Number(x.amount||0),0));
+  if(d && d.id) await dbUpdate('purchase_orders', d.id, Object.assign({vat:vatTot, total:finRound(netTot+vatTot), reference:finVal('finNpoRef')||null, issue_date:finToday()}, sub ? {sub_job_id:sub} : {}));
   document.getElementById('finNpoOverlay').style.display = 'none';
   finNewPo = null;
   toast('PO '+d.number+' raised');
@@ -139,7 +170,13 @@ async function finBuildPoPdf(po, site, st, supplier){
       y = last - 22;
     }
     y -= 6;
-    if(po.value!=null){ txt('Order total (excl. VAT)', W-M-210, y, {font:bold, size:11}); right(finMoney(po.value), W-M-8, y, {font:bold, size:11}); y -= 22; }
+    if(po.value!=null){
+      if(po.vat!=null){
+        txt('Subtotal', W-M-210, y, {size:10}); right(finMoney(po.value), W-M-8, y, {size:10}); y -= 15;
+        txt('VAT', W-M-210, y, {size:10}); right(finMoney(po.vat), W-M-8, y, {size:10}); y -= 15;
+        txt('Order total', W-M-210, y, {font:bold, size:11}); right(finMoney(po.total!=null?po.total:Number(po.value)+Number(po.vat)), W-M-8, y, {font:bold, size:11}); y -= 22;
+      } else { txt('Order total (excl. VAT)', W-M-210, y, {font:bold, size:11}); right(finMoney(po.value), W-M-8, y, {font:bold, size:11}); y -= 22; }
+    }
     if(po.note){ txt('NOTES', M, y, {font:bold, size:8.5, color:SLATE}); y -= 14; finWrap(po.note, reg, 10, W-2*M).forEach(l=>{ txt(l, M, y); y -= 13; }); y -= 6; }
     finWrap('Please quote PO '+po.number+' on your delivery note and invoice. Invoices without a PO number, or over the value of this order, may be held.', reg, 9.5, W-2*M).forEach(l=>{ txt(l, M, y, {size:9.5, color:SLATE}); y -= 12; });
     const fy = 90;

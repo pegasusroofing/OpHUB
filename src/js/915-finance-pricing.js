@@ -270,38 +270,55 @@ window.deleteFinPriceRow = async function(id){
 
 /* ---------- 4. project shopping list ---------- */
 let finShopDraft = null;
+let finQuoteSel = {}; // siteId -> quote id ('' = all quotes, 'manual' = added by hand)
 async function renderFinShopping(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
   const [items, prices, quotes, suppliers] = await Promise.all([
-    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&order=supplier_name.asc,position.asc'),
+    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('fin_shop_prices', 'org_id=eq.'+ME.org_id),
     dbSelect('fin_quotes', 'site_id=eq.'+siteId+'&purpose=eq.shopping&order=created_at.desc'),
     dbSelect('suppliers', 'select=id,name&order=name.asc'),
   ]);
   if(__gen !== RENDER_GEN) return;
   const rate = {}; prices.forEach(p=>rate[p.item_id] = p.rate);
-  const bySup = {}; items.forEach(i=>{ (bySup[i.supplier_name||'No supplier'] = bySup[i.supplier_name||'No supplier'] || []).push(i); });
+  const manual = items.filter(i=>!i.quote_id);
+  let sel = finQuoteSel[siteId] || '';
+  if(sel && sel!=='manual' && !quotes.some(q=>q.id===sel)) sel = '';
+  const shown = items.filter(i=>!sel || (sel==='manual' ? !i.quote_id : i.quote_id===sel));
+  const count = id=>items.filter(i=>i.quote_id===id).length;
+  const qTotal = id=>finRound(items.filter(i=>i.quote_id===id).reduce((t,i)=>t+(rate[i.id]!=null ? Number(rate[i.id])*Number(i.qty||1) : 0),0));
+  const qLabel = q=>[q.supplier_name, q.quote_no].filter(Boolean).join(' · ') || 'Quote';
   document.getElementById('app').innerHTML = shell(`
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add a quote to the list</p>
-      <p class="stub" style="margin:0 0 12px;">Upload a supplier quote or price list (PDF, photo or Excel). Its lines become this project’s shopping list: the team pick items from it when they request materials, and POs are priced from it. Only Finance users and people you allow can see the prices.</p>
+      <p class="sectiontitle" style="margin-top:0;">Upload a project quote</p>
+      <p class="stub" style="margin:0 0 12px;">Upload a supplier quote or price list (PDF, photo or Excel). You can add as many as you need — one per supplier or per stage. The team pick items from them when they request materials, and POs are priced from them. Only Finance users and people you allow can see the prices.</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Supplier</label><select id="finShopSup"><option value="">From the quote</option>${suppliers.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}</select></div>
-        <div class="formfield"><label class="field-label">Quote</label><input type="file" id="finShopFile" accept=".pdf,image/*,.xlsx,.xls,.csv" onchange="finShopRead('${siteId}', this)"></div>
+        <div class="formfield"><label class="field-label">Quote file</label><input type="file" id="finShopFile" accept=".pdf,image/*,.xlsx,.xls,.csv" onchange="finShopRead('${siteId}', this)"></div>
       </div>
       <div id="finShopDraft"></div>
     </div>
-    ${finSecHead('Shopping list', '+ Add an item', `finShopAddManual('${siteId}')`)}
-    ${items.length ? finSearchHtml('Search the list', 'finShopList') : ''}
-    <div id="finShopList">${Object.keys(bySup).map(s=>`<p class="sectiontitle" style="margin-top:16px;">${escapeHtml(s)}</p>${bySup[s].map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, s].join(' '))}" style="${i.active?'':'opacity:.5;'}">
-        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
-        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('')}`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
+    ${finSecHead('Project quotes', '+ Add an item by hand', `finShopAddManual('${siteId}')`)}
+    ${quotes.length || manual.length ? `<div class="finquotes">
+      <button type="button" class="finquote ${!sel?'on':''}" onclick="finQuoteSel['${siteId}']='';render()"><b>All quotes</b><em>${items.length} item${items.length===1?'':'s'}</em></button>
+      ${quotes.map(q=>`<button type="button" class="finquote ${sel===q.id?'on':''}" onclick="finQuoteSel['${siteId}']='${q.id}';render()"><b>${escapeHtml(qLabel(q))}</b><em>${finDate(q.quote_date || String(q.created_at).slice(0,10))} · ${count(q.id)} item${count(q.id)===1?'':'s'}${qTotal(q.id)?' · '+finMoney(qTotal(q.id), 0):''}</em></button>`).join('')}
+      ${manual.length ? `<button type="button" class="finquote ${sel==='manual'?'on':''}" onclick="finQuoteSel['${siteId}']='manual';render()"><b>Added by hand</b><em>${manual.length} item${manual.length===1?'':'s'}</em></button>` : ''}
+    </div>` : ''}
+    ${sel && sel!=='manual' ? (()=>{ const q = quotes.find(x=>x.id===sel); return q ? `<div class="finkv" style="margin:0 0 6px;"><span>${escapeHtml(qLabel(q))}${q.file_name?' · '+escapeHtml(q.file_name):''}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'Quote')}')">View quote</button> `:''}<button class="linkbtn" onclick="finQuoteHideAll('${q.id}', ${count(q.id)})">Hide all from the team</button></b></div>` : ''; })() : ''}
+    ${shown.length ? finSearchHtml('Search these items', 'finShopList') : ''}
+    <div id="finShopList">${shown.map(i=>`<div class="pmrow pmrow-card finrow" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" style="${i.active?'':'opacity:.5;'}">
+        <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[sel ? '' : (i.quote_label || (i.quote_id ? '' : 'Added by hand')), i.code, i.unit?'per '+i.unit:'', i.qty!=null?'quoted qty '+i.qty:''].filter(Boolean).map(escapeHtml).join(' · ')}${i.active?'':' · hidden from the team'}</span></span>
+        <span class="finval"><input type="text" inputmode="decimal" data-money class="finshoprate" value="${rate[i.id]!=null?rate[i.id]:''}" placeholder="£" onchange="finShopSetRate('${i.id}', this.value)"><button class="linkbtn" onclick="finShopToggle('${i.id}', ${!i.active})">${i.active?'hide':'show'}</button></span></div>`).join('') || `<div class="empty">No items yet. Upload a quote above.</div>`}
       <div class="empty lf-empty" style="display:none;">No match.</div></div>
-    ${quotes.length ? `<p class="sectiontitle" style="margin-top:22px;">Quotes used</p>${quotes.map(q=>`<div class="finkv"><span>${escapeHtml(q.supplier_name||'')} ${escapeHtml(q.quote_no||'')} · ${finDate(String(q.created_at).slice(0,10))}</span><b>${q.file_path?`<button class="linkbtn" onclick="openFinDoc('${jsAttr(q.file_path)}','${jsAttr(q.file_name||'')}')">view</button>`:''}</b></div>`).join('')}` : ''}
-  `, {title:'Shopping list', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
+  `, {title:'Project quotes', subtitle:finJobTag(siteId), back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
+window.finQuoteHideAll = async function(quoteId, n){
+  if(!(await customConfirm('Hide all '+n+' items on this quote from the team? They stay here and you can show them again.'))) return;
+  const res = await sbFetch('/rest/v1/fin_shop_items?quote_id=eq.'+quoteId, {method:'PATCH', body:JSON.stringify({active:false})});
+  toast(res.ok ? 'Hidden from the team' : 'Could not hide them'); render();
+};
 window.finShopRead = async function(siteId, input){
   const f = input.files && input.files[0]; if(!f) return;
   const box = document.getElementById('finShopDraft'); if(box) box.innerHTML = '<p class="stub">Reading the quote…</p>';
@@ -319,7 +336,7 @@ function finShopPaintDraft(){
     <p class="stub" style="margin:0 0 8px;">${d.lines.length} lines found. Untick anything that shouldn’t be on the list, and correct any wording.</p>
     ${d.lines.map((l,i)=>`<div class="finitem"><label class="finswitch" style="margin:0;"><input type="checkbox" ${l.keep?'checked':''} onchange="finShopDraft.lines[${i}].keep=this.checked"><input type="text" value="${escapeHtml(l.description)}" oninput="finShopDraft.lines[${i}].description=this.value" style="flex:1;"></label>
       <div class="finitem-in"><label>Unit<input type="text" value="${escapeHtml(l.unit||'')}" oninput="finShopDraft.lines[${i}].unit=this.value"></label><label>Qty<input type="text" inputmode="decimal" value="${l.qty!=null?l.qty:''}" oninput="finShopDraft.lines[${i}].qty=finNum(this.value)"></label><label>Rate £<input type="text" inputmode="decimal" data-money value="${l.unit_price!=null?l.unit_price:''}" oninput="finShopDraft.lines[${i}].unit_price=finNum(this.value)"></label></div></div>`).join('')}
-    <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items to the shopping list</button>`;
+    <button class="darkbtn" style="width:100%;margin-top:12px;" onclick="finShopSave()">Add ${d.lines.length} items as a project quote</button>`;
 }
 window.finShopSave = async function(){
   const d = finShopDraft; if(!d) return;
@@ -328,13 +345,13 @@ window.finShopSave = async function(){
   const quote = await dbInsert('fin_quotes', {org_id:ME.org_id, site_id:d.siteId, purpose:'shopping', supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, quote_no:d.data.doc_number||null, quote_date:d.data.doc_date||null, file_path:d.path||null, file_name:d.file, lines:keep, net:d.data.net||null, vat:d.data.vat||null, total:d.data.total||null, created_by:ME.id});
   const ex = await dbSelect('fin_shop_items', 'site_id=eq.'+d.siteId+'&select=position&order=position.desc&limit=1');
   let pos = ex[0] ? ex[0].position : 0;
-  const rows = keep.map(l=>({id:crypto.randomUUID(), org_id:ME.org_id, site_id:d.siteId, supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, code:l.code||null, description:String(l.description).trim().slice(0,300), unit:l.unit||null, qty:l.qty!=null?l.qty:null, quote_id:quote&&quote[0]?quote[0].id:null, position:++pos, active:true, created_by:ME.id}));
+  const rows = keep.map(l=>({id:crypto.randomUUID(), org_id:ME.org_id, site_id:d.siteId, supplier_id:d.supplier_id||null, supplier_name:d.supplier_name||null, code:l.code||null, description:String(l.description).trim().slice(0,300), unit:l.unit||null, qty:l.qty!=null?l.qty:null, quote_id:quote&&quote[0]?quote[0].id:null, quote_label:[d.supplier_name, d.data.doc_number, finDate(d.data.doc_date || finToday())].filter(Boolean).join(' · ').slice(0,200), position:++pos, active:true, created_by:ME.id}));
   const ins = await sbFetch('/rest/v1/fin_shop_items', {method:'POST', body:JSON.stringify(rows)});
   if(!ins.ok){ toast('Could not save the list — '+(await safeErr(ins))); return; }
-  const pr = rows.map((r,i)=>({item_id:r.id, org_id:ME.org_id, rate:keep[i].unit_price!=null?finRound4(keep[i].unit_price):null})).filter(p=>p.rate!=null);
+  const pr = rows.map((r,i)=>({item_id:r.id, org_id:ME.org_id, rate:Number.isFinite(keep[i].unit_price)?finRound4(keep[i].unit_price):null})).filter(p=>p.rate!=null);
   if(pr.length) await sbFetch('/rest/v1/fin_shop_prices', {method:'POST', body:JSON.stringify(pr)});
   await finPriceBookSave(d.supplier_name, keep, 'quote', d.data.doc_number);
-  finShopDraft = null; toast(rows.length+' items added to the shopping list'); render();
+  finShopDraft = null; finQuoteSel[d.siteId] = quote && quote[0] ? quote[0].id : ''; toast(rows.length+' items added as a project quote'); render();
 };
 window.finShopSetRate = async function(itemId, v){
   const n = finNum(v); const rate = (n===null || isNaN(n)) ? null : finRound4(n);
@@ -353,7 +370,7 @@ window.finShopAddManual = async function(siteId){
 let finShopPick = null; // {id, description, unit, supplier_id, rate}
 window.openShopPicker = async function(siteId, mode){
   const [items, prices] = await Promise.all([
-    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&active=eq.true&order=supplier_name.asc,position.asc'),
+    dbSelect('fin_shop_items', 'site_id=eq.'+siteId+'&active=eq.true&order=position.asc'),
     finCanSeeCosts() ? dbSelect('fin_shop_prices', 'org_id=eq.'+ME.org_id) : Promise.resolve([]),
   ]);
   const rate = {}; prices.forEach(p=>rate[p.item_id] = p.rate);
@@ -362,12 +379,13 @@ window.openShopPicker = async function(siteId, mode){
   if(!ov){ ov = document.createElement('div'); ov.id = 'shopPickOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:560px;max-height:calc(100dvh - 40px);overflow-y:auto;">
-    <h3>Project shopping list</h3>
-    ${items.length ? `<div class="formfield"><input type="text" placeholder="Search" oninput="liveFilter(this.value,'#shopPickList')"></div>
-    <div id="shopPickList">${items.map((i,k)=>`<button type="button" class="pmrow finrow" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="pickShopItem(${k},'${mode}')">
-      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.supplier_name, i.code, i.unit?'per '+i.unit:''].filter(Boolean).map(escapeHtml).join(' · ')}</span></span>
+    <h3>Project quotes</h3>
+    ${items.length ? `${(()=>{ const qs = {}; items.forEach(i=>{ const k = i.quote_id||'manual'; if(!qs[k]) qs[k] = i.quote_id ? (i.quote_label||'Quote') : 'Added by hand'; }); const keys = Object.keys(qs); return keys.length>1 ? `<div class="formfield"><label class="field-label">Which quote is this order from?</label><select onchange="finPickQuote(this.value)"><option value="">All quotes</option>${keys.map(k=>`<option value="${k}">${escapeHtml(qs[k])}</option>`).join('')}</select></div>` : ''; })()}
+    <div class="formfield"><input type="text" placeholder="Search" oninput="liveFilter(this.value,'#shopPickList')"></div>
+    <div id="shopPickList">${items.map((i,k)=>`<button type="button" class="pmrow finrow" data-q="${i.quote_id||'manual'}" data-lf="${lfText([i.description, i.code, i.supplier_name].join(' '))}" onclick="pickShopItem(${k},'${mode}')">
+      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.description)}</span><span class="pmrow-s">${[i.quote_label || i.supplier_name, i.code, i.unit?'per '+i.unit:''].filter(Boolean).map(escapeHtml).join(' · ')}</span></span>
       ${rate[i.id]!=null ? `<span class="finval">${finMoney(rate[i.id])}</span>` : ''}</button>`).join('')}<div class="empty lf-empty" style="display:none;">No match.</div></div>`
-    : `<p class="stub">There’s no shopping list for this project yet. Finance can add one from a supplier quote (project › Finance › Shopping list).</p>`}
+    : `<p class="stub">There are no project quotes for this project yet. Finance can add them from a supplier quote (project › Finance › Project quotes).</p>`}
     <button class="geo-modal-cancel" onclick="document.getElementById('shopPickOverlay').style.display='none'">Close</button>
   </div>`;
   ov.style.display = 'flex';
@@ -377,7 +395,8 @@ window.pickShopItem = function(k, mode){
   finShopPick = {id:i.id, description:i.description, unit:i.unit||'', supplier_id:i.supplier_id||null, rate:(window.__shopRates||{})[i.id]};
   document.getElementById('shopPickOverlay').style.display = 'none';
   if(mode==='po' && typeof finNewPo!=='undefined' && finNewPo){
-    const line = {description:i.description, qty:1, unit:i.unit||'', rate:finShopPick.rate!=null?Number(finShopPick.rate):null, amount:0};
+    const line = {description:i.description, qty:1, unit:i.unit||'', rate:finShopPick.rate!=null?Number(finShopPick.rate):null, amount:0, cost_code:'materials', vat:finNewPo.vat||'20', shop_item_id:i.id};
+    const supSel = document.getElementById('finNpoSup'); if(supSel && !supSel.value && i.supplier_id && Array.from(supSel.options).some(o=>o.value===i.supplier_id)) supSel.value = i.supplier_id;
     line.amount = finRound(Number(line.qty||0)*Number(line.rate||0));
     const empty = finNewPo.lines.findIndex(l=>!String(l.description||'').trim());
     if(empty>-1) finNewPo.lines[empty] = line; else finNewPo.lines.push(line);
@@ -385,10 +404,12 @@ window.pickShopItem = function(k, mode){
   }
   const it = document.getElementById('matItem'); if(it){ it.value = i.description; }
   const q = document.getElementById('matQty'); if(q){ q.placeholder = i.unit ? 'Quantity ('+i.unit+')' : 'Quantity'; q.focus(); }
-  const tag = document.getElementById('matShopTag'); if(tag) tag.innerHTML = `From the shopping list${i.supplier_name?' · '+escapeHtml(i.supplier_name):''}${finShopPick.rate!=null?' · '+finMoney(finShopPick.rate)+(i.unit?'/'+escapeHtml(i.unit):''):''} <button class="linkbtn" onclick="finShopPick=null;this.parentNode.innerHTML=''">clear</button>`;
+  const tag = document.getElementById('matShopTag'); if(tag) tag.innerHTML = `From a project quote${i.supplier_name?' · '+escapeHtml(i.supplier_name):''}${finShopPick.rate!=null?' · '+finMoney(finShopPick.rate)+(i.unit?'/'+escapeHtml(i.unit):''):''} <button class="linkbtn" onclick="finShopPick=null;this.parentNode.innerHTML=''">clear</button>`;
 };
 // Used by addMaterial (760): the picked shopping-list item, if the text wasn't changed.
 function finShopPickFor(itemText){
   if(!finShopPick || String(itemText||'').trim()!==String(finShopPick.description).trim()) return null;
   return finShopPick;
 }
+
+window.finPickQuote = function(q){ document.querySelectorAll('#shopPickList [data-q]').forEach(b=>b.classList.toggle('qhide', !!q && b.dataset.q!==q)); };

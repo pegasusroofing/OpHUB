@@ -383,8 +383,9 @@ async function finBuildInvoicePdf(inv, site, st){
       page.drawLine({start:{x:M, y:last-7}, end:{x:W-M, y:last-7}, thickness:0.6, color:LINE});
       y = last - 22;
     }
-    // Totals
+    // Totals (start a new page if they'd run into the payment details at the bottom)
     y -= 8;
+    if(y < 240){ page = pdf.addPage([W, H]); y = H-M; }
     const t = finInvTotals(inv.lines, inv.vat_treatment, inv.vat_rate);
     const tot = (k, v, big)=>{ txt(k, W-M-210, y, {font:big?bold:reg, size:big?12:10, color:big?INK:SLATE}); right(v, W-M-8, y, {font:bold, size:big?12:10}); y -= big?20:16; };
     tot('Net', finMoney(inv.net));

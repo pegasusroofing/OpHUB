@@ -179,7 +179,7 @@ window.finXeroFindContact = async function(){
 };
 window.finXeroUseContact = function(i){
   const c = (window.__finXeroContacts||[])[i]; if(!c) return;
-  const set = (id, v)=>{ const el = document.getElementById(id); if(el && v) el.value = v; };
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.value = v || ''; };
   set('finBillName', c.name); set('finBillAddr', c.address); set('finBillEmail', c.email);
   const q = document.getElementById('finCustQ'); if(q) q.value = '';
   const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = `<p class="stub" style="font-style:normal;color:var(--ok);margin:6px 0;">✓ ${escapeHtml(c.name)} filled in below — tap Save.</p>`;

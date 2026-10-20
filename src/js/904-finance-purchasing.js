@@ -71,7 +71,7 @@ function finPurchasingCardHtml(siteId, pos, pinvs){
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
       <p class="sectiontitle" style="margin:0;">Purchase orders</p>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Shopping list</button>
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Project quotes</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openFinNewPo('${siteId}')">+ New PO</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
@@ -124,7 +124,8 @@ async function renderFinPo(siteId, poId){
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Items</p>
-      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}${it.rate!=null?` × ${finMoney(it.rate)}${it.amount!=null?' = '+finMoney(it.amount):''} <em class="finrate-src">${{list:'shopping list',book:'price book — estimate',quote:'quote',invoice:'invoice'}[it.rate_source]||''}</em>`:''}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+      ${(po.items||[]).map(it=>{ if(!it.material_id) return `<div class="finkv"><span>${escapeHtml(it.item)}${it.qty!=null?' · '+escapeHtml(String(it.qty))+(it.unit?' '+escapeHtml(it.unit):''):''}${it.rate!=null?' × '+finMoney(it.rate):''}${it.cost_code||it.vat_rate ? `<em class="finpoline-tags">${[it.cost_code ? (FIN_COST_CATS[it.cost_code]||it.cost_code) : '', it.vat_rate && typeof FIN_VAT_RATES!=='undefined' && FIN_VAT_RATES[it.vat_rate] ? 'VAT '+FIN_VAT_RATES[it.vat_rate].s : ''].filter(Boolean).join(' · ')}</em>` : ''}</span><b>${it.amount!=null?finMoney(it.amount):''}</b></div>`; const m = matBy[it.material_id]; const got = m && m.grn; return `<div class="finkv"><span>${escapeHtml(it.item)} · qty ${escapeHtml(String(it.qty||'1'))}${it.rate!=null?` × ${finMoney(it.rate)}${it.amount!=null?' = '+finMoney(it.amount):''} <em class="finrate-src">${{list:'shopping list',book:'price book — estimate',quote:'quote',invoice:'invoice'}[it.rate_source]||''}</em>`:''}</span><b>${!m ? '<span class="finpill grey">Removed</span>' : got ? (got.ok===false ? '<span class="finpill bad">Received — problem</span>' : '<span class="finpill ok">Received</span>') : '<span class="finpill grey">Not received yet</span>'}</b></div>`; }).join('')}
+      ${po.vat!=null ? `<div class="finkv" style="margin-top:6px;"><span>Subtotal</span><b>${finMoney(po.value)}</b></div><div class="finkv"><span>VAT</span><b>${finMoney(po.vat)}</b></div><div class="finkv big"><span>Total</span><b>${finMoney(po.total!=null?po.total:Number(po.value||0)+Number(po.vat||0))}</b></div>` : ''}
     </div>
     ${po.status!=='cancelled' ? `<div class="card">
       <div class="formfield" style="margin:0;"><label class="field-label">PO value (£, excl. VAT)</label>
@@ -153,7 +154,11 @@ async function renderFinPo(siteId, poId){
 window.saveFinPoValue = async function(poId){
   const v = finNum(finVal('finPoValue'));
   if(v!==null && (isNaN(v) || v<0)){ toast('Enter the value as a number.'); return; }
-  const r = await dbUpdate('purchase_orders', poId, {value: v===null ? null : finRound(v)});
+  const old = (await dbSelect('purchase_orders', 'id=eq.'+poId+'&select=value,vat'))[0] || {};
+  const patch = {value: v===null ? null : finRound(v)};
+  // Keep the VAT in step with a typed value (same VAT mix as the lines).
+  if(old.vat!=null){ const ratio = old.value ? Number(old.vat)/Number(old.value) : 0.2; patch.vat = v===null ? null : finRound(v*ratio); patch.total = v===null ? null : finRound(v + patch.vat); }
+  const r = await dbUpdate('purchase_orders', poId, patch);
   if(r){ toast('PO value saved'); render(); }
 };
 window.setFinPoStatus = async function(poId, status){

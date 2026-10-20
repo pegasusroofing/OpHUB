@@ -53,7 +53,15 @@ function finCostLinesFromBook(b, siteId){
   });
   each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
     const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));
-    if(left > 0) lines.push({key:'po:'+p.id+':'+(a.sub||''), date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:'materials', desc:'Ordered, not invoiced yet'+tag(a), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
+    if(left <= 0) return;
+    // Split what's left across the lines' cost codes (plant, subcontract…), by value.
+    const byCode = {}; let codedTot = 0;
+    (p.items||[]).forEach(it=>{ const c = FIN_COST_CATS[it.cost_code] ? it.cost_code : 'materials'; const amt = Number(it.amount||0); if(amt>0){ byCode[c] = (byCode[c]||0) + amt; codedTot += amt; } });
+    const codes = codedTot ? Object.keys(byCode) : ['materials'];
+    codes.forEach(c=>{
+      const part = codedTot ? byCode[c]/codedTot : 1;
+      lines.push({key:'po:'+p.id+':'+(a.sub||'')+':'+c, date:String(p.created_at||'').slice(0,10), cat:'committed', ccat:c, desc:'Ordered, not invoiced yet'+tag(a)+(codes.length>1?' — '+FIN_COST_CATS[c]:''), who:p.supplier_name||'', ref:p.number, status:'Committed', net:finRound(left*a.share*part), sub:a.sub, share:a.share, src:{t:'purchase_orders', id:p.id}, open:`go('#/site/${p.site_id}/finance/po/${p.id}')`});
+    });
   });
   // Sign-in days: a day split evenly over the plots / addresses signed into that day.
   const dayCks = finBy(b.cks, siteId), daySubs = {};
@@ -69,7 +77,7 @@ function finCostLinesFromBook(b, siteId){
   finBy(b.manual, siteId).forEach(m=>{
     lines.push({key:'ml:'+m.id, date:m.work_date, cat:'labour', desc:m.description || 'Timesheet', who:m.name || finPersonName(finPersonKey(m)), ref:m.days ? m.days+' day'+(Number(m.days)===1?'':'s') : '', status:'', net:Number(m.amount||0), days:Number(m.days||0), person:finPersonKey(m), sub:m.sub_job_id||null, share:1});
   });
-  each(b.hires, (h,a)=>{
+  each((b.hires||[]).filter(h=>h.cost_from!=='invoices'), (h,a)=>{
     const c = finPlantCost(h);
     lines.push({key:'ph:'+h.id+':'+(a.sub||''), date:h.on_hire, cat:'plant', desc:h.item+' ('+(h.off_hire ? finDate(h.on_hire)+' – '+finDate(h.off_hire) : 'on hire '+c.weeks+' wk')+')'+tag(a), who:h.supplier_name||'', ref:h.hire_ref||'', status:h.off_hire ? 'Off hire' : 'On hire', net:finRound(c.cost*a.share), sub:a.sub, share:a.share, src:{t:'fin_plant_hires', id:h.id}, open:`openFinPlantForm('${h.site_id}','${h.id}')`});
   });
@@ -132,7 +140,8 @@ function finJobForecast(b, siteId){
   let budgetTotal = catBudget ? sum(budget) : null, budgetSource = catBudget ? 'categories' : null, toCompleteSched = 0;
   if(!catBudget && schedCosted.length){
     budgetTotal = finRound(schedCost + varCost); budgetSource = 'schedule';
-    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal));
+    const typedTc = finRound(cats.reduce((t,k)=>t+(tcSet[k] ? Number(toComplete[k]||0) : 0), 0));
+    toCompleteSched = Math.max(0, finRound(budgetTotal - costToDate - committedTotal - typedTc));
     forecastCost = finRound(forecastCost + toCompleteSched);
   }
   const sales = finBillingType(jf, schedItems.length, apps.length)==='invoice' ? invoiced : valuation;
@@ -283,7 +292,8 @@ window.finBudPaint = function(){
     if(tcIn && x.to_complete==null) tcIn.placeholder = finMoneyIn(x.tcEff);
   });
   const set = (id, t, c)=>{ const el = document.getElementById(id); if(el){ el.textContent = t; if(c!==undefined) el.style.color = c; } };
-  set('finBudTB', anyB ? finMoney(tb) : '—'); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
+  if(!anyB && fc.budgetSource==='schedule'){ const extra = Math.max(0, finRound(fc.budgetTotal - fc.costToDate - fc.committedTotal - tt)); tf = finRound(tf + extra); tt = finRound(tt + extra); }
+  set('finBudTB', anyB ? finMoney(tb) : (fc.budgetSource==='schedule' ? finMoney(fc.budgetTotal) : '—')); set('finBudTT', finMoney(tt)); set('finBudTF', finMoney(tf));
   set('finBudTV', anyB ? ((tb-tf<0?'over ':'under ')+finMoney(Math.abs(finRound(tb-tf)))) : '—', anyB ? (tb-tf<0?'var(--red)':'var(--ok)') : '');
   const m = finRound(fc.ffa - tf);
   set('finBudFc', finMoney(tf, 0)); set('finBudFm', finMoney(m, 0), m<0?'var(--red)':''); set('finBudFp', fc.ffa ? finPctTxt(m/fc.ffa*100) : '—');

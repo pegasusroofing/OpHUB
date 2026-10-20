@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
         const x: any = {
           Type: 'ACCPAY', Contact: contact, InvoiceNumber: pi.invoice_no || undefined,
           Reference: [po?.number, site?.job_number].filter(Boolean).join(' / ').slice(0, 255) || undefined,
-          Date: pi.invoice_date, DueDate: pi.invoice_date, LineAmountTypes: 'Exclusive', Status: 'AUTHORISED',
+          Date: pi.invoice_date, DueDate: pi.due_date || pi.invoice_date, LineAmountTypes: 'Exclusive', Status: 'AUTHORISED',
           LineItems: [{ Description: (pi.description || ('Materials' + (po ? ' — ' + po.number : ''))).slice(0, 4000), Quantity: 1, UnitAmount: r2(pi.net),
             AccountCode: s.xero_purchase_account || '310', TaxType: vat > 0 ? 'INPUT2' : 'ZERORATEDINPUT', TaxAmount: vat, Tracking: tracking }],
         };
@@ -305,7 +305,7 @@ Deno.serve(async (req) => {
 
     if (action === 'pull_payments') {
       // For sent invoices still owing: if Xero shows more paid than OpHUB, record the difference as a payment.
-      const { data: invs } = await admin.from('fin_invoices').select('id, total, paid, xero_id').eq('org_id', orgId).in('status', ['issued', 'sent', 'part_paid']).not('xero_id', 'is', null).limit(100);
+      const { data: invs } = await admin.from('fin_invoices').select('id, total, paid, xero_id').eq('org_id', orgId).in('status', ['issued', 'sent', 'part_paid']).not('xero_id', 'is', null).order('issue_date', { ascending: true }).limit(2000);
       let added = 0, amount = 0;
       const list = invs || [];
       for (let i = 0; i < list.length; i += 40) {

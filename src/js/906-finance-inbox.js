@@ -131,7 +131,14 @@ function finInboxCardHtml(it, pos, sites){
     <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="finInboxFile('${it.id}')">File to project</button><button class="ghostbtn" style="flex:1;" onclick="finInboxSet('${it.id}','ignored')">Ignore</button></div>`}
   </div>`;
 }
-window.finInboxPickJob = async function(id, siteId){ await dbUpdate('fin_inbox', id, {site_id:siteId||null, po_id:null}); render(); };
+window.finInboxPickJob = async function(id, siteId){
+  // Keep anything typed on the card (supplier, invoice no., amounts) — it's rebuilt from 'extracted'.
+  const card = document.getElementById('finInb-'+id);
+  const it = (await dbSelect('fin_inbox', 'id=eq.'+id+'&select=extracted'))[0] || {};
+  const ex = Object.assign({}, it.extracted||{});
+  if(card) card.querySelectorAll('[data-k]').forEach(el=>{ const k = el.dataset.k; if(k==='site_id' || k==='po_id') return; ex[k] = el.dataset.money!==undefined ? (finNum(el.value)) : el.value.trim(); });
+  await dbUpdate('fin_inbox', id, {site_id:siteId||null, po_id:null, extracted:ex}); render();
+};
 window.finInboxSet = async function(id, status){ if(await dbUpdate('fin_inbox', id, {status})) render(); };
 window.finInboxUpload = async function(files){
   files = Array.from(files||[]); if(!files.length) return;
@@ -152,6 +159,7 @@ window.finInboxFile = async function(id){
   const card = document.getElementById('finInb-'+id); if(!card) return;
   const g = k=>{ const el = card.querySelector(`[data-k="${k}"]`); return el ? el.value.trim() : ''; };
   const it = (await dbSelect('fin_inbox', 'id=eq.'+id))[0]; if(!it) return;
+  if(it.status!=='new'){ toast('Already filed.'); render(); return; }
   const siteId = g('site_id'), poId = g('po_id'), supplier = g('supplier'), no = g('invoice_no');
   let net = finNum(g('net')), vat = finNum(g('vat')), total = finNum(g('total'));
   if(!siteId){ toast('Choose the project.'); return; }

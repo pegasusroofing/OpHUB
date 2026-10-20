@@ -9,8 +9,8 @@ let finRep = null; // {id, f:{job, from, to, status, opening}, data}
 let finRepBook = null, finRepBookAt = 0;
 
 async function finRepBookLoad(){
-  if(finRepBook && Date.now() - finRepBookAt < 60000) return finRepBook;
-  finRepBook = await finLoadBook(null); finRepBookAt = Date.now();
+  if(finRepBook && Date.now() - finRepBookAt < 15000 && finRepBook.__route===location.hash) return finRepBook;
+  finRepBook = await finLoadBook(null); finRepBookAt = Date.now(); finRepBook.__route = location.hash;
   return finRepBook;
 }
 function finRepSites(f){
@@ -29,7 +29,7 @@ const FIN_REPORTS = [
   }},
   {id:'cvr', group:'qs', title:'Cost value reconciliation (CVR)', desc:'Value to date against cost to date, and the forecast at completion, project by project.', filters:['status','job'], run:async f=>{
     const b = await finRepBookLoad();
-    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.valuation, cost:fc.costToDate, margin:fc.marginToDate, mpct:fc.marginToDatePct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
+    const rows = finRepSites(f).map(s=>{ const fc = finJobForecast(b, s.id); return {job:finRepJob(s), value:fc.sales, cost:fc.costToDate, margin:fc.salesMargin, mpct:fc.salesMarginPct, committed:fc.committedTotal, ffa:fc.ffa, fcost:fc.forecastCost, fmargin:fc.forecastMargin, fpct:fc.forecastMarginPct, _go:`#/site/${s.id}/finance/budget`}; });
     return {cols:[{k:'job',l:'Project',w:160},{k:'value',l:'Value to date',money:1},{k:'cost',l:'Cost to date',money:1},{k:'margin',l:'Margin to date',money:1},{k:'mpct',l:'%',pct:1},{k:'committed',l:'Committed',money:1},{k:'ffa',l:'Forecast final account',money:1},{k:'fcost',l:'Forecast final cost',money:1},{k:'fmargin',l:'Forecast margin',money:1},{k:'fpct',l:'%',pct:1}], rows, totals:true, note:'Value to date is the latest certified (or applied) gross valuation. Cost to date excludes committed orders.'};
   }},
   {id:'ffa', group:'qs', title:'Forecast final account', desc:'Contract sum plus variations agreed, submitted and instructed, by project.', filters:['status','job'], run:async f=>{
@@ -85,7 +85,7 @@ const FIN_REPORTS = [
     for(let i=0;i<12;i++) weeks.push({wk:finAddDays(mon, i*7), inv:0, apps:0, sup:0, subs:0});
     const put = (date, k, amt)=>{ let i = date ? Math.floor(finDaysBetween(mon, date)/7) : 0; if(i<0) i = 0; if(i>11) return; weeks[i][k] += amt; };
     (b.invs||[]).filter(i=>finInvOutstanding(i)>0).forEach(i=>put(i.due_date, 'inv', finInvOutstanding(i)));
-    (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*1.2));
+    (b.apps||[]).filter(a=>!a.invoice_id && ['submitted','certified'].includes(a.status)).forEach(a=>{ const jf = finBy(b.jf, a.site_id)[0] || {}; const vt = jf.vat_treatment || 'standard'; put(a.final_date||a.due_date, 'apps', Number(a.cert_net!=null?a.cert_net:a.net_due||0)*(vt==='standard'?1.2:1)); });
     (b.pinvs||[]).filter(i=>(!b.siteId || i.site_id===b.siteId) && i.status==='approved' && !i.paid_on).forEach(i=>put(i.due_date||finAddDays(i.invoice_date,30), 'sup', Number(i.total||0)));
     (b.sapps||[]).filter(a=>a.status==='certified').forEach(a=>put(a.final_date||finAddDays(a.app_date,30), 'subs', Number(a.pay_amount||0)));
     let bal = Number(f.opening||0);
