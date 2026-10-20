@@ -87,13 +87,15 @@ async function renderFinInbox(){
   if(__gen !== RENDER_GEN) return;
   const ctx = {pos, suppliers, sites:SITES};
   if(finInboxTab==='new' && items.some(i=>!i.extracted)){
-    document.getElementById('app').innerHTML = shell(`<div class="empty">Reading ${items.filter(i=>!i.extracted).length} new invoice${items.filter(i=>!i.extracted).length===1?'':'s'}…</div>`, {title:'Invoice inbox', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+    document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}<div class="empty">Reading ${items.filter(i=>!i.extracted).length} new invoice${items.filter(i=>!i.extracted).length===1?'':'s'}…</div>`, {title:'Invoice inbox', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
     if(await finInboxReadPending(items, ctx)) return render();
   }
   const counts = {new:'', filed:'', ignored:''};
   const chip = (k,l)=>`<button type="button" class="pmchip ${finInboxTab===k?'on':''}" onclick="finInboxTab='${k}';render()">${l}</button>`;
   const liveSites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Add supplier invoices</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of supplier invoices, as many as you like. The app reads each one and finds the job from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
@@ -101,7 +103,7 @@ async function renderFinInbox(){
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('new','To file')}${chip('filed','Filed')}${chip('ignored','Ignored')}</div>
     ${items.length ? items.map(it=>finInboxCardHtml(it, pos, liveSites)).join('') : `<div class="empty">${finInboxTab==='new' ? 'Nothing waiting. New invoices appear here.' : 'Nothing here.'}</div>`}
-  `, {title:'Invoice inbox', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+  `, {title:'Invoice inbox', subtitle:'OpHUB Finance · purchases', back:'#/finance/purchases', tabs:false});
 }
 function finInboxCardHtml(it, pos, sites){
   const ex = it.extracted || {};

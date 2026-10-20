@@ -124,10 +124,11 @@ const FIN_REPORTS = [
 function renderFinReports(){
   if(!finGuard()) return;
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('reports')}
     <p class="stub" style="margin:0 0 16px;">Pick a report, set the job and dates, then download it as Excel or PDF.</p>
     ${Object.keys(FIN_REPORT_GROUPS).map(g=>`<p class="sectiontitle">${FIN_REPORT_GROUPS[g]}</p>
       <div class="finrepgrid">${FIN_REPORTS.filter(r=>r.group===g).map(r=>`<button type="button" class="finrepcard" onclick="finRep=null;go('#/finance/reports/${r.id}')"><b>${escapeHtml(r.title)}</b><span>${escapeHtml(r.desc)}</span></button>`).join('')}</div>`).join('')}
-  `, {title:'Reports', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+  `, {title:'Reports', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
 }
 
 /* ---------- one report ---------- */

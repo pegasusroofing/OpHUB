@@ -1694,3 +1694,44 @@ html.finmode .geo-modal-card h3{font-size:18px;margin:0 0 14px;}
 html.desk.finmode .scrollarea > #finRepOut{max-width:none;}
 html.desk .finreptbl{font-size:13px;}
 html.desk .finreptbl th, html.desk .finreptbl td{padding:9px 8px;}
+/* ===== OpHUB Finance — sections ===== */
+.finsecnav{display:flex;gap:4px;padding:4px;background:#E9ECF0;border-radius:14px;margin:0 0 18px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+.finsecnav::-webkit-scrollbar{display:none;}
+.finsecnav button{all:unset;box-sizing:border-box;cursor:pointer;flex:1 0 auto;text-align:center;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;color:var(--slate);white-space:nowrap;}
+.finsecnav button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(16,17,20,.12);}
+.finsecnav button:not(.on):hover{color:var(--ink);}
+html.desk .finsecnav{max-width:760px;}
+.finsubtabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:4px 0 16px;overflow-x:auto;scrollbar-width:none;}
+.finsubtabs::-webkit-scrollbar{display:none;}
+.finsubtabs button{all:unset;cursor:pointer;padding:10px 0 12px;font-size:15px;font-weight:600;color:var(--slate);border-bottom:2.5px solid transparent;margin-bottom:-1px;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
+.finsubtabs button.on{color:var(--ink);border-bottom-color:var(--brand1);}
+.finsubtabs-n{display:inline-block;min-width:20px;padding:1px 6px;border-radius:999px;background:var(--warn-bg);color:var(--warn);font-size:12px;font-weight:800;text-align:center;}
+.finsechead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:22px 0 12px;}
+.finsechead h3{margin:0;font-size:18px;font-weight:800;color:var(--ink);}
+.finsechead .darkbtn{width:auto;flex:none;}
+.fintodo{padding-bottom:8px !important;}
+.fintodo-i{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:flex;align-items:center;gap:14px;padding:12px 4px;border-top:1px solid var(--line);}
+.fintodo .fintodo-i:first-of-type{border-top:0;}
+.fintodo-i.card{border:1px solid #ECEEF2;padding:14px 16px;margin-bottom:14px;}
+.fintodo-n{flex:none;min-width:34px;height:34px;padding:0 8px;box-sizing:border-box;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;}
+.fintodo-n.t-warn{background:var(--warn-bg);color:var(--warn);}
+.fintodo-n.t-bad{background:#FDECEE;color:var(--red);}
+.fintodo-n.t-blue{background:var(--blue-bg);color:var(--blue);}
+.fintodo-n.t-grey{background:#EEF1F4;color:var(--slate);}
+.fintodo-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.fintodo-t b{font-size:15px;color:var(--ink);}
+.fintodo-t em{font-style:normal;font-size:13px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fintodo-c{flex:none;font-size:22px;color:var(--slate-light);}
+.finrowjob{font-size:12.5px;font-weight:600;color:var(--slate);margin:12px 4px 4px;}
+html.finmode .finstats .pmstat{cursor:pointer;}
+.finval em{display:block;text-align:right;}
+@media (max-width:600px){
+  .finsecnav{display:grid;grid-template-columns:repeat(3,1fr);overflow:visible;}
+  .finsecnav button{padding:10px 6px;font-size:13.5px;}
+  .finsubtabs{flex-wrap:wrap;gap:0 18px;overflow:visible;}
+  .finsubtabs button{font-size:14.5px;}
+  .finsechead h3{font-size:17px;}
+}
+@media (max-width:600px){ .finsecnav{grid-template-columns:repeat(4,1fr);} .finsecnav button{font-size:12.5px;padding:10px 2px;} }
+.fincli-jobs{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;}
+.fincli-jobs .linkbtn{margin:0;font-size:12.5px;}

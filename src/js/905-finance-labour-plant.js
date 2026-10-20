@@ -190,14 +190,13 @@ async function renderFinLabour(){
   const payBy = {}; pays.forEach(p=>{ payBy[finPersonKey(p)] = p; });
   const fmtW = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric', month:'short'});
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('labour')}${finSubTabs('labour','week')}
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <button class="ghostbtn" style="width:auto;" onclick="finLabWeek=finAddDays(finLabWeek,-7);render()">‹</button>
       <div style="text-align:center;"><div class="finhead-l">Week</div><div class="finhead-v">${fmtW(from)} – ${fmtW(to)}</div></div>
       <button class="ghostbtn" style="width:auto;" onclick="finLabWeek=finAddDays(finLabWeek,7);render()">›</button>
     </div>
     <div class="row-gap" style="flex-wrap:wrap;margin-bottom:12px;">
-      <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/labour/rates')">Rates &amp; CIS details</button>
-      <button class="ghostbtn" style="flex:1;" onclick="go('#/finance/labour/cis')">CIS summary</button>
       <button class="darkbtn" style="flex:1;" onclick="openFinManualLabour(null, finLabWeek)">+ Add timesheet</button>
     </div>
     <div class="card">
@@ -210,7 +209,7 @@ async function renderFinLabour(){
       </div>`; }).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">No labour this week — nobody signed in on site and no timesheets added.</p>`}
     </div>
     ${pays.filter(p=>!people[finPersonKey(p)]).map(p=>`<button class="pmrow pmrow-card finrow" onclick="go('#/finance/labour/payment/${p.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.name)}</span><span class="pmrow-s">Payment ${p.status}</span></span><span class="finval">${finMoney(p.net_pay)}</span></button>`).join('')}
-  `, {title:'Labour & CIS', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+  `, {title:'Labour', subtitle:'OpHUB Finance · timesheets', back:finSecBack(), tabs:false});
 }
 window.newFinSubPayment = async function(key){
   const from = finLabWeek, to = finAddDays(from, 6);
@@ -322,12 +321,13 @@ async function renderFinLabourRates(){
       <div class="row-gap"><button class="ghostbtn" style="flex:1;" onclick="saveFinRate('${key}')">Save</button>${isW ? `<button class="ghostbtn" style="flex:none;width:auto;" onclick="finWorkerActive('${r.id}', ${r.active===false})">${r.active===false?'Make active':'Not working for us'}</button>` : ''}</div>
     </div>`;
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('labour')}${finSubTabs('labour','rates')}
     <p class="stub" style="margin:0 0 10px;font-style:normal;">Day rates price labour on each job. CIS details are used on subcontractor payments and statements. Workers are people you pay who don’t use the app — add their days with timesheets.</p>
     <button class="darkbtn" style="width:100%;margin-bottom:12px;" onclick="finAddWorker()">+ Add a worker</button>
     ${workers.map(w=>card('w:'+w.id, w.name||w.trading_name||'Worker', w, true)).join('')}
     ${people.map(p=>card(p.id, p.name, rates[p.id]||{}, false)).join('')}
     ${!workers.length && !people.length ? '<div class="empty">No one yet — add a worker.</div>' : ''}
-  `, {title:'Rates & CIS details', subtitle:'OpHUB Finance', back:'#/finance/labour', tabs:false});
+  `, {title:'Rates & workers', subtitle:'OpHUB Finance · labour', back:finSecBack(), tabs:false});
 }
 window.finAddWorker = async function(){
   const name = String(await customPrompt('Worker or subcontractor name') || '').trim();
@@ -373,6 +373,7 @@ async function renderFinCis(){
   const tot = rows.reduce((t,r)=>({gross:t.gross+r.gross, cis:t.cis+r.cis}), {gross:0, cis:0});
   const shift = n=>{ const d = new Date(finCisMonth+'T12:00:00'); d.setMonth(d.getMonth()+n); return d.toISOString().slice(0,10); };
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('labour')}${finSubTabs('labour','cis')}
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <button class="ghostbtn" style="width:auto;" onclick="finCisMonth='${shift(-1)}';render()">‹</button>
       <div style="text-align:center;"><div class="finhead-l">Tax month</div><div class="finhead-v">${finDate(start)} – ${finDate(end)}</div></div>
@@ -385,7 +386,7 @@ async function renderFinCis(){
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
-  `, {title:'CIS summary', subtitle:'OpHUB Finance', back:'#/finance/labour', tabs:false});
+  `, {title:'Payments & CIS', subtitle:'OpHUB Finance · labour', back:finSecBack(), tabs:false});
 }
 
 /* ---- payment and deduction statement PDF ---- */

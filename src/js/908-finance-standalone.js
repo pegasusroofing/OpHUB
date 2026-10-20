@@ -38,11 +38,13 @@ function renderFinNoAccess(){
 // Left-hand menu on desktop for Finance-only companies.
 function finOnlyNavItems(){
   return [
-    {k:'finance', ic:'pound', lbl:'Jobs & money', go:'#/finance'},
-    {k:'finance/inbox', ic:'list', lbl:'Invoice inbox', go:'#/finance/inbox'},
-    {k:'finance/labour', ic:'users', lbl:'Labour & CIS', go:'#/finance/labour'},
+    {k:'finance', ic:'pound', lbl:'Overview', go:'#/finance'},
+    {k:'finance/jobs', ic:'projects', lbl:'Jobs', go:'#/finance/jobs'},
+    {k:'finance/sales', ic:'list', lbl:'Sales', go:'#/finance/sales'},
+    {k:'finance/purchases', ic:'truck', lbl:'Purchases', go:'#/finance/purchases'},
+    {k:'finance/subs', ic:'tools', lbl:'Subcontractors', go:'#/finance/subs'},
+    {k:'finance/labour', ic:'users', lbl:'Labour', go:'#/finance/labour'},
     {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
-    {k:'suppliers', ic:'truck', lbl:'Suppliers', go:'#/suppliers', show: isFullManager(ME)},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},
     {k:'account', ic:'gear', lbl:'My account', go:'#/account'},
@@ -149,6 +151,7 @@ async function renderFinTeam(){
   const people = Object.values(PROFILES).filter(p=>p.org_id===ME.org_id && p.role!=='superadmin').sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const canFin = isFinanceUser() && ME.role==='admin';
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('settings')}
     <p class="stub" style="margin:0 0 10px;font-style:normal;">Everyone in ${escapeHtml((ORG&&ORG.name)||'your company')}. To add someone: make an invite link, they sign up with it, then switch Finance on for them here.</p>
     <div class="card">
       ${people.map(p=>`<div class="finlabrow">
@@ -168,7 +171,7 @@ async function renderFinTeam(){
       : `<button class="darkbtn" style="width:100%;" onclick="finTeamNewInvite()">Make an invite link</button>`}
       ${invites.length ? `<p class="stub" style="margin:10px 0 0;font-style:normal;">${invites.length} invite link${invites.length===1?'':'s'} not used yet.</p>` : ''}
     </div>` : ''}
-  `, {title:'Team', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+  `, {title:'Team', subtitle:'OpHUB Finance', back:'#/finance/settings', tabs:false});
 }
 function finTeamRole(p){ return p.role==='admin' ? 'Admin' : (p.role==='pm' ? 'Manager' : 'Member'); }
 window.finTeamToggle = async function(userId){

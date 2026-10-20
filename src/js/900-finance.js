@@ -59,84 +59,7 @@ function finGuard(){
   return false;
 }
 
-/* ---------- Finance page: every job with its numbers ---------- */
-async function renderFinanceHome(){
-  if(!finGuard()) return;
-  const __gen = RENDER_GEN;
-  const [jf, pos, invs, apps, st, toApprove, onHire, inbox] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
-    dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id,po_number,value,is_primary&order=created_at.asc'),
-    dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&order=created_at.desc&limit=500&select=id,site_id,number,status,issue_date,due_date,total,paid,net,lines'),
-    dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=1000&select=site_id,number,valuation_date,status,cert_retention'),
-    finLoadSettings(),
-    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=in.(to_approve,query)&order=created_at.desc&limit=300'),
-    dbSelect('fin_plant_hires', 'org_id=eq.'+ME.org_id+'&off_hire=is.null&select=id,site_id,item,on_hire,rate,rate_period'),
-    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&select=id'),
-  ]);
-  const appsBy = {}; apps.forEach(a=>{ (appsBy[a.site_id] = appsBy[a.site_id] || []).push(a); });
-  if(__gen !== RENDER_GEN) return;
-  if(typeof finXeroMaybePull==='function') finXeroMaybePull();
-  const jfBy = {}; jf.forEach(r=>{ jfBy[r.site_id] = r; });
-  const posBy = {}; pos.forEach(p=>{ (posBy[p.site_id] = posBy[p.site_id] || []).push(p); });
-  const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
-  const counts = {live:0, upcoming:0, closed:0, all:sites.length};
-  sites.forEach(s=>{ counts[finSiteStatus(s)] = (counts[finSiteStatus(s)]||0)+1; });
-  const shown = sites.filter(s=>finHomeTab==='all' || finSiteStatus(s)===finHomeTab);
-  const liveSites = sites.filter(s=>finSiteStatus(s)==='live');
-  const liveValue = liveSites.reduce((t,s)=>t + Number((jfBy[s.id]||{}).contract_value||0), 0);
-  const noPo = liveSites.filter(s=>!(posBy[s.id]||[]).length).length;
-  const noValue = liveSites.filter(s=>!(jfBy[s.id]||{}).contract_value).length;
-  const owed = invs.reduce((t,i)=>t+finInvOutstanding(i), 0);
-  const overdue = invs.filter(finInvOverdue).reduce((t,i)=>t+finInvOutstanding(i), 0);
-  counts.invoices = invs.length; counts.approve = toApprove.length;
-  const retHeld = sites.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
-  const retDue = sites.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
-  const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
-  const chip = (k, l)=>`<button type="button" class="pmchip ${finHomeTab===k?'on':''}" onclick="finHomeTab='${k}';render()">${l} (${counts[k]||0})</button>`;
-  document.getElementById('app').innerHTML = shell(`
-    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see OpHUB Finance while it’s being built.</div>'}
-    <div class="pmstats finstats">
-      <div class="pmstat"><b>${finMoney(liveValue, 0)}</b><span>Live contract value</span></div>
-      <div class="pmstat"><b>${liveSites.length}</b><span>Live jobs</span></div>
-      <div class="pmstat"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
-      <div class="pmstat"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
-    </div>
-    ${appsDue.length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Applications due this month</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${appsDue.map(s=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${s.id}/finance')">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</button>`).join('')}</div></div>` : ''}
-    ${retDue.length ? `<div class="card" style="border-color:var(--blue);background:var(--blue-bg);margin-bottom:10px;"><b style="color:var(--blue);">Retention to claim back</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${retDue.map(x=>`<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${x.s.id}/finance')">${escapeHtml((x.s.job_number?x.s.job_number+' · ':'')+x.s.name)} · ${x.a.map(a=>(a.half===1?'1st':'2nd')+' half '+finDate(a.date)).join(', ')}</button>`).join('')}</div></div>` : ''}
-    ${onHire.filter(h=>finPlantCost(h).days>28).length ? `<div class="card" style="border-color:var(--warn);background:var(--warn-bg);margin-bottom:10px;"><b style="color:var(--warn);">Plant on hire over 4 weeks</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">${onHire.filter(h=>finPlantCost(h).days>28).map(h=>{ const s = SITES.find(x=>x.id===h.site_id)||{}; return `<button class="ghostbtn" style="width:auto;padding:5px 10px;" onclick="go('#/site/${h.site_id}/finance')">${escapeHtml(h.item)} · ${escapeHtml(s.job_number||s.name||'')} · ${finPlantCost(h).weeks} wk</button>`; }).join('')}</div></div>` : ''}
-    <div class="finchecks">${inbox.length ? `<span style="cursor:pointer;background:var(--blue-bg);color:var(--blue);" onclick="go('#/finance/inbox')">${inbox.length} invoice${inbox.length===1?'':'s'} in the inbox to file</span>` : ''}${toApprove.length ? `<span style="cursor:pointer;" onclick="finHomeTab='approve';render()">${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span>` : ''}${retHeld ? `<span style="background:var(--blue-bg);color:var(--blue);">Retention held: ${finMoney(retHeld, 0)}</span>` : ''}${noPo ? `<span>${noPo} live job${noPo===1?'':'s'} with no client PO</span>` : ''}${noValue ? `<span>${noValue} live job${noValue===1?'':'s'} with no contract value</span>` : ''}
-    </div>
-    <div class="finshort ${typeof isFinanceOnly==='function' && isFinanceOnly() ? 'fo' : ''}">
-      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('new') : ''}
-      <button class="ghostbtn" onclick="go('#/finance/inbox')">Invoice inbox</button>
-      <button class="ghostbtn" onclick="go('#/finance/labour')">Labour &amp; CIS</button>
-      <button class="ghostbtn" onclick="go('#/finance/reports')">Reports</button>
-      ${typeof finOnlyHomeButtonsHtml==='function' ? finOnlyHomeButtonsHtml('more') : ''}
-      <button class="ghostbtn" onclick="go('#/finance/settings')">Settings</button>
-    </div>
-    <div class="pmchips" style="margin:0 0 10px;">${chip('live','Live')}${chip('upcoming','Upcoming')}${chip('closed','Closed')}${chip('all','All')}${chip('invoices','Invoices')}${chip('approve','To approve')}</div>
-    <div class="formfield" style="margin-bottom:10px;"><input type="text" id="finSearch" placeholder="Search job no., name, client or PO" oninput="liveFilter(this.value,'#finJobList')"></div>
-    <div id="finJobList">
-      ${finHomeTab==='invoices' ? invs.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([i.number, s.job_number, s.name].join(' '))}" onclick="go('#/site/${i.site_id}/finance/invoice/${i.id}')">
-          <span class="finjobno">${escapeHtml(s.job_number||'—')}</span>
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(i.number||'Draft')} ${finInvPill(i)}</span><span class="pmrow-s">${escapeHtml(s.name||'')} · ${i.issue_date?finDate(i.issue_date):'Not issued'}</span></span>
-          <span class="finval">${finMoney(i.total)}</span></button>`; }).join('') : ''}
-      ${finHomeTab==='approve' ? toApprove.map(i=>{ const s = SITES.find(x=>x.id===i.site_id) || {}; return `<div data-lf="${lfText([i.supplier_name, i.invoice_no, s.name, s.job_number].join(' '))}"><div class="stub" style="margin:8px 0 2px;font-style:normal;">${escapeHtml((s.job_number?s.job_number+' · ':'')+(s.name||''))}</div>${finPiRowHtml(i.site_id, i)}</div>`; }).join('') : ''}
-      ${(['invoices','approve'].includes(finHomeTab) ? [] : shown).map(s=>{
-        const p = posBy[s.id] || [];
-        const v = (jfBy[s.id]||{}).contract_value;
-        const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO';
-        return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-          <span class="finjobno ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span>
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span>
-            <span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span></span>
-          <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span>
-        </button>`;
-      }).join('')}
-      <div class="empty lf-empty" style="${(finHomeTab==='invoices'?invs.length:finHomeTab==='approve'?toApprove.length:shown.length)?'display:none;':''}">Nothing here yet.</div>
-    </div>
-  `, {title:'OpHUB Finance', subtitle:typeof isFinanceOnly==='function' && isFinanceOnly() ? ((ORG&&ORG.name)||'All jobs') : 'All jobs', back:typeof isFinanceOnly==='function' && isFinanceOnly() ? null : homeHash(), tabs:false});
-}
+/* The Finance overview (renderFinanceHome) is in 914-finance-sections.js. */
 
 /* ---------- Finance settings ---------- */
 async function renderFinanceSettings(){
@@ -148,6 +71,8 @@ async function renderFinanceSettings(){
   const next = (ORG && ORG.next_job_number) || finSuggestedNextJobNumber();
   const vatOpts = Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${st.default_vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('');
   document.getElementById('app').innerHTML = shell(`
+    ${finSectionNav('settings')}
+    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? `<div class="finshort"><button class="ghostbtn" onclick="go('#/fin-team')">Team</button>${isFullManager(ME)?`<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>`:''}<button class="ghostbtn" onclick="go('#/account')">My account</button></div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Job numbers</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When this is on, every new job gets the next number automatically and nobody types one in. A number can’t be used twice.</p>
@@ -202,7 +127,7 @@ async function renderFinanceSettings(){
     ${typeof finInboxSettingsHtml==='function' ? finInboxSettingsHtml(st) : ''}
     ${typeof finXeroSettingsHtml==='function' ? finXeroSettingsHtml(st) : ''}
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
-  `, {title:'Finance settings', subtitle:'OpHUB Finance', back:'#/finance', tabs:false});
+  `, {title:'Finance settings', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
 }
 window.saveFinanceSettings = async function(){
   const auto = document.getElementById('finAutoJob').checked;
