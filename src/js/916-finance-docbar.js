@@ -17,7 +17,7 @@ const FIN_DOC_TYPES = [
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
   {k:'parts', l:id=>finSubKind(id)==='repair' ? 'Costs by repair job' : 'Costs by plot', go:id=>`#/site/${id}/finance/parts`, when:id=>!!finSubKind(id)},
   {k:'budget', l:'Budget & forecast', go:id=>`#/site/${id}/finance/budget`},
-  {k:'contract', l:'Contract breakdown', go:id=>`#/site/${id}/finance/contract`},
+  {k:'contract', l:'Priced schedule of works', go:id=>`#/site/${id}/finance/contract`},
 ];
 const FIN_NEW_TYPES = [
   {l:'Application', fn:'newFinApplication'},

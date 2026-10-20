@@ -190,6 +190,7 @@ async function renderSiteFinance(siteId){
   const saved = !!jfRows[0];
   const pick = (k, d)=> (jf[k]!==undefined && jf[k]!==null && jf[k]!=='') ? jf[k] : d;
   const vat = pick('vat_treatment', st.default_vat);
+  const bt = finBillingType(jf, items.length, apps.length);
   const poTotal = pos.reduce((t,p)=>t+Number(p.value||0), 0);
   document.getElementById('app').innerHTML = shell(`
     ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
@@ -199,17 +200,18 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
+    ${bt ? '' : finBillingChoiceHtml(siteId)}
 
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
     <div id="finFcSlot"></div>
-    <div id="fin-a-apps"></div>${finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live')}
+    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live') : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
     <div id="finScSlot"></div>
     ${finLabourCardHtml(siteId, lab)}
     ${finPlantCardHtml(siteId, hires)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
-    ${finContractCardHtml(siteId, items, jf)}
+    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
 
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
@@ -236,7 +238,7 @@ async function renderSiteFinance(siteId){
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${items.length?'disabled title="Set by the contract breakdown"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
@@ -244,7 +246,8 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${escapeHtml(String(pick('app_reminder_day', st.app_reminder_day)||''))}"></div>
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
-      <p class="stub" style="margin:0;font-style:normal;">${items.length ? 'The contract value comes from the contract breakdown.' : 'Upload the contract breakdown (below) and the contract value fills in from it.'}</p>
+      ${finBillingLineHtml(siteId, bt)}
+      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? 'The contract value comes from the priced schedule of works.' : 'Set up the priced schedule of works (above) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
     </div>
 
     <div class="card">

@@ -74,6 +74,7 @@ window.openFinNewJob = function(){
       <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finNjNo" ${auto?`disabled placeholder="Automatic (${escapeHtml(finNextJobNumberLabel())})"`:'placeholder="e.g. 2662"'}></div>
       <div class="formfield"><label class="field-label">Status</label><select id="finNjStatus">${Object.keys(FIN_JOB_STATUS).map(k=>`<option value="${k}" ${k==='live'?'selected':''}>${FIN_JOB_STATUS[k]}</option>`).join('')}</select></div>
     </div>
+    <div class="formfield"><label class="field-label">How do you get paid?</label><select id="finNjBt"><option value="">Choose…</option><option value="invoice">Invoices — I type the contract value</option><option value="application">Applications — against a priced schedule of works</option></select></div>
     <div class="formfield"><label class="field-label">Client</label><input type="text" id="finNjClient" placeholder="Company you invoice"></div>
     <div class="formfield"><label class="field-label">Client accounts email</label><input type="email" id="finNjEmail"></div>
     <div class="formfield"><label class="field-label">Site address</label><input type="text" id="finNjAddr"></div>
@@ -93,6 +94,8 @@ window.saveFinNewJob = async function(){
   if(!name){ toast('Give the project a name.'); return; }
   if(!(ORG && ORG.auto_job_numbers) && !no){ toast('Enter a project number.'); return; }
   if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
+  const bt = finVal('finNjBt');
+  if(!bt){ toast('Choose how you get paid on this project.'); return; }
   const btn = document.getElementById('finNjSave'); if(btn){ btn.disabled = true; btn.textContent = 'Creating…'; }
   const newId = crypto.randomUUID();
   const row = {id:newId, org_id:ME.org_id, name, address:finVal('finNjAddr')||null, postcode:finVal('finNjPc')||null,
@@ -105,11 +108,11 @@ window.saveFinNewJob = async function(){
   const sitesRes = await dbSelectChecked('sites', 'select=*&order=created_at.asc');
   if(sitesRes.ok) SITES = sitesRes.data;
   const made = SITES.find(x=>x.id===newId) || row;
-  if(email) await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_name:row.client_name, billing_email:email, updated_at:new Date().toISOString(), updated_by:ME.id})});
+  await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:newId, org_id:ME.org_id, billing_type:bt, billing_name:row.client_name||null, billing_email:email||null, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(ORG && ORG.auto_job_numbers) ORG.next_job_number = (ORG.next_job_number||0)+1;
   document.getElementById('finJobOverlay').style.display = 'none';
   toast('Project '+(made.job_number||'')+' created');
-  go('#/site/'+newId+'/finance');
+  go('#/site/'+newId+'/finance'+(bt==='application' ? '/contract' : ''));
 };
 // Job card on the job's Finance page (Finance-only companies edit the job here).
 function finJobEditHtml(site){

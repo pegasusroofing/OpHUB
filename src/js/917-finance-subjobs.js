@@ -221,6 +221,9 @@ async function renderFinParts(siteId){
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId); if(!site){ go('#/finance'); return; }
   const [b, subs] = await Promise.all([finLoadBook(siteId), finSubJobsLoad(siteId, true)]);
+  const jf = finBy(b.jf, siteId)[0] || {};
+  const bt = finBillingType(jf, 0, finBy(b.apps, siteId).length);
+  const sv = await finSubValues(siteId, bt);
   if(__gen !== RENDER_GEN) return;
   const lines = finCostLinesFromBook(b, siteId);
   const isRepair = finSubKind(siteId)==='repair';
@@ -234,12 +237,14 @@ async function renderFinParts(siteId){
     else { const c = ['materials','labour','plant','subcontract'].includes(l.cat) ? l.cat : 'other'; t[c] += l.net; t.cost += l.net; }
   });
   const mk = (id, name, detail, value, status)=>{ const t = by[id] || blank(); const r = {id:id||'none', name, detail, status, materials:finRound(t.materials), labour:finRound(t.labour), plant:finRound(t.plant), subcontract:finRound(t.subcontract), other:finRound(t.other), cost:finRound(t.cost), committed:finRound(t.committed), n:t.n};
-    if(isRepair){ r.value = value; r.margin = value!=null ? finRound(value - r.cost - r.committed) : null; }
+    r.value = value; r.margin = value!=null ? finRound(value - r.cost - r.committed) : null;
     return r; };
-  const rows = subs.map(a=>mk(a.id, a.label, a.detail, a.value, a.closed ? 'Closed' : a.status));
+  const rows = subs.map(a=>mk(a.id, a.label, a.detail, sv.values[a.id]!=null ? sv.values[a.id] : null, a.closed ? 'Closed' : a.status));
   Object.keys(by).filter(k=>k && !subs.some(a=>a.id===k)).forEach(k=>rows.push(mk(k, 'Removed '+finSubNoun(siteId).toLowerCase(), '', null, '')));
-  const un = mk('', 'Not allocated — whole project', 'Costs not booked to one '+finSubNoun(siteId).toLowerCase()+' yet', null, '');
-  finParts = {siteId, rows, un, isRepair, q:''};
+  const un = mk('', 'Not allocated — whole project', 'Costs not booked to one '+finSubNoun(siteId).toLowerCase()+' yet', sv.values['']!=null ? sv.values[''] : null, '');
+  finParts = {siteId, rows, un, isRepair, q:'', editValues: sv.source==='manual' && bt!=='application', bt};
+  const valTot = finRound(rows.reduce((t,r)=>t+(Number(r.value)||0), 0) + (Number(un.value)||0));
+  const cv = jf.contract_value!=null ? Number(jf.contract_value) : null;
   const tot = k=>finRound(rows.reduce((t,r)=>t+(Number(r[k])||0), 0) + (Number(un[k])||0));
   const allocated = finRound(rows.reduce((t,r)=>t+r.cost, 0));
   document.getElementById('app').innerHTML = shell(`
@@ -249,6 +254,8 @@ async function renderFinParts(siteId){
       <div class="pmstat" onclick="go('#/site/${siteId}/finance/costs?sub=none')"><b ${un.cost>0?'style="color:var(--warn,#B0740F);"':''}>${finMoney(un.cost, 0)}</b><span>Not allocated</span></div>
       <div class="pmstat"><b>${finMoney(tot('committed'), 0)}</b><span>Committed (ordered)</span></div>
     </div>
+    ${subs.length && cv!=null && valTot && Math.abs(valTot - cv) >= 1 ? `<div class="finnote warn">The ${escapeHtml(finSubNoun(siteId, true).toLowerCase())} add up to <b style="display:inline;">${finMoney(valTot)}</b> but the contract value is <b style="display:inline;">${finMoney(cv)}</b>.</div>` : ''}
+    ${subs.length && bt==='application' && sv.source!=='schedule' ? `<div class="finnote">Values come from the priced schedule of works — <a href="#/site/${siteId}/finance/contract">set it up</a> and put each header on a ${escapeHtml(finSubNoun(siteId).toLowerCase())}.</div>` : ''}
     ${subs.length ? '' : `<div class="finnote">No ${escapeHtml(finSubNoun(siteId, true).toLowerCase())} on this project yet. ${isRepair ? 'Add repair jobs from the project home.' : 'Add them in the project’s Settings › Multi-Site.'}</div>`}
     <div class="fincosttools">
       <input type="search" placeholder="Search ${escapeHtml(finSubNoun(siteId, true).toLowerCase())}…" oninput="finParts.q=this.value;finPartsPaint()">
@@ -259,13 +266,14 @@ async function renderFinParts(siteId){
       </div>
     </div>
     <div id="finPartsTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the supplier invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day.${isRepair?' Value = the cost issued on the repair job.':''}</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the supplier invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
   `, {title:'Costs by '+(isRepair?'repair job':'plot'), subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finPartsPaint();
 }
 function finPartsCols(){
   const c = [{k:'name', l:finSubNoun(finParts.siteId)}, {k:'materials', l:'Materials', money:true}, {k:'labour', l:'Labour', money:true}, {k:'plant', l:'Plant', money:true}, {k:'subcontract', l:'Subcontract', money:true}, {k:'other', l:'Other', money:true}, {k:'cost', l:'Total cost', money:true}, {k:'committed', l:'Committed', money:true}];
-  if(finParts.isRepair) c.push({k:'value', l:'Value', money:true}, {k:'margin', l:'Margin', money:true});
+  c.splice(1, 0, {k:'value', l:'Value', money:true});
+  c.push({k:'margin', l:'Margin', money:true});
   return c;
 }
 window.finPartsPaint = function(){
@@ -278,6 +286,7 @@ window.finPartsPaint = function(){
     <thead><tr>${cols.map(c=>`<th class="${c.money?'num':''}">${escapeHtml(c.l)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map(r=>`<tr class="click ${r.id==='none'?'finparts-un':''}" onclick="go('#/site/${finParts.siteId}/finance/costs?sub=${r.id}')">${cols.map((c,i)=>i===0
       ? `<td class="d" data-l="${escapeHtml(c.l)}"><b>${escapeHtml(r.name)}</b>${r.detail||r.status?`<em class="finparts-s">${escapeHtml([r.detail, r.status].filter(Boolean).join(' · '))}</em>`:''}</td>`
+      : c.k==='value' && finParts.editValues && r.id!=='none' && finParts.rows.includes(r) ? `<td class="num" data-l="Value" onclick="event.stopPropagation()"><input type="text" inputmode="decimal" class="finvalin" placeholder="£ value" value="${r.value!=null?r.value:''}" onchange="setFinSubValue('${finParts.siteId}','${r.id}',this.value)"></td>`
       : `<td class="num" data-l="${escapeHtml(c.l)}" ${c.k==='margin' && Number(r[c.k])<0?'style="color:var(--red);"':''}>${r[c.k]==null ? '—' : (Number(r[c.k]) ? finMoney(r[c.k]) : '<span class="stub">–</span>')}</td>`).join('')}</tr>`).join('')}</tbody>
     <tfoot><tr>${cols.map((c,i)=>`<td class="${c.money?'num':''}">${i===0 ? 'Total' : finMoney(sum(c.k))}</td>`).join('')}</tr></tfoot>
   </table></div>`;

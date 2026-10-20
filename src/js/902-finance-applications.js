@@ -66,7 +66,7 @@ function finContractCardHtml(siteId, items, jf){
   const total = finRound(priced.reduce((t,i)=>t+Number(i.value||0), 0));
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <p class="sectiontitle" style="margin:0;">Contract breakdown</p>
+      <p class="sectiontitle" style="margin:0;">Priced schedule of works</p>
       <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/contract')">${items.length?'Open':'Set up'}</button>
     </div>
     <p class="stub" style="margin:4px 0 0;font-style:normal;">${priced.length ? `${heads?heads+' section'+(heads===1?'':'s')+' · ':''}${priced.length} item${priced.length===1?'':'s'} · total <b>${finMoney(total)}</b>${jf&&jf.contract_file_name?' · from '+escapeHtml(jf.contract_file_name):''}` : 'Upload the priced breakdown (Excel or PDF) or type it in, with headers, sub-headers, quantities, units and rates. Applications are valued against it.'}</p>
@@ -88,26 +88,32 @@ function finApplicationsCardHtml(siteId, apps, due){
 }
 
 /* ---------------- Contract breakdown page ---------------- */
-let finContractRows = null, finContractSite = null, finContractFile = null;
+let finContractRows = null, finContractSite = null, finContractFile = null, finContractSnap = '';
+function finContractIsDirty(){ return !!finContractRows && JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||''])) !== finContractSnap; }
 const FIN_KIND_LABEL = {section:'Header', subsection:'Sub-header', item:'Item'};
 async function renderFinContract(siteId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const [items, jfRows, apps] = await Promise.all([
+  const [items, jfRows, apps, , sowSt] = await Promise.all([
     dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&order=position.asc'),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&status=neq.void&select=id'),
+    finSubJobsLoad(siteId),
+    finSowStatus(siteId),
   ]);
   if(__gen !== RENDER_GEN) return;
   if(finContractSite !== siteId || !finContractRows){
-    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null}));
+    finContractRows = items.map(i=>({id:i.id, kind:i.kind||'item', ref:i.ref||'', description:i.description, qty:i.qty!=null?Number(i.qty):null, unit:i.unit||'', rate:i.rate!=null?Number(i.rate):null, value:i.value!=null?Number(i.value):null, sub:i.sub_job_id||''}));
     finContractSite = siteId; finContractFile = null;
+    finContractSnap = JSON.stringify(finContractRows.map(r=>[r.kind,r.ref,r.description,r.qty,r.unit,r.rate,r.value,r.sub||'']));
   }
   const jf = jfRows[0] || {};
   document.getElementById('app').innerHTML = shell(`
+    <p class="stub" style="margin:0 0 12px;font-style:normal;">The priced list of work for this project. It sets the contract value, it’s what each application is valued against, and it can go onto the operatives’ Schedule of Works (without prices).</p>
+    ${finSowCardHtml(siteId, sowSt)}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Upload the breakdown</p>
+      <p class="sectiontitle" style="margin-top:0;">Upload a priced schedule</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads headers, sub-headers and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
@@ -115,7 +121,7 @@ async function renderFinContract(siteId){
     ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <p class="sectiontitle" style="margin:0;">Breakdown</p>
+        <p class="sectiontitle" style="margin:0;">Schedule</p>
         <span class="finval" id="finContractTotal"></span>
       </div>
       <div id="finContractList" style="margin-top:8px;"></div>
@@ -125,15 +131,17 @@ async function renderFinContract(siteId){
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('item')">+ Item</button>
       </div>
     </div>
-    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save breakdown</button>
-    <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.</p>
-  `, {title:'Contract breakdown', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
+    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save schedule</button>
+    <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.${(FIN_SUBJOBS[siteId]||[]).length ? ' Put a header on a '+escapeHtml(finSubNoun(siteId).toLowerCase())+' and everything under it goes there too.' : ''}</p>
+  `, {title:'Priced schedule of works', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finContractPaint();
 }
 function finContractPaint(){
   const el = document.getElementById('finContractList'); if(!el) return;
   const tot = finGroupTotals(finContractRows, r=>finItemValue(r));
-  const ctl = i=>`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
+  const subs = FIN_SUBJOBS[finContractSite] || [];
+  const plotSel = i=>subs.length ? `<select class="fincrow-plot" aria-label="${escapeHtml(finSubNoun(finContractSite))}" onchange="finContractRows[${i}].sub=this.value"><option value="">${finContractRows[i].kind==='item' ? 'Plot: as header' : 'Plot: none'}</option>${subs.map(a=>`<option value="${a.id}" ${finContractRows[i].sub===a.id?'selected':''}>${escapeHtml(a.short)}</option>`).join('')}</select>` : '';
+  const ctl = i=>plotSel(i)+`<span class="fincrow-ctl"><button class="linkbtn" title="Move up" onclick="finContractMove(${i},-1)">↑</button><button class="linkbtn" title="Move down" onclick="finContractMove(${i},1)">↓</button><select onchange="finContractRows[${i}].kind=this.value;finContractPaint()">${Object.keys(FIN_KIND_LABEL).map(k=>`<option value="${k}" ${finContractRows[i].kind===k?'selected':''}>${FIN_KIND_LABEL[k]}</option>`).join('')}</select><button class="linkbtn" title="Remove" onclick="finContractRows.splice(${i},1);finContractPaint()">✕</button></span>`;
   el.innerHTML = finContractRows.length ? finContractRows.map((r,i)=>{
     if(r.kind==='section' || r.kind==='subsection') return `<div class="fincrow ${r.kind}">
         <div class="fincrow-head"><input type="text" class="fincline-ref" placeholder="Ref" value="${escapeHtml(r.ref||'')}" oninput="finContractRows[${i}].ref=this.value">
@@ -173,7 +181,7 @@ window.finContractPaintTotal = function(){
 };
 window.finContractAdd = function(kind){ finContractRows.push({kind, ref:'', description:'', qty:null, unit:'', rate:null, value:null}); finContractPaint(); };
 window.saveFinContract = async function(siteId){
-  const rows = finContractRows.map(r=>({id:r.id, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
+  const rows = finContractRows.map(r=>({id:r.id, sub:r.sub||null, _task_id:r._task_id||null, _sec_id:r._sec_id||null, kind:r.kind||'item', ref:String(r.ref||'').trim()||null, description:String(r.description||'').trim(),
       qty: (finNum(r.qty)===null||isNaN(finNum(r.qty))) ? null : finNum(r.qty), unit:String(r.unit||'').trim()||null,
       rate: (finNum(r.rate)===null||isNaN(finNum(r.rate))) ? null : finNum(r.rate), value: finItemValue(r)}))
     .filter(r=>r.description || r.value!==null);
@@ -184,12 +192,15 @@ window.saveFinContract = async function(siteId){
   const keep = new Set(rows.filter(r=>r.id).map(r=>r.id));
   for(const e of existing) if(!keep.has(e.id)) await dbDelete('fin_contract_items', e.id);
   for(let i=0;i<rows.length;i++){
-    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null};
+    const r = rows[i], data = {kind:r.kind, ref:r.ref, description:r.description, qty:r.qty, unit:r.unit, rate:r.rate, value: finIsItem(r) ? r.value : 0, position:i, section:null, sub_job_id:r.sub};
     if(r.id && existing.some(e=>e.id===r.id)) await dbUpdate('fin_contract_items', r.id, data);
     else { const ins = await dbInsert('fin_contract_items', Object.assign({org_id:ME.org_id, site_id:siteId}, data)); if(ins && ins[0]) r.id = ins[0].id; }
+    // Copied in from the site schedule: link the task / section to this line.
+    if(r.id && r._task_id) await dbUpdate('schedule_tasks', r._task_id, {contract_item_id:r.id});
+    if(r.id && r._sec_id) await dbUpdate('schedule_sections', r._sec_id, {contract_item_id:r.id});
   }
   const total = finRound(rows.filter(finIsItem).reduce((t,r)=>t+r.value, 0));
-  const patch = {site_id:siteId, org_id:ME.org_id, contract_value:total, updated_at:new Date().toISOString(), updated_by:ME.id};
+  const patch = {site_id:siteId, org_id:ME.org_id, contract_value:total, billing_type:'application', updated_at:new Date().toISOString(), updated_by:ME.id};
   if(finContractFile){
     const safe = finContractFile.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
     const stored = await uploadToStorage('finance-docs', ME.org_id+'/'+siteId+'/contract/'+uid()+'-'+safe, finContractFile, finContractFile.type||'application/octet-stream');
@@ -197,8 +208,8 @@ window.saveFinContract = async function(siteId){
   }
   await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify(patch)});
   finContractRows = null; finContractFile = null;
-  if(btn){ btn.disabled = false; btn.textContent = 'Save breakdown'; }
-  toast('Breakdown saved — contract value '+finMoney(total));
+  if(btn){ btn.disabled = false; btn.textContent = 'Save schedule'; }
+  toast('Schedule saved — contract value '+finMoney(total));
   render();
 };
 window.openFinDoc = async function(path, name){
@@ -368,7 +379,7 @@ window.newFinApplication = async function(siteId){
     dbSelect('variations', 'site_id=eq.'+siteId+'&approval_status=eq.approved&order=created_at.asc'),
     dbSelect('fin_variations', 'site_id=eq.'+siteId+'&status=in.(priced,submitted,agreed)&order=seq.asc'),
   ]);
-  if(!items.filter(finIsItem).length){ toast('Set up the contract breakdown first.'); go(`#/site/${siteId}/finance/contract`); return; }
+  if(!items.filter(finIsItem).length){ toast('Set up the priced schedule of works first.'); go(`#/site/${siteId}/finance/contract`); return; }
   const jf = jfRows[0] || {};
   const last = apps.find(a=>a.status!=='void');
   const lastPct = {}; ((last&&last.lines)||[]).forEach(l=>{ if(finIsItem(l)) lastPct[l.item_id] = l.pct; });
@@ -402,17 +413,19 @@ async function renderFinApplication(siteId, appId){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const site = SITES.find(s=>s.id===siteId);
-  const [rows, apps, jfRows] = await Promise.all([
+  const [rows, apps, jfRows, siteProgress] = await Promise.all([
     dbSelect('fin_applications', 'id=eq.'+appId),
     dbSelect('fin_applications', 'site_id=eq.'+siteId+'&select=id,number,status,net_due,cert_net,cert_previous'),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
+    finSiteProgress(siteId),
   ]);
   if(__gen !== RENDER_GEN) return;
   const a = rows[0];
   if(!a || !site){ toast('Application not found.'); go(`#/site/${siteId}/finance`); return; }
   if(!finApp || finApp.id!==a.id || finApp.__loaded !== a.updated_at){ finApp = JSON.parse(JSON.stringify(a)); finApp.__loaded = a.updated_at; }
   const jf = jfRows[0] || {};
-  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['certified','invoiced','void'].includes(a.status)};
+  finAppCtx = {site, jf, previous: finPreviousCertified(apps, a.number), locked: ['certified','invoiced','void'].includes(a.status), siteProgress};
+  const spAhead = (finApp.lines||[]).filter(l=>finIsItem(l) && siteProgress[l.item_id]!=null && siteProgress[l.item_id] > finPct(l.pct)).length;
   const locked = finAppCtx.locked;
   document.getElementById('app').innerHTML = shell(`
     <div class="card finhead">
@@ -435,6 +448,7 @@ async function renderFinApplication(siteId, appId){
         <p class="sectiontitle" style="margin:0;">Contract works</p>
         <span class="stub" style="margin:0;font-style:normal;">${locked ? '' : 'Enter % complete, or the quantity done'}</span>
       </div>
+      ${!locked && Object.keys(siteProgress).length ? `<div class="finnote ${spAhead?'warn':'ok'}" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>${spAhead ? `Site progress is ahead on <b style="display:inline;">${spAhead} line${spAhead===1?'':'s'}</b> (from the operatives’ Schedule of Works).` : 'Matches site progress from the operatives’ Schedule of Works.'}</span>${spAhead ? `<button class="ghostbtn" style="width:auto;margin:0;padding:7px 12px;" onclick="finAppUseSiteProgress()">Use site progress</button>` : ''}</div>` : ''}
       <div id="finAppLines"></div>
     </div>
     <div class="card">
@@ -495,7 +509,7 @@ function finAppPaintLines(){
     const done = hasQty ? finRound(Number(l.qty)*finPct(l.pct)/100) : null;
     html += `<div class="finitem">
       <div class="finitem-d">${escapeHtml(l.ref?l.ref+' · ':'')}${escapeHtml(l.description)}
-        <em>${hasQty ? `${finQtyFmt(l.qty)} ${escapeHtml(l.unit||'')} × ${finRateFmt(l.rate)} = ` : (l.unit?escapeHtml(l.unit)+' · ':'')+'Value '}${finMoney(l.value)}</em></div>
+        <em>${hasQty ? `${finQtyFmt(l.qty)} ${escapeHtml(l.unit||'')} × ${finRateFmt(l.rate)} = ` : (l.unit?escapeHtml(l.unit)+' · ':'')+'Value '}${finMoney(l.value)}${finAppCtx.siteProgress && finAppCtx.siteProgress[l.item_id]!=null ? ` · <span class="finsitepct ${finAppCtx.siteProgress[l.item_id] > finPct(l.pct) ? 'ahead' : ''}">site ${finAppCtx.siteProgress[l.item_id]}%</span>` : ''}</em></div>
       <div class="finitem-in">
         ${locked ? `<span class="finitem-sum">${finPct(l.pct)}%${hasQty?' · '+finQtyFmt(done)+' '+escapeHtml(l.unit||'')+' done':''}</span>` : `
         <label>% done<input type="text" inputmode="decimal" class="finpct" id="finAppP-${i}" value="${finPct(l.pct)}" oninput="finAppSetLine(${i},'pct',this.value)"></label>
