@@ -211,6 +211,7 @@ async function renderRepairJobsHub(siteId){
   if(__gen !== RENDER_GEN) return;
   const openCount = jobs.filter(j=>!j.closed).length;
   document.getElementById('app').innerHTML = shell(`
+    ${typeof finHomeStripHtml==='function' ? finHomeStripHtml(siteId) : ''}
     <div class="tilegrid" style="margin-bottom:0;">
       <div class="tile" onclick="go('#/site/${siteId}/repairjobs')">
         <div class="icon" style="background:var(--brand1);color:var(--brand1-text);">🛠</div>

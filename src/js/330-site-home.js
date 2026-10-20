@@ -140,6 +140,7 @@ async function renderSiteHome(siteId){
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
+    ${typeof finHomeStripHtml==='function' ? finHomeStripHtml(siteId) : ''}
     <div class="statrow">
       ${(()=>{
         // First tile: the client details. Managers can tap through to edit

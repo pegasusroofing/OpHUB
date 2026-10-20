@@ -1863,6 +1863,17 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .fincrow-head .fincsel{width:18px;height:18px;margin:0;}
 .finbulkbar .linkbtn{white-space:nowrap;}
 .fincrow-foot .fincrow-plot{min-width:112px;flex:0 1 160px;}
+/* Project home — finance strip (921), finance users only */
+.finhome{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;width:100%;background:#fff;border:1px solid #E6E9EF;border-radius:16px;padding:0;margin:0 0 14px;font:inherit;text-align:left;cursor:pointer;overflow:hidden;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+.finhome:hover{border-color:#C9CED8;}
+.finhome-t{display:flex;flex-direction:column;gap:3px;padding:14px 16px;min-width:0;border-left:1px solid #EEF0F4;}
+.finhome-t:first-child{border-left:0;}
+.finhome-t span{font-size:12px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em;}
+.finhome-t b{font-size:22px;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finhome-t b small{font-size:13px;font-weight:700;}
+.finhome-t em{font-style:normal;font-size:12.5px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.finhome-t b.sk{background:#F0F2F5;border-radius:6px;width:70%;height:24px;}
+@media (max-width:600px){ .finhome-t{padding:10px 10px;} .finhome-t b{font-size:16px;} .finhome-t span{font-size:10.5px;letter-spacing:.02em;} .finhome-t em{font-size:11px;} .finhome-t b small{display:block;font-size:11.5px;} }
 </style>
 </head>
 <body>
@@ -12082,6 +12093,7 @@ async function renderSiteHome(siteId){
       <span>${site.job_number ? '<b>Job No:</b> '+escapeHtml(site.job_number) : ''}</span>
       <span style="white-space:nowrap;">${onSite ? `<span class="pill on"><span class="dot"></span>On Site</span>` : `<span class="pill off"><span class="dot"></span>Not checked in</span>`}</span>
     </div>
+    ${typeof finHomeStripHtml==='function' ? finHomeStripHtml(siteId) : ''}
     <div class="statrow">
       ${(()=>{
         // First tile: the client details. Managers can tap through to edit
@@ -12459,6 +12471,7 @@ async function renderRepairJobsHub(siteId){
   if(__gen !== RENDER_GEN) return;
   const openCount = jobs.filter(j=>!j.closed).length;
   document.getElementById('app').innerHTML = shell(`
+    ${typeof finHomeStripHtml==='function' ? finHomeStripHtml(siteId) : ''}
     <div class="tilegrid" style="margin-bottom:0;">
       <div class="tile" onclick="go('#/site/${siteId}/repairjobs')">
         <div class="icon" style="background:var(--brand1);color:var(--brand1-text);">🛠</div>
@@ -51836,6 +51849,38 @@ window.finMonExport = function(kind){
   const s = M.site;
   return finExportTable(kind, {title:'Monthly report — '+(s.job_number?s.job_number+' ':'')+s.name, subtitle:M.view==='cum'?'Running totals':'In the month', cols, rows, name:'Monthly report - '+(s.job_number||s.name)});
 };
+
+/* ============================================================
+   OpHUB Finance — money strip at the top of a project's home page
+   (Andy, 20 Oct: "as a QS and admin… a summary at the top of the project
+   page: costs to date, invoiced to date (applied below it), profit margin").
+   Finance users only. Fills in after the page shows, so the home page
+   isn't slowed down. Tap it to open the project's Finance.
+   ============================================================ */
+function finHomeStripHtml(siteId){
+  if(typeof isFinanceUser!=='function' || !isFinanceUser() || !(ORG && ORG.has_finance)) return '';
+  setTimeout(()=>finHomeStripFill(siteId), 0);
+  return `<button type="button" class="finhome" id="finHomeStrip" onclick="go('#/site/${siteId}/finance')" aria-label="Open project finance">
+    <div class="finhome-t"><span>Costs to date</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
+    <div class="finhome-t"><span>Invoiced to date</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
+    <div class="finhome-t"><span>Profit margin</span><b class="sk">&nbsp;</b><em>&nbsp;</em></div>
+  </button>`;
+}
+async function finHomeStripFill(siteId){
+  const gen = RENDER_GEN;
+  let fc;
+  try{ const b = await finLoadBook(siteId); fc = finJobForecast(b, siteId); }catch(e){ console.error(e); return; }
+  const el = document.getElementById('finHomeStrip'); if(!el || gen !== RENDER_GEN) return;
+  const applied = fc.valuation || 0;
+  const isInv = fc.sales===fc.invoiced && fc.sales!==fc.valuation;
+  const value = isInv ? fc.invoiced : (applied || fc.invoiced);
+  const margin = finRound(value - fc.costToDate), pct = value ? finRound(margin/value*100) : null;
+  const col = margin<0 ? 'var(--red)' : (value ? 'var(--ok,#1E6B45)' : 'var(--ink)');
+  el.innerHTML = `
+    <div class="finhome-t"><span>Costs to date</span><b>${finMoney(fc.costToDate, 0)}</b><em>${fc.committedTotal ? '+ '+finMoney(fc.committedTotal, 0)+' ordered' : (fc.budgetTotal ? finPctTxt(finRound(fc.costToDate/fc.budgetTotal*100))+' of budget' : '&nbsp;')}</em></div>
+    <div class="finhome-t"><span>Invoiced to date</span><b>${finMoney(fc.invoiced, 0)}</b><em>${applied ? (fc.certified ? 'Certified ' : 'Applied ')+finMoney(applied, 0) : (fc.ffa ? 'of '+finMoney(fc.ffa, 0) : '&nbsp;')}</em></div>
+    <div class="finhome-t"><span>Profit margin</span><b style="color:${col};">${value ? finMoney(margin, 0)+' <small>'+finPctTxt(pct)+'</small>' : '—'}</b><em>${value ? 'on '+finMoney(value, 0)+(isInv || !applied ? ' invoiced' : (fc.certified ? ' certified' : ' applied')) : 'Nothing applied or invoiced yet'}</em></div>`;
+}
 </script>
 </body>
 </html>
