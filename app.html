@@ -1886,6 +1886,54 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finmb-m button:hover{background:#F4F6FA;}
 .finmb-m button.on{color:#1E6B45;}
 .finhome{overflow:visible;}
+/* Finance project number badge: one fixed size (long refs are shortened with …) */
+.finjobno, html.finmode .finjobno{width:96px;min-width:96px;max-width:96px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media (max-width:600px){ .finjobno, html.finmode .finjobno{width:84px;min-width:84px;max-width:84px;font-size:13px;} }
+.finjobstart{font-size:12.5px;color:var(--slate);margin-top:1px;}
+/* Document bar selects: no clipped text */
+html.finmode .finprojbar select, .finprojbar select{height:auto !important;min-height:42px;line-height:1.3 !important;padding:10px 34px 10px 12px !important;box-sizing:border-box;}
+/* Paid-by line under the project header */
+.finbtline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:10px 16px;margin:0 0 16px;font-size:14px;}
+.finbtline b{color:var(--ink);}
+.finbtline .ghostbtn{width:auto;margin:0;padding:7px 12px;}
+.finappdates{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:2px 0 12px;background:#FAFBFC;}
+.finappdates summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);}
+.finappdates summary em{font-style:normal;color:#B0740F;font-weight:600;}
+.finappdates-g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+@media (max-width:900px){ .finappdates-g{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.finappdates-g label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--slate);}
+.finappdates-g label.set span{color:#B0740F;}
+.finappdates-g label.set input{border-color:#E0B36A;background:#FFF8EC;}
+.finappdates-g input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;}
+html.desk.finmode .scrollarea > *{margin-left:auto !important;margin-right:auto !important;}
+/* Finance: use the full browser width on laptops / desktops (was 1160px) */
+html.desk.finmode .scrollarea > *{max-width:1720px;}
+html.desk.finmode .scrollarea{padding-left:32px;padding-right:32px;}
+/* Settings: tap-to-open sections, two columns on wide screens */
+.fincoll{padding:0 !important;}
+.fincoll-d > summary{list-style:none;}
+.fincoll-d > summary::-webkit-details-marker{display:none;}
+.fincoll-s{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;cursor:pointer;font-weight:700;font-size:15px;color:var(--ink);}
+.fincoll-c{font-size:14px;color:var(--slate);transition:transform .15s;}
+.fincoll-d[open] .fincoll-c{transform:rotate(180deg);}
+.fincoll-b{padding:0 20px 18px;}
+html.desk.finmode .finsetpage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;align-content:start;}
+html.desk.finmode .finsetpage > *{max-width:none;grid-column:1 / -1;}
+html.desk.finmode .finsetpage > .card.fincoll{grid-column:auto;margin-bottom:12px;}
+@media (max-width:1100px){ html.desk.finmode .finsetpage{display:block;} }
+.finjobfilt{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 10px;}
+.finjobfilt label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--slate);flex:1 1 170px;max-width:280px;}
+.finjobfilt select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--ink);}
+.finjobfilt .linkbtn{padding:10px 4px;}
+.fincust-row{display:flex;gap:8px;margin:0 0 4px;}
+.fincust-row input{flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:15px;}
+.fincust-row .ghostbtn{width:auto;margin:0;white-space:nowrap;}
+.fincust-list{border:1px solid var(--line);border-radius:12px;margin:6px 0 10px;overflow:hidden;background:#fff;}
+.fincust-list .pmrow{border-radius:0;border:0;border-bottom:1px solid #F0F2F5;margin:0;width:100%;}
+.fincust-src{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle;}
+.fincust-src.xero{background:#E3F2FB;color:#0B6FA4;} .fincust-src.local{background:#F1F3F6;color:var(--slate);}
+html.desk.finmode .finsetpage{align-items:start;}
+html.desk.finmode .finsetpage > *{margin-left:0 !important;margin-right:0 !important;width:100%;box-sizing:border-box;justify-self:stretch;}
 </style>
 </head>
 <body>
@@ -45931,7 +45979,10 @@ async function renderFinanceSettings(){
     ${typeof finXeroSettingsHtml==='function' ? finXeroSettingsHtml(st) : ''}
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
   `, {title:'Finance settings', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
-  if(typeof finCostsAccessFill==='function') finCostsAccessFill();
+  const setRoot = document.querySelector('.scrollarea');
+  if(setRoot) setRoot.classList.add('finsetpage');
+  finCollapseCards(setRoot, 'settings');
+  if(typeof finCostsAccessFill==='function') Promise.resolve(finCostsAccessFill()).then(()=>finCollapseCards(document.querySelector('.scrollarea'), 'settings'));
 }
 window.saveFinanceSettings = async function(){
   const auto = document.getElementById('finAutoJob').checked;
@@ -46002,19 +46053,17 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
-    ${bt ? '' : finBillingChoiceHtml(siteId)}
+    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="ghostbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">Change to ${bt==='invoice'?'applications':'invoices'}</button></div>` : finBillingChoiceHtml(siteId)}
 
+    ${finProjTabsHtml(siteId, bt)}
+    <div class="finptab" data-t="overview">
     <div id="finFcSlot"></div>
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
-    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live') : ''}
+    </div>
+    <div class="finptab" data-t="sales">
+    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live') : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
-    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
-    <div id="finScSlot"></div>
-    ${finLabourCardHtml(siteId, lab)}
-    ${finPlantCardHtml(siteId, hires)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
-    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
-
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Client purchase orders</p>
@@ -46034,7 +46083,17 @@ async function renderSiteFinance(siteId){
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
-
+    </div>
+    <div class="finptab" data-t="purchases">
+    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
+    ${finPlantCardHtml(siteId, hires)}
+    </div>
+    <div class="finptab" data-t="subs">
+    <div id="finScSlot"></div>
+    ${finLabourCardHtml(siteId, lab)}
+    </div>
+    <div class="finptab" data-t="setup">
+    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
@@ -46046,6 +46105,7 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
         <div class="formfield"><label class="field-label">Days to final date for payment</label><input type="number" id="finFinal" min="0" step="1" value="${escapeHtml(String(pick('final_days', st.default_final_days)))}"></div>
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${escapeHtml(String(pick('app_reminder_day', st.app_reminder_day)||''))}"></div>
+        ${finAppDatesHtml(jf, st)}
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       ${finBillingLineHtml(siteId, bt)}
@@ -46062,9 +46122,11 @@ async function renderSiteFinance(siteId){
       <div class="formfield"><label class="field-label">Notes</label><textarea id="finNotes" rows="2" placeholder="Anything about payment on this project">${escapeHtml(jf.notes||'')}</textarea></div>
     </div>
     <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save project details'}</button>
+    </div>
 
 
   `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  finProjTabShow(finProjTabCur(siteId));
   if(typeof finAfterProjectRender==='function') finAfterProjectRender();
   // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).
   if(typeof finLoadBook==='function') finLoadBook(siteId).then(b=>{
@@ -46080,6 +46142,7 @@ window.saveSiteFinance = async function(siteId){
   const contract = finNum(finVal('finContract'));
   const ret = finNum(finVal('finRet')), retLim = finNum(finVal('finRetLimit'));
   const due = finInt(finVal('finDue')), fin = finInt(finVal('finFinal')), appDay = finInt(finVal('finAppDay'));
+  const appDates = finAppDatesRead(appDay);
   const email = finVal('finBillEmail');
   if(contract!==null && (isNaN(contract) || contract < 0)){ toast('Enter the contract value as a number.'); return; }
   if(ret!==null && (isNaN(ret) || ret < 0 || ret > 100)){ toast('Retention must be between 0 and 100%.'); return; }
@@ -46103,7 +46166,7 @@ window.saveSiteFinance = async function(siteId){
   const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
     ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
-    due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay,
+    due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay, app_dates:appDates,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
   })});
@@ -46673,10 +46736,20 @@ const FIN_APP_STATUS = {draft:'Draft', submitted:'Submitted', certified:'Certifi
 function finAppPill(a){ if(a.status==='invoiced' && 'invoice_id' in a && !a.invoice_id) a = Object.assign({}, a, {status:'certified'}); const c = {draft:'grey', submitted:'blue', certified:'warn', invoiced:'ok', void:'grey'}[a.status]||'grey'; return `<span class="finpill ${c}">${FIN_APP_STATUS[a.status]||a.status}</span>`; }
 function finAppDayFor(jf, st){ return Number((jf && jf.app_reminder_day) || (st && st.app_reminder_day) || 0) || null; }
 // Is this month's application due (application day reached, none dated this month)?
-function finAppDueThisMonth(apps, appDay){
-  if(!appDay) return false;
-  const now = new Date(); if(now.getDate() < Math.min(appDay, 28)) return false;
+// Application date for a month (YYYY-MM): a date set for that month, else the day-of-month rule.
+function finAppDateFor(jf, st, ym){
+  const custom = jf && jf.app_dates && jf.app_dates[ym];
+  if(custom) return custom;
+  const day = finAppDayFor(jf, st); if(!day) return null;
+  const [y,m] = ym.split('-').map(Number);
+  return ym+'-'+String(Math.min(day, new Date(y, m, 0).getDate())).padStart(2,'0');
+}
+function finAppDueThisMonth(apps, due){
+  // 'due' = this month's application date (YYYY-MM-DD), or a day of the month (older callers).
+  if(!due) return false;
   const ym = finToday().slice(0,7);
+  if(typeof due==='number'){ if(new Date().getDate() < Math.min(due, 28)) return false; }
+  else if(finToday() < due) return false;
   return !apps.some(a=>a.status!=='void' && String(a.valuation_date||'').slice(0,7)===ym);
 }
 
@@ -47038,10 +47111,8 @@ window.newFinApplication = async function(siteId){
   const last = apps.find(a=>a.status!=='void');
   const lastPct = {}; ((last&&last.lines)||[]).forEach(l=>{ if(finIsItem(l)) lastPct[l.item_id] = l.pct; });
   const lastVar = {}, lastFinVar = {}; ((last&&last.variations)||[]).forEach(v=>{ if(v.variation_id) lastVar[v.variation_id] = v; if(v.fin_variation_id) lastFinVar[v.fin_variation_id] = v; });
-  const appDay = finAppDayFor(jf, st);
   const today = finToday();
-  let val = today;
-  if(appDay){ const d = new Date(); const day = Math.min(appDay, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()); val = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'); }
+  const val = finAppDateFor(jf, st, today.slice(0,7)) || today;
   const dueDays = jf.due_days!=null ? jf.due_days : st.default_due_days, finalDays = jf.final_days!=null ? jf.final_days : st.default_final_days;
   const due = finAddDays(val, dueDays);
   // Variations register (911) first: agreed at the agreed value, priced/submitted at the quoted value.
@@ -48790,12 +48861,88 @@ window.finXeroUseContact = function(i){
   const c = (window.__finXeroContacts||[])[i]; if(!c) return;
   const set = (id, v)=>{ const el = document.getElementById(id); if(el && v) el.value = v; };
   set('finBillName', c.name); set('finBillAddr', c.address); set('finBillEmail', c.email);
-  const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = '<p class="stub" style="font-style:normal;color:var(--ok);">Filled in from Xero — tap Save.</p>';
+  const q = document.getElementById('finCustQ'); if(q) q.value = '';
+  const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = `<p class="stub" style="font-style:normal;color:var(--ok);margin:6px 0;">✓ ${escapeHtml(c.name)} filled in below — tap Save.</p>`;
 };
 function finXeroBillingHtml(){
-  if(!finXeroConnected()) return '';
-  return `<button type="button" class="ghostbtn" style="width:100%;margin:0 0 6px;" onclick="finXeroFindContact()">Find this client in Xero</button><div id="finXeroContacts"></div>`;
+  const x = finXeroConnected();
+  return `<div class="fincust">
+    <div class="fincust-row">
+      <input type="search" id="finCustQ" placeholder="${x ? 'Search your Xero customers…' : 'Search customers…'}" autocomplete="off" oninput="finCustSearchSoon(this.value)">
+      <button type="button" class="ghostbtn" onclick="openFinNewCustomer()">+ New customer</button>
+    </div>
+    <div id="finXeroContacts"></div>
+    ${x ? '' : '<p class="stub" style="margin:4px 0 0;font-style:normal;font-size:12.5px;">Xero isn’t connected yet, so this searches customers already on your projects. Connect Xero in Finance › Settings to search Xero too.</p>'}
+  </div>`;
 }
+/* Search: Xero customers (when connected) + billing details already used on other projects. */
+let finCustTimer = null, finCustLocal = null;
+window.finCustSearchSoon = function(q){ clearTimeout(finCustTimer); finCustTimer = setTimeout(()=>finCustSearch(q), 350); };
+async function finCustSearch(q){
+  q = String(q||'').trim();
+  const out = document.getElementById('finXeroContacts'); if(!out) return;
+  if(q.length < 2){ out.innerHTML = ''; return; }
+  out.innerHTML = '<p class="stub" style="font-style:normal;margin:6px 0;">Searching…</p>';
+  if(!finCustLocal){ const rows = await dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&billing_name=not.is.null&select=billing_name,billing_address,billing_email,updated_at&order=updated_at.desc&limit=2000'); const seen = {}; finCustLocal = []; rows.forEach(r=>{ const k = String(r.billing_name).trim().toLowerCase(); if(k && !seen[k]){ seen[k] = 1; finCustLocal.push({name:r.billing_name, address:r.billing_address||'', email:r.billing_email||'', src:'local'}); } }); }
+  const ql = q.toLowerCase();
+  const local = finCustLocal.filter(c=>c.name.toLowerCase().includes(ql)).slice(0, 6);
+  let xero = [], err = '';
+  if(finXeroConnected()){ const j = await finXeroCall('contact', {name:q}); if(j.error) err = j.error; else xero = (j.contacts||[]).map(c=>Object.assign({src:'xero'}, c)); }
+  const cur = document.getElementById('finCustQ'); if(!cur || cur.value.trim()!==q) return; // a newer search is running
+  const xn = new Set(xero.map(c=>c.name.toLowerCase()));
+  const list = xero.concat(local.filter(c=>!xn.has(c.name.toLowerCase())));
+  window.__finXeroContacts = list;
+  out.innerHTML = (err ? `<p class="stub" style="font-style:normal;color:var(--red);margin:6px 0;">Xero: ${escapeHtml(err)}</p>` : '')
+    + (list.length ? `<div class="fincust-list">${list.map((c,i)=>`<button type="button" class="pmrow" onclick="finXeroUseContact(${i})"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(c.name)} <span class="fincust-src ${c.src}">${c.src==='xero'?'Xero':'Used before'}</span></span><span class="pmrow-s">${escapeHtml([c.email, String(c.address||'').replace(/\n/g, ', ')].filter(Boolean).join(' · ')||'No email or address')}</span></span></button>`).join('')}</div>`
+      : `<p class="stub" style="font-style:normal;margin:6px 0;">No customer called “${escapeHtml(q)}”. <button type="button" class="linkbtn" onclick="openFinNewCustomer('${jsAttr(q)}')">Add them as a new customer</button></p>`);
+}
+/* New customer: added to Xero straight away when it's connected, and filled into the billing boxes. */
+window.openFinNewCustomer = function(name){
+  let ov = document.getElementById('finCustOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finCustOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  const x = finXeroConnected();
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:520px;">
+    <h3>New customer</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${x ? 'Added to Xero as a customer and used for this project’s invoices.' : 'Used for this project’s invoices. It’s added to Xero when Xero is connected and the first invoice is sent.'}</p>
+    <div class="formfield"><label class="field-label">Company name</label><input type="text" id="finNcName" value="${escapeHtml(name||'')}"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Contact first name</label><input type="text" id="finNcFirst"></div>
+      <div class="formfield"><label class="field-label">Contact last name</label><input type="text" id="finNcLast"></div>
+      <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finNcEmail"></div>
+      <div class="formfield"><label class="field-label">Phone</label><input type="tel" id="finNcPhone"></div>
+    </div>
+    <div class="formfield"><label class="field-label">Address line 1</label><input type="text" id="finNcL1"></div>
+    <div class="formfield"><label class="field-label">Address line 2</label><input type="text" id="finNcL2"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Town / city</label><input type="text" id="finNcCity"></div>
+      <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finNcPc"></div>
+    </div>
+    <button class="darkbtn" style="width:100%;" id="finNcSave" onclick="saveFinNewCustomer()">${x ? 'Add to Xero' : 'Use this customer'}</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finCustOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  setTimeout(()=>{ const el = document.getElementById(name ? 'finNcEmail' : 'finNcName'); if(el) el.focus(); }, 50);
+};
+window.saveFinNewCustomer = async function(){
+  const v = id=>finVal(id);
+  const name = v('finNcName'), email = v('finNcEmail');
+  if(!name){ toast('Enter the company name.'); return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
+  const address = [v('finNcL1'), v('finNcL2'), v('finNcCity'), v('finNcPc')].filter(Boolean).join('\n');
+  let c = {name, email, address};
+  if(finXeroConnected()){
+    const btn = document.getElementById('finNcSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding to Xero…'; }
+    const j = await finXeroCall('create_contact', {name, email, phone:v('finNcPhone'), first_name:v('finNcFirst'), last_name:v('finNcLast'), line1:v('finNcL1'), line2:v('finNcL2'), city:v('finNcCity'), postcode:v('finNcPc')});
+    if(btn){ btn.disabled = false; btn.textContent = 'Add to Xero'; }
+    if(j.error){ toast('Xero: '+j.error); return; }
+    if(j.contact) c = {name:j.contact.name, email:j.contact.email || email, address:j.contact.address || address};
+    toast(j.existed ? 'Already in Xero — using their details' : 'Added to Xero');
+  }
+  window.__finXeroContacts = [c]; finXeroUseContact(0);
+  finCustLocal = null;
+  document.getElementById('finCustOverlay').style.display = 'none';
+};
 
 /* ============================================================
    OpHUB Finance — standalone (Finance-only companies)
@@ -50448,7 +50595,7 @@ async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=2000&select=id,site_id,status,due_date,total,paid,net'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&limit=2000&select=site_id,number,valuation_date,status,cert_retention'),
@@ -50470,7 +50617,7 @@ async function renderFinanceHome(){
   const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstanding(i), 0);
   const retHeld = SITES.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
-  const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
+  const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDateFor(jfBy[s.id], st, finToday().slice(0,7))));
   const longHire = onHire.filter(h=>finPlantCost(h).days>28);
   const one = (list, single, many)=>list.length===1 ? single(list[0]) : many;
   const todo = [];
@@ -50501,6 +50648,7 @@ async function renderFinanceHome(){
 }
 
 /* ================= Jobs ================= */
+let finJobFilt = {pm:'', client:'', sort:'noza'};
 async function renderFinJobs(sub){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -50527,13 +50675,27 @@ async function renderFinJobs(sub){
     if(!['live','upcoming','closed','all'].includes(finHomeTab)) finHomeTab = 'live';
     const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
     const counts = {live:0, upcoming:0, closed:0, all:sites.length}; sites.forEach(s=>{ counts[finSiteStatus(s)] = (counts[finSiteStatus(s)]||0)+1; });
-    const shown = sites.filter(s=>finHomeTab==='all' || finSiteStatus(s)===finHomeTab);
+    await loadAllProfiles();
+    const cliOf = s=>(jfBy[s.id]||{}).billing_name || s.client_name || '';
+    const f = finJobFilt;
+    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && (!f.client || cliOf(s)===f.client));
+    const num = s=>String(s.job_number||''), nm = s=>String(s.name||'');
+    const cmp = {az:(a,b)=>nm(a).localeCompare(nm(b)), za:(a,b)=>nm(b).localeCompare(nm(a)), noaz:(a,b)=>num(a).localeCompare(num(b), undefined, {numeric:true}), noza:(a,b)=>num(b).localeCompare(num(a), undefined, {numeric:true}), start:(a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))}[f.sort];
+    if(cmp) shown = shown.slice().sort(cmp);
+    const pms = Array.from(new Set(sites.map(s=>s.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
+    const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    const filtHtml = `<div class="finjobfilt">
+      <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
+      <label>Client<select onchange="finJobFilt.client=this.value;render()"><option value="">All clients</option>${clients.map(c=>`<option value="${escapeHtml(c)}" ${f.client===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label>
+      <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear filters</button>` : ''}
+    </div>`;
     body = finSecHead('Projects', fo && isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
       + `<div class="pmchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search project no., name, client or PO', 'finJobList')
+      + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
       + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-          <span class="finjobno ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span>
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span></span>
+          <span class="finjobno ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span>
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span><span class="pmrow-s finjobstart">${s.start_date ? 'Start '+finDate(s.start_date) : 'No start date'}</span></span>
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');
   }
   document.getElementById('app').innerHTML = shell(`${finSectionNav('jobs')}${finSubTabs('jobs', sub==='clients'?'clients':'list')}${body}`,
@@ -51200,7 +51362,7 @@ window.finDocNew = function(siteId, i){
 };
 function finScrollToAnchor(id){
   let tries = 0;
-  const t = setInterval(()=>{ const el = document.getElementById(id); tries++; if(el){ clearInterval(t); el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('finflash'); setTimeout(()=>el.classList.remove('finflash'), 1400); } else if(tries>40) clearInterval(t); }, 100);
+  const t = setInterval(()=>{ const el = document.getElementById(id); tries++; if(el){ clearInterval(t); const tab = el.closest && el.closest('.finptab'); if(tab && typeof finProjTabShow==='function'){ const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1]; if(sid) finProjTab[sid] = tab.dataset.t; finProjTabShow(tab.dataset.t); } el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('finflash'); setTimeout(()=>el.classList.remove('finflash'), 1400); } else if(tries>40) clearInterval(t); }, 100);
 }
 // Called after the project Finance page renders.
 function finAfterProjectRender(){ if(window.__finScrollTo){ const a = window.__finScrollTo; window.__finScrollTo = null; finScrollToAnchor(a); } }
@@ -51211,9 +51373,11 @@ async function finCostsAccessFill(){
   await loadAllProfiles(true);
   const people = Object.values(PROFILES).filter(p=>p.org_id===ME.org_id && !p.finance_enabled && ['pm','site_manager','operative','admin'].includes(p.role)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const canEdit = ME.role==='admin' && isFinanceUser();
+  delete box.dataset.coll; box.classList.remove('fincoll');
   box.innerHTML = `<p class="sectiontitle" style="margin-top:0;">Who can see material costs</p>
     <p class="stub" style="margin:-4px 0 10px;">Prices on the project shopping lists (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
     ${people.map(p=>`<div class="finkv"><span>${escapeHtml(p.name)} <em class="stub" style="font-size:12px;">${escapeHtml(typeof personRoleLabel==='function'?personRoleLabel(p):p.role)}</em></span><b>${canEdit ? `<label class="finswitch" style="margin:0;"><input type="checkbox" ${p.see_costs?'checked':''} onchange="finSetSeeCosts('${p.id}', this.checked)"> ${p.see_costs?'Can see':'Hidden'}</label>` : (p.see_costs?'Can see':'Hidden')}</b></div>`).join('') || '<p class="stub">Nobody else in the team yet.</p>'}`;
+  if(box.parentNode && box.parentNode.classList.contains('finsetpage')) finCollapseCards(box.parentNode, 'settings');
 }
 window.finSetSeeCosts = async function(userId, on){
   const r = await dbUpdate('profiles', userId, {see_costs:!!on});
@@ -51577,6 +51741,7 @@ window.setFinBillingType = async function(siteId, bt){
     const items = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id&limit=1');
     if(!items.length){ go('#/site/'+siteId+'/finance/contract'); return; }
   }
+  if(bt==='invoice' && typeof finProjTab!=='undefined') finProjTab[siteId] = 'setup';
   render();
   if(bt==='invoice') setTimeout(()=>{ const el = document.getElementById('finContract'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); } }, 300);
 };
@@ -51722,6 +51887,70 @@ window.finAppUseSiteProgress = function(){
   finAppPaintLines(); finAppPaint();
   toast(n ? n+' line'+(n===1?'':'s')+' updated from site progress — check, then Save' : 'Already matches site progress');
 };
+
+/* ---------- project Finance page: tabs across the top (Andy, 20 Oct) ---------- */
+const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & labour'}, {k:'setup', l:'Set-up'}];
+let finProjTab = {}; // siteId -> tab
+function finProjTabCur(siteId){
+  const q = typeof routeQuery==='function' ? routeQuery().get('tab') : null;
+  if(q && FIN_PTABS.some(t=>t.k===q)) finProjTab[siteId] = q;
+  return finProjTab[siteId] || 'overview';
+}
+function finProjTabsHtml(siteId, bt){
+  const cur = finProjTabCur(siteId);
+  return `<div class="finsubtabs finptabs" role="tablist">${FIN_PTABS.map(t=>`<button type="button" role="tab" data-t="${t.k}" class="${t.k===cur?'on':''}" onclick="finProjTabGo('${siteId}','${t.k}')">${t.k==='setup' && bt==='application' ? 'Schedule & set-up' : t.l}</button>`).join('')}</div>`;
+}
+window.finProjTabGo = function(siteId, k){ finProjTab[siteId] = k; finProjTabShow(k); try{ window.scrollTo({top:0}); document.querySelector('.scrollarea') && (document.querySelector('.scrollarea').scrollTop = 0); }catch(e){} };
+function finProjTabShow(k){
+  document.querySelectorAll('.finptab').forEach(el=>el.style.display = el.dataset.t===k ? '' : 'none');
+  document.querySelectorAll('.finptabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===k));
+}
+
+/* ---------- application dates: the next 12 months, each can be changed (Andy, 20 Oct) ---------- */
+function finNext12Months(){ const out = []; const d = new Date(); d.setDate(1); for(let i=0;i<12;i++){ out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()+1); } return out; }
+function finAppDatesHtml(jf, st){
+  const months = finNext12Months(), custom = (jf && jf.app_dates) || {};
+  const n = months.filter(m=>custom[m]).length;
+  return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
+    <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
+    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick another date (e.g. the client’s valuation calendar). Clear a box to go back to the day of the month.</p>
+    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || def;
+      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"></label>`; }).join('')}</div>
+  </details>`;
+}
+// Only the months that differ from the day-of-month rule are stored.
+function finAppDatesRead(day){
+  const out = {}; let any = false;
+  document.querySelectorAll('.finappdates input[data-ym]').forEach(el=>{
+    const ym = el.dataset.ym, v = el.value;
+    const def = day ? ym+'-'+String(Math.min(day, new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate())).padStart(2,'0') : (el.dataset.def||'');
+    if(v && v!==def){ out[ym] = v; any = true; }
+  });
+  return any ? out : null;
+}
+
+/* ---------- neat drop-downs: cards become tap-to-open sections (Finance › Settings, Andy 20 Oct) ---------- */
+let FIN_COLL_OPEN = null;
+function finCollOpenSet(){ if(!FIN_COLL_OPEN){ try{ FIN_COLL_OPEN = new Set(JSON.parse(localStorage.getItem('ophub.finColl')||'[]')); }catch(e){ FIN_COLL_OPEN = new Set(); } } return FIN_COLL_OPEN; }
+function finCollapseCards(root, key){
+  if(!root) return;
+  root.querySelectorAll('.card').forEach(card=>{
+    if(card.dataset.coll) return;
+    const t = card.firstElementChild;
+    if(!t || !t.classList || !t.classList.contains('sectiontitle')) return;
+    const title = t.textContent.trim(), id = key+':'+title;
+    card.dataset.coll = '1'; card.classList.add('fincoll');
+    const det = document.createElement('details'); det.className = 'fincoll-d';
+    if(finCollOpenSet().has(id)) det.open = true;
+    const sum = document.createElement('summary'); sum.className = 'fincoll-s';
+    sum.innerHTML = `<span>${escapeHtml(title)}</span><span class="fincoll-c" aria-hidden="true">▾</span>`;
+    const body = document.createElement('div'); body.className = 'fincoll-b';
+    t.remove();
+    while(card.firstChild) body.appendChild(card.firstChild);
+    det.appendChild(sum); det.appendChild(body); card.appendChild(det);
+    det.addEventListener('toggle', ()=>{ const s = finCollOpenSet(); if(det.open) s.add(id); else s.delete(id); try{ localStorage.setItem('ophub.finColl', JSON.stringify(Array.from(s))); }catch(e){} });
+  });
+}
 
 /* ============================================================
    OpHUB Finance — money boxes always read "£12,000.00" (Andy, 20 Oct:

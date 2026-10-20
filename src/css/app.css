@@ -1872,3 +1872,51 @@ html.finmode .finstats .pmstat{cursor:pointer;}
 .finmb-m button:hover{background:#F4F6FA;}
 .finmb-m button.on{color:#1E6B45;}
 .finhome{overflow:visible;}
+/* Finance project number badge: one fixed size (long refs are shortened with …) */
+.finjobno, html.finmode .finjobno{width:96px;min-width:96px;max-width:96px;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media (max-width:600px){ .finjobno, html.finmode .finjobno{width:84px;min-width:84px;max-width:84px;font-size:13px;} }
+.finjobstart{font-size:12.5px;color:var(--slate);margin-top:1px;}
+/* Document bar selects: no clipped text */
+html.finmode .finprojbar select, .finprojbar select{height:auto !important;min-height:42px;line-height:1.3 !important;padding:10px 34px 10px 12px !important;box-sizing:border-box;}
+/* Paid-by line under the project header */
+.finbtline{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid #ECEEF2;border-radius:14px;padding:10px 16px;margin:0 0 16px;font-size:14px;}
+.finbtline b{color:var(--ink);}
+.finbtline .ghostbtn{width:auto;margin:0;padding:7px 12px;}
+.finappdates{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:2px 0 12px;background:#FAFBFC;}
+.finappdates summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--ink);}
+.finappdates summary em{font-style:normal;color:#B0740F;font-weight:600;}
+.finappdates-g{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+@media (max-width:900px){ .finappdates-g{grid-template-columns:repeat(2,minmax(0,1fr));} }
+.finappdates-g label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--slate);}
+.finappdates-g label.set span{color:#B0740F;}
+.finappdates-g label.set input{border-color:#E0B36A;background:#FFF8EC;}
+.finappdates-g input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;}
+html.desk.finmode .scrollarea > *{margin-left:auto !important;margin-right:auto !important;}
+/* Finance: use the full browser width on laptops / desktops (was 1160px) */
+html.desk.finmode .scrollarea > *{max-width:1720px;}
+html.desk.finmode .scrollarea{padding-left:32px;padding-right:32px;}
+/* Settings: tap-to-open sections, two columns on wide screens */
+.fincoll{padding:0 !important;}
+.fincoll-d > summary{list-style:none;}
+.fincoll-d > summary::-webkit-details-marker{display:none;}
+.fincoll-s{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;cursor:pointer;font-weight:700;font-size:15px;color:var(--ink);}
+.fincoll-c{font-size:14px;color:var(--slate);transition:transform .15s;}
+.fincoll-d[open] .fincoll-c{transform:rotate(180deg);}
+.fincoll-b{padding:0 20px 18px;}
+html.desk.finmode .finsetpage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;align-content:start;}
+html.desk.finmode .finsetpage > *{max-width:none;grid-column:1 / -1;}
+html.desk.finmode .finsetpage > .card.fincoll{grid-column:auto;margin-bottom:12px;}
+@media (max-width:1100px){ html.desk.finmode .finsetpage{display:block;} }
+.finjobfilt{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;margin:0 0 10px;}
+.finjobfilt label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:700;color:var(--slate);flex:1 1 170px;max-width:280px;}
+.finjobfilt select{padding:9px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:14px;background:#fff;color:var(--ink);}
+.finjobfilt .linkbtn{padding:10px 4px;}
+.fincust-row{display:flex;gap:8px;margin:0 0 4px;}
+.fincust-row input{flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:15px;}
+.fincust-row .ghostbtn{width:auto;margin:0;white-space:nowrap;}
+.fincust-list{border:1px solid var(--line);border-radius:12px;margin:6px 0 10px;overflow:hidden;background:#fff;}
+.fincust-list .pmrow{border-radius:0;border:0;border-bottom:1px solid #F0F2F5;margin:0;width:100%;}
+.fincust-src{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle;}
+.fincust-src.xero{background:#E3F2FB;color:#0B6FA4;} .fincust-src.local{background:#F1F3F6;color:var(--slate);}
+html.desk.finmode .finsetpage{align-items:start;}
+html.desk.finmode .finsetpage > *{margin-left:0 !important;margin-right:0 !important;width:100%;box-sizing:border-box;justify-self:stretch;}

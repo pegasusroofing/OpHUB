@@ -129,7 +129,10 @@ async function renderFinanceSettings(){
     ${typeof finXeroSettingsHtml==='function' ? finXeroSettingsHtml(st) : ''}
     <button class="darkbtn" style="width:100%;" id="finSettingsSave" onclick="saveFinanceSettings()">Save settings</button>
   `, {title:'Finance settings', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
-  if(typeof finCostsAccessFill==='function') finCostsAccessFill();
+  const setRoot = document.querySelector('.scrollarea');
+  if(setRoot) setRoot.classList.add('finsetpage');
+  finCollapseCards(setRoot, 'settings');
+  if(typeof finCostsAccessFill==='function') Promise.resolve(finCostsAccessFill()).then(()=>finCollapseCards(document.querySelector('.scrollarea'), 'settings'));
 }
 window.saveFinanceSettings = async function(){
   const auto = document.getElementById('finAutoJob').checked;
@@ -200,19 +203,17 @@ async function renderSiteFinance(siteId){
       <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
       <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
     </div>
-    ${bt ? '' : finBillingChoiceHtml(siteId)}
+    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="ghostbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">Change to ${bt==='invoice'?'applications':'invoices'}</button></div>` : finBillingChoiceHtml(siteId)}
 
+    ${finProjTabsHtml(siteId, bt)}
+    <div class="finptab" data-t="overview">
     <div id="finFcSlot"></div>
     <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
-    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDayFor(jf, st)) && finSiteStatus(site)==='live') : ''}
+    </div>
+    <div class="finptab" data-t="sales">
+    <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live') : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
-    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
-    <div id="finScSlot"></div>
-    ${finLabourCardHtml(siteId, lab)}
-    ${finPlantCardHtml(siteId, hires)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
-    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
-
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Client purchase orders</p>
@@ -232,7 +233,17 @@ async function renderSiteFinance(siteId){
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
-
+    </div>
+    <div class="finptab" data-t="purchases">
+    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
+    ${finPlantCardHtml(siteId, hires)}
+    </div>
+    <div class="finptab" data-t="subs">
+    <div id="finScSlot"></div>
+    ${finLabourCardHtml(siteId, lab)}
+    </div>
+    <div class="finptab" data-t="setup">
+    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
@@ -244,6 +255,7 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
         <div class="formfield"><label class="field-label">Days to final date for payment</label><input type="number" id="finFinal" min="0" step="1" value="${escapeHtml(String(pick('final_days', st.default_final_days)))}"></div>
         <div class="formfield"><label class="field-label">Application date (day of month)</label><input type="number" id="finAppDay" min="1" max="31" step="1" placeholder="e.g. 25" value="${escapeHtml(String(pick('app_reminder_day', st.app_reminder_day)||''))}"></div>
+        ${finAppDatesHtml(jf, st)}
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       ${finBillingLineHtml(siteId, bt)}
@@ -260,9 +272,11 @@ async function renderSiteFinance(siteId){
       <div class="formfield"><label class="field-label">Notes</label><textarea id="finNotes" rows="2" placeholder="Anything about payment on this project">${escapeHtml(jf.notes||'')}</textarea></div>
     </div>
     <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save project details'}</button>
+    </div>
 
 
   `, {title:'Finance', subtitle:site.name, back:typeof isFinanceOnly==='function' && isFinanceOnly() ? '#/finance' : `#/site/${siteId}/home`, siteId, tabs:false});
+  finProjTabShow(finProjTabCur(siteId));
   if(typeof finAfterProjectRender==='function') finAfterProjectRender();
   // Forecast and subcontractor cards fill in once the job's full book has loaded (911/912).
   if(typeof finLoadBook==='function') finLoadBook(siteId).then(b=>{
@@ -278,6 +292,7 @@ window.saveSiteFinance = async function(siteId){
   const contract = finNum(finVal('finContract'));
   const ret = finNum(finVal('finRet')), retLim = finNum(finVal('finRetLimit'));
   const due = finInt(finVal('finDue')), fin = finInt(finVal('finFinal')), appDay = finInt(finVal('finAppDay'));
+  const appDates = finAppDatesRead(appDay);
   const email = finVal('finBillEmail');
   if(contract!==null && (isNaN(contract) || contract < 0)){ toast('Enter the contract value as a number.'); return; }
   if(ret!==null && (isNaN(ret) || ret < 0 || ret > 100)){ toast('Retention must be between 0 and 100%.'); return; }
@@ -301,7 +316,7 @@ window.saveSiteFinance = async function(siteId){
   const orig = (jfPrev.original_value==null && contract!==null && !isNaN(contract) && contract>0) ? {original_value:contract, original_at:jfPrev.original_at||new Date().toISOString()} : {};
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates,return=representation'}, body:JSON.stringify({
     ...orig, site_id:siteId, org_id:ME.org_id, contract_value:contract, retention_pct:ret, retention_limit_pct:retLim,
-    due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay,
+    due_days:(due===null||isNaN(due))?null:due, final_days:(fin===null||isNaN(fin))?null:fin, app_reminder_day:appDay, app_dates:appDates,
     vat_treatment:finVal('finVat')||null, billing_name:finVal('finBillName')||null, billing_address:finVal('finBillAddr')||null,
     billing_email:email||null, notes:finVal('finNotes')||null, updated_at:new Date().toISOString(), updated_by:ME.id,
   })});

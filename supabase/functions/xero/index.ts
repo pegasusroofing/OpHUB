@@ -199,6 +199,25 @@ Deno.serve(async (req) => {
       }) });
     }
 
+    if (action === 'create_contact') {
+      // New customer in Xero (Finance › project › Billing › "+ New customer").
+      const nm = String(body.name || '').trim().slice(0, 255);
+      if (!nm) return json({ error: 'Name needed' }, 400);
+      const found = await call('GET', '/Contacts?where=' + encodeURIComponent(`Name=="${nm.replace(/"/g, '')}"`));
+      const ex = found?.Contacts?.[0];
+      const addr = { AddressType: 'POBOX', AddressLine1: String(body.line1 || '').slice(0, 500), AddressLine2: String(body.line2 || '').slice(0, 500), City: String(body.city || '').slice(0, 255), PostalCode: String(body.postcode || '').slice(0, 50) };
+      const shape = (c: any) => { const a = (c.Addresses || []).find((x: any) => x.AddressLine1) || {}; return { id: c.ContactID, name: c.Name, email: c.EmailAddress || '', address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region, a.PostalCode].filter(Boolean).join('\n') }; };
+      if (ex) return json({ ok: true, existed: true, contact: shape(ex) });
+      const c: any = { Name: nm, IsCustomer: true };
+      if (body.email) c.EmailAddress = String(body.email).slice(0, 255);
+      if (body.first_name) c.FirstName = String(body.first_name).slice(0, 255);
+      if (body.last_name) c.LastName = String(body.last_name).slice(0, 255);
+      if (body.phone) c.Phones = [{ PhoneType: 'DEFAULT', PhoneNumber: String(body.phone).slice(0, 50) }];
+      if (addr.AddressLine1 || addr.PostalCode) c.Addresses = [addr];
+      const made = await call('POST', '/Contacts', { Contacts: [c] });
+      return json({ ok: true, contact: shape(made.Contacts[0]) });
+    }
+
     if (action === 'push_invoice') {
       const { data: inv } = await admin.from('fin_invoices').select('*').eq('id', body.id).eq('org_id', orgId).maybeSingle();
       if (!inv) return json({ error: 'Invoice not found' }, 404);

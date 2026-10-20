@@ -52,6 +52,7 @@ window.setFinBillingType = async function(siteId, bt){
     const items = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id&limit=1');
     if(!items.length){ go('#/site/'+siteId+'/finance/contract'); return; }
   }
+  if(bt==='invoice' && typeof finProjTab!=='undefined') finProjTab[siteId] = 'setup';
   render();
   if(bt==='invoice') setTimeout(()=>{ const el = document.getElementById('finContract'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); } }, 300);
 };
@@ -197,3 +198,67 @@ window.finAppUseSiteProgress = function(){
   finAppPaintLines(); finAppPaint();
   toast(n ? n+' line'+(n===1?'':'s')+' updated from site progress — check, then Save' : 'Already matches site progress');
 };
+
+/* ---------- project Finance page: tabs across the top (Andy, 20 Oct) ---------- */
+const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & labour'}, {k:'setup', l:'Set-up'}];
+let finProjTab = {}; // siteId -> tab
+function finProjTabCur(siteId){
+  const q = typeof routeQuery==='function' ? routeQuery().get('tab') : null;
+  if(q && FIN_PTABS.some(t=>t.k===q)) finProjTab[siteId] = q;
+  return finProjTab[siteId] || 'overview';
+}
+function finProjTabsHtml(siteId, bt){
+  const cur = finProjTabCur(siteId);
+  return `<div class="finsubtabs finptabs" role="tablist">${FIN_PTABS.map(t=>`<button type="button" role="tab" data-t="${t.k}" class="${t.k===cur?'on':''}" onclick="finProjTabGo('${siteId}','${t.k}')">${t.k==='setup' && bt==='application' ? 'Schedule & set-up' : t.l}</button>`).join('')}</div>`;
+}
+window.finProjTabGo = function(siteId, k){ finProjTab[siteId] = k; finProjTabShow(k); try{ window.scrollTo({top:0}); document.querySelector('.scrollarea') && (document.querySelector('.scrollarea').scrollTop = 0); }catch(e){} };
+function finProjTabShow(k){
+  document.querySelectorAll('.finptab').forEach(el=>el.style.display = el.dataset.t===k ? '' : 'none');
+  document.querySelectorAll('.finptabs button').forEach(b=>b.classList.toggle('on', b.dataset.t===k));
+}
+
+/* ---------- application dates: the next 12 months, each can be changed (Andy, 20 Oct) ---------- */
+function finNext12Months(){ const out = []; const d = new Date(); d.setDate(1); for(let i=0;i<12;i++){ out.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()+1); } return out; }
+function finAppDatesHtml(jf, st){
+  const months = finNext12Months(), custom = (jf && jf.app_dates) || {};
+  const n = months.filter(m=>custom[m]).length;
+  return `<details class="finappdates" style="grid-column:1 / -1;" ${n?'open':''}>
+    <summary>Application dates for the next 12 months${n ? ` <em>· ${n} set by hand</em>` : ''}</summary>
+    <p class="stub" style="margin:6px 0 10px;font-style:normal;">Each month uses the day above unless you pick another date (e.g. the client’s valuation calendar). Clear a box to go back to the day of the month.</p>
+    <div class="finappdates-g">${months.map(m=>{ const def = finAppDateFor({app_reminder_day:jf && jf.app_reminder_day}, st, m) || ''; const v = custom[m] || def;
+      return `<label class="${custom[m]?'set':''}"><span>${new Date(m+'-01T12:00:00').toLocaleDateString('en-GB',{month:'short', year:'numeric'})}</span><input type="date" data-ym="${m}" data-def="${def}" value="${v}" min="${m}-01" max="${m}-31" onchange="this.parentNode.classList.toggle('set', !!this.value && this.value!==this.dataset.def)"></label>`; }).join('')}</div>
+  </details>`;
+}
+// Only the months that differ from the day-of-month rule are stored.
+function finAppDatesRead(day){
+  const out = {}; let any = false;
+  document.querySelectorAll('.finappdates input[data-ym]').forEach(el=>{
+    const ym = el.dataset.ym, v = el.value;
+    const def = day ? ym+'-'+String(Math.min(day, new Date(+ym.slice(0,4), +ym.slice(5,7), 0).getDate())).padStart(2,'0') : (el.dataset.def||'');
+    if(v && v!==def){ out[ym] = v; any = true; }
+  });
+  return any ? out : null;
+}
+
+/* ---------- neat drop-downs: cards become tap-to-open sections (Finance › Settings, Andy 20 Oct) ---------- */
+let FIN_COLL_OPEN = null;
+function finCollOpenSet(){ if(!FIN_COLL_OPEN){ try{ FIN_COLL_OPEN = new Set(JSON.parse(localStorage.getItem('ophub.finColl')||'[]')); }catch(e){ FIN_COLL_OPEN = new Set(); } } return FIN_COLL_OPEN; }
+function finCollapseCards(root, key){
+  if(!root) return;
+  root.querySelectorAll('.card').forEach(card=>{
+    if(card.dataset.coll) return;
+    const t = card.firstElementChild;
+    if(!t || !t.classList || !t.classList.contains('sectiontitle')) return;
+    const title = t.textContent.trim(), id = key+':'+title;
+    card.dataset.coll = '1'; card.classList.add('fincoll');
+    const det = document.createElement('details'); det.className = 'fincoll-d';
+    if(finCollOpenSet().has(id)) det.open = true;
+    const sum = document.createElement('summary'); sum.className = 'fincoll-s';
+    sum.innerHTML = `<span>${escapeHtml(title)}</span><span class="fincoll-c" aria-hidden="true">▾</span>`;
+    const body = document.createElement('div'); body.className = 'fincoll-b';
+    t.remove();
+    while(card.firstChild) body.appendChild(card.firstChild);
+    det.appendChild(sum); det.appendChild(body); card.appendChild(det);
+    det.addEventListener('toggle', ()=>{ const s = finCollOpenSet(); if(det.open) s.add(id); else s.delete(id); try{ localStorage.setItem('ophub.finColl', JSON.stringify(Array.from(s))); }catch(e){} });
+  });
+}

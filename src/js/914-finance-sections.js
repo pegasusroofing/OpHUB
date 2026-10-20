@@ -63,7 +63,7 @@ async function renderFinanceHome(){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
   const [jf, pos, invs, apps, st, toApprove, onHire, inbox, subApps] = await Promise.all([
-    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
+    dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&select=site_id,contract_value,app_reminder_day,app_dates,pc_date,defects_months,ret1_invoice_id,ret2_invoice_id'),
     dbSelect('client_pos', 'org_id=eq.'+ME.org_id+'&select=site_id'),
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.void&limit=2000&select=id,site_id,status,due_date,total,paid,net'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&limit=2000&select=site_id,number,valuation_date,status,cert_retention'),
@@ -85,7 +85,7 @@ async function renderFinanceHome(){
   const overdueInv = invs.filter(finInvOverdue), overdue = overdueInv.reduce((t,i)=>t+finInvOutstanding(i), 0);
   const retHeld = SITES.reduce((t,s)=>t+finRetentionHeld(appsBy[s.id]||[]), 0);
   const retDue = SITES.map(s=>({s, a:finRetentionAlerts(jfBy[s.id], st, finRetentionHeld(appsBy[s.id]||[]))})).filter(x=>x.a.length);
-  const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDayFor(jfBy[s.id], st)));
+  const appsDue = liveSites.filter(s=>finAppDueThisMonth(appsBy[s.id]||[], finAppDateFor(jfBy[s.id], st, finToday().slice(0,7))));
   const longHire = onHire.filter(h=>finPlantCost(h).days>28);
   const one = (list, single, many)=>list.length===1 ? single(list[0]) : many;
   const todo = [];
@@ -116,6 +116,7 @@ async function renderFinanceHome(){
 }
 
 /* ================= Jobs ================= */
+let finJobFilt = {pm:'', client:'', sort:'noza'};
 async function renderFinJobs(sub){
   if(!finGuard()) return;
   const __gen = RENDER_GEN;
@@ -142,13 +143,27 @@ async function renderFinJobs(sub){
     if(!['live','upcoming','closed','all'].includes(finHomeTab)) finHomeTab = 'live';
     const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
     const counts = {live:0, upcoming:0, closed:0, all:sites.length}; sites.forEach(s=>{ counts[finSiteStatus(s)] = (counts[finSiteStatus(s)]||0)+1; });
-    const shown = sites.filter(s=>finHomeTab==='all' || finSiteStatus(s)===finHomeTab);
+    await loadAllProfiles();
+    const cliOf = s=>(jfBy[s.id]||{}).billing_name || s.client_name || '';
+    const f = finJobFilt;
+    let shown = sites.filter(s=>(finHomeTab==='all' || finSiteStatus(s)===finHomeTab) && (!f.pm || (f.pm==='none' ? !s.responsible_pm_id : s.responsible_pm_id===f.pm)) && (!f.client || cliOf(s)===f.client));
+    const num = s=>String(s.job_number||''), nm = s=>String(s.name||'');
+    const cmp = {az:(a,b)=>nm(a).localeCompare(nm(b)), za:(a,b)=>nm(b).localeCompare(nm(a)), noaz:(a,b)=>num(a).localeCompare(num(b), undefined, {numeric:true}), noza:(a,b)=>num(b).localeCompare(num(a), undefined, {numeric:true}), start:(a,b)=>String(b.start_date||'').localeCompare(String(a.start_date||''))}[f.sort];
+    if(cmp) shown = shown.slice().sort(cmp);
+    const pms = Array.from(new Set(sites.map(s=>s.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
+    const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    const filtHtml = `<div class="finjobfilt">
+      <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
+      <label>Client<select onchange="finJobFilt.client=this.value;render()"><option value="">All clients</option>${clients.map(c=>`<option value="${escapeHtml(c)}" ${f.client===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></label>
+      <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
+      ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear filters</button>` : ''}
+    </div>`;
     body = finSecHead('Projects', fo && isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
       + `<div class="pmchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
-      + finSearchHtml('Search project no., name, client or PO', 'finJobList')
+      + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
       + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-          <span class="finjobno ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span>
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span></span>
+          <span class="finjobno ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span>
+          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span><span class="pmrow-s finjobstart">${s.start_date ? 'Start '+finDate(s.start_date) : 'No start date'}</span></span>
           <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');
   }
   document.getElementById('app').innerHTML = shell(`${finSectionNav('jobs')}${finSubTabs('jobs', sub==='clients'?'clients':'list')}${body}`,

@@ -52,10 +52,20 @@ const FIN_APP_STATUS = {draft:'Draft', submitted:'Submitted', certified:'Certifi
 function finAppPill(a){ if(a.status==='invoiced' && 'invoice_id' in a && !a.invoice_id) a = Object.assign({}, a, {status:'certified'}); const c = {draft:'grey', submitted:'blue', certified:'warn', invoiced:'ok', void:'grey'}[a.status]||'grey'; return `<span class="finpill ${c}">${FIN_APP_STATUS[a.status]||a.status}</span>`; }
 function finAppDayFor(jf, st){ return Number((jf && jf.app_reminder_day) || (st && st.app_reminder_day) || 0) || null; }
 // Is this month's application due (application day reached, none dated this month)?
-function finAppDueThisMonth(apps, appDay){
-  if(!appDay) return false;
-  const now = new Date(); if(now.getDate() < Math.min(appDay, 28)) return false;
+// Application date for a month (YYYY-MM): a date set for that month, else the day-of-month rule.
+function finAppDateFor(jf, st, ym){
+  const custom = jf && jf.app_dates && jf.app_dates[ym];
+  if(custom) return custom;
+  const day = finAppDayFor(jf, st); if(!day) return null;
+  const [y,m] = ym.split('-').map(Number);
+  return ym+'-'+String(Math.min(day, new Date(y, m, 0).getDate())).padStart(2,'0');
+}
+function finAppDueThisMonth(apps, due){
+  // 'due' = this month's application date (YYYY-MM-DD), or a day of the month (older callers).
+  if(!due) return false;
   const ym = finToday().slice(0,7);
+  if(typeof due==='number'){ if(new Date().getDate() < Math.min(due, 28)) return false; }
+  else if(finToday() < due) return false;
   return !apps.some(a=>a.status!=='void' && String(a.valuation_date||'').slice(0,7)===ym);
 }
 
@@ -417,10 +427,8 @@ window.newFinApplication = async function(siteId){
   const last = apps.find(a=>a.status!=='void');
   const lastPct = {}; ((last&&last.lines)||[]).forEach(l=>{ if(finIsItem(l)) lastPct[l.item_id] = l.pct; });
   const lastVar = {}, lastFinVar = {}; ((last&&last.variations)||[]).forEach(v=>{ if(v.variation_id) lastVar[v.variation_id] = v; if(v.fin_variation_id) lastFinVar[v.fin_variation_id] = v; });
-  const appDay = finAppDayFor(jf, st);
   const today = finToday();
-  let val = today;
-  if(appDay){ const d = new Date(); const day = Math.min(appDay, new Date(d.getFullYear(), d.getMonth()+1, 0).getDate()); val = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0'); }
+  const val = finAppDateFor(jf, st, today.slice(0,7)) || today;
   const dueDays = jf.due_days!=null ? jf.due_days : st.default_due_days, finalDays = jf.final_days!=null ? jf.final_days : st.default_final_days;
   const due = finAddDays(val, dueDays);
   // Variations register (911) first: agreed at the agreed value, priced/submitted at the quoted value.

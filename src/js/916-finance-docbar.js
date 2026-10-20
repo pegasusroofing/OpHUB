@@ -63,7 +63,7 @@ window.finDocNew = function(siteId, i){
 };
 function finScrollToAnchor(id){
   let tries = 0;
-  const t = setInterval(()=>{ const el = document.getElementById(id); tries++; if(el){ clearInterval(t); el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('finflash'); setTimeout(()=>el.classList.remove('finflash'), 1400); } else if(tries>40) clearInterval(t); }, 100);
+  const t = setInterval(()=>{ const el = document.getElementById(id); tries++; if(el){ clearInterval(t); const tab = el.closest && el.closest('.finptab'); if(tab && typeof finProjTabShow==='function'){ const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1]; if(sid) finProjTab[sid] = tab.dataset.t; finProjTabShow(tab.dataset.t); } el.scrollIntoView({behavior:'smooth', block:'start'}); el.classList.add('finflash'); setTimeout(()=>el.classList.remove('finflash'), 1400); } else if(tries>40) clearInterval(t); }, 100);
 }
 // Called after the project Finance page renders.
 function finAfterProjectRender(){ if(window.__finScrollTo){ const a = window.__finScrollTo; window.__finScrollTo = null; finScrollToAnchor(a); } }
@@ -74,9 +74,11 @@ async function finCostsAccessFill(){
   await loadAllProfiles(true);
   const people = Object.values(PROFILES).filter(p=>p.org_id===ME.org_id && !p.finance_enabled && ['pm','site_manager','operative','admin'].includes(p.role)).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
   const canEdit = ME.role==='admin' && isFinanceUser();
+  delete box.dataset.coll; box.classList.remove('fincoll');
   box.innerHTML = `<p class="sectiontitle" style="margin-top:0;">Who can see material costs</p>
     <p class="stub" style="margin:-4px 0 10px;">Prices on the project shopping lists (and in the Materials tile) are hidden from everyone except Finance users and the people switched on here.</p>
     ${people.map(p=>`<div class="finkv"><span>${escapeHtml(p.name)} <em class="stub" style="font-size:12px;">${escapeHtml(typeof personRoleLabel==='function'?personRoleLabel(p):p.role)}</em></span><b>${canEdit ? `<label class="finswitch" style="margin:0;"><input type="checkbox" ${p.see_costs?'checked':''} onchange="finSetSeeCosts('${p.id}', this.checked)"> ${p.see_costs?'Can see':'Hidden'}</label>` : (p.see_costs?'Can see':'Hidden')}</b></div>`).join('') || '<p class="stub">Nobody else in the team yet.</p>'}`;
+  if(box.parentNode && box.parentNode.classList.contains('finsetpage')) finCollapseCards(box.parentNode, 'settings');
 }
 window.finSetSeeCosts = async function(userId, on){
   const r = await dbUpdate('profiles', userId, {see_costs:!!on});

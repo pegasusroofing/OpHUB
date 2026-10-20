@@ -181,9 +181,85 @@ window.finXeroUseContact = function(i){
   const c = (window.__finXeroContacts||[])[i]; if(!c) return;
   const set = (id, v)=>{ const el = document.getElementById(id); if(el && v) el.value = v; };
   set('finBillName', c.name); set('finBillAddr', c.address); set('finBillEmail', c.email);
-  const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = '<p class="stub" style="font-style:normal;color:var(--ok);">Filled in from Xero — tap Save.</p>';
+  const q = document.getElementById('finCustQ'); if(q) q.value = '';
+  const out = document.getElementById('finXeroContacts'); if(out) out.innerHTML = `<p class="stub" style="font-style:normal;color:var(--ok);margin:6px 0;">✓ ${escapeHtml(c.name)} filled in below — tap Save.</p>`;
 };
 function finXeroBillingHtml(){
-  if(!finXeroConnected()) return '';
-  return `<button type="button" class="ghostbtn" style="width:100%;margin:0 0 6px;" onclick="finXeroFindContact()">Find this client in Xero</button><div id="finXeroContacts"></div>`;
+  const x = finXeroConnected();
+  return `<div class="fincust">
+    <div class="fincust-row">
+      <input type="search" id="finCustQ" placeholder="${x ? 'Search your Xero customers…' : 'Search customers…'}" autocomplete="off" oninput="finCustSearchSoon(this.value)">
+      <button type="button" class="ghostbtn" onclick="openFinNewCustomer()">+ New customer</button>
+    </div>
+    <div id="finXeroContacts"></div>
+    ${x ? '' : '<p class="stub" style="margin:4px 0 0;font-style:normal;font-size:12.5px;">Xero isn’t connected yet, so this searches customers already on your projects. Connect Xero in Finance › Settings to search Xero too.</p>'}
+  </div>`;
 }
+/* Search: Xero customers (when connected) + billing details already used on other projects. */
+let finCustTimer = null, finCustLocal = null;
+window.finCustSearchSoon = function(q){ clearTimeout(finCustTimer); finCustTimer = setTimeout(()=>finCustSearch(q), 350); };
+async function finCustSearch(q){
+  q = String(q||'').trim();
+  const out = document.getElementById('finXeroContacts'); if(!out) return;
+  if(q.length < 2){ out.innerHTML = ''; return; }
+  out.innerHTML = '<p class="stub" style="font-style:normal;margin:6px 0;">Searching…</p>';
+  if(!finCustLocal){ const rows = await dbSelect('job_finance', 'org_id=eq.'+ME.org_id+'&billing_name=not.is.null&select=billing_name,billing_address,billing_email,updated_at&order=updated_at.desc&limit=2000'); const seen = {}; finCustLocal = []; rows.forEach(r=>{ const k = String(r.billing_name).trim().toLowerCase(); if(k && !seen[k]){ seen[k] = 1; finCustLocal.push({name:r.billing_name, address:r.billing_address||'', email:r.billing_email||'', src:'local'}); } }); }
+  const ql = q.toLowerCase();
+  const local = finCustLocal.filter(c=>c.name.toLowerCase().includes(ql)).slice(0, 6);
+  let xero = [], err = '';
+  if(finXeroConnected()){ const j = await finXeroCall('contact', {name:q}); if(j.error) err = j.error; else xero = (j.contacts||[]).map(c=>Object.assign({src:'xero'}, c)); }
+  const cur = document.getElementById('finCustQ'); if(!cur || cur.value.trim()!==q) return; // a newer search is running
+  const xn = new Set(xero.map(c=>c.name.toLowerCase()));
+  const list = xero.concat(local.filter(c=>!xn.has(c.name.toLowerCase())));
+  window.__finXeroContacts = list;
+  out.innerHTML = (err ? `<p class="stub" style="font-style:normal;color:var(--red);margin:6px 0;">Xero: ${escapeHtml(err)}</p>` : '')
+    + (list.length ? `<div class="fincust-list">${list.map((c,i)=>`<button type="button" class="pmrow" onclick="finXeroUseContact(${i})"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(c.name)} <span class="fincust-src ${c.src}">${c.src==='xero'?'Xero':'Used before'}</span></span><span class="pmrow-s">${escapeHtml([c.email, String(c.address||'').replace(/\n/g, ', ')].filter(Boolean).join(' · ')||'No email or address')}</span></span></button>`).join('')}</div>`
+      : `<p class="stub" style="font-style:normal;margin:6px 0;">No customer called “${escapeHtml(q)}”. <button type="button" class="linkbtn" onclick="openFinNewCustomer('${jsAttr(q)}')">Add them as a new customer</button></p>`);
+}
+/* New customer: added to Xero straight away when it's connected, and filled into the billing boxes. */
+window.openFinNewCustomer = function(name){
+  let ov = document.getElementById('finCustOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finCustOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  const x = finXeroConnected();
+  ov.innerHTML = `<div class="geo-modal-card" style="max-width:520px;">
+    <h3>New customer</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${x ? 'Added to Xero as a customer and used for this project’s invoices.' : 'Used for this project’s invoices. It’s added to Xero when Xero is connected and the first invoice is sent.'}</p>
+    <div class="formfield"><label class="field-label">Company name</label><input type="text" id="finNcName" value="${escapeHtml(name||'')}"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Contact first name</label><input type="text" id="finNcFirst"></div>
+      <div class="formfield"><label class="field-label">Contact last name</label><input type="text" id="finNcLast"></div>
+      <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finNcEmail"></div>
+      <div class="formfield"><label class="field-label">Phone</label><input type="tel" id="finNcPhone"></div>
+    </div>
+    <div class="formfield"><label class="field-label">Address line 1</label><input type="text" id="finNcL1"></div>
+    <div class="formfield"><label class="field-label">Address line 2</label><input type="text" id="finNcL2"></div>
+    <div class="fingrid2">
+      <div class="formfield"><label class="field-label">Town / city</label><input type="text" id="finNcCity"></div>
+      <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finNcPc"></div>
+    </div>
+    <button class="darkbtn" style="width:100%;" id="finNcSave" onclick="saveFinNewCustomer()">${x ? 'Add to Xero' : 'Use this customer'}</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finCustOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  setTimeout(()=>{ const el = document.getElementById(name ? 'finNcEmail' : 'finNcName'); if(el) el.focus(); }, 50);
+};
+window.saveFinNewCustomer = async function(){
+  const v = id=>finVal(id);
+  const name = v('finNcName'), email = v('finNcEmail');
+  if(!name){ toast('Enter the company name.'); return; }
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Check the email address.'); return; }
+  const address = [v('finNcL1'), v('finNcL2'), v('finNcCity'), v('finNcPc')].filter(Boolean).join('\n');
+  let c = {name, email, address};
+  if(finXeroConnected()){
+    const btn = document.getElementById('finNcSave'); if(btn){ btn.disabled = true; btn.textContent = 'Adding to Xero…'; }
+    const j = await finXeroCall('create_contact', {name, email, phone:v('finNcPhone'), first_name:v('finNcFirst'), last_name:v('finNcLast'), line1:v('finNcL1'), line2:v('finNcL2'), city:v('finNcCity'), postcode:v('finNcPc')});
+    if(btn){ btn.disabled = false; btn.textContent = 'Add to Xero'; }
+    if(j.error){ toast('Xero: '+j.error); return; }
+    if(j.contact) c = {name:j.contact.name, email:j.contact.email || email, address:j.contact.address || address};
+    toast(j.existed ? 'Already in Xero — using their details' : 'Added to Xero');
+  }
+  window.__finXeroContacts = [c]; finXeroUseContact(0);
+  finCustLocal = null;
+  document.getElementById('finCustOverlay').style.display = 'none';
+};
