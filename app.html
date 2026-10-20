@@ -36742,7 +36742,8 @@ async function renderMaterialRequests(siteId){
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
   if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
-  if(site && site.repair_contract) await loadRepairPick(siteId);
+  // OpHUB Finance trial: Finance users only for now.
+  if(site && site.repair_contract && (typeof isFinanceUser==='function' && isFinanceUser())) await loadRepairPick(siteId);
   const supplierName = id => { if(id===SUPPLIER_EMAIL_ME) return 'Email to me'; const s=suppliers.find(x=>x.id===id); return s ? s.name : null; };
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
@@ -36880,7 +36881,7 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow" style="margin-top:10px;" onclick="toggleMaterialExpand('${m.id}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="event.stopPropagation();toggleMaterialSelect('${m.id}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}${isPM && m.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(m.po_number)+'</span>' : ''}</span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(m.item)}${m.qty ? ' <span style="font-weight:600;color:var(--slate);">× '+escapeHtml(m.qty)+'</span>' : ''}${isPM && (typeof isFinanceUser==='function' && isFinanceUser()) && m.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(m.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(m)}${m.grn ? matGrnTag(m.grn) : ''}</span>
         </div>
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
@@ -36896,10 +36897,10 @@ async function renderMaterialRequests(siteId){
       return `
         <div class="ddrow matgrouprow" style="margin-top:10px;" onclick="toggleMaterialExpand('${gk}')">
           ${isPM ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;" ${allSel?'checked':''} onclick="event.stopPropagation();toggleMaterialGroupSelect('${ids.join(',')}')">` : ''}
-          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span>${isPM && first.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(first.po_number)+'</span>' : ''}</span>
+          <span class="arrow">${open?'▼':'▶'}</span> <span style="min-width:0;overflow-wrap:anywhere;">${escapeHtml(first.item)} <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;margin-left:4px;">${e.items.length} items</span>${isPM && (typeof isFinanceUser==='function' && isFinanceUser()) && first.po_number ? ' <span class="opmat-pill" style="background:var(--blue-bg);color:var(--blue);margin-left:4px;">'+escapeHtml(first.po_number)+'</span>' : ''}</span>
           <span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex:none;">${matDoneTag(first)}${matGroupGrnTag(e.items)}</span>
         </div>
-        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''}${isPM && first.po_number ? ' · PO '+escapeHtml(first.po_number) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
+        ${open ? `<div class="matgroupbody"><div class="stub" style="margin:2px 0 0;">Grouped order · sent ${sentLabel}${isPM && first.merchant ? ' · '+escapeHtml(first.merchant) : ''}${isPM && (typeof isFinanceUser==='function' && isFinanceUser()) && first.po_number ? ' · PO '+escapeHtml(first.po_number) : ''} · ${e.items.length} items</div>${e.items.map(rowFn).join('')}</div>` : ''}`;
     }).join('');
     })() || `<div class="empty">${isPM ? (matFilter==='live' ? 'Nothing to action — no new requests from operatives.' : 'Nothing completed yet.') : 'No '+matFilter+' material requests.'}</div>`}
 
@@ -36909,7 +36910,7 @@ async function renderMaterialRequests(siteId){
       ${subAddrSelectHtml('matSubAddr', siteId, '', '', 'Which address on this job?')}
       ${repairJobSelectHtml('matRepairJob', siteId)}
       <div class="formfield"><input type="text" id="matItem" placeholder="Item"></div>
-      ${ORG && ORG.has_finance && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
+      ${(typeof isFinanceUser==='function' && isFinanceUser()) && typeof openShopPicker==='function' ? `<button type="button" class="ghostbtn" style="width:100%;margin:-4px 0 6px;" onclick="openShopPicker('${siteId}','mat')">📋 Pick from the project shopping list</button><div id="matShopTag" class="stub" style="margin:0 0 8px;"></div>` : ''}
       <div class="row-gap">
         <div class="formfield" style="flex:1;min-width:0;"><label class="field-label">Quantity</label><input type="text" id="matQty" placeholder="Quantity"></div>
         <div class="formfield" onclick="openDatePickerRow(this)" style="flex:1;min-width:0;"><label class="field-label">Required by (optional)</label><input type="date" id="matRequiredBy" min="${localISODate(new Date())}"></div>
@@ -37331,6 +37332,7 @@ async function loadRepairPick(siteId){
 }
 function repairPickLabel(j){ return [j.job_number, j.address].filter(Boolean).join(' — ') || 'Repair job'; }
 function repairJobSelectHtml(selId, siteId){
+  if(!(typeof isFinanceUser==='function' && isFinanceUser())) return ''; // OpHUB Finance trial: Finance users only for now
   const s = SITES.find(x=>x.id===siteId); if(!s || !s.repair_contract) return '';
   const list = REPAIR_PICK_CACHE[siteId] || [];
   if(!list.length) return '';

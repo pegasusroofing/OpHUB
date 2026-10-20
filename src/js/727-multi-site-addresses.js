@@ -49,6 +49,7 @@ async function loadRepairPick(siteId){
 }
 function repairPickLabel(j){ return [j.job_number, j.address].filter(Boolean).join(' — ') || 'Repair job'; }
 function repairJobSelectHtml(selId, siteId){
+  if(!(typeof isFinanceUser==='function' && isFinanceUser())) return ''; // OpHUB Finance trial: Finance users only for now
   const s = SITES.find(x=>x.id===siteId); if(!s || !s.repair_contract) return '';
   const list = REPAIR_PICK_CACHE[siteId] || [];
   if(!list.length) return '';
