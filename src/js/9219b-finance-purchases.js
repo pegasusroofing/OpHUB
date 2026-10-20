@@ -27,7 +27,7 @@ function finInboxMatchJob(text, ex, ctx){
   const line1 = s=>String(s.address||'').split(/,|\n/)[0].trim().toLowerCase();
   const byAddr = sites.filter(s=>(line1(s).length>6 && low.includes(line1(s))) || (s.name && s.name.length>6 && low.includes(s.name.toLowerCase())));
   if(byAddr.length===1) return {site_id:byAddr[0].id, how:'site address'};
-  if(byNo.length+byPc.length+byAddr.length>1) return {why:'More than one job matches — choose which'};
+  const many = Array.from(new Set(byNo.concat(byPc, byAddr))); if(many.length>1) return {why:'Could be '+many.slice(0,3).map(s=>(s.job_number?s.job_number+' ':'')+s.name).join(' or ')+' — choose which'};
   return {why:'Couldn’t find a PO, job number or site address on it'};
 }
 // Read new inbox items and file the ones we can place. Runs quietly whenever Finance opens.
@@ -99,7 +99,7 @@ async function finInboxFileCore(it, f, quiet){
 }
 
 /* ---------- Purchases section ---------- */
-let finPiF = 'approve', finPoF = 'open';
+let finPiF = 'approve', finPoF = 'open', finPiPicked = false;
 async function renderFinPurchases(sub){
   if(!finGuard()) return;
   if(sub==='pricebook' && typeof renderFinPriceBook==='function') return renderFinPriceBook();
@@ -153,11 +153,12 @@ async function renderFinPurchases(sub){
   } else if(sub==='invoices'){
     const F = {job:null, pm:null, approve:i=>['to_approve','query'].includes(i.status), unpaid:i=>i.status==='approved' && !i.paid_on, paid:i=>!!i.paid_on, all:()=>true};
     if(!(finPiF in F)) finPiF = 'approve';
-    const chips = [['job','Needs a job', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All', pinvs.length]];
+    if(!finPiPicked){ const cnt = {job:needJob.length, pm:withPm.length, approve:toApprove.length, unpaid:unpaid.length}; if(!cnt[finPiF]) finPiF = ['job','approve','pm','unpaid'].find(k=>cnt[k]) || 'all'; }
+    const chips = [['job','Needs a job', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All filed', pinvs.length]];
     body = finSecHead('Supplier invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
       + `<input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" style="display:none;" onchange="finInboxUpload(this.files)">`
       + `<p class="stub" style="margin:-4px 0 10px;">Supplier invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Needs a job</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
-      + `<div class="pmchips">${chips.map(([k,l,n])=>finChip(finPiF===k, l, n, `finPiF='${k}';render()`)).join('')}</div>`;
+      + `<div class="pmchips">${chips.map(([k,l,n])=>finChip(finPiF===k, l, n, `finPiF='${k}';finPiPicked=true;render()`)).join('')}</div>`;
     if(finPiF==='job' || finPiF==='pm'){
       const list = finPiF==='job' ? needJob : withPm;
       body += finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
@@ -337,8 +338,8 @@ async function renderPmToBook(){
       ${last ? `<p class="pmbook-note"><b>${escapeHtml(last.name||'Office')}:</b> ${escapeHtml(last.text||'')}</p>` : ''}
       <button class="ghostbtn" style="width:100%;margin:6px 0;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View the invoice</button>
       <div class="formfield"><label class="field-label">Which job is it for?</label><select class="pmbook-site"><option value="">Choose the job…</option>${mySites.map(s=>`<option value="${s.id}">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
-      <div class="formfield"><label class="field-label">Comment (optional)</label><input type="text" class="pmbook-note-in" placeholder="e.g. Materials for the flat roof"></div>
-      <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="pmBookInvoice('${it.id}')">Book to this job</button><button class="ghostbtn" style="flex:1;" onclick="pmReplyInvoice('${it.id}')">Reply only</button></div>
+      <div class="formfield"><label class="field-label">Note or reply to the office (optional)</label><input type="text" class="pmbook-note-in" placeholder="e.g. Flat roof materials — or “Not mine, try Mike”"></div>
+      <div class="row-gap"><button class="darkbtn" style="flex:2;" onclick="pmBookInvoice('${it.id}')">Book to this job</button><button class="ghostbtn" style="flex:1;" onclick="pmReplyInvoice('${it.id}')">Send back to office</button></div>
     </div>`; }).join('') : '<div class="empty">Nothing waiting.</div>'}
     <p class="sectiontitle" style="margin-top:22px;">Wages to book against your prices ${wp.length?`<span class="finpill warn">${wp.length}</span>`:''}</p>
     ${Object.keys(wBy).length ? Object.keys(wBy).map(sid=>{ const s = SITES.find(x=>x.id===sid)||{}; const tot = wBy[sid].reduce((t,w)=>t+Number(w.amount||0),0); return `<button type="button" class="pmrow pmrow-card" onclick="go('#/site/${sid}/price')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml((s.job_number?s.job_number+' · ':'')+(s.name||'Job'))}</span><span class="pmrow-s">${wBy[sid].length} to book · ${finMoney(tot)}</span></span>${ophIcon('chevron', 18, 2.2)}</button>`; }).join('') : '<div class="empty">Nothing waiting.</div>'}
@@ -354,11 +355,12 @@ window.pmBookInvoice = async function(id){
 };
 window.pmReplyInvoice = async function(id){
   const card = document.getElementById('pmb-'+id); if(!card) return;
-  let text = card.querySelector('.pmbook-note-in').value.trim();
-  if(!text){ text = String(await customPrompt('Reply to the office (e.g. “Not one of mine — try Dave”)') || '').trim(); if(!text) return; }
+  const typed = card.querySelector('.pmbook-note-in').value.trim();
+  const text = String(await customPrompt('Send it back to the office with a note (e.g. “Not one of mine — try Mike”)', typed) || '').trim();
+  if(!text) return;
   const res = await sbFetch('/rest/v1/rpc/fin_inbox_pm_reply', {method:'POST', body:JSON.stringify({p_id:id, p_text:text})});
   if(!res.ok){ toast('Not sent — '+(await safeErr(res))); return; }
-  toast('Sent back to the office'); render();
+  toast('Sent back to the office: “'+text.slice(0,60)+'”'); render();
 };
 
 // A PO whose value has been fully invoiced (approved) is closed as "Invoiced"; reopened if an invoice is rejected.

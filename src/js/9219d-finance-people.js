@@ -25,7 +25,7 @@ async function renderFinLabourRates(){
     ${finSectionNav('subs')}${finSubTabs('subs','rates')}
     ${finSecHead('People & rates', '+ Add a person', "openFinPerson('')")}
     <p class="stub" style="margin:-4px 0 10px;">Everyone you pay: operatives and subcontractors who invoice you (CIS), and PAYE staff (their day rate prices their days on site).${typeof finXeroConnected==='function' && finXeroConnected() ? ` <button class="linkbtn" onclick="openFinXeroWorkers()">Bring people in from Xero</button>` : ''}</p>
-    <div class="pmchips">${[['active','Everyone'],['subs','Invoice us (CIS)'],['paye','PAYE staff'],['left','No longer working for us'],['all','All']].map(([k,l])=>finChip(finPplF===k, l, rows.filter(F[k]).length, `finPplF='${k}';render()`)).join('')}</div>
+    <div class="pmchips">${[['active','Current'],['subs','Invoice us (CIS)'],['paye','PAYE staff'],['left','No longer working for us'],['all','All']].map(([k,l])=>finChip(finPplF===k, l, rows.filter(F[k]).length, `finPplF='${k}';render()`)).join('')}</div>
     ${finSearchHtml('Search name', 'finPplList')}
     <div id="finPplList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
       <thead><tr><th>Name</th><th>Pay</th><th class="num">Day rate</th><th>CIS</th><th>UTR</th><th>Bank</th><th></th></tr></thead>

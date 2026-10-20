@@ -110,11 +110,11 @@ async function renderFinanceHome(){
       <div class="pmstat" onclick="finInvFilter='overdue';go('#/finance/sales/invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
       <div class="pmstat" onclick="go('#/finance/sales/retention')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by clients</span></div>
     </div>
-    ${typeof finXeroReadyHtml==='function' ? finXeroReadyHtml(xeroReady) : ''}
     ${todo.length ? `<div class="card fintodo">
       <p class="sectiontitle" style="margin-top:0;">Needs attention</p>
       ${todo.map(x=>`<button type="button" class="fintodo-i" onclick="${x.pre||''}go('${x.go}')"><span class="fintodo-n t-${x.tone}">${x.n}</span><span class="fintodo-t"><b>${escapeHtml(x.t)}</b><em>${escapeHtml(x.s)}</em></span><span class="fintodo-c">›</span></button>`).join('')}
     </div>` : `<div class="card"><p class="stub" style="margin:0;">Nothing needs your attention right now.</p></div>`}
+    ${typeof finXeroReadyHtml==='function' ? finXeroReadyHtml(xeroReady) : ''}
   `, {title:'OpHUB Finance', subtitle:fo ? ((ORG&&ORG.name)||'Overview') : 'Overview', back:finSecBack(), tabs:false});
 }
 
@@ -163,7 +163,7 @@ async function renderFinJobs(sub){
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     const filtHtml = `<div class="finjobfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
-      <label>Client<input type="search" placeholder="Type any part of the client" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
+      <label>Client<input type="search" placeholder="Client name" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
       ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;

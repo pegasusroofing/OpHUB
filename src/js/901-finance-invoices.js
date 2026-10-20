@@ -16,7 +16,7 @@ function finInvPill(inv){
 }
 // Net / VAT / total for a set of lines.
 // VAT per line. Lines saved before per-line VAT have no `vat` and use the invoice's treatment.
-const FIN_INV_VAT = {'20':{l:'20%', r:20}, '5':{l:'5%', r:5}, 'rc20':{l:'Reverse charge 20%', r:20, rc:true}, 'rc5':{l:'Reverse charge 5%', r:5, rc:true}, '0':{l:'Zero rated', r:0}, 'ex':{l:'No VAT / exempt', r:0}};
+const FIN_INV_VAT = {'20':{l:'20%', s:'VAT 20%', r:20}, '5':{l:'5%', s:'VAT 5%', r:5}, 'rc20':{l:'Reverse charge 20%', s:'RC 20%', r:20, rc:true}, 'rc5':{l:'Reverse charge 5%', s:'RC 5%', r:5, rc:true}, '0':{l:'Zero rated', s:'Zero rated', r:0}, 'ex':{l:'No VAT / exempt', s:'No VAT', r:0}};
 function finInvVatFromTreatment(t, rate){ return t==='reverse_charge' ? (Number(rate)===5?'rc5':'rc20') : t==='zero' ? '0' : (Number(rate)===5?'5':'20'); }
 function finInvLineVat(l, t, rate){ return (l && FIN_INV_VAT[l.vat]) ? l.vat : finInvVatFromTreatment(t, rate); }
 // Net / VAT charged / reverse-charge VAT (paid by the client to HMRC) / total, plus a by-rate breakdown.
@@ -176,7 +176,7 @@ function finInvLineHtml(l, i){
     <textarea rows="2" placeholder="Description" oninput="finInvDraft.lines[${i}].description=this.value">${escapeHtml(l.description||'')}</textarea>
     <div class="finline-r">
       <input type="text" inputmode="decimal" data-money placeholder="£ amount" value="${l.amount!=null?escapeHtml(String(l.amount)):''}" oninput="finInvDraft.lines[${i}].amount=finNum(this.value);finInvPaintTotals()">
-      <select class="finline-vat" title="VAT on this line" onchange="finInvDraft.lines[${i}].vat=this.value;finInvSyncAll();finInvPaintTotals()">${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${l.vat===k?'selected':''}>${FIN_INV_VAT[k].l}</option>`).join('')}</select>
+      <select class="finline-vat" title="VAT on this line (RC = construction reverse charge)" onchange="finInvDraft.lines[${i}].vat=this.value;finInvSyncAll();finInvPaintTotals()">${Object.keys(FIN_INV_VAT).map(k=>`<option value="${k}" ${l.vat===k?'selected':''}>${FIN_INV_VAT[k].s}</option>`).join('')}</select>
       ${finInvDraft.lines.length>1 ? `<button class="linkbtn" onclick="finInvRemoveLine(${i})">remove</button>` : ''}
     </div>
   </div>`;
@@ -308,7 +308,7 @@ window.openFinEmail = async function(siteId, invId, mode){
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${mode==='reminder'?'Reminder for':'Email'} invoice ${escapeHtml(inv.number||'')}</h3>
-    <div class="formfield"><label class="field-label">To</label><input type="text" id="finMailTo" value="${escapeHtml(inv.bill_email||'')}" placeholder="accounts@client.co.uk (use commas for more than one)"></div>
+    <div class="formfield"><label class="field-label">To</label><input type="text" id="finMailTo" value="${escapeHtml(inv.bill_email||(SITES.find(x=>x.id===inv.site_id)||{}).client_email||'')}" placeholder="accounts@client.co.uk (use commas for more than one)">${!inv.bill_email && !(SITES.find(x=>x.id===inv.site_id)||{}).client_email ? '<p class="stub" style="margin:4px 0 0;font-style:normal;color:var(--warn);">No accounts email saved for this client — type it here, and add it to the project’s Billing so it’s there next time.</p>' : ''}</div>
     <label class="finswitch"><input type="checkbox" id="finMailMe" checked> Send me a copy (${escapeHtml(ME.email||'')})</label>
     <div class="formfield"><label class="field-label">Message (optional)</label><textarea id="finMailMsg" rows="3" placeholder="Added under the invoice details">${mode==='reminder' ? escapeHtml(`This invoice was due on ${finDate(inv.due_date)} and ${finMoney(finInvOutstanding(inv))} is still outstanding. Please could you let us know when it will be paid?`) : ''}</textarea></div>
     <button class="darkbtn" style="width:100%;" id="finMailSend" onclick="sendFinEmail('${siteId}','${invId}')">Send</button>

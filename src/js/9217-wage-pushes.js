@@ -46,7 +46,15 @@ function finWagePushChip(p){
 
 /* ---------- PM side (Price tile) ---------- */
 // Week choices for a price tile: its existing weeks (latest first, picked) and a new one.
-function pmWpWeekOpts(elId){ const m = (window.__pmWpMax||{})[elId] || 0; const o = []; if(m) o.push(`<option value="${m}" selected>Week ${m} (latest)</option>`); o.push(`<option value="${m+1}" ${m?'':'selected'}>Week ${m+1} (new week)</option>`); for(let w=m-1; w>=1; w--) o.push(`<option value="${w}">Week ${w}</option>`); return o.join(''); }
+function pmWpWeekOpts(elId, ws){
+  const m = (window.__pmWpMax||{})[elId] || 0, st = window.__pmWpStart;
+  const dt = n=>st ? ' · w/c '+new Date(finAddDays(st, (n-1)*7)+'T12:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'}) : '';
+  let pick = m || 1;
+  if(st && ws){ const n = Math.floor((new Date(finMonday(ws)+'T12:00:00') - new Date(st+'T12:00:00'))/(7*864e5)) + 1; if(n>=1) pick = n; }
+  const top = Math.max(m+1, pick);
+  const o = []; for(let w=top; w>=1; w--) o.push(`<option value="${w}" ${w===pick?'selected':''}>Week ${w}${dt(w)}${w===m?' (latest)':w>m?' (new)':''}</option>`);
+  return o.join('');
+}
 let pmWpOpen = true;
 async function pmWagePushesHtml(siteId, elements){
   let rows = [];
@@ -57,19 +65,21 @@ async function pmWagePushesHtml(siteId, elements){
   const wks = els.length ? await dbSelect('price_weeks', 'site_id=eq.'+siteId+'&select=element_id,week_number') : [];
   const maxW = {}; wks.forEach(w=>{ maxW[w.element_id] = Math.max(maxW[w.element_id]||0, Number(w.week_number)||0); });
   window.__pmWpMax = maxW;
+  const site = SITES.find(x=>x.id===siteId) || {};
+  window.__pmWpStart = site.start_date ? finMonday(site.start_date) : null;
   const total = rows.reduce((t,r)=>t+Number(r.amount||0),0);
   const wkDate = d=>new Date(d+'T12:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'});
   return `<div class="card pmwp">
     <div class="pmwp-head" onclick="pmWpOpen=!pmWpOpen;render()"><span><b>Wages to book</b> <span class="finpill warn">${rows.length}</span></span><span>${fmt2dp(total)} ${pmWpOpen?'▲':'▼'}</span></div>
-    ${pmWpOpen ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">From the office timesheets. Book each one against a price (it goes into that tile’s labour wages for the week you choose) or to general costs.</p>
+    ${pmWpOpen ? `<p class="stub" style="margin:4px 0 8px;font-style:normal;">From the office timesheets. Put each one against a price (it goes into that price’s labour wages for the week you choose), or to other job costs if it isn’t price work.</p>
     ${rows.map(r=>`<div class="pmwp-row" id="pmwp-${r.id}">
-      <div class="pmwp-who"><b>${escapeHtml(r.person_name||'Worker')}</b><span>w/c ${wkDate(r.week_start)} · ${Number(r.days||0)} day${Number(r.days)===1?'':'s'}${r.description?' · '+escapeHtml(r.description):''}</span></div>
+      <div class="pmwp-who"><b>${escapeHtml(r.person_name||'Worker')}</b><span>Work w/c ${wkDate(r.week_start)}${Number(r.days)?' · '+Number(r.days)+' day'+(Number(r.days)===1?'':'s'):''}${r.description?' · '+escapeHtml(r.description):''}</span></div>
       <div class="pmwp-amt">${fmt2dp(r.amount)}</div>
       <div class="pmwp-act">
-        <select class="pmwp-el" onchange="this.nextElementSibling.innerHTML=pmWpWeekOpts(this.value)">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
-        <select class="pmwp-wk" title="Which week of the price">${els.length ? pmWpWeekOpts(els[0].id) : ''}</select>
-        <button class="darkbtn" ${els.length?'':'disabled'} onclick="pmWagePushBook('${siteId}','${r.id}','price')">Book to price</button>
-        <button class="ghostbtn" onclick="pmWagePushBook('${siteId}','${r.id}','general')">General costs</button>
+        <select class="pmwp-el" onchange="this.nextElementSibling.innerHTML=pmWpWeekOpts(this.value,'${r.week_start||''}')">${els.length ? els.map(e=>`<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('') : '<option value="">No price tiles yet</option>'}</select>
+        <select class="pmwp-wk" title="Which week of the price">${els.length ? pmWpWeekOpts(els[0].id, r.week_start) : ''}</select>
+        <button class="darkbtn" ${els.length?'':'disabled'} onclick="pmWagePushBook('${siteId}','${r.id}','price')">Add to this price</button>
+        <button class="ghostbtn" onclick="pmWagePushBook('${siteId}','${r.id}','general')">Other job costs</button>
       </div></div>`).join('')}` : ''}
   </div>`;
 }
@@ -90,6 +100,6 @@ window.pmWagePushBook = async function(siteId, id, how){
     try{ const sh = await dbSelect('price_builder_sheets', 'pricing_element_id=eq.'+elId+'&select=id&limit=1'); if(!sh.length && typeof rollUpPriceWeekFromOperativeEntries==='function') await rollUpPriceWeekFromOperativeEntries(elId, siteId, wk); }catch(e){}
   }
   if(!(await dbUpdate('wage_pushes', id, patch))) return;
-  toast(how==='price' ? 'Booked to the price' : 'Booked to general costs');
+  toast(how==='price' ? 'Added to the price' : 'Added to other job costs');
   render();
 };

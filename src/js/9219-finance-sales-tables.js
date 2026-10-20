@@ -53,7 +53,7 @@ function finAppTableHtml(apps, invBy, opts){
       <td data-l="Applied" class="num">${finMoney(a.net_due)}</td>
       <td data-l="Certified" class="num">${a.cert_net!=null ? finMoney(a.cert_net)+(short<-0.009?`<div class="fininv-rc finbad">${finMoney(-short)} short</div>`:'') : '—'}</td>
       <td data-l="Stage"><span class="finpill ${s.c}">${s.l}</span></td>
-      <td data-l="Invoice">${inv ? `<button class="linkbtn" onclick="event.stopPropagation();go('#/site/${a.site_id}/finance/invoice/${inv.id}')">${escapeHtml(inv.number||'Draft')}</button>` : s.k==='certified' ? `<button class="ghostbtn finsmall" onclick="event.stopPropagation();raiseInvoiceFromCert('${a.site_id}','${a.id}', true)">Raise invoice</button>` : '<span class="stub" style="margin:0;">—</span>'}</td></tr>`; }).join('')}</tbody>
+      <td data-l="Invoice">${inv ? `<button class="linkbtn" onclick="event.stopPropagation();go('#/site/${a.site_id}/finance/invoice/${inv.id}')">${escapeHtml(inv.number||'Draft')}</button>` : s.k==='certified' ? `<button class="ghostbtn finsmall" onclick="event.stopPropagation();finRaiseCertInvoice('${a.site_id}','${a.id}', ${Number(a.cert_net||0)})">Raise invoice</button>` : '<span class="stub" style="margin:0;">—</span>'}</td></tr>`; }).join('')}</tbody>
   </table></div>`;
 }
 // Project page cards (replace the older list cards).
@@ -86,7 +86,7 @@ function finCleanEmptyDrafts(invs){
 }
 
 /* ---------- Sales section: Applications · Invoices · Retention ---------- */
-let finSalesAppF = 'open';
+let finSalesAppF = 'open', finSalesPicked = false;
 async function renderFinSales(sub){
   if(!finGuard()) return;
   if(sub==='certs'){ finSalesAppF = 'certified'; sub = 'apps'; }
@@ -113,10 +113,11 @@ async function renderFinSales(sub){
   if(sub==='apps'){
     const F = {open:a=>['draft','submitted'].includes(stage(a)), certified:a=>stage(a)==='certified', invoiced:a=>stage(a)==='invoiced', all:a=>stage(a)!=='void'};
     if(!F[finSalesAppF]) finSalesAppF = 'open';
+    if(!finSalesPicked && !apps.filter(F[finSalesAppF]).length) finSalesAppF = ['certified','open','invoiced'].find(k=>apps.filter(F[k]).length) || 'all';
     const list = apps.filter(F[finSalesAppF]);
     body = finSecHead('Applications & certificates', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<p class="stub" style="margin:-4px 0 10px;">Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</p>`
-      + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';render()`)).join('')}</div>`
+      + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';finSalesPicked=true;render()`)).join('')}</div>`
       + finSearchHtml('Search project', 'finSalesList')
       + `<div id="finSalesList">${finAppTableHtml(list, invBy, {showJob:true, empty:'Nothing here.'})}</div>`;
   } else if(sub==='invoices'){
@@ -149,4 +150,18 @@ async function renderFinSales(sub){
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}
     ${body}
   `, {title:'Sales', subtitle:'OpHUB Finance · money in', back:finSecBack(), tabs:false});
+}
+
+window.finRaiseCertInvoice = async function(siteId, appId, net){
+  if(!await customConfirm(`Raise and issue the invoice for this certificate (${finMoney(net)} net)?\n\nIt gets the next invoice number and is saved as a PDF ready to email.`, {confirmLabel:'Raise and issue'})) return;
+  return raiseInvoiceFromCert(siteId, appId, true);
+};
+// "To date" strip for a job's Sales tab: applied, certified, invoiced, paid.
+function finSalesToDateHtml(apps, invs){
+  const live = (apps||[]).filter(a=>a.status!=='void').sort((x,y)=>y.number-x.number);
+  const last = live[0], lastC = live.find(a=>a.cert_gross!=null);
+  const li = (invs||[]).filter(i=>!['void','draft'].includes(i.status));
+  const invoiced = finRound(li.reduce((t,i)=>t+Number(i.net||0),0)), paid = finRound(li.reduce((t,i)=>t+Math.min(Number(i.paid||0), Number(i.total||0)),0));
+  const cell = (l, v, s)=>`<div><span>${l}</span><b>${v}</b>${s?`<em>${s}</em>`:''}</div>`;
+  return `<div class="fintodate">${last ? cell('Applied to date', finMoney(last.gross, 0), 'gross, application '+last.number) : ''}${lastC ? cell('Certified to date', finMoney(lastC.cert_gross, 0), 'gross, by the client') : (last ? cell('Certified to date', '—', 'waiting') : '')}${cell('Invoiced', finMoney(invoiced, 0), 'net, '+li.length+' invoice'+(li.length===1?'':'s'))}${cell('Paid to you', finMoney(paid, 0), 'incl. VAT')}</div>`;
 }

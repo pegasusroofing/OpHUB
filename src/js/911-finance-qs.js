@@ -202,7 +202,7 @@ function finForecastCardHtml(siteId, fc){
       </div>
     </div>
     <div class="fintiles">
-      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?'Started at '+finMoney(fc.origValue, 0)+(Math.abs((fc.ffa||0)-fc.origValue)>=0.5 && !fc.vAgreed ? ' · contract changed since' : ''):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
+      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?'Started at '+finMoney(fc.origValue, 0)+(Math.abs((fc.ffa||0)-fc.origValue)>=0.5 && !fc.vAgreed ? ' · contract value edited since' : ''):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
       ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?'Started at '+finMoney(fc.origCost, 0):'')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
       ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
         : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?'Started at '+finMoney(fc.origMargin, 0):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))

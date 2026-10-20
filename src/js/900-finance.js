@@ -17,7 +17,8 @@ const FIN_VAT_LABEL = {standard:'Standard VAT (20%)', reverse_charge:'Domestic r
 function finMoney(n, dp){
   if(n===null || n===undefined || n==='' || isNaN(Number(n))) return '—';
   const d = dp===undefined ? 2 : dp;
-  return '£'+Number(n).toLocaleString('en-GB', {minimumFractionDigits:d, maximumFractionDigits:d});
+  const v = Number(n);
+  return (v<0?'−':'')+'£'+Math.abs(v).toLocaleString('en-GB', {minimumFractionDigits:d, maximumFractionDigits:d});
 }
 function finNum(v){
   const s = String(v===undefined||v===null ? '' : v).replace(/[£,\s]/g, '');
@@ -211,6 +212,7 @@ async function renderSiteFinance(siteId){
     <div id="finFcSlot"></div>
     </div>
     <div class="finptab" data-t="sales">
+    ${typeof finSalesToDateHtml==='function' ? finSalesToDateHtml(apps, invs) : ''}
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
