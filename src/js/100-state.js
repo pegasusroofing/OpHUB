@@ -429,7 +429,7 @@ window.setTeamMemberPhone = async function(userId){
 function roleActionsHtml(ME, p, allPeople){
   const {options, canRemove} = roleActionsFor(ME, p, allPeople);
   if(!options && !canRemove && !isFullManager(ME)) return '';
-  const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;'; // matches the smallBtn style used elsewhere in this admin screen
+  const smallBtn = 'width:auto;padding:7px 12px;font-size:12px;min-height:34px;'; // matches the smallBtn style used elsewhere in this admin screen
   return `
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
       ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
@@ -437,6 +437,7 @@ function roleActionsHtml(ME, p, allPeople){
       </select>` : ''}
       ${isFullManager(ME) && p.role==='operative' ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</button>` : ''}
       ${typeof finHasAccess==='function' && finHasAccess() && p.id!==ME.id && (p.role==='admin' || p.role==='pm') ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleFinanceAccess('${p.id}')">💷 Finance: ${p.finance_enabled?'On':'Off'}</button>` : ''}
+      ${p.id===ME.id && typeof finHasAccess==='function' && finHasAccess() ? `<button class="ghostbtn" style="${smallBtn}" onclick="setMyFinanceShown(${ME.finance_hidden?'true':'false'})">💷 Finance (trial): ${ME.finance_hidden?'Off':'On'}</button>` : ''}
       ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone):'Add phone'}</button>` : ''}
       ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
     </div>

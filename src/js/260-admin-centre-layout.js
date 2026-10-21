@@ -180,7 +180,7 @@ async function renderTeam(adminPage, adminItemKey){
   // and renderOperativeDetail.
   // Certifications is now per-operative (see the "Operatives" area) — this
   // section is just the root OneDrive folder link, so nothing to query here.
-  const smallBtn = 'width:auto;padding:4px 6px;font-size:6.75px;';
+  const smallBtn = 'width:auto;padding:7px 12px;font-size:12px;min-height:34px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   // Price Sheet rate card grouped by category, each item's dropdown
   // options (if any) attached — same shape the sheet builder itself uses.
@@ -756,7 +756,7 @@ async function renderTeam(adminPage, adminItemKey){
     ${teamSectionOpen.users ? `
     <p class="sectiontitle" style="margin-top:14px;">Company Admins</p>
     ${people.filter(p=>p.role==='admin').map(p=>`
-      <div class="sitecard" style="flex-wrap:wrap;${p.id!==ME.id && iAmAdmin ? 'cursor:pointer;' : ''}" ${p.id!==ME.id && iAmAdmin ? `onclick="toggleUserActions('${p.id}')"` : ''}>
+      <div class="sitecard" style="flex-wrap:wrap;${iAmAdmin ? 'cursor:pointer;' : ''}" ${iAmAdmin ? `onclick="toggleUserActions('${p.id}')"` : ''}>
         <div class="swatch personswatch" style="background:linear-gradient(135deg,var(--brand2),#000);">${escapeHtml((p.name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase())}</div>
         <div class="info"><div class="name">${escapeHtml(p.name)}${p.id===ME.id?' (you)':''}</div><div class="addr">${escapeHtml(p.email)}</div></div>
         ${userActionsOpenFor[p.id] ? roleActionsHtml(ME, p, people) : ''}
@@ -930,6 +930,7 @@ async function renderTeam(adminPage, adminItemKey){
     ${!adminPage ? `    <p style="text-align:center;margin-top:20px;">
       <span class="stub">${escapeHtml(ME.name)} · ${escapeHtml(ME.email)}</span><br>
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="go('#/signature')">${ME.signature_path?'My signature':'Adopt your signature'}</span><br>
+      ${typeof finHasAccess==='function' && finHasAccess() ? `<span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="setMyFinanceShown(${ME.finance_hidden?'true':'false'})">💷 Finance (trial): ${ME.finance_hidden?'Off — turn on':'On — turn off'}</span><br>` : ''}
       <span class="stub" style="cursor:pointer;text-decoration:underline;" onclick="doSignOut()">Sign out</span>
     </p>
     ` : ''}
