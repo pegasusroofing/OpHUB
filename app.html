@@ -22183,6 +22183,7 @@ function checkinAddressRowHtml(siteId, a){
         ${a.address||a.postcode ? `<div class="addr">${escapeHtml([a.address,a.postcode].filter(Boolean).join(', '))}</div>` : ''}
         <div class="stub" style="margin:4px 0 0;">${a.geofence_lat!=null ? `📍 Geofence set — ${a.geofence_radius_m||100}m radius` : 'No geofence set yet'}</div>
       </div>
+      ${isManager(ME) ? `<button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;margin:0 6px 0 0;padding:6px 12px;font-size:11px;${a.closed?'':'color:var(--warn);'}" onclick="event.stopPropagation();${a.closed?`reopenSubAddress('${a.id}')`:`closeSubAddress('${siteId}','${a.id}')`}">${a.closed?'Reopen':'Close'}</button>` : ''}
       <span style="font-size:20px;color:var(--slate);">›</span>
     </div>
   `;
