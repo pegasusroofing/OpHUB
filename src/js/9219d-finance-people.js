@@ -20,7 +20,7 @@ async function renderFinLabourRates(){
   const F = {active:x=>x.r.active!==false, subs:x=>x.r.active!==false && x.r.pay_type!=='paye', paye:x=>x.r.active!==false && x.r.pay_type==='paye', left:x=>x.r.active===false, all:()=>true};
   if(!F[finPplF]) finPplF = 'active';
   const list = rows.filter(F[finPplF]);
-  const bank = r=>finBankOk(r) ? `${escapeHtml(finSortCode(r.bank_sort_code))} · ••${escapeHtml(String(r.bank_account_no).replace(/\D/g,'').slice(-4))}` : (r.pay_type==='paye' ? '<span class="stub" style="margin:0;">Payroll</span>' : '<span class="finpill warn">Missing</span>');
+  const bank = r=>finBankOk(r) ? `${escapeHtml(finSortCode(r.bank_sort_code))} · ••${escapeHtml(String(r.bank_account_no).replace(/\D/g,'').slice(-4))}` : (r.pay_type==='paye' ? '<span class="stub" style="margin:0;">Payroll</span>' : '<span class="finpill warn">Not saved</span>');
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('subs')}${finSubTabs('subs','rates')}
     ${finSecHead('People & rates', '+ Add a person', "openFinPerson('')")}
@@ -64,7 +64,7 @@ window.openFinPerson = async function(key){
         <div class="formfield"><label class="field-label">UTR ${finHelp('utr')}</label><input type="text" inputmode="numeric" id="fpUtr" value="${v(r.utr)}" placeholder="10 digits"></div>
         <div class="formfield"><label class="field-label">VAT registered</label><select id="fpVat"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
       </div>
-      <p class="sectiontitle" style="margin:8px 0 6px;">Bank details (for the pay run)</p>
+      <p class="sectiontitle" style="margin:8px 0 6px;">Bank details (shown on the pay run when you pay them)</p>
       <div class="fingrid3">
         <div class="formfield"><label class="field-label">Account name</label><input type="text" id="fpBankName" value="${v(r.bank_account_name)}" autocomplete="off"></div>
         <div class="formfield"><label class="field-label">Sort code</label><input type="text" inputmode="numeric" id="fpSort" value="${r.bank_sort_code?v(finSortCode(r.bank_sort_code)):''}" placeholder="00-00-00" autocomplete="off"></div>

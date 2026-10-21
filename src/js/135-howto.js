@@ -47,25 +47,20 @@ function maybeShowHowTo(){
     if(howtoShownThisSession.has(key) || howtoDismissed().includes(key)) return;
     if(document.querySelector('.geo-modal-overlay[style*="flex"]')) return; // another pop-up is up
     howtoShownThisSession.add(key);
-    let el = document.getElementById('howtoSheet');
-    if(!el){ el = document.createElement('div'); el.id = 'howtoSheet'; document.body.appendChild(el); }
-    el.className = 'howto';
-    el.innerHTML = `<div class="howto-card" role="dialog" aria-label="How this works">
-      <div class="howto-h"><span>💡 ${escapeHtml(h.title)} — how it works</span><button type="button" class="howto-x" aria-label="Close" onclick="closeHowTo('${key}')">×</button></div>
-      <ol>${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
-      <div class="howto-f">
-        <label><input type="checkbox" id="howtoNever"> Don't show this again</label>
-        <button type="button" class="darkbtn" onclick="closeHowTo('${key}')">Got it</button>
-      </div>
-      <div class="howto-off"><span onclick="closeHowTo('*')">Turn off all tips</span></div>
-    </div>`;
-    el.style.display = 'flex';
+    // A slim banner at the top of the page (it used to float over the page and cover the tiles).
+    const host = document.querySelector('#app .scrollarea') || document.getElementById('app'); if(!host) return;
+    const old = document.getElementById('howtoSheet'); if(old) old.remove();
+    const el = document.createElement('div'); el.id = 'howtoSheet'; el.className = 'howto-inline';
+    el.innerHTML = `<div class="howto-bar"><span class="howto-ic">💡</span><button type="button" class="howto-open" onclick="document.getElementById('howtoSheet').classList.toggle('open')">How ${escapeHtml(h.title)} works <span class="howto-chev">▾</span></button><button type="button" class="howto-x" aria-label="Close" onclick="closeHowTo('${key}', true)">×</button></div>
+      <div class="howto-body"><ol>${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
+        <div class="howto-f"><button type="button" class="ghostbtn" onclick="closeHowTo('${key}', true)">Got it — don’t show again</button><span class="howto-off" onclick="closeHowTo('*')">Turn off all tips</span></div></div>`;
+    host.insertBefore(el, host.firstChild);
   }catch(e){}
 }
-window.closeHowTo = async function(key){
+window.closeHowTo = async function(key, never){
   const el = document.getElementById('howtoSheet');
-  const never = key==='*' || !!(document.getElementById('howtoNever') && document.getElementById('howtoNever').checked);
-  if(el) el.style.display = 'none';
+  never = never || key==='*';
+  if(el) el.remove();
   if(!never || !ME) return;
   const next = Array.from(new Set(howtoDismissed().concat(key)));
   ME.howto_dismissed = next;
@@ -78,4 +73,4 @@ window.resetHowTo = async function(){
   try{ await sbFetch('/rest/v1/profiles?id=eq.'+ME.id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({howto_dismissed: []})}); saveBootSnapshot(); }catch(e){}
   toast('Tips are back on');
 };
-window.addEventListener('hashchange', ()=>{ const el = document.getElementById('howtoSheet'); if(el) el.style.display = 'none'; });
+window.addEventListener('hashchange', ()=>{ const el = document.getElementById('howtoSheet'); if(el) el.remove(); });

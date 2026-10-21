@@ -2191,6 +2191,21 @@ html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600
   html.finmode .pmchips .pmchip{height:30px !important;padding:0 10px !important;font-size:12px !important;white-space:nowrap;flex:none;}
   .finrun-cfg select{height:auto !important;min-height:34px !important;padding:4px 8px !important;font-size:13px !important;line-height:1.3 !important;max-width:100%;}
 }
+/* "How it works" tips: a slim banner at the top of the page, opened on tap */
+.howto-inline{background:#f5f8ff;border:1px solid #dbe6ff;border-radius:12px;margin:0 0 12px;padding:6px 8px 6px 12px;}
+.howto-bar{display:flex;align-items:center;gap:8px;}
+.howto-ic{flex:none;}
+.howto-open{all:unset;cursor:pointer;flex:1;font-size:13.5px;font-weight:700;color:#1e3a8a;}
+.howto-chev{display:inline-block;transition:transform .15s;font-size:11px;}
+.howto-inline.open .howto-chev{transform:rotate(180deg);}
+.howto-inline .howto-x{all:unset;cursor:pointer;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#64748b;border-radius:50%;}
+.howto-body{display:none;padding:2px 0 6px;}
+.howto-inline.open .howto-body{display:block;}
+.howto-body ol{margin:6px 0 8px;padding-left:20px;font-size:13.5px;line-height:1.45;color:#3A3D44;}
+.howto-body .howto-f{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.howto-body .ghostbtn{width:auto !important;padding:7px 12px !important;font-size:12.5px !important;min-height:0 !important;}
+.howto-body .howto-off{font-size:12px;color:var(--slate);cursor:pointer;text-decoration:underline;}
+.finrun-steps.one{grid-template-columns:1fr;}
 </style>
 </head>
 <body>
@@ -6229,25 +6244,20 @@ function maybeShowHowTo(){
     if(howtoShownThisSession.has(key) || howtoDismissed().includes(key)) return;
     if(document.querySelector('.geo-modal-overlay[style*="flex"]')) return; // another pop-up is up
     howtoShownThisSession.add(key);
-    let el = document.getElementById('howtoSheet');
-    if(!el){ el = document.createElement('div'); el.id = 'howtoSheet'; document.body.appendChild(el); }
-    el.className = 'howto';
-    el.innerHTML = `<div class="howto-card" role="dialog" aria-label="How this works">
-      <div class="howto-h"><span>💡 ${escapeHtml(h.title)} — how it works</span><button type="button" class="howto-x" aria-label="Close" onclick="closeHowTo('${key}')">×</button></div>
-      <ol>${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
-      <div class="howto-f">
-        <label><input type="checkbox" id="howtoNever"> Don't show this again</label>
-        <button type="button" class="darkbtn" onclick="closeHowTo('${key}')">Got it</button>
-      </div>
-      <div class="howto-off"><span onclick="closeHowTo('*')">Turn off all tips</span></div>
-    </div>`;
-    el.style.display = 'flex';
+    // A slim banner at the top of the page (it used to float over the page and cover the tiles).
+    const host = document.querySelector('#app .scrollarea') || document.getElementById('app'); if(!host) return;
+    const old = document.getElementById('howtoSheet'); if(old) old.remove();
+    const el = document.createElement('div'); el.id = 'howtoSheet'; el.className = 'howto-inline';
+    el.innerHTML = `<div class="howto-bar"><span class="howto-ic">💡</span><button type="button" class="howto-open" onclick="document.getElementById('howtoSheet').classList.toggle('open')">How ${escapeHtml(h.title)} works <span class="howto-chev">▾</span></button><button type="button" class="howto-x" aria-label="Close" onclick="closeHowTo('${key}', true)">×</button></div>
+      <div class="howto-body"><ol>${steps.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
+        <div class="howto-f"><button type="button" class="ghostbtn" onclick="closeHowTo('${key}', true)">Got it — don’t show again</button><span class="howto-off" onclick="closeHowTo('*')">Turn off all tips</span></div></div>`;
+    host.insertBefore(el, host.firstChild);
   }catch(e){}
 }
-window.closeHowTo = async function(key){
+window.closeHowTo = async function(key, never){
   const el = document.getElementById('howtoSheet');
-  const never = key==='*' || !!(document.getElementById('howtoNever') && document.getElementById('howtoNever').checked);
-  if(el) el.style.display = 'none';
+  never = never || key==='*';
+  if(el) el.remove();
   if(!never || !ME) return;
   const next = Array.from(new Set(howtoDismissed().concat(key)));
   ME.howto_dismissed = next;
@@ -6260,7 +6270,7 @@ window.resetHowTo = async function(){
   try{ await sbFetch('/rest/v1/profiles?id=eq.'+ME.id, {method:'PATCH', headers:{'Prefer':'return=minimal'}, body: JSON.stringify({howto_dismissed: []})}); saveBootSnapshot(); }catch(e){}
   toast('Tips are back on');
 };
-window.addEventListener('hashchange', ()=>{ const el = document.getElementById('howtoSheet'); if(el) el.style.display = 'none'; });
+window.addEventListener('hashchange', ()=>{ const el = document.getElementById('howtoSheet'); if(el) el.remove(); });
 
 /* ================= UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS =================
    These buttons were built screen by screen and ended up with different
@@ -17132,7 +17142,8 @@ async function renderPriceTile(siteId){
       <span class="arrow">›</span>
     </div>` : ''}
     ${canManage && !isMultiSite || (isMultiSite && selectedSubId && canManage) ? `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
+      <button type="button" class="darkbtn" style="width:auto;padding:8px 14px;" onclick="addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add price</button>
       <span class="ghostbtn" style="width:auto;padding:8px 14px;cursor:pointer;" onclick="toggleRowActionsMenu('pbtile-page')">⋮ Manage</span>
       ${rowActionsMenuOpenFor==='pbtile-page' ? `<div class="statusmenu" style="top:100%;right:0;left:auto;">
         <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add Sub Tile</div>
@@ -17140,7 +17151,7 @@ async function renderPriceTile(siteId){
     </div>
     ` : ''}
 
-    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No sub tiles yet — add one above. Each is its own price total &amp; tracker, or a Price Sheet once issued ("+ New Sheet" in Price Sheet creates its own tile automatically).'}</div>` : ''}
+    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Choose an address above first.' : (canManage ? 'No prices on this job yet. Tap <b>+ Add price</b> to start one — each price has its own total and weekly tracker. Issuing a Price Sheet makes one for you too.' : 'No prices shared with you on this job yet.')}</div>` : ''}
 
     ${groupIdsInOrder.map(gid=>`
       ${groupCardHtml(gid)}
@@ -17188,10 +17199,10 @@ async function renderPricingElementDetail(siteId, elementId){
   `, {title:el.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
 }
 window.addPricingElementViaPopup = async function(siteId, subSiteId){
-  const name = await customPrompt('Name this sub tile', '');
+  const name = await customPrompt('Name this price (e.g. Flat roof, Pitched roof)', '');
   if(name===null) return;
   const trimmed = name.trim();
-  if(!trimmed){ toast('Enter a name for the sub tile.'); return; }
+  if(!trimmed){ toast('Give the price a name.'); return; }
   const existing = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+(subSiteId?('&sub_site_id=eq.'+subSiteId):'&sub_site_id=is.null')+'&select=sort_order&order=sort_order.desc&limit=1');
   const nextOrder = existing.length ? Number(existing[0].sort_order||0)+1 : 0;
   const rows = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id:subSiteId||null, name:trimmed, sort_order:nextOrder, created_by:ME.id});
@@ -53067,7 +53078,7 @@ async function finPoMaybeClose(poId){
      • Each job line goes to that job's PM to book against the price or
        general costs (wage_pushes), and is the labour cost on the job.
      • Pay run: approved, unpaid operative invoices up to the week in hand
-       → bank file → mark paid.
+       → pay them by bank transfer as usual → mark them paid here.
      • Subcontract orders and their applications (apply → certify) as rows.
    Stored in fin_sub_payments (rows with sub_app_id are subcontract-order
    payments, not operative invoices).
@@ -53325,38 +53336,22 @@ async function renderFinPayRun(){
       <div><span>CIS to pay HMRC</span><b>${finMoney(tot('cis_deduction'))}</b></div>
       <div class="hl"><span>To transfer</span><b>${finMoney(tot('net_pay'))}</b></div>
     </div>
-    <div class="finrun-steps two">
-      <button class="ghostbtn" ${due.length?'':'disabled'} onclick="finRunBankFile()">1 · Download bank file</button>
-      <button class="darkbtn" ${due.length?'':'disabled'} onclick="finRunMarkPaid()">2 · Mark ${due.length||''} paid</button>
+    <div class="finrun-steps one">
+      <button class="darkbtn" ${due.length?'':'disabled'} onclick="finRunMarkPaid()">Mark ${due.length||''} paid once you’ve sent the money</button>
     </div>
-    ${noBank ? `<p class="finrun-warn">${noBank} ${noBank===1?'person has':'people have'} no bank details — add them in <a href="#/finance/labour/rates">People &amp; rates</a> or they’re left out of the bank file.</p>` : ''}
+    ${noBank ? `<p class="finrun-warn">${noBank} ${noBank===1?'person has':'people have'} no bank details saved — add them in <a href="#/finance/labour/rates">People &amp; rates</a> so they’re here when you pay.</p>` : ''}
     ${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
       <thead><tr><th>Operative</th><th>Their invoice</th><th>Week</th><th class="num">Gross</th><th class="num">CIS</th><th class="num">Pay</th><th>Bank</th><th>Status</th></tr></thead>
       <tbody>${rows.map(p=>`<tr class="click" onclick="go('#/finance/labour/payment/${p.id}')">
         <td data-l="Operative" class="d"><b>${escapeHtml(p.name||'')}</b></td><td data-l="Their invoice">${escapeHtml(p.invoice_no||'—')}</td><td data-l="Week">w/c ${finDate(p.period_start)}</td>
         <td data-l="Gross" class="num">${finMoney(p.gross)}</td><td data-l="CIS" class="num">−${finMoney(p.cis_deduction)}</td><td data-l="Pay" class="num"><b>${finMoney(p.net_pay)}</b></td>
-        <td data-l="Bank">${finBankOk(p.r) ? `<span class="finrun-bank">${escapeHtml(finSortCode(p.r.bank_sort_code))} · ••${escapeHtml(String(p.r.bank_account_no).replace(/\D/g,'').slice(-4))}</span>` : '<span class="finpill warn">Missing</span>'}</td>
+        <td data-l="Bank">${finBankOk(p.r) ? `<span class="finrun-bank">${escapeHtml(p.r.bank_account_name||'')}${p.r.bank_account_name?'<br>':''}${escapeHtml(finSortCode(p.r.bank_sort_code))} · ${escapeHtml(String(p.r.bank_account_no).replace(/\D/g,''))}</span>` : '<span class="finpill warn">Not saved</span>'}</td>
         <td data-l="Status">${p.status==='paid'?'<span class="finpill ok">Paid</span>':'<span class="finpill blue">To pay</span>'}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="empty">Nothing to pay on this day. Add operative invoices as they come in — <button class="linkbtn" onclick="openFinOpInvoice()">+ Operative invoice</button></div>`}
     ${later.length ? `<p class="stub" style="margin:10px 0 0;font-style:normal;">${later.length} later invoice${later.length===1?'':'s'} (${finMoney(later.reduce((t,p)=>t+Number(p.net_pay||0),0))}) will be in a later pay run.</p>` : ''}
   `, {title:'Pay run', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
   window.__finRun = {due, rates, keyOf};
 }
-window.finRunBankFile = async function(){
-  const R = window.__finRun; if(!R) return;
-  const ok = R.due.filter(p=>finBankOk(R.rates[R.keyOf(p)])), skip = R.due.length - ok.length;
-  if(!ok.length){ toast('No one with bank details to pay yet.'); return; }
-  // One payment per person (several invoices added together).
-  const per = {}; ok.forEach(p=>{ const k = R.keyOf(p); const x = per[k] = per[k] || {r:R.rates[k], name:p.name, amt:0}; x.amt = finRound(x.amt + Number(p.net_pay||0)); });
-  const co = String(finSettings().company_name || (ORG && ORG.name) || 'Pay').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/)[0].slice(0,6);
-  const ref = (co+' PAY '+new Date(finRunDay+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit', month:'short'})).toUpperCase().slice(0,18);
-  const q = v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const lines = [['Name','Sort code','Account number','Amount','Reference'].map(q).join(',')]
-    .concat(Object.values(per).map(x=>[(x.r.bank_account_name || x.r.trading_name || x.name).slice(0,18), finSortCode(x.r.bank_sort_code), String(x.r.bank_account_no).replace(/\D/g,''), x.amt.toFixed(2), ref].map(q).join(',')));
-  const blob = new Blob([lines.join('\r\n')+'\r\n'], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Pay run '+finRunDay+'.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast(Object.keys(per).length+' payment'+(Object.keys(per).length===1?'':'s')+' · '+finMoney(Object.values(per).reduce((t,x)=>t+x.amt,0))+(skip ? ' — '+skip+' left out (no bank details)' : ''));
-};
 window.finRunMarkPaid = async function(){
   const R = window.__finRun; if(!R || !R.due.length) return;
   if(!await customConfirm(`Mark ${R.due.length} operative invoice${R.due.length===1?'':'s'} (${finMoney(R.due.reduce((t,p)=>t+Number(p.net_pay||0),0))}) as paid on ${finDate(finRunDay)}?`)) return;
@@ -53470,7 +53465,7 @@ async function renderFinLabourRates(){
   const F = {active:x=>x.r.active!==false, subs:x=>x.r.active!==false && x.r.pay_type!=='paye', paye:x=>x.r.active!==false && x.r.pay_type==='paye', left:x=>x.r.active===false, all:()=>true};
   if(!F[finPplF]) finPplF = 'active';
   const list = rows.filter(F[finPplF]);
-  const bank = r=>finBankOk(r) ? `${escapeHtml(finSortCode(r.bank_sort_code))} · ••${escapeHtml(String(r.bank_account_no).replace(/\D/g,'').slice(-4))}` : (r.pay_type==='paye' ? '<span class="stub" style="margin:0;">Payroll</span>' : '<span class="finpill warn">Missing</span>');
+  const bank = r=>finBankOk(r) ? `${escapeHtml(finSortCode(r.bank_sort_code))} · ••${escapeHtml(String(r.bank_account_no).replace(/\D/g,'').slice(-4))}` : (r.pay_type==='paye' ? '<span class="stub" style="margin:0;">Payroll</span>' : '<span class="finpill warn">Not saved</span>');
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('subs')}${finSubTabs('subs','rates')}
     ${finSecHead('People & rates', '+ Add a person', "openFinPerson('')")}
@@ -53514,7 +53509,7 @@ window.openFinPerson = async function(key){
         <div class="formfield"><label class="field-label">UTR ${finHelp('utr')}</label><input type="text" inputmode="numeric" id="fpUtr" value="${v(r.utr)}" placeholder="10 digits"></div>
         <div class="formfield"><label class="field-label">VAT registered</label><select id="fpVat"><option value="false">No</option><option value="true" ${r.vat_registered?'selected':''}>Yes (reverse charge)</option></select></div>
       </div>
-      <p class="sectiontitle" style="margin:8px 0 6px;">Bank details (for the pay run)</p>
+      <p class="sectiontitle" style="margin:8px 0 6px;">Bank details (shown on the pay run when you pay them)</p>
       <div class="fingrid3">
         <div class="formfield"><label class="field-label">Account name</label><input type="text" id="fpBankName" value="${v(r.bank_account_name)}" autocomplete="off"></div>
         <div class="formfield"><label class="field-label">Sort code</label><input type="text" inputmode="numeric" id="fpSort" value="${r.bank_sort_code?v(finSortCode(r.bank_sort_code)):''}" placeholder="00-00-00" autocomplete="off"></div>

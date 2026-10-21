@@ -987,7 +987,8 @@ async function renderPriceTile(siteId){
       <span class="arrow">›</span>
     </div>` : ''}
     ${canManage && !isMultiSite || (isMultiSite && selectedSubId && canManage) ? `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;position:relative;" data-rowactions-root onclick="event.stopPropagation();">
+      <button type="button" class="darkbtn" style="width:auto;padding:8px 14px;" onclick="addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add price</button>
       <span class="ghostbtn" style="width:auto;padding:8px 14px;cursor:pointer;" onclick="toggleRowActionsMenu('pbtile-page')">⋮ Manage</span>
       ${rowActionsMenuOpenFor==='pbtile-page' ? `<div class="statusmenu" style="top:100%;right:0;left:auto;">
         <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;addPricingElementViaPopup('${siteId}',${selectedSubId?`'${selectedSubId}'`:'null'})">+ Add Sub Tile</div>
@@ -995,7 +996,7 @@ async function renderPriceTile(siteId){
     </div>
     ` : ''}
 
-    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Add an address above first.' : 'No sub tiles yet — add one above. Each is its own price total &amp; tracker, or a Price Sheet once issued ("+ New Sheet" in Price Sheet creates its own tile automatically).'}</div>` : ''}
+    ${!openElements.length ? `<div class="empty" style="margin-bottom:14px;">${isMultiSite && !selectedSubId ? 'Choose an address above first.' : (canManage ? 'No prices on this job yet. Tap <b>+ Add price</b> to start one — each price has its own total and weekly tracker. Issuing a Price Sheet makes one for you too.' : 'No prices shared with you on this job yet.')}</div>` : ''}
 
     ${groupIdsInOrder.map(gid=>`
       ${groupCardHtml(gid)}
@@ -1043,10 +1044,10 @@ async function renderPricingElementDetail(siteId, elementId){
   `, {title:el.name, subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:`#/site/${siteId}/price`, siteId, tabs:false}); }
 }
 window.addPricingElementViaPopup = async function(siteId, subSiteId){
-  const name = await customPrompt('Name this sub tile', '');
+  const name = await customPrompt('Name this price (e.g. Flat roof, Pitched roof)', '');
   if(name===null) return;
   const trimmed = name.trim();
-  if(!trimmed){ toast('Enter a name for the sub tile.'); return; }
+  if(!trimmed){ toast('Give the price a name.'); return; }
   const existing = await dbSelect('pricing_elements', 'site_id=eq.'+siteId+(subSiteId?('&sub_site_id=eq.'+subSiteId):'&sub_site_id=is.null')+'&select=sort_order&order=sort_order.desc&limit=1');
   const nextOrder = existing.length ? Number(existing[0].sort_order||0)+1 : 0;
   const rows = await dbInsert('pricing_elements', {site_id:siteId, sub_site_id:subSiteId||null, name:trimmed, sort_order:nextOrder, created_by:ME.id});

@@ -7,7 +7,7 @@
      • Each job line goes to that job's PM to book against the price or
        general costs (wage_pushes), and is the labour cost on the job.
      • Pay run: approved, unpaid operative invoices up to the week in hand
-       → bank file → mark paid.
+       → pay them by bank transfer as usual → mark them paid here.
      • Subcontract orders and their applications (apply → certify) as rows.
    Stored in fin_sub_payments (rows with sub_app_id are subcontract-order
    payments, not operative invoices).
@@ -265,38 +265,22 @@ async function renderFinPayRun(){
       <div><span>CIS to pay HMRC</span><b>${finMoney(tot('cis_deduction'))}</b></div>
       <div class="hl"><span>To transfer</span><b>${finMoney(tot('net_pay'))}</b></div>
     </div>
-    <div class="finrun-steps two">
-      <button class="ghostbtn" ${due.length?'':'disabled'} onclick="finRunBankFile()">1 · Download bank file</button>
-      <button class="darkbtn" ${due.length?'':'disabled'} onclick="finRunMarkPaid()">2 · Mark ${due.length||''} paid</button>
+    <div class="finrun-steps one">
+      <button class="darkbtn" ${due.length?'':'disabled'} onclick="finRunMarkPaid()">Mark ${due.length||''} paid once you’ve sent the money</button>
     </div>
-    ${noBank ? `<p class="finrun-warn">${noBank} ${noBank===1?'person has':'people have'} no bank details — add them in <a href="#/finance/labour/rates">People &amp; rates</a> or they’re left out of the bank file.</p>` : ''}
+    ${noBank ? `<p class="finrun-warn">${noBank} ${noBank===1?'person has':'people have'} no bank details saved — add them in <a href="#/finance/labour/rates">People &amp; rates</a> so they’re here when you pay.</p>` : ''}
     ${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
       <thead><tr><th>Operative</th><th>Their invoice</th><th>Week</th><th class="num">Gross</th><th class="num">CIS</th><th class="num">Pay</th><th>Bank</th><th>Status</th></tr></thead>
       <tbody>${rows.map(p=>`<tr class="click" onclick="go('#/finance/labour/payment/${p.id}')">
         <td data-l="Operative" class="d"><b>${escapeHtml(p.name||'')}</b></td><td data-l="Their invoice">${escapeHtml(p.invoice_no||'—')}</td><td data-l="Week">w/c ${finDate(p.period_start)}</td>
         <td data-l="Gross" class="num">${finMoney(p.gross)}</td><td data-l="CIS" class="num">−${finMoney(p.cis_deduction)}</td><td data-l="Pay" class="num"><b>${finMoney(p.net_pay)}</b></td>
-        <td data-l="Bank">${finBankOk(p.r) ? `<span class="finrun-bank">${escapeHtml(finSortCode(p.r.bank_sort_code))} · ••${escapeHtml(String(p.r.bank_account_no).replace(/\D/g,'').slice(-4))}</span>` : '<span class="finpill warn">Missing</span>'}</td>
+        <td data-l="Bank">${finBankOk(p.r) ? `<span class="finrun-bank">${escapeHtml(p.r.bank_account_name||'')}${p.r.bank_account_name?'<br>':''}${escapeHtml(finSortCode(p.r.bank_sort_code))} · ${escapeHtml(String(p.r.bank_account_no).replace(/\D/g,''))}</span>` : '<span class="finpill warn">Not saved</span>'}</td>
         <td data-l="Status">${p.status==='paid'?'<span class="finpill ok">Paid</span>':'<span class="finpill blue">To pay</span>'}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="empty">Nothing to pay on this day. Add operative invoices as they come in — <button class="linkbtn" onclick="openFinOpInvoice()">+ Operative invoice</button></div>`}
     ${later.length ? `<p class="stub" style="margin:10px 0 0;font-style:normal;">${later.length} later invoice${later.length===1?'':'s'} (${finMoney(later.reduce((t,p)=>t+Number(p.net_pay||0),0))}) will be in a later pay run.</p>` : ''}
   `, {title:'Pay run', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
   window.__finRun = {due, rates, keyOf};
 }
-window.finRunBankFile = async function(){
-  const R = window.__finRun; if(!R) return;
-  const ok = R.due.filter(p=>finBankOk(R.rates[R.keyOf(p)])), skip = R.due.length - ok.length;
-  if(!ok.length){ toast('No one with bank details to pay yet.'); return; }
-  // One payment per person (several invoices added together).
-  const per = {}; ok.forEach(p=>{ const k = R.keyOf(p); const x = per[k] = per[k] || {r:R.rates[k], name:p.name, amt:0}; x.amt = finRound(x.amt + Number(p.net_pay||0)); });
-  const co = String(finSettings().company_name || (ORG && ORG.name) || 'Pay').replace(/[^A-Za-z0-9 ]/g,'').trim().split(/\s+/)[0].slice(0,6);
-  const ref = (co+' PAY '+new Date(finRunDay+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit', month:'short'})).toUpperCase().slice(0,18);
-  const q = v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-  const lines = [['Name','Sort code','Account number','Amount','Reference'].map(q).join(',')]
-    .concat(Object.values(per).map(x=>[(x.r.bank_account_name || x.r.trading_name || x.name).slice(0,18), finSortCode(x.r.bank_sort_code), String(x.r.bank_account_no).replace(/\D/g,''), x.amt.toFixed(2), ref].map(q).join(',')));
-  const blob = new Blob([lines.join('\r\n')+'\r\n'], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Pay run '+finRunDay+'.csv'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast(Object.keys(per).length+' payment'+(Object.keys(per).length===1?'':'s')+' · '+finMoney(Object.values(per).reduce((t,x)=>t+x.amt,0))+(skip ? ' — '+skip+' left out (no bank details)' : ''));
-};
 window.finRunMarkPaid = async function(){
   const R = window.__finRun; if(!R || !R.due.length) return;
   if(!await customConfirm(`Mark ${R.due.length} operative invoice${R.due.length===1?'':'s'} (${finMoney(R.due.reduce((t,p)=>t+Number(p.net_pay||0),0))}) as paid on ${finDate(finRunDay)}?`)) return;
