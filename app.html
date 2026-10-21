@@ -48129,6 +48129,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
 
 /* ---------------- B1: raise the PO when an order is sent ---------------- */
 async function finRaisePoForOrder(siteId, matIds, supplier, toMe, fulfil, requiredForDelivery){
+  if(!(typeof isFinanceUser==='function' && isFinanceUser())) return null; // no POs while Finance is off
   try{
     const res = await sbFetch('/rest/v1/rpc/fin_raise_po', {method:'POST', body:JSON.stringify({
       p_site:siteId, p_material_ids:matIds,
