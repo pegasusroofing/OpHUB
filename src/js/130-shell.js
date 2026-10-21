@@ -104,7 +104,7 @@ function navBackFor(defaultBack){
 function shell(innerHtml, opts){
   opts = opts||{};
   // Finance pages get Finance's own button style (html.finmode in app.css).
-  { const h = String(location.hash||''); document.documentElement.classList.toggle('finmode', /^#\/finance(\/|$)|^#\/fin-team|^#\/site\/[^/]+\/finance(\/|$)/.test(h)); }
+  { const h = String(location.hash||''); document.documentElement.classList.toggle('finmode', !!ME && /^#\/finance(\/|$)|^#\/fin-team|^#\/site\/[^/]+\/finance(\/|$)/.test(h)); }
   { const cur = String(location.hash||''); if(!NAV_STACK.length && /^#\//.test(cur)) NAV_STACK.push(cur); }
   if(opts.back) opts.back = navBackFor(opts.back);
   CURRENT_BACK_HASH = opts.back || null;
