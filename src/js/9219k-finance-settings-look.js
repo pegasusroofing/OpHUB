@@ -143,3 +143,13 @@ function finSecHead(title, btnLabel, btnClick){
   const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 500); new MutationObserver(tidy).observe(app, {childList:true}); };
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+/* 8. Projects grid: filter boxes centred like their columns; Status column narrower. */
+(function(){
+  const css = `.fggrid .fgfilters input{text-align:center;}
+  .fggrid .fgfilters input::placeholder{text-align:center;}
+  html.finmode .finjobfilt .fin-searchlbl input{text-align:center;}
+  .fggrid td[data-l="Status"]{width:96px;max-width:110px;}
+  .fggrid td[data-l="Job"]{width:72px;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
