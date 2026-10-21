@@ -11,7 +11,7 @@
    sub_job_id, pct, amount}] across plots and/or projects (a DB trigger
    checks it totals 100% and keeps split_sites for lookups).
    Booking stays simple: a material request for Plot 3 → its PO is for
-   Plot 3 → the supplier invoice on that PO follows the PO.
+   Plot 3 → the purchase invoice on that PO follows the PO.
    ============================================================ */
 const FIN_SUBJOBS = {}; // siteId -> [{id, label, short, detail, value, closed}]
 function finSubKind(siteId){ const s = SITES.find(x=>x.id===siteId); return !s ? '' : s.repair_contract ? 'repair' : s.multi_site ? 'multi' : ''; }
@@ -51,7 +51,7 @@ function finAllocs(row, ctx){
   if(Array.isArray(row.split) && row.split.length){
     return row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||null, share:Number(e.pct||0)/100, cat:e.cost_code||null}));
   }
-  // A supplier invoice on a PO follows the PO unless it has its own allocation.
+  // A purchase invoice on a PO follows the PO unless it has its own allocation.
   if(row.po_id && !row.sub_job_id && ctx && ctx.poBy && ctx.poBy[row.po_id]){
     const po = ctx.poBy[row.po_id];
     const a = finAllocs(po, ctx);
@@ -83,7 +83,7 @@ function finSiteShort(siteId){ const s = SITES.find(x=>x.id===siteId); return s 
 
 /* ---------- split / allocate modal ---------- */
 const FIN_SPLIT_TABLES = {
-  purchase_invoices:{noun:'supplier invoice', net:r=>r.net},
+  purchase_invoices:{noun:'purchase invoice', net:r=>r.net},
   purchase_orders:{noun:'PO', net:r=>r.value},
   fin_job_costs:{noun:'cost', net:r=>r.net},
   fin_plant_hires:{noun:'plant hire', net:r=>typeof finPlantCost==='function' ? finPlantCost(r).cost : null},
@@ -266,7 +266,7 @@ async function renderFinParts(siteId){
       </div>
     </div>
     <div id="finPartsTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the supplier invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the purchase invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
   `, {title:'Costs by '+(isRepair?'repair job':'plot'), subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finPartsPaint();
 }

@@ -3,7 +3,7 @@
       PO (<job no>-PO-001), via fin_raise_po (works for any PM, not just
       finance users, once "Raise POs on every order" is on in Finance
       settings; until then only finance users' orders get one).
-   B2 supplier invoices matched to a PO, with checks: over the PO,
+   B2 purchase invoices matched to a PO, with checks: over the PO,
       duplicate invoice number, nothing delivered yet.
    B3 receipts / invoices with no PO (bought on site).
    B4 job cost to date on the job's Finance page. */
@@ -53,7 +53,7 @@ function finJobCostCardHtml(c, siteId){
       ${siteId ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/costs')">All costs ›</button>` : ''}
     </div>
     <div class="fincost">
-      <div><span>Supplier invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
+      <div><span>Purchase invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
       <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
       <div><span>Labour</span><b>${finMoney(c.labour, 0)}</b></div>
       <div><span>Plant</span><b>${finMoney(c.plant, 0)}</b></div>
@@ -71,11 +71,11 @@ function finPurchasingCardHtml(siteId, pos, pinvs){
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Project quotes</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openFinNewPo('${siteId}')">+ New PO</button>
-        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Purchase invoice</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
       </div>
     </div>
-    ${toApprove.length ? `<div class="finchecks" style="margin:8px 0 0;"><span>${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span></div>` : ''}
+    ${toApprove.length ? `<div class="finchecks" style="margin:8px 0 0;"><span>${toApprove.length} purchase invoice${toApprove.length===1?'':'s'} to approve</span></div>` : ''}
     ${pos.length ? pos.map(p=>{ const inv = finPoInvoiced(p, pinvs); return `<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/po/${p.id}')">
         <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span>
           <span class="pmrow-s">${escapeHtml(p.supplier_name||'Supplier')} · ${finDate(String(p.created_at).slice(0,10))} · ${(p.items||[]).length} item${(p.items||[]).length===1?'':'s'}${inv?' · invoiced '+finMoney(inv):''}</span></span>
@@ -134,7 +134,7 @@ async function renderFinPo(siteId, poId){
     </div>` : ''}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <p class="sectiontitle" style="margin:0;">Supplier invoices</p>
+        <p class="sectiontitle" style="margin:0;">Purchase invoices</p>
         ${po.status!=='cancelled' ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}','${po.id}')">+ Add invoice</button>` : ''}
       </div>
       ${pinvs.length ? pinvs.map(i=>finPiRowHtml(siteId, i)).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">None yet.</p>`}
@@ -166,7 +166,7 @@ window.setFinPoStatus = async function(poId, status){
   if(r){ toast(status==='open' ? 'PO reopened' : status==='invoiced' ? 'PO marked fully invoiced' : 'PO cancelled'); render(); }
 };
 
-/* ---------------- B2/B3: add a supplier invoice or receipt ---------------- */
+/* ---------------- B2/B3: add a purchase invoice or receipt ---------------- */
 let finPiFile = null;
 window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
   const [pos, suppliers] = await Promise.all([
@@ -180,7 +180,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>${receipt ? 'Add a receipt (no PO)' : 'Add supplier invoice'}</h3>
+    <h3>${receipt ? 'Add a receipt (no PO)' : 'Add purchase invoice'}</h3>
     ${receipt ? `<p class="stub" style="margin:0 0 10px;font-style:normal;">For materials bought on site without a PO. It still counts against this project.</p>` : `
     <div class="formfield"><label class="field-label">Purchase order</label>
       <select id="finPiPo" onchange="finPiPoPicked(this.value)"><option value="">No PO</option>${pos.map(p=>`<option value="${p.id}" ${po&&po.id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select>
@@ -262,7 +262,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   if(row.file_path && ins[0] && typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(ins[0].id).then(r=>{ if(r && r.notes.length){ toast('Invoice lines read — '+r.notes.length+' difference'+(r.notes.length===1?'':'s')+' with the PO'); render(); } });
 };
 
-/* ---------------- view / approve a supplier invoice ---------------- */
+/* ---------------- view / approve a purchase invoice ---------------- */
 window.openPurchaseInvoiceView = async function(siteId, id){
   if(!FIN_SETTINGS) await finLoadSettings();
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;

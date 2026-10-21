@@ -1,12 +1,12 @@
 /* ============================================================
-   OpHUB Finance — Purchases as row tables, and the supplier invoice inbox
+   OpHUB Finance — Purchases as row tables, and the purchase invoice inbox
    working like Coreloops:
      email in → read → if we can tell the job (our PO number, the job
      number, the site postcode or address) it's filed to the job by itself
      → otherwise it sits in "Needs a job" (a query). From there you either
      allocate it to a job yourself, or send it to a PM who books it to one
      of their jobs (or replies with a comment). Everything is in one
-     "Supplier invoices" list with filters.
+     "Purchase invoices" list with filters.
    ============================================================ */
 const FIN_PC_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/gi;
 function finPcNorm(s){ return String(s||'').toUpperCase().replace(/\s+/g,''); }
@@ -68,7 +68,7 @@ async function finInboxAutoProcess(){
   finally{ finInboxBusy = false; }
   return changed;
 }
-// File an inbox item as a supplier invoice on a job. f = {site_id, po_id, supplier, invoice_no, date, net, vat, total}. Returns the new purchase invoice or null.
+// File an inbox item as a purchase invoice on a job. f = {site_id, po_id, supplier, invoice_no, date, net, vat, total}. Returns the new purchase invoice or null.
 async function finInboxFileCore(it, f, quiet){
   let net = f.net==null || f.net==='' ? null : Number(f.net), vat = f.vat==null || f.vat==='' ? null : Number(f.vat), total = f.total==null || f.total==='' ? null : Number(f.total);
   if((net===null || isNaN(net)) && total!==null && !isNaN(total)){ net = finRound(total/1.2); vat = finRound(total-net); }
@@ -124,7 +124,7 @@ async function renderFinPurchases(sub){
   const committed = finRound(openPos.filter(p=>p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value)-finPoInvoiced(p, live)),0));
   const onHire = hires.filter(h=>!h.off_hire);
   const supKey = n=>String(n||'').trim().toLowerCase();
-  const supNames = {}; [].concat(pos, pinvs, hires).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
+  const supNames = {}; [].concat(pos, pinvs, hires, inbox.map(i=>({supplier_name:(i.extracted||{}).supplier}))).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
   const jobIds = Array.from(new Set([].concat(pos, pinvs, hires).map(x=>x.site_id).filter(Boolean)));
   const fOK = x=>(!finPurSup || supKey(x.supplier_name)===finPurSup) && (!finPurJob || x.site_id===finPurJob);
   const filtBar = ()=>`<div class="finjobfilt">
@@ -155,17 +155,19 @@ async function renderFinPurchases(sub){
     if(!(finPiF in F)) finPiF = 'approve';
     if(!finPiPicked){ const cnt = {job:needJob.length, pm:withPm.length, approve:toApprove.length, unpaid:unpaid.length}; if(!cnt[finPiF]) finPiF = ['job','approve','pm','unpaid'].find(k=>cnt[k]) || 'all'; }
     const chips = [['job','Unallocated', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All filed', pinvs.length]];
-    body = finSecHead('Supplier invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
+    body = finSecHead('Purchase invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
       + `<input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" style="display:none;" onchange="finInboxUpload(this.files)">`
-      + `<p class="stub" style="margin:-4px 0 10px;">Supplier invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Unallocated</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
+      + `<p class="stub" style="margin:-4px 0 10px;">Purchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Unallocated</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
       + `<div class="pmchips">${chips.map(([k,l,n])=>finChip(finPiF===k, l, n, `finPiF='${k}';finPiPicked=true;render()`)).join('')}</div>`;
     if(finPiF==='job' || finPiF==='pm'){
-      const list = finPiF==='job' ? needJob : withPm;
-      body += finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
+      const inbSort = {new:(x,y)=>String(y.received_at||'').localeCompare(String(x.received_at||'')), old:(x,y)=>String(x.received_at||'').localeCompare(String(y.received_at||'')), big:(x,y)=>Number((y.extracted||{}).total||0)-Number((x.extracted||{}).total||0), sup:(x,y)=>String((x.extracted||{}).supplier||'').localeCompare(String((y.extracted||{}).supplier||''))}[finPurSort];
+      let list = (finPiF==='job' ? needJob : withPm).filter(it=>(!finPurSup || supKey((it.extracted||{}).supplier)===finPurSup) && (!finPurJob || it.site_id===finPurJob));
+      if(inbSort) list = list.slice().sort(inbSort);
+      body += filtBar() + finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
         + `<div id="finPurList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
           <thead><tr><th>Supplier</th><th>Invoice no.</th><th>Received</th><th class="num">Total</th><th>${finPiF==='job'?'Why it’s unallocated':'Sent to'}</th><th></th></tr></thead>
           <tbody>${list.map(it=>{ const ex = it.extracted||{}; const last = (it.comments||[]).slice(-1)[0]; return `<tr class="click" data-lf="${lfText([ex.supplier, it.from_email, ex.invoice_no, it.subject].join(' '))}" onclick="openFinInboxItem('${it.id}')">
-            <td data-l="Supplier" class="d"><b>${escapeHtml(ex.supplier||it.from_email||'Supplier invoice')}</b></td>
+            <td data-l="Supplier" class="d"><b>${escapeHtml(ex.supplier||it.from_email||'Purchase invoice')}</b></td>
             <td data-l="Invoice no.">${escapeHtml(ex.invoice_no||'—')}</td>
             <td data-l="Received">${finDate(String(it.received_at).slice(0,10))}</td>
             <td data-l="Total" class="num">${ex.total!=null?finMoney(ex.total):'—'}</td>
@@ -183,8 +185,8 @@ async function renderFinPurchases(sub){
             <td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td>
             <td data-l="Checks">${finPiChecksHtml(i, po)}</td>
             <td data-l="Status">${i.paid_on?'<span class="finpill ok">Paid</span>':finPiPill(i)} ${typeof finInvXeroTag==='function' && i.status==='approved' ? finInvXeroTag(Object.assign({}, i, {status:'issued'})) : ''}</td></tr>`; }).join('')}</tbody>
-          ${list.length>1?`<tfoot><tr><td class="d" colspan="${finPiBulkOn()?5:4}">Total (${list.length})</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.net||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.vat||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.total||0),0))}</td><td colspan="3"></td></tr></tfoot>`:''}</table></div>` : '<div class="empty">No supplier invoices here.</div>'}</div>${finPiBulkBarHtml(list)}`
-        + `<p class="stub" style="margin:8px 0 0;"><button class="linkbtn" onclick="finPickJob('Add a supplier invoice by hand','openPurchaseInvoiceForm')">Type one in by hand instead</button></p>`;
+          ${list.length>1?`<tfoot><tr><td class="d" colspan="${finPiBulkOn()?5:4}">Total (${list.length})</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.net||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.vat||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.total||0),0))}</td><td colspan="3"></td></tr></tfoot>`:''}</table></div>` : '<div class="empty">No purchase invoices here.</div>'}</div>${finPiBulkBarHtml(list)}`
+        + `<p class="stub" style="margin:8px 0 0;"><button class="linkbtn" onclick="finPickJob('Add a purchase invoice by hand','openPurchaseInvoiceForm')">Type one in by hand instead</button></p>`;
     }
   } else if(sub==='plant'){
     const list = sortBy(hires.filter(fOK), 'on_hire', 'rate');
@@ -230,7 +232,7 @@ window.openFinInboxItem = async function(id){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finInbOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card fininbmodal" id="finInb-${it.id}">
-    <h3>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</h3>
+    <h3>${escapeHtml(ex.supplier || it.from_email || 'Purchase invoice')}</h3>
     <p class="stub" style="margin:0 0 8px;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Added'} ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</p>
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View the invoice</button>
     ${it.query_reason && it.status==='new' ? `<p class="finrun-warn" style="margin:0 0 10px;">${escapeHtml(it.query_reason)}</p>` : ''}
@@ -312,7 +314,7 @@ window.finInboxUpload = async function(files){
 // Old inbox route lands on the new list.
 function renderFinInbox(){ finPiF = 'job'; return renderFinPurchases('invoices'); }
 
-/* ---------- PM side: "To book" — supplier invoices sent to me, and wages waiting on my jobs ---------- */
+/* ---------- PM side: "To book" — purchase invoices sent to me, and wages waiting on my jobs ---------- */
 async function pmToBookCounts(){
   if(!isFullManager(ME)) return {inv:0, wages:0};
   try{
@@ -335,9 +337,9 @@ async function renderPmToBook(){
   const wBy = {}; wp.forEach(w=>{ (wBy[w.site_id] = wBy[w.site_id]||[]).push(w); });
   document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 12px;">Things the office has sent you to put against a job.</p>
-    <p class="sectiontitle">Supplier invoices to book ${inv.length?`<span class="finpill warn">${inv.length}</span>`:''}</p>
+    <p class="sectiontitle">Purchase invoices to book ${inv.length?`<span class="finpill warn">${inv.length}</span>`:''}</p>
     ${inv.length ? inv.map(it=>{ const ex = it.extracted||{}; const last = (it.comments||[]).slice(-1)[0]; return `<div class="card pmbook" id="pmb-${it.id}">
-      <div class="pmbook-top"><div><b>${escapeHtml(ex.supplier||it.from_email||'Supplier invoice')}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${ex.invoice_no?'Invoice '+escapeHtml(ex.invoice_no)+' · ':''}${ex.date?finDate(ex.date):''}</div></div><b>${ex.total!=null?finMoney(ex.total):''}</b></div>
+      <div class="pmbook-top"><div><b>${escapeHtml(ex.supplier||it.from_email||'Purchase invoice')}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${ex.invoice_no?'Invoice '+escapeHtml(ex.invoice_no)+' · ':''}${ex.date?finDate(ex.date):''}</div></div><b>${ex.total!=null?finMoney(ex.total):''}</b></div>
       ${last ? `<p class="pmbook-note"><b>${escapeHtml(last.name||'Office')}:</b> ${escapeHtml(last.text||'')}</p>` : ''}
       <button class="ghostbtn" style="width:100%;margin:6px 0;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View the invoice</button>
       <div class="formfield"><label class="field-label">Which job is it for?</label><select class="pmbook-site"><option value="">Choose the job…</option>${mySites.map(s=>`<option value="${s.id}">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>

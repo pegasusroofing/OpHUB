@@ -51,7 +51,7 @@ function finCostLinesFromBook(b, siteId){
   each(b.pinvs, (i,a)=>{
     // A coded line (9219g) carries its own cost type; otherwise the invoice's.
     const cat = a.cat && FIN_COST_CATS[a.cat] ? a.cat : FIN_COST_CATS[i.cost_code] ? i.cost_code : 'materials';
-    lines.push({key:'pi:'+i.id+':'+(a.sub||'')+(a.cat?':'+a.cat:''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
+    lines.push({key:'pi:'+i.id+':'+(a.sub||'')+(a.cat?':'+a.cat:''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Purchase invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
   });
   each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
     const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));

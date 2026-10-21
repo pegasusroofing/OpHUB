@@ -1,6 +1,6 @@
 /* ============================================================
    OpHUB Finance — pricing materials
-   1. Supplier invoices: the reader picks out every line, matches it to the
+   1. Purchase invoices: the reader picks out every line, matches it to the
       PO's items, prices any unpriced PO lines, and flags price rises, qty
       differences and extra items.
    2. Supplier quotes: upload a quote on a PO and its lines price the PO.
@@ -117,8 +117,8 @@ async function finPriceBookSave(supplierName, lines, source, ref){
 }
 function finRound4(n){ return Math.round((Number(n)||0)*10000)/10000; }
 
-/* ---------- 1. supplier invoice lines → PO ---------- */
-// Runs after a supplier invoice with a file is saved (form or inbox). Quietly does nothing if it can't read lines.
+/* ---------- 1. purchase invoice lines → PO ---------- */
+// Runs after a purchase invoice with a file is saved (form or inbox). Quietly does nothing if it can't read lines.
 async function finCheckInvoiceLines(piId, opts){
   opts = opts || {};
   const pi = (await dbSelect('purchase_invoices', 'id=eq.'+piId))[0]; if(!pi || !pi.file_path) return null;

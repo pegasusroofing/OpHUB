@@ -5,7 +5,7 @@
      • Settings: connect / disconnect, account codes, job tracking category,
        "send automatically" switch, check for payments.
      • Sales invoices → Xero (ACCREC) with the PDF attached and job tracking.
-     • Approved supplier invoices → Xero bills (ACCPAY) with the invoice attached.
+     • Approved purchase invoices → Xero bills (ACCPAY) with the invoice attached.
      • Subcontractor (CIS) payments → Xero bills.
      • Payments made in Xero come back onto OpHUB invoices.
      • Billing details: find the client in Xero; anything missing in Xero
@@ -41,7 +41,7 @@ function finXeroSettingsHtml(st){
       </div>
       <datalist id="finXAccts"></datalist><datalist id="finXTracks"></datalist>
       <div id="finXAcctsMsg" class="stub" style="margin:0 0 8px;font-style:normal;">Account codes are the numbers in your Xero chart of accounts. <button class="linkbtn" style="color:var(--blue);" onclick="finXeroLoadAccounts()">Load them from Xero</button></div>
-      <label class="finswitch" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px;"><input type="checkbox" id="finXAuto" ${st.xero_auto?'checked':''} style="margin-top:3px;"><span>Send to Xero automatically — invoices when issued, supplier invoices when approved. Otherwise use the “Send to Xero” button on each one.</span></label>
+      <label class="finswitch" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px;"><input type="checkbox" id="finXAuto" ${st.xero_auto?'checked':''} style="margin-top:3px;"><span>Send to Xero automatically — invoices when issued, purchase invoices when approved. Otherwise use the “Send to Xero” button on each one.</span></label>
       <button class="darkbtn" style="width:100%;" onclick="finXeroSaveSettings()">Save Xero settings</button>
       <div class="row-gap" style="margin-top:8px;">
         <button class="ghostbtn" style="flex:1;" onclick="finXeroPullPayments(true)">Check Xero for payments</button>
@@ -112,7 +112,7 @@ window.finXeroSaveSettings = async function(){
 };
 
 /* ---------- Send to Xero ---------- */
-// Status line + button shown on an invoice, supplier invoice or sub payment.
+// Status line + button shown on an invoice, purchase invoice or sub payment.
 function finXeroRowHtml(kind, rec){
   if(!finXeroConnected() || !rec) return '';
   const can = kind==='invoice' ? rec.status!=='draft' && rec.status!=='void'
@@ -141,7 +141,7 @@ window.finXeroPush = async function(kind, id, quiet){
   if(!quiet) render();
   return true;
 };
-// Called after issuing an invoice / approving a supplier invoice.
+// Called after issuing an invoice / approving a purchase invoice.
 async function finXeroAuto(kind, id){
   if(!finXeroConnected() || !FIN_SETTINGS.xero_auto) return;
   const tbl = {invoice:'fin_invoices', bill:'purchase_invoices', sub:'fin_sub_payments'}[kind];
@@ -280,7 +280,7 @@ async function finXeroReadyLoad(){
   const on = r=>r.xero_post!==false;
   return [].concat(
     invs.filter(on).map(i=>({kind:'invoice', id:i.id, t:'Sales invoice '+(i.number||''), s:[i.bill_name, finJobTag(i.site_id)].filter(Boolean).join(' · '), d:i.issue_date, v:i.total})),
-    bills.filter(on).map(b=>({kind:'bill', id:b.id, t:'Supplier invoice '+(b.invoice_no||''), s:[b.supplier_name, finJobTag(b.site_id)].filter(Boolean).join(' · '), d:b.invoice_date, v:b.total})),
+    bills.filter(on).map(b=>({kind:'bill', id:b.id, t:'Purchase invoice '+(b.invoice_no||''), s:[b.supplier_name, finJobTag(b.site_id)].filter(Boolean).join(' · '), d:b.invoice_date, v:b.total})),
     pays.filter(on).map(p=>({kind:'sub', id:p.id, t:'Operative invoice '+(p.invoice_no||''), s:p.name||'', d:p.period_start, v:p.gross})));
 }
 function finXeroReadyHtml(list){

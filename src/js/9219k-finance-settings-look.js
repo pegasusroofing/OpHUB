@@ -73,7 +73,7 @@ function renderFinReports(){
 FIN_SUBS.subs = FIN_SUBS.subs.filter(t=>t[0]!=='payrun');
 
 /* 5. No repeated headings (Andy, 21 Oct): when a section's title is the same
-      as the tab you're on (Purchase orders, Supplier invoices, Cost codes…),
+      as the tab you're on (Purchase orders, Purchase invoices, Cost codes…),
       the title is left off and only its button shows. */
 function finSecHead(title, btnLabel, btnClick){
   const tabLabels = new Set([].concat(...Object.values(FIN_SUBS)).map(t=>String(t[1]).toLowerCase()));
@@ -84,5 +84,18 @@ function finSecHead(title, btnLabel, btnClick){
   const css = `.finsechead-notitle{margin-top:10px !important;}
   .finsechead-notitle:not(:has(button)){display:none;}
   .finsechead > h3:empty{flex:1;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* 6. Finance filter chips (Open / Invoiced / Cancelled …) as one neat
+      segmented bar with small count badges, instead of big round pills. */
+(function(){
+  const css = `html.finmode .pmchips{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:#eceef2;border-radius:10px;margin:0 0 12px;max-width:100%;}
+  html.finmode .pmchips .pmchip{border:0 !important;background:transparent !important;box-shadow:none !important;border-radius:8px !important;padding:6px 12px !important;font-size:13px !important;font-weight:600 !important;color:var(--slate) !important;min-height:0 !important;height:auto !important;line-height:1.25;display:inline-flex;align-items:center;gap:6px;}
+  html.finmode .pmchips .pmchip:hover{color:var(--ink) !important;}
+  html.finmode .pmchips .pmchip.on{background:#fff !important;color:var(--ink) !important;box-shadow:0 1px 3px rgba(16,17,20,.12) !important;}
+  html.finmode .finchip-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:#dfe2e8;color:#4a5260;font-size:11px;font-weight:700;text-align:center;line-height:16px;}
+  html.finmode .pmchip.on .finchip-n{background:var(--brand,#e3262b);color:#fff;}
+  html.finmode span.pmchip{cursor:default;}`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();

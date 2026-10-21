@@ -1,5 +1,5 @@
 /* ============================================================
-   OpHUB Finance — supplier invoice review (21 Oct 2026, Andy: "do 1, 2, 3, 5"
+   OpHUB Finance — purchase invoice review (21 Oct 2026, Andy: "do 1, 2, 3, 5"
    from the Coreloops / Construction Manager review).
    1. On a computer an invoice opens docked on the right of the Purchases list,
       with the invoice itself shown above its details (the pop-up is kept on
@@ -79,7 +79,7 @@ window.finPiBulkApprove = async function(){
   const ids = Array.from(finPiSel); if(!ids.length) return;
   const rows = await dbSelect('purchase_invoices', 'id=in.('+ids.join(',')+')&select=id,status,query_note,po_id');
   const q = rows.filter(r=>r.status==='query');
-  if(!(await customConfirm(`Approve ${ids.length} supplier invoice${ids.length===1?'':'s'}?`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
+  if(!(await customConfirm(`Approve ${ids.length} purchase invoice${ids.length===1?'':'s'}?`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
   let ok = 0;
   for(const r of rows){
     const u = await dbUpdate('purchase_invoices', r.id, {status:'approved', approved_by:ME.id, approved_at:new Date().toISOString()});

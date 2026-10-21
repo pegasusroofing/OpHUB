@@ -1,10 +1,10 @@
 /* ================= OpHUB FINANCE — Phase F: invoice inbox =================
-   Supplier invoices arrive two ways: dropped in here (upload, several at
+   Purchase invoices arrive two ways: dropped in here (upload, several at
    once), or forwarded from an email inbox to the finance-inbox function (see
    Finance settings for the address and key). Each PDF is read in the app:
    supplier, invoice number, date, net / VAT / total, and our PO number —
    which tells it the job. You check, change anything that's wrong, and file
-   it; filing makes a supplier invoice on the job with the same checks as
+   it; filing makes a purchase invoice on the job with the same checks as
    adding one by hand (over the PO, duplicate, not received). */
 
 let finInboxTab = 'new';
@@ -97,8 +97,8 @@ async function renderFinInbox(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add supplier invoices</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of supplier invoices, as many as you like. The app reads each one and finds the project from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
+      <p class="sectiontitle" style="margin-top:0;">Add purchase invoices</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of purchase invoices, as many as you like. The app reads each one and finds the project from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
       <input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" onchange="finInboxUpload(this.files)">
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('new','To file')}${chip('filed','Filed')}${chip('ignored','Ignored')}</div>
@@ -112,7 +112,7 @@ function finInboxCardHtml(it, pos, sites){
   const v = x=> x==null ? '' : escapeHtml(String(x));
   return `<div class="card fininbox" id="finInb-${it.id}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-      <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</b>
+      <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Purchase invoice')}</b>
         <div class="stub" style="margin:2px 0 0;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Uploaded'} · ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</div></div>
       <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View</button>
     </div>
@@ -204,7 +204,7 @@ function finInboxSettingsHtml(st){
   const url = SUPABASE_URL+'/functions/v1/finance-inbox?key='+(st.inbox_key||'<make a key first>');
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Invoice inbox (email)</p>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Supplier invoices then appear in Finance › Invoice inbox, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Invoice inbox, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
     ${st.inbox_key ? `<div class="sublink" style="word-break:break-all;font-size:12px;">${escapeHtml(url)}</div>
       <p class="stub" style="margin:6px 0 0;font-style:normal;">Send JSON: <code>{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}</code>. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</p>` : ''}
     <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="finInboxNewKey()">${st.inbox_key?'Make a new key (stops the old one)':'Make an inbox key'}</button>

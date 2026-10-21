@@ -5,7 +5,7 @@
      Overview        numbers and what needs attention
      Jobs            jobs list · clients
      Sales           applications · certificates · invoices · receipts · retention   (money in)
-     Purchases       orders · supplier invoices · invoice inbox · plant hire · suppliers (money out)
+     Purchases       orders · purchase invoices · invoice inbox · plant hire · suppliers (money out)
      Subcontractors & labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
      Reports
      Settings        (Team, Suppliers, My account for Finance-only companies)
@@ -23,7 +23,7 @@ const FIN_SECTIONS = [
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
-  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
+  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Purchase invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontractor POs','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
@@ -38,7 +38,7 @@ function finSubTabs(sec, active, badges){
 function finSecBack(){ return (typeof isFinanceOnly==='function' && isFinanceOnly()) ? null : homeHash(); }
 function finJobTag(siteId){ const s = SITES.find(x=>x.id===siteId) || {}; return (s.job_number ? s.job_number+' · ' : '')+(s.name||''); }
 function finRepJobOr(s){ return (s.job_number ? s.job_number+' ' : '')+(s.name||''); }
-const finChip = (on, label, n, onclick)=>`<button type="button" class="pmchip ${on?'on':''}" onclick="${onclick}">${label}${n!=null?' ('+n+')':''}</button>`;
+const finChip = (on, label, n, onclick)=>`<button type="button" class="pmchip ${on?'on':''}" onclick="${onclick}">${label}${n!=null?` <span class="finchip-n">${n}</span>`:''}</button>`;
 
 // Choose a job, then carry on (for "+ New invoice", "+ New PO" etc. on section pages).
 window.finPickJob = function(title, fnName){
@@ -94,8 +94,8 @@ async function renderFinanceHome(){
   const todo = [];
   if(appsDue.length) todo.push({tone:'warn', t:'Applications due this month', s:appsDue.map(finRepJobOr).join(', '), n:appsDue.length, go:one(appsDue, s=>`#/site/${s.id}/finance`, '#/finance/sales/apps')});
   if(overdueInv.length) todo.push({tone:'bad', t:'Overdue invoices', s:finMoney(overdue, 0)+' to chase', n:overdueInv.length, go:'#/finance/sales/invoices', pre:"finInvFilter='overdue';"});
-  if(toApprove.length) todo.push({tone:'warn', t:'Supplier invoices to approve', s:finMoney(toApprove.reduce((t,i)=>t+Number(i.net||0),0), 0)+' excl. VAT', n:toApprove.length, go:'#/finance/purchases/invoices', pre:"finPiFilter='approve';"});
-  if(inbox.length) todo.push({tone:'blue', t:'Unallocated supplier invoices', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
+  if(toApprove.length) todo.push({tone:'warn', t:'Purchase invoices to approve', s:finMoney(toApprove.reduce((t,i)=>t+Number(i.net||0),0), 0)+' excl. VAT', n:toApprove.length, go:'#/finance/purchases/invoices', pre:"finPiFilter='approve';"});
+  if(inbox.length) todo.push({tone:'blue', t:'Unallocated purchase invoices', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
   if(subApps.length) todo.push({tone:'warn', t:'Subcontractor applications to certify', s:'Send a payment or pay less notice in time', n:subApps.length, go:'#/finance/subs/apps', pre:"finSaFilter='received';"});
   if(retDue.length) todo.push({tone:'blue', t:'Retention to claim back', s:retDue.map(x=>finRepJobOr(x.s)).join(', '), n:retDue.length, go:'#/finance/sales/retention'});
   if(longHire.length) todo.push({tone:'warn', t:'Plant on hire over 4 weeks', s:longHire.map(h=>h.item).join(', '), n:longHire.length, go:'#/finance/purchases/plant'});

@@ -1118,6 +1118,9 @@ select.sarole{width:auto;min-width:150px;margin:0;padding:6px 8px;font-size:12px
 html.desk body{background:#F4F6F9;}
 html.desk #app{max-width:none;margin:0;box-shadow:none;background:#F4F6F9;}
 html.desk #app > .appshell{padding-left:248px;}
+/* signed out (login, reset password …): no left menu, so no gap for it — and keep the form a sensible width in the middle */
+html.desk #app > .appshell:not(:has(.desknav)){padding-left:0;}
+html.desk #app > .appshell:not(:has(.desknav)) .scrollarea{max-width:560px;margin:0 auto;box-sizing:border-box;}
 html.desk .appshell > .tabbar{display:none !important;}
 html.desk .appbar{background:#fff;padding:14px 40px;padding-top:14px;border-bottom:1px solid #E5E8ED;}
 html.desk .appbar img.brandmark{display:none;}
@@ -48526,7 +48529,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
       PO (<job no>-PO-001), via fin_raise_po (works for any PM, not just
       finance users, once "Raise POs on every order" is on in Finance
       settings; until then only finance users' orders get one).
-   B2 supplier invoices matched to a PO, with checks: over the PO,
+   B2 purchase invoices matched to a PO, with checks: over the PO,
       duplicate invoice number, nothing delivered yet.
    B3 receipts / invoices with no PO (bought on site).
    B4 job cost to date on the job's Finance page. */
@@ -48576,7 +48579,7 @@ function finJobCostCardHtml(c, siteId){
       ${siteId ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/costs')">All costs ›</button>` : ''}
     </div>
     <div class="fincost">
-      <div><span>Supplier invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
+      <div><span>Purchase invoices</span><b>${finMoney(c.costs, 0)}</b>${c.waiting?`<em>+ ${finMoney(c.waiting, 0)} waiting approval</em>`:''}</div>
       <div><span>Materials committed</span><b>${finMoney(c.committed, 0)}</b>${c.unpriced?`<em>${c.unpriced} PO${c.unpriced===1?'':'s'} with no value yet</em>`:''}</div>
       <div><span>Labour</span><b>${finMoney(c.labour, 0)}</b></div>
       <div><span>Plant</span><b>${finMoney(c.plant, 0)}</b></div>
@@ -48594,11 +48597,11 @@ function finPurchasingCardHtml(siteId, pos, pinvs){
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/shopping')">Project quotes</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openFinNewPo('${siteId}')">+ New PO</button>
-        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Supplier invoice</button>
+        <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}')">+ Purchase invoice</button>
         <button class="ghostbtn" style="padding:6px 10px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}',null,true)">+ Receipt</button>
       </div>
     </div>
-    ${toApprove.length ? `<div class="finchecks" style="margin:8px 0 0;"><span>${toApprove.length} supplier invoice${toApprove.length===1?'':'s'} to approve</span></div>` : ''}
+    ${toApprove.length ? `<div class="finchecks" style="margin:8px 0 0;"><span>${toApprove.length} purchase invoice${toApprove.length===1?'':'s'} to approve</span></div>` : ''}
     ${pos.length ? pos.map(p=>{ const inv = finPoInvoiced(p, pinvs); return `<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/po/${p.id}')">
         <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(p.number)} ${finPoPill(p)}</span>
           <span class="pmrow-s">${escapeHtml(p.supplier_name||'Supplier')} · ${finDate(String(p.created_at).slice(0,10))} · ${(p.items||[]).length} item${(p.items||[]).length===1?'':'s'}${inv?' · invoiced '+finMoney(inv):''}</span></span>
@@ -48657,7 +48660,7 @@ async function renderFinPo(siteId, poId){
     </div>` : ''}
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <p class="sectiontitle" style="margin:0;">Supplier invoices</p>
+        <p class="sectiontitle" style="margin:0;">Purchase invoices</p>
         ${po.status!=='cancelled' ? `<button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openPurchaseInvoiceForm('${siteId}','${po.id}')">+ Add invoice</button>` : ''}
       </div>
       ${pinvs.length ? pinvs.map(i=>finPiRowHtml(siteId, i)).join('') : `<p class="stub" style="margin:8px 0 0;font-style:normal;">None yet.</p>`}
@@ -48689,7 +48692,7 @@ window.setFinPoStatus = async function(poId, status){
   if(r){ toast(status==='open' ? 'PO reopened' : status==='invoiced' ? 'PO marked fully invoiced' : 'PO cancelled'); render(); }
 };
 
-/* ---------------- B2/B3: add a supplier invoice or receipt ---------------- */
+/* ---------------- B2/B3: add a purchase invoice or receipt ---------------- */
 let finPiFile = null;
 window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
   const [pos, suppliers] = await Promise.all([
@@ -48703,7 +48706,7 @@ window.openPurchaseInvoiceForm = async function(siteId, poId, receipt){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPiOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card">
-    <h3>${receipt ? 'Add a receipt (no PO)' : 'Add supplier invoice'}</h3>
+    <h3>${receipt ? 'Add a receipt (no PO)' : 'Add purchase invoice'}</h3>
     ${receipt ? `<p class="stub" style="margin:0 0 10px;font-style:normal;">For materials bought on site without a PO. It still counts against this project.</p>` : `
     <div class="formfield"><label class="field-label">Purchase order</label>
       <select id="finPiPo" onchange="finPiPoPicked(this.value)"><option value="">No PO</option>${pos.map(p=>`<option value="${p.id}" ${po&&po.id===p.id?'selected':''}>${escapeHtml(p.number)} · ${escapeHtml(p.supplier_name||'')}</option>`).join('')}</select>
@@ -48785,7 +48788,7 @@ window.savePurchaseInvoice = async function(siteId, receipt){
   if(row.file_path && ins[0] && typeof finCheckInvoiceLines==='function') finCheckInvoiceLines(ins[0].id).then(r=>{ if(r && r.notes.length){ toast('Invoice lines read — '+r.notes.length+' difference'+(r.notes.length===1?'':'s')+' with the PO'); render(); } });
 };
 
-/* ---------------- view / approve a supplier invoice ---------------- */
+/* ---------------- view / approve a purchase invoice ---------------- */
 window.openPurchaseInvoiceView = async function(siteId, id){
   if(!FIN_SETTINGS) await finLoadSettings();
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id))[0]; if(!i) return;
@@ -49001,12 +49004,12 @@ window.openFinCisStatement = async function(id){
 };
 
 /* ================= OpHUB FINANCE — Phase F: invoice inbox =================
-   Supplier invoices arrive two ways: dropped in here (upload, several at
+   Purchase invoices arrive two ways: dropped in here (upload, several at
    once), or forwarded from an email inbox to the finance-inbox function (see
    Finance settings for the address and key). Each PDF is read in the app:
    supplier, invoice number, date, net / VAT / total, and our PO number —
    which tells it the job. You check, change anything that's wrong, and file
-   it; filing makes a supplier invoice on the job with the same checks as
+   it; filing makes a purchase invoice on the job with the same checks as
    adding one by hand (over the PO, duplicate, not received). */
 
 let finInboxTab = 'new';
@@ -49099,8 +49102,8 @@ async function renderFinInbox(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}${finSubTabs('purchases','inbox')}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Add supplier invoices</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of supplier invoices, as many as you like. The app reads each one and finds the project from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
+      <p class="sectiontitle" style="margin-top:0;">Add purchase invoices</p>
+      <p class="stub" style="margin:0 0 10px;font-style:normal;">Drop in PDFs (or photos) of purchase invoices, as many as you like. The app reads each one and finds the project from our PO number. Invoices emailed to your inbox address land here too (see Finance settings).</p>
       <input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" onchange="finInboxUpload(this.files)">
     </div>
     <div class="pmchips" style="margin:0 0 10px;">${chip('new','To file')}${chip('filed','Filed')}${chip('ignored','Ignored')}</div>
@@ -49114,7 +49117,7 @@ function finInboxCardHtml(it, pos, sites){
   const v = x=> x==null ? '' : escapeHtml(String(x));
   return `<div class="card fininbox" id="finInb-${it.id}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
-      <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</b>
+      <div style="min-width:0;"><b>${escapeHtml(ex.supplier || it.from_email || 'Purchase invoice')}</b>
         <div class="stub" style="margin:2px 0 0;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Uploaded'} · ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</div></div>
       <button class="ghostbtn" style="width:auto;flex:none;padding:5px 10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View</button>
     </div>
@@ -49206,7 +49209,7 @@ function finInboxSettingsHtml(st){
   const url = SUPABASE_URL+'/functions/v1/finance-inbox?key='+(st.inbox_key||'<make a key first>');
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Invoice inbox (email)</p>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Supplier invoices then appear in Finance › Invoice inbox, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Invoice inbox, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
     ${st.inbox_key ? `<div class="sublink" style="word-break:break-all;font-size:12px;">${escapeHtml(url)}</div>
       <p class="stub" style="margin:6px 0 0;font-style:normal;">Send JSON: <code>{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}</code>. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</p>` : ''}
     <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="finInboxNewKey()">${st.inbox_key?'Make a new key (stops the old one)':'Make an inbox key'}</button>
@@ -49220,7 +49223,7 @@ function finInboxSettingsHtml(st){
      • Settings: connect / disconnect, account codes, job tracking category,
        "send automatically" switch, check for payments.
      • Sales invoices → Xero (ACCREC) with the PDF attached and job tracking.
-     • Approved supplier invoices → Xero bills (ACCPAY) with the invoice attached.
+     • Approved purchase invoices → Xero bills (ACCPAY) with the invoice attached.
      • Subcontractor (CIS) payments → Xero bills.
      • Payments made in Xero come back onto OpHUB invoices.
      • Billing details: find the client in Xero; anything missing in Xero
@@ -49256,7 +49259,7 @@ function finXeroSettingsHtml(st){
       </div>
       <datalist id="finXAccts"></datalist><datalist id="finXTracks"></datalist>
       <div id="finXAcctsMsg" class="stub" style="margin:0 0 8px;font-style:normal;">Account codes are the numbers in your Xero chart of accounts. <button class="linkbtn" style="color:var(--blue);" onclick="finXeroLoadAccounts()">Load them from Xero</button></div>
-      <label class="finswitch" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px;"><input type="checkbox" id="finXAuto" ${st.xero_auto?'checked':''} style="margin-top:3px;"><span>Send to Xero automatically — invoices when issued, supplier invoices when approved. Otherwise use the “Send to Xero” button on each one.</span></label>
+      <label class="finswitch" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 10px;"><input type="checkbox" id="finXAuto" ${st.xero_auto?'checked':''} style="margin-top:3px;"><span>Send to Xero automatically — invoices when issued, purchase invoices when approved. Otherwise use the “Send to Xero” button on each one.</span></label>
       <button class="darkbtn" style="width:100%;" onclick="finXeroSaveSettings()">Save Xero settings</button>
       <div class="row-gap" style="margin-top:8px;">
         <button class="ghostbtn" style="flex:1;" onclick="finXeroPullPayments(true)">Check Xero for payments</button>
@@ -49327,7 +49330,7 @@ window.finXeroSaveSettings = async function(){
 };
 
 /* ---------- Send to Xero ---------- */
-// Status line + button shown on an invoice, supplier invoice or sub payment.
+// Status line + button shown on an invoice, purchase invoice or sub payment.
 function finXeroRowHtml(kind, rec){
   if(!finXeroConnected() || !rec) return '';
   const can = kind==='invoice' ? rec.status!=='draft' && rec.status!=='void'
@@ -49356,7 +49359,7 @@ window.finXeroPush = async function(kind, id, quiet){
   if(!quiet) render();
   return true;
 };
-// Called after issuing an invoice / approving a supplier invoice.
+// Called after issuing an invoice / approving a purchase invoice.
 async function finXeroAuto(kind, id){
   if(!finXeroConnected() || !FIN_SETTINGS.xero_auto) return;
   const tbl = {invoice:'fin_invoices', bill:'purchase_invoices', sub:'fin_sub_payments'}[kind];
@@ -49495,7 +49498,7 @@ async function finXeroReadyLoad(){
   const on = r=>r.xero_post!==false;
   return [].concat(
     invs.filter(on).map(i=>({kind:'invoice', id:i.id, t:'Sales invoice '+(i.number||''), s:[i.bill_name, finJobTag(i.site_id)].filter(Boolean).join(' · '), d:i.issue_date, v:i.total})),
-    bills.filter(on).map(b=>({kind:'bill', id:b.id, t:'Supplier invoice '+(b.invoice_no||''), s:[b.supplier_name, finJobTag(b.site_id)].filter(Boolean).join(' · '), d:b.invoice_date, v:b.total})),
+    bills.filter(on).map(b=>({kind:'bill', id:b.id, t:'Purchase invoice '+(b.invoice_no||''), s:[b.supplier_name, finJobTag(b.site_id)].filter(Boolean).join(' · '), d:b.invoice_date, v:b.total})),
     pays.filter(on).map(p=>({kind:'sub', id:p.id, t:'Operative invoice '+(p.invoice_no||''), s:p.name||'', d:p.period_start, v:p.gross})));
 }
 function finXeroReadyHtml(list){
@@ -50004,7 +50007,7 @@ window.sendFinPoEmail = async function(siteId, poId){
    Plant · Subcontract · Overheads · Other · Committed (ordered, not yet
    invoiced). Search, date range, sort; export to Excel or PDF. Laid out as
    a table on a computer and as cards on a phone.
-   Sources: supplier invoices / receipts (by their cost type), open POs
+   Sources: purchase invoices / receipts (by their cost type), open POs
    (committed), sign-in labour days × rate, timesheets, plant hires, and
    costs added here (fin_job_costs).
    ============================================================ */
@@ -50083,7 +50086,7 @@ async function renderFinCosts(siteId){
       </div>
     </div>
     <div id="finCostTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; supplier invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; purchase invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
   `, {title:finCosts.sub && finCosts.sub!=='none' ? finSubLabel(siteId, finCosts.sub, true)+' costs' : 'Project costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:finCosts.sub ? `#/site/${siteId}/finance/parts` : `#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finCostPaint();
 }
@@ -50129,7 +50132,7 @@ window.openFinJobCost = async function(siteId, id){
   const cat = x ? x.category : (finCosts && FIN_COST_CATS[finCosts.tab] && finCosts.tab!=='labour' ? finCosts.tab : 'overheads');
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${x?'Cost':'Add a cost'}</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a supplier invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Type</label><select id="finJcCat">${Object.keys(FIN_COST_CATS).map(k=>`<option value="${k}" ${cat===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finJcDate" value="${x?x.cost_date:finToday()}"></div>
@@ -50164,7 +50167,7 @@ window.deleteFinJobCost = async function(id){
   if(btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to remove'; return; }
   if(await dbDelete('fin_job_costs', id)){ document.getElementById('finJcOverlay').style.display='none'; toast('Removed'); render(); }
 };
-// Cost type on a supplier invoice (materials / plant / subcontract / overheads / other).
+// Cost type on a purchase invoice (materials / plant / subcontract / overheads / other).
 window.setFinPiCostCode = async function(id, code){
   const r = await dbUpdate('purchase_invoices', id, {cost_code:code});
   if(r) toast('Cost type: '+(FIN_COST_CATS[code]||code));
@@ -50278,7 +50281,7 @@ function finCostLinesFromBook(b, siteId){
   each(b.pinvs, (i,a)=>{
     // A coded line (9219g) carries its own cost type; otherwise the invoice's.
     const cat = a.cat && FIN_COST_CATS[a.cat] ? a.cat : FIN_COST_CATS[i.cost_code] ? i.cost_code : 'materials';
-    lines.push({key:'pi:'+i.id+':'+(a.sub||'')+(a.cat?':'+a.cat:''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Supplier invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
+    lines.push({key:'pi:'+i.id+':'+(a.sub||'')+(a.cat?':'+a.cat:''), date:i.invoice_date, cat, desc:(i.description || (i.kind==='receipt' ? 'Receipt' : 'Purchase invoice'))+tag(a), who:i.supplier_name||'', ref:[i.invoice_no, poAll[i.po_id] && poAll[i.po_id].number].filter(Boolean).join(' · '), status:FIN_PI_STATUS[i.status]||i.status, waiting:i.status!=='approved', net:finRound(Number(i.net||0)*a.share), sub:a.sub, share:a.share, src:{t:'purchase_invoices', id:i.id}, open:`openPurchaseInvoiceView('${i.site_id}','${i.id}')`});
   });
   each((b.pos||[]).filter(p=>p.status==='open' && p.value!=null), (p,a)=>{
     const left = finRound(Number(p.value) - finPoInvoiced(p, b.pinvs||[]));
@@ -51088,13 +51091,13 @@ const FIN_REPORTS = [
     const rows = (b.invs||[]).filter(i=>ids.has(i.site_id) && finInvOutstanding(i)>0).map(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const o = finInvOutstanding(i); const late = i.due_date ? finDaysBetween(i.due_date, today) : 0; const r = {client:i.bill_name||s.client_name||'', job:finRepJob(s), inv:i.number, date:i.issue_date, due:i.due_date, cur:0, d30:0, d60:0, d90:0, d90p:0, total:o, _go:`#/site/${i.site_id}/finance/invoice/${i.id}`}; if(late<=0) r.cur=o; else if(late<=30) r.d30=o; else if(late<=60) r.d60=o; else if(late<=90) r.d90=o; else r.d90p=o; return r; }).sort((x,y)=>String(x.client).localeCompare(String(y.client)));
     return {cols:[{k:'client',l:'Client',w:110},{k:'job',l:'Project',w:120},{k:'inv',l:'Invoice',w:60},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total owed',money:1}], rows, totals:true, note:'Including VAT. Days overdue are counted from the invoice due date.'};
   }},
-  {id:'creditors', group:'money', title:'Aged creditors', desc:'Supplier invoices and subcontractor payments you still have to pay.', filters:['job'], run:async f=>{
+  {id:'creditors', group:'money', title:'Aged creditors', desc:'Purchase invoices and subcontractor payments you still have to pay.', filters:['job'], run:async f=>{
     const b = await finRepBookLoad(); const today = finToday(); const ids = new Set(finRepSites(Object.assign({}, f, {status:'all'})).map(s=>s.id)); const rows = [];
     const bucket = (r, amt, due)=>{ const late = finDaysBetween(due, today); r.cur=r.d30=r.d60=r.d90=r.d90p=0; if(late<=0) r.cur=amt; else if(late<=30) r.d30=amt; else if(late<=60) r.d60=amt; else if(late<=90) r.d90=amt; else r.d90p=amt; r.total=amt; return r; };
     (b.pinvs||[]).filter(i=>ids.has(i.site_id) && i.status==='approved' && !i.paid_on).forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id)||{}; const due = i.due_date || finAddDays(i.invoice_date, 30); rows.push(bucket({who:i.supplier_name||'', job:finRepJob(s), ref:i.invoice_no||'', due, _go:`#/site/${i.site_id}/finance`}, Number(i.total||0), due)); });
     (b.sapps||[]).filter(a=>ids.has(a.site_id) && a.status==='certified').forEach(a=>{ const s = SITES.find(x=>x.id===a.site_id)||{}; const sc = (b.scs||[]).find(x=>x.id===a.subcontract_id)||{}; const due = a.final_date || finAddDays(a.app_date, 30); rows.push(bucket({who:sc.name||'Subcontractor', job:finRepJob(s), ref:(sc.number||'')+' app '+a.number, due, _go:`#/site/${a.site_id}/finance/sub/${a.subcontract_id}`}, Number(a.pay_amount||0), due)); });
     rows.sort((x,y)=>String(x.who).localeCompare(String(y.who)));
-    return {cols:[{k:'who',l:'Supplier / subcontractor',w:120},{k:'job',l:'Project',w:120},{k:'ref',l:'Ref',w:70},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total',money:1}], rows, totals:true, note:'Approved supplier invoices not marked paid (incl. VAT; due 30 days after the invoice date unless a due date was entered) and certified subcontractor payments not yet paid (after CIS).'};
+    return {cols:[{k:'who',l:'Supplier / subcontractor',w:120},{k:'job',l:'Project',w:120},{k:'ref',l:'Ref',w:70},{k:'due',l:'Due',date:1},{k:'cur',l:'Not due',money:1},{k:'d30',l:'1–30 days',money:1},{k:'d60',l:'31–60',money:1},{k:'d90',l:'61–90',money:1},{k:'d90p',l:'90+',money:1},{k:'total',l:'Total',money:1}], rows, totals:true, note:'Approved purchase invoices not marked paid (incl. VAT; due 30 days after the invoice date unless a due date was entered) and certified subcontractor payments not yet paid (after CIS).'};
   }},
   {id:'cashflow', group:'money', title:'Cash flow forecast', desc:'Money due in and out over the next 12 weeks, week by week.', filters:['opening'], run:async f=>{
     const b = await finRepBookLoad(); const mon = finMonday(finToday()); const weeks = [];
@@ -51270,7 +51273,7 @@ async function finExportTable(kind, o){
      Overview        numbers and what needs attention
      Jobs            jobs list · clients
      Sales           applications · certificates · invoices · receipts · retention   (money in)
-     Purchases       orders · supplier invoices · invoice inbox · plant hire · suppliers (money out)
+     Purchases       orders · purchase invoices · invoice inbox · plant hire · suppliers (money out)
      Subcontractors & labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
      Reports
      Settings        (Team, Suppliers, My account for Finance-only companies)
@@ -51288,7 +51291,7 @@ const FIN_SECTIONS = [
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
-  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
+  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Purchase invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontractor POs','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
@@ -51303,7 +51306,7 @@ function finSubTabs(sec, active, badges){
 function finSecBack(){ return (typeof isFinanceOnly==='function' && isFinanceOnly()) ? null : homeHash(); }
 function finJobTag(siteId){ const s = SITES.find(x=>x.id===siteId) || {}; return (s.job_number ? s.job_number+' · ' : '')+(s.name||''); }
 function finRepJobOr(s){ return (s.job_number ? s.job_number+' ' : '')+(s.name||''); }
-const finChip = (on, label, n, onclick)=>`<button type="button" class="pmchip ${on?'on':''}" onclick="${onclick}">${label}${n!=null?' ('+n+')':''}</button>`;
+const finChip = (on, label, n, onclick)=>`<button type="button" class="pmchip ${on?'on':''}" onclick="${onclick}">${label}${n!=null?` <span class="finchip-n">${n}</span>`:''}</button>`;
 
 // Choose a job, then carry on (for "+ New invoice", "+ New PO" etc. on section pages).
 window.finPickJob = function(title, fnName){
@@ -51359,8 +51362,8 @@ async function renderFinanceHome(){
   const todo = [];
   if(appsDue.length) todo.push({tone:'warn', t:'Applications due this month', s:appsDue.map(finRepJobOr).join(', '), n:appsDue.length, go:one(appsDue, s=>`#/site/${s.id}/finance`, '#/finance/sales/apps')});
   if(overdueInv.length) todo.push({tone:'bad', t:'Overdue invoices', s:finMoney(overdue, 0)+' to chase', n:overdueInv.length, go:'#/finance/sales/invoices', pre:"finInvFilter='overdue';"});
-  if(toApprove.length) todo.push({tone:'warn', t:'Supplier invoices to approve', s:finMoney(toApprove.reduce((t,i)=>t+Number(i.net||0),0), 0)+' excl. VAT', n:toApprove.length, go:'#/finance/purchases/invoices', pre:"finPiFilter='approve';"});
-  if(inbox.length) todo.push({tone:'blue', t:'Unallocated supplier invoices', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
+  if(toApprove.length) todo.push({tone:'warn', t:'Purchase invoices to approve', s:finMoney(toApprove.reduce((t,i)=>t+Number(i.net||0),0), 0)+' excl. VAT', n:toApprove.length, go:'#/finance/purchases/invoices', pre:"finPiFilter='approve';"});
+  if(inbox.length) todo.push({tone:'blue', t:'Unallocated purchase invoices', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
   if(subApps.length) todo.push({tone:'warn', t:'Subcontractor applications to certify', s:'Send a payment or pay less notice in time', n:subApps.length, go:'#/finance/subs/apps', pre:"finSaFilter='received';"});
   if(retDue.length) todo.push({tone:'blue', t:'Retention to claim back', s:retDue.map(x=>finRepJobOr(x.s)).join(', '), n:retDue.length, go:'#/finance/sales/retention'});
   if(longHire.length) todo.push({tone:'warn', t:'Plant on hire over 4 weeks', s:longHire.map(h=>h.item).join(', '), n:longHire.length, go:'#/finance/purchases/plant'});
@@ -51446,7 +51449,7 @@ let finSaFilter = 'open';
 
 /* ============================================================
    OpHUB Finance — pricing materials
-   1. Supplier invoices: the reader picks out every line, matches it to the
+   1. Purchase invoices: the reader picks out every line, matches it to the
       PO's items, prices any unpriced PO lines, and flags price rises, qty
       differences and extra items.
    2. Supplier quotes: upload a quote on a PO and its lines price the PO.
@@ -51563,8 +51566,8 @@ async function finPriceBookSave(supplierName, lines, source, ref){
 }
 function finRound4(n){ return Math.round((Number(n)||0)*10000)/10000; }
 
-/* ---------- 1. supplier invoice lines → PO ---------- */
-// Runs after a supplier invoice with a file is saved (form or inbox). Quietly does nothing if it can't read lines.
+/* ---------- 1. purchase invoice lines → PO ---------- */
+// Runs after a purchase invoice with a file is saved (form or inbox). Quietly does nothing if it can't read lines.
 async function finCheckInvoiceLines(piId, opts){
   opts = opts || {};
   const pi = (await dbSelect('purchase_invoices', 'id=eq.'+piId))[0]; if(!pi || !pi.file_path) return null;
@@ -51873,7 +51876,7 @@ const FIN_DOC_TYPES = [
   {k:'invoices', l:'Sales invoices', anchor:'fin-a-invoices'},
   {k:'variations', l:'Variations', go:id=>`#/site/${id}/finance/variations`},
   {k:'pos', l:'Purchase orders', anchor:'fin-a-purchasing'},
-  {k:'pinvs', l:'Supplier invoices', anchor:'fin-a-purchasing'},
+  {k:'pinvs', l:'Purchase invoices', anchor:'fin-a-purchasing'},
   {k:'shopping', l:'Project quotes', go:id=>`#/site/${id}/finance/shopping`},
   {k:'subs', l:'Subcontractors', anchor:'finScSlot'},
   {k:'costs', l:'All costs', go:id=>`#/site/${id}/finance/costs`},
@@ -51887,7 +51890,7 @@ const FIN_NEW_TYPES = [
   {l:'Sales invoice', fn:'newFinInvoice'},
   {l:'Variation', fn:'openFinVariation'},
   {l:'Purchase order', fn:'openFinNewPo'},
-  {l:'Supplier invoice', fn:'openPurchaseInvoiceForm'},
+  {l:'Purchase invoice', fn:'openPurchaseInvoiceForm'},
   {l:'Subcontractor PO', fn:'openFinSubcontract'},
   {l:'Plant hire', fn:'openFinPlantForm'},
   {l:'Cost', fn:'openFinJobCost'},
@@ -51962,7 +51965,7 @@ window.finSetSeeCosts = async function(userId, on){
    sub_job_id, pct, amount}] across plots and/or projects (a DB trigger
    checks it totals 100% and keeps split_sites for lookups).
    Booking stays simple: a material request for Plot 3 → its PO is for
-   Plot 3 → the supplier invoice on that PO follows the PO.
+   Plot 3 → the purchase invoice on that PO follows the PO.
    ============================================================ */
 const FIN_SUBJOBS = {}; // siteId -> [{id, label, short, detail, value, closed}]
 function finSubKind(siteId){ const s = SITES.find(x=>x.id===siteId); return !s ? '' : s.repair_contract ? 'repair' : s.multi_site ? 'multi' : ''; }
@@ -52002,7 +52005,7 @@ function finAllocs(row, ctx){
   if(Array.isArray(row.split) && row.split.length){
     return row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||null, share:Number(e.pct||0)/100, cat:e.cost_code||null}));
   }
-  // A supplier invoice on a PO follows the PO unless it has its own allocation.
+  // A purchase invoice on a PO follows the PO unless it has its own allocation.
   if(row.po_id && !row.sub_job_id && ctx && ctx.poBy && ctx.poBy[row.po_id]){
     const po = ctx.poBy[row.po_id];
     const a = finAllocs(po, ctx);
@@ -52034,7 +52037,7 @@ function finSiteShort(siteId){ const s = SITES.find(x=>x.id===siteId); return s 
 
 /* ---------- split / allocate modal ---------- */
 const FIN_SPLIT_TABLES = {
-  purchase_invoices:{noun:'supplier invoice', net:r=>r.net},
+  purchase_invoices:{noun:'purchase invoice', net:r=>r.net},
   purchase_orders:{noun:'PO', net:r=>r.value},
   fin_job_costs:{noun:'cost', net:r=>r.net},
   fin_plant_hires:{noun:'plant hire', net:r=>typeof finPlantCost==='function' ? finPlantCost(r).cost : null},
@@ -52217,7 +52220,7 @@ async function renderFinParts(siteId){
       </div>
     </div>
     <div id="finPartsTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the supplier invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the purchase invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
   `, {title:'Costs by '+(isRepair?'repair job':'plot'), subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finPartsPaint();
 }
@@ -53136,14 +53139,14 @@ function finSalesToDateHtml(apps, invs){
 }
 
 /* ============================================================
-   OpHUB Finance — Purchases as row tables, and the supplier invoice inbox
+   OpHUB Finance — Purchases as row tables, and the purchase invoice inbox
    working like Coreloops:
      email in → read → if we can tell the job (our PO number, the job
      number, the site postcode or address) it's filed to the job by itself
      → otherwise it sits in "Needs a job" (a query). From there you either
      allocate it to a job yourself, or send it to a PM who books it to one
      of their jobs (or replies with a comment). Everything is in one
-     "Supplier invoices" list with filters.
+     "Purchase invoices" list with filters.
    ============================================================ */
 const FIN_PC_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/gi;
 function finPcNorm(s){ return String(s||'').toUpperCase().replace(/\s+/g,''); }
@@ -53205,7 +53208,7 @@ async function finInboxAutoProcess(){
   finally{ finInboxBusy = false; }
   return changed;
 }
-// File an inbox item as a supplier invoice on a job. f = {site_id, po_id, supplier, invoice_no, date, net, vat, total}. Returns the new purchase invoice or null.
+// File an inbox item as a purchase invoice on a job. f = {site_id, po_id, supplier, invoice_no, date, net, vat, total}. Returns the new purchase invoice or null.
 async function finInboxFileCore(it, f, quiet){
   let net = f.net==null || f.net==='' ? null : Number(f.net), vat = f.vat==null || f.vat==='' ? null : Number(f.vat), total = f.total==null || f.total==='' ? null : Number(f.total);
   if((net===null || isNaN(net)) && total!==null && !isNaN(total)){ net = finRound(total/1.2); vat = finRound(total-net); }
@@ -53261,7 +53264,7 @@ async function renderFinPurchases(sub){
   const committed = finRound(openPos.filter(p=>p.value!=null).reduce((t,p)=>t+Math.max(0, Number(p.value)-finPoInvoiced(p, live)),0));
   const onHire = hires.filter(h=>!h.off_hire);
   const supKey = n=>String(n||'').trim().toLowerCase();
-  const supNames = {}; [].concat(pos, pinvs, hires).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
+  const supNames = {}; [].concat(pos, pinvs, hires, inbox.map(i=>({supplier_name:(i.extracted||{}).supplier}))).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
   const jobIds = Array.from(new Set([].concat(pos, pinvs, hires).map(x=>x.site_id).filter(Boolean)));
   const fOK = x=>(!finPurSup || supKey(x.supplier_name)===finPurSup) && (!finPurJob || x.site_id===finPurJob);
   const filtBar = ()=>`<div class="finjobfilt">
@@ -53292,17 +53295,19 @@ async function renderFinPurchases(sub){
     if(!(finPiF in F)) finPiF = 'approve';
     if(!finPiPicked){ const cnt = {job:needJob.length, pm:withPm.length, approve:toApprove.length, unpaid:unpaid.length}; if(!cnt[finPiF]) finPiF = ['job','approve','pm','unpaid'].find(k=>cnt[k]) || 'all'; }
     const chips = [['job','Unallocated', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All filed', pinvs.length]];
-    body = finSecHead('Supplier invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
+    body = finSecHead('Purchase invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
       + `<input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" style="display:none;" onchange="finInboxUpload(this.files)">`
-      + `<p class="stub" style="margin:-4px 0 10px;">Supplier invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Unallocated</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
+      + `<p class="stub" style="margin:-4px 0 10px;">Purchase invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Unallocated</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
       + `<div class="pmchips">${chips.map(([k,l,n])=>finChip(finPiF===k, l, n, `finPiF='${k}';finPiPicked=true;render()`)).join('')}</div>`;
     if(finPiF==='job' || finPiF==='pm'){
-      const list = finPiF==='job' ? needJob : withPm;
-      body += finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
+      const inbSort = {new:(x,y)=>String(y.received_at||'').localeCompare(String(x.received_at||'')), old:(x,y)=>String(x.received_at||'').localeCompare(String(y.received_at||'')), big:(x,y)=>Number((y.extracted||{}).total||0)-Number((x.extracted||{}).total||0), sup:(x,y)=>String((x.extracted||{}).supplier||'').localeCompare(String((y.extracted||{}).supplier||''))}[finPurSort];
+      let list = (finPiF==='job' ? needJob : withPm).filter(it=>(!finPurSup || supKey((it.extracted||{}).supplier)===finPurSup) && (!finPurJob || it.site_id===finPurJob));
+      if(inbSort) list = list.slice().sort(inbSort);
+      body += filtBar() + finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
         + `<div id="finPurList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
           <thead><tr><th>Supplier</th><th>Invoice no.</th><th>Received</th><th class="num">Total</th><th>${finPiF==='job'?'Why it’s unallocated':'Sent to'}</th><th></th></tr></thead>
           <tbody>${list.map(it=>{ const ex = it.extracted||{}; const last = (it.comments||[]).slice(-1)[0]; return `<tr class="click" data-lf="${lfText([ex.supplier, it.from_email, ex.invoice_no, it.subject].join(' '))}" onclick="openFinInboxItem('${it.id}')">
-            <td data-l="Supplier" class="d"><b>${escapeHtml(ex.supplier||it.from_email||'Supplier invoice')}</b></td>
+            <td data-l="Supplier" class="d"><b>${escapeHtml(ex.supplier||it.from_email||'Purchase invoice')}</b></td>
             <td data-l="Invoice no.">${escapeHtml(ex.invoice_no||'—')}</td>
             <td data-l="Received">${finDate(String(it.received_at).slice(0,10))}</td>
             <td data-l="Total" class="num">${ex.total!=null?finMoney(ex.total):'—'}</td>
@@ -53320,8 +53325,8 @@ async function renderFinPurchases(sub){
             <td data-l="PO">${po?escapeHtml(po.number):'<span class="stub" style="margin:0;">No PO</span>'}</td>
             <td data-l="Checks">${finPiChecksHtml(i, po)}</td>
             <td data-l="Status">${i.paid_on?'<span class="finpill ok">Paid</span>':finPiPill(i)} ${typeof finInvXeroTag==='function' && i.status==='approved' ? finInvXeroTag(Object.assign({}, i, {status:'issued'})) : ''}</td></tr>`; }).join('')}</tbody>
-          ${list.length>1?`<tfoot><tr><td class="d" colspan="${finPiBulkOn()?5:4}">Total (${list.length})</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.net||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.vat||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.total||0),0))}</td><td colspan="3"></td></tr></tfoot>`:''}</table></div>` : '<div class="empty">No supplier invoices here.</div>'}</div>${finPiBulkBarHtml(list)}`
-        + `<p class="stub" style="margin:8px 0 0;"><button class="linkbtn" onclick="finPickJob('Add a supplier invoice by hand','openPurchaseInvoiceForm')">Type one in by hand instead</button></p>`;
+          ${list.length>1?`<tfoot><tr><td class="d" colspan="${finPiBulkOn()?5:4}">Total (${list.length})</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.net||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.vat||0),0))}</td><td class="num">${finMoney(list.reduce((t,i)=>t+Number(i.total||0),0))}</td><td colspan="3"></td></tr></tfoot>`:''}</table></div>` : '<div class="empty">No purchase invoices here.</div>'}</div>${finPiBulkBarHtml(list)}`
+        + `<p class="stub" style="margin:8px 0 0;"><button class="linkbtn" onclick="finPickJob('Add a purchase invoice by hand','openPurchaseInvoiceForm')">Type one in by hand instead</button></p>`;
     }
   } else if(sub==='plant'){
     const list = sortBy(hires.filter(fOK), 'on_hire', 'rate');
@@ -53367,7 +53372,7 @@ window.openFinInboxItem = async function(id){
   if(!ov){ ov = document.createElement('div'); ov.id = 'finInbOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
   ov.innerHTML = `<div class="geo-modal-card fininbmodal" id="finInb-${it.id}">
-    <h3>${escapeHtml(ex.supplier || it.from_email || 'Supplier invoice')}</h3>
+    <h3>${escapeHtml(ex.supplier || it.from_email || 'Purchase invoice')}</h3>
     <p class="stub" style="margin:0 0 8px;font-style:normal;">${it.source==='email' ? 'Emailed'+(it.from_email?' by '+escapeHtml(it.from_email):'') : 'Added'} ${finDate(String(it.received_at).slice(0,10))}${it.subject?' · '+escapeHtml(it.subject):''}</p>
     <button class="ghostbtn" style="width:100%;margin-bottom:10px;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View the invoice</button>
     ${it.query_reason && it.status==='new' ? `<p class="finrun-warn" style="margin:0 0 10px;">${escapeHtml(it.query_reason)}</p>` : ''}
@@ -53449,7 +53454,7 @@ window.finInboxUpload = async function(files){
 // Old inbox route lands on the new list.
 function renderFinInbox(){ finPiF = 'job'; return renderFinPurchases('invoices'); }
 
-/* ---------- PM side: "To book" — supplier invoices sent to me, and wages waiting on my jobs ---------- */
+/* ---------- PM side: "To book" — purchase invoices sent to me, and wages waiting on my jobs ---------- */
 async function pmToBookCounts(){
   if(!isFullManager(ME)) return {inv:0, wages:0};
   try{
@@ -53472,9 +53477,9 @@ async function renderPmToBook(){
   const wBy = {}; wp.forEach(w=>{ (wBy[w.site_id] = wBy[w.site_id]||[]).push(w); });
   document.getElementById('app').innerHTML = shell(`
     <p class="stub" style="margin:0 0 12px;">Things the office has sent you to put against a job.</p>
-    <p class="sectiontitle">Supplier invoices to book ${inv.length?`<span class="finpill warn">${inv.length}</span>`:''}</p>
+    <p class="sectiontitle">Purchase invoices to book ${inv.length?`<span class="finpill warn">${inv.length}</span>`:''}</p>
     ${inv.length ? inv.map(it=>{ const ex = it.extracted||{}; const last = (it.comments||[]).slice(-1)[0]; return `<div class="card pmbook" id="pmb-${it.id}">
-      <div class="pmbook-top"><div><b>${escapeHtml(ex.supplier||it.from_email||'Supplier invoice')}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${ex.invoice_no?'Invoice '+escapeHtml(ex.invoice_no)+' · ':''}${ex.date?finDate(ex.date):''}</div></div><b>${ex.total!=null?finMoney(ex.total):''}</b></div>
+      <div class="pmbook-top"><div><b>${escapeHtml(ex.supplier||it.from_email||'Purchase invoice')}</b><div class="stub" style="margin:2px 0 0;font-style:normal;">${ex.invoice_no?'Invoice '+escapeHtml(ex.invoice_no)+' · ':''}${ex.date?finDate(ex.date):''}</div></div><b>${ex.total!=null?finMoney(ex.total):''}</b></div>
       ${last ? `<p class="pmbook-note"><b>${escapeHtml(last.name||'Office')}:</b> ${escapeHtml(last.text||'')}</p>` : ''}
       <button class="ghostbtn" style="width:100%;margin:6px 0;" onclick="openFinDoc('${jsAttr(it.file_path)}','${jsAttr(it.file_name||'')}')">View the invoice</button>
       <div class="formfield"><label class="field-label">Which job is it for?</label><select class="pmbook-site"><option value="">Choose the job…</option>${mySites.map(s=>`<option value="${s.id}">${escapeHtml((s.job_number?s.job_number+' · ':'')+s.name)}</option>`).join('')}</select></div>
@@ -54106,7 +54111,7 @@ window.finGridFilter = function(id){
 };
 
 /* ============================================================
-   OpHUB Finance — supplier invoice review (21 Oct 2026, Andy: "do 1, 2, 3, 5"
+   OpHUB Finance — purchase invoice review (21 Oct 2026, Andy: "do 1, 2, 3, 5"
    from the Coreloops / Construction Manager review).
    1. On a computer an invoice opens docked on the right of the Purchases list,
       with the invoice itself shown above its details (the pop-up is kept on
@@ -54186,7 +54191,7 @@ window.finPiBulkApprove = async function(){
   const ids = Array.from(finPiSel); if(!ids.length) return;
   const rows = await dbSelect('purchase_invoices', 'id=in.('+ids.join(',')+')&select=id,status,query_note,po_id');
   const q = rows.filter(r=>r.status==='query');
-  if(!(await customConfirm(`Approve ${ids.length} supplier invoice${ids.length===1?'':'s'}?`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
+  if(!(await customConfirm(`Approve ${ids.length} purchase invoice${ids.length===1?'':'s'}?`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
   let ok = 0;
   for(const r of rows){
     const u = await dbUpdate('purchase_invoices', r.id, {status:'approved', approved_by:ME.id, approved_at:new Date().toISOString()});
@@ -55090,7 +55095,7 @@ function renderFinReports(){
 FIN_SUBS.subs = FIN_SUBS.subs.filter(t=>t[0]!=='payrun');
 
 /* 5. No repeated headings (Andy, 21 Oct): when a section's title is the same
-      as the tab you're on (Purchase orders, Supplier invoices, Cost codes…),
+      as the tab you're on (Purchase orders, Purchase invoices, Cost codes…),
       the title is left off and only its button shows. */
 function finSecHead(title, btnLabel, btnClick){
   const tabLabels = new Set([].concat(...Object.values(FIN_SUBS)).map(t=>String(t[1]).toLowerCase()));
@@ -55101,6 +55106,353 @@ function finSecHead(title, btnLabel, btnClick){
   const css = `.finsechead-notitle{margin-top:10px !important;}
   .finsechead-notitle:not(:has(button)){display:none;}
   .finsechead > h3:empty{flex:1;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* 6. Finance filter chips (Open / Invoiced / Cancelled …) as one neat
+      segmented bar with small count badges, instead of big round pills. */
+(function(){
+  const css = `html.finmode .pmchips{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;background:#eceef2;border-radius:10px;margin:0 0 12px;max-width:100%;}
+  html.finmode .pmchips .pmchip{border:0 !important;background:transparent !important;box-shadow:none !important;border-radius:8px !important;padding:6px 12px !important;font-size:13px !important;font-weight:600 !important;color:var(--slate) !important;min-height:0 !important;height:auto !important;line-height:1.25;display:inline-flex;align-items:center;gap:6px;}
+  html.finmode .pmchips .pmchip:hover{color:var(--ink) !important;}
+  html.finmode .pmchips .pmchip.on{background:#fff !important;color:var(--ink) !important;box-shadow:0 1px 3px rgba(16,17,20,.12) !important;}
+  html.finmode .finchip-n{display:inline-block;min-width:18px;padding:1px 6px;border-radius:999px;background:#dfe2e8;color:#4a5260;font-size:11px;font-weight:700;text-align:center;line-height:16px;}
+  html.finmode .pmchip.on .finchip-n{background:var(--brand,#e3262b);color:#fff;}
+  html.finmode span.pmchip{cursor:default;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* ============================================================
+   OpHUB Finance › Purchases › Statements (21 Oct 2026, Andy).
+   Supplier statement reconciliation:
+     upload a statement (PDF, Excel or CSV) → its lines are read
+     (date, reference, invoice / credit / payment, amount) → each line is
+     matched to a purchase invoice by invoice number, else by amount + date
+     → you can change any match by hand, add or ignore lines, and mark the
+     statement reconciled.
+   Also shows invoices you hold for that supplier that aren't on the
+   statement. Unallocated invoices (still in the inbox) count as received.
+   Table fin_statements (lines jsonb). Nothing leaves OpHUB.
+   ============================================================ */
+(function(){
+  const i = FIN_SUBS.purchases.findIndex(t=>t[0]==='invoices');
+  FIN_SUBS.purchases.splice(i+1, 0, ['statements','Statements','#/finance/purchases/statements']);
+  const base = renderFinPurchases;
+  renderFinPurchases = function(sub){ if(sub==='statements') return renderFinStatements(); return base.apply(this, arguments); };
+})();
+
+const FIN_STMT_TYPES = {invoice:'Invoice', credit:'Credit note', payment:'Payment', other:'Other'};
+let finStmt = null; // the statement open on screen {rec, cands, file}
+const finRefKey = s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^(INV|INVOICE|CN|CR|SI|NO)+/,'').replace(/^0+/,'');
+const finSupK = s=>String(s||'').trim().toLowerCase().replace(/\b(ltd|limited|plc|llp|uk|the)\b/g,'').replace(/[^a-z0-9]/g,'');
+
+/* ---------- reading a statement ---------- */
+const FIN_MON = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function finStmtDate(s){
+  s = String(s||'').trim(); let m;
+  if((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[0];
+  if((m = s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/))){ let y = Number(m[3]); if(y<100) y += 2000; const mo = Number(m[2]), d = Number(m[1]); if(mo>=1&&mo<=12&&d>=1&&d<=31) return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+  if((m = s.match(/(\d{1,2})[\s\-]([A-Za-z]{3,4})[a-z]*[\s\-,]+(\d{2,4})/))){ const mo = FIN_MON[m[2].toLowerCase()]; let y = Number(m[3]); if(y<100) y += 2000; if(mo) return y+'-'+String(mo).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0'); }
+  if(typeof s==='number' || /^\d{5}$/.test(s)){ const n = Number(s); if(n>30000 && n<60000){ const d = new Date(Date.UTC(1899,11,30) + n*86400000); return d.toISOString().slice(0,10); } }
+  return null;
+}
+const FIN_DATE_RX = /\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\s\-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s\-,]+\d{2,4})\b/i;
+const FIN_AMT_RX = /-?£?\s?\(?-?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s?(?:CR|DR))?/gi;
+function finAmt(s){ let t = String(s||'').trim(); const neg = /^\(.*\)$/.test(t.replace(/\s?(CR|DR)$/i,'')) || /^-/.test(t) || /CR$/i.test(t); t = t.replace(/[^0-9.]/g,''); const n = Number(t); return isNaN(n) ? null : (neg ? -n : n); }
+function finLineType(txt, amt){
+  const l = String(txt||'').toLowerCase();
+  if(/\b(payment|paid|receipt|bacs|chq|cheque|remittance|faster pay|direct debit|dd)\b/.test(l)) return 'payment';
+  if(/\b(credit note|credit|crn|cn)\b/.test(l) || (amt!=null && amt<0)) return 'credit';
+  if(/\b(balance b\/?f|brought forward|opening balance|carried forward|total|balance due|amount due)\b/.test(l)) return 'other';
+  return 'invoice';
+}
+// One line of text → {date, ref, type, amount} or null.
+function finStmtParseText(line){
+  const dm = line.match(FIN_DATE_RX); if(!dm) return null;
+  const amts = line.match(FIN_AMT_RX); if(!amts) return null;
+  // the line amount is the first money value after the date (the last is usually a running balance)
+  const rest = line.slice(line.indexOf(dm[0]) + dm[0].length);
+  const after = rest.match(FIN_AMT_RX) || amts;
+  let amount = finAmt(after.length > 1 ? after[0] : after[after.length-1]);
+  if(amount==null) return null;
+  const noMoney = rest.replace(FIN_AMT_RX, ' ');
+  const refM = noMoney.match(/\b([A-Z]{0,4}[\-\/]?\d{4,}[A-Z0-9\-\/]*)\b/i);
+  const type = finLineType(line, amount);
+  if(type==='other') return null;
+  if(type==='credit' || type==='payment') amount = -Math.abs(amount);
+  return {date:finStmtDate(dm[0]), ref:refM ? refM[1] : '', type, amount:finRound(amount), text:line.trim().slice(0,160)};
+}
+async function finStmtReadPdf(file){
+  if(!(await loadLib('pdfjsLib'))) return {lines:[], text:''};
+  const pdf = await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const rows = [];
+  for(let p=1; p<=Math.min(pdf.numPages, 20); p++){
+    const pg = await pdf.getPage(p); const tc = await pg.getTextContent();
+    const by = {}; tc.items.forEach(it=>{ const y = Math.round(it.transform[5]/3); (by[y] = by[y] || []).push(it); });
+    Object.keys(by).map(Number).sort((a,b)=>b-a).forEach(y=>{ rows.push(by[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim()); });
+  }
+  return {lines:rows.map(finStmtParseText).filter(Boolean), text:rows.join('\n')};
+}
+function finCsvRows(text){
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i=0;i<text.length;i++){ const ch = text[i];
+    if(q){ if(ch==='"' && text[i+1]==='"'){ cur += '"'; i++; } else if(ch==='"') q = false; else cur += ch; }
+    else if(ch==='"') q = true; else if(ch===','){ row.push(cur); cur = ''; } else if(ch==='\n' || ch==='\r'){ if(ch==='\r' && text[i+1]==='\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; } else cur += ch; }
+  if(cur || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+async function finStmtReadSheet(file){
+  let rows;
+  if(/\.csv$/i.test(file.name) || /csv/.test(file.type||'')) rows = finCsvRows(await file.text());
+  else {
+    if(!(await loadLib('XLSX'))){ toast('Could not load the Excel reader — check your connection.'); return {lines:[], text:''}; }
+    const wb = XLSX.read(new Uint8Array(await file.arrayBuffer()), {type:'array'});
+    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, raw:true, defval:''});
+  }
+  const hi = rows.findIndex(r=>r.some(c=>/date/i.test(String(c))) && r.some(c=>/(amount|value|debit|credit|total|gross)/i.test(String(c))));
+  const text = rows.map(r=>r.join(' ')).join('\n');
+  if(hi<0) return {lines:rows.map(r=>finStmtParseText(r.join(' '))).filter(Boolean), text};
+  const h = rows[hi].map(c=>String(c).toLowerCase());
+  const col = rx=>h.findIndex(c=>rx.test(c));
+  const cDate = col(/date/), cRef = col(/(ref|invoice|document|doc|number|no\.?$|transaction)/), cType = col(/(type|description|details|narrative)/),
+        cDr = col(/(debit|invoice amount|charges?)/), cCr = col(/(credit|payment|receipts?)/), cAmt = col(/(amount|value|total|gross)/);
+  const out = [];
+  rows.slice(hi+1).forEach(r=>{
+    const date = finStmtDate(r[cDate]); if(!date) return;
+    let amount = null;
+    if(cDr>=0 || cCr>=0){ const dr = finAmt(r[cDr]), cr = finAmt(r[cCr]); if(dr) amount = Math.abs(dr); else if(cr) amount = -Math.abs(cr); }
+    if(amount==null && cAmt>=0) amount = finAmt(r[cAmt]);
+    if(amount==null || amount===0) return;
+    const txt = r.join(' ');
+    let type = finLineType(cType>=0 ? r[cType] : txt, amount); if(type==='other') return;
+    if(type==='credit' || type==='payment') amount = -Math.abs(amount);
+    out.push({date, ref:cRef>=0 ? String(r[cRef]).trim() : '', type, amount:finRound(amount), text:txt.slice(0,160)});
+  });
+  return {lines:out, text};
+}
+
+/* ---------- matching ---------- */
+// Candidates: this supplier's purchase invoices (filed) + unallocated ones still in the inbox.
+async function finStmtCands(supplierName){
+  const k = finSupK(supplierName);
+  const [pis, inbox] = await Promise.all([
+    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&status=neq.rejected&select=id,site_id,supplier_name,invoice_no,invoice_date,total,status,paid_on&limit=5000'),
+    dbSelect('fin_inbox', 'org_id=eq.'+ME.org_id+'&status=eq.new&select=id,extracted,received_at,stage&limit=500').catch(()=>[]),
+  ]);
+  const a = pis.filter(p=>finSupK(p.supplier_name)===k || (k.length>3 && finSupK(p.supplier_name).includes(k)) || (finSupK(p.supplier_name).length>3 && k.includes(finSupK(p.supplier_name))))
+    .map(p=>({id:p.id, kind:'pi', site_id:p.site_id, invoice_no:p.invoice_no||'', date:p.invoice_date, total:Number(p.total||0), status:p.paid_on?'paid':p.status}));
+  const b = inbox.filter(i=>i.extracted && finSupK(i.extracted.supplier) && (finSupK(i.extracted.supplier)===k || (k.length>3 && finSupK(i.extracted.supplier).includes(k))))
+    .map(i=>({id:'in:'+i.id, kind:'inbox', invoice_no:i.extracted.invoice_no||'', date:i.extracted.invoice_date||String(i.received_at||'').slice(0,10), total:Number(i.extracted.total||0), status:'unallocated'}));
+  return a.concat(b);
+}
+function finStmtAutoMatch(lines, cands){
+  const used = new Set(lines.filter(l=>l.how==='manual' && l.match).map(l=>l.match));
+  const days = (a,b)=>Math.abs((new Date(a) - new Date(b))/86400000);
+  lines.forEach(l=>{
+    if(l.how==='manual' || l.ignore || l.type==='payment') return;
+    l.match = null; l.how = null;
+    const rk = finRefKey(l.ref);
+    let c = rk.length>=3 ? cands.find(c=>!used.has(c.id) && finRefKey(c.invoice_no) && (finRefKey(c.invoice_no)===rk || (rk.length>=5 && (finRefKey(c.invoice_no).endsWith(rk) || rk.endsWith(finRefKey(c.invoice_no)))))) : null;
+    if(!c){ const same = cands.filter(c=>!used.has(c.id) && Math.abs(Math.abs(c.total)-Math.abs(l.amount))<0.01 && (!l.date || !c.date || days(l.date, c.date)<=10)); if(same.length===1) c = same[0]; }
+    if(c){ l.match = c.id; l.how = 'auto'; used.add(c.id); }
+  });
+  return lines;
+}
+function finStmtLineState(l, cands){
+  if(l.ignore) return {k:'ignored', pill:'<span class="finpill">Ignored</span>'};
+  if(l.type==='payment') return {k:'payment', pill:'<span class="finpill blue">Payment</span>'};
+  const c = l.match && cands.find(x=>x.id===l.match);
+  if(!c) return {k:'missing', pill:'<span class="finpill bad">Not in OpHUB</span>'};
+  const diff = finRound(Math.abs(l.amount) - Math.abs(c.total));
+  if(Math.abs(diff) >= 0.01) return {k:'diff', pill:`<span class="finpill warn">£ differs ${finMoney(diff)}</span>`, diff};
+  return {k:'ok', pill:`<span class="finpill ok">Matched${l.how==='manual'?' (by hand)':''}</span>`};
+}
+
+/* ---------- list ---------- */
+async function renderFinStatements(){
+  if(!finGuard()) return;
+  const id = String(location.hash||'').split('/')[4];
+  if(id) return renderFinStatement(id);
+  const __gen = RENDER_GEN;
+  const list = await dbSelect('fin_statements', 'org_id=eq.'+ME.org_id+'&order=statement_date.desc.nullslast,created_at.desc&limit=500').catch(()=>[]);
+  if(__gen !== RENDER_GEN) return;
+  const sum = s=>{ const ls = (s.lines||[]).filter(l=>!l.ignore && l.type!=='payment'); return {n:ls.length, ok:ls.filter(l=>l.match).length, miss:ls.filter(l=>!l.match).length}; };
+  document.getElementById('app').innerHTML = shell(`${finSectionNav('purchases')}${finSubTabs('purchases','statements')}
+    ${finSecHead('Statements', '+ Upload statement', "document.getElementById('finStmtFile').click()")}
+    <input type="file" id="finStmtFile" accept=".pdf,.csv,.xlsx,.xls,application/pdf" style="display:none;" onchange="finStmtUpload(this)">
+    <p class="stub" style="margin:-4px 0 10px;">Upload a supplier statement (PDF, Excel or CSV). Each line is matched to the purchase invoices you hold — by invoice number, or amount and date — and you can change any match by hand.</p>
+    ${finSearchHtml('Search supplier', 'finStmtList')}
+    <div id="finStmtList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
+      <thead><tr><th>Supplier</th><th>Statement date</th><th class="num">Lines</th><th class="num">Matched</th><th class="num">Not in OpHUB</th><th class="num">Balance</th><th>Status</th></tr></thead>
+      <tbody>${list.map(s=>{ const m = sum(s); return `<tr class="click" data-lf="${lfText(s.supplier_name)}" onclick="go('#/finance/purchases/statements/${s.id}')">
+        <td data-l="Supplier" class="d"><b>${escapeHtml(s.supplier_name)}</b>${s.file_name?`<div class="fininv-addr">${escapeHtml(s.file_name)}</div>`:''}</td>
+        <td data-l="Statement date">${s.statement_date?finDate(s.statement_date):'—'}</td><td data-l="Lines" class="num">${m.n}</td><td data-l="Matched" class="num">${m.ok}</td>
+        <td data-l="Not in OpHUB" class="num">${m.miss?`<b class="finbad">${m.miss}</b>`:'0'}</td><td data-l="Balance" class="num">${s.closing_balance!=null?finMoney(s.closing_balance):'—'}</td>
+        <td data-l="Status">${s.status==='reconciled'?'<span class="finpill ok">Reconciled</span>':'<span class="finpill warn">To check</span>'}</td></tr>`; }).join('')}</tbody></table></div>` : '<div class="empty">No statements yet — upload one to start.</div>'}</div>`,
+    {title:'Purchases', subtitle:'OpHUB Finance · money out', back:finSecBack(), tabs:false});
+}
+
+/* ---------- upload ---------- */
+window.finStmtUpload = async function(inp){
+  const file = inp.files && inp.files[0]; inp.value = ''; if(!file) return;
+  if(file.size > 20*1024*1024){ toast('That file is over 20 MB.'); return; }
+  toast('Reading the statement…');
+  let read = {lines:[], text:''};
+  try{ read = /\.pdf$/i.test(file.name) || file.type==='application/pdf' ? await finStmtReadPdf(file) : await finStmtReadSheet(file); }catch(e){ console.warn(e); }
+  // guess the supplier: a known supplier name that appears in the text
+  const [fin, mat, pis] = await Promise.all([
+    dbSelect('fin_suppliers', 'org_id=eq.'+ME.org_id+'&select=name,supplier_id&limit=5000').catch(()=>[]),
+    dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&select=id,name').catch(()=>[]),
+    dbSelect('purchase_invoices', 'org_id=eq.'+ME.org_id+'&select=supplier_name&limit=5000').catch(()=>[]),
+  ]);
+  const names = Array.from(new Set([].concat(fin.map(f=>f.name), mat.map(m=>m.name), pis.map(p=>p.supplier_name)).filter(Boolean).map(s=>String(s).trim()))).sort((a,b)=>a.localeCompare(b));
+  const low = read.text.toLowerCase();
+  const guess = names.filter(n=>n.length>2 && low.includes(n.toLowerCase())).sort((a,b)=>b.length-a.length)[0] || '';
+  const dates = read.lines.map(l=>l.date).filter(Boolean).sort();
+  const balM = read.text.match(/(?:balance\s*(?:due|outstanding)?|amount\s*due|total\s*due)[^\d£\-]{0,20}(-?£?\s?\d{1,3}(?:,\d{3})*\.\d{2})/i);
+  finStmtNew = {file, lines:read.lines, names, mat};
+  let ov = document.getElementById('finStmtOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finStmtOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>New statement</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">${escapeHtml(file.name)} · ${read.lines.length ? `<b>${read.lines.length} line${read.lines.length===1?'':'s'} read</b>` : 'no lines could be read — you can add them by hand on the next page'}.</p>
+    <div class="formfield"><label class="field-label">Supplier *</label><input type="text" id="finStmtSup" list="finStmtSupList" value="${escapeHtml(guess)}" placeholder="Start typing…"><datalist id="finStmtSupList">${names.map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist></div>
+    <div class="fingrid2"><div class="formfield"><label class="field-label">Statement date</label><input type="date" id="finStmtDate" value="${dates.length?dates[dates.length-1]:finToday()}"></div>
+    <div class="formfield"><label class="field-label">Balance on statement £</label><input type="text" inputmode="decimal" data-money id="finStmtBal" value="${balM?Math.abs(finAmt(balM[1])):''}"></div></div>
+    <button class="darkbtn" id="finStmtGo" onclick="finStmtCreate()">Match the invoices</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finStmtOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+};
+let finStmtNew = null;
+window.finStmtCreate = async function(){
+  const N = finStmtNew; if(!N) return;
+  const sup = finVal('finStmtSup'); if(!sup){ toast('Enter the supplier.'); return; }
+  const btn = document.getElementById('finStmtGo'); if(btn){ btn.disabled = true; btn.textContent = 'Matching…'; }
+  const safe = N.file.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+  const stored = await uploadToStorage('finance-docs', ME.org_id+'/statements/'+uid()+'-'+safe, N.file, N.file.type||'application/octet-stream');
+  const cands = await finStmtCands(sup);
+  const lines = finStmtAutoMatch(N.lines.map(l=>Object.assign({id:uid()}, l)), cands);
+  const m = N.mat.find(x=>finSupK(x.name)===finSupK(sup));
+  const bal = finNum(finVal('finStmtBal'));
+  const ins = await dbInsert('fin_statements', {org_id:ME.org_id, created_by:ME.id, supplier_name:sup, supplier_id:m?m.id:null, statement_date:finVal('finStmtDate')||null,
+    closing_balance:(bal===null||isNaN(bal))?null:bal, lines, file_path:stored||null, file_name:N.file.name});
+  const rec = ins && ins[0];
+  if(!rec){ if(btn){ btn.disabled = false; btn.textContent = 'Match the invoices'; } return; }
+  document.getElementById('finStmtOverlay').style.display = 'none'; finStmtNew = null;
+  const ok = lines.filter(l=>l.match).length;
+  toast(`${ok} of ${lines.filter(l=>l.type!=='payment').length} lines matched`);
+  go('#/finance/purchases/statements/'+rec.id);
+};
+
+/* ---------- one statement ---------- */
+async function renderFinStatement(id){
+  const __gen = RENDER_GEN;
+  const rec = (await dbSelect('fin_statements', 'id=eq.'+id))[0];
+  if(!rec){ go('#/finance/purchases/statements'); return; }
+  const cands = await finStmtCands(rec.supplier_name);
+  let fileUrl = '';
+  if(rec.file_path && /\.pdf$/i.test(rec.file_name||'')){ try{ fileUrl = await resolveStorageUrl(publicUrl('finance-docs', rec.file_path)); }catch(e){} }
+  if(__gen !== RENDER_GEN) return;
+  finStmt = {rec, cands};
+  const lines = rec.lines || [];
+  const st = lines.map(l=>({l, s:finStmtLineState(l, cands)}));
+  const cnt = k=>st.filter(x=>x.s.k===k).length;
+  const used = new Set(lines.filter(l=>l.match && !l.ignore).map(l=>l.match));
+  const upTo = rec.statement_date || '9999-12-31';
+  const notOn = cands.filter(c=>!used.has(c.id) && c.status!=='paid' && (!c.date || c.date<=upTo));
+  const stmtTot = finRound(lines.filter(l=>!l.ignore).reduce((t,l)=>t+Number(l.amount||0),0));
+  const optLbl = c=>`${c.invoice_no||'No number'} · ${c.date?finDate(c.date):''} · ${finMoney(c.total)}${c.kind==='inbox'?' · unallocated':''}`;
+  const sel = l=>`<select class="finstmt-sel" onclick="event.stopPropagation()" onchange="finStmtSetMatch('${l.id}',this.value)"><option value="">— not matched —</option>${cands.filter(c=>c.id===l.match || !used.has(c.id)).map(c=>`<option value="${c.id}" ${c.id===l.match?'selected':''}>${escapeHtml(optLbl(c))}</option>`).join('')}</select>`;
+  const desk = typeof isDeskMode==='function' && isDeskMode();
+  document.getElementById('app').innerHTML = shell(`${finSectionNav('purchases')}${finSubTabs('purchases','statements')}
+    <div class="finstmt-top"><button class="linkbtn" onclick="go('#/finance/purchases/statements')">‹ All statements</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="finStmtRematch()">⟳ Match again</button>
+      <button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="finStmtAddLine()">+ Add a line</button>
+      ${rec.file_path?`<button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="finStmtOpenFile()">Open statement</button>`:''}
+      <button class="darkbtn finsmall" style="width:auto;margin:0;" onclick="finStmtReconciled(${rec.status!=='reconciled'})">${rec.status==='reconciled'?'Reopen':'Mark reconciled'}</button></div></div>
+    <h3 style="margin:8px 0 2px;">${escapeHtml(rec.supplier_name)} ${rec.status==='reconciled'?'<span class="finpill ok">Reconciled</span>':''}</h3>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Statement ${rec.statement_date?finDate(rec.statement_date):''}${rec.closing_balance!=null?' · balance '+finMoney(rec.closing_balance):''} · lines add up to ${finMoney(stmtTot)}${rec.closing_balance!=null && Math.abs(stmtTot-rec.closing_balance)>=0.01?` <span class="finbad">(${finMoney(finRound(rec.closing_balance-stmtTot))} different — a line may be missing)</span>`:''}</p>
+    <div class="pmchips">${[['ok','Matched'],['diff','£ differs'],['missing','Not in OpHUB'],['payment','Payments']].map(([k,l])=>`<span class="pmchip ${k==='missing'&&cnt(k)?'on':''}" style="cursor:default;">${l} (${cnt(k)})</span>`).join('')}</div>
+    <div class="${desk && fileUrl ? 'finstmt-split' : ''}">
+      <div>
+      <div class="finreptbl-wrap"><table class="fincosttbl fininvtbl finstmt-tbl">
+        <thead><tr><th>Date</th><th>Reference</th><th>Type</th><th class="num">Amount</th><th>Matched to</th><th>Check</th><th></th></tr></thead>
+        <tbody>${st.length ? st.map(({l,s})=>`<tr class="${l.ignore?'findir-off':''}">
+          <td data-l="Date">${l.date?finDate(l.date):'—'}</td>
+          <td data-l="Reference" class="d"><b>${escapeHtml(l.ref||'—')}</b>${l.text?`<div class="fininv-addr" title="${escapeHtml(l.text)}">${escapeHtml(l.text.slice(0,60))}</div>`:''}</td>
+          <td data-l="Type"><select class="finstmt-sel" onchange="finStmtSet('${l.id}','type',this.value)">${Object.keys(FIN_STMT_TYPES).map(k=>`<option value="${k}" ${l.type===k?'selected':''}>${FIN_STMT_TYPES[k]}</option>`).join('')}</select></td>
+          <td data-l="Amount" class="num">${finMoney(l.amount)}</td>
+          <td data-l="Matched to">${l.type==='payment'||l.ignore ? '—' : sel(l)}</td>
+          <td data-l="Check">${s.pill}</td>
+          <td data-l=""><button class="linkbtn" onclick="finStmtSet('${l.id}','ignore',${!l.ignore})">${l.ignore?'Use':'Ignore'}</button></td></tr>`).join('') : '<tr><td colspan="7"><div class="empty">No lines yet — use “+ Add a line”.</div></td></tr>'}</tbody></table></div>
+      <p class="sectiontitle" style="margin:16px 0 6px;">Invoices we hold that aren’t on this statement (${notOn.length})</p>
+      ${notOn.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>Invoice no.</th><th>Date</th><th class="num">Total</th><th>Status</th><th>Match to a line</th></tr></thead>
+        <tbody>${notOn.map(c=>`<tr><td data-l="Invoice no." class="d"><b>${escapeHtml(c.invoice_no||'—')}</b></td><td data-l="Date">${c.date?finDate(c.date):'—'}</td><td data-l="Total" class="num">${finMoney(c.total)}</td>
+          <td data-l="Status">${c.kind==='inbox'?'<span class="finpill blue">Unallocated</span>':escapeHtml(c.status==='approved'?'Approved, not paid':c.status==='to_approve'?'To approve':c.status||'')}</td>
+          <td data-l="Match to a line"><select class="finstmt-sel" onchange="finStmtSetMatch(this.value,'${c.id}')"><option value="">Choose a line…</option>${lines.filter(l=>!l.match && !l.ignore && l.type!=='payment').map(l=>`<option value="${l.id}">${escapeHtml((l.ref||'No ref')+' · '+(l.date?finDate(l.date):'')+' · '+finMoney(l.amount))}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="stub" style="margin:0;">None — every unpaid invoice up to the statement date is on it.</p>'}
+      </div>
+      ${desk && fileUrl ? `<div class="finstmt-pdf"><iframe src="${escapeHtml(fileUrl)}" title="Statement"></iframe></div>` : ''}
+    </div>`,
+    {title:'Statement', subtitle:'Purchases · reconciliation', back:'#/finance/purchases/statements', tabs:false});
+}
+async function finStmtSave(patch){
+  const r = finStmt.rec;
+  const row = await dbUpdate('fin_statements', r.id, Object.assign({lines:r.lines, updated_at:new Date().toISOString()}, patch||{}));
+  if(row){ finStmt.rec = row; render(); }
+}
+window.finStmtSetMatch = function(lineId, candId){
+  const L = finStmt.rec.lines.find(l=>l.id===lineId); if(!L) return;
+  finStmt.rec.lines.forEach(l=>{ if(candId && l.match===candId && l.id!==lineId){ l.match = null; l.how = null; } });
+  L.match = candId || null; L.how = 'manual';
+  finStmtSave();
+};
+window.finStmtSet = function(lineId, k, v){
+  const L = finStmt.rec.lines.find(l=>l.id===lineId); if(!L) return;
+  L[k] = v;
+  if(k==='type' && (v==='credit' || v==='payment')) L.amount = -Math.abs(Number(L.amount||0));
+  if(k==='type' && v==='invoice') L.amount = Math.abs(Number(L.amount||0));
+  if(k==='type' && v==='payment'){ L.match = null; L.how = null; }
+  finStmtSave();
+};
+window.finStmtRematch = function(){
+  finStmtAutoMatch(finStmt.rec.lines, finStmt.cands);
+  toast('Matched again — your own matches were kept'); finStmtSave();
+};
+window.finStmtAddLine = async function(){
+  const ref = await customPrompt('Reference / invoice number on the statement:', ''); if(ref===null) return;
+  const amt = await customPrompt('Amount £ (use a minus for a credit or payment):', ''); if(amt===null) return;
+  const n = finAmt(amt); if(n===null){ toast('Enter the amount as a number.'); return; }
+  const dt = await customPrompt('Date (dd/mm/yyyy):', finDate(finStmt.rec.statement_date||finToday()));
+  const line = {id:uid(), ref:String(ref).trim(), amount:finRound(n), date:finStmtDate(dt)||null, type:n<0?'credit':'invoice', text:'Added by hand'};
+  finStmt.rec.lines = (finStmt.rec.lines||[]).concat([line]);
+  finStmtAutoMatch(finStmt.rec.lines, finStmt.cands); finStmtSave();
+};
+window.finStmtOpenFile = async function(){
+  const r = finStmt.rec; if(!r.file_path) return;
+  const url = await resolveStorageUrl(publicUrl('finance-docs', r.file_path));
+  if(url) window.open(url, '_blank', 'noopener');
+};
+window.finStmtReconciled = async function(on){
+  if(on){
+    const miss = finStmt.rec.lines.filter(l=>!l.ignore && l.type!=='payment' && !l.match).length;
+    if(miss && !(await customConfirm(miss+' line'+(miss===1?' isn’t':'s aren’t')+' matched to an invoice. Mark the statement reconciled anyway?'))) return;
+  }
+  finStmtSave(on ? {status:'reconciled', reconciled_at:new Date().toISOString(), reconciled_by:ME.id} : {status:'open', reconciled_at:null, reconciled_by:null});
+  toast(on ? 'Statement reconciled' : 'Reopened');
+};
+
+(function(){
+  const css = `.finstmt-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 4px;}
+  .finstmt-sel{font-size:12.5px;padding:5px 8px;border-radius:7px;border:1px solid var(--line);background:#fff;max-width:260px;width:100%;}
+  .finstmt-tbl td{vertical-align:middle;}
+  .finstmt-split{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start;}
+  .finstmt-pdf{position:sticky;top:10px;height:calc(100vh - 140px);border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;}
+  .finstmt-pdf iframe{width:100%;height:100%;border:0;}
+  .finpill.bad{background:#fdecec;color:#b42318;}
+  @media (max-width:1100px){ .finstmt-split{display:block;} .finstmt-pdf{display:none;} }`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();
 

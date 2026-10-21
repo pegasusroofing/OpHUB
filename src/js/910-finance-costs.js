@@ -4,7 +4,7 @@
    Plant · Subcontract · Overheads · Other · Committed (ordered, not yet
    invoiced). Search, date range, sort; export to Excel or PDF. Laid out as
    a table on a computer and as cards on a phone.
-   Sources: supplier invoices / receipts (by their cost type), open POs
+   Sources: purchase invoices / receipts (by their cost type), open POs
    (committed), sign-in labour days × rate, timesheets, plant hires, and
    costs added here (fin_job_costs).
    ============================================================ */
@@ -83,7 +83,7 @@ async function renderFinCosts(siteId){
       </div>
     </div>
     <div id="finCostTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; supplier invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. “All costs” is what’s been spent or invoiced; purchase invoices still waiting for approval are included and marked. Committed = ordered on a PO but not invoiced yet. Labour from sign-in is priced at each person’s day rate.</p>
   `, {title:finCosts.sub && finCosts.sub!=='none' ? finSubLabel(siteId, finCosts.sub, true)+' costs' : 'Project costs', subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:finCosts.sub ? `#/site/${siteId}/finance/parts` : `#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finCostPaint();
 }
@@ -129,7 +129,7 @@ window.openFinJobCost = async function(siteId, id){
   const cat = x ? x.category : (finCosts && FIN_COST_CATS[finCosts.tab] && finCosts.tab!=='labour' ? finCosts.tab : 'overheads');
   ov.innerHTML = `<div class="geo-modal-card">
     <h3>${x?'Cost':'Add a cost'}</h3>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a supplier invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">For costs without a purchase invoice in OpHUB — skips, fuel, travel, accommodation, site set-up, a share of overheads.</p>
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Type</label><select id="finJcCat">${Object.keys(FIN_COST_CATS).map(k=>`<option value="${k}" ${cat===k?'selected':''}>${FIN_COST_CATS[k]}</option>`).join('')}</select></div>
       <div class="formfield"><label class="field-label">Date</label><input type="date" id="finJcDate" value="${x?x.cost_date:finToday()}"></div>
@@ -164,7 +164,7 @@ window.deleteFinJobCost = async function(id){
   if(btn && btn.dataset.sure!=='1'){ btn.dataset.sure='1'; btn.textContent='Tap again to remove'; return; }
   if(await dbDelete('fin_job_costs', id)){ document.getElementById('finJcOverlay').style.display='none'; toast('Removed'); render(); }
 };
-// Cost type on a supplier invoice (materials / plant / subcontract / overheads / other).
+// Cost type on a purchase invoice (materials / plant / subcontract / overheads / other).
 window.setFinPiCostCode = async function(id, code){
   const r = await dbUpdate('purchase_invoices', id, {cost_code:code});
   if(r) toast('Cost type: '+(FIN_COST_CATS[code]||code));
