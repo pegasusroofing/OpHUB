@@ -56,6 +56,10 @@ async function renderDrawings(siteId, folderId, opts){
   // the two "programme" folders accept it, everywhere else in Drawings stays
   // PDF/JPEG/PNG only so a spreadsheet doesn't end up filed as a "drawing".
   const isProgrammeFolder = !!currentFolder && (currentFolder.name==='Programme' || currentFolder.name==='Main Contractor Programme');
+  // #(any-file-upload) 2026-10-21 — Specification and every other folder take
+  // any file (Word specs, Excel, photos…). Only the "Drawings" folder itself
+  // stays PDF / JPEG / PNG.
+  const drawingsOnly = !!currentFolder && currentFolder.name==='Drawings';
   let [subfolders, files, supersededFiles, siteAssignments, pmOptions] = await Promise.all([
     dbSelect('drawing_folders', 'site_id=eq.'+siteId+'&'+(folderId?'parent_id=eq.'+folderId:'parent_id=is.null')+'&order=position.asc.nullslast,name.asc'),
     dbSelect('drawing_files', 'site_id=eq.'+siteId+'&'+(folderId?'folder_id=eq.'+folderId:'folder_id=is.null')+'&status=eq.current&order=name.asc'),
@@ -120,7 +124,7 @@ async function renderDrawings(siteId, folderId, opts){
       `).join('')}
       ${files.map(f=>`
         <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
-          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${/\.(jpe?g|png)$/i.test(f.name) ? '🖼' : /\.(xlsx|xls)$/i.test(f.name) ? '📊' : '📐'}</div>
+          <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${drawingFileIcon(f)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
             ${f.supersedes ? `<div class="meta">Supersedes "${escapeHtml(drawingNameById[f.supersedes]||'an earlier version')}"</div>` : ''}
@@ -183,7 +187,7 @@ async function renderDrawings(siteId, folderId, opts){
     ${canManage ? `
       ${drawingUploadOpen ? `
         <div class="card" style="margin-top:10px;">
-          <p class="sectiontitle" style="margin-top:0;">Upload drawing (PDF, JPEG or PNG)</p>
+          <p class="sectiontitle" style="margin-top:0;">${drawingsOnly ? 'Upload drawing (PDF, JPEG or PNG)' : 'Upload files (any type — PDF, Word, Excel, photos…)'}</p>
           <p class="stub" style="margin:0 0 8px;">Uploads into ${currentFolder ? '"'+escapeHtml(currentFolder.name)+'"' : 'the top-level Drawings folder'}.</p>
           <p class="stub" style="margin:0 0 8px;">You can select more than one file at once — each is uploaded and saved separately.${isProgrammeFolder ? ' Excel files (.xlsx/.xls) are accepted here — key dates in the sheet will be offered for the Calendar once it\'s uploaded.' : ''}</p>
           ${files.length ? `<div class="formfield" style="margin-top:0;"><label class="field-label">Supersedes (optional)</label>
@@ -191,7 +195,7 @@ async function renderDrawings(siteId, folderId, opts){
             <p class="stub" style="margin:4px 0 0;">Only applies if you choose a single file below — keeps the old version on file, marked Superseded.</p>
           </div>` : ''}
           <div class="ghostbtn" style="cursor:pointer;text-align:center;" id="drawingUploadLabel" onclick="document.getElementById('drawingUploadInput').click()">Choose file(s)</div>
-          <input type="file" id="drawingUploadInput" accept="${isProgrammeFolder ? 'application/pdf,image/jpeg,image/png,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel' : 'application/pdf,image/jpeg,image/png'}" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg})">
+          <input type="file" id="drawingUploadInput" ${drawingsOnly ? 'accept="application/pdf,image/jpeg,image/png"' : ''} multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="uploadDrawingFile(this,'${siteId}',${parentArg},${drawingsOnly})">
           <button class="ghostbtn" style="margin-top:8px;" onclick="drawingUploadOpen=false;render()">Cancel</button>
         </div>
       ` : ''}
@@ -288,7 +292,7 @@ async function parseExcelKeyDates(file){
     return out;
   }catch(e){ console.error('Programme Excel date scan failed', e); return []; }
 }
-window.uploadDrawingFile = async function(input, siteId, folderId){
+window.uploadDrawingFile = async function(input, siteId, folderId, drawingsOnly){
   const files = input.files ? Array.from(input.files) : [];
   if(!files.length) return;
   const excelMimes = {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':true, 'application/vnd.ms-excel':true};
@@ -306,10 +310,10 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
   for(let i=0; i<files.length; i++){
     const file = files[i];
     const isExcel = !!excelMimes[file.type] || isExcelName(file.name);
-    if(!allowed[file.type] && !isExcel){ skipped++; continue; }
+    if(drawingsOnly && !allowed[file.type]){ skipped++; continue; }
     if(label) label.textContent = `Uploading ${i+1} of ${files.length}…`;
     const path = siteId+'/'+(folderId||'root')+'/'+uid()+'-'+file.name.replace(/[^a-z0-9.\-]+/gi,'_');
-    const contentType = isExcel ? (file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') : file.type;
+    const contentType = file.type || drawingMimeFromName(file.name);
     const stored = await uploadToStorage('drawings', path, file, contentType);
     if(!stored) continue;
     const rows = await dbInsert('drawing_files', {site_id:siteId, folder_id:folderId||null, name:file.name, storage_path:stored, uploaded_by:ME.id, supersedes: supersedesId||null});
@@ -320,8 +324,8 @@ window.uploadDrawingFile = async function(input, siteId, folderId){
     }
     pushDrawingToOneDrive(siteId, file);
   }
-  if(uploaded){ toast(uploaded===1 ? 'Drawing uploaded' : `${uploaded} drawings uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
-  else if(skipped) toast('Please choose a PDF, JPEG, PNG or (in the Programme folder) an Excel file.');
+  if(uploaded){ toast(uploaded===1 ? 'File uploaded' : `${uploaded} files uploaded`+(skipped?`, ${skipped} skipped (wrong file type)`:'')); drawingUploadOpen = false; }
+  else if(skipped) toast('The Drawings folder takes PDF, JPEG or PNG — put other files in Specification or another folder.');
   // #(programme-key-date) 2026-09-27 — uploading a new/updated construction
   // programme normally comes with its own key milestone dates, so offer to
   // put them straight onto the site Calendar right away rather than relying
@@ -513,3 +517,24 @@ window.renameDrawingFile = async function(fileId, currentName){
   const row = await dbUpdate('drawing_files', fileId, {name: trimmed});
   if(row){ toast('Drawing renamed'); render(); }
 };
+
+// Icon for a file in Drawings & Specification, by its real extension.
+function drawingFileIcon(f){
+  const n = (f.storage_path||f.name||'').toLowerCase();
+  if(/\.(jpe?g|png|gif|webp|heic)$/.test(n)) return '🖼';
+  if(/\.(xlsx|xlsm|xls|csv)$/.test(n)) return '📊';
+  if(/\.(docx?|rtf|odt|txt)$/.test(n)) return '📝';
+  if(/\.pdf$/.test(n)) return '📐';
+  return '📎';
+}
+// Some phones hand over a file with no type — work it out from the name so
+// it opens properly later.
+function drawingMimeFromName(name){
+  const ext = (/\.([a-z0-9]+)$/i.exec(name||'')||[])[1]||'';
+  return ({pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png',
+    doc:'application/msword', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls:'application/vnd.ms-excel', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    csv:'text/csv', txt:'text/plain', rtf:'application/rtf', dwg:'application/acad',
+    ppt:'application/vnd.ms-powerpoint', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip:'application/zip'})[ext.toLowerCase()] || 'application/octet-stream';
+}

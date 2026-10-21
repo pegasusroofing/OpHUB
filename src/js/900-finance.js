@@ -6,7 +6,10 @@
    (#/finance/settings), a Finance tile on each job (#/site/<id>/finance) with
    job details and client PO numbers, automatic job numbers, and the per-user
    switch in Admin Centre › Users. */
-function isFinanceUser(){ return !!(ME && ME.finance_enabled === true && !(ORG && ORG.has_pm===false && ORG.has_finance===false)); }
+// finHasAccess = allowed Finance at all. isFinanceUser = allowed AND not
+// switched off in their own Settings ("Show Finance", profiles.finance_hidden).
+function finHasAccess(){ return !!(ME && ME.finance_enabled === true && !(ORG && ORG.has_pm===false && ORG.has_finance===false)); }
+function isFinanceUser(){ return finHasAccess() && ME.finance_hidden !== true; }
 window.isFinanceUser = isFinanceUser;
 
 let FIN_SETTINGS = null;           // this company's fin_settings row (or null = defaults)

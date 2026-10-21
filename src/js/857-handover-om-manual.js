@@ -511,7 +511,7 @@ async function hoCollectAttachments(){
     else if(l.path) add(g, {bucket:l.bucket, path:l.path, name:l.name});
   })); });
   if(d.attach.guarantees) docs.filter(x=>x.kind==='guarantee' && x.storage_path).forEach(x=>add('guar', {bucket:'mc-documents', path:x.storage_path, name:x.name}));
-  if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded').forEach(x=>add('draw', {bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
+  if(d.attach.drawings){ try{ (await dbSelect('drawing_files', 'site_id=eq.'+hoState.siteId+'&select=name,storage_path,status')).filter(x=>x.status!=='superseded' && /\.(pdf|jpe?g|png)$/i.test(x.storage_path||'')).forEach(x=>add('draw', {bucket:'drawings', path:x.storage_path, name:x.name})); }catch(e){} }
   if(d.attach.coshh){ try{ (await dbSelect('coshh_docs', 'site_id=eq.'+hoState.siteId+'&subcontractor_company_id=is.null&select=name,storage_path')).forEach(x=>add('coshh', {bucket:'coshh-docs', path:x.storage_path, name:x.name})); }catch(e){} }
   if(d.attach.datasheets) docs.filter(x=>x.kind==='datasheet' && x.storage_path).forEach(x=>add('coshh', {bucket:'mc-documents', path:x.storage_path, name:x.name}));
   return [].concat(G.app, G.guar, G.draw, G.coshh);

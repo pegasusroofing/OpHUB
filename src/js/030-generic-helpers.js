@@ -730,10 +730,10 @@ async function openExternalFile(url){
 }
 window.viewDrawing = async function(url, isImage, filename){
   if(isImage){ viewImage(url); return; }
-  // Excel programme files can't be rendered by the in-app PDF viewer — hand
-  // them straight to the browser/OS instead of trying (and failing) to open
-  // them as a PDF.
-  if(filename && /\.(xlsx|xls)$/i.test(filename)){
+  // Anything that isn't a PDF (Excel, Word…) can't be shown by the in-app
+  // PDF viewer — hand it straight to the browser/phone to open instead.
+  const officeRx = /\.(xlsx|xlsm|xls|csv|docx?|rtf|odt|ods|txt|pptx?|dwg|dxf|zip|eml|msg)$/i;
+  if((filename && officeRx.test(filename)) || officeRx.test(String(url||'').split('?')[0])){
     await openExternalFile(url);
     return;
   }

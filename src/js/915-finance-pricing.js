@@ -14,7 +14,7 @@
    key, a basic reader works on typed PDFs and spreadsheets.
    ============================================================ */
 let FIN_AI_OK = null, FIN_AI_CHECKED = 0; // null = unknown; 'false' is re-checked after 10 minutes (in case the key is added)
-function finCanSeeCosts(){ return !!(ME && (ME.finance_enabled || ME.see_costs)); }
+function finCanSeeCosts(){ return !!(ME && ((ME.finance_enabled && ME.finance_hidden!==true) || ME.see_costs)); }
 
 /* ---------- reading ---------- */
 // Basic line reader for typed PDFs / text: "description  qty [unit]  unit price  amount".

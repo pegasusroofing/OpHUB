@@ -436,7 +436,7 @@ function roleActionsHtml(ME, p, allPeople){
         ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
       ${isFullManager(ME) && p.role==='operative' ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</button>` : ''}
-      ${typeof isFinanceUser==='function' && isFinanceUser() && p.id!==ME.id && (p.role==='admin' || p.role==='pm') ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleFinanceAccess('${p.id}')">💷 Finance: ${p.finance_enabled?'On':'Off'}</button>` : ''}
+      ${typeof finHasAccess==='function' && finHasAccess() && p.id!==ME.id && (p.role==='admin' || p.role==='pm') ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleFinanceAccess('${p.id}')">💷 Finance: ${p.finance_enabled?'On':'Off'}</button>` : ''}
       ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone):'Add phone'}</button>` : ''}
       ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
     </div>
