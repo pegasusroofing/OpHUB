@@ -287,6 +287,46 @@ function siteConditionQuestionsHtml(siteId, flag){
     + (leftover && flag && flag.leftover_photo_path ? `<p class="stub" style="margin:6px 0 0;cursor:pointer;" onclick="viewImage('${publicUrl('site-photos', flag.leftover_photo_path)}')">📷 Leftover photo added — tap to view</p>` : '')
     + `<input type="file" id="leftoverPhotoInput-ungrouped" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;" onchange="leftoverMaterialPhotoChosen(this,'${siteId}','')">`;
 }
+// #(site-condition-closeout) 2026-10-21 (Andy): the two questions are a
+// close-out — answer, tap Save, and the card leaves To Do / In Progress and
+// sits on Complete (and All) as a one-line summary. Adding any new task to
+// the Schedule after that brings the questions back.
+function siteConditionSaved(flag, tasks){
+  if(!flag || !flag.closeout_saved_at) return false;
+  return !(tasks||[]).some(t=>t.created_at && t.created_at > flag.closeout_saved_at);
+}
+function siteConditionCardHtml(siteId, flag, tasks){
+  if(siteConditionSaved(flag, tasks)){
+    if(scheduleFilter==='active') return '';
+    const yn = v => v ? '<b style="color:var(--warn);">Yes</b>' : '<b>No</b>';
+    return `<div class="card sowflagcard" style="display:flex;align-items:center;gap:10px;">
+      <div style="flex:1;min-width:0;"><p class="sectiontitle" style="margin:0 0 4px;">Site condition ✓ closed out</p>
+        <div class="stub" style="margin:0;">🗑 Waste to clear: ${yn(flag.waste_to_clear)} · 📦 Leftover material: ${yn(flag.leftover_material)}</div></div>
+      <button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;margin:0;padding:6px 12px;font-size:11px;" onclick="reopenSiteCondition('${siteId}')">Change</button>
+    </div>`;
+  }
+  return `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0 0 4px;">Site condition</p>${siteConditionQuestionsHtml(siteId, flag)}
+    <button type="button" class="darkbtn" style="margin-top:12px;" onclick="saveSiteCondition('${siteId}')">Save — close out</button></div>`;
+}
+async function siteConditionRow(siteId){
+  const rows = await dbSelect('schedule_section_flags', 'site_id=eq.'+siteId+'&section_id=is.null&select=*');
+  if(rows[0]) return rows[0];
+  const ins = await dbInsert('schedule_section_flags', {site_id:siteId, section_id:null, waste_to_clear:false, leftover_material:false, updated_at:new Date().toISOString()});
+  return Array.isArray(ins) ? ins[0] : ins;
+}
+window.saveSiteCondition = async function(siteId){
+  if(window.__scqSaving) return; window.__scqSaving = true;
+  try{
+    const row = await siteConditionRow(siteId);
+    if(!row){ toast('Could not save — try again.'); return; }
+    const saved = await dbUpdate('schedule_section_flags', row.id, {closeout_saved_at:new Date().toISOString(), closeout_saved_by:ME.id});
+    if(saved){ toast('Site condition saved'); render(); } else toast('Could not save — try again.');
+  } finally { window.__scqSaving = false; }
+};
+window.reopenSiteCondition = async function(siteId){
+  const row = await siteConditionRow(siteId);
+  if(row && await dbUpdate('schedule_section_flags', row.id, {closeout_saved_at:null, closeout_saved_by:null})){ scheduleFilter = 'active'; render(); }
+};
 window.setSiteConditionFlag = function(siteId, field, value){
   const f = window.__scqFlag || (window.__scqFlag = {});
   if(!!f[field] === !!value) return; // already that answer (also swallows a double tap)
@@ -803,7 +843,7 @@ async function renderSchedule(siteId){
         </div>
       </div>
       ` : ''}
-    ${allTasks.length ? `<div class="card sowflagcard"><p class="sectiontitle" style="margin:0 0 4px;">Site condition</p>${siteConditionQuestionsHtml(siteId, flagsBySection['__ungrouped__'])}</div>` : ''}
+    ${allTasks.length ? siteConditionCardHtml(siteId, flagsBySection['__ungrouped__'], allTasks) : ''}
     ${allTasks.length ? `
     <div class="row-gap" style="margin-bottom:14px;flex-wrap:nowrap;">
       <button class="ghostbtn exportbtn sowexportbtn" style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" onclick="exportSchedulePDF('${siteId}')">📄 Export PDF</button>
