@@ -54,6 +54,7 @@ async function renderSuppliersAdmin(){
         ${open ? `<div style="padding:0 12px 12px;">
           <div class="formfield"><label class="field-label">Name</label><input type="text" value="${escapeHtml(s.name)}" onblur="saveSupplierField(this,'${s.id}','name')"></div>
           <div class="formfield"><label class="field-label">Order email</label><input type="email" value="${escapeHtml(s.email||'')}" onblur="saveSupplierField(this,'${s.id}','email')"></div>
+          <div class="formfield"><label class="field-label">Our account number</label><input type="text" placeholder="e.g. RTB001 — added to every order email to them" value="${escapeHtml(s.account_number||'')}" onblur="saveSupplierAccount(this,'${s.id}')"></div>
           <p class="opmat-h" style="margin-top:6px;">Branches</p>
           ${brs.map(b=>`<div class="supbranch">
             <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
@@ -147,3 +148,14 @@ function matGrnDetailHtml(m){
     ${(g.photos||[]).length ? `<div class="grnthumbs" style="margin-top:6px;">${g.photos.map(p=>`<div class="grnthumb" onclick="event.stopPropagation();viewDrawing('${publicUrl('site-photos', p)}', true)"><img src="${publicUrl('site-photos', p)}"></div>`).join('')}</div>` : ''}
   </div>`;
 }
+
+// #(supplier-account-no) 21 Oct (Andy): our account number with a supplier.
+// Admin › Suppliers only (PMs/admins); the order email picks it up on the
+// server (send-material-order) — operatives never see it.
+window.saveSupplierAccount = async function(input, supplierId){
+  const val = input.value.trim().slice(0, 60);
+  if(val === input.defaultValue) return;
+  const r = await dbUpdate('suppliers', supplierId, {account_number: val || null});
+  if(r){ input.defaultValue = val; toast(val ? 'Account number saved — it goes on order emails' : 'Account number removed'); }
+  else toast('Could not save — try again.');
+};

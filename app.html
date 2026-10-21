@@ -2287,6 +2287,17 @@ html.desk .dwpanel{position:fixed;right:16px;top:104px;bottom:16px;width:calc((1
 @media (max-width:700px){ .qs-foot{display:none;} .qs-overlay{padding-top:8px;} .qs-box{max-height:88vh;} }
 .fggrid tr.fincli-hide{display:none !important;}
 html.desk .finjobfilt .fincli-lbl{display:none;}
+/* #(mat-collections-tab / mat-group) */
+.matcount-in{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:#FCEFD2;color:#8A5A00;font-size:11px;font-weight:800;}
+.filterrow.matsubtabs{margin-top:-4px;}
+.filterrow.matsubtabs .filterchip{font-size:11px;padding:6px 10px;}
+.matgroupcard{border-color:#D9C8EE;}
+.matgrouplist{margin-top:10px;border-top:1px dashed #E3E6EB;}
+.matgroupitem{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px dashed #EEF0F3;font-size:14px;}
+.matgroupitem > b{margin-right:4px;}
+.statustag.assigned{background:#E8F0FB !important;color:#1F4F8F !important;}
+.statustag.open{background:#FFF4DE !important;color:#9A6200 !important;}
+.statustag.collected{background:#E7F6EC !important;color:#1E7A43 !important;}
 </style>
 </head>
 <body>
@@ -37304,11 +37315,7 @@ async function renderMaterials(siteId){
         <div class="icon" style="background:#F1E4FA;color:#6A2C91;">🙋</div>
         <div class="lbl">Material Requests</div>
         ${pendingCount.length ? `<div class="matcount" style="background:#F1E4FA;color:#6A2C91;">${pendingCount.length} to action</div>` : ''}
-      </div>
-      <div class="tile" onclick="go('#/site/${siteId}/materialrequired')">
-        <div class="icon" style="background:#FCEFD2;color:#8A5A00;">📦</div>
-        <div class="lbl">Collection List</div>
-        ${requiredOpenCount.length ? `<div class="matcount" style="background:#FCEFD2;color:#8A5A00;">${requiredOpenCount.length} to collect</div>` : ''}
+        ${requiredOpenCount.length ? `<div class="matcount" style="background:#FCEFD2;color:#8A5A00;margin-top:4px;">${requiredOpenCount.length} to collect</div>` : ''}
       </div>
       <div class="tile" onclick="go('#/site/${siteId}/materialorders')">
         <div class="icon" style="background:#FBEFE0;color:#8A5A1E;">📄</div>
@@ -37335,9 +37342,10 @@ async function renderMaterialRequests(siteId){
   // closed without an order (closed by hand, moved to the Collection List,
   // or cancelled).
   const wasOrdered = m => m.status==='sent' || !!(m.merchant || m.sent_at);
-  const [materialsRaw, suppliers] = await Promise.all([
+  const [materialsRaw, suppliers, collectOpen] = await Promise.all([
     dbSelect('materials', 'site_id=eq.'+siteId+'&'+statusQS+'&order=created_at.desc'),
     isPM ? dbSelect('suppliers', 'org_id=eq.'+ME.org_id+'&order=name.asc') : Promise.resolve([]),
+    isPM ? dbSelect('material_required_items', 'site_id=eq.'+siteId+'&status=in.(open,assigned)&select=id').catch(()=>[]) : Promise.resolve([]),
   ]);
   if(isPM) window.MAT_SUPPLIERS = suppliers;
   if(siteIsMulti(siteId) && !SUB_ADDR_CACHE[siteId]) await loadSubAddrs(siteId);
@@ -37358,11 +37366,8 @@ async function renderMaterialRequests(siteId){
   const opStatusLabel = {pending:'Awaiting action', sent:'Actioned', closed:'Closed', cancelled:'Cancelled'};
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${isPM ? `<div class="matbanner" style="background:#F1E4FA;color:#4E1F6E;"><span>🙋</span><div><b>Requests from operatives.</b> Order each one from a merchant for delivery, or add it to the <a href="#/site/${siteId}/materialrequired" style="color:inherit;font-weight:800;">Collection List</a>.</div></div>
-    <div class="filterrow">
-      <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">To action</div>
-      <div class="filterchip ${matFilter==='ordered'?'active':''}" onclick="matFilter='ordered';clearMaterialSelection();render()">Completed</div>
-    </div>
+    ${isPM ? `<div class="matbanner" style="background:#F1E4FA;color:#4E1F6E;"><span>🙋</span><div><b>Requests from operatives.</b> Order them from a merchant, or give them to an operative to collect — those move to the <b>Collections</b> tab. Tick several to group them into one request.</div></div>
+    ${matTopTabsHtml(siteId, matFilter==='live'?'live':'done', collectOpen.length)}
     ` : `
     <div class="filterrow">
       <div class="filterchip ${matFilter==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();render()">Live/Pending</div>
@@ -37388,6 +37393,7 @@ async function renderMaterialRequests(siteId){
             <span class="arrow">${supplierPickerFor==='group'?'▼':'▶'}</span> ${groupSupplierId ? escapeHtml(supplierName(groupSupplierId)) : 'Supplier'}
           </div>
           ${supplierPickerFor==='group' ? supplierPickerHtml('group', suppliers, groupSupplierId) : ''}
+          ${!doneTab && selectedMaterialIds.size>1 ? `<button class="ghostbtn" style="margin:10px 0 0;" onclick="matGroupSelected('${siteId}')">🔗 Group into one request</button>` : ''}
           <button class="darkbtn" style="width:auto;padding:6px 16px;font-size:10.5px;margin-top:10px;" onclick="${groupSupplierId ? 'sendingGroup=true;render()' : `customAlert('Please choose a supplier before sending this order.')`}">${doneTab ? 'Send Again' : (selectedMaterialIds.size>1 ? 'Send as one grouped order' : 'Send Order')} (${selectedMaterialIds.size} item${selectedMaterialIds.size>1?'s':''})</button>
           ${doneTab ? `<div class="row-gap" style="margin-top:8px;">
             <button class="ghostbtn" style="flex:1;" onclick="reopenSelectedMaterials('${siteId}')">Reopen selected</button>
@@ -37487,7 +37493,18 @@ async function renderMaterialRequests(siteId){
         ${open ? `<div class="matcard" style="margin-top:0;">${cardBody}</div>` : ''}
       `;
     };
-    if(!doneTab) return materials.map(rowFn).join('');
+    if(!doneTab){
+      if(!isPM || matFilter!=='live') return materials.map(rowFn).join('');
+      // #(mat-group) 21 Oct (Andy): requests grouped into one request show as one card.
+      const seenG = new Set();
+      return materials.map(m=>{
+        if(!m.group_id) return rowFn(m);
+        if(seenG.has(m.group_id)) return '';
+        seenG.add(m.group_id);
+        const items = materials.filter(x=>x.group_id===m.group_id);
+        return items.length<2 ? rowFn(m) : matGroupCardHtml(siteId, items);
+      }).join('');
+    }
     return matDoneEntries(materials).map(e=>{
       if(e.items.length<2) return rowFn(e.m);
       const first = e.items[0], ids = e.items.map(x=>x.id), gk = 'grp:'+first.id;
@@ -37563,6 +37580,79 @@ function matAgo(ts){
   if(d < 1) return 'today'; if(d < 2) return 'yesterday'; if(d < 14) return Math.floor(d)+'d ago';
   if(d < 60) return Math.floor(d/7)+'w ago'; return Math.floor(d/30)+'mo ago';
 }
+
+// #(mat-collections-tab) 21 Oct (Andy): Material Requests has three tabs —
+// To action, Collections (what was the Collection List: items given to an
+// operative to pick up) and Completed. Driver collections stay on the
+// Delivery Schedule as before.
+function matTopTabsHtml(siteId, active, collectN){
+  return `<div class="filterrow">
+    <div class="filterchip ${active==='live'?'active':''}" onclick="matFilter='live';clearMaterialSelection();go('#/site/${siteId}/materialrequests')">To action</div>
+    <div class="filterchip ${active==='collect'?'active':''}" onclick="clearMaterialSelection();go('#/site/${siteId}/materialrequired')">Collections${collectN?` <span class="matcount-in">${collectN}</span>`:''}</div>
+    <div class="filterchip ${active==='done'?'active':''}" onclick="matFilter='ordered';clearMaterialSelection();go('#/site/${siteId}/materialrequests')">Completed</div>
+  </div>`;
+}
+// #(mat-group) Grouped request card on To action.
+function matGroupCardHtml(siteId, items){
+  const ids = items.map(x=>x.id), allSel = ids.every(id=>selectedMaterialIds.has(id));
+  const due = items.map(x=>x.required_by_date).filter(Boolean).sort()[0];
+  return `<div class="matcard matgroupcard">
+    <div class="top">
+      <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;flex:1;">
+        <input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${allSel?'checked':''} onclick="toggleMaterialGroupSelect('${ids.join(',')}')">
+        <div style="min-width:0;flex:1;"><div class="name">🔗 Grouped request <span class="opmat-pill" style="background:#EDE7F6;color:#4E1F6E;">${items.length} items</span></div>
+          <div class="matchips">${due ? `<span class="matchip due">📅 First needed ${new Date(due+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}<span class="matchip">👷 ${escapeHtml(Array.from(new Set(items.map(x=>nameOf(x.requested_by)))).join(', '))}</span></div></div>
+      </div>
+      <span class="statustag pending" style="font-size:12.4px;padding:3.9px 9.1px;">pending</span>
+    </div>
+    <div class="matgrouplist">${items.map(x=>`<div class="matgroupitem"><b>${escapeHtml(x.item)}</b><span class="matchip"><b>Qty</b> ${escapeHtml(x.qty||'1')}</span>${x.order_note?`<span class="matchip note">📝 ${escapeHtml(x.order_note)}</span>`:''}${x.sub_site_label?subAddrPill(x.sub_site_label):''}</div>`).join('')}</div>
+    <div class="row-gap" style="margin-top:10px;">
+      <button class="darkbtn" style="flex:1;" onclick="matGroupOrder('${ids.join(',')}')">🚚 Order from merchant</button>
+      <button class="ghostbtn" style="flex:1;" onclick="matGroupToCollection('${siteId}','${ids.join(',')}')">📦 Add to collections</button>
+    </div>
+    <div class="row-gap" style="margin-top:8px;">
+      <button class="ghostbtn" style="flex:1;" onclick="matUngroup('${ids.join(',')}')">Ungroup</button>
+      <button class="ghostbtn" style="flex:1;" onclick="matGroupClose('${siteId}','${ids.join(',')}')">Close request</button>
+    </div>
+  </div>`;
+}
+window.matGroupSelected = async function(siteId){
+  const ids = Array.from(selectedMaterialIds); if(ids.length<2) return;
+  const cur = await dbSelect('materials', 'id=in.('+ids.join(',')+')&select=id,group_id');
+  const gid = (cur.find(x=>x.group_id)||{}).group_id || ((crypto && crypto.randomUUID) ? crypto.randomUUID() : uid());
+  const res = await Promise.all(ids.map(id=>dbUpdate('materials', id, {group_id:gid})));
+  clearMaterialSelection();
+  toast(res.every(Boolean) ? ids.length+' requests grouped into one' : 'Some could not be grouped — try again.');
+  render();
+};
+window.matUngroup = async function(idsStr){
+  const ids = String(idsStr).split(',');
+  await Promise.all(ids.map(id=>dbUpdate('materials', id, {group_id:null})));
+  toast('Ungrouped'); render();
+};
+window.matGroupOrder = async function(idsStr){
+  clearMaterialSelection();
+  String(idsStr).split(',').forEach(id=>selectedMaterialIds.add(id));
+  await render(); appScrollTo(0, true);
+  toast('Choose the supplier at the top, then send — it goes as one order.');
+};
+window.matGroupClose = async function(siteId, idsStr){
+  const ids = String(idsStr).split(',');
+  if(!await customConfirm('Close this grouped request ('+ids.length+' items) without ordering?')) return;
+  await Promise.all(ids.map(id=>dbUpdate('materials', id, {status:'closed'})));
+  toast('Request closed'); render();
+};
+window.matGroupToCollection = async function(siteId, idsStr){
+  const ids = String(idsStr).split(',');
+  const rows = await dbSelect('materials', 'id=in.('+ids.join(',')+')');
+  if(!rows.length) return;
+  if(!await customConfirm(`Add these ${rows.length} items to Collections?\n\nYou can then choose who collects them.`)) return;
+  const ins = await dbInsert('material_required_items', rows.map(m=>({site_id:siteId, org_id:ME.org_id, item:m.item, qty:m.qty||null, supplier_id:null, status:'open', created_by:ME.id})));
+  if(!ins){ toast('Could not add to Collections'); return; }
+  await Promise.all(rows.map(m=>dbUpdate('materials', m.id, {status:'closed', order_note: m.order_note ? m.order_note+' · Moved to Collection List' : 'Moved to Collection List'})));
+  logSiteActivity(siteId, 'material_moved_to_collection', `Moved ${rows.length} grouped items from Material Requests to Collections`);
+  toast('Added to Collections'); render();
+};
 
 /* ================= MATERIALS — operative view + "Add to collections" =================
  * Operatives get one simple Materials screen instead of tiles:
@@ -37729,13 +37819,13 @@ window.materialToCollection = async function(siteId, matId){
   const rows = await dbSelect('materials', 'id=eq.'+matId);
   const m = rows && rows[0];
   if(!m){ toast('Request not found'); return; }
-  const ok = await customConfirm(`Add "${m.item}"${m.qty ? ' × '+m.qty : ''} to the Collection List?\n\nYou can then choose who collects it.`);
+  const ok = await customConfirm(`Add "${m.item}"${m.qty ? ' × '+m.qty : ''} to Collections?\n\nYou can then choose who collects it.`);
   if(!ok) return;
   const inserted = await dbInsert('material_required_items', [{site_id:siteId, org_id:ME.org_id, item:m.item, qty:m.qty||null, supplier_id:null, status:'open', created_by:ME.id}]);
-  if(!inserted){ toast('Could not add to the Collection List'); return; }
+  if(!inserted){ toast('Could not add to Collections'); return; }
   await dbUpdate('materials', matId, {status:'closed', order_note: m.order_note ? m.order_note+' · Moved to Collection List' : 'Moved to Collection List'});
   logSiteActivity(siteId, 'material_moved_to_collection', `Moved "${m.item}" from Material Requests to the Collection List`);
-  toast('Added to the Collection List');
+  toast('Added to Collections');
   render();
 };
 
@@ -37795,6 +37885,7 @@ async function renderSuppliersAdmin(){
         ${open ? `<div style="padding:0 12px 12px;">
           <div class="formfield"><label class="field-label">Name</label><input type="text" value="${escapeHtml(s.name)}" onblur="saveSupplierField(this,'${s.id}','name')"></div>
           <div class="formfield"><label class="field-label">Order email</label><input type="email" value="${escapeHtml(s.email||'')}" onblur="saveSupplierField(this,'${s.id}','email')"></div>
+          <div class="formfield"><label class="field-label">Our account number</label><input type="text" placeholder="e.g. RTB001 — added to every order email to them" value="${escapeHtml(s.account_number||'')}" onblur="saveSupplierAccount(this,'${s.id}')"></div>
           <p class="opmat-h" style="margin-top:6px;">Branches</p>
           ${brs.map(b=>`<div class="supbranch">
             <input type="text" placeholder="Branch name, e.g. Stockton" value="${escapeHtml(b.name||'')}" onblur="saveBranchField('${s.id}','${b.id}','name',this.value)">
@@ -37888,6 +37979,17 @@ function matGrnDetailHtml(m){
     ${(g.photos||[]).length ? `<div class="grnthumbs" style="margin-top:6px;">${g.photos.map(p=>`<div class="grnthumb" onclick="event.stopPropagation();viewDrawing('${publicUrl('site-photos', p)}', true)"><img src="${publicUrl('site-photos', p)}"></div>`).join('')}</div>` : ''}
   </div>`;
 }
+
+// #(supplier-account-no) 21 Oct (Andy): our account number with a supplier.
+// Admin › Suppliers only (PMs/admins); the order email picks it up on the
+// server (send-material-order) — operatives never see it.
+window.saveSupplierAccount = async function(input, supplierId){
+  const val = input.value.trim().slice(0, 60);
+  if(val === input.defaultValue) return;
+  const r = await dbUpdate('suppliers', supplierId, {account_number: val || null});
+  if(r){ input.defaultValue = val; toast(val ? 'Account number saved — it goes on order emails' : 'Account number removed'); }
+  else toast('Could not save — try again.');
+};
 
 /* ================= MULTI-SITE JOBS — choosing the address =================
  * A multi-site job (site.multi_site) has several addresses
@@ -38121,8 +38223,9 @@ async function renderMaterialRequiredList(siteId){
   };
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${isPM ? `<div class="matbanner" style="background:#FCEFD2;color:#5E3D00;"><span>📦</span><div><b>Items for someone to pick up.</b> Assign who collects each one — it shows on their Materials screen as a tick list.</div></div>` : ''}
-    <div class="filterrow">
+    ${isPM && typeof matTopTabsHtml==='function' ? matTopTabsHtml(siteId, 'collect', 0) : ''}
+    ${isPM ? `<div class="matbanner" style="background:#FCEFD2;color:#5E3D00;"><span>📦</span><div><b>Items for an operative to pick up.</b> Assign who collects each one — it shows on their Materials screen as a tick list.</div></div>` : ''}
+    <div class="filterrow ${isPM?'matsubtabs':''}">
       <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">To collect</div>
       <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
@@ -38184,7 +38287,7 @@ async function renderMaterialRequiredList(siteId){
       </div>
     </div>
     ` : ''}
-  `, {title:'Collection List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
+  `, {title:isPM ? 'Material Requests' : 'Collections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
 window.toggleMatReqExpand = function(id){
   if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);
@@ -39505,7 +39608,7 @@ function orderFulfilmentHtml(key, drivers, siteOps){
           <option value="">Choose…</option>
           <option value="rtbop:">👷 ${escapeHtml(companyOperativeLabel())}</option>
           ${drivers.length ? `<optgroup label="Driver — adds to the Delivery Schedule">${drivers.map(d=>`<option value="driver:${d.id}">🚐 ${escapeHtml(d.name)}</option>`).join('')}</optgroup>` : ''}
-          ${siteOps.length ? `<optgroup label="Operative — adds to the Collection List">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
+          ${siteOps.length ? `<optgroup label="Operative — goes on the Collections tab">${siteOps.map(o=>`<option value="op:${o.id}">👷 ${escapeHtml(o.name)}</option>`).join('')}</optgroup>` : ''}
         </select>
       </div>
       ${!drivers.length && !siteOps.length ? `<p class="stub" style="margin:0 0 8px;color:var(--warn);">No drivers or site operatives to choose from yet.</p>` : ''}
@@ -39573,14 +39676,14 @@ async function confirmRebookCollection(f, materials){
   if(!f || f.mode!=='collection' || f.collectorKind==='rtbop') return true;
   const sentBefore = (materials||[]).some(m=>m && (m.sent_at || m.email_sent_at));
   if(!sentBefore) return true;
-  const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Collection List';
+  const where = f.collectorKind==='driver' ? 'Delivery Schedule' : 'Collections tab';
   const who = (PROFILES[f.collectorId]||{}).name || 'them';
   return await customConfirm(`This order has been sent before. Add it to the ${where} for ${who} again? Choose No if it is already on there — the email will still be sent.`, {confirmLabel:'Yes — add it again', cancelLabel:'No — email only'});
 }
 async function bookOrderCollection(siteId, f, supplier, toMe, materials){
   if(!f || f.mode!=='collection') return '';
   if(f.collectorKind==='rtbop') return ' — to be collected by an '+companyOperativeLabel();
-  if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Collection List')+' again';
+  if(f.skipBooking) return ' — not added to the '+(f.collectorKind==='driver'?'Delivery Schedule':'Collections tab')+' again';
   const who = PROFILES[f.collectorId];
   const whoName = who ? who.name : 'them';
   const dateLabel = new Date(f.date+'T00:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
@@ -39610,9 +39713,9 @@ async function bookOrderCollection(siteId, f, supplier, toMe, materials){
       site_id: siteId, org_id: ME.org_id, item: m.item+' (collect '+dateLabel+(f.note ? ' — '+f.note : '')+')', qty: m.qty||null,
       supplier_id: toMe ? null : supplier.id, supplier_branch: f.branch||null, sub_site_id: m.sub_site_id||null, sub_site_label: m.sub_site_label||null, status:'assigned', assigned_to: f.collectorId, assigned_at: nowIso, created_by: ME.id,
     })));
-    if(!rows) return ' — but it could not be added to the Collection List, add it by hand';
+    if(!rows) return ' — but it could not be added to Collections, add it by hand';
     if(f.collectorId!==ME.id) postSystemMessageToUser(f.collectorId, siteId, 'message', `Material to collect on ${dateLabel}${toMe?'':' from '+supplier.name}: ${itemsText}${f.note ? ' — Note: '+f.note : ''}`, null);
-    return ' — added to the Collection List for '+whoName+' to collect '+dateLabel;
+    return ' — added to Collections for '+whoName+' to collect '+dateLabel;
   }catch(e){ console.error('bookOrderCollection failed', e); return ' — but the collection could not be booked, add it by hand'; }
 }
 window.beginSendMaterial = async function(matId){
@@ -39652,7 +39755,7 @@ window.confirmSendMaterial = async function(siteId, matId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      material_id: matId, supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name,
+      material_id: matId, supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name, supplier_id: toMe ? null : (supplier.id || null),
       item: material ? material.item : '', qty: material ? material.qty : '', site_id: siteId, po_id: po ? po.id : null,
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
@@ -39752,7 +39855,7 @@ window.confirmSendGroupedMaterial = async function(siteId){
   render();
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
-      supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId,
+      supplier_email: orderRecipient(supplier, fulfil, toMe), supplier_name: toMe ? ME.name : supplier.name, site_id: siteId, supplier_id: toMe ? null : (supplier.id || null),
       required_for_delivery: requiredForDelivery,
       note: fulfil.note || null, cc_user_ids: fulfil.ccIds || [], cc_emails: orderCcEmails(supplier, fulfil, toMe),
       fulfilment: fulfil.mode, collector_name: orderCollectorName(fulfil),
@@ -39831,7 +39934,7 @@ window.confirmReemail = async function(siteId, matId, supplierName){
   try{
     const res = await sbFetch('/functions/v1/send-material-order', {method:'POST', body: JSON.stringify({
       material_id: matId, supplier_email: email, supplier_name: supplierName,
-      item: material.item, qty: material.qty, site_id: siteId,
+      item: material.item, qty: material.qty, site_id: siteId, supplier_id: material.supplier_id || null,
       required_for_delivery: material.required_for_delivery, po_id: material.po_id || null,
     })});
     const d = await res.json();
@@ -45420,14 +45523,19 @@ async function renderDeliveryForm(taskId){
     <div class="formfield"><label class="field-label">Site contact</label>
       ${(()=>{
         // Grouped by role (the group heading shows in bold in the list):
-        // Project Managers and Site Managers from the whole company, then
-        // the operatives assigned to the chosen site.
+        // Admins, Project Managers and Site Managers from the whole company,
+        // the operatives assigned to the chosen site, then everyone else.
         const byName = (x,y)=>x.name.localeCompare(y.name);
         const everyone = Object.values(PROFILES).filter(p=>p && (!p.org_id || p.org_id===ME.org_id)); // the loaded people list is already this company only
+        // 21 Oct (Andy): admins can be the site contact too, and every
+        // other operative is listed below the ones on this site.
+        const onSite = new Set((deliveryFormSiteOperatives||[]).map(p=>p.id));
         const groups = [
+          {label:'Admins', people: everyone.filter(p=>p.role==='admin').sort(byName)},
           {label:'Project Managers', people: everyone.filter(p=>p.role==='pm').sort(byName)},
           {label:'Site Managers', people: everyone.filter(p=>p.role==='site_manager').sort(byName)},
           {label:'Operatives on this site', people: deliveryFormSiteOperatives},
+          {label:'All other operatives', people: everyone.filter(p=>p.role==='operative' && !onSite.has(p.id)).sort(byName)},
         ].filter(g=>g.people.length);
         const opt = o=>`<option value="${o.id}" ${draft.site_contact_id===o.id?'selected':''}>${escapeHtml(o.name)}${o.phone?' — '+escapeHtml(o.phone):' (no phone saved)'}</option>`;
         // Someone chosen earlier who no longer fits a group still shows, so saving doesn't quietly drop them.

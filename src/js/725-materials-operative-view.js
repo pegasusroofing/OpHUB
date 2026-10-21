@@ -163,12 +163,12 @@ window.materialToCollection = async function(siteId, matId){
   const rows = await dbSelect('materials', 'id=eq.'+matId);
   const m = rows && rows[0];
   if(!m){ toast('Request not found'); return; }
-  const ok = await customConfirm(`Add "${m.item}"${m.qty ? ' × '+m.qty : ''} to the Collection List?\n\nYou can then choose who collects it.`);
+  const ok = await customConfirm(`Add "${m.item}"${m.qty ? ' × '+m.qty : ''} to Collections?\n\nYou can then choose who collects it.`);
   if(!ok) return;
   const inserted = await dbInsert('material_required_items', [{site_id:siteId, org_id:ME.org_id, item:m.item, qty:m.qty||null, supplier_id:null, status:'open', created_by:ME.id}]);
-  if(!inserted){ toast('Could not add to the Collection List'); return; }
+  if(!inserted){ toast('Could not add to Collections'); return; }
   await dbUpdate('materials', matId, {status:'closed', order_note: m.order_note ? m.order_note+' · Moved to Collection List' : 'Moved to Collection List'});
   logSiteActivity(siteId, 'material_moved_to_collection', `Moved "${m.item}" from Material Requests to the Collection List`);
-  toast('Added to the Collection List');
+  toast('Added to Collections');
   render();
 };

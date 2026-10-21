@@ -2273,3 +2273,14 @@ html.desk .dwpanel{position:fixed;right:16px;top:104px;bottom:16px;width:calc((1
 @media (max-width:700px){ .qs-foot{display:none;} .qs-overlay{padding-top:8px;} .qs-box{max-height:88vh;} }
 .fggrid tr.fincli-hide{display:none !important;}
 html.desk .finjobfilt .fincli-lbl{display:none;}
+/* #(mat-collections-tab / mat-group) */
+.matcount-in{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:#FCEFD2;color:#8A5A00;font-size:11px;font-weight:800;}
+.filterrow.matsubtabs{margin-top:-4px;}
+.filterrow.matsubtabs .filterchip{font-size:11px;padding:6px 10px;}
+.matgroupcard{border-color:#D9C8EE;}
+.matgrouplist{margin-top:10px;border-top:1px dashed #E3E6EB;}
+.matgroupitem{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 0;border-bottom:1px dashed #EEF0F3;font-size:14px;}
+.matgroupitem > b{margin-right:4px;}
+.statustag.assigned{background:#E8F0FB !important;color:#1F4F8F !important;}
+.statustag.open{background:#FFF4DE !important;color:#9A6200 !important;}
+.statustag.collected{background:#E7F6EC !important;color:#1E7A43 !important;}

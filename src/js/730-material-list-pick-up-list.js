@@ -163,8 +163,9 @@ async function renderMaterialRequiredList(siteId){
   };
 
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
-    ${isPM ? `<div class="matbanner" style="background:#FCEFD2;color:#5E3D00;"><span>📦</span><div><b>Items for someone to pick up.</b> Assign who collects each one — it shows on their Materials screen as a tick list.</div></div>` : ''}
-    <div class="filterrow">
+    ${isPM && typeof matTopTabsHtml==='function' ? matTopTabsHtml(siteId, 'collect', 0) : ''}
+    ${isPM ? `<div class="matbanner" style="background:#FCEFD2;color:#5E3D00;"><span>📦</span><div><b>Items for an operative to pick up.</b> Assign who collects each one — it shows on their Materials screen as a tick list.</div></div>` : ''}
+    <div class="filterrow ${isPM?'matsubtabs':''}">
       <div class="filterchip ${matReqFilter==='live'?'active':''}" onclick="matReqFilter='live';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">To collect</div>
       <div class="filterchip ${matReqFilter==='closed'?'active':''}" onclick="matReqFilter='closed';matReqAssignFor=null;matReqCollectFor=null;selectedMatReqIds=new Set();render()">Collected</div>
     </div>
@@ -226,7 +227,7 @@ async function renderMaterialRequiredList(siteId){
       </div>
     </div>
     ` : ''}
-  `, {title:'Collection List', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
+  `, {title:isPM ? 'Material Requests' : 'Collections', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
 }
 window.toggleMatReqExpand = function(id){
   if(expandedMatReqIds.has(id)) expandedMatReqIds.delete(id); else expandedMatReqIds.add(id);

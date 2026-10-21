@@ -495,14 +495,19 @@ async function renderDeliveryForm(taskId){
     <div class="formfield"><label class="field-label">Site contact</label>
       ${(()=>{
         // Grouped by role (the group heading shows in bold in the list):
-        // Project Managers and Site Managers from the whole company, then
-        // the operatives assigned to the chosen site.
+        // Admins, Project Managers and Site Managers from the whole company,
+        // the operatives assigned to the chosen site, then everyone else.
         const byName = (x,y)=>x.name.localeCompare(y.name);
         const everyone = Object.values(PROFILES).filter(p=>p && (!p.org_id || p.org_id===ME.org_id)); // the loaded people list is already this company only
+        // 21 Oct (Andy): admins can be the site contact too, and every
+        // other operative is listed below the ones on this site.
+        const onSite = new Set((deliveryFormSiteOperatives||[]).map(p=>p.id));
         const groups = [
+          {label:'Admins', people: everyone.filter(p=>p.role==='admin').sort(byName)},
           {label:'Project Managers', people: everyone.filter(p=>p.role==='pm').sort(byName)},
           {label:'Site Managers', people: everyone.filter(p=>p.role==='site_manager').sort(byName)},
           {label:'Operatives on this site', people: deliveryFormSiteOperatives},
+          {label:'All other operatives', people: everyone.filter(p=>p.role==='operative' && !onSite.has(p.id)).sort(byName)},
         ].filter(g=>g.people.length);
         const opt = o=>`<option value="${o.id}" ${draft.site_contact_id===o.id?'selected':''}>${escapeHtml(o.name)}${o.phone?' — '+escapeHtml(o.phone):' (no phone saved)'}</option>`;
         // Someone chosen earlier who no longer fits a group still shows, so saving doesn't quietly drop them.
