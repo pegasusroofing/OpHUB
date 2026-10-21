@@ -2196,3 +2196,80 @@ html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600
 /* Row ▾ action menus (Users etc.): sit above the next card, one line per item */
 .sitecard:has([data-rowactions-root] .statusmenu), .card:has([data-rowactions-root] .statusmenu){position:relative;z-index:40;overflow:visible;}
 [data-rowactions-root] .statusmenu{white-space:nowrap;min-width:200px;z-index:41;}
+
+/* #(fin-grid-2a) Finance › Projects spreadsheet grid */
+.fggrid .fgjob{display:inline-block;min-width:52px;text-align:center;font:800 11.5px 'Sora',-apple-system,sans-serif;background:var(--brand1,#E3262E);color:#fff;border-radius:9px;padding:7px 6px;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+.fggrid .fgjob.none{background:var(--warn-bg,#FFF4DE);color:var(--warn,#9A6200);}
+.fggrid td{vertical-align:middle;white-space:nowrap;}
+.fggrid td[data-l="Project"]{white-space:normal;min-width:160px;}
+.fggrid .fgwarn{color:var(--warn,#9A6200);}
+.fggrid tr.fg-hide{display:none !important;}
+.fggrid .fgfilters th{padding:6px 8px;background:#FBFBFC;cursor:default;}
+.fggrid .fgfilters input{width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px;border-radius:8px;border:1px solid var(--line);text-transform:none;letter-spacing:0;font-weight:500;min-height:0;}
+.fgfoot{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:-1px;padding:10px 14px;background:#14171C;color:#fff;border-radius:0 0 12px 12px;font-size:12.5px;}
+.fgfoot .fgfoot-bad{color:#FF9B9B;font-weight:700;}
+.fgfoot .fgfoot-n{margin-left:auto;opacity:.75;font-style:normal;}
+@media (max-width:700px){ .fggrid .fgfilters{display:none;} .fgfoot{border-radius:12px;margin-top:6px;} .fggrid td[data-l="Job"]{order:-3;} }
+/* #(fin-cards-3a) Finance job cards */
+html.finmode .fintile b{font-family:'Sora',-apple-system,sans-serif;font-size:22px;font-weight:800;}
+.fintile-ff{display:flex;justify-content:space-between;gap:6px;align-items:baseline;}
+.fintile-ff b{font-size:12px !important;font-weight:700 !important;font-family:inherit !important;color:var(--ink);}
+.fintile-f .finbar{margin-top:7px;}
+.fintile-x{font-size:11.5px;color:var(--slate);}
+.finbar.blue span{background:#3B6FC4;} .finbar.tan span{background:#C9A15A;} .finbar.green span{background:#1E9E55;}
+.finbar.warn span{background:#E08A00;}
+
+/* #(status-colours-4a) 21 Oct (Andy, option A): one colour language for
+   status pills — soft tint + a dot. green = done, amber = in progress / due,
+   red = overdue / problem, grey = not started / closed, blue = info /
+   scheduled. Colour only; no layout changes. */
+.statustag,.finpill,.sitecard .status{border-radius:999px !important;display:inline-flex;align-items:center;gap:5px;vertical-align:middle;}
+.statustag::before,.finpill::before,.sitecard .status::before{content:'';flex:none;width:6px;height:6px;border-radius:50%;background:currentColor;}
+.statustag.approved,.statustag.done,.statustag.complete,.finpill.ok,.sitecard .status.active,.sitecard .status.live{background:#E7F6EC !important;color:#1E7A43 !important;}
+.statustag.pending,.statustag.progress,.finpill.warn,.sitecard .status.upcoming{background:#FFF4DE !important;color:#9A6200 !important;}
+.statustag.rejected,.statustag.overdue,.finpill.bad{background:#FDE8E8 !important;color:#B42323 !important;}
+.statustag.closed,.statustag.grey,.finpill.grey,.sitecard .status.closed{background:#EEF0F3 !important;color:#5B6170 !important;}
+.statustag.sent,.statustag.info,.finpill.blue{background:#E8F0FB !important;color:#1F4F8F !important;}
+/* #(mat-chips-7a) */
+.matchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.matchip{display:inline-flex;align-items:center;gap:4px;border:1px solid #E3E6EB;background:#fff;border-radius:8px;padding:3px 8px;font-size:12px;color:#3A3D45;max-width:100%;overflow-wrap:anywhere;}
+.matchip b{color:var(--ink);font-weight:700;}
+.matchip.due{background:#FFF4DE;border-color:#F1DDB0;color:#9A6200;font-weight:700;}
+.matchip.note{white-space:normal;}
+.matago{font-size:11px;font-weight:500;color:var(--slate);margin-left:4px;white-space:nowrap;}
+/* #(drawings-split-6a) desktop only */
+html.desk .dwsplit-on{margin-right:calc((100vw - 248px) * .55);}
+html.desk .dwpanel{position:fixed;right:16px;top:104px;bottom:16px;width:calc((100vw - 248px) * .55 - 24px);background:#fff;border:1px solid #ECEEF2;border-radius:16px;box-shadow:0 10px 30px rgba(20,24,29,.10);display:flex;flex-direction:column;overflow:hidden;z-index:30;}
+.dwpanel-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #ECEEF2;}
+.dwpanel-bar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
+.dwpanel-btn{width:auto !important;margin:0 !important;padding:6px 12px !important;font-size:12px !important;flex:none;text-decoration:none;}
+.dwpanel-frame{flex:1;border:0;width:100%;background:#E9EBEF;}
+.dwpanel-img{flex:1;overflow:auto;background:#E9EBEF;display:flex;align-items:flex-start;justify-content:center;padding:14px;}
+.dwpanel-img img{max-width:100%;height:auto;cursor:zoom-in;box-shadow:0 4px 18px rgba(0,0,0,.15);}
+.dwpanel-other{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;}
+.card.dwsel{background:#FDF1F1;box-shadow:inset 3px 0 0 var(--brand1,#E3262E);}
+/* #(quick-search-9b) */
+.desknav-search{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 4px;padding:8px 12px;border:1px solid #ECEEF2;border-radius:12px;background:#F7F8FA;color:#6B7080;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;}
+.desknav-search:hover{background:#F0F2F5;color:var(--ink);}
+.desknav-search span:nth-child(2){flex:1;text-align:left;}
+.desknav-search kbd{font:600 10.5px 'IBM Plex Sans',sans-serif;border:1px solid #E3E6EB;background:#fff;border-radius:6px;padding:1px 6px;color:#8A90A0;}
+.qs-topbtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;color:var(--slate);cursor:pointer;}
+.qs-topbtn:active{background:var(--paper);}
+.qs-overlay{position:fixed;inset:0;z-index:10040;background:rgba(16,17,20,.45);display:none;align-items:flex-start;justify-content:center;padding:10vh 16px 16px;box-sizing:border-box;}
+.qs-box{width:100%;max-width:620px;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column;max-height:76vh;}
+.qs-in{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #ECEEF2;}
+.qs-in input{flex:1;border:0 !important;outline:0;font-size:16px;padding:6px 0 !important;background:transparent;box-shadow:none !important;min-height:0;}
+.qs-kbd{font:600 10.5px 'IBM Plex Sans',sans-serif;border:1px solid #E3E6EB;border-radius:6px;padding:1px 6px;color:#8A90A0;}
+.qs-res{overflow:auto;padding:4px 0 8px;}
+.qs-g{font:700 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8A90A0;padding:10px 16px 4px;}
+.qs-i{display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;}
+.qs-i.on{background:#FDF1F1;box-shadow:inset 3px 0 0 var(--brand1,#E3262E);}
+.qs-ic{font-size:17px;width:22px;text-align:center;flex:none;}
+.qs-t{display:flex;flex-direction:column;min-width:0;}
+.qs-t b{font-size:14px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qs-t em{font-style:normal;font-size:12px;color:#6B7080;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qs-empty{padding:16px;color:#6B7080;font-size:13px;}
+.qs-foot{padding:8px 16px;border-top:1px solid #ECEEF2;font-size:11.5px;color:#8A90A0;}
+@media (max-width:700px){ .qs-foot{display:none;} .qs-overlay{padding-top:8px;} .qs-box{max-height:88vh;} }
+.fggrid tr.fincli-hide{display:none !important;}
+html.desk .finjobfilt .fincli-lbl{display:none;}

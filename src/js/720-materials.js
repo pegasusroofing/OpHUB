@@ -234,7 +234,8 @@ async function renderMaterialRequests(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && (m.status==='pending' || m.status==='sent') ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.order_note ? `<div class="qty" style="overflow-wrap:break-word;">📝 ${escapeHtml(m.order_note)}</div>` : ''}${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
+              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}${m.created_at ? ` <span class="matago">${matAgo(m.created_at)}</span>` : ''}</div>
+                <div class="matchips"><span class="matchip"><b>Qty</b> ${escapeHtml(m.qty||'1')}</span><span class="matchip">👷 ${escapeHtml(nameOf(m.requested_by))}</span>${m.required_by_date ? `<span class="matchip due">📅 Needed ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}${m.order_note ? `<span class="matchip note">📝 ${escapeHtml(m.order_note)}</span>` : ''}</div></div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
@@ -381,4 +382,12 @@ async function renderMaterialRequests(siteId){
     ` : ''}
     ` : ''}
   `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
+}
+
+// #(mat-chips-7a) 21 Oct (Andy): request facts as small chips under the title.
+function matAgo(ts){
+  const d = (Date.now() - new Date(ts).getTime())/864e5;
+  if(!(d>=0)) return '';
+  if(d < 1) return 'today'; if(d < 2) return 'yesterday'; if(d < 14) return Math.floor(d)+'d ago';
+  if(d < 60) return Math.floor(d/7)+'w ago'; return Math.floor(d/30)+'mo ago';
 }

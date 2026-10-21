@@ -144,8 +144,8 @@ function shell(innerHtml, opts){
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
-          <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
-            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+          <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+            ${typeof qsTopBtnHtml==='function' ? qsTopBtnHtml() : ''}${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
         `}

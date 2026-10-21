@@ -90,6 +90,7 @@ function deskSidebar(opts){
         <div><div class="desknav-org">${escapeHtml((ORG && ORG.name) || 'OpHUB')}</div><div class="desknav-app">OpHUB</div></div>
       </div>
       ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : (isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : '')}
+      ${typeof qsSideBtnHtml==='function' ? qsSideBtnHtml() : ''}
       <nav>${items.map(i=>row(i, activeTop===i.k)).join('')}</nav>
       ${siteHtml}
       <div class="desknav-foot">

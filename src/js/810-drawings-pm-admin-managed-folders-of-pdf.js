@@ -88,7 +88,7 @@ async function renderDrawings(siteId, folderId, opts){
   // chooser row instead, so nothing should pop open there uninvited.
   const isDrawingsFolderEmpty = !!currentFolder && subfolders.length===0 && files.length===0;
 
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="${dwSplitOn(siteId)?'dwsplit-on':''}">
     ${canManage ? `
       <div class="drawheaderrow">
         <span>Folder/File Name</span>
@@ -123,13 +123,13 @@ async function renderDrawings(siteId, folderId, opts){
         ${canManage && scheduleAssignTarget && scheduleAssignTarget.kind==='drawingfolder' && scheduleAssignTarget.id===f.id ? scheduleAssignFormHtml(siteId, pmOptions, drawingOperativeOptions) : ''}
       `).join('')}
       ${files.map(f=>`
-        <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
+        <div class="card ${dwPanel && dwPanel.id===f.id && dwSplitOn(siteId) ? 'dwsel' : ''}" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${drawingFileIcon(f)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
             ${f.supersedes ? `<div class="meta">Supersedes "${escapeHtml(drawingNameById[f.supersedes]||'an earlier version')}"</div>` : ''}
           </div>
-          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
+          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="openDrawingPanel('${siteId}','${f.id}','${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
           ${canManage ? `<div class="taskicon" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
           ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
@@ -200,7 +200,7 @@ async function renderDrawings(siteId, folderId, opts){
         </div>
       ` : ''}
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
+  </div>${dwPanelHtml(siteId)}  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createDrawingFolder = async function(siteId, folderId){
   const input = document.getElementById('newDrawingFolderName');
@@ -537,4 +537,31 @@ function drawingMimeFromName(name){
     csv:'text/csv', txt:'text/plain', rtf:'application/rtf', dwg:'application/acad',
     ppt:'application/vnd.ms-powerpoint', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     zip:'application/zip'})[ext.toLowerCase()] || 'application/octet-stream';
+}
+
+// #(drawings-split-6a) 21 Oct (Andy): on a laptop / computer a drawing opens
+// in a panel on the right of the list (Coreloops style). Phones and the
+// phone app keep the full-screen viewer exactly as before.
+let dwPanel = null; // {siteId, id, url, isImage, name}
+function dwSplitOn(siteId){ return !!(dwPanel && dwPanel.siteId===siteId && typeof isDeskMode==='function' && isDeskMode()); }
+window.openDrawingPanel = function(siteId, id, url, isImage, name){
+  if(!(typeof isDeskMode==='function' && isDeskMode())){ viewDrawing(url, isImage, name); return; }
+  dwPanel = {siteId, id, url, isImage, name};
+  render();
+};
+window.closeDrawingPanel = function(){ dwPanel = null; render(); };
+function dwPanelHtml(siteId){
+  if(!dwSplitOn(siteId)) return '';
+  const p = dwPanel, isPdf = /\.pdf$/i.test(p.name) || /\.pdf($|\?)/i.test(p.url);
+  const dl = p.url + (p.url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(p.name);
+  const body = p.isImage ? `<div class="dwpanel-img"><img src="${escapeHtml(p.url)}" alt="" onclick="viewImage('${jsAttr(p.url)}')"></div>`
+    : isPdf ? `<iframe class="dwpanel-frame" src="${escapeHtml(p.url)}#view=FitH" title="${escapeHtml(p.name)}"></iframe>`
+    : `<div class="dwpanel-other"><div style="font-size:42px;">${drawingFileIcon({name:p.name})}</div><p class="stub" style="margin:8px 0 14px;">This file type can't be shown here.</p><button class="darkbtn" style="width:auto;" onclick="openExternalFile('${jsAttr(p.url)}')">Open ${escapeHtml(p.name)}</button></div>`;
+  return `<div class="dwpanel">
+    <div class="dwpanel-bar"><b title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</b>
+      <a class="ghostbtn dwpanel-btn" href="${escapeHtml(dl)}" target="_blank" rel="noopener">⬇ Download</a>
+      <button type="button" class="ghostbtn dwpanel-btn" onclick="viewDrawing('${jsAttr(p.url)}', ${p.isImage}, '${jsAttr(p.name)}')">⤢ Full screen</button>
+      <button type="button" class="ghostbtn dwpanel-btn" title="Close" onclick="closeDrawingPanel()">✕</button></div>
+    ${body}
+  </div>`;
 }

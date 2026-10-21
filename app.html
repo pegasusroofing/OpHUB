@@ -2210,6 +2210,83 @@ html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600
 /* Row ▾ action menus (Users etc.): sit above the next card, one line per item */
 .sitecard:has([data-rowactions-root] .statusmenu), .card:has([data-rowactions-root] .statusmenu){position:relative;z-index:40;overflow:visible;}
 [data-rowactions-root] .statusmenu{white-space:nowrap;min-width:200px;z-index:41;}
+
+/* #(fin-grid-2a) Finance › Projects spreadsheet grid */
+.fggrid .fgjob{display:inline-block;min-width:52px;text-align:center;font:800 11.5px 'Sora',-apple-system,sans-serif;background:var(--brand1,#E3262E);color:#fff;border-radius:9px;padding:7px 6px;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+.fggrid .fgjob.none{background:var(--warn-bg,#FFF4DE);color:var(--warn,#9A6200);}
+.fggrid td{vertical-align:middle;white-space:nowrap;}
+.fggrid td[data-l="Project"]{white-space:normal;min-width:160px;}
+.fggrid .fgwarn{color:var(--warn,#9A6200);}
+.fggrid tr.fg-hide{display:none !important;}
+.fggrid .fgfilters th{padding:6px 8px;background:#FBFBFC;cursor:default;}
+.fggrid .fgfilters input{width:100%;box-sizing:border-box;padding:5px 8px;font-size:12px;border-radius:8px;border:1px solid var(--line);text-transform:none;letter-spacing:0;font-weight:500;min-height:0;}
+.fgfoot{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin-top:-1px;padding:10px 14px;background:#14171C;color:#fff;border-radius:0 0 12px 12px;font-size:12.5px;}
+.fgfoot .fgfoot-bad{color:#FF9B9B;font-weight:700;}
+.fgfoot .fgfoot-n{margin-left:auto;opacity:.75;font-style:normal;}
+@media (max-width:700px){ .fggrid .fgfilters{display:none;} .fgfoot{border-radius:12px;margin-top:6px;} .fggrid td[data-l="Job"]{order:-3;} }
+/* #(fin-cards-3a) Finance job cards */
+html.finmode .fintile b{font-family:'Sora',-apple-system,sans-serif;font-size:22px;font-weight:800;}
+.fintile-ff{display:flex;justify-content:space-between;gap:6px;align-items:baseline;}
+.fintile-ff b{font-size:12px !important;font-weight:700 !important;font-family:inherit !important;color:var(--ink);}
+.fintile-f .finbar{margin-top:7px;}
+.fintile-x{font-size:11.5px;color:var(--slate);}
+.finbar.blue span{background:#3B6FC4;} .finbar.tan span{background:#C9A15A;} .finbar.green span{background:#1E9E55;}
+.finbar.warn span{background:#E08A00;}
+
+/* #(status-colours-4a) 21 Oct (Andy, option A): one colour language for
+   status pills — soft tint + a dot. green = done, amber = in progress / due,
+   red = overdue / problem, grey = not started / closed, blue = info /
+   scheduled. Colour only; no layout changes. */
+.statustag,.finpill,.sitecard .status{border-radius:999px !important;display:inline-flex;align-items:center;gap:5px;vertical-align:middle;}
+.statustag::before,.finpill::before,.sitecard .status::before{content:'';flex:none;width:6px;height:6px;border-radius:50%;background:currentColor;}
+.statustag.approved,.statustag.done,.statustag.complete,.finpill.ok,.sitecard .status.active,.sitecard .status.live{background:#E7F6EC !important;color:#1E7A43 !important;}
+.statustag.pending,.statustag.progress,.finpill.warn,.sitecard .status.upcoming{background:#FFF4DE !important;color:#9A6200 !important;}
+.statustag.rejected,.statustag.overdue,.finpill.bad{background:#FDE8E8 !important;color:#B42323 !important;}
+.statustag.closed,.statustag.grey,.finpill.grey,.sitecard .status.closed{background:#EEF0F3 !important;color:#5B6170 !important;}
+.statustag.sent,.statustag.info,.finpill.blue{background:#E8F0FB !important;color:#1F4F8F !important;}
+/* #(mat-chips-7a) */
+.matchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.matchip{display:inline-flex;align-items:center;gap:4px;border:1px solid #E3E6EB;background:#fff;border-radius:8px;padding:3px 8px;font-size:12px;color:#3A3D45;max-width:100%;overflow-wrap:anywhere;}
+.matchip b{color:var(--ink);font-weight:700;}
+.matchip.due{background:#FFF4DE;border-color:#F1DDB0;color:#9A6200;font-weight:700;}
+.matchip.note{white-space:normal;}
+.matago{font-size:11px;font-weight:500;color:var(--slate);margin-left:4px;white-space:nowrap;}
+/* #(drawings-split-6a) desktop only */
+html.desk .dwsplit-on{margin-right:calc((100vw - 248px) * .55);}
+html.desk .dwpanel{position:fixed;right:16px;top:104px;bottom:16px;width:calc((100vw - 248px) * .55 - 24px);background:#fff;border:1px solid #ECEEF2;border-radius:16px;box-shadow:0 10px 30px rgba(20,24,29,.10);display:flex;flex-direction:column;overflow:hidden;z-index:30;}
+.dwpanel-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #ECEEF2;}
+.dwpanel-bar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
+.dwpanel-btn{width:auto !important;margin:0 !important;padding:6px 12px !important;font-size:12px !important;flex:none;text-decoration:none;}
+.dwpanel-frame{flex:1;border:0;width:100%;background:#E9EBEF;}
+.dwpanel-img{flex:1;overflow:auto;background:#E9EBEF;display:flex;align-items:flex-start;justify-content:center;padding:14px;}
+.dwpanel-img img{max-width:100%;height:auto;cursor:zoom-in;box-shadow:0 4px 18px rgba(0,0,0,.15);}
+.dwpanel-other{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;}
+.card.dwsel{background:#FDF1F1;box-shadow:inset 3px 0 0 var(--brand1,#E3262E);}
+/* #(quick-search-9b) */
+.desknav-search{display:flex;align-items:center;gap:8px;width:100%;margin:8px 0 4px;padding:8px 12px;border:1px solid #ECEEF2;border-radius:12px;background:#F7F8FA;color:#6B7080;font:600 13px 'IBM Plex Sans',sans-serif;cursor:pointer;}
+.desknav-search:hover{background:#F0F2F5;color:var(--ink);}
+.desknav-search span:nth-child(2){flex:1;text-align:left;}
+.desknav-search kbd{font:600 10.5px 'IBM Plex Sans',sans-serif;border:1px solid #E3E6EB;background:#fff;border-radius:6px;padding:1px 6px;color:#8A90A0;}
+.qs-topbtn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;color:var(--slate);cursor:pointer;}
+.qs-topbtn:active{background:var(--paper);}
+.qs-overlay{position:fixed;inset:0;z-index:10040;background:rgba(16,17,20,.45);display:none;align-items:flex-start;justify-content:center;padding:10vh 16px 16px;box-sizing:border-box;}
+.qs-box{width:100%;max-width:620px;background:#fff;border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column;max-height:76vh;}
+.qs-in{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #ECEEF2;}
+.qs-in input{flex:1;border:0 !important;outline:0;font-size:16px;padding:6px 0 !important;background:transparent;box-shadow:none !important;min-height:0;}
+.qs-kbd{font:600 10.5px 'IBM Plex Sans',sans-serif;border:1px solid #E3E6EB;border-radius:6px;padding:1px 6px;color:#8A90A0;}
+.qs-res{overflow:auto;padding:4px 0 8px;}
+.qs-g{font:700 10.5px 'IBM Plex Sans',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8A90A0;padding:10px 16px 4px;}
+.qs-i{display:flex;align-items:center;gap:12px;padding:8px 16px;cursor:pointer;}
+.qs-i.on{background:#FDF1F1;box-shadow:inset 3px 0 0 var(--brand1,#E3262E);}
+.qs-ic{font-size:17px;width:22px;text-align:center;flex:none;}
+.qs-t{display:flex;flex-direction:column;min-width:0;}
+.qs-t b{font-size:14px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qs-t em{font-style:normal;font-size:12px;color:#6B7080;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qs-empty{padding:16px;color:#6B7080;font-size:13px;}
+.qs-foot{padding:8px 16px;border-top:1px solid #ECEEF2;font-size:11.5px;color:#8A90A0;}
+@media (max-width:700px){ .qs-foot{display:none;} .qs-overlay{padding-top:8px;} .qs-box{max-height:88vh;} }
+.fggrid tr.fincli-hide{display:none !important;}
+html.desk .finjobfilt .fincli-lbl{display:none;}
 </style>
 </head>
 <body>
@@ -5581,6 +5658,7 @@ function deskSidebar(opts){
         <div><div class="desknav-org">${escapeHtml((ORG && ORG.name) || 'OpHUB')}</div><div class="desknav-app">OpHUB</div></div>
       </div>
       ${finOnly ? (isFullManager(ME) && isFinanceUser() ? `<button type="button" class="desknav-add" onclick="openFinNewJob()">${ophIcon('plus', 18, 2.4)}<span>New job</span></button>` : '') : (isManager(ME) ? `<button type="button" class="desknav-add" onclick="openHomeAddProject()">${ophIcon('plus', 18, 2.4)}<span>New project</span></button>` : '')}
+      ${typeof qsSideBtnHtml==='function' ? qsSideBtnHtml() : ''}
       <nav>${items.map(i=>row(i, activeTop===i.k)).join('')}</nav>
       ${siteHtml}
       <div class="desknav-foot">
@@ -5968,8 +6046,8 @@ function shell(innerHtml, opts){
             <h2 style="cursor:pointer;${opts.titleTwoLine ? 'white-space:normal;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;' : ''}" onclick="goHome()">${escapeHtml(opts.title||'')}</h2>
             ${opts.subtitle ? `<div class="meta" style="cursor:pointer;" onclick="event.stopPropagation();copyHeaderSubtitle('${jsAttr(opts.subtitle)}','${jsAttr(opts.title||'')}')" title="Tap to copy">${escapeHtml(opts.subtitle)}</div>` : ''}
           </div>
-          <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;">
-            ${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
+          <div style="flex:0 0 auto;min-width:72px;display:flex;align-items:center;justify-content:flex-end;gap:6px;">
+            ${typeof qsTopBtnHtml==='function' ? qsTopBtnHtml() : ''}${ME && opts.showRoleChip ? `<span class="plaintag" style="margin-left:auto;">${personRoleLabel(ME)}</span>` : (ME && opts.siteId && opts.activeTab!=='home' && !(typeof isFinanceOnly==='function' && isFinanceOnly()) ? `<span class="homebtn" title="Site home" onclick="go('#/site/${opts.siteId}/home')">🏠</span>` : '')}
           </div>
         </div>
         `}
@@ -6280,6 +6358,105 @@ window.resetHowTo = async function(){
   toast('Tips are back on');
 };
 window.addEventListener('hashchange', ()=>{ const el = document.getElementById('howtoSheet'); if(el) el.remove(); });
+
+/* ================= QUICK SEARCH (21 Oct 2026, Andy: "the pop-up search is
+   cool — make it a non-intrusive search button"). A small 🔍 in the left
+   menu on a computer (and Ctrl+K / ⌘K), a small magnifier in the top bar on
+   a phone. Opens a pop-up that finds projects, people, reports and
+   documents, plus quick actions. Nothing is searched until you type. */
+let qsState = {q:'', sel:0, items:[], seq:0};
+function qsActions(){
+  const m = ME && isManager(ME);
+  const a = [];
+  if(m) a.push({ic:'➕', t:'New project', s:'Set up a new job', go:"openHomeAddProject()", raw:true});
+  a.push({ic:'🏗', t:'Projects', s:'All your projects', go:'#/sites'});
+  if(m){ a.push({ic:'🚚', t:'Deliveries', s:'Delivery schedule', go:'#/delivery'}, {ic:'📅', t:'Calendar', s:'', go:'#/calendar'}, {ic:'🔔', t:'HUB', s:'Messages and alerts', go:'#/hub'}, {ic:'📋', t:'Reports & surveys', s:'', go:'#/reports'}, {ic:'👷', t:'Operatives', s:'', go:'#/operatives'}, {ic:'⚙️', t:'Admin Centre', s:'', go:'#/team'}); }
+  else a.push({ic:'⚙️', t:'Settings', s:'', go:'#/account'});
+  return a;
+}
+window.qsOpen = function(){
+  if(!ME) return;
+  let ov = document.getElementById('qsOverlay');
+  if(!ov){
+    ov = document.createElement('div'); ov.id = 'qsOverlay'; ov.className = 'qs-overlay';
+    ov.innerHTML = `<div class="qs-box" onclick="event.stopPropagation()">
+      <div class="qs-in"><span>🔍</span><input id="qsInput" type="text" autocomplete="off" placeholder="Search projects, people, reports, documents…" oninput="qsType(this.value)" onkeydown="qsKey(event)"><kbd class="qs-kbd">Esc</kbd></div>
+      <div class="qs-res" id="qsRes"></div>
+      <div class="qs-foot">↑ ↓ to move · Enter to open · Esc to close</div></div>`;
+    ov.addEventListener('click', qsClose);
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  const inp = document.getElementById('qsInput'); inp.value = ''; qsState.q = ''; qsState.sel = 0;
+  qsPaint([]); setTimeout(()=>inp.focus(), 30);
+};
+window.qsClose = function(){ const ov = document.getElementById('qsOverlay'); if(ov) ov.style.display = 'none'; };
+function qsMatch(txt, q){ return String(txt||'').toLowerCase().includes(q); }
+window.qsType = function(v){
+  const q = String(v||'').trim().toLowerCase(); qsState.q = q; qsState.sel = 0;
+  const local = [];
+  if(q){
+    SITES.filter(s=>[s.name, s.job_number, s.address, s.postcode, s.client_name].some(x=>qsMatch(x, q))).slice(0,6)
+      .forEach(s=>local.push({g:'Projects', ic:'🏗', t:(s.job_number?s.job_number+' · ':'')+(s.name||''), s:[s.client_name, s.postcode].filter(Boolean).join(' · '), go:`#/site/${s.id}/home`}));
+    if(isManager(ME)) Object.values(PROFILES||{}).filter(p=>p && p.org_id===ME.org_id && [p.name, p.email, p.phone].some(x=>qsMatch(x, q))).slice(0,5)
+      .forEach(p=>local.push({g:'People', ic:'👷', t:p.name||p.email, s:[typeof personRoleLabel==='function'?personRoleLabel(p):p.role, p.phone].filter(Boolean).join(' · '), go:p.role==='operative'?`#/operatives`:'#/team'}));
+  }
+  qsActions().filter(a=>!q || qsMatch(a.t, q)).slice(0, q?4:8).forEach(a=>local.push(Object.assign({g:'Go to'}, a)));
+  qsPaint(local);
+  if(q.length >= 2) qsRemote(q, local);
+};
+async function qsRemote(q, local){
+  const my = ++qsState.seq;
+  const like = encodeURIComponent('*'+q.replace(/[*,()]/g,' ')+'*');
+  const siteName = id=>((SITES.find(s=>s.id===id)||{}).name)||'';
+  const [reps, docs] = await Promise.all([
+    isManager(ME) ? dbSelect('report_submissions', 'org_id=eq.'+ME.org_id+'&or=(template_name.ilike.'+like+',general_label.ilike.'+like+')&select=id,site_id,template_name,general_label,status,submitted_at&order=submitted_at.desc.nullslast&limit=5').catch(()=>[]) : Promise.resolve([]),
+    dbSelect('drawing_files', 'name=ilike.'+like+'&status=eq.current&select=id,site_id,name,storage_path,folder_id&limit=6').catch(()=>[]),
+  ]);
+  if(my !== qsState.seq) return;
+  const more = [];
+  (reps||[]).filter(r=>r.site_id).forEach(r=>more.push({g:'Reports', ic:'📋', t:r.general_label||r.template_name||'Report', s:[siteName(r.site_id), r.status==='draft'?'Draft':''].filter(Boolean).join(' · '), go:`#/site/${r.site_id}/snagging/reports/${r.status==='draft'?'fill':'view'}/${r.id}`}));
+  (docs||[]).forEach(d=>more.push({g:'Documents', ic:/\.(jpe?g|png)$/i.test(d.storage_path||'')?'🖼':/\.docx?$/i.test(d.name||'')?'📝':'📐', t:d.name, s:siteName(d.site_id), go:`#/site/${d.site_id}/drawings${d.folder_id?'/'+d.folder_id:''}`}));
+  const acts = local.filter(x=>x.g==='Go to'), rest = local.filter(x=>x.g!=='Go to');
+  qsPaint(rest.concat(more, acts));
+}
+function qsPaint(items){
+  qsState.items = items; if(qsState.sel >= items.length) qsState.sel = 0;
+  const el = document.getElementById('qsRes'); if(!el) return;
+  if(!items.length){ el.innerHTML = `<div class="qs-empty">${qsState.q ? 'Nothing found for “'+escapeHtml(qsState.q)+'”.' : ''}</div>`; return; }
+  let last = '', html = '';
+  items.forEach((it, i)=>{
+    if(it.g!==last){ html += `<div class="qs-g">${escapeHtml(it.g)}</div>`; last = it.g; }
+    html += `<div class="qs-i ${i===qsState.sel?'on':''}" onmouseenter="qsHover(${i})" onclick="qsGo(${i})"><span class="qs-ic">${it.ic}</span><span class="qs-t"><b>${escapeHtml(it.t)}</b>${it.s?`<em>${escapeHtml(it.s)}</em>`:''}</span></div>`;
+  });
+  el.innerHTML = html;
+  const on = el.querySelector('.qs-i.on'); if(on && on.scrollIntoView) on.scrollIntoView({block:'nearest'});
+}
+window.qsHover = function(i){ qsState.sel = i; document.querySelectorAll('#qsRes .qs-i').forEach((e,k)=>e.classList.toggle('on', k===i)); };
+window.qsGo = function(i){
+  const it = qsState.items[i]; if(!it) return;
+  qsClose();
+  if(it.raw){ try{ (new Function(it.go))(); }catch(e){} return; }
+  go(it.go);
+};
+window.qsKey = function(e){
+  if(e.key==='Escape'){ e.preventDefault(); qsClose(); }
+  else if(e.key==='ArrowDown'){ e.preventDefault(); qsState.sel = Math.min(qsState.items.length-1, qsState.sel+1); qsPaint(qsState.items); }
+  else if(e.key==='ArrowUp'){ e.preventDefault(); qsState.sel = Math.max(0, qsState.sel-1); qsPaint(qsState.items); }
+  else if(e.key==='Enter'){ e.preventDefault(); qsGo(qsState.sel); }
+};
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && String(e.key).toLowerCase()==='k' && ME && !(typeof isFinanceOnly==='function' && isFinanceOnly())){ e.preventDefault(); qsOpen(); }
+});
+function qsSideBtnHtml(){
+  if(!ME || (typeof isFinanceOnly==='function' && isFinanceOnly())) return '';
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform||'');
+  return `<button type="button" class="desknav-search" onclick="qsOpen()"><span>🔍</span><span>Search</span><kbd>${mac?'⌘':'Ctrl'} K</kbd></button>`;
+}
+function qsTopBtnHtml(){
+  if(!ME || (typeof isDeskMode==='function' && isDeskMode()) || (typeof isFinanceOnly==='function' && isFinanceOnly()) || ME.role==='driver') return '';
+  return `<span class="qs-topbtn" title="Search" onclick="qsOpen()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></span>`;
+}
 
 /* ================= UNIFORM EXPORT / EMAIL / ONEDRIVE BUTTONS =================
    These buttons were built screen by screen and ended up with different
@@ -37229,7 +37406,8 @@ async function renderMaterialRequests(siteId){
           <div class="top">
             <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
               ${isPM && (m.status==='pending' || m.status==='sent') ? `<input type="checkbox" style="width:17px;height:17px;flex:0 0 17px;margin-top:2px;" ${selectedMaterialIds.has(m.id)?'checked':''} onclick="toggleMaterialSelect('${m.id}')">` : ''}
-              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}</div><div class="qty" style="overflow-wrap:break-word;">Qty ${escapeHtml(m.qty)}</div><div class="qty" style="overflow-wrap:break-word;">Requested by ${escapeHtml(nameOf(m.requested_by))}</div>${m.order_note ? `<div class="qty" style="overflow-wrap:break-word;">📝 ${escapeHtml(m.order_note)}</div>` : ''}${m.required_by_date ? `<div class="qty" style="color:var(--warn);font-size:13.5px;overflow-wrap:break-word;">Required by ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</div>` : ''}</div>
+              <div style="min-width:0;flex:1;"><div class="name" style="overflow-wrap:break-word;">${escapeHtml(m.item)}${m.created_at ? ` <span class="matago">${matAgo(m.created_at)}</span>` : ''}</div>
+                <div class="matchips"><span class="matchip"><b>Qty</b> ${escapeHtml(m.qty||'1')}</span><span class="matchip">👷 ${escapeHtml(nameOf(m.requested_by))}</span>${m.required_by_date ? `<span class="matchip due">📅 Needed ${new Date(m.required_by_date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>` : ''}${m.order_note ? `<span class="matchip note">📝 ${escapeHtml(m.order_note)}</span>` : ''}</div></div>
             </div>
             <div style="display:flex;align-items:center;gap:6px;flex:0 0 auto;">
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
@@ -37376,6 +37554,14 @@ async function renderMaterialRequests(siteId){
     ` : ''}
     ` : ''}
   `, {title:'Material Requests', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back: `#/site/${siteId}/materials`, siteId, activeTab:'materials'}); }
+}
+
+// #(mat-chips-7a) 21 Oct (Andy): request facts as small chips under the title.
+function matAgo(ts){
+  const d = (Date.now() - new Date(ts).getTime())/864e5;
+  if(!(d>=0)) return '';
+  if(d < 1) return 'today'; if(d < 2) return 'yesterday'; if(d < 14) return Math.floor(d)+'d ago';
+  if(d < 60) return Math.floor(d/7)+'w ago'; return Math.floor(d/30)+'mo ago';
 }
 
 /* ================= MATERIALS — operative view + "Add to collections" =================
@@ -41045,7 +41231,7 @@ async function renderDrawings(siteId, folderId, opts){
   // chooser row instead, so nothing should pop open there uninvited.
   const isDrawingsFolderEmpty = !!currentFolder && subfolders.length===0 && files.length===0;
 
-  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`
+  if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="${dwSplitOn(siteId)?'dwsplit-on':''}">
     ${canManage ? `
       <div class="drawheaderrow">
         <span>Folder/File Name</span>
@@ -41080,13 +41266,13 @@ async function renderDrawings(siteId, folderId, opts){
         ${canManage && scheduleAssignTarget && scheduleAssignTarget.kind==='drawingfolder' && scheduleAssignTarget.id===f.id ? scheduleAssignFormHtml(siteId, pmOptions, drawingOperativeOptions) : ''}
       `).join('')}
       ${files.map(f=>`
-        <div class="card" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
+        <div class="card ${dwPanel && dwPanel.id===f.id && dwSplitOn(siteId) ? 'dwsel' : ''}" style="display:flex;align-items:center;gap:8px;padding:12px 14px;margin-bottom:10px;">
           <div class="swatch" style="flex:0 0 36px;width:36px;height:36px;font-size:16px;">${drawingFileIcon(f)}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:14px;color:var(--ink);white-space:normal;word-break:break-word;line-height:1.3;">${escapeHtml(f.name)}</div>
             ${f.supersedes ? `<div class="meta">Supersedes "${escapeHtml(drawingNameById[f.supersedes]||'an earlier version')}"</div>` : ''}
           </div>
-          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="viewDrawing('${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
+          <div class="ghostbtn" style="flex:0 0 52px;width:52px;text-align:center;padding:6px 3px;font-size:8.5px;cursor:pointer;" onclick="openDrawingPanel('${siteId}','${f.id}','${publicUrl('drawings', f.storage_path)}', ${/\.(jpe?g|png)$/i.test(f.storage_path)}, '${jsAttr(drawingDownloadFilename(f))}')">View</div>
           ${canManage ? `<div class="taskicon" onclick="renameDrawingFile('${f.id}','${jsAttr(f.name)}')">✏️</div>` : ''}
           ${canManage ? `<div class="taskicon danger" onclick="deleteDrawingFile('${f.id}','${jsAttr(f.storage_path)}')">🗑</div>` : ''}
         </div>
@@ -41157,7 +41343,7 @@ async function renderDrawings(siteId, folderId, opts){
         </div>
       ` : ''}
     ` : ''}
-  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
+  </div>${dwPanelHtml(siteId)}  `, {title: currentFolder ? currentFolder.name : 'Drawings', subtitle:fullSiteAddress(site), siteNameSubtitle:true, back:backHref, siteId, activeTab:'more'}); }
 }
 window.createDrawingFolder = async function(siteId, folderId){
   const input = document.getElementById('newDrawingFolderName');
@@ -41494,6 +41680,33 @@ function drawingMimeFromName(name){
     csv:'text/csv', txt:'text/plain', rtf:'application/rtf', dwg:'application/acad',
     ppt:'application/vnd.ms-powerpoint', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     zip:'application/zip'})[ext.toLowerCase()] || 'application/octet-stream';
+}
+
+// #(drawings-split-6a) 21 Oct (Andy): on a laptop / computer a drawing opens
+// in a panel on the right of the list (Coreloops style). Phones and the
+// phone app keep the full-screen viewer exactly as before.
+let dwPanel = null; // {siteId, id, url, isImage, name}
+function dwSplitOn(siteId){ return !!(dwPanel && dwPanel.siteId===siteId && typeof isDeskMode==='function' && isDeskMode()); }
+window.openDrawingPanel = function(siteId, id, url, isImage, name){
+  if(!(typeof isDeskMode==='function' && isDeskMode())){ viewDrawing(url, isImage, name); return; }
+  dwPanel = {siteId, id, url, isImage, name};
+  render();
+};
+window.closeDrawingPanel = function(){ dwPanel = null; render(); };
+function dwPanelHtml(siteId){
+  if(!dwSplitOn(siteId)) return '';
+  const p = dwPanel, isPdf = /\.pdf$/i.test(p.name) || /\.pdf($|\?)/i.test(p.url);
+  const dl = p.url + (p.url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(p.name);
+  const body = p.isImage ? `<div class="dwpanel-img"><img src="${escapeHtml(p.url)}" alt="" onclick="viewImage('${jsAttr(p.url)}')"></div>`
+    : isPdf ? `<iframe class="dwpanel-frame" src="${escapeHtml(p.url)}#view=FitH" title="${escapeHtml(p.name)}"></iframe>`
+    : `<div class="dwpanel-other"><div style="font-size:42px;">${drawingFileIcon({name:p.name})}</div><p class="stub" style="margin:8px 0 14px;">This file type can't be shown here.</p><button class="darkbtn" style="width:auto;" onclick="openExternalFile('${jsAttr(p.url)}')">Open ${escapeHtml(p.name)}</button></div>`;
+  return `<div class="dwpanel">
+    <div class="dwpanel-bar"><b title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</b>
+      <a class="ghostbtn dwpanel-btn" href="${escapeHtml(dl)}" target="_blank" rel="noopener">⬇ Download</a>
+      <button type="button" class="ghostbtn dwpanel-btn" onclick="viewDrawing('${jsAttr(p.url)}', ${p.isImage}, '${jsAttr(p.name)}')">⤢ Full screen</button>
+      <button type="button" class="ghostbtn dwpanel-btn" title="Close" onclick="closeDrawingPanel()">✕</button></div>
+    ${body}
+  </div>`;
 }
 
 /* ================= COSHH LIBRARY (Admin Centre, org-scoped master library) =================
@@ -50080,7 +50293,10 @@ function finForecastCardHtml(siteId, fc){
   window.__finFcLast = {siteId, fc};
   const pctCol = p=>p==null || Math.abs(p)<0.005 ? '' : (p<0 ? 'color:var(--red);' : 'color:var(--ok);');
   const diff = (now, orig)=>orig==null || now==null ? '' : (Math.abs(now-orig) < 0.5 ? '' : ` <i class="${now>orig?'up':'down'}">${now>orig?'+':'−'}${finMoney(Math.abs(now-orig), 0)}</i>`);
-  const bar = (p, warn)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''}"><span style="width:${v}%;"></span></div>`; };
+  const bar = (p, warn, tone)=>{ const v = p==null ? 0 : Math.max(0, Math.min(100, p)); return `<div class="finbar ${warn?'warn':''} ${tone||''}"><span style="width:${v}%;"></span></div>`; };
+  // #(fin-cards-3a) 21 Oct (Andy): Coreloops-style cards — big figure, then a
+  // footer of "label … value" (Original £x / Progress 72%).
+  const ff = (l, r)=>`<span class="fintile-ff"><span>${l}</span><b>${r}</b></span>`;
   const tile = (label, val, foot, extra, style)=>`<div class="fintile"><span class="fintile-l">${label}</span><b style="${style||''}">${val}</b>${extra||''}<span class="fintile-f">${foot}</span></div>`;
   const salesP = fc.ffa ? finRound(fc.sales/fc.ffa*100) : null;
   const costP = fc.budgetTotal ? finRound(fc.costToDate/fc.budgetTotal*100) : null;
@@ -50095,16 +50311,17 @@ function finForecastCardHtml(siteId, fc){
       </div>
     </div>
     <div class="fintiles">
-      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?'Started at '+finMoney(fc.origValue, 0)+(Math.abs((fc.ffa||0)-fc.origValue)>=0.5 && !fc.vAgreed ? ' · contract value edited since' : ''):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
-      ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?'Started at '+finMoney(fc.origCost, 0):'')+(fc.budgetSource==='schedule'?' · from the schedule':''), diff(fc.budgetTotal, fc.origCost))}
+      ${tile('Expected final value', finMoney(fc.ffa, 0), (fc.origValue!=null?ff('Original', finMoney(fc.origValue, 0)):'Contract plus agreed variations'), diff(fc.ffa, fc.origValue))}
+      ${tile('Budget (expected cost)', fc.budgetTotal!=null ? finMoney(fc.budgetTotal, 0) : '—', fc.budgetTotal==null ? `<a href="#/site/${siteId}/finance/budget">Set a budget</a>` : (fc.origCost!=null?ff('Original', finMoney(fc.origCost, 0)):(fc.budgetSource==='schedule'?'From the schedule':'&nbsp;')), diff(fc.budgetTotal, fc.origCost))}
       ${fc.budgetTotal==null ? tile('Expected profit', '—', 'Needs a budget') + tile('Expected profit %', '—', 'Needs a budget')
-        : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?'Started at '+finMoney(fc.origMargin, 0):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
-          + tile('Expected profit %', finPctTxt(fc.forecastMarginPct), fc.origMarginPct!=null?'Started at '+finPctTxt(fc.origMarginPct):'&nbsp;', '', pctCol(fc.forecastMarginPct))}
-      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced so far' : 'Work valued so far', finMoney(fc.sales, 0), finPctTxt(salesP)+' of the job', bar(salesP))}
-      ${tile('Cost so far', finMoney(fc.costToDate, 0), (fc.budgetTotal ? finPctTxt(costP)+' of budget' : '')+(fc.committedTotal ? (fc.budgetTotal?' · ':'')+'+ '+finMoney(fc.committedTotal, 0)+' ordered, not invoiced' : (fc.budgetTotal?'':'&nbsp;')), bar(costP, costP!=null && salesP!=null && costP > salesP + 5))}
+        : tile('Expected profit', finMoney(fc.forecastMargin, 0), fc.origMargin!=null?ff('Original', finMoney(fc.origMargin, 0)):'&nbsp;', diff(fc.forecastMargin, fc.origMargin), pctCol(fc.forecastMargin))
+          + tile('Expected profit %', finPctTxt(fc.forecastMarginPct), fc.origMarginPct!=null?ff('Original', finPctTxt(fc.origMarginPct)):'&nbsp;', '', pctCol(fc.forecastMarginPct))}
+      ${tile(fc.sales===fc.invoiced && fc.sales!==fc.valuation ? 'Invoiced so far' : 'Work valued so far', finMoney(fc.sales, 0), ff('Progress', finPctTxt(salesP))+bar(salesP, false, 'blue'))}
+      ${tile('Cost so far', finMoney(fc.costToDate, 0), (fc.budgetTotal ? ff('Of budget', finPctTxt(costP)) : ff('Budget', 'not set'))+bar(costP, costP!=null && salesP!=null && costP > salesP + 5, 'tan'), fc.committedTotal ? `<span class="fintile-x">+ ${finMoney(fc.committedTotal, 0)} ordered, not invoiced</span>` : '')}
       ${(()=>{ const on = typeof finMarginOn==='function' ? finMarginOn(fc) : {value:fc.sales, label:'value'}; const mg = finRound(on.value - fc.costToDate), mp = on.value ? finRound(mg/on.value*100) : null;
-        return tile('Profit so far'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), 'On '+finMoney(on.value, 0)+' '+on.label, '', pctCol(mg))
-          + tile('Profit so far %', finPctTxt(mp), 'On '+on.label, '', pctCol(mp)); })()}
+        const expP = fc.budgetTotal!=null && fc.forecastMargin ? finRound(mg/fc.forecastMargin*100) : null;
+        return tile('Profit so far'+(typeof finMarginMenuHtml==='function' ? ' '+finMarginMenuHtml() : ''), finMoney(mg, 0), (expP!=null ? ff('Of expected', finPctTxt(expP)) : ff('On '+on.label, finMoney(on.value, 0)))+bar(expP, mg<0, 'green'), '', pctCol(mg))
+          + tile('Profit so far %', finPctTxt(mp), ff('On', on.label), '', pctCol(mp)); })()}
     </div>
     <div class="finkv" style="margin-top:10px;"><span>Contract ${finMoney(fc.contract, 0)} · agreed variations ${finMoney(fc.vAgreed, 0)}${fc.vPending?' · waiting for agreement '+finMoney(fc.vPending, 0):''}</span><b>Expected final cost ${finMoney(fc.forecastCost, 0)}</b></div>
     ${noOrig ? `<div class="finkv"><span>Save today’s value and budget as the starting point, so you can see how the job moves.</span><b><button class="linkbtn" onclick="finSetOriginal('${siteId}')">Save starting point</button></b></div>`
@@ -51089,17 +51306,14 @@ async function renderFinJobs(sub){
     const clients = Array.from(new Set(sites.map(cliOf).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
     const filtHtml = `<div class="finjobfilt">
       <label>PM<select onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select></label>
-      <label>Client<input type="search" placeholder="Client name" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
+      <label class="fincli-lbl">Client<input type="search" placeholder="Client name" list="finJobCliList" value="${escapeHtml(f.client||'')}" oninput="finJobCli(this.value)"><datalist id="finJobCliList">${clients.map(c=>`<option value="${escapeHtml(c)}">`).join('')}</datalist></label>
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
       ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;
     body = finSecHead('Projects', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
       + `<div class="pmchips finjobchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
       + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
-      + finListHtml('finJobList', shown.map(s=>{ const p = posBy[s.id] || []; const v = (jfBy[s.id]||{}).contract_value; const poTxt = p.length ? p.map(x=>x.po_number).join(', ') : 'No client PO'; return `<button type="button" class="pmrow pmrow-card finrow ${finCliHide(cliOf(s)+' '+(s.client_name||''))}" data-cli="${escapeHtml((cliOf(s)+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, s.client_name, p.map(x=>x.po_number).join(' ')].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-          <span class="finjobno ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span>
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(s.name)}</span><span class="pmrow-s">${escapeHtml(s.client_name||'No client')} · <span style="${p.length?'':'color:var(--warn);'}">${escapeHtml(poTxt)}</span></span><span class="pmrow-s finjobstart">${s.start_date ? 'Start '+finDate(s.start_date) : 'No start date'}</span></span>
-          <span class="finval">${v ? finMoney(v, 0) : '<em>No value</em>'}</span></button>`; }), 'No '+(finHomeTab==='all'?'':finHomeTab+' ')+'projects.');
+      + finJobGridHtml(shown, {jfBy, posBy, invs, cliOf});
   }
   document.getElementById('app').innerHTML = shell(`${finSectionNav('jobs')}${finSubTabs('jobs', sub==='clients'?'clients':'list')}${body}`,
     {title:'Projects', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
@@ -53714,6 +53928,59 @@ async function pmToBookCounts(){ return {inv:0, wages:0}; }
 async function pmWagePushesHtml(){ return ''; }
 async function finOpPushToPm(){ return; }
 async function finScSyncSheet(){ return; }
+
+/* ============================================================
+   OpHUB Finance — Projects as a spreadsheet grid (21 Oct 2026, Andy: "2A
+   spreadsheet style, job number with the same tile effect").
+   A filter box under every column, the job number as a red tile like the
+   Projects cards, money columns right-aligned and a dark totals bar.
+   Column filters hide rows with .fg-hide, so they work alongside the
+   search box (liveFilter) and the Live / Upcoming / Closed chips.
+   ============================================================ */
+function finJobGridHtml(sites, o){
+  const invBy = {};
+  (o.invs||[]).forEach(i=>{ const r = invBy[i.site_id] = invBy[i.site_id] || {inv:0, owed:0, overdue:0};
+    if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstanding(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
+  const pmName = s=>s.responsible_pm_id ? ((PROFILES[s.responsible_pm_id]||{}).name||'PM') : '';
+  const rows = sites.map(s=>{
+    const p = o.posBy[s.id] || [], v = Number((o.jfBy[s.id]||{}).contract_value||0), m = invBy[s.id] || {inv:0, owed:0, overdue:0};
+    const st = finSiteStatus(s), stCls = st==='live' ? 'ok' : st==='upcoming' ? 'grey' : 'blue';
+    const cli = o.cliOf(s) || s.client_name || '';
+    const po = p.map(x=>x.po_number).join(', ');
+    return {s, v, m, html:`<tr class="click ${finCliHide(cli+' '+(s.client_name||''))}" data-cli="${escapeHtml((cli+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, cli, s.client_name, po, pmName(s)].join(' '))}" onclick="go('#/site/${s.id}/finance')">
+      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span></td>
+      <td data-l="Project"><b>${escapeHtml(s.name||'')}</b></td>
+      <td data-l="Client">${escapeHtml(cli||'—')}</td>
+      <td data-l="Client PO" class="${po?'':'fgwarn'}">${escapeHtml(po||'No PO')}</td>
+      <td data-l="PM">${escapeHtml(pmName(s)||'—')}</td>
+      <td data-l="Status"><span class="finpill ${stCls}">${st[0].toUpperCase()+st.slice(1)}</span></td>
+      <td data-l="Start">${s.start_date ? finDate(s.start_date) : '—'}</td>
+      <td data-l="Value" class="num">${v ? finMoney(v, 0) : '<span class="stub" style="margin:0;">No value</span>'}</td>
+      <td data-l="Invoiced" class="num">${m.inv ? finMoney(m.inv, 0) : '—'}</td>
+      <td data-l="Owed" class="num ${m.overdue?'finbad':''}">${m.owed ? finMoney(m.owed, 0) : '—'}</td></tr>`};
+  });
+  const t = k=>rows.reduce((a,r)=>a+(k==='v'?r.v:r.m[k]),0);
+  const flt = (i, ph)=>`<th class="fgf"><input type="text" placeholder="${ph}" data-col="${i}" oninput="finGridFilter('finJobGrid')" onclick="event.stopPropagation()"></th>`;
+  return `<div id="finJobList"><div class="finreptbl-wrap"><table class="fincosttbl fininvtbl fggrid" id="finJobGrid">
+    <thead><tr><th>Job no</th><th>Project</th><th>Client</th><th>Client PO</th><th>PM</th><th>Status</th><th>Start</th><th class="num">Value</th><th class="num">Invoiced</th><th class="num">Owed</th></tr>
+    <tr class="fgfilters">${flt(0,'Filter')}${flt(1,'Filter')}${flt(2,'Client')}${flt(3,'PO')}${flt(4,'PM')}${flt(5,'Status')}<th></th><th></th><th></th><th></th></tr></thead>
+    <tbody>${rows.map(r=>r.html).join('')}</tbody>
+    </table></div>
+    <div class="empty lf-empty" style="${rows.length?'display:none;':''}">No projects here.</div>
+    ${rows.length ? `<div class="fgfoot" id="finJobGridFoot"><b>${rows.length} project${rows.length===1?'':'s'}</b><span>Value ${finMoney(t('v'), 0)}</span><span>Invoiced ${finMoney(t('inv'), 0)}</span><span>Owed ${finMoney(t('owed'), 0)}</span>${t('overdue') ? `<span class="fgfoot-bad">${finMoney(t('overdue'), 0)} overdue</span>` : ''}</div>` : ''}
+  </div>`;
+}
+window.finGridFilter = function(id){
+  const tb = document.getElementById(id); if(!tb) return;
+  const fs = Array.from(tb.querySelectorAll('.fgfilters input')).map(i=>({c:Number(i.dataset.col), q:i.value.trim().toLowerCase()})).filter(f=>f.q);
+  let n = 0;
+  tb.querySelectorAll('tbody tr').forEach(tr=>{
+    const ok = fs.every(f=>{ const td = tr.children[f.c]; return td && td.textContent.toLowerCase().includes(f.q); });
+    tr.classList.toggle('fg-hide', !ok); if(ok && tr.style.display!=='none') n++;
+  });
+  const foot = document.getElementById(id+'Foot');
+  if(foot){ let note = foot.querySelector('.fgfoot-n'); if(!note){ note = document.createElement('em'); note.className = 'fgfoot-n'; foot.appendChild(note); } note.textContent = fs.length ? n+' shown with filters' : ''; }
+};
 
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).
