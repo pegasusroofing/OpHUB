@@ -17,7 +17,7 @@ function finJobGridHtml(sites, o){
     const cli = o.cliOf(s) || s.client_name || '';
     const po = p.map(x=>x.po_number).join(', ');
     return {s, v, m, html:`<tr class="click ${finCliHide(cli+' '+(s.client_name||''))}" data-cli="${escapeHtml((cli+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, cli, s.client_name, po, pmName(s)].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span></td>
+      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span></td>
       <td data-l="Project"><b>${escapeHtml(s.name||'')}</b></td>
       <td data-l="Client">${escapeHtml(cli||'—')}</td>
       <td data-l="Client PO" class="${po?'':'fgwarn'}">${escapeHtml(po||'No PO')}</td>

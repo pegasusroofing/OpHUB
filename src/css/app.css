@@ -2284,3 +2284,7 @@ html.desk .finjobfilt .fincli-lbl{display:none;}
 .statustag.assigned{background:#E8F0FB !important;color:#1F4F8F !important;}
 .statustag.open{background:#FFF4DE !important;color:#9A6200 !important;}
 .statustag.collected{background:#E7F6EC !important;color:#1E7A43 !important;}
+
+/* job tiles locked to one size (long job numbers are cut short with …) */
+.fggrid .fgjob{width:58px;min-width:58px;max-width:58px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;padding:7px 4px;}
+.fggrid td[data-l="Job"]{width:66px;}

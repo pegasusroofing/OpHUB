@@ -2298,6 +2298,10 @@ html.desk .finjobfilt .fincli-lbl{display:none;}
 .statustag.assigned{background:#E8F0FB !important;color:#1F4F8F !important;}
 .statustag.open{background:#FFF4DE !important;color:#9A6200 !important;}
 .statustag.collected{background:#E7F6EC !important;color:#1E7A43 !important;}
+
+/* job tiles locked to one size (long job numbers are cut short with …) */
+.fggrid .fgjob{width:58px;min-width:58px;max-width:58px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;padding:7px 4px;}
+.fggrid td[data-l="Job"]{width:66px;}
 </style>
 </head>
 <body>
@@ -54058,7 +54062,7 @@ function finJobGridHtml(sites, o){
     const cli = o.cliOf(s) || s.client_name || '';
     const po = p.map(x=>x.po_number).join(', ');
     return {s, v, m, html:`<tr class="click ${finCliHide(cli+' '+(s.client_name||''))}" data-cli="${escapeHtml((cli+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, cli, s.client_name, po, pmName(s)].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}">${escapeHtml(s.job_number||'No no.')}</span></td>
+      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span></td>
       <td data-l="Project"><b>${escapeHtml(s.name||'')}</b></td>
       <td data-l="Client">${escapeHtml(cli||'—')}</td>
       <td data-l="Client PO" class="${po?'':'fgwarn'}">${escapeHtml(po||'No PO')}</td>
