@@ -51360,7 +51360,7 @@ async function renderFinanceHome(){
   if(appsDue.length) todo.push({tone:'warn', t:'Applications due this month', s:appsDue.map(finRepJobOr).join(', '), n:appsDue.length, go:one(appsDue, s=>`#/site/${s.id}/finance`, '#/finance/sales/apps')});
   if(overdueInv.length) todo.push({tone:'bad', t:'Overdue invoices', s:finMoney(overdue, 0)+' to chase', n:overdueInv.length, go:'#/finance/sales/invoices', pre:"finInvFilter='overdue';"});
   if(toApprove.length) todo.push({tone:'warn', t:'Supplier invoices to approve', s:finMoney(toApprove.reduce((t,i)=>t+Number(i.net||0),0), 0)+' excl. VAT', n:toApprove.length, go:'#/finance/purchases/invoices', pre:"finPiFilter='approve';"});
-  if(inbox.length) todo.push({tone:'blue', t:'Supplier invoices that need a job', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
+  if(inbox.length) todo.push({tone:'blue', t:'Unallocated supplier invoices', s:'We couldn’t tell the job — allocate them or send to a PM', n:inbox.length, go:'#/finance/purchases/invoices', pre:"finPiF='job';"});
   if(subApps.length) todo.push({tone:'warn', t:'Subcontractor applications to certify', s:'Send a payment or pay less notice in time', n:subApps.length, go:'#/finance/subs/apps', pre:"finSaFilter='received';"});
   if(retDue.length) todo.push({tone:'blue', t:'Retention to claim back', s:retDue.map(x=>finRepJobOr(x.s)).join(', '), n:retDue.length, go:'#/finance/sales/retention'});
   if(longHire.length) todo.push({tone:'warn', t:'Plant on hire over 4 weeks', s:longHire.map(h=>h.item).join(', '), n:longHire.length, go:'#/finance/purchases/plant'});
@@ -53291,23 +53291,23 @@ async function renderFinPurchases(sub){
     const F = {job:null, pm:null, approve:i=>['to_approve','query'].includes(i.status), unpaid:i=>i.status==='approved' && !i.paid_on, paid:i=>!!i.paid_on, all:()=>true};
     if(!(finPiF in F)) finPiF = 'approve';
     if(!finPiPicked){ const cnt = {job:needJob.length, pm:withPm.length, approve:toApprove.length, unpaid:unpaid.length}; if(!cnt[finPiF]) finPiF = ['job','approve','pm','unpaid'].find(k=>cnt[k]) || 'all'; }
-    const chips = [['job','Needs a job', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All filed', pinvs.length]];
+    const chips = [['job','Unallocated', needJob.length],['pm','With a PM', withPm.length],['approve','To approve', toApprove.length],['unpaid','Approved, not paid', unpaid.length],['paid','Paid', pinvs.filter(F.paid).length],['all','All filed', pinvs.length]];
     body = finSecHead('Supplier invoices', '+ Add invoices', "document.getElementById('finInboxUpload').click()")
       + `<input type="file" id="finInboxUpload" multiple accept="application/pdf,image/*" style="display:none;" onchange="finInboxUpload(this.files)">`
-      + `<p class="stub" style="margin:-4px 0 10px;">Supplier invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Needs a job</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
+      + `<p class="stub" style="margin:-4px 0 10px;">Supplier invoices emailed to your invoice address (or added here) are read for you. If we can tell the job — from our PO number, the job number, or the site postcode or address — they’re filed to it. If not, they wait in <b>Unallocated</b>: allocate it yourself or send it to a PM.${reading.length?` <b>Reading ${reading.length} now…</b>`:''}</p>`
       + `<div class="pmchips">${chips.map(([k,l,n])=>finChip(finPiF===k, l, n, `finPiF='${k}';finPiPicked=true;render()`)).join('')}</div>`;
     if(finPiF==='job' || finPiF==='pm'){
       const list = finPiF==='job' ? needJob : withPm;
       body += finSearchHtml('Search supplier, email or invoice no.', 'finPurList')
         + `<div id="finPurList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
-          <thead><tr><th>Supplier</th><th>Invoice no.</th><th>Received</th><th class="num">Total</th><th>${finPiF==='job'?'Why it needs a job':'Sent to'}</th><th></th></tr></thead>
+          <thead><tr><th>Supplier</th><th>Invoice no.</th><th>Received</th><th class="num">Total</th><th>${finPiF==='job'?'Why it’s unallocated':'Sent to'}</th><th></th></tr></thead>
           <tbody>${list.map(it=>{ const ex = it.extracted||{}; const last = (it.comments||[]).slice(-1)[0]; return `<tr class="click" data-lf="${lfText([ex.supplier, it.from_email, ex.invoice_no, it.subject].join(' '))}" onclick="openFinInboxItem('${it.id}')">
             <td data-l="Supplier" class="d"><b>${escapeHtml(ex.supplier||it.from_email||'Supplier invoice')}</b></td>
             <td data-l="Invoice no.">${escapeHtml(ex.invoice_no||'—')}</td>
             <td data-l="Received">${finDate(String(it.received_at).slice(0,10))}</td>
             <td data-l="Total" class="num">${ex.total!=null?finMoney(ex.total):'—'}</td>
             <td data-l="${finPiF==='job'?'Why':'Sent to'}">${finPiF==='job' ? `${it.stage==='pm_replied'?'<span class="finpill blue">PM replied</span> ':''}<span class="fininv-addr" style="font-size:12.5px;">${escapeHtml(it.stage==='pm_replied' && last ? last.name+': '+last.text : (it.query_reason||'Check it'))}</span>` : `${escapeHtml(((PROFILES[it.assigned_pm]||{}).name)||'PM')}<div class="fininv-addr">${it.assigned_at?finDate(String(it.assigned_at).slice(0,10)):''}</div>`}</td>
-            <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinInboxItem('${it.id}')">${finPiF==='job'?'Allocate':'Open'}</button></td></tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">${finPiF==='job' ? 'Nothing waiting — everything that came in was filed to a job.' : 'Nothing with a PM.'}</div>`}</div>`;
+            <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinInboxItem('${it.id}')">${finPiF==='job'?'Allocate':'Open'}</button></td></tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">${finPiF==='job' ? 'Nothing unallocated — everything that came in was filed to a job.' : 'Nothing with a PM.'}</div>`}</div>`;
     } else {
       const list = sortBy(pinvs.filter(F[finPiF]).filter(fOK), 'invoice_date', 'total');
       body += filtBar() + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')
@@ -53342,7 +53342,7 @@ async function renderFinPurchases(sub){
     <div class="pmstats finstats">
       ${(()=>{ const pJ = finStatPeriod('p_job','all'), pU = finStatPeriod('p_pay','all'), pA = finStatPeriod('p_appr','all'), pC = finStatPeriod('p_ord','all');
         const poLeft = p=>Math.max(0, Number(p.value)-finPoInvoiced(p, live));
-        return finStatCardHtml({key:'p_job', def:'all', label:'Invoices that need a job', onclick:"finPiF='job';go('#/finance/purchases/invoices')", value:String(needJob.filter(i=>finInPeriod(i.received_at, pJ)).length)})
+        return finStatCardHtml({key:'p_job', def:'all', label:'Unallocated invoices', onclick:"finPiF='job';go('#/finance/purchases/invoices')", value:String(needJob.filter(i=>finInPeriod(i.received_at, pJ)).length)})
           + finStatCardHtml({key:'p_pay', def:'all', label:'To pay suppliers (incl. VAT)', onclick:"finPiF='unpaid';go('#/finance/purchases/invoices')", value:finMoney(unpaid.filter(i=>finInPeriod(i.invoice_date, pU)).reduce((t,i)=>t+Number(i.total||0),0), 0)})
           + finStatCardHtml({key:'p_appr', def:'all', label:'To approve', onclick:"finPiF='approve';go('#/finance/purchases/invoices')", value:String(toApprove.filter(i=>finInPeriod(i.invoice_date, pA)).length)})
           + finStatCardHtml({key:'p_ord', def:'all', label:'Ordered, not invoiced', onclick:"finPoF='open';go('#/finance/purchases/orders')", value:finMoney(finRound(openPos.filter(p=>p.value!=null && finInPeriod(p.created_at, pC)).reduce((t,p)=>t+poLeft(p),0)), 0)}); })()}
