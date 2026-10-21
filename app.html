@@ -23076,6 +23076,7 @@ window.deleteScheduleDocument = async function(siteId, docId){
 // #(sow-photo-alerts) Opening a job's Schedule of Works as a manager clears
 // its "new photos" item in HUB (once per visit, not on every redraw).
 let sowViewedFor = null;
+let sowShowAllAddr = false, sowShowAllAddrFor = null;
 function markSowViewed(siteId){
   if(!isManager(ME) || sowViewedFor===siteId || navigator.onLine===false) return;
   sowViewedFor = siteId;
@@ -23106,7 +23107,7 @@ async function renderSchedule(siteId){
   // visibility (see schedule_visibility_ok) — an operative or PM simply
   // never gets back a row they're not allowed to see, so nothing further
   // needs filtering client-side; admins always get everything back.
-  const [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs, sitePhotos] = await Promise.all([
+  let [allTasks, sections, subAddressesList, sectionFlags, siteAssignments, pmOptions, subCompanies, scheduleDocs, sitePhotos] = await Promise.all([
     dbSelect('schedule_tasks', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),
     isMultiSite ? dbSelect('site_sub_addresses', 'site_id=eq.'+siteId+'&order=name.asc') : Promise.resolve([]),
@@ -23125,6 +23126,19 @@ async function renderSchedule(siteId){
     canAdd ? loadAllProfiles() : null,
   ]);
   scheduleSectionsCache = sections;
+  // #(sow-checked-in-address) 2026-10-21 — on a multi-site job, whoever is
+  // checked in at one of its addresses sees only that address's tasks
+  // (with a "Show all addresses" button). Not checked in = everything.
+  let sowHereAddr = null;
+  if(isMultiSite){
+    try{
+      const lastCk = await dbSelect('checkins', 'site_id=eq.'+siteId+'&user_id=eq.'+ME.id+'&order=ts.desc&limit=1&select=type,sub_site_id');
+      if(lastCk[0] && lastCk[0].type==='in' && lastCk[0].sub_site_id) sowHereAddr = subAddressesList.find(a=>a.id===lastCk[0].sub_site_id) || null;
+    }catch(e){}
+    if(sowShowAllAddrFor!==siteId+'|'+(sowHereAddr?sowHereAddr.id:'')) sowShowAllAddr = false;
+    sowShowAllAddrFor = siteId+'|'+(sowHereAddr?sowHereAddr.id:'');
+    if(sowHereAddr && !sowShowAllAddr) allTasks = allTasks.filter(t=>t.sub_site_id===sowHereAddr.id);
+  }
   // Task changes made on this phone that are still waiting on their photos.
   try{ await sowPendingForRender(siteId, allTasks, null); }catch(e){}
   const operativeOptions = canAdd ? Object.values(PROFILES).filter(p=>siteAssignments.some(a=>a.user_id===p.id)).sort((a,b)=>a.name.localeCompare(b.name)) : [];
@@ -23211,7 +23225,12 @@ async function renderSchedule(siteId){
       <div style="flex:1;height:8px;border-radius:5px;background:var(--line);overflow:hidden;"><div style="height:100%;width:${overallPct}%;background:#2E9E5B;"></div></div>
       <b style="font-size:13px;color:var(--ink);">${overallPct}%</b>
     </div>` : '';
+  const hereAddrHtml = sowHereAddr ? `<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin:0 0 10px;">
+      <div style="flex:1;min-width:0;font-size:13px;">📍 ${sowShowAllAddr ? 'Showing <b>all addresses</b>' : `You're checked in at <b>${escapeHtml(sowHereAddr.name)}</b> — showing its tasks only`}</div>
+      <button type="button" class="ghostbtn" style="flex:0 0 auto;width:auto;margin:0;padding:6px 12px;font-size:11px;" onclick="sowShowAllAddr=!sowShowAllAddr;render()">${sowShowAllAddr ? 'Just '+escapeHtml(sowHereAddr.name) : 'Show all addresses'}</button>
+    </div>` : '';
   if(__gen === RENDER_GEN){ document.getElementById('app').innerHTML = shell(`<div class="sowpage">
+    ${hereAddrHtml}
     ${overallHtml}
     <div class="filterrow">
       ${scheduleTabOrder.map(k=>`<div class="filterchip ${scheduleFilter===k?'active':''}" onclick="scheduleFilter='${k}';uiReadCacheClear();render()">${scheduleTabLabel[k]}</div>`).join('')}
