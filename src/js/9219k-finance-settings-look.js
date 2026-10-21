@@ -99,3 +99,47 @@ function finSecHead(title, btnLabel, btnClick){
   html.finmode span.pmchip{cursor:default;}`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();
+
+/* 7. Tighter Finance pages (Andy, 21 Oct): less space above / below the page
+      title and the section tabs; a title-less section's button sits on the
+      right of the filter chips row; the search box sits in the filter row;
+      the Projects grid's header row is bold, underlined and centred. */
+(function(){
+  const css = `html.desk.finmode .appbar{padding-top:8px !important;padding-bottom:8px !important;}
+  html.desk.finmode .appbar .row{min-height:44px !important;}
+  html.desk.finmode .scrollarea{padding-top:12px !important;}
+  html.finmode .finsecnav{margin-bottom:10px !important;}
+  html.finmode .finsubtabs{margin-bottom:10px !important;}
+  html.finmode .finsechead-notitle{float:right;margin:0 0 0 12px !important;position:relative;z-index:2;}
+  html.finmode .finsechead-notitle h3{display:none;}
+  html.finmode .finsechead-notitle ~ div:not(.pmchips):not(.finsechead){clear:both;}
+  html.finmode .finjobfilt .fin-searchlbl{flex:1 1 240px;min-width:200px;max-width:380px;}
+  html.finmode .finjobfilt .fin-searchlbl input{width:100%;}
+  .fggrid thead tr:first-child th{font-weight:800 !important;text-decoration:underline;text-underline-offset:3px;text-align:center !important;color:var(--ink) !important;}
+  .fggrid tbody td, .fggrid tbody td.num{text-align:center !important;}
+  .fgfoot .fgcolbtn{margin-left:auto;background:#2A2F37;color:#fff;border:1px solid #3A404A;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+  .fgfoot .fgfoot-n + .fgcolbtn, .fgfoot .fgfoot-n{margin-left:auto;}
+  .fgcols-card{max-width:380px;width:100%;}
+  .fgcols-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:55vh;overflow-y:auto;}
+  .fgcols-row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:0;border-bottom:1px solid var(--line);background:#fff;font-size:13.5px;text-align:left;cursor:pointer;color:var(--ink);}
+  .fgcols-row:last-child{border-bottom:0;}
+  .fgcols-row[disabled]{cursor:default;color:var(--slate);}
+  .fgcols-row small{font-size:11px;color:var(--slate);}
+  .fgcols-ic{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;}
+  .fgcols-ic.on{background:#1e8a5a;} .fgcols-ic.off{background:#d64545;}
+  .fgcols-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+  // move the search box into the filter row next to the drop-downs
+  const tidy = ()=>{
+    if(!document.documentElement.classList.contains('finmode')) return;
+    document.querySelectorAll('#app .finjobfilt').forEach(row=>{
+      const nx = row.nextElementSibling;
+      if(!nx || !nx.classList.contains('formfield')) return;
+      const inp = nx.querySelector('input[oninput*="liveFilter"]'); if(!inp || nx.children.length!==1) return;
+      const lbl = document.createElement('label'); lbl.className = 'fin-searchlbl'; lbl.textContent = 'Search';
+      lbl.appendChild(inp); row.appendChild(lbl); nx.remove();
+    });
+  };
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 500); new MutationObserver(tidy).observe(app, {childList:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();

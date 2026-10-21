@@ -51072,7 +51072,7 @@ const FIN_REPORTS = [
     const rows = (b.vars||[]).filter(v=>ids.has(v.site_id) && (!f.varstatus || v.status===f.varstatus)).map(v=>{ const s = SITES.find(x=>x.id===v.site_id)||{}; return {job:finRepJob(s), no:v.number, title:v.title, on:v.instructed_on, status:FIN_VAR_STATUS[v.status]||v.status, cost:v.cost_estimate!=null?Number(v.cost_estimate):null, quoted:v.quoted!=null?Number(v.quoted):null, agreed:v.agreed_value!=null?Number(v.agreed_value):null, _go:`#/site/${v.site_id}/finance/variations`}; });
     return {cols:[{k:'job',l:'Project',w:120},{k:'no',l:'No.',w:40},{k:'title',l:'Variation',w:200},{k:'on',l:'Instructed',date:1},{k:'status',l:'Status',w:60},{k:'cost',l:'Our cost',money:1},{k:'quoted',l:'Quoted',money:1},{k:'agreed',l:'Agreed',money:1}], rows, totals:true};
   }},
-  {id:'apps', group:'qs', title:'Applications & certificates', desc:'Applied, certified, shortfall and invoice for every application.', filters:['status','job','dates'], run:async f=>{
+  {id:'apps', group:'qs', title:'Applications & Certificates', desc:'Applied, certified, shortfall and invoice for every application.', filters:['status','job','dates'], run:async f=>{
     const b = await finRepBookLoad(); const ids = new Set(finRepSites(f).map(s=>s.id));
     const invBy = {}; (b.invs||[]).forEach(i=>invBy[i.id]=i);
     const rows = (b.apps||[]).filter(a=>ids.has(a.site_id) && a.status!=='void' && (!f.from && !f.to || finInRange(a.valuation_date, f))).sort((x,y)=>String(y.valuation_date).localeCompare(String(x.valuation_date))).map(a=>{ const s = SITES.find(x=>x.id===a.site_id)||{}; const inv = invBy[a.invoice_id]; return {job:finRepJob(s), no:a.number, date:a.valuation_date, status:a.status, applied:Number(a.net_due||0), certified:a.cert_net!=null?Number(a.cert_net):null, short:a.cert_net!=null?finRound(Number(a.net_due||0)-Number(a.cert_net)):null, invoice:inv?inv.number:'', paid:inv?(finInvOutstanding(inv)>0?'Owed '+finMoney(finInvOutstanding(inv)):'Paid'):'', _go:`#/site/${a.site_id}/finance/application/${a.id}`}; });
@@ -51291,9 +51291,9 @@ const FIN_SECTIONS = [
 ];
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
-  sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
+  sales: [['apps','Applications & Certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Purchase invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
-  subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontractor POs','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
+  subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontractor POs','#/finance/subs/orders'], ['apps','Applications & Certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
   return `<nav class="finsecnav" aria-label="Finance sections">${FIN_SECTIONS.map(s=>`<button type="button" class="${s.k===active?'on':''}" onclick="go('${s.go}')">${s.l}</button>`).join('')}</nav>`;
@@ -53087,7 +53087,7 @@ async function renderFinSales(sub){
     if(!F[finSalesAppF]) finSalesAppF = 'open';
     if(!finSalesPicked && !apps.filter(F[finSalesAppF]).length) finSalesAppF = ['certified','open','invoiced'].find(k=>apps.filter(F[k]).length) || 'all';
     const list = apps.filter(F[finSalesAppF]);
-    body = finSecHead('Applications & certificates', '+ New application', "finPickJob('New application','newFinApplication')")
+    body = finSecHead('Applications & Certificates', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<p class="stub" style="margin:-4px 0 10px;">Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</p>`
       + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';finSalesPicked=true;render()`)).join('')}</div>`
       + finSearchHtml('Search project', 'finSalesList')
@@ -53592,7 +53592,7 @@ async function renderFinSubsSection(sub){
     const F = {open:a=>a.status==='received', certified:a=>a.status==='certified', paid:a=>a.status==='paid', all:()=>true};
     if(!F[finSaFilter]) finSaFilter = 'open';
     const list = sapps.filter(F[finSaFilter]);
-    body = finSecHead('Applications & certificates', '+ Record an application', 'finPickSubOrder()')
+    body = finSecHead('Applications & Certificates', '+ Record an application', 'finPickSubOrder()')
       + `<p class="stub" style="margin:-4px 0 10px;">A subcontractor applies → you certify it (that’s the certificate) and send the payment or pay-less notice before the final date → mark it paid.</p>`
       + `<div class="pmchips">${[['open','To certify'],['certified','Certified — to pay'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finSaFilter===k, l, sapps.filter(F[k]).length, `finSaFilter='${k}';render()`)).join('')}</div>`
       + finSearchHtml('Search subcontractor or project', 'finSubList')
@@ -54066,39 +54066,89 @@ async function finScSyncSheet(){ return; }
    Column filters hide rows with .fg-hide, so they work alongside the
    search box (liveFilter) and the Live / Upcoming / Closed chips.
    ============================================================ */
+/* Columns can be picked per person (21 Oct, Andy — like Construction
+   Manager's "Table options"): ⚙ Columns under the table. Saved on this
+   device. Invoiced / Owed are off by default. */
+const FIN_JOB_COLS = [
+  {k:'job', l:'Job no', fl:'Filter', on:1, lock:1},
+  {k:'name', l:'Project', fl:'Filter', on:1, lock:1},
+  {k:'client', l:'Client', fl:'Client', on:1},
+  {k:'po', l:'Client PO', fl:'PO', on:1},
+  {k:'pm', l:'PM', fl:'PM', on:1},
+  {k:'status', l:'Status', fl:'Status', on:1},
+  {k:'start', l:'Start', on:1},
+  {k:'postcode', l:'Postcode', fl:'Postcode', on:0},
+  {k:'value', l:'Value', num:1, on:1},
+  {k:'invoiced', l:'Invoiced', num:1, on:0},
+  {k:'owed', l:'Owed', num:1, on:0},
+  {k:'overdue', l:'Overdue', num:1, on:0},
+];
+function finJobColsOn(){
+  let saved = null; try{ saved = JSON.parse(localStorage.getItem('ophub.finJobCols')||'null'); }catch(e){}
+  return FIN_JOB_COLS.filter(c=>c.lock || (Array.isArray(saved) ? saved.includes(c.k) : c.on));
+}
 function finJobGridHtml(sites, o){
   const invBy = {};
   (o.invs||[]).forEach(i=>{ const r = invBy[i.site_id] = invBy[i.site_id] || {inv:0, owed:0, overdue:0};
     if(i.status!=='draft'){ r.inv += Number(i.total||0); const out = finInvOutstanding(i); r.owed += out; if(finInvOverdue(i)) r.overdue += out; } });
   const pmName = s=>s.responsible_pm_id ? ((PROFILES[s.responsible_pm_id]||{}).name||'PM') : '';
+  const cols = finJobColsOn();
   const rows = sites.map(s=>{
     const p = o.posBy[s.id] || [], v = Number((o.jfBy[s.id]||{}).contract_value||0), m = invBy[s.id] || {inv:0, owed:0, overdue:0};
     const st = finSiteStatus(s), stCls = st==='live' ? 'ok' : st==='upcoming' ? 'grey' : 'blue';
     const cli = o.cliOf(s) || s.client_name || '';
     const po = p.map(x=>x.po_number).join(', ');
-    return {s, v, m, html:`<tr class="click ${finCliHide(cli+' '+(s.client_name||''))}" data-cli="${escapeHtml((cli+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, cli, s.client_name, po, pmName(s)].join(' '))}" onclick="go('#/site/${s.id}/finance')">
-      <td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span></td>
-      <td data-l="Project"><b>${escapeHtml(s.name||'')}</b></td>
-      <td data-l="Client">${escapeHtml(cli||'—')}</td>
-      <td data-l="Client PO" class="${po?'':'fgwarn'}">${escapeHtml(po||'No PO')}</td>
-      <td data-l="PM">${escapeHtml(pmName(s)||'—')}</td>
-      <td data-l="Status"><span class="finpill ${stCls}">${st[0].toUpperCase()+st.slice(1)}</span></td>
-      <td data-l="Start">${s.start_date ? finDate(s.start_date) : '—'}</td>
-      <td data-l="Value" class="num">${v ? finMoney(v, 0) : '<span class="stub" style="margin:0;">No value</span>'}</td>
-      <td data-l="Invoiced" class="num">${m.inv ? finMoney(m.inv, 0) : '—'}</td>
-      <td data-l="Owed" class="num ${m.overdue?'finbad':''}">${m.owed ? finMoney(m.owed, 0) : '—'}</td></tr>`};
+    const cell = {
+      job:()=>`<td data-l="Job" class="d"><span class="fgjob ${s.job_number?'':'none'}" title="${escapeHtml(s.job_number||'')}">${escapeHtml(s.job_number||'No no.')}</span></td>`,
+      name:()=>`<td data-l="Project"><b>${escapeHtml(s.name||'')}</b></td>`,
+      client:()=>`<td data-l="Client">${escapeHtml(cli||'—')}</td>`,
+      po:()=>`<td data-l="Client PO" class="${po?'':'fgwarn'}">${escapeHtml(po||'No PO')}</td>`,
+      pm:()=>`<td data-l="PM">${escapeHtml(pmName(s)||'—')}</td>`,
+      status:()=>`<td data-l="Status"><span class="finpill ${stCls}">${st[0].toUpperCase()+st.slice(1)}</span></td>`,
+      start:()=>`<td data-l="Start">${s.start_date ? finDate(s.start_date) : '—'}</td>`,
+      postcode:()=>`<td data-l="Postcode">${escapeHtml(s.postcode||'—')}</td>`,
+      value:()=>`<td data-l="Value" class="num">${v ? finMoney(v, 0) : '<span class="stub" style="margin:0;">No value</span>'}</td>`,
+      invoiced:()=>`<td data-l="Invoiced" class="num">${m.inv ? finMoney(m.inv, 0) : '—'}</td>`,
+      owed:()=>`<td data-l="Owed" class="num ${m.overdue?'finbad':''}">${m.owed ? finMoney(m.owed, 0) : '—'}</td>`,
+      overdue:()=>`<td data-l="Overdue" class="num ${m.overdue?'finbad':''}">${m.overdue ? finMoney(m.overdue, 0) : '—'}</td>`,
+    };
+    return {s, v, m, html:`<tr class="click ${finCliHide(cli+' '+(s.client_name||''))}" data-cli="${escapeHtml((cli+' '+(s.client_name||'')).toLowerCase())}" data-lf="${lfText([s.job_number, s.name, cli, s.client_name, po, pmName(s), s.postcode].join(' '))}" onclick="go('#/site/${s.id}/finance')">${cols.map(c=>cell[c.k]()).join('')}</tr>`};
   });
   const t = k=>rows.reduce((a,r)=>a+(k==='v'?r.v:r.m[k]),0);
-  const flt = (i, ph)=>`<th class="fgf"><input type="text" placeholder="${ph}" data-col="${i}" oninput="finGridFilter('finJobGrid')" onclick="event.stopPropagation()"></th>`;
+  const has = k=>cols.some(c=>c.k===k);
   return `<div id="finJobList"><div class="finreptbl-wrap"><table class="fincosttbl fininvtbl fggrid" id="finJobGrid">
-    <thead><tr><th>Job no</th><th>Project</th><th>Client</th><th>Client PO</th><th>PM</th><th>Status</th><th>Start</th><th class="num">Value</th><th class="num">Invoiced</th><th class="num">Owed</th></tr>
-    <tr class="fgfilters">${flt(0,'Filter')}${flt(1,'Filter')}${flt(2,'Client')}${flt(3,'PO')}${flt(4,'PM')}${flt(5,'Status')}<th></th><th></th><th></th><th></th></tr></thead>
+    <thead><tr>${cols.map(c=>`<th class="${c.num?'num':''}">${c.l}</th>`).join('')}</tr>
+    <tr class="fgfilters">${cols.map((c,i)=>c.fl ? `<th class="fgf"><input type="text" placeholder="${c.fl}" data-col="${i}" oninput="finGridFilter('finJobGrid')" onclick="event.stopPropagation()"></th>` : '<th></th>').join('')}</tr></thead>
     <tbody>${rows.map(r=>r.html).join('')}</tbody>
     </table></div>
     <div class="empty lf-empty" style="${rows.length?'display:none;':''}">No projects here.</div>
-    ${rows.length ? `<div class="fgfoot" id="finJobGridFoot"><b>${rows.length} project${rows.length===1?'':'s'}</b><span>Value ${finMoney(t('v'), 0)}</span><span>Invoiced ${finMoney(t('inv'), 0)}</span><span>Owed ${finMoney(t('owed'), 0)}</span>${t('overdue') ? `<span class="fgfoot-bad">${finMoney(t('overdue'), 0)} overdue</span>` : ''}</div>` : ''}
+    <div class="fgfoot" id="finJobGridFoot">${rows.length ? `<b>${rows.length} project${rows.length===1?'':'s'}</b><span>Value ${finMoney(t('v'), 0)}</span>${has('invoiced')?`<span>Invoiced ${finMoney(t('inv'), 0)}</span>`:''}${has('owed')?`<span>Owed ${finMoney(t('owed'), 0)}</span>`:''}${t('overdue') && (has('owed')||has('overdue')) ? `<span class="fgfoot-bad">${finMoney(t('overdue'), 0)} overdue</span>` : ''}` : '<b>0 projects</b>'}
+      <button type="button" class="fgcolbtn" onclick="finJobColsOpen()">⚙ Columns</button></div>
   </div>`;
 }
+let finJobColsDraft = null;
+window.finJobColsOpen = function(){
+  finJobColsDraft = new Set(finJobColsOn().map(c=>c.k));
+  let ov = document.getElementById('finColsOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finColsOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.style.display = 'flex'; finJobColsPaint();
+};
+function finJobColsPaint(){
+  const ov = document.getElementById('finColsOverlay'); if(!ov) return;
+  ov.innerHTML = `<div class="geo-modal-card fgcols-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;"><h3 style="margin:0;">Table columns</h3><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="document.getElementById('finColsOverlay').style.display='none'">✕</button></div>
+    <p class="stub" style="margin:4px 0 10px;">Tick the columns you want to see. Saved on this device.</p>
+    <div class="fgcols-list">${FIN_JOB_COLS.map(c=>{ const on = c.lock || finJobColsDraft.has(c.k); return `<button type="button" class="fgcols-row" ${c.lock?'disabled':''} onclick="finJobColsTog('${c.k}')"><span>${c.l}${c.lock?' <small>(always shown)</small>':''}</span><span class="fgcols-ic ${on?'on':'off'}">${on?'✓':'✕'}</span></button>`; }).join('')}</div>
+    <div class="fgcols-btns"><button class="ghostbtn" style="margin:0;" onclick="document.getElementById('finColsOverlay').style.display='none'">Cancel</button><button class="darkbtn" style="margin:0;" onclick="finJobColsSave()">Confirm</button></div>
+    <button class="linkbtn" style="margin-top:10px;" onclick="finJobColsDraft=new Set(FIN_JOB_COLS.filter(c=>c.on).map(c=>c.k));finJobColsPaint()">Restore defaults</button>
+  </div>`;
+}
+window.finJobColsTog = function(k){ if(finJobColsDraft.has(k)) finJobColsDraft.delete(k); else finJobColsDraft.add(k); finJobColsPaint(); };
+window.finJobColsSave = function(){
+  try{ localStorage.setItem('ophub.finJobCols', JSON.stringify(Array.from(finJobColsDraft))); }catch(e){}
+  document.getElementById('finColsOverlay').style.display = 'none'; render();
+};
 window.finGridFilter = function(id){
   const tb = document.getElementById(id); if(!tb) return;
   const fs = Array.from(tb.querySelectorAll('.fgfilters input')).map(i=>({c:Number(i.dataset.col), q:i.value.trim().toLowerCase()})).filter(f=>f.q);
@@ -55121,6 +55171,50 @@ function finSecHead(title, btnLabel, btnClick){
   html.finmode .pmchip.on .finchip-n{background:var(--brand,#e3262b);color:#fff;}
   html.finmode span.pmchip{cursor:default;}`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* 7. Tighter Finance pages (Andy, 21 Oct): less space above / below the page
+      title and the section tabs; a title-less section's button sits on the
+      right of the filter chips row; the search box sits in the filter row;
+      the Projects grid's header row is bold, underlined and centred. */
+(function(){
+  const css = `html.desk.finmode .appbar{padding-top:8px !important;padding-bottom:8px !important;}
+  html.desk.finmode .appbar .row{min-height:44px !important;}
+  html.desk.finmode .scrollarea{padding-top:12px !important;}
+  html.finmode .finsecnav{margin-bottom:10px !important;}
+  html.finmode .finsubtabs{margin-bottom:10px !important;}
+  html.finmode .finsechead-notitle{float:right;margin:0 0 0 12px !important;position:relative;z-index:2;}
+  html.finmode .finsechead-notitle h3{display:none;}
+  html.finmode .finsechead-notitle ~ div:not(.pmchips):not(.finsechead){clear:both;}
+  html.finmode .finjobfilt .fin-searchlbl{flex:1 1 240px;min-width:200px;max-width:380px;}
+  html.finmode .finjobfilt .fin-searchlbl input{width:100%;}
+  .fggrid thead tr:first-child th{font-weight:800 !important;text-decoration:underline;text-underline-offset:3px;text-align:center !important;color:var(--ink) !important;}
+  .fggrid tbody td, .fggrid tbody td.num{text-align:center !important;}
+  .fgfoot .fgcolbtn{margin-left:auto;background:#2A2F37;color:#fff;border:1px solid #3A404A;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+  .fgfoot .fgfoot-n + .fgcolbtn, .fgfoot .fgfoot-n{margin-left:auto;}
+  .fgcols-card{max-width:380px;width:100%;}
+  .fgcols-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:55vh;overflow-y:auto;}
+  .fgcols-row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:0;border-bottom:1px solid var(--line);background:#fff;font-size:13.5px;text-align:left;cursor:pointer;color:var(--ink);}
+  .fgcols-row:last-child{border-bottom:0;}
+  .fgcols-row[disabled]{cursor:default;color:var(--slate);}
+  .fgcols-row small{font-size:11px;color:var(--slate);}
+  .fgcols-ic{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;}
+  .fgcols-ic.on{background:#1e8a5a;} .fgcols-ic.off{background:#d64545;}
+  .fgcols-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+  // move the search box into the filter row next to the drop-downs
+  const tidy = ()=>{
+    if(!document.documentElement.classList.contains('finmode')) return;
+    document.querySelectorAll('#app .finjobfilt').forEach(row=>{
+      const nx = row.nextElementSibling;
+      if(!nx || !nx.classList.contains('formfield')) return;
+      const inp = nx.querySelector('input[oninput*="liveFilter"]'); if(!inp || nx.children.length!==1) return;
+      const lbl = document.createElement('label'); lbl.className = 'fin-searchlbl'; lbl.textContent = 'Search';
+      lbl.appendChild(inp); row.appendChild(lbl); nx.remove();
+    });
+  };
+  const start = ()=>{ const app = document.getElementById('app'); if(!app) return setTimeout(start, 500); new MutationObserver(tidy).observe(app, {childList:true}); };
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
 
 /* ============================================================

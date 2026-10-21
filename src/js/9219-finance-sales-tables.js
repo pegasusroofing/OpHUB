@@ -115,7 +115,7 @@ async function renderFinSales(sub){
     if(!F[finSalesAppF]) finSalesAppF = 'open';
     if(!finSalesPicked && !apps.filter(F[finSalesAppF]).length) finSalesAppF = ['certified','open','invoiced'].find(k=>apps.filter(F[k]).length) || 'all';
     const list = apps.filter(F[finSalesAppF]);
-    body = finSecHead('Applications & certificates', '+ New application', "finPickJob('New application','newFinApplication')")
+    body = finSecHead('Applications & Certificates', '+ New application', "finPickJob('New application','newFinApplication')")
       + `<p class="stub" style="margin:-4px 0 10px;">Apply → the client certifies it (enter their figures on the application) → the invoice is raised for you. A certificate is just a certified application.</p>`
       + `<div class="pmchips">${[['open','In progress'],['certified','Certified — to invoice'],['invoiced','Invoiced'],['all','All']].map(([k,l])=>finChip(finSalesAppF===k, l, apps.filter(F[k]).length, `finSalesAppF='${k}';finSalesPicked=true;render()`)).join('')}</div>`
       + finSearchHtml('Search project', 'finSalesList')

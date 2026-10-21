@@ -69,7 +69,7 @@ async function renderFinSubsSection(sub){
     const F = {open:a=>a.status==='received', certified:a=>a.status==='certified', paid:a=>a.status==='paid', all:()=>true};
     if(!F[finSaFilter]) finSaFilter = 'open';
     const list = sapps.filter(F[finSaFilter]);
-    body = finSecHead('Applications & certificates', '+ Record an application', 'finPickSubOrder()')
+    body = finSecHead('Applications & Certificates', '+ Record an application', 'finPickSubOrder()')
       + `<p class="stub" style="margin:-4px 0 10px;">A subcontractor applies → you certify it (that’s the certificate) and send the payment or pay-less notice before the final date → mark it paid.</p>`
       + `<div class="pmchips">${[['open','To certify'],['certified','Certified — to pay'],['paid','Paid'],['all','All']].map(([k,l])=>finChip(finSaFilter===k, l, sapps.filter(F[k]).length, `finSaFilter='${k}';render()`)).join('')}</div>`
       + finSearchHtml('Search subcontractor or project', 'finSubList')
