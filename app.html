@@ -51288,7 +51288,7 @@ const FIN_SECTIONS = [
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
-  purchases: [['invoices','Supplier invoices','#/finance/purchases/invoices'], ['orders','Purchase orders','#/finance/purchases/orders'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
+  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontract orders','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
@@ -51405,14 +51405,7 @@ async function renderFinJobs(sub){
   const fo = typeof isFinanceOnly==='function' && isFinanceOnly();
   let body;
   if(sub==='clients'){
-    const by = {};
-    SITES.forEach(s=>{ const name = (jfBy[s.id]||{}).billing_name || s.client_name || 'No client'; const c = by[name] = by[name] || {name, email:(jfBy[s.id]||{}).billing_email||s.client_email||'', jobs:[], live:0, value:0, owed:0, overdue:0}; c.jobs.push(s); if(finSiteStatus(s)==='live'){ c.live++; c.value += Number((jfBy[s.id]||{}).contract_value||0); } });
-    invs.forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id); if(!s) return; const name = (jfBy[s.id]||{}).billing_name || s.client_name || 'No client'; if(by[name]){ by[name].owed += finInvOutstanding(i); if(finInvOverdue(i)) by[name].overdue += finInvOutstanding(i); } });
-    const list = Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
-    body = finSecHead('Clients') + finSearchHtml('Search clients', 'finClientList') + finListHtml('finClientList', list.map(c=>`<div class="pmrow pmrow-card finrow fincli" data-lf="${lfText([c.name, c.email, c.jobs.map(j=>j.name+' '+(j.job_number||'')).join(' ')].join(' '))}">
-      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(c.name)}</span><span class="pmrow-s">${c.jobs.length} job${c.jobs.length===1?'':'s'} · ${c.live} live${c.email?' · '+escapeHtml(c.email):''}</span>
-        <span class="fincli-jobs">${c.jobs.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</span></span>
-      <span class="finval">${finMoney(c.owed, 0)}<em>${c.overdue?`<span style="color:var(--red);">${finMoney(c.overdue, 0)} overdue</span>`:'owed'}</em></span></div>`), 'No clients yet.');
+    body = await finClientsHtml(jfBy, invs);
   } else {
     if(!['live','upcoming','closed','all'].includes(finHomeTab)) finHomeTab = 'live';
     const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
@@ -53070,7 +53063,7 @@ async function renderFinSales(sub){
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
-    dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&paid_on=gte.'+finToday().slice(0,7)+'-01&select=amount'),
+    dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on&limit=10000'),
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
   ]);
@@ -53116,10 +53109,11 @@ async function renderFinSales(sub){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('sales')}
     <div class="pmstats finstats">
-      <div class="pmstat" onclick="finInvFilter='outstanding';go('#/finance/sales/invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
-      <div class="pmstat" onclick="finInvFilter='paid';go('#/finance/sales/invoices')"><b>${finMoney(received, 0)}</b><span>Received this month</span></div>
-      <div class="pmstat" onclick="finInvFilter='overdue';go('#/finance/sales/invoices')"><b>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
-      <div class="pmstat" onclick="finSalesAppF='certified';go('#/finance/sales/apps')"><b>${toInvoice.length}</b><span>Certified, not invoiced</span></div>
+      ${(()=>{ const pO = finStatPeriod('s_owed','all'), pR = finStatPeriod('s_recv','month'), pD = finStatPeriod('s_over','all'), pC = finStatPeriod('s_cert','all');
+        return finStatCardHtml({key:'s_owed', def:'all', label:'Owed to you', onclick:"finInvFilter='outstanding';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>finInPeriod(i.issue_date, pO)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_recv', def:'month', label:'Received', onclick:"finInvFilter='paid';go('#/finance/sales/invoices')", value:finMoney(pays.filter(p=>finInPeriod(p.paid_on, pR)).reduce((t,p)=>t+Number(p.amount||0),0), 0)})
+          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_cert', def:'all', label:'Certified, not invoiced', onclick:"finSalesAppF='certified';go('#/finance/sales/apps')", value:String(toInvoice.filter(a=>finInPeriod(a.cert_date, pC)).length)}); })()}
     </div>
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}
     ${body}
@@ -53345,10 +53339,12 @@ async function renderFinPurchases(sub){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}
     <div class="pmstats finstats">
-      <div class="pmstat" onclick="finPiF='job';go('#/finance/purchases/invoices')"><b>${needJob.length}</b><span>Invoices that need a job</span></div>
-      <div class="pmstat" onclick="finPiF='unpaid';go('#/finance/purchases/invoices')"><b>${finMoney(unpaid.reduce((t,i)=>t+Number(i.total||0),0), 0)}</b><span>To pay suppliers (incl. VAT)</span></div>
-      <div class="pmstat" onclick="finPiF='approve';go('#/finance/purchases/invoices')"><b>${toApprove.length}</b><span>To approve</span></div>
-      <div class="pmstat" onclick="finPoF='open';go('#/finance/purchases/orders')"><b>${finMoney(committed, 0)}</b><span>Ordered, not invoiced</span></div>
+      ${(()=>{ const pJ = finStatPeriod('p_job','all'), pU = finStatPeriod('p_pay','all'), pA = finStatPeriod('p_appr','all'), pC = finStatPeriod('p_ord','all');
+        const poLeft = p=>Math.max(0, Number(p.value)-finPoInvoiced(p, live));
+        return finStatCardHtml({key:'p_job', def:'all', label:'Invoices that need a job', onclick:"finPiF='job';go('#/finance/purchases/invoices')", value:String(needJob.filter(i=>finInPeriod(i.received_at, pJ)).length)})
+          + finStatCardHtml({key:'p_pay', def:'all', label:'To pay suppliers (incl. VAT)', onclick:"finPiF='unpaid';go('#/finance/purchases/invoices')", value:finMoney(unpaid.filter(i=>finInPeriod(i.invoice_date, pU)).reduce((t,i)=>t+Number(i.total||0),0), 0)})
+          + finStatCardHtml({key:'p_appr', def:'all', label:'To approve', onclick:"finPiF='approve';go('#/finance/purchases/invoices')", value:String(toApprove.filter(i=>finInPeriod(i.invoice_date, pA)).length)})
+          + finStatCardHtml({key:'p_ord', def:'all', label:'Ordered, not invoiced', onclick:"finPoF='open';go('#/finance/purchases/orders')", value:finMoney(finRound(openPos.filter(p=>p.value!=null && finInPeriod(p.created_at, pC)).reduce((t,p)=>t+poLeft(p),0)), 0)}); })()}
     </div>
     ${finSubTabs('purchases', sub, {invoices:needJob.length+toApprove.length})}
     ${body}
@@ -54038,7 +54034,10 @@ if(FIN_TRIAL){
   const __finTrialMsg = 'Finance trial — switched off while testing';
   const __sbFetchLive = sbFetch;
   sbFetch = function(path, opts){
-    if(/\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
+    // Clients may talk to Xero (Andy, 21 Oct): reading customers and adding new ones.
+    let act = ''; try{ act = JSON.parse((opts && opts.body) || '{}').action || ''; }catch(e){}
+    const xeroClientOk = /\/functions\/v1\/xero\b/.test(String(path||'')) && ['status','customers','contact','create_contact','connect'].includes(act);
+    if(!xeroClientOk && /\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
       return Promise.resolve(new Response(JSON.stringify({error: __finTrialMsg}), {status:403, headers:{'Content-Type':'application/json'}}));
     }
     return __sbFetchLive(path, opts);
@@ -54322,6 +54321,188 @@ window.finPiCodeSave = async function(){
   .finpi-line-s select{flex:1;min-width:0;font-size:12.5px;padding:6px 8px;}
   @media (max-width:700px){ .finpi-checks{display:flex;} }`;
   try{ const st = document.createElement('style'); st.id = 'finPiReviewCss'; st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* ============================================================
+   OpHUB Finance — a ⋯ on each figure card to choose its date range
+   (21 Oct 2026, Andy: "owed to us (this month), date range, same for
+   received this month etc"). Remembered on this device per card.
+   ============================================================ */
+const FIN_PERIODS = [['month','This month'],['lastmonth','Last month'],['quarter','This quarter'],['year','This year'],['all','All time'],['custom','Pick dates…']];
+let FIN_STAT_P = {};
+try{ FIN_STAT_P = JSON.parse(localStorage.getItem('finStatP')||'{}') || {}; }catch(e){ FIN_STAT_P = {}; }
+let finStatMenuOpen = null;
+function finStatPeriod(key, def){
+  const p = FIN_STAT_P[key] || {k:def||'all'};
+  const t = finToday(), y = Number(t.slice(0,4)), m = Number(t.slice(5,7));
+  const pad = n=>String(n).padStart(2,'0');
+  const last = (yy,mm)=>new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  if(p.k==='month') return {k:p.k, from:`${y}-${pad(m)}-01`, to:t, label:'this month'};
+  if(p.k==='lastmonth'){ const yy = m===1?y-1:y, mm = m===1?12:m-1; return {k:p.k, from:`${yy}-${pad(mm)}-01`, to:`${yy}-${pad(mm)}-${pad(last(yy,mm))}`, label:'last month'}; }
+  if(p.k==='quarter'){ const qm = Math.floor((m-1)/3)*3+1; return {k:p.k, from:`${y}-${pad(qm)}-01`, to:t, label:'this quarter'}; }
+  if(p.k==='year') return {k:p.k, from:`${y}-01-01`, to:t, label:'this year'};
+  if(p.k==='custom' && p.from && p.to) return {k:p.k, from:p.from, to:p.to, label:finDate(p.from)+' – '+finDate(p.to)};
+  return {k:'all', from:null, to:null, label:'all time'};
+}
+function finInPeriod(d, r){ if(!r || !r.from) return true; const s = String(d||'').slice(0,10); return !!s && s>=r.from && s<=r.to; }
+// One figure card with a ⋯ period menu. o = {key, def, value, label, onclick, tone}
+function finStatCardHtml(o){
+  const r = finStatPeriod(o.key, o.def);
+  const open = finStatMenuOpen===o.key;
+  return `<div class="pmstat finstatp" onclick="${o.onclick||''}">
+    <button type="button" class="finstatp-dots" title="Change dates" onclick="event.stopPropagation();finStatMenuOpen=finStatMenuOpen==='${o.key}'?null:'${o.key}';render()">⋯</button>
+    ${open ? `<div class="finstatp-menu" onclick="event.stopPropagation()">${FIN_PERIODS.map(([k,l])=>`<div class="statusmenu-item ${r.k===k?'on':''}" onclick="finStatSet('${o.key}','${k}')">${r.k===k?'✓ ':''}${l}</div>`).join('')}</div>` : ''}
+    <b>${o.value}</b><span>${escapeHtml(o.label)} <em class="finstatp-l">${escapeHtml(r.label)}</em></span></div>`;
+}
+window.finStatSet = async function(key, k){
+  finStatMenuOpen = null;
+  if(k==='custom'){
+    const cur = FIN_STAT_P[key] || {};
+    const from = await customPrompt('From date (YYYY-MM-DD)', cur.from || finToday().slice(0,8)+'01'); if(from==null){ render(); return; }
+    const to = await customPrompt('To date (YYYY-MM-DD)', cur.to || finToday()); if(to==null){ render(); return; }
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(from.trim()) || !/^\d{4}-\d{2}-\d{2}$/.test(to.trim())){ toast('Use dates like '+finToday()); render(); return; }
+    FIN_STAT_P[key] = {k, from:from.trim(), to:to.trim()};
+  } else FIN_STAT_P[key] = {k};
+  try{ localStorage.setItem('finStatP', JSON.stringify(FIN_STAT_P)); }catch(e){}
+  render();
+};
+document.addEventListener('click', ()=>{ if(finStatMenuOpen){ finStatMenuOpen = null; render(); } });
+(function(){
+  const css = `.finstatp{position:relative;}
+  .finstatp-dots{position:absolute;top:6px;right:8px;width:28px;height:24px;border:0;background:transparent;border-radius:7px;font-size:16px;line-height:1;color:var(--slate);cursor:pointer;padding:0;}
+  .finstatp-dots:hover{background:rgba(0,0,0,.06);}
+  .finstatp-menu{position:absolute;top:32px;right:6px;z-index:50;background:#fff;border:1px solid #E3E6EB;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.15);padding:4px 0;min-width:170px;}
+  .finstatp-menu .statusmenu-item{padding:8px 14px;font-size:13px;white-space:nowrap;}
+  .finstatp-menu .statusmenu-item.on{font-weight:800;}
+  .finstatp-l{font-style:normal;opacity:.75;}
+  .finstatp-l::before{content:'· ';}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* ============================================================
+   OpHUB Finance › Projects › Clients (21 Oct 2026, Andy): one list of
+   clients that talks to Xero — "Pull from Xero" brings in every Xero
+   customer, "+ New client" adds one here and in Xero, and a client only
+   in OpHUB can be pushed to Xero. Each client's jobs sit in a drop-down.
+   Stored in fin_clients (finance only); clients named on projects /
+   invoices but not saved yet are still listed.
+   ============================================================ */
+let finCliBusy = '';
+async function finClientsHtml(jfBy, invs){
+  const saved = await dbSelect('fin_clients', 'org_id=eq.'+ME.org_id+'&order=name.asc&limit=5000').catch(()=>[]);
+  const by = {};
+  const key = n=>String(n||'').trim().toLowerCase();
+  saved.forEach(c=>{ by[key(c.name)] = {name:c.name, rec:c, email:c.email||'', jobs:[], live:0, owed:0, overdue:0}; });
+  SITES.forEach(s=>{ const name = (jfBy[s.id]||{}).billing_name || s.client_name || ''; if(!name) return;
+    const c = by[key(name)] = by[key(name)] || {name, rec:null, email:(jfBy[s.id]||{}).billing_email||s.client_email||'', jobs:[], live:0, owed:0, overdue:0};
+    c.jobs.push(s); if(finSiteStatus(s)==='live') c.live++; if(!c.email) c.email = (jfBy[s.id]||{}).billing_email||s.client_email||''; });
+  (invs||[]).forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id); if(!s || i.status==='void') return; const name = (jfBy[s.id]||{}).billing_name || s.client_name || ''; const c = by[key(name)]; if(!c) return;
+    c.owed += finInvOutstanding(i); if(finInvOverdue(i)) c.overdue += finInvOutstanding(i); });
+  const noClient = SITES.filter(s=>!((jfBy[s.id]||{}).billing_name || s.client_name));
+  const list = Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
+  const inXero = list.filter(c=>c.rec && c.rec.xero_contact_id).length;
+  const jobsDd = c=>c.jobs.length ? `<details class="fincli-dd" onclick="event.stopPropagation()"><summary>${c.jobs.length} job${c.jobs.length===1?'':'s'} · ${c.live} live</summary><div>${c.jobs.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</div></details>` : '<span class="stub" style="margin:0;">No jobs yet</span>';
+  const xTag = c=>c.rec && c.rec.xero_contact_id ? '<span class="finpill ok">In Xero</span>' : `<button type="button" class="ghostbtn finsmall" onclick="event.stopPropagation();finCliPush('${jsAttr(c.name)}')" ${finCliBusy?'disabled':''}>Add to Xero</button>`;
+  return `<div class="finsechead"><h3>Clients</h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="ghostbtn" style="width:auto;margin:0;" onclick="finCliPull()" ${finCliBusy?'disabled':''}>${finCliBusy==='pull'?'Pulling…':'⟳ Pull from Xero'}</button>
+      <button class="darkbtn" style="width:auto;margin:0;" onclick="openFinClientForm()">+ New client</button></div></div>
+    <p class="stub" style="margin:-4px 0 10px;">${list.length} client${list.length===1?'':'s'} · ${inXero} in Xero. New clients you add here go into Xero too.</p>
+    ${finSearchHtml('Search clients', 'finClientList')}
+    <div id="finClientList">${list.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl fincli-tbl">
+      <thead><tr><th>Client</th><th>Jobs</th><th>Xero</th><th class="num">Owed</th></tr></thead>
+      <tbody>${list.map(c=>`<tr data-lf="${lfText([c.name, c.email, c.jobs.map(j=>j.name+' '+(j.job_number||'')).join(' ')].join(' '))}">
+        <td data-l="Client" class="d"><b>${escapeHtml(c.name)}</b>${c.email?`<div class="fininv-addr">${escapeHtml(c.email)}</div>`:''}</td>
+        <td data-l="Jobs">${jobsDd(c)}</td>
+        <td data-l="Xero">${xTag(c)}</td>
+        <td data-l="Owed" class="num">${c.owed ? finMoney(c.owed, 0) : '—'}${c.overdue?`<div class="fininv-addr finbad">${finMoney(c.overdue, 0)} overdue</div>`:''}</td></tr>`).join('')}</tbody>
+    </table></div><div class="empty lf-empty" style="display:none;">No clients match.</div>` : '<div class="empty">No clients yet — pull them from Xero or add one.</div>'}</div>
+    ${noClient.length ? `<details class="fincli-dd" style="margin-top:10px;"><summary>${noClient.length} job${noClient.length===1?'':'s'} with no client set</summary><div>${noClient.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</div></details>` : ''}`;
+}
+function finCliXeroMsg(err){
+  const e = String(err||'');
+  if(/not_configured|not connected/i.test(e)) return 'Xero isn’t connected yet — connect it in Finance › Settings, then try again.';
+  return 'Xero: '+e.slice(0,140);
+}
+window.finCliPull = async function(){
+  if(finCliBusy) return; finCliBusy = 'pull'; render();
+  try{
+    const r = await finXeroCall('customers', {}, 90000);
+    if(r.error){ toast(finCliXeroMsg(r.error)); return; }
+    const list = r.customers || [];
+    const saved = await dbSelect('fin_clients', 'org_id=eq.'+ME.org_id+'&select=id,name,xero_contact_id&limit=5000');
+    const byX = {}, byN = {}; saved.forEach(c=>{ if(c.xero_contact_id) byX[c.xero_contact_id] = c; byN[String(c.name).trim().toLowerCase()] = c; });
+    let added = 0, linked = 0;
+    const now = new Date().toISOString();
+    for(const x of list){
+      const patch = {name:x.name, email:x.email||null, phone:x.phone||null, address:x.address||null, postcode:x.postcode||null, xero_contact_id:x.id, xero_synced_at:now};
+      const ex = byX[x.id] || byN[String(x.name).trim().toLowerCase()];
+      if(ex){ await dbUpdate('fin_clients', ex.id, patch); linked++; }
+      else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins) added++; }
+    }
+    toast(`From Xero: ${list.length} customer${list.length===1?'':'s'} — ${added} new, ${linked} updated`);
+  } finally { finCliBusy = ''; render(); }
+};
+async function finCliToXero(rec){
+  const lines = String(rec.address||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean);
+  const r = await finXeroCall('create_contact', {name:rec.name, email:rec.email||'', phone:rec.phone||'', line1:lines[0]||'', line2:lines.slice(1,-1).join(', '), city:lines.length>1?lines[lines.length-1]:'', postcode:rec.postcode||''});
+  if(r.error) return {error:r.error};
+  await dbUpdate('fin_clients', rec.id, {xero_contact_id:r.contact.id, xero_synced_at:new Date().toISOString()});
+  return {ok:true, existed:r.existed};
+}
+window.finCliPush = async function(name){
+  if(finCliBusy) return;
+  let rec = (await dbSelect('fin_clients', 'org_id=eq.'+ME.org_id+'&name=ilike.'+encodeURIComponent(name.replace(/[*%]/g,''))))[0];
+  if(!rec){
+    const s = SITES.find(x=>String(x.client_name||'').trim().toLowerCase()===name.trim().toLowerCase());
+    const ins = await dbInsert('fin_clients', {org_id:ME.org_id, created_by:ME.id, name:name.trim(), email:(s&&s.client_email)||null});
+    rec = ins && ins[0];
+  }
+  if(!rec){ toast('Could not save the client.'); return; }
+  finCliBusy = 'push'; render();
+  try{ const r = await finCliToXero(rec); toast(r.error ? finCliXeroMsg(r.error) : (r.existed ? 'Already in Xero — linked' : 'Added to Xero')); }
+  finally { finCliBusy = ''; render(); }
+};
+window.openFinClientForm = function(){
+  let ov = document.getElementById('finCliOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'finCliOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
+  ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.innerHTML = `<div class="geo-modal-card">
+    <h3>New client</h3>
+    <div class="formfield"><label class="field-label">Company / client name</label><input type="text" id="finCliName" placeholder="e.g. Forma London"></div>
+    <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finCliEmail" placeholder="accounts@…"></div>
+    <div class="formfield"><label class="field-label">Phone</label><input type="tel" id="finCliPhone"></div>
+    <div class="formfield"><label class="field-label">Address</label><textarea id="finCliAddr" rows="2" placeholder="Street, town"></textarea></div>
+    <div class="formfield"><label class="field-label">Postcode</label><input type="text" id="finCliPc" oninput="this.value=this.value.toUpperCase()"></div>
+    <label style="display:flex;align-items:center;gap:8px;margin:4px 0 12px;font-size:13.5px;"><input type="checkbox" id="finCliXero" checked style="width:auto;"> Add to Xero as well</label>
+    <button class="darkbtn" id="finCliSave" onclick="saveFinClient()">Save client</button>
+    <button class="geo-modal-cancel" onclick="document.getElementById('finCliOverlay').style.display='none'">Cancel</button>
+  </div>`;
+  ov.style.display = 'flex';
+  setTimeout(()=>{ const el = document.getElementById('finCliName'); if(el) el.focus(); }, 50);
+};
+window.saveFinClient = async function(){
+  const name = finVal('finCliName'); if(!name){ toast('Enter the client name.'); return; }
+  const dup = await dbSelect('fin_clients', 'org_id=eq.'+ME.org_id+'&name=ilike.'+encodeURIComponent(name.replace(/[*%]/g,'')));
+  if(dup.length){ toast('“'+dup[0].name+'” is already a client.'); return; }
+  const btn = document.getElementById('finCliSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  const ins = await dbInsert('fin_clients', {org_id:ME.org_id, created_by:ME.id, name, email:finVal('finCliEmail')||null, phone:finVal('finCliPhone')||null, address:finVal('finCliAddr')||null, postcode:finVal('finCliPc')||null});
+  const rec = ins && ins[0];
+  if(!rec){ if(btn){ btn.disabled = false; btn.textContent = 'Save client'; } return; }
+  const toX = document.getElementById('finCliXero') && document.getElementById('finCliXero').checked;
+  document.getElementById('finCliOverlay').style.display = 'none';
+  if(toX){ const r = await finCliToXero(rec); toast(r.error ? 'Client saved. '+finCliXeroMsg(r.error) : 'Client saved and added to Xero'); }
+  else toast('Client saved');
+  render();
+};
+(function(){
+  const css = `.fincli-dd summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);list-style:none;}
+  .fincli-dd summary::-webkit-details-marker{display:none;}
+  .fincli-dd summary::after{content:' ▾';color:var(--slate);}
+  .fincli-dd[open] summary::after{content:' ▴';}
+  .fincli-dd > div{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin-top:6px;max-height:220px;overflow:auto;}
+  .fincli-dd .linkbtn{font-size:12.5px;padding:2px 0;text-align:left;}
+  .fincli-tbl td{vertical-align:top;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();
 
 /* ============================================================

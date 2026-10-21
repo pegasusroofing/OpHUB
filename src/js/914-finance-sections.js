@@ -23,7 +23,7 @@ const FIN_SECTIONS = [
 const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
-  purchases: [['invoices','Supplier invoices','#/finance/purchases/invoices'], ['orders','Purchase orders','#/finance/purchases/orders'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
+  purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
   subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontract orders','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
@@ -140,14 +140,7 @@ async function renderFinJobs(sub){
   const fo = typeof isFinanceOnly==='function' && isFinanceOnly();
   let body;
   if(sub==='clients'){
-    const by = {};
-    SITES.forEach(s=>{ const name = (jfBy[s.id]||{}).billing_name || s.client_name || 'No client'; const c = by[name] = by[name] || {name, email:(jfBy[s.id]||{}).billing_email||s.client_email||'', jobs:[], live:0, value:0, owed:0, overdue:0}; c.jobs.push(s); if(finSiteStatus(s)==='live'){ c.live++; c.value += Number((jfBy[s.id]||{}).contract_value||0); } });
-    invs.forEach(i=>{ const s = SITES.find(x=>x.id===i.site_id); if(!s) return; const name = (jfBy[s.id]||{}).billing_name || s.client_name || 'No client'; if(by[name]){ by[name].owed += finInvOutstanding(i); if(finInvOverdue(i)) by[name].overdue += finInvOutstanding(i); } });
-    const list = Object.values(by).sort((a,b)=>a.name.localeCompare(b.name));
-    body = finSecHead('Clients') + finSearchHtml('Search clients', 'finClientList') + finListHtml('finClientList', list.map(c=>`<div class="pmrow pmrow-card finrow fincli" data-lf="${lfText([c.name, c.email, c.jobs.map(j=>j.name+' '+(j.job_number||'')).join(' ')].join(' '))}">
-      <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(c.name)}</span><span class="pmrow-s">${c.jobs.length} job${c.jobs.length===1?'':'s'} · ${c.live} live${c.email?' · '+escapeHtml(c.email):''}</span>
-        <span class="fincli-jobs">${c.jobs.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</span></span>
-      <span class="finval">${finMoney(c.owed, 0)}<em>${c.overdue?`<span style="color:var(--red);">${finMoney(c.overdue, 0)} overdue</span>`:'owed'}</em></span></div>`), 'No clients yet.');
+    body = await finClientsHtml(jfBy, invs);
   } else {
     if(!['live','upcoming','closed','all'].includes(finHomeTab)) finHomeTab = 'live';
     const sites = SITES.slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));

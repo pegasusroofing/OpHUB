@@ -96,7 +96,7 @@ async function renderFinSales(sub){
   const [invs0, apps, pays, jf, st] = await Promise.all([
     dbSelect('fin_invoices', 'org_id=eq.'+ME.org_id+'&order=created_at.desc&limit=3000'),
     dbSelect('fin_applications', 'org_id=eq.'+ME.org_id+'&order=valuation_date.desc&limit=3000&select=id,site_id,number,status,valuation_date,due_date,final_date,gross,net_due,cert_date,cert_gross,cert_net,cert_retention,cert_is_payless,invoice_id'),
-    dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&paid_on=gte.'+finToday().slice(0,7)+'-01&select=amount'),
+    dbSelect('fin_payments', 'org_id=eq.'+ME.org_id+'&select=amount,paid_on&limit=10000'),
     dbSelect('job_finance', 'org_id=eq.'+ME.org_id),
     finLoadSettings(),
   ]);
@@ -142,10 +142,11 @@ async function renderFinSales(sub){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('sales')}
     <div class="pmstats finstats">
-      <div class="pmstat" onclick="finInvFilter='outstanding';go('#/finance/sales/invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
-      <div class="pmstat" onclick="finInvFilter='paid';go('#/finance/sales/invoices')"><b>${finMoney(received, 0)}</b><span>Received this month</span></div>
-      <div class="pmstat" onclick="finInvFilter='overdue';go('#/finance/sales/invoices')"><b>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
-      <div class="pmstat" onclick="finSalesAppF='certified';go('#/finance/sales/apps')"><b>${toInvoice.length}</b><span>Certified, not invoiced</span></div>
+      ${(()=>{ const pO = finStatPeriod('s_owed','all'), pR = finStatPeriod('s_recv','month'), pD = finStatPeriod('s_over','all'), pC = finStatPeriod('s_cert','all');
+        return finStatCardHtml({key:'s_owed', def:'all', label:'Owed to you', onclick:"finInvFilter='outstanding';go('#/finance/sales/invoices')", value:finMoney(live.filter(i=>finInPeriod(i.issue_date, pO)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_recv', def:'month', label:'Received', onclick:"finInvFilter='paid';go('#/finance/sales/invoices')", value:finMoney(pays.filter(p=>finInPeriod(p.paid_on, pR)).reduce((t,p)=>t+Number(p.amount||0),0), 0)})
+          + finStatCardHtml({key:'s_over', def:'all', label:'Overdue', onclick:"finInvFilter='overdue';go('#/finance/sales/invoices')", value:finMoney(live.filter(finInvOverdue).filter(i=>finInPeriod(i.due_date, pD)).reduce((t,i)=>t+finInvOutstanding(i),0), 0)})
+          + finStatCardHtml({key:'s_cert', def:'all', label:'Certified, not invoiced', onclick:"finSalesAppF='certified';go('#/finance/sales/apps')", value:String(toInvoice.filter(a=>finInPeriod(a.cert_date, pC)).length)}); })()}
     </div>
     ${finSubTabs('sales', sub, {apps:toInvoice.length})}
     ${body}

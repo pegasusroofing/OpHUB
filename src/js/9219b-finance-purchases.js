@@ -203,10 +203,12 @@ async function renderFinPurchases(sub){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('purchases')}
     <div class="pmstats finstats">
-      <div class="pmstat" onclick="finPiF='job';go('#/finance/purchases/invoices')"><b>${needJob.length}</b><span>Invoices that need a job</span></div>
-      <div class="pmstat" onclick="finPiF='unpaid';go('#/finance/purchases/invoices')"><b>${finMoney(unpaid.reduce((t,i)=>t+Number(i.total||0),0), 0)}</b><span>To pay suppliers (incl. VAT)</span></div>
-      <div class="pmstat" onclick="finPiF='approve';go('#/finance/purchases/invoices')"><b>${toApprove.length}</b><span>To approve</span></div>
-      <div class="pmstat" onclick="finPoF='open';go('#/finance/purchases/orders')"><b>${finMoney(committed, 0)}</b><span>Ordered, not invoiced</span></div>
+      ${(()=>{ const pJ = finStatPeriod('p_job','all'), pU = finStatPeriod('p_pay','all'), pA = finStatPeriod('p_appr','all'), pC = finStatPeriod('p_ord','all');
+        const poLeft = p=>Math.max(0, Number(p.value)-finPoInvoiced(p, live));
+        return finStatCardHtml({key:'p_job', def:'all', label:'Invoices that need a job', onclick:"finPiF='job';go('#/finance/purchases/invoices')", value:String(needJob.filter(i=>finInPeriod(i.received_at, pJ)).length)})
+          + finStatCardHtml({key:'p_pay', def:'all', label:'To pay suppliers (incl. VAT)', onclick:"finPiF='unpaid';go('#/finance/purchases/invoices')", value:finMoney(unpaid.filter(i=>finInPeriod(i.invoice_date, pU)).reduce((t,i)=>t+Number(i.total||0),0), 0)})
+          + finStatCardHtml({key:'p_appr', def:'all', label:'To approve', onclick:"finPiF='approve';go('#/finance/purchases/invoices')", value:String(toApprove.filter(i=>finInPeriod(i.invoice_date, pA)).length)})
+          + finStatCardHtml({key:'p_ord', def:'all', label:'Ordered, not invoiced', onclick:"finPoF='open';go('#/finance/purchases/orders')", value:finMoney(finRound(openPos.filter(p=>p.value!=null && finInPeriod(p.created_at, pC)).reduce((t,p)=>t+poLeft(p),0)), 0)}); })()}
     </div>
     ${finSubTabs('purchases', sub, {invoices:needJob.length+toApprove.length})}
     ${body}

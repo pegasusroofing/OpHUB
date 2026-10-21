@@ -12,7 +12,10 @@ if(FIN_TRIAL){
   const __finTrialMsg = 'Finance trial — switched off while testing';
   const __sbFetchLive = sbFetch;
   sbFetch = function(path, opts){
-    if(/\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
+    // Clients may talk to Xero (Andy, 21 Oct): reading customers and adding new ones.
+    let act = ''; try{ act = JSON.parse((opts && opts.body) || '{}').action || ''; }catch(e){}
+    const xeroClientOk = /\/functions\/v1\/xero\b/.test(String(path||'')) && ['status','customers','contact','create_contact','connect'].includes(act);
+    if(!xeroClientOk && /\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
       return Promise.resolve(new Response(JSON.stringify({error: __finTrialMsg}), {status:403, headers:{'Content-Type':'application/json'}}));
     }
     return __sbFetchLive(path, opts);
