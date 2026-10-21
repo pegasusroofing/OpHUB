@@ -49,7 +49,7 @@ function finSubJobSelectHtml(id, siteId, selected, label){
 // Returns [{site_id, sub, share}] with shares adding up to 1.
 function finAllocs(row, ctx){
   if(Array.isArray(row.split) && row.split.length){
-    return row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||null, share:Number(e.pct||0)/100}));
+    return row.split.map(e=>({site_id:e.site_id, sub:e.sub_job_id||null, share:Number(e.pct||0)/100, cat:e.cost_code||null}));
   }
   // A supplier invoice on a PO follows the PO unless it has its own allocation.
   if(row.po_id && !row.sub_job_id && ctx && ctx.poBy && ctx.poBy[row.po_id]){
