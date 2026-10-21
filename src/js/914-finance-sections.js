@@ -31,6 +31,7 @@ function finSectionNav(active){
 }
 function finSubTabs(sec, active, badges){
   const subs = FIN_SUBS[sec] || []; badges = badges || {};
+  if(subs.length < 2) return ''; // one tab only (e.g. Projects) — no need to repeat the heading
   return `<div class="finsubtabs">${subs.map(([k,l,g])=>`<button type="button" class="${k===active?'on':''}" onclick="go('${g}')">${l}${badges[k]?` <span class="finsubtabs-n">${badges[k]}</span>`:''}</button>`).join('')}</div>`;
 }
 // Section pages: Back goes to the OpHUB home (nowhere for Finance-only companies).
@@ -160,7 +161,7 @@ async function renderFinJobs(sub){
       <label>Sort<select onchange="finJobFilt.sort=this.value;render()">${[['noza','Project no. (newest first)'],['noaz','Project no. (A–Z)'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>${l}</option>`).join('')}</select></label>
       ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;
-    body = finSecHead('Projects', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
+    body = finSecHead('', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
       + `<div class="pmchips finjobchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
       + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
       + finJobGridHtml(shown, {jfBy, posBy, invs, cliOf});
