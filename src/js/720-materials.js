@@ -236,6 +236,7 @@ async function renderMaterialRequests(siteId){
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
               ${isPM ? rowActionsMenuHtml('matreq-'+m.id, `
                 <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openMaterialEdit('${siteId}','${m.id}')">✎ Edit</div>
+                ${m.status==='pending' && typeof yardMoveOpen==='function' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;yardMoveOpen('issue','','${siteId}','${m.id}')">📦 Fill from yard stock</div>` : ''}
                 <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteMaterial('${siteId}','${m.id}')">🗑 Delete</div>
               `) : ''}
             </div>
@@ -272,7 +273,7 @@ async function renderMaterialRequests(siteId){
             <button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">🚚 Order from merchant</button>
             <button class="ghostbtn" style="flex:1;" onclick="materialToCollection('${siteId}','${m.id}')">📦 Add to collections</button>
           </div>
-          <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button>
+          <div class="row-gap" style="margin-top:8px;"><button class="ghostbtn" style="flex:1;margin:0;" onclick="yardMoveOpen('issue','','${siteId}','${m.id}')">🏗 From yard stock</button><button class="ghostbtn" style="flex:1;margin:0;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button></div>
           ` : ''}
           ${isPM && m.status==='sent' && !selectedMaterialIds.has(m.id) ? `
           <div class="row-gap" style="margin-top:10px;">
