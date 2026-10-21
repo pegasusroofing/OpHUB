@@ -2192,3 +2192,7 @@ html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600
 .howto-body .ghostbtn{width:auto !important;padding:7px 12px !important;font-size:12.5px !important;min-height:0 !important;}
 .howto-body .howto-off{font-size:12px;color:var(--slate);cursor:pointer;text-decoration:underline;}
 .finrun-steps.one{grid-template-columns:1fr;}
+
+/* Row ▾ action menus (Users etc.): sit above the next card, one line per item */
+.sitecard:has([data-rowactions-root] .statusmenu), .card:has([data-rowactions-root] .statusmenu){position:relative;z-index:40;overflow:visible;}
+[data-rowactions-root] .statusmenu{white-space:nowrap;min-width:200px;z-index:41;}

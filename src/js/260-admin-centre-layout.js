@@ -180,7 +180,7 @@ async function renderTeam(adminPage, adminItemKey){
   // and renderOperativeDetail.
   // Certifications is now per-operative (see the "Operatives" area) — this
   // section is just the root OneDrive folder link, so nothing to query here.
-  const smallBtn = 'width:auto;padding:7px 12px;font-size:12px;min-height:34px;';
+  const smallBtn = 'width:auto;padding:5px 8px;font-size:11px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   // Price Sheet rate card grouped by category, each item's dropdown
   // options (if any) attached — same shape the sheet builder itself uses.

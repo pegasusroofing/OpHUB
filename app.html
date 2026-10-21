@@ -2206,6 +2206,10 @@ html.finmode input[type=file]::file-selector-button{font:inherit;font-weight:600
 .howto-body .ghostbtn{width:auto !important;padding:7px 12px !important;font-size:12.5px !important;min-height:0 !important;}
 .howto-body .howto-off{font-size:12px;color:var(--slate);cursor:pointer;text-decoration:underline;}
 .finrun-steps.one{grid-template-columns:1fr;}
+
+/* Row ▾ action menus (Users etc.): sit above the next card, one line per item */
+.sitecard:has([data-rowactions-root] .statusmenu), .card:has([data-rowactions-root] .statusmenu){position:relative;z-index:40;overflow:visible;}
+[data-rowactions-root] .statusmenu{white-space:nowrap;min-width:200px;z-index:41;}
 </style>
 </head>
 <body>
@@ -4826,17 +4830,21 @@ window.setTeamMemberPhone = async function(userId){
 function roleActionsHtml(ME, p, allPeople){
   const {options, canRemove} = roleActionsFor(ME, p, allPeople);
   if(!options && !canRemove && !isFullManager(ME)) return '';
-  const smallBtn = 'width:auto;padding:7px 12px;font-size:12px;min-height:34px;'; // matches the smallBtn style used elsewhere in this admin screen
+  const smallBtn = 'width:auto;padding:5px 8px;font-size:11px;';
+  // Role stays a drop-down on the row; everything else sits under one ▾ menu
+  // (Andy, 21 Oct — the separate buttons were too big / too many).
+  const items = [];
+  if(isFullManager(ME) && p.role==='operative') items.push(`<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</div>`);
+  if(p.id===ME.id && typeof finHasAccess==='function' && finHasAccess()) items.push(`<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;setMyFinanceShown(${ME.finance_hidden?'true':'false'})">💷 Finance (trial): ${ME.finance_hidden?'Off — turn on':'On — turn off'}</div>`);
+  if(typeof finHasAccess==='function' && finHasAccess() && p.id!==ME.id && (p.role==='admin' || p.role==='pm')) items.push(`<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;toggleFinanceAccess('${p.id}')">💷 Finance: ${p.finance_enabled?'On — turn off':'Off — turn on'}</div>`);
+  if(isFullManager(ME)) items.push(`<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone)+' — change':'Add phone'}</div>`);
+  if(canRemove) items.push(`<div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;removeTeamMember('${p.id}','${jsAttr(p.name)}')">🗑 Remove</div>`);
   return `
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;" onclick="event.stopPropagation()">
+    <div style="display:flex;gap:6px;align-items:center;" onclick="event.stopPropagation()">
       ${options ? `<select style="${smallBtn}" onchange="setUserRole('${p.id}', this.value)">
         ${options.map(o=>`<option value="${o.value}" ${o.value===(isEstimator(p)?'estimator':p.role)?'selected':''}>${o.label}</option>`).join('')}
       </select>` : ''}
-      ${isFullManager(ME) && p.role==='operative' ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleSubformRequired('${p.id}')">📝 Sub form: ${p.subform_required===false?'Off':'On'}</button>` : ''}
-      ${typeof finHasAccess==='function' && finHasAccess() && p.id!==ME.id && (p.role==='admin' || p.role==='pm') ? `<button class="ghostbtn" style="${smallBtn}" onclick="toggleFinanceAccess('${p.id}')">💷 Finance: ${p.finance_enabled?'On':'Off'}</button>` : ''}
-      ${p.id===ME.id && typeof finHasAccess==='function' && finHasAccess() ? `<button class="ghostbtn" style="${smallBtn}" onclick="setMyFinanceShown(${ME.finance_hidden?'true':'false'})">💷 Finance (trial): ${ME.finance_hidden?'Off':'On'}</button>` : ''}
-      ${isFullManager(ME) ? `<button class="ghostbtn" style="${smallBtn}" onclick="setTeamMemberPhone('${p.id}')">📞 ${p.phone?escapeHtml(p.phone):'Add phone'}</button>` : ''}
-      ${canRemove ? `<button class="ghostbtn" style="${smallBtn}color:var(--warn);" onclick="removeTeamMember('${p.id}','${jsAttr(p.name)}')">Remove</button>` : ''}
+      ${items.length ? rowActionsMenuHtml('user-'+p.id, items.join('')) : ''}
     </div>
   `;
 }
@@ -9627,7 +9635,7 @@ async function renderTeam(adminPage, adminItemKey){
   // and renderOperativeDetail.
   // Certifications is now per-operative (see the "Operatives" area) — this
   // section is just the root OneDrive folder link, so nothing to query here.
-  const smallBtn = 'width:auto;padding:7px 12px;font-size:12px;min-height:34px;';
+  const smallBtn = 'width:auto;padding:5px 8px;font-size:11px;';
   const ddHdr = ''; // dropdown-row headers now share the app-wide .ddrow aesthetic (see CSS)
   // Price Sheet rate card grouped by category, each item's dropdown
   // options (if any) attached — same shape the sheet builder itself uses.
