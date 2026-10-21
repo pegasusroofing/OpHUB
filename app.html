@@ -50328,7 +50328,7 @@ function finCostLinesFromBook(b, siteId){
     });
     if(sc.order_value!=null && sc.status!=='complete'){
       const left = finRound(Number(sc.order_value) - certG);
-      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontractor PO not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }
   });
   return lines;
@@ -50681,13 +50681,13 @@ function finSubcontractsCardHtml(siteId, b){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <p class="sectiontitle" style="margin:0;">Subcontractors</p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinSubcontract('${siteId}')">+ Subcontract order</button>
+      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinSubcontract('${siteId}')">+ Subcontractor PO</button>
     </div>
     ${scs.length ? scs.map(sc=>{ const apps = appsOf(sc.id); const lastC = apps.filter(a=>a.certified_gross!=null).pop(); const waiting = apps.filter(a=>a.status==='received').length; return `<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/sub/${sc.id}')">
       <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.number)} · ${escapeHtml(sc.name)} ${waiting?`<span class="finpill warn">${waiting} to certify</span>`:''}</span>
         <span class="pmrow-s">${escapeHtml(sc.description||'')}${sc.description?' · ':''}certified ${finMoney(lastC?lastC.certified_gross:0, 0)}${sc.order_value!=null?' of '+finMoney(sc.order_value, 0):''}</span></span>
       <span class="finval">${sc.order_value!=null?finMoney(sc.order_value, 0):''}</span></button>`; }).join('')
-      : `<p class="stub" style="margin:8px 0 0;">No subcontract orders on this project. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
+      : `<p class="stub" style="margin:8px 0 0;">No subcontractor POs on this project. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
   </div>`;
 }
 
@@ -50703,7 +50703,7 @@ window.openFinSubcontract = async function(siteId, id){
   await finSubJobsLoad(siteId);
   finScLines = [];
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:640px;">
-    <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
+    <h3>${sc ? escapeHtml(sc.number)+' · subcontractor PO' : 'New subcontractor PO'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Subcontractor</label><input type="text" id="finScName" value="${v('name')}" placeholder="Company or person"></div>
@@ -50750,7 +50750,7 @@ window.saveFinSubcontract = async function(siteId, id){
   const saved = Array.isArray(r) ? r[0] : r;
   if(saved) await finScSyncSheet(siteId, Object.assign({}, saved, row, {id: saved.id || id}));
   document.getElementById('finScOverlay').style.display = 'none';
-  toast('Subcontract order saved');
+  toast('Subcontractor PO saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
 };
 
@@ -50928,7 +50928,7 @@ window.openFinSubNotice = async function(id){
   page.drawText(a.payless ? 'PAY LESS NOTICE' : 'PAYMENT NOTICE', {x:44, y:841.89-64, size:11, font:bold, color:PDFLib.rgb(1,1,1)});
   let y = 720;
   const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); const t = String(v==null?'—':v); const w = (b?bold:reg).widthOfTextAtSize(t, b?12:10.5); page.drawText(t, {x:551-w, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
-  kv('To', sc.name); kv('Subcontract order', sc.number+(sc.description?' — '+sc.description:'')); kv('Project', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
+  kv('To', sc.name); kv('Subcontractor PO', sc.number+(sc.description?' — '+sc.description:'')); kv('Project', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
   y -= 6; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:LINE}); y -= 8;
   kv('Amount applied for (gross to date)', finMoney(a.applied_gross)); kv('Amount certified (gross to date)', finMoney(a.certified_gross));
   kv('Less retention @ '+sc.retention_pct+'%', '−'+finMoney(a.retention)); kv('Less contra charges to date', '−'+finMoney(a.contra)); kv('Less previously certified', '−'+finMoney(a.previous));
@@ -51289,7 +51289,7 @@ const FIN_SUBS = {
   jobs: [['list','Projects','#/finance/jobs'], ['clients','Clients','#/finance/jobs/clients']],
   sales: [['apps','Applications & certificates','#/finance/sales/apps'], ['invoices','Invoices','#/finance/sales/invoices'], ['retention','Retention','#/finance/sales/retention']],
   purchases: [['orders','Purchase orders','#/finance/purchases/orders'], ['invoices','Supplier invoices','#/finance/purchases/invoices'], ['plant','Plant hire','#/finance/purchases/plant'], ['suppliers','Suppliers','#/finance/purchases/suppliers'], ['pricebook','Price book','#/finance/purchases/pricebook']],
-  subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontract orders','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
+  subs: [['opinv','Operative invoices','#/finance/subs/opinv'], ['payrun','Pay run','#/finance/labour/payrun'], ['orders','Subcontractor POs','#/finance/subs/orders'], ['apps','Applications & certificates','#/finance/subs/apps'], ['cis','CIS','#/finance/labour/cis'], ['rates','People & rates','#/finance/labour/rates']],
 };
 function finSectionNav(active){
   return `<nav class="finsecnav" aria-label="Finance sections">${FIN_SECTIONS.map(s=>`<button type="button" class="${s.k===active?'on':''}" onclick="go('${s.go}')">${s.l}</button>`).join('')}</nav>`;
@@ -51888,7 +51888,7 @@ const FIN_NEW_TYPES = [
   {l:'Variation', fn:'openFinVariation'},
   {l:'Purchase order', fn:'openFinNewPo'},
   {l:'Supplier invoice', fn:'openPurchaseInvoiceForm'},
-  {l:'Subcontract order', fn:'openFinSubcontract'},
+  {l:'Subcontractor PO', fn:'openFinSubcontract'},
   {l:'Plant hire', fn:'openFinPlantForm'},
   {l:'Cost', fn:'openFinJobCost'},
 ];
@@ -53573,7 +53573,7 @@ async function renderFinSubsSection(sub){
     const F = {active:s=>s.status!=='complete', complete:s=>s.status==='complete', all:()=>true};
     if(!F[finScF]) finScF = 'active';
     const list = scs.filter(F[finScF]);
-    body = finSecHead('Subcontract orders', '+ Subcontract order', "finPickJob('New subcontract order','openFinSubcontract')")
+    body = finSecHead('Subcontractor POs', '+ Subcontractor PO', "finPickJob('New subcontractor PO','openFinSubcontract')")
       + `<p class="stub" style="margin:-4px 0 10px;">For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding). Price sheets your PMs issue come in here by themselves.</p>`
       + `<div class="pmchips">${[['active','Active'],['complete','Complete'],['all','All']].map(([k,l])=>finChip(finScF===k, l, scs.filter(F[k]).length, `finScF='${k}';render()`)).join('')}</div>`
       + finSearchHtml('Search subcontractor or project', 'finSubList')
@@ -53612,11 +53612,11 @@ async function renderFinSubsSection(sub){
 // "+ Record an application": pick the subcontract order first.
 window.finPickSubOrder = async function(){
   const scs = (await dbSelect('fin_subcontracts', 'org_id=eq.'+ME.org_id+'&status=neq.complete&order=created_at.desc'));
-  if(!scs.length){ toast('Add a subcontract order first.'); go('#/finance/subs/orders'); return; }
+  if(!scs.length){ toast('Add a subcontractor PO first.'); go('#/finance/subs/orders'); return; }
   let ov = document.getElementById('finPickOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPickOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `<div class="geo-modal-card"><h3>Which subcontract order?</h3>
+  ov.innerHTML = `<div class="geo-modal-card"><h3>Which subcontractor PO?</h3>
     ${scs.map(sc=>`<button type="button" class="pmrow pmrow-card" style="margin:4px 0;" onclick="document.getElementById('finPickOverlay').style.display='none';openFinSubApp('${sc.site_id}','${sc.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.name)} · ${escapeHtml(sc.number)}</span><span class="pmrow-s">${escapeHtml(finJobTag(sc.site_id))}${sc.description?' · '+escapeHtml(sc.description):''}</span></span></button>`).join('')}
     <button class="geo-modal-cancel" onclick="document.getElementById('finPickOverlay').style.display='none'">Cancel</button></div>`;
   ov.style.display = 'flex';
@@ -54404,7 +54404,7 @@ async function finClientsHtml(jfBy, invs){
   const inXero = list.filter(c=>c.rec && c.rec.xero_contact_id).length;
   const jobsDd = c=>c.jobs.length ? `<details class="fincli-dd" onclick="event.stopPropagation()"><summary>${c.jobs.length} job${c.jobs.length===1?'':'s'} · ${c.live} live</summary><div>${c.jobs.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</div></details>` : '<span class="stub" style="margin:0;">No jobs yet</span>';
   const xTag = c=>c.rec && c.rec.xero_contact_id ? '<span class="finpill ok">In Xero</span>' : `<button type="button" class="ghostbtn finsmall" onclick="event.stopPropagation();finCliPush('${jsAttr(c.name)}')" ${finCliBusy?'disabled':''}>Add to Xero</button>`;
-  return `<div class="finsechead"><h3>Clients</h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
+  return `<div class="finsechead finsechead-notitle"><h3></h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="ghostbtn" style="width:auto;margin:0;" onclick="finCliPull()" ${finCliBusy?'disabled':''}>${finCliBusy==='pull'?'Pulling…':'⟳ Pull from Xero'}</button>
       <button class="darkbtn" style="width:auto;margin:0;" onclick="openFinClientForm()">+ New client</button></div></div>
     <p class="stub" style="margin:-4px 0 10px;">${list.length} client${list.length===1?'':'s'} · ${inXero} in Xero. New clients you add here go into Xero too.</p>
@@ -54651,7 +54651,7 @@ async function finSuppliersHtml(){
   if(finSupCat) list = list.filter(r=>(r.fin && r.fin.category)===finSupCat);
   const inXero = list.filter(r=>r.fin && r.fin.xero_contact_id).length;
   const xConn = typeof finXeroConnected==='function' && finXeroConnected();
-  return `<div class="finsechead"><h3>Suppliers</h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
+  return `<div class="finsechead finsechead-notitle"><h3></h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="ghostbtn" style="width:auto;margin:0;" onclick="finSupPull()" ${finSupBusy?'disabled':''}>${finSupBusy==='pull'?'Pulling…':'⟳ Pull from Xero'}</button>
       <button class="darkbtn" style="width:auto;margin:0;" onclick="openFinDirEdit('supplier','','')">+ New supplier</button></div></div>
     <p class="stub" style="margin:-4px 0 10px;">${list.length} supplier${list.length===1?'':'s'} · ${inXero} linked to Xero${xConn?'':' (Xero not connected yet)'}. Tap one to set VAT, payment terms and a default cost code.</p>
@@ -55088,6 +55088,21 @@ function renderFinReports(){
 /* 4. Subcontractors & labour: Pay run tab taken off (Andy, 21 Oct) — the
       page still works at #/finance/labour/payrun if it's ever wanted. */
 FIN_SUBS.subs = FIN_SUBS.subs.filter(t=>t[0]!=='payrun');
+
+/* 5. No repeated headings (Andy, 21 Oct): when a section's title is the same
+      as the tab you're on (Purchase orders, Supplier invoices, Cost codes…),
+      the title is left off and only its button shows. */
+function finSecHead(title, btnLabel, btnClick){
+  const tabLabels = new Set([].concat(...Object.values(FIN_SUBS)).map(t=>String(t[1]).toLowerCase()));
+  const t = tabLabels.has(String(title||'').toLowerCase()) ? '' : title;
+  return `<div class="finsechead${t?'':' finsechead-notitle'}"><h3>${escapeHtml(t||'')}</h3>${btnLabel?`<button class="darkbtn" onclick="${btnClick}">${btnLabel}</button>`:''}</div>`;
+}
+(function(){
+  const css = `.finsechead-notitle{margin-top:10px !important;}
+  .finsechead-notitle:not(:has(button)){display:none;}
+  .finsechead > h3:empty{flex:1;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
 
 /* ============================================================
    OpHUB Finance — no double taps (deep dive, 20 Oct).

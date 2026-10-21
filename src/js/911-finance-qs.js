@@ -101,7 +101,7 @@ function finCostLinesFromBook(b, siteId){
     });
     if(sc.order_value!=null && sc.status!=='complete'){
       const left = finRound(Number(sc.order_value) - certG);
-      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontract order not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
+      if(left > 0) lines.push({key:'sc:'+sc.id, date:String(sc.created_at||'').slice(0,10), cat:'committed', ccat:'subcontract', desc:'Subcontractor PO not yet certified', who:sc.name, ref:sc.number, status:'Committed', net:left, sub:sc.sub_job_id||null, share:1, open:`go('#/site/${siteId}/finance/sub/${sc.id}')`});
     }
   });
   return lines;

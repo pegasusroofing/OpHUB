@@ -26,7 +26,7 @@ const FIN_NEW_TYPES = [
   {l:'Variation', fn:'openFinVariation'},
   {l:'Purchase order', fn:'openFinNewPo'},
   {l:'Supplier invoice', fn:'openPurchaseInvoiceForm'},
-  {l:'Subcontract order', fn:'openFinSubcontract'},
+  {l:'Subcontractor PO', fn:'openFinSubcontract'},
   {l:'Plant hire', fn:'openFinPlantForm'},
   {l:'Cost', fn:'openFinJobCost'},
 ];

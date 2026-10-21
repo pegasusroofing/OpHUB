@@ -143,7 +143,7 @@ async function finSuppliersHtml(){
   if(finSupCat) list = list.filter(r=>(r.fin && r.fin.category)===finSupCat);
   const inXero = list.filter(r=>r.fin && r.fin.xero_contact_id).length;
   const xConn = typeof finXeroConnected==='function' && finXeroConnected();
-  return `<div class="finsechead"><h3>Suppliers</h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
+  return `<div class="finsechead finsechead-notitle"><h3></h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="ghostbtn" style="width:auto;margin:0;" onclick="finSupPull()" ${finSupBusy?'disabled':''}>${finSupBusy==='pull'?'Pulling…':'⟳ Pull from Xero'}</button>
       <button class="darkbtn" style="width:auto;margin:0;" onclick="openFinDirEdit('supplier','','')">+ New supplier</button></div></div>
     <p class="stub" style="margin:-4px 0 10px;">${list.length} supplier${list.length===1?'':'s'} · ${inXero} linked to Xero${xConn?'':' (Xero not connected yet)'}. Tap one to set VAT, payment terms and a default cost code.</p>

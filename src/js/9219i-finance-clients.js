@@ -22,7 +22,7 @@ async function finClientsHtml(jfBy, invs){
   const inXero = list.filter(c=>c.rec && c.rec.xero_contact_id).length;
   const jobsDd = c=>c.jobs.length ? `<details class="fincli-dd" onclick="event.stopPropagation()"><summary>${c.jobs.length} job${c.jobs.length===1?'':'s'} · ${c.live} live</summary><div>${c.jobs.map(j=>`<button type="button" class="linkbtn" onclick="go('#/site/${j.id}/finance')">${escapeHtml(finRepJobOr(j))}</button>`).join('')}</div></details>` : '<span class="stub" style="margin:0;">No jobs yet</span>';
   const xTag = c=>c.rec && c.rec.xero_contact_id ? '<span class="finpill ok">In Xero</span>' : `<button type="button" class="ghostbtn finsmall" onclick="event.stopPropagation();finCliPush('${jsAttr(c.name)}')" ${finCliBusy?'disabled':''}>Add to Xero</button>`;
-  return `<div class="finsechead"><h3>Clients</h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
+  return `<div class="finsechead finsechead-notitle"><h3></h3><div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="ghostbtn" style="width:auto;margin:0;" onclick="finCliPull()" ${finCliBusy?'disabled':''}>${finCliBusy==='pull'?'Pulling…':'⟳ Pull from Xero'}</button>
       <button class="darkbtn" style="width:auto;margin:0;" onclick="openFinClientForm()">+ New client</button></div></div>
     <p class="stub" style="margin:-4px 0 10px;">${list.length} client${list.length===1?'':'s'} · ${inXero} in Xero. New clients you add here go into Xero too.</p>

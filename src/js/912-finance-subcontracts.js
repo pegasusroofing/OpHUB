@@ -17,13 +17,13 @@ function finSubcontractsCardHtml(siteId, b){
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
       <p class="sectiontitle" style="margin:0;">Subcontractors</p>
-      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinSubcontract('${siteId}')">+ Subcontract order</button>
+      <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="openFinSubcontract('${siteId}')">+ Subcontractor PO</button>
     </div>
     ${scs.length ? scs.map(sc=>{ const apps = appsOf(sc.id); const lastC = apps.filter(a=>a.certified_gross!=null).pop(); const waiting = apps.filter(a=>a.status==='received').length; return `<button type="button" class="pmrow finrow fininvrow" onclick="go('#/site/${siteId}/finance/sub/${sc.id}')">
       <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.number)} · ${escapeHtml(sc.name)} ${waiting?`<span class="finpill warn">${waiting} to certify</span>`:''}</span>
         <span class="pmrow-s">${escapeHtml(sc.description||'')}${sc.description?' · ':''}certified ${finMoney(lastC?lastC.certified_gross:0, 0)}${sc.order_value!=null?' of '+finMoney(sc.order_value, 0):''}</span></span>
       <span class="finval">${sc.order_value!=null?finMoney(sc.order_value, 0):''}</span></button>`; }).join('')
-      : `<p class="stub" style="margin:8px 0 0;">No subcontract orders on this project. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
+      : `<p class="stub" style="margin:8px 0 0;">No subcontractor POs on this project. Add one for each subcontractor who applies to you for payment (e.g. leadwork, scaffolding).</p>`}
   </div>`;
 }
 
@@ -39,7 +39,7 @@ window.openFinSubcontract = async function(siteId, id){
   await finSubJobsLoad(siteId);
   finScLines = [];
   ov.innerHTML = `<div class="geo-modal-card" style="max-width:640px;">
-    <h3>${sc ? escapeHtml(sc.number)+' · subcontract order' : 'New subcontract order'}</h3>
+    <h3>${sc ? escapeHtml(sc.number)+' · subcontractor PO' : 'New subcontractor PO'}</h3>
     ${!sc && workers.length ? `<div class="formfield"><label class="field-label">From your workers list (optional)</label><select onchange="finScPickWorker(this.value)"><option value="">—</option>${workers.map(w=>`<option value="${w.id}">${escapeHtml(w.name||w.trading_name||'')}</option>`).join('')}</select></div>` : ''}
     <div class="fingrid2">
       <div class="formfield"><label class="field-label">Subcontractor</label><input type="text" id="finScName" value="${v('name')}" placeholder="Company or person"></div>
@@ -86,7 +86,7 @@ window.saveFinSubcontract = async function(siteId, id){
   const saved = Array.isArray(r) ? r[0] : r;
   if(saved) await finScSyncSheet(siteId, Object.assign({}, saved, row, {id: saved.id || id}));
   document.getElementById('finScOverlay').style.display = 'none';
-  toast('Subcontract order saved');
+  toast('Subcontractor PO saved');
   if(!id && r[0]) go('#/site/'+siteId+'/finance/sub/'+r[0].id); else render();
 };
 
@@ -264,7 +264,7 @@ window.openFinSubNotice = async function(id){
   page.drawText(a.payless ? 'PAY LESS NOTICE' : 'PAYMENT NOTICE', {x:44, y:841.89-64, size:11, font:bold, color:PDFLib.rgb(1,1,1)});
   let y = 720;
   const kv = (k, v, b)=>{ page.drawText(k, {x:44, y, size:10, font:reg, color:SLATE}); const t = String(v==null?'—':v); const w = (b?bold:reg).widthOfTextAtSize(t, b?12:10.5); page.drawText(t, {x:551-w, y, size:b?12:10.5, font:b?bold:reg, color:INK}); y -= b?22:18; };
-  kv('To', sc.name); kv('Subcontract order', sc.number+(sc.description?' — '+sc.description:'')); kv('Project', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
+  kv('To', sc.name); kv('Subcontractor PO', sc.number+(sc.description?' — '+sc.description:'')); kv('Project', (site.job_number?site.job_number+' · ':'')+(site.name||'')); kv('Your application', 'No. '+a.number+' dated '+finDate(a.app_date)); kv('Final date for payment', finDate(a.final_date)); kv('Date of this notice', finDate(a.notice_on||finToday()));
   y -= 6; page.drawLine({start:{x:44,y:y+8}, end:{x:551,y:y+8}, thickness:0.6, color:LINE}); y -= 8;
   kv('Amount applied for (gross to date)', finMoney(a.applied_gross)); kv('Amount certified (gross to date)', finMoney(a.certified_gross));
   kv('Less retention @ '+sc.retention_pct+'%', '−'+finMoney(a.retention)); kv('Less contra charges to date', '−'+finMoney(a.contra)); kv('Less previously certified', '−'+finMoney(a.previous));

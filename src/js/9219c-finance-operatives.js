@@ -56,7 +56,7 @@ async function renderFinSubsSection(sub){
     const F = {active:s=>s.status!=='complete', complete:s=>s.status==='complete', all:()=>true};
     if(!F[finScF]) finScF = 'active';
     const list = scs.filter(F[finScF]);
-    body = finSecHead('Subcontract orders', '+ Subcontract order', "finPickJob('New subcontract order','openFinSubcontract')")
+    body = finSecHead('Subcontractor POs', '+ Subcontractor PO', "finPickJob('New subcontractor PO','openFinSubcontract')")
       + `<p class="stub" style="margin:-4px 0 10px;">For subcontractors on a fixed price who apply for payment (e.g. leadwork, scaffolding). Price sheets your PMs issue come in here by themselves.</p>`
       + `<div class="pmchips">${[['active','Active'],['complete','Complete'],['all','All']].map(([k,l])=>finChip(finScF===k, l, scs.filter(F[k]).length, `finScF='${k}';render()`)).join('')}</div>`
       + finSearchHtml('Search subcontractor or project', 'finSubList')
@@ -95,11 +95,11 @@ async function renderFinSubsSection(sub){
 // "+ Record an application": pick the subcontract order first.
 window.finPickSubOrder = async function(){
   const scs = (await dbSelect('fin_subcontracts', 'org_id=eq.'+ME.org_id+'&status=neq.complete&order=created_at.desc'));
-  if(!scs.length){ toast('Add a subcontract order first.'); go('#/finance/subs/orders'); return; }
+  if(!scs.length){ toast('Add a subcontractor PO first.'); go('#/finance/subs/orders'); return; }
   let ov = document.getElementById('finPickOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finPickOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
-  ov.innerHTML = `<div class="geo-modal-card"><h3>Which subcontract order?</h3>
+  ov.innerHTML = `<div class="geo-modal-card"><h3>Which subcontractor PO?</h3>
     ${scs.map(sc=>`<button type="button" class="pmrow pmrow-card" style="margin:4px 0;" onclick="document.getElementById('finPickOverlay').style.display='none';openFinSubApp('${sc.site_id}','${sc.id}')"><span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(sc.name)} · ${escapeHtml(sc.number)}</span><span class="pmrow-s">${escapeHtml(finJobTag(sc.site_id))}${sc.description?' · '+escapeHtml(sc.description):''}</span></span></button>`).join('')}
     <button class="geo-modal-cancel" onclick="document.getElementById('finPickOverlay').style.display='none'">Cancel</button></div>`;
   ov.style.display = 'flex';

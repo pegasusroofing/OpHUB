@@ -71,3 +71,18 @@ function renderFinReports(){
 /* 4. Subcontractors & labour: Pay run tab taken off (Andy, 21 Oct) — the
       page still works at #/finance/labour/payrun if it's ever wanted. */
 FIN_SUBS.subs = FIN_SUBS.subs.filter(t=>t[0]!=='payrun');
+
+/* 5. No repeated headings (Andy, 21 Oct): when a section's title is the same
+      as the tab you're on (Purchase orders, Supplier invoices, Cost codes…),
+      the title is left off and only its button shows. */
+function finSecHead(title, btnLabel, btnClick){
+  const tabLabels = new Set([].concat(...Object.values(FIN_SUBS)).map(t=>String(t[1]).toLowerCase()));
+  const t = tabLabels.has(String(title||'').toLowerCase()) ? '' : title;
+  return `<div class="finsechead${t?'':' finsechead-notitle'}"><h3>${escapeHtml(t||'')}</h3>${btnLabel?`<button class="darkbtn" onclick="${btnClick}">${btnLabel}</button>`:''}</div>`;
+}
+(function(){
+  const css = `.finsechead-notitle{margin-top:10px !important;}
+  .finsechead-notitle:not(:has(button)){display:none;}
+  .finsechead > h3:empty{flex:1;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
