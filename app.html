@@ -55775,14 +55775,26 @@ window.yardPmOpen = async function(siteId){
   ov.innerHTML = `<div class="geo-modal-card yard-card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3 style="margin:0;">📦 Yard stock</h3><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="document.getElementById('yardPmOverlay').style.display='none'">✕</button></div>
     <p class="stub" style="margin:4px 0 10px;">What’s in the yard. Tap Issue to send it to ${escapeHtml(site?site.name:'this project')}.</p>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;">${yardCanEdit()?`<button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="yardItemOpen('')">+ New item</button><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="yardMoveOpen('in','')">⬇ Book stock in</button><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="yardMoveOpen('return','','${siteId}')">↩ Return from this job</button>`:''}</div>
-    <div class="formfield" style="margin-bottom:8px;"><input type="text" placeholder="Search the yard" oninput="liveFilter(this.value,'#yardPmList')"></div>
+    <div class="yard-sbtns">${yardCanEdit()?`<button type="button" class="yard-sbtn" onclick="yardItemOpen('')">+ New item</button><button type="button" class="yard-sbtn" onclick="yardMoveOpen('in','')">⬇ Book in</button><button type="button" class="yard-sbtn" onclick="yardMoveOpen('return','','${siteId}')">↩ Return from this job</button>`:''}</div>
+    <input type="text" class="yard-search" placeholder="Search the yard" oninput="liveFilter(this.value,'#yardPmList')">
     <div id="yardPmList" class="yard-pmlist">${items.length ? items.map(s=>`<div class="yard-pmrow" data-lf="${lfText([s.item, s.category, s.location].join(' '))}">
-      <div><b>${escapeHtml(s.item)}</b><span>${escapeHtml([s.category, s.location].filter(Boolean).join(' · '))}</span></div>
-      <div class="yard-pmq ${yardLow(s)?'low':''}">${yardQty(s.qty)} ${escapeHtml(s.unit||'')}${yardLow(s)?'<small>low</small>':''}</div>
-      <button class="darkbtn finsmall" style="width:auto;margin:0;" onclick="yardMoveOpen('issue','${s.id}','${siteId}')">Issue</button></div>`).join('') : '<div class="empty">Nothing in the yard list yet.</div>'}<div class="empty lf-empty" style="display:none;">Nothing matches.</div></div>
+      <div class="yard-pmname"><b>${escapeHtml(s.item)}</b>${s.category||s.location?`<span>${escapeHtml([s.category, s.location].filter(Boolean).join(' · '))}</span>`:''}</div>
+      <div class="yard-pmq ${yardLow(s)?'low':''}" title="In the yard">${yardQty(s.qty)} ${escapeHtml(s.unit||'')}${yardLow(s)?' · low':''}</div>
+      <input type="text" inputmode="decimal" class="yard-qin" id="yq-${s.id}" placeholder="Qty" onkeydown="if(event.key==='Enter')yardQuickIssue('${s.id}','${siteId}')">
+      <button type="button" class="yard-sbtn dark" onclick="yardQuickIssue('${s.id}','${siteId}')">Issue</button></div>`).join('') : '<div class="empty">Nothing in the yard list yet.</div>'}<div class="empty lf-empty" style="display:none;">Nothing matches.</div></div>
   </div>`;
   ov.style.display = 'flex';
+};
+
+window.yardQuickIssue = async function(stockId, siteId){
+  const el = document.getElementById('yq-'+stockId); const q = Number(String(el && el.value || '').replace(/[,\s]/g,''));
+  if(!(q > 0)){ toast('Enter the qty to issue.'); if(el) el.focus(); return; }
+  const s = yardCache && yardCache.items.find(x=>x.id===stockId); if(!s) return;
+  if(q > Number(s.qty||0) && !(await customConfirm(`Only ${yardQty(s.qty)} ${s.unit||''} showing in the yard. Issue ${yardQty(q)} anyway?`))) return;
+  const ins = await dbInsert('yard_moves', {org_id:ME.org_id, stock_id:stockId, kind:'issue', qty:q, site_id:siteId, created_by:ME.id});
+  if(!ins) return;
+  toast(`Issued ${yardQty(q)} ${s.unit||''} ${s.item}`.replace(/\s+/g,' '));
+  yardCache = null; yardPmOpen(siteId);
 };
 
 (function(){
@@ -55794,11 +55806,21 @@ window.yardPmOpen = async function(siteId){
   .yard-hist{border:1px solid var(--line);border-radius:10px;overflow:hidden;}
   .yard-hist > div{display:grid;grid-template-columns:90px 130px 1fr auto;gap:8px;padding:7px 10px;border-bottom:1px solid var(--line);font-size:12.5px;align-items:center;}
   .yard-hist > div:last-child{border-bottom:0;} .yard-hist em{color:var(--slate);font-style:normal;}
-  .yard-pmlist{border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-  .yard-pmrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--line);background:#fff;}
+  .yard-pmlist{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:60vh;overflow-y:auto;}
+  .yard-sbtns{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px;}
+  .yard-sbtn{all:unset;box-sizing:border-box;cursor:pointer;font-size:12px;font-weight:700;line-height:1;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:#fff;color:var(--ink);white-space:nowrap;text-transform:none;letter-spacing:0;}
+  .yard-sbtn:hover{border-color:#c9ced6;}
+  .yard-sbtn.dark{background:var(--brand1,#E3262E);border-color:var(--brand1,#E3262E);color:#fff;}
+  .yard-search{width:100%;box-sizing:border-box;padding:6px 10px;font-size:13px;border:1px solid var(--line);border-radius:8px;margin:0 0 8px;min-height:0;height:32px;}
+  .yard-qin{width:64px;flex:0 0 64px;box-sizing:border-box;padding:4px 6px;font-size:12.5px;border:1px solid var(--line);border-radius:7px;text-align:center;min-height:0 !important;height:28px !important;margin:0;}
+  .yard-pmname{flex:1;min-width:0;display:flex;flex-direction:column;}
+  .yard-pmname b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .yard-pmrow{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);background:#fff;}
   .yard-pmrow:last-of-type{border-bottom:0;}
-  .yard-pmrow > div:first-child{flex:1;min-width:0;display:flex;flex-direction:column;} .yard-pmrow span{font-size:12px;color:var(--slate);}
-  .yard-pmq{font-weight:800;font-size:13.5px;white-space:nowrap;text-align:right;} .yard-pmq.low{color:#b42318;} .yard-pmq small{display:block;font-size:10.5px;font-weight:700;}
+  .yard-pmrow span{font-size:11px;color:var(--slate);line-height:1.25;}
+  .yard-pmq{font-weight:700;font-size:12.5px;white-space:nowrap;text-align:right;color:var(--slate);} .yard-pmq.low{color:#b42318;}
+  .yard-card .ghostbtn.finsmall, .yard-acts .ghostbtn{font-size:12px !important;padding:6px 10px !important;text-transform:none !important;letter-spacing:0 !important;min-height:0 !important;height:auto !important;border-radius:7px !important;width:auto !important;}
+  #yardMoveOverlay .darkbtn, .yard-card > .darkbtn{text-transform:none;letter-spacing:0;font-size:13.5px;padding:9px 12px;min-height:0;}
   .finpill.bad{background:#fdecec;color:#b42318;}
   .filterchip.yardchip{margin-left:auto;}
   @media (max-width:600px){ .yard-hist > div{grid-template-columns:80px 1fr;} }`;
