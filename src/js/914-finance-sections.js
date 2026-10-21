@@ -6,7 +6,7 @@
      Jobs            jobs list · clients
      Sales           applications · certificates · invoices · receipts · retention   (money in)
      Purchases       orders · purchase invoices · invoice inbox · plant hire · suppliers (money out)
-     Subcontractors & labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
+     Subcontractors & Labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
      Reports
      Settings        (Team, Suppliers, My account for Finance-only companies)
    On a computer: section bar + sub-tabs. On a phone: section grid + sub-tabs.
@@ -16,7 +16,7 @@ const FIN_SECTIONS = [
   {k:'jobs', l:'Projects', go:'#/finance/jobs'},
   {k:'sales', l:'Sales', go:'#/finance/sales'},
   {k:'purchases', l:'Purchases', go:'#/finance/purchases'},
-  {k:'subs', l:'Subcontractors & labour', go:'#/finance/subs'},
+  {k:'subs', l:'Subcontractors & Labour', go:'#/finance/subs'},
   {k:'reports', l:'Reports', go:'#/finance/reports'},
   {k:'settings', l:'Settings', go:'#/finance/settings'},
 ];

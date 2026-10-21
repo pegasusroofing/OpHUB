@@ -48976,7 +48976,7 @@ async function renderFinCis(){
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
-  `, {title:'CIS', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'CIS', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
 }
 
 /* ---- payment and deduction statement PDF ---- */
@@ -49568,7 +49568,7 @@ function finOnlyNavItems(){
     {k:'finance/jobs', ic:'projects', lbl:'Projects', go:'#/finance/jobs'},
     {k:'finance/sales', ic:'list', lbl:'Sales', go:'#/finance/sales'},
     {k:'finance/purchases', ic:'truck', lbl:'Purchases', go:'#/finance/purchases'},
-    {k:'finance/subs', ic:'tools', lbl:'Subcontractors & labour', go:'#/finance/subs'},
+    {k:'finance/subs', ic:'tools', lbl:'Subcontractors & Labour', go:'#/finance/subs'},
     {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},
@@ -51275,7 +51275,7 @@ async function finExportTable(kind, o){
      Jobs            jobs list · clients
      Sales           applications · certificates · invoices · receipts · retention   (money in)
      Purchases       orders · purchase invoices · invoice inbox · plant hire · suppliers (money out)
-     Subcontractors & labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
+     Subcontractors & Labour  orders · applications · payments · labour & timesheets · CIS · rates & workers
      Reports
      Settings        (Team, Suppliers, My account for Finance-only companies)
    On a computer: section bar + sub-tabs. On a phone: section grid + sub-tabs.
@@ -51285,7 +51285,7 @@ const FIN_SECTIONS = [
   {k:'jobs', l:'Projects', go:'#/finance/jobs'},
   {k:'sales', l:'Sales', go:'#/finance/sales'},
   {k:'purchases', l:'Purchases', go:'#/finance/purchases'},
-  {k:'subs', l:'Subcontractors & labour', go:'#/finance/subs'},
+  {k:'subs', l:'Subcontractors & Labour', go:'#/finance/subs'},
   {k:'reports', l:'Reports', go:'#/finance/reports'},
   {k:'settings', l:'Settings', go:'#/finance/settings'},
 ];
@@ -52456,7 +52456,7 @@ window.finAppUseSiteProgress = function(){
 };
 
 /* ---------- project Finance page: tabs across the top (Andy, 20 Oct) ---------- */
-const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & labour'}, {k:'setup', l:'Set-up'}];
+const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & Labour'}, {k:'setup', l:'Set-up'}];
 let finProjTab = {}; // siteId -> tab
 function finProjTabCur(siteId){
   const q = typeof routeQuery==='function' ? routeQuery().get('tab') : null;
@@ -53522,7 +53522,7 @@ async function finPoMaybeClose(poId){
 }
 
 /* ============================================================
-   OpHUB Finance — Subcontractors & labour, rebuilt around how RTB works:
+   OpHUB Finance — Subcontractors & Labour, rebuilt around how RTB works:
    operatives INVOICE us (no timesheets).
      • Operative invoices: who, their invoice no., date, the week it's for,
        an amount per job (+ materials), copy of the invoice. CIS is worked
@@ -53613,7 +53613,7 @@ async function renderFinSubsSection(sub){
     </div>
     ${finSubTabs('subs', sub, {apps:toCert.length, opinv:opDraft.length})}
     ${body}
-  `, {title:'Subcontractors & labour', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
+  `, {title:'Subcontractors & Labour', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
 }
 // "+ Record an application": pick the subcontract order first.
 window.finPickSubOrder = async function(){
@@ -53801,7 +53801,7 @@ async function renderFinPayRun(){
         <td data-l="Status">${p.status==='paid'?'<span class="finpill ok">Paid</span>':'<span class="finpill blue">To pay</span>'}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="empty">Nothing to pay on this day. Add operative invoices as they come in — <button class="linkbtn" onclick="openFinOpInvoice()">+ Operative invoice</button></div>`}
     ${later.length ? `<p class="stub" style="margin:10px 0 0;font-style:normal;">${later.length} later invoice${later.length===1?'':'s'} (${finMoney(later.reduce((t,p)=>t+Number(p.net_pay||0),0))}) will be in a later pay run.</p>` : ''}
-  `, {title:'Pay run', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'Pay run', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
   window.__finRun = {due, rates, keyOf};
 }
 window.finRunMarkPaid = async function(){
@@ -53896,7 +53896,7 @@ window.finOpCancel = async function(id){
 };
 
 /* ============================================================
-   OpHUB Finance — People & rates (Subcontractors & labour).
+   OpHUB Finance — People & rates (Subcontractors & Labour).
    One row per person (operatives who invoice you, subcontractors and PAYE
    staff); "Edit" opens one form with everything: pay type, day rate, CIS,
    UTR, VAT and bank details. Bank details only show the last 4 digits in
@@ -53934,7 +53934,7 @@ async function renderFinLabourRates(){
         <td data-l="UTR">${x.r.pay_type==='paye'?'—':(x.r.utr?escapeHtml(x.r.utr):'<span class="finpill warn">Missing</span>')}</td>
         <td data-l="Bank">${bank(x.r)}</td>
         <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinPerson('${jsAttr(x.key)}')">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No one here yet.</div>'}</div>
-  `, {title:'People & rates', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'People & rates', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
 }
 window.openFinPerson = async function(key){
   const rates = await finLoadRates(); await loadAllProfiles();

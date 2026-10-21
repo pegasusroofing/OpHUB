@@ -42,7 +42,7 @@ function finOnlyNavItems(){
     {k:'finance/jobs', ic:'projects', lbl:'Projects', go:'#/finance/jobs'},
     {k:'finance/sales', ic:'list', lbl:'Sales', go:'#/finance/sales'},
     {k:'finance/purchases', ic:'truck', lbl:'Purchases', go:'#/finance/purchases'},
-    {k:'finance/subs', ic:'tools', lbl:'Subcontractors & labour', go:'#/finance/subs'},
+    {k:'finance/subs', ic:'tools', lbl:'Subcontractors & Labour', go:'#/finance/subs'},
     {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},

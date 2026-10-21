@@ -1,5 +1,5 @@
 /* ============================================================
-   OpHUB Finance — Subcontractors & labour, rebuilt around how RTB works:
+   OpHUB Finance — Subcontractors & Labour, rebuilt around how RTB works:
    operatives INVOICE us (no timesheets).
      • Operative invoices: who, their invoice no., date, the week it's for,
        an amount per job (+ materials), copy of the invoice. CIS is worked
@@ -90,7 +90,7 @@ async function renderFinSubsSection(sub){
     </div>
     ${finSubTabs('subs', sub, {apps:toCert.length, opinv:opDraft.length})}
     ${body}
-  `, {title:'Subcontractors & labour', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
+  `, {title:'Subcontractors & Labour', subtitle:'OpHUB Finance', back:finSecBack(), tabs:false});
 }
 // "+ Record an application": pick the subcontract order first.
 window.finPickSubOrder = async function(){
@@ -278,7 +278,7 @@ async function renderFinPayRun(){
         <td data-l="Status">${p.status==='paid'?'<span class="finpill ok">Paid</span>':'<span class="finpill blue">To pay</span>'}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="empty">Nothing to pay on this day. Add operative invoices as they come in — <button class="linkbtn" onclick="openFinOpInvoice()">+ Operative invoice</button></div>`}
     ${later.length ? `<p class="stub" style="margin:10px 0 0;font-style:normal;">${later.length} later invoice${later.length===1?'':'s'} (${finMoney(later.reduce((t,p)=>t+Number(p.net_pay||0),0))}) will be in a later pay run.</p>` : ''}
-  `, {title:'Pay run', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'Pay run', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
   window.__finRun = {due, rates, keyOf};
 }
 window.finRunMarkPaid = async function(){

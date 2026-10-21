@@ -1,5 +1,5 @@
 /* ============================================================
-   OpHUB Finance — People & rates (Subcontractors & labour).
+   OpHUB Finance — People & rates (Subcontractors & Labour).
    One row per person (operatives who invoice you, subcontractors and PAYE
    staff); "Edit" opens one form with everything: pay type, day rate, CIS,
    UTR, VAT and bank details. Bank details only show the last 4 digits in
@@ -37,7 +37,7 @@ async function renderFinLabourRates(){
         <td data-l="UTR">${x.r.pay_type==='paye'?'—':(x.r.utr?escapeHtml(x.r.utr):'<span class="finpill warn">Missing</span>')}</td>
         <td data-l="Bank">${bank(x.r)}</td>
         <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinPerson('${jsAttr(x.key)}')">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">No one here yet.</div>'}</div>
-  `, {title:'People & rates', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'People & rates', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
 }
 window.openFinPerson = async function(key){
   const rates = await finLoadRates(); await loadAllProfiles();

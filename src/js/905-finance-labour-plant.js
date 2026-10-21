@@ -125,7 +125,7 @@ async function renderFinCis(){
         <div style="text-align:right;font-size:13px;">Gross <b>${finMoney(r.gross)}</b><br>Materials ${finMoney(r.materials)}<br>CIS <b>${finMoney(r.cis)}</b></div></div>`; }).join('') : `<p class="stub" style="margin:0;font-style:normal;">No subcontractor payments marked paid in this tax month.</p>`}
       <p class="stub" style="margin:8px 0 0;font-style:normal;">When Xero is linked, the CIS return is made from Xero. Until then use these figures; the HMRC deadline is the 19th.</p>
     </div>
-  `, {title:'CIS', subtitle:'Subcontractors & labour', back:finSecBack(), tabs:false});
+  `, {title:'CIS', subtitle:'Subcontractors & Labour', back:finSecBack(), tabs:false});
 }
 
 /* ---- payment and deduction statement PDF ---- */

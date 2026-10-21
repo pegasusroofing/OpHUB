@@ -200,7 +200,7 @@ window.finAppUseSiteProgress = function(){
 };
 
 /* ---------- project Finance page: tabs across the top (Andy, 20 Oct) ---------- */
-const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & labour'}, {k:'setup', l:'Set-up'}];
+const FIN_PTABS = [{k:'overview', l:'Overview'}, {k:'sales', l:'Sales'}, {k:'purchases', l:'Purchases'}, {k:'subs', l:'Subcontractors & Labour'}, {k:'setup', l:'Set-up'}];
 let finProjTab = {}; // siteId -> tab
 function finProjTabCur(siteId){
   const q = typeof routeQuery==='function' ? routeQuery().get('tab') : null;
