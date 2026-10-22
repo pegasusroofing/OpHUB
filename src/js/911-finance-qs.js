@@ -250,7 +250,7 @@ async function renderFinBudget(siteId){
       <div class="pmstat"><b id="finBudFm">${finMoney(fc.forecastMargin, 0)}</b><span>Forecast margin</span></div>
       <div class="pmstat"><b id="finBudFp">${finPctTxt(fc.forecastMarginPct)}</b><span>Forecast margin %</span></div>
     </div>
-    ${fc.budgetSource==='schedule' ? `<div class="finnote ok">The budget is coming from the cost prices on the priced schedule of works: <b style="display:inline;">${finMoney(fc.schedCost)}</b>${fc.varCost?' + '+finMoney(fc.varCost)+' variation costs':''}. Type budgets by cost type below only if you want to split it up instead.</div>` : ''}
+    ${fc.budgetSource==='schedule' ? `<div class="finnote ok">The budget is coming from the cost prices on the Bill of Quantities: <b style="display:inline;">${finMoney(fc.schedCost)}</b>${fc.varCost?' + '+finMoney(fc.varCost)+' variation costs':''}. Type budgets by cost type below only if you want to split it up instead.</div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Value</p>
       <div class="finkv"><span>Contract value</span><b>${finMoney(fc.contract)}</b></div>

@@ -135,9 +135,12 @@ async function renderFinSales(sub){
     const rows = SITES.map(s=>({s, held:finRetentionHeld(appsBy[s.id]||[]), jf:jfBy[s.id]||{}})).filter(x=>x.held);
     const total = rows.reduce((t,x)=>t+x.held,0);
     body = finSecHead('Retention') + `<p class="stub" style="margin:-4px 0 12px;">Money your clients are holding back until the work is signed off: ${finMoney(total)} across ${rows.length} job${rows.length===1?'':'s'}. Half usually comes back at practical completion and half at the end of the defects period — set those dates on the project to get reminders.</p>`
-      + finListHtml('finSalesList', rows.map(x=>{ const d = finRetentionDates(x.jf, st); return `<button type="button" class="pmrow pmrow-card finrow" onclick="go('#/site/${x.s.id}/finance')">
-          <span class="pmrow-txt"><span class="pmrow-t">${escapeHtml(finRepJobOr(x.s))}</span><span class="pmrow-s">${escapeHtml(x.s.client_name||'')}</span><span class="pmrow-s">${d.first ? '1st half '+finDate(d.first)+(x.jf.ret1_invoice_id?' (claimed)':'')+' · 2nd half '+finDate(d.second)+(x.jf.ret2_invoice_id?' (claimed)':'') : 'Set the practical completion date to see release dates'}</span></span>
-          <span class="finval">${finMoney(x.held)}</span></button>`; }), 'No retention held.');
+      + finSearchHtml('Search project, client', 'finSalesList')
+      + `<div id="finSalesList">${rows.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl">
+        <thead><tr><th>Project</th><th>Client</th><th>1st half due</th><th>2nd half due</th><th class="num">Held</th></tr></thead>
+        <tbody>${rows.map(x=>{ const d = finRetentionDates(x.jf, st); const when = (dt, inv)=>dt ? finDate(dt)+(inv?' <span class="finpill ok">Claimed</span>':'') : '<span class="stub" style="margin:0;font-style:normal;">Set PC date</span>';
+          return `<tr class="click" data-lf="${lfText([finRepJobOr(x.s), x.s.client_name].join(' '))}" onclick="go('#/site/${x.s.id}/finance')"><td data-l="Project"><b>${escapeHtml(finRepJobOr(x.s))}</b></td><td data-l="Client">${escapeHtml(x.s.client_name||'—')}</td><td data-l="1st half">${when(d.first, x.jf.ret1_invoice_id)}</td><td data-l="2nd half">${when(d.second, x.jf.ret2_invoice_id)}</td><td data-l="Held" class="num"><b>${finMoney(x.held)}</b></td></tr>`; }).join('')}</tbody>
+        <tfoot><tr><td colspan="4"><b>${rows.length} job${rows.length===1?'':'s'}</b></td><td class="num"><b>${finMoney(total)}</b></td></tr></tfoot></table></div>` : '<div class="empty">No retention held.</div>'}</div>`;
   }
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('sales')}

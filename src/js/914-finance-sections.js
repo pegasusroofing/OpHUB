@@ -162,7 +162,6 @@ async function renderFinJobs(sub){
       ${f.pm||f.client ? `<button type="button" class="linkbtn" onclick="finJobFilt.pm='';finJobFilt.client='';render()">Clear</button>` : ''}
     </div>`;
     body = finSecHead('', isFullManager(ME) ? '+ New project' : '', 'openFinNewJob()')
-      + `<div class="pmchips finjobchips">${['live','upcoming','closed','all'].map(k=>finChip(finHomeTab===k, k[0].toUpperCase()+k.slice(1), counts[k]||0, `finHomeTab='${k}';render()`)).join('')}</div>`
       + filtHtml + finSearchHtml('Search project no., name, client or PO', 'finJobList')
       + finJobGridHtml(shown, {jfBy, posBy, invs, cliOf});
   }

@@ -95,6 +95,7 @@ async function renderFinanceSettings(){
       <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: orders sent by anyone with Finance switched on get a PO number (other PMs’ orders don’t).' : 'Off: no POs are raised from material orders.'}</p>
       <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
     </div>
+    ${typeof finVatRatesCardHtml==='function' ? finVatRatesCardHtml() : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Invoice numbers</p>
       <div class="fingrid2">
@@ -181,7 +182,7 @@ async function renderSiteFinance(siteId){
   const site = SITES.find(s=>s.id===siteId);
   if(!site){ go('#/finance'); return; }
   const [st, jfRows, pos, invs, items, apps, pords, pinvs, lab, hires, xcosts] = await Promise.all([
-    finLoadSettings(),
+    finLoadSettings().then(async r=>{ if(typeof finClientsLoad==='function') await finClientsLoad(true); return r; }),
     dbSelect('job_finance', 'site_id=eq.'+siteId),
     dbSelect('client_pos', 'site_id=eq.'+siteId+'&order=is_primary.desc,created_at.asc'),
     dbSelect('fin_invoices', 'site_id=eq.'+siteId+'&order=created_at.desc'),
@@ -196,22 +197,18 @@ async function renderSiteFinance(siteId){
   if(__gen !== RENDER_GEN) return;
   const jf = jfRows[0] || {};
   const saved = !!jfRows[0];
+  if(typeof finBillingSync==='function') await finBillingSync(siteId, site, jf);
+  if(__gen !== RENDER_GEN) return;
   const pick = (k, d)=> (jf[k]!==undefined && jf[k]!==null && jf[k]!=='') ? jf[k] : d;
   const vat = pick('vat_treatment', st.default_vat);
   const bt = finBillingType(jf, items.length, apps.length);
   const poTotal = pos.reduce((t,p)=>t+Number(p.value||0), 0);
   document.getElementById('app').innerHTML = shell(`
-    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
-    <div class="card finhead">
-      <div><div class="finhead-l">Project no.</div><div class="finhead-v">${escapeHtml(site.job_number||'—')}</div></div>
-      <div><div class="finhead-l">Client</div><div class="finhead-v">${escapeHtml(site.client_name||'—')}</div></div>
-      <div><div class="finhead-l">Client PO</div><div class="finhead-v">${pos.length ? escapeHtml(pos.map(p=>p.po_number).join(', ')) : '—'}</div></div>
-      <div><div class="finhead-l">Contract value</div><div class="finhead-v">${finMoney(jf.contract_value)}</div></div>
-    </div>
-    ${bt ? `<div class="finbtline"><span>Paid by <b>${FIN_BT[bt].icon} ${FIN_BT[bt].t}</b></span><button type="button" class="linkbtn" onclick="setFinBillingType('${siteId}','${bt==='invoice'?'application':'invoice'}')">change</button></div>` : finBillingChoiceHtml(siteId)}
-
     ${finProjTabsHtml(siteId, bt)}
+    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? '' : '<div class="finbanner">🔒 Only you can see this while OpHUB Finance is being built.</div>'}
+    ${bt ? '' : finBillingChoiceHtml(siteId)}
     <div class="finptab" data-t="overview">
+    ${finJobOverviewHtml({siteId, site, jf, st, bt, invs, apps, items, pos, pinvs, hires})}
     <div id="finFcSlot"></div>
     </div>
     <div class="finptab" data-t="sales">
@@ -248,14 +245,16 @@ async function renderSiteFinance(siteId){
     <div id="finScSlot"></div>
     ${finLabourCardHtml(siteId, lab)}
     </div>
-    <div class="finptab" data-t="setup">
+    <div class="finptab" data-t="boq">
     ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
+    </div>
+    <div class="finptab" data-t="setup">
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Project number</label><input type="text" id="finJobNo" value="${escapeHtml(site.job_number||'')}"></div>
-        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the priced schedule of works"':''}></div>
+        <div class="formfield"><label class="field-label">Contract value (£, excl. VAT)</label><input type="text" inputmode="decimal" data-money id="finContract" placeholder="0.00" value="${jf.contract_value!=null?escapeHtml(String(jf.contract_value)):''}" ${bt==='application' && items.length?'disabled title="Set by the Bill of Quantities"':''}></div>
         <div class="formfield"><label class="field-label">Retention %</label><input type="number" id="finRet" min="0" max="100" step="0.5" value="${escapeHtml(String(pick('retention_pct', st.default_retention_pct)))}"></div>
         <div class="formfield"><label class="field-label">Retention limit % (if any)</label><input type="number" id="finRetLimit" min="0" max="100" step="0.5" placeholder="None" value="${jf.retention_limit_pct!=null?escapeHtml(String(jf.retention_limit_pct)):''}"></div>
         <div class="formfield"><label class="field-label">Days to due date</label><input type="number" id="finDue" min="0" step="1" value="${escapeHtml(String(pick('due_days', st.default_due_days)))}"></div>
@@ -265,18 +264,10 @@ async function renderSiteFinance(siteId){
         <div class="formfield"><label class="field-label">VAT</label><select id="finVat">${Object.keys(FIN_VAT_LABEL).map(k=>`<option value="${k}" ${vat===k?'selected':''}>${FIN_VAT_LABEL[k]}</option>`).join('')}</select></div>
       </div>
       ${finBillingLineHtml(siteId, bt)}
-      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? 'The contract value comes from the priced schedule of works.' : 'Set up the priced schedule of works (above) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
+      <p class="stub" style="margin:8px 0 0;font-style:normal;">${bt==='application' ? (items.length ? 'The contract value comes from the Bill of Quantities.' : 'Set up the Bill of Quantities (its own tab) and the contract value fills in from it.') : bt==='invoice' ? 'Type the contract value.'+(finSubKind(siteId) ? ' Values for each '+escapeHtml(finSubNoun(siteId).toLowerCase())+' go on the Costs by '+(finSubKind(siteId)==='repair'?'repair job':'plot')+' page.' : '') : 'Choose how you get paid on this project (top of the page).'}</p>
     </div>
 
-    <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Billing</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Who invoices and applications go to. Filled from the project’s client details to start with. ${typeof finXeroConnected==='function' && finXeroConnected() ? 'Find the client in Xero to pull their details; anything Xero is missing is added when an invoice is sent.' : 'Once Xero is connected (Finance › Settings) you can pull these from Xero.'}</p>
-      ${typeof finXeroBillingHtml==='function' ? finXeroBillingHtml() : ''}
-      <div class="formfield"><label class="field-label">Bill to (company name)</label><input type="text" id="finBillName" value="${escapeHtml(pick('billing_name', site.client_name||''))}"></div>
-      <div class="formfield"><label class="field-label">Billing address</label><textarea id="finBillAddr" rows="3">${escapeHtml(jf.billing_address||'')}</textarea></div>
-      <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finBillEmail" value="${escapeHtml(pick('billing_email', site.client_email||''))}"></div>
-      <div class="formfield"><label class="field-label">Notes</label><textarea id="finNotes" rows="2" placeholder="Anything about payment on this project">${escapeHtml(jf.notes||'')}</textarea></div>
-    </div>
+    ${finBillingSummaryHtml(siteId, site, jf)}
     <button class="darkbtn" style="width:100%;" id="finJobSave" onclick="saveSiteFinance('${siteId}')">${saved?'Save changes':'Save project details'}</button>
     </div>
 

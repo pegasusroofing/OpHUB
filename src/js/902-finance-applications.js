@@ -84,7 +84,7 @@ function finContractCardHtml(siteId, items, jf){
   const total = finRound(priced.reduce((t,i)=>t+Number(i.value||0), 0));
   return `<div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-      <p class="sectiontitle" style="margin:0;">Priced schedule of works</p>
+      <p class="sectiontitle" style="margin:0;">Bill of Quantities</p>
       <button class="ghostbtn" style="padding:6px 12px;width:auto;flex:none;" onclick="go('#/site/${siteId}/finance/contract')">${items.length?'Open':'Set up'}</button>
     </div>
     <p class="stub" style="margin:4px 0 0;font-style:normal;">${priced.length ? `${heads?heads+' section'+(heads===1?'':'s')+' · ':''}${priced.length} item${priced.length===1?'':'s'} · total <b>${finMoney(total)}</b>${jf&&jf.contract_file_name?' · from '+escapeHtml(jf.contract_file_name):''}` : 'Upload the priced breakdown (Excel or PDF) or type it in, with headers, sub-headers, quantities, units and rates. Applications are valued against it.'}</p>
@@ -149,7 +149,7 @@ async function renderFinContract(siteId){
     </div>
     <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save schedule</button>
     <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.${(FIN_SUBJOBS[siteId]||[]).length ? ' Put a header on a '+escapeHtml(finSubNoun(siteId).toLowerCase())+' and everything under it goes there too.' : ''}</p>
-  `, {title:'Priced schedule of works', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
+  `, {title:'Bill of Quantities', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finContractPaint();
 }
 function finContractPaint(){
@@ -423,7 +423,7 @@ window.newFinApplication = async function(siteId){
     dbSelect('variations', 'site_id=eq.'+siteId+'&approval_status=eq.approved&order=created_at.asc'),
     dbSelect('fin_variations', 'site_id=eq.'+siteId+'&status=in.(priced,submitted,agreed)&order=seq.asc'),
   ]);
-  if(!items.filter(finIsItem).length){ toast('Set up the priced schedule of works first.'); go(`#/site/${siteId}/finance/contract`); return; }
+  if(!items.filter(finIsItem).length){ toast('Set up the Bill of Quantities first.'); go(`#/site/${siteId}/finance/contract`); return; }
   const jf = jfRows[0] || {};
   const last = apps.find(a=>a.status!=='void');
   const lastPct = {}; ((last&&last.lines)||[]).forEach(l=>{ if(finIsItem(l)) lastPct[l.item_id] = l.pct; });

@@ -7,14 +7,14 @@
 
    job_finance.billing_type = 'invoice' | 'application'.
    • Invoice: type the contract value (and a value per plot if it has plots).
-   • Application: the priced schedule of works (fin_contract_items) sets the
+   • Application: the Bill of Quantities (fin_contract_items) sets the
      contract value; it can be sent to the operatives' Schedule of Works
      (no prices) and site progress can fill the % on an application.
    Links: schedule_tasks.contract_item_id / schedule_sections.contract_item_id.
    ============================================================ */
 const FIN_BT = {
   invoice:{t:'Invoices', s:'You invoice as you go (or on completion). You type the contract value.', icon:'🧾'},
-  application:{t:'Applications for payment', s:'Monthly valuations against a priced schedule of works. The schedule sets the contract value and can go onto the operatives’ Schedule of Works.', icon:'📋'},
+  application:{t:'Applications for payment', s:'Monthly valuations against a Bill of Quantities. The schedule sets the contract value and can go onto the operatives’ Schedule of Works.', icon:'📋'},
 };
 function finBillingType(jf, itemsCount, appsCount){
   if(jf && jf.billing_type) return jf.billing_type;
@@ -42,12 +42,12 @@ window.setFinBillingType = async function(siteId, bt){
   if(jf && jf.billing_type && jf.billing_type!==bt){
     const msg = bt==='invoice'
       ? (apps.length ? 'This project has '+apps.length+' application'+(apps.length===1?'':'s')+'. They stay as they are, but you’ll type the contract value from now on. Change to invoices?' : 'Change this project to invoices? You’ll type the contract value yourself.')
-      : 'Change this project to applications? The contract value will come from the priced schedule of works.';
+      : 'Change this project to applications? The contract value will come from the Bill of Quantities.';
     if(!(await customConfirm(msg))) return;
   }
   const res = await sbFetch('/rest/v1/job_finance', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({site_id:siteId, org_id:ME.org_id, billing_type:bt, updated_at:new Date().toISOString(), updated_by:ME.id})});
   if(!res.ok){ toast('Could not save — '+(await safeErr(res))); return; }
-  toast(bt==='invoice' ? 'Invoice project — enter the contract value below' : 'Application project — set up the priced schedule of works');
+  toast(bt==='invoice' ? 'Invoice project — enter the contract value below' : 'Application project — set up the Bill of Quantities');
   if(bt==='application'){
     const items = await dbSelect('fin_contract_items', 'site_id=eq.'+siteId+'&select=id&limit=1');
     if(!items.length){ go('#/site/'+siteId+'/finance/contract'); return; }
@@ -160,7 +160,7 @@ window.finSendToSow = async function(siteId){
   toast(added || updated || newSecs ? `Operatives’ schedule: ${added} task${added===1?'':'s'} added${updated?', '+updated+' updated':''}` : 'The operatives’ schedule is already up to date');
   render();
 };
-// Brings the site's existing (unlinked) Schedule of Works into the priced schedule, ready to price.
+// Brings the site's existing (unlinked) Schedule of Works into the Bill of Quantities, ready to price.
 window.finContractFromSow = async function(siteId){
   const [secs, tasks] = await Promise.all([
     dbSelect('schedule_sections', 'site_id=eq.'+siteId+'&order=position.asc.nullslast,created_at.asc'),

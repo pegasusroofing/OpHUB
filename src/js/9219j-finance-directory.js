@@ -276,7 +276,7 @@ window.saveFinDir = async function(){
     const f = (await dbSelect('fin_suppliers', 'supplier_id=eq.'+v+'&select=purchase_vat,foreign_supplier').catch(()=>[]))[0];
     if(!f) return;
     const map = {'20':'20','5':'5','0':'0','ex':'ex','none':'ex','rc20':'rc','rc5':'rc'};
-    const vat = f.foreign_supplier ? 'ex' : map[f.purchase_vat];
+    const vat = f.foreign_supplier ? 'ex' : (FIN_VAT_RATES[f.purchase_vat] ? f.purchase_vat : map[f.purchase_vat]);
     if(!vat || !FIN_VAT_RATES[vat]) return;
     finNewPo.vat = vat; finNewPo.lines.forEach(l=>{ l.vat = vat; });
     const sel = document.getElementById('finNpoVatAll'); if(sel) sel.value = vat;

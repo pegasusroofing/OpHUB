@@ -255,7 +255,7 @@ async function renderFinParts(siteId){
       <div class="pmstat"><b>${finMoney(tot('committed'), 0)}</b><span>Committed (ordered)</span></div>
     </div>
     ${subs.length && cv!=null && valTot && Math.abs(valTot - cv) >= 1 ? `<div class="finnote warn">The ${escapeHtml(finSubNoun(siteId, true).toLowerCase())} add up to <b style="display:inline;">${finMoney(valTot)}</b> but the contract value is <b style="display:inline;">${finMoney(cv)}</b>.</div>` : ''}
-    ${subs.length && bt==='application' && sv.source!=='schedule' ? `<div class="finnote">Values come from the priced schedule of works — <a href="#/site/${siteId}/finance/contract">set it up</a> and put each header on a ${escapeHtml(finSubNoun(siteId).toLowerCase())}.</div>` : ''}
+    ${subs.length && bt==='application' && sv.source!=='schedule' ? `<div class="finnote">Values come from the Bill of Quantities — <a href="#/site/${siteId}/finance/contract">set it up</a> and put each header on a ${escapeHtml(finSubNoun(siteId).toLowerCase())}.</div>` : ''}
     ${subs.length ? '' : `<div class="finnote">No ${escapeHtml(finSubNoun(siteId, true).toLowerCase())} on this project yet. ${isRepair ? 'Add repair jobs from the project home.' : 'Add them in the project’s Settings › Multi-Site.'}</div>`}
     <div class="fincosttools">
       <input type="search" placeholder="Search ${escapeHtml(finSubNoun(siteId, true).toLowerCase())}…" oninput="finParts.q=this.value;finPartsPaint()">
@@ -266,7 +266,7 @@ async function renderFinParts(siteId){
       </div>
     </div>
     <div id="finPartsTbl"></div>
-    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the purchase invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the priced schedule of works for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
+    <p class="stub" style="margin:10px 0 0;font-style:normal;">Excl. VAT. Tap a ${escapeHtml(finSubNoun(siteId).toLowerCase())} to see every cost booked to it. Materials ordered for a ${escapeHtml(finSubNoun(siteId).toLowerCase())} carry through to the PO and the purchase invoice. Split costs show their share. Sign-in days are shared across the addresses signed into that day. ${sv.source==='schedule' ? 'Value = the Bill of Quantities for each one.' : (isRepair ? 'Value = the cost issued on the repair job, unless you type another.' : 'Type a value for each one.')} Margin = value − cost − committed.</p>
   `, {title:'Costs by '+(isRepair?'repair job':'plot'), subtitle:(site.job_number?site.job_number+' · ':'')+site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false, wide:true});
   finPartsPaint();
 }
