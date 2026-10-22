@@ -25,7 +25,7 @@ function finAppNextBtn(a){
   const st = finAppStageKey(a);
   return {
     draft:`<button class="darkbtn" onclick="finAppSubmit('${a.id}')">Apply ›</button>`,
-    applied:`<button class="darkbtn" onclick="finAppCertifyGo()">Certify ›</button><button class="ghostbtn" onclick="finAppToDraft('${a.id}')">Return to draft</button>`,
+    applied:`<button class="darkbtn" onclick="finAppCertifyGo()">Certify ›</button>`,
     certified:`<button class="darkbtn" onclick="raiseInvoiceFromCert('${a.site_id}','${a.id}')">Invoice ›</button>`,
     invoiced:a.invoice_id ? `<button class="ghostbtn" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">Open invoice</button>` : '',
   }[st] || '';
@@ -463,3 +463,24 @@ async function finAppPdfBytes(a){
   if((a.dayworks||[]).length){ sectionStart('Dayworks'); a.dayworks.forEach(d=>itemRow('', d.description||'Daywork', null, '', null, Number(d.value||0), 0, 100, 100)); }
   return await doc.save();
 }
+
+/* ---------- "Send & export" menu on an application (Andy, 22 Oct) ---------- */
+window.finAppMoreMenu = function(ev, siteId, appId, locked){
+  ev.stopPropagation();
+  const old = document.getElementById('finAppMorePop'); if(old){ old.remove(); return; }
+  const pop = document.createElement('div'); pop.id = 'finAppMorePop'; pop.className = 'fincrow-pop';
+  pop.innerHTML = `<button type="button" data-a="email">✉️ Email to client</button><button type="button" data-a="xlsx">⬇ Download Excel</button><button type="button" data-a="pdf">⬇ Download PDF</button>${locked ? '' : '<button type="button" data-a="up">⬆ Upload edited Excel</button>'}`;
+  pop.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return; e.stopPropagation(); pop.remove();
+    const a = b.dataset.a;
+    if(a==='email') openFinAppEmail(siteId, appId);
+    else if(a==='xlsx') downloadFinAppExcel(appId);
+    else if(a==='pdf') downloadFinAppPdf(appId);
+    else if(a==='up'){ const f = document.getElementById('finAppXlUp'); if(f){ f.value = ''; f.click(); } }
+  });
+  document.body.appendChild(pop);
+  const rc = ev.currentTarget.getBoundingClientRect();
+  const up = rc.bottom + pop.offsetHeight + 8 > window.innerHeight;
+  pop.style.top = (up ? rc.top + window.scrollY - pop.offsetHeight - 4 : rc.bottom + window.scrollY + 4)+'px'; pop.style.left = (rc.left + window.scrollX)+'px';
+  setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
+};

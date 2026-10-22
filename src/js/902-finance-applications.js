@@ -510,7 +510,7 @@ async function renderFinApplication(siteId, appId){
             <label>% done<input type="text" inputmode="decimal" class="finpct" value="${finPct(v.pct)}" oninput="finAppSet('variations',${i},'pct',this.value)"></label>`}
             <b id="finAppG-variations-${i}">—</b>
           </div></div>`).join('') : `<p class="stub" style="margin:0;font-style:normal;">No agreed or submitted variations on this project — add them in the project’s Variations register.</p>`}
-      ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finAppAddVar()">+ Add a variation not in the app</button>`}
+      ${locked ? '' : `<button class="ghostbtn" style="margin-top:8px;" onclick="finAppAddVar()">+ Add a variation</button>`}
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Dayworks</p>
@@ -518,16 +518,14 @@ async function renderFinApplication(siteId, appId){
           <div class="finitem-d">${locked ? escapeHtml(d.description) : `<input type="text" value="${escapeHtml(d.description||'')}" placeholder="Description" oninput="finApp.dayworks[${i}].description=this.value">`}</div>
           <div class="finitem-in">${locked ? '' : `<label>Value £<input type="text" inputmode="decimal" data-money value="${d.value!=null?escapeHtml(String(d.value)):''}" oninput="finAppSet('dayworks',${i},'value',this.value)"></label>`}<b id="finAppG-dayworks-${i}">—</b></div>
         </div>`).join('') || `<p class="stub" style="margin:0;font-style:normal;">None.</p>`}
-      ${locked ? '' : `<button class="ghostbtn" style="width:100%;margin-top:6px;" onclick="finApp.dayworks.push({description:'',value:null});finAppSaveSoft().then(render)">+ Add daywork</button>`}
+      ${locked ? '' : `<button class="ghostbtn" style="margin-top:8px;" onclick="finApp.dayworks.push({description:'',value:null});finAppSaveSoft().then(render)">+ Add daywork</button>`}
     </div>
     <div class="card" id="finAppSummary"></div>
-    <div class="row-gap finappbtns" style="flex-wrap:wrap;">
-      ${locked ? '' : `<button class="darkbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>
-      <button class="darkbtn" onclick="finAppSubmit('${a.id}')">Apply ›</button>`}
-      <button class="ghostbtn" onclick="openFinAppEmail('${siteId}','${a.id}')">Email to client</button>
-      <button class="ghostbtn" onclick="downloadFinAppExcel('${a.id}')">Excel</button>
-      <button class="ghostbtn" onclick="downloadFinAppPdf('${a.id}')">PDF</button>
-      ${locked ? '' : `<label class="ghostbtn" style="text-align:center;cursor:pointer;">Upload edited Excel<input type="file" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])"></label>`}
+    <div class="row-gap finappbtns" style="flex-wrap:wrap;align-items:center;">
+      ${locked ? '' : `<button class="ghostbtn" id="finAppSave" onclick="saveFinApplication(true)">Save</button>`}
+      ${typeof finAppNextBtn==='function' ? finAppNextBtn(a) : ''}
+      <button class="ghostbtn" onclick="finAppMoreMenu(event, '${siteId}', '${a.id}', ${locked?'true':'false'})">Send &amp; export ▾</button>
+      <input type="file" id="finAppXlUp" accept=".xlsx,.xls" style="display:none;" onchange="uploadFinAppExcel(this.files[0])">
       ${a.status==='draft' ? `<button class="ghostbtn" style="color:var(--red);margin-left:auto;" onclick="deleteFinApplication('${siteId}','${a.id}')">Delete draft</button>` : ''}
     </div>
     ${['submitted','certified','invoiced'].includes(a.status) ? `<div id="finCertSlot"></div>` : ''}

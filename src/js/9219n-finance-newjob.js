@@ -388,7 +388,8 @@ window.finCrowMenu = function(ev, i){
   });
   document.body.appendChild(pop);
   const rc = ev.currentTarget.getBoundingClientRect();
-  pop.style.top = (rc.bottom + window.scrollY + 4)+'px';
+  const up = rc.bottom + pop.offsetHeight + 8 > window.innerHeight;
+  pop.style.top = (up ? rc.top + window.scrollY - pop.offsetHeight - 4 : rc.bottom + window.scrollY + 4)+'px';
   pop.style.left = Math.max(8, rc.right + window.scrollX - pop.offsetWidth)+'px';
   setTimeout(()=>document.addEventListener('click', function close(){ pop.remove(); document.removeEventListener('click', close); }), 0);
 };
@@ -657,12 +658,10 @@ window.finVarToSow = async function(siteId, finVarId){
   renderFinApplication = async function(siteId, appId){
     const r = await base.apply(this, arguments);
     const lines = document.getElementById('finAppLines');
-    if(lines && finAppCtx && finApp && !document.getElementById('finAppAddLineBtn')){
-      const nextBtn = typeof finAppNextBtn==='function' ? finAppNextBtn(finApp) : '';
+    if(lines && finAppCtx && finApp && !finAppCtx.locked && !document.getElementById('finAppAddLineBtn')){
       lines.insertAdjacentHTML('afterend', `<div class="row-gap" style="margin-top:10px;flex-wrap:wrap;align-items:center;" id="finAppAddLineBtn">
         ${finAppCtx.locked ? '' : `<button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','item')">+ Add a line</button>
         <button type="button" class="ghostbtn" onclick="finAppAddLineOpen('${siteId}','section')">+ Add a header</button>`}
-        <span style="margin-left:auto;display:flex;gap:8px;">${nextBtn}</span>
       </div>
       ${finAppCtx.locked ? '' : `<p class="stub" style="margin:6px 0 0;font-style:normal;font-size:12px;">New lines are added to the project’s Bill of Quantities too, so they carry on to the next application.</p>`}`);
     }
@@ -880,8 +879,9 @@ window.finCertFromExcel = async function(file, appId){
 (function(){
   const st = document.createElement('style');
   st.textContent = `html.finmode .scrollarea .darkbtn, html.finmode .scrollarea .ghostbtn, html.finmode .scrollarea .primarybtn{
-  width:auto !important;flex:0 0 auto !important;min-width:0 !important;min-height:32px !important;height:auto !important;
-  padding:6px 14px !important;font-size:13px !important;border-radius:8px !important;margin-top:0;line-height:1.3;}
+  width:auto !important;flex:0 0 auto !important;min-width:0 !important;min-height:30px !important;height:30px !important;
+  padding:0 12px !important;font-size:12.5px !important;font-weight:700 !important;border-radius:7px !important;margin-top:0;line-height:1;white-space:nowrap;}
+html.finmode .scrollarea label.ghostbtn{display:inline-flex !important;align-items:center;}
 html.finmode .scrollarea .row-gap{justify-content:flex-start;gap:8px !important;}
 html.finmode .finprojbar .finprojbar-n{height:34px !important;min-height:34px !important;padding:0 30px 0 14px !important;font-size:13px !important;width:auto !important;flex:0 0 auto !important;border-radius:8px !important;}
 @media (max-width:600px){ html.finmode .scrollarea .row-gap .darkbtn, html.finmode .scrollarea .row-gap .ghostbtn{flex:1 1 auto !important;} }`;
