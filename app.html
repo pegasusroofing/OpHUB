@@ -56950,15 +56950,14 @@ function finAppNextBtn(a){
   const st = finAppStageKey(a);
   return {
     draft:`<button class="darkbtn" onclick="finAppSubmit('${a.id}')">Apply ›</button>`,
-    applied:`<button class="darkbtn" onclick="finAppCertifyGo()">Certify ›</button>`,
-    certified:`<button class="darkbtn" onclick="raiseInvoiceFromCert('${a.site_id}','${a.id}')">Invoice ›</button>`,
-    invoiced:a.invoice_id ? `<button class="ghostbtn" onclick="go('#/site/${a.site_id}/finance/invoice/${a.invoice_id}')">Open invoice</button>` : '',
+    applied:'',
+    // Certified / Invoiced: the one button lives in the certificate box (Raise invoice / Open invoice).
   }[st] || '';
 }
 function finAppStepsHtml(a){
   const st = finAppStageKey(a); if(st==='void') return '';
   const opts = [['draft','Draft'],['applied','Applied'],['certified','Certified'],['invoiced','Invoiced']];
-  const tip = {draft:'Fill in the % done, then press Apply. That locks it — you can still email it to the client.', applied:'When the client’s certificate comes back, put their Certified % on each line (or upload their Excel), then press Certify.', certified:'Press Invoice to make the invoice: certified total, less retention, less previously certified, with VAT on the total.', invoiced:'Done — the invoice is raised.'}[st] || '';
+  const tip = {draft:'Fill in the % done, then press Apply. That locks it — you can still email it to the client.', applied:'When the client’s certificate comes back, put their Certified % on each line (or upload their Excel), then press Certify.', certified:'Press Raise invoice in the certificate box: certified total, less discount, less retention, less previously certified, with VAT on the total.', invoiced:'Done — the invoice is raised.'}[st] || '';
   const at = opts.findIndex(o=>o[0]===st);
   return `<div class="card finappflow">
     <label class="finappflow-st">Status<select onchange="finAppSetStage('${a.id}', this.value, this)">${opts.map(([k,l])=>`<option value="${k}" ${k===st?'selected':''}>${l}</option>`).join('')}</select></label>
@@ -57539,6 +57538,155 @@ input.fincalc{background:#F6F7F9 !important;color:var(--ink) !important;}`;
     }
     return r;
   };
+})();
+
+/* ---------- One place to certify (Andy, 22 Oct: "there's 2 certify bits … all this
+   information is calculated above?"). While Applied, the summary shows Applied and
+   Certified side by side, worked out from the lines; the certificate box underneath only
+   asks for the date, pay-less, a copy and notes, then Certify. ---- */
+function finCertSummaryHtml(){
+  const c = finAppCalc(finApp, finAppCtx.jf.contract_value, finAppCtx.jf.retention_limit_pct, finAppCtx.previous);
+  const t = finCertTotals();
+  const W = finCertWorkInit();
+  let cLines = 0, cVars = 0, cDays = 0;
+  (finApp.lines||[]).forEach(l=>{ if(finIsItem(l)) cLines += finRound(Number(l.value||0)*finPct(W.lines[l.item_id])/100); });
+  (finApp.variations||[]).forEach((v,i)=>{ cVars += finRound(Number(v.value||0)*finPct(W.vars[i])/100); });
+  (finApp.dayworks||[]).forEach((d,i)=>{ cDays += Number(W.days[i]||0); });
+  const prev = finRound(finAppCtx.previous||0);
+  const cNet = finRound(t.gross - t.disc - t.ret - prev);
+  const vt = finAppVatTreat(finAppCtx.jf);
+  const row = (label, a, b, cls)=>`<div class="fincs-r ${cls||''}"><span>${label}</span><b>${a}</b><b class="c">${b}</b></div>`;
+  const neg = v=>'−'+finMoney(v);
+  const editable = finApp.status==='submitted' && finApp.cert_net==null;
+  const disc = editable ? `<label class="finpctin" style="display:inline-flex;width:84px;height:28px;margin-left:6px;vertical-align:middle;"><input type="text" inputmode="decimal" value="${finPct(finApp.discount_pct||0)}" oninput="finApp.discount_pct=finPct(this.value);finAppPaintSoon();finAppDiscSave()" style="padding:2px 0;font-size:13px;"><span>%</span></label>` : '@ '+finPct(finApp.discount_pct||0)+'%';
+  const contractTotal = (finApp.lines||[]).filter(finIsItem).reduce((s,l)=>s+Number(l.value||0),0);
+  const aLines = c.lines.reduce((s,l)=>s+l.gross,0);
+  let h = `<div class="fincs-r head"><span></span><b>Applied</b><b class="c">Certified</b></div>`
+    + row(`Contract works to date${contractTotal?' (of '+finMoney(contractTotal)+')':''}`, finMoney(aLines), finMoney(cLines))
+    + (c.variations.length ? row('Variations', finMoney(c.variations.reduce((s,x)=>s+x.gross,0)), finMoney(cVars)) : '')
+    + (c.dayworks.length ? row('Dayworks', finMoney(c.dayworks.reduce((s,x)=>s+x.gross,0)), finMoney(cDays)) : '')
+    + row('<b>Gross valuation to date</b>', finMoney(c.gross), finMoney(t.gross), 'bold')
+    + row('Less discount '+disc, neg(c.discount), neg(t.disc))
+    + row(`Less retention @ ${finPct(finApp.retention_pct)}%`, neg(c.retention), neg(t.ret))
+    + row('Less previously certified', neg(prev), neg(prev))
+    + row('Amount due this application', finMoney(c.net_due), finMoney(cNet), 'big');
+  if(vt==='standard') h += row('VAT @ 20%', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2))) + row('Total incl. VAT', finMoney(finRound(c.net_due*1.2)), finMoney(finRound(cNet*1.2)), 'bold');
+  else if(vt==='reverse_charge') h += row('Reverse charge VAT @ 20% <em class="stub" style="font-style:normal;">client pays HMRC</em>', finMoney(finRound(c.net_due*.2)), finMoney(finRound(cNet*.2)));
+  const diff = finRound(cNet - c.net_due);
+  if(diff) h += `<p class="stub" style="margin:8px 0 0;font-style:normal;color:${diff<0?'var(--red)':'var(--ok)'};"><b>${diff<0?'Short by':'Over by'} ${finMoney(Math.abs(diff))}</b> against what you applied for.</p>`;
+  return h;
+}
+(function(){
+  const ap = window.finAppPaint;
+  window.finAppPaint = function(){
+    const r = ap.apply(this, arguments);
+    if(finCertMode()){ const s = document.getElementById('finAppSummary'); if(s){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
+    return r;
+  };
+  const rc = finCertRecalc;
+  finCertRecalc = function(){
+    rc.apply(this, arguments);
+    if(!finCertMode()) return;
+    const s = document.getElementById('finAppSummary');
+    if(s){ const a = document.activeElement; const inSum = a && s.contains(a); if(!inSum){ s.innerHTML = finCertSummaryHtml(); s.classList.add('fincs'); } }
+    // the certificate box: just the bits that aren't worked out above
+    const el = document.getElementById('finCertSlot'); const card = el && el.querySelector('.card'); if(!card) return;
+    card.classList.add('fincertlite');
+    ['finCertGross','finCertRet','finCertPrev','finCertDisc','finCertNet'].forEach(id=>{ const f = document.getElementById(id); const ff = f && f.closest('.formfield'); if(ff) ff.style.display = 'none'; });
+    const diff = document.getElementById('finCertDiff'); if(diff) diff.style.display = 'none';
+    const inv = document.getElementById('finCertInvoice'); const invL = inv && inv.closest('label'); if(invL) invL.style.display = 'none';
+    // pay-less, a copy and notes tucked under "More"
+    if(!card.querySelector('.fincertmore')){
+      const more = document.createElement('details'); more.className = 'fincertmore'; more.innerHTML = '<summary>More: pay-less notice, copy of the certificate, notes</summary>';
+      const pl = document.getElementById('finCertPayless'); const plL = pl && pl.closest('label');
+      const file = card.querySelector('input[type=file][accept^="application/pdf"]'); const fileF = file && file.closest('.formfield');
+      const notes = document.getElementById('finCertNotes'); const notesF = notes && notes.closest('.formfield');
+      [plL, fileF, notesF].forEach(n=>{ if(n) more.appendChild(n); });
+      const save = document.getElementById('finCertSave'); if(save) save.parentNode.insertBefore(more, save);
+    }
+    const t = card.querySelector('.sectiontitle'); if(t) t.innerHTML = '✅ Certify';
+    const intro = Array.from(card.querySelectorAll('p.stub')).find(p=>/Certified %|comes back, enter its figures/.test(p.textContent));
+    const net = finNum(finVal('finCertNet'));
+    if(intro) intro.innerHTML = `Put the client’s <b>Certified %</b> on each line above — the Certified column in the summary adds itself up. Net due: <b>${finMoney(net||0)}</b> (excl. VAT). Add the certificate date, then press Certify.`;
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.fincs-r{display:grid;grid-template-columns:minmax(0,1fr) 130px 130px;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #EEF0F3;font-size:14px;}
+.fincs-r:first-child{border-top:0;}
+.fincs-r > b{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;}
+.fincs-r > b.c{color:#1E6B45;font-weight:700;}
+.fincs-r.head{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--slate);padding-top:0;} .fincs-r.head b{font-weight:800;}
+.fincs-r.bold > b{font-weight:800;} .fincs-r.big{font-size:16px;font-weight:800;} .fincs-r.big > b{font-weight:800;}
+.fincertlite .fingrid2{grid-template-columns:minmax(0,220px) !important;}
+.fincertmore{margin:0 0 12px;} .fincertmore > summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--slate);margin-bottom:8px;}
+@media (max-width:600px){ .fincs-r{grid-template-columns:minmax(0,1fr) 90px 90px;font-size:13px;} }`;
+  document.head.appendChild(st);
+})();
+
+/* ---------- Invoice shown beside the application (Andy, 22 Oct: "do the dual screen thing the
+   drawings do"). On a computer, Raise invoice makes the invoice and shows it in a panel on the
+   right of the application; Open invoice does the same. Phones go to the invoice page. ---- */
+let finInvPanel = null; // {appId, invId, url, name}
+function finInvPanelOn(){ return !!(finInvPanel && finApp && finInvPanel.appId===finApp.id && typeof isDeskMode==='function' && isDeskMode()); }
+window.finAppShowInvoice = async function(invId, appId){
+  const siteIdOf = async()=>((await dbSelect('fin_invoices', 'id=eq.'+invId))[0]||{}).site_id;
+  if(!(typeof isDeskMode==='function' && isDeskMode())){ const s = await siteIdOf(); go(`#/site/${s}/finance/invoice/${invId}`); return; }
+  const inv = (await dbSelect('fin_invoices', 'id=eq.'+invId))[0]; if(!inv) return;
+  const site = SITES.find(s=>s.id===inv.site_id) || {};
+  const bytes = await finBuildInvoicePdf(inv, site, await finLoadSettings()); if(!bytes) return;
+  if(finInvPanel && finInvPanel.url) try{ URL.revokeObjectURL(finInvPanel.url); }catch(e){}
+  finInvPanel = {appId: appId || (finApp && finApp.id), invId, siteId:inv.site_id, url:URL.createObjectURL(new Blob([bytes], {type:'application/pdf'})), name:finInvFilename(inv, site), draft:inv.status==='draft'};
+  finInvPanelPaint();
+};
+window.finInvPanelClose = function(){ if(finInvPanel && finInvPanel.url) try{ URL.revokeObjectURL(finInvPanel.url); }catch(e){} finInvPanel = null; finInvPanelPaint(); };
+function finInvPanelPaint(){
+  const old = document.getElementById('finInvPanel'); if(old) old.remove();
+  const wrap = document.querySelector('.scrollarea');
+  document.documentElement.classList.toggle('fininvsplit', finInvPanelOn());
+  if(!finInvPanelOn() || !wrap) return;
+  const p = finInvPanel;
+  wrap.insertAdjacentHTML('beforeend', `<div class="dwpanel" id="finInvPanel">
+    <div class="dwpanel-bar"><b title="${escapeHtml(p.name)}">🧾 ${escapeHtml(p.name)}${p.draft?' <span class="finpill grey">Draft</span>':''}</b>
+      <button type="button" class="darkbtn dwpanel-btn" onclick="go('#/site/${p.siteId}/finance/invoice/${p.invId}')">${p.draft?'Check & issue ›':'Open invoice'}</button>
+      <a class="ghostbtn dwpanel-btn" href="${p.url}" download="${escapeHtml(p.name)}">⬇ Download</a>
+      <button type="button" class="ghostbtn dwpanel-btn" title="Close" onclick="finInvPanelClose()">✕</button></div>
+    <iframe class="dwpanel-frame" src="${p.url}#view=FitH" title="${escapeHtml(p.name)}"></iframe>
+  </div>`);
+}
+(function(){
+  // Raise invoice from the application → stay on the application and show the invoice beside it.
+  const base = window.raiseInvoiceFromCert;
+  window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
+    if(issueNow || !(typeof isDeskMode==='function' && isDeskMode()) || !/\/finance\/application\//.test(location.hash)) return base.apply(this, arguments);
+    const realGo = window.go; let target = null;
+    window.go = h=>{ target = h; };
+    try{ await base.call(this, siteId, appId, false); } finally { window.go = realGo; }
+    const m = target && /\/invoice\/([^/?]+)/.exec(target);
+    if(!m){ if(target) go(target); return; }
+    finApp = null; render();
+    setTimeout(()=>finAppShowInvoice(m[1], appId), 400);
+    toast('Invoice made — check it on the right, then issue it');
+  };
+  // Keep the panel when the application redraws.
+  const rf = renderFinApplication;
+  renderFinApplication = async function(siteId, appId){ const r = await rf.apply(this, arguments); if(finInvPanel && finInvPanel.appId!==appId) finInvPanel = null; finInvPanelPaint(); return r; };
+  // "Open invoice" in the certificate box opens the panel on a computer.
+  const slot = finCertSlotRender;
+  finCertSlotRender = function(a){
+    slot.apply(this, arguments);
+    if(a.invoice_id && typeof isDeskMode==='function' && isDeskMode()){
+      const el = document.getElementById('finCertSlot');
+      const b = el && Array.from(el.querySelectorAll('button')).find(x=>/Open invoice/.test(x.textContent));
+      if(b) b.setAttribute('onclick', `finAppShowInvoice('${a.invoice_id}','${a.id}')`);
+    }
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `html.desk.fininvsplit .scrollarea > *:not(#finInvPanel){margin-right:calc((100vw - 248px) * .5) !important;}
+html.desk #finInvPanel{width:calc((100vw - 248px) * .5 - 24px);}`;
+  document.head.appendChild(st);
 })();
 
 /* ============================================================
