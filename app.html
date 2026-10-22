@@ -56176,6 +56176,14 @@ function finJobStatusSelHtml(){
     let h = base(sites, o);
     const cols = finJobColsOn(); const i = cols.findIndex(c=>c.k==='status');
     if(i>=0) h = h.replace(`<th class="fgf"><input type="text" placeholder="Status" data-col="${i}" oninput="finGridFilter('finJobGrid')" onclick="event.stopPropagation()"></th>`, `<th class="fgf">${finJobStatusSelHtml()}</th>`);
+    // PM and Sort live in the black bar next to Columns (Andy, 22 Oct).
+    const f = finJobFilt;
+    const pms = Array.from(new Set(SITES.map(x=>x.responsible_pm_id).filter(Boolean))).map(id=>({id, name:(PROFILES[id]||{}).name||'PM'})).sort((a,b)=>a.name.localeCompare(b.name));
+    const ctl = `<span class="fgfoot-ctl">
+      <select aria-label="PM" onchange="finJobFilt.pm=this.value;render()"><option value="">All PMs</option>${pms.map(p=>`<option value="${p.id}" ${f.pm===p.id?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}<option value="none" ${f.pm==='none'?'selected':''}>No PM</option></select>
+      <select aria-label="Sort" onchange="finJobFilt.sort=this.value;render()">${[['noza','Newest project no.'],['noaz','Project no. A–Z'],['az','Name A–Z'],['za','Name Z–A'],['start','Start date (newest)']].map(([k,l])=>`<option value="${k}" ${f.sort===k?'selected':''}>Sort: ${l}</option>`).join('')}</select>
+    </span>`;
+    h = h.replace('<button type="button" class="fgcolbtn"', ctl+'<button type="button" class="fgcolbtn"');
     return h;
   };
 })();
@@ -56184,9 +56192,16 @@ function finJobStatusSelHtml(){
   if(document.getElementById('finNjCss2')) return;
   const st = document.createElement('style'); st.id = 'finNjCss2';
   st.textContent = `.finjobchips{display:none !important;}
+html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !important;}
+.fgfoot-ctl{display:flex;gap:6px;margin-left:auto;}
+.fgfoot-ctl ~ .fgcolbtn{margin-left:0 !important;}
+.fgfoot-ctl ~ .fgfoot-n{margin-left:4px !important;}
+.fgfoot-ctl select{height:28px !important;min-height:28px !important;margin:0 !important;padding:0 24px 0 10px !important;font-size:12px !important;font-weight:600 !important;color:#fff !important;background-color:#262A31 !important;border:1px solid #3A3F48 !important;border-radius:8px !important;box-shadow:none !important;width:auto;}
+.fgfoot-ctl select option{color:#111;background:#fff;}
 .fggrid td[data-l="Job"]{width:auto !important;min-width:96px;}
-.fggrid .fgjob{max-width:none !important;overflow:visible !important;text-overflow:clip !important;white-space:nowrap;padding:7px 9px;}
-.fggrid .fgfilters select.fgstat{width:100%;margin:0;padding:6px 8px;font-size:13px;text-align:center;border-radius:8px;}
+.fggrid .fgjob{width:auto !important;min-width:58px !important;max-width:none !important;overflow:visible !important;text-overflow:clip !important;white-space:nowrap;padding:7px 10px !important;}
+.fggrid .fgfilters select.fgstat{width:100%;min-width:96px;box-sizing:border-box;margin:0 !important;height:26px !important;min-height:26px !important;padding:0 18px 0 6px !important;font-size:11.5px !important;font-weight:500 !important;line-height:24px !important;color:var(--ink);border:1px solid var(--line) !important;border-radius:7px !important;background-color:#fff !important;background-position:right 6px center !important;background-size:10px !important;text-align:center;text-align-last:center;box-shadow:none !important;}
+.fggrid .fgfilters select.fgstat option{text-align:left;font-size:13px;}
 .finret-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
 .finret-h span{font-size:13px;color:var(--slate);} .finret-h b{color:var(--ink);font-size:15px;margin-left:4px;}
 .finret-t{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
