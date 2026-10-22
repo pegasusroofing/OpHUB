@@ -47104,10 +47104,10 @@ async function renderFinInvoice(siteId, invId){
       <div><div class="finhead-l">Outstanding</div><div class="finhead-v" style="${out>0?'color:var(--warn);':''}">${finMoney(out)}</div></div>
     </div>
     <div class="card">
+      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||site.client_name||'—')}</b></div>
       <div class="finkv"><span>Issued</span><b>${finDate(inv.issue_date)}</b></div>
       <div class="finkv"><span>Due</span><b>${finDate(inv.due_date)}</b></div>
       <div class="finkv"><span>Client PO</span><b>${escapeHtml(inv.client_po||'—')}</b></div>
-      <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||site.client_name||'—')}</b></div>
       <div class="finkv"><span>Sent</span><b>${inv.sent_at ? finDate(inv.sent_at.slice(0,10))+(inv.sent_to?' to '+escapeHtml(inv.sent_to):'') : 'Not emailed yet'}</b></div>
     </div>
     <div class="card">
@@ -47133,31 +47133,35 @@ async function renderFinInvoice(siteId, invId){
   `, {title:inv.number||'Invoice', subtitle:site.name, back:`#/site/${siteId}/finance`, siteId, tabs:false});
 }
 
+// Picking a client from the Directory fills the address and accounts email.
+window.finInvBillPicked = async function(name){
+  if(!finInvDraft || typeof finClientsLoad!=='function') return;
+  await finClientsLoad(); const c = finClientByName(name); if(!c) return;
+  finInvDraft.bill_name = c.name;
+  if(c.address || c.postcode){ finInvDraft.bill_address = finClientAddr(c); const a = document.getElementById('finInvBillAddr'); if(a) a.value = finInvDraft.bill_address; }
+  if(c.email){ finInvDraft.bill_email = c.email; const e = document.getElementById('finInvBillEmail'); if(e) e.value = c.email; }
+};
 function renderFinInvoiceDraft(site, inv, pos){
   if(!finInvDraft || finInvDraft.id!==inv.id) finInvDraft = JSON.parse(JSON.stringify(inv));
   const d = finInvDraft;
   if(!Array.isArray(d.lines) || !d.lines.length) d.lines = [{description:'', amount:null}];
   d.lines.forEach(l=>{ if(!FIN_INV_VAT[l.vat]) l.vat = finInvVatFromTreatment(d.vat_treatment, d.vat_rate); });
-  const poOpts = pos.map(p=>p.po_number);
-  if(d.client_po && !poOpts.includes(d.client_po)) poOpts.push(d.client_po);
+  // The client PO comes from Project Admin (the main PO) — shown, not typed here.
+  if(!d.client_po && pos[0] && pos[0].po_number) d.client_po = pos[0].po_number;
   document.getElementById('app').innerHTML = shell(`
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Draft invoice</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">The invoice number is given when you issue it.</p>
+      <div class="formfield"><label class="field-label">Bill to (client / company)</label><input type="text" id="finInvBillName" data-finclient value="${escapeHtml(d.bill_name||'')}" oninput="finInvDraft.bill_name=this.value" onchange="finInvBillPicked(this.value)"></div>
       <div class="fingrid2">
         <div class="formfield"><label class="field-label">Invoice date</label><input type="date" id="finInvDate" value="${d.issue_date||''}" onchange="finInvDraft.issue_date=this.value"></div>
         <div class="formfield"><label class="field-label">Due date</label><input type="date" id="finInvDue" value="${d.due_date||''}" onchange="finInvDraft.due_date=this.value"></div>
       </div>
-      <div class="formfield"><label class="field-label">Client PO</label>
-        ${poOpts.length ? `<select id="finInvPo" onchange="finInvDraft.client_po=this.value||null">${poOpts.map(p=>`<option value="${escapeHtml(p)}" ${d.client_po===p?'selected':''}>${escapeHtml(p)}</option>`).join('')}<option value="" ${!d.client_po?'selected':''}>No PO</option></select>`
-          : `<input type="text" id="finInvPo" value="${escapeHtml(d.client_po||'')}" placeholder="No client PO on this project yet" oninput="finInvDraft.client_po=this.value||null">`}
+      <div class="fingrid2">
+        <div class="formfield"><label class="field-label">Address</label><textarea id="finInvBillAddr" rows="2" oninput="finInvDraft.bill_address=this.value">${escapeHtml(d.bill_address||'')}</textarea></div>
+        <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finInvBillEmail" value="${escapeHtml(d.bill_email||'')}" oninput="finInvDraft.bill_email=this.value"></div>
       </div>
-    </div>
-    <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Bill to</p>
-      <div class="formfield"><label class="field-label">Company</label><input type="text" id="finInvBillName" value="${escapeHtml(d.bill_name||'')}" oninput="finInvDraft.bill_name=this.value"></div>
-      <div class="formfield"><label class="field-label">Address</label><textarea id="finInvBillAddr" rows="3" oninput="finInvDraft.bill_address=this.value">${escapeHtml(d.bill_address||'')}</textarea></div>
-      <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finInvBillEmail" value="${escapeHtml(d.bill_email||'')}" oninput="finInvDraft.bill_email=this.value"></div>
+      <p class="stub" style="margin:0;font-style:normal;">Client PO on the invoice: <b>${escapeHtml(d.client_po||'none')}</b> · <button class="linkbtn" onclick="finProjTab['${site.id}']='setup';go('#/site/${site.id}/finance')">change in Project Admin</button></p>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
