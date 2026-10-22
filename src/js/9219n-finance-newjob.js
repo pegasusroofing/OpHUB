@@ -208,20 +208,20 @@ function finJobOverviewHtml(d){
   const retHeld = typeof finRetentionHeld==='function' ? finRetentionHeld(apps) : 0;
   const tiles = `<div class="pmstats finstats">
     <div class="pmstat" onclick="finProjTabGo('${siteId}','setup')"><b>${finMoney(jf.contract_value||0, 0)}</b><span>Contract value</span></div>
-    <div class="pmstat" onclick="finProjTabGo('${siteId}','sales')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
-    <div class="pmstat" onclick="finProjTabGo('${siteId}','sales')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
-    <div class="pmstat" onclick="finProjTabGo('${siteId}','sales')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by client</span></div>
+    <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b>${finMoney(owed, 0)}</b><span>Owed to you</span></div>
+    <div class="pmstat" onclick="finSalesGo('${siteId}','invoices')"><b${overdue?' class="hot"':''}>${finMoney(overdue, 0)}</b><span>Overdue</span></div>
+    <div class="pmstat" onclick="finSalesGo('${siteId}','retention')"><b>${finMoney(retHeld, 0)}</b><span>Retention held by client</span></div>
   </div>`;
   const start = finStartCardHtml(siteId, bt, {items:items.filter(finIsItem).length, pos:pos.length, invs:invs.length, apps:apps.length});
   if(start) return tiles + start;
   const todo = [], T = (tone, t, s, n, js)=>todo.push({tone, t, s, n, js});
   const tab = k=>`finProjTabGo('${siteId}','${k}')`;
-  if(od.length) T('bad', 'Overdue invoices', finMoney(overdue, 0)+' to chase', od.length, tab('sales'));
+  if(od.length) T('bad', 'Overdue invoices', finMoney(overdue, 0)+' to chase', od.length, `finSalesGo('${siteId}','invoices')`);
   const isLive = finSiteStatus(site)==='live';
   if(bt==='application' && isLive && typeof finAppDueThisMonth==='function' && finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))))
     T('warn', 'Application due this month', 'Value the work and send it to the client', 1, `newFinApplication('${siteId}')`);
   const drafts = invs.filter(i=>i.status==='draft').length + apps.filter(a=>a.status==='draft').length;
-  if(drafts) T('blue', 'Drafts not sent yet', 'Invoices or applications still in draft', drafts, tab('sales'));
+  if(drafts) T('blue', 'Drafts not sent yet', 'Invoices or applications still in draft', drafts, `finSalesGo('${siteId}', ${invs.some(i=>i.status==='draft')?"'invoices'":"'apps'"})`);
   const toApp = pinvs.filter(p=>['to_approve','query'].includes(p.status));
   if(toApp.length) T('warn', 'Purchase invoices to approve', finMoney(toApp.reduce((t,p)=>t+Number(p.net||0),0), 0)+' excl. VAT', toApp.length, tab('purchases'));
   const longHire = hires.filter(h=>!h.off_hire && finPlantCost(h).days>28);
@@ -887,3 +887,10 @@ html.finmode .finprojbar .finprojbar-n{height:34px !important;min-height:34px !i
 @media (max-width:600px){ html.finmode .scrollarea .row-gap .darkbtn, html.finmode .scrollarea .row-gap .ghostbtn{flex:1 1 auto !important;} }`;
   document.head.appendChild(st);
 })();
+
+// Open the job's Sales tab on a given sub-tab (apps / invoices / retention).
+window.finSalesGo = function(siteId, sub){
+  if(typeof finSalesSub!=='undefined') finSalesSub[siteId] = sub;
+  finProjTabGo(siteId, 'sales');
+  if(typeof finSalesSubGo==='function' && document.querySelector('.finsalestabs button[data-s="'+sub+'"]')) finSalesSubGo(siteId, sub);
+};

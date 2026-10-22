@@ -779,6 +779,13 @@ window.finSalesSubGo = function(siteId, k){
   document.querySelectorAll('.finsalestabs button').forEach(b=>b.classList.toggle('on', b.dataset.s===k));
 };
 function finSalesSubApply(){
+  // The figures at the top of Sales open their sub-tab.
+  const sid = (location.hash.match(/#\/site\/([^/?]+)/)||[])[1];
+  document.querySelectorAll('.fintodate > div').forEach(d=>{
+    const l = (d.querySelector('span')||{}).textContent||'';
+    const k = /^(Applied|Certified)/i.test(l) ? 'apps' : /^(Invoiced|Paid)/i.test(l) ? 'invoices' : /retention/i.test(l) ? 'retention' : null;
+    if(k && sid && document.querySelector('.finsalestabs button[data-s="'+k+'"]')){ d.style.cursor = 'pointer'; d.onclick = ()=>finSalesSubGo(sid, k); }
+  });
   const on = document.querySelector('.finsalestabs button.on');
   if(on) document.querySelectorAll('.finsalesub').forEach(el=>el.style.display = el.dataset.s===on.dataset.s ? '' : 'none');
 }
