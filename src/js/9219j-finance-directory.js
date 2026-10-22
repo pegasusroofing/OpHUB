@@ -197,7 +197,7 @@ function finDirPaint(){
   const tabs = [['general','General'], ['terms','Payment terms'], ['tax','Tax'], ['cis','CIS']];
   let body = '';
   if(D.tab==='general'){
-    body = (sup ? `<div class="formfield"><label class="field-label">Category</label><select onchange="finDirSet('category',this.value)"><option value="">Not set</option>${FIN_SUP_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div>` : '')
+    body = (sup ? '' : vatSel('sales_vat', 'Default VAT code — used on invoices to this client')) + (sup ? `<div class="formfield"><label class="field-label">Category</label><select onchange="finDirSet('category',this.value)"><option value="">Not set</option>${FIN_SUP_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div>` : '')
       + inp('name', (sup?'Supplier':'Client')+' name *', sup?'e.g. Bauder':'e.g. Quinn London Ltd')
       + inp('email', (sup?'Supplier':'Accounts')+' email', 'accounts@…', 'email')
       + `<div class="formfield"><label class="field-label">Address</label><textarea rows="2" oninput="finDirSet('address',this.value)">${v(r.address)}</textarea></div>`
@@ -215,8 +215,8 @@ function finDirPaint(){
     body = (sup ? tog('foreign_supplier', 'Foreign supplier (ignore VAT)') : '')
       + tog('vat_registered', 'VAT registered')
       + (r.vat_registered ? inp('vat_number', 'VAT number', 'GB…') : '')
-      + vatSel('sales_vat', 'Default sales VAT rate') + vatSel('purchase_vat', 'Default purchase VAT rate')
-      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'Saved against the client for reference — invoices still use the VAT set on the project.'}</p>`;
+      + (sup ? vatSel('sales_vat', 'Default sales VAT rate') + vatSel('purchase_vat', 'Default purchase VAT rate') : vatSel('sales_vat', 'Default VAT code — used on invoices to this client'))
+      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'New invoices to this client start with this VAT code (e.g. DRC 20%), and so do new projects for them.'}</p>`;
   } else {
     body = tog('cis_registered', 'CIS registered', sup ? 'They are a CIS subcontractor — you deduct CIS from their labour' : 'They deduct CIS from what they pay you')
       + (r.cis_registered ? `<div class="fingrid2"><div class="formfield"><label class="field-label">CIS rate</label><select onchange="finDirSet('cis_rate',Number(this.value))">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>${sup ? inp('utr','UTR','10 digits') : '<div></div>'}</div>${inp('company_number','Company number')}` : '')

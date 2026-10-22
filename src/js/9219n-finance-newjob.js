@@ -894,3 +894,26 @@ window.finSalesGo = function(siteId, sub){
   finProjTabGo(siteId, 'sales');
   if(typeof finSalesSubGo==='function' && document.querySelector('.finsalestabs button[data-s="'+sub+'"]')) finSalesSubGo(siteId, sub);
 };
+
+/* ---------- Client's default VAT code goes on their new invoices (Andy, 22 Oct) ---------- */
+(function(){
+  const map = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'};
+  const base = renderFinInvoiceDraft;
+  renderFinInvoiceDraft = function(site, inv, pos){
+    const fresh = !finInvDraft || finInvDraft.id!==inv.id;
+    if(fresh && FIN_CLIENTS){
+      const c = finClientByName(inv.bill_name || site.client_name);
+      const code = c && map[c.sales_vat];
+      if(code && FIN_INV_VAT[code]){
+        finInvDraft = JSON.parse(JSON.stringify(inv));
+        if(!Array.isArray(finInvDraft.lines) || !finInvDraft.lines.length) finInvDraft.lines = [{description:'', amount:null}];
+        const dflt = finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate);
+        finInvDraft.lines.forEach(l=>{ if(!l.vat || l.vat===dflt) l.vat = code; });
+      }
+    }
+    return base.apply(this, arguments);
+  };
+  // make sure clients are loaded before a draft invoice draws
+  const rfi = renderFinInvoice;
+  renderFinInvoice = async function(){ if(typeof finClientsLoad==='function') await finClientsLoad(); return rfi.apply(this, arguments); };
+})();

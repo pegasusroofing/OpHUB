@@ -48454,7 +48454,10 @@ window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
   lines.push({description:'Less retention', amount:-finRound(a.cert_retention)});
   if(Number(a.cert_previous||0)) lines.push({description:'Less previously certified (paid)', amount:-finRound(a.cert_previous)});
   const today = finToday();
-  lines.forEach(l=>{ l.vat = finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
+  // The client's default VAT code (Directory) wins over the project's VAT setting.
+  let cliVat = null;
+  if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) cliVat = m[c.sales_vat]; }
+  lines.forEach(l=>{ l.vat = cliVat || finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:a.final_date || finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
@@ -48529,6 +48532,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const amt = finRetHalf(finRetentionHeld(apps), n);
   if(!amt){ toast('No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
+  if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) lines.forEach(l=>{ if(!l.vat) l.vat = m[c.sales_vat]; }); }
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const today = finToday();
   const rows = await dbInsert('fin_invoices', {
@@ -54818,7 +54822,7 @@ function finDirPaint(){
   const tabs = [['general','General'], ['terms','Payment terms'], ['tax','Tax'], ['cis','CIS']];
   let body = '';
   if(D.tab==='general'){
-    body = (sup ? `<div class="formfield"><label class="field-label">Category</label><select onchange="finDirSet('category',this.value)"><option value="">Not set</option>${FIN_SUP_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div>` : '')
+    body = (sup ? '' : vatSel('sales_vat', 'Default VAT code — used on invoices to this client')) + (sup ? `<div class="formfield"><label class="field-label">Category</label><select onchange="finDirSet('category',this.value)"><option value="">Not set</option>${FIN_SUP_CATS.map(c=>`<option ${r.category===c?'selected':''}>${c}</option>`).join('')}</select></div>` : '')
       + inp('name', (sup?'Supplier':'Client')+' name *', sup?'e.g. Bauder':'e.g. Quinn London Ltd')
       + inp('email', (sup?'Supplier':'Accounts')+' email', 'accounts@…', 'email')
       + `<div class="formfield"><label class="field-label">Address</label><textarea rows="2" oninput="finDirSet('address',this.value)">${v(r.address)}</textarea></div>`
@@ -54836,8 +54840,8 @@ function finDirPaint(){
     body = (sup ? tog('foreign_supplier', 'Foreign supplier (ignore VAT)') : '')
       + tog('vat_registered', 'VAT registered')
       + (r.vat_registered ? inp('vat_number', 'VAT number', 'GB…') : '')
-      + vatSel('sales_vat', 'Default sales VAT rate') + vatSel('purchase_vat', 'Default purchase VAT rate')
-      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'Saved against the client for reference — invoices still use the VAT set on the project.'}</p>`;
+      + (sup ? vatSel('sales_vat', 'Default sales VAT rate') + vatSel('purchase_vat', 'Default purchase VAT rate') : vatSel('sales_vat', 'Default VAT code — used on invoices to this client'))
+      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'New invoices to this client start with this VAT code (e.g. DRC 20%), and so do new projects for them.'}</p>`;
   } else {
     body = tog('cis_registered', 'CIS registered', sup ? 'They are a CIS subcontractor — you deduct CIS from their labour' : 'They deduct CIS from what they pay you')
       + (r.cis_registered ? `<div class="fingrid2"><div class="formfield"><label class="field-label">CIS rate</label><select onchange="finDirSet('cis_rate',Number(this.value))">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>${sup ? inp('utr','UTR','10 digits') : '<div></div>'}</div>${inp('company_number','Company number')}` : '')
@@ -56824,6 +56828,29 @@ window.finSalesGo = function(siteId, sub){
   finProjTabGo(siteId, 'sales');
   if(typeof finSalesSubGo==='function' && document.querySelector('.finsalestabs button[data-s="'+sub+'"]')) finSalesSubGo(siteId, sub);
 };
+
+/* ---------- Client's default VAT code goes on their new invoices (Andy, 22 Oct) ---------- */
+(function(){
+  const map = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'};
+  const base = renderFinInvoiceDraft;
+  renderFinInvoiceDraft = function(site, inv, pos){
+    const fresh = !finInvDraft || finInvDraft.id!==inv.id;
+    if(fresh && FIN_CLIENTS){
+      const c = finClientByName(inv.bill_name || site.client_name);
+      const code = c && map[c.sales_vat];
+      if(code && FIN_INV_VAT[code]){
+        finInvDraft = JSON.parse(JSON.stringify(inv));
+        if(!Array.isArray(finInvDraft.lines) || !finInvDraft.lines.length) finInvDraft.lines = [{description:'', amount:null}];
+        const dflt = finInvVatFromTreatment(finInvDraft.vat_treatment, finInvDraft.vat_rate);
+        finInvDraft.lines.forEach(l=>{ if(!l.vat || l.vat===dflt) l.vat = code; });
+      }
+    }
+    return base.apply(this, arguments);
+  };
+  // make sure clients are loaded before a draft invoice draws
+  const rfi = renderFinInvoice;
+  renderFinInvoice = async function(){ if(typeof finClientsLoad==='function') await finClientsLoad(); return rfi.apply(this, arguments); };
+})();
 
 /* ============================================================
    OpHUB Finance — VAT rates in Settings (22 Oct 2026, Andy: "a VAT section,

@@ -102,7 +102,10 @@ window.raiseInvoiceFromCert = async function(siteId, appId, issueNow){
   lines.push({description:'Less retention', amount:-finRound(a.cert_retention)});
   if(Number(a.cert_previous||0)) lines.push({description:'Less previously certified (paid)', amount:-finRound(a.cert_previous)});
   const today = finToday();
-  lines.forEach(l=>{ l.vat = finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
+  // The client's default VAT code (Directory) wins over the project's VAT setting.
+  let cliVat = null;
+  if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) cliVat = m[c.sales_vat]; }
+  lines.forEach(l=>{ l.vat = cliVat || finInvVatFromTreatment(jf.vat_treatment||st.default_vat||'standard', 20); });
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const rows = await dbInsert('fin_invoices', {
     org_id:ME.org_id, site_id:siteId, status:'draft', issue_date:today, due_date:a.final_date || finAddDays(today, jf.due_days!=null?jf.due_days:st.default_due_days),
@@ -177,6 +180,7 @@ window.raiseRetentionInvoice = async function(siteId, n){
   const amt = finRetHalf(finRetentionHeld(apps), n);
   if(!amt){ toast('No retention held on this project yet.'); return; }
   const lines = [{description:`Release of retention — ${n===1?'first half (practical completion'+(jf.pc_date?' '+finDate(jf.pc_date):'')+')':'second half (end of defects period)'}`, amount:amt}];
+  if(typeof finClientsLoad==='function'){ await finClientsLoad(); const c = finClientByName(jf.billing_name||site.client_name); const m = {'20':'20','5':'5','rc20':'rc20','rc5':'rc5','0':'0','ex':'ex','none':'ex'}; if(c && m[c.sales_vat] && FIN_INV_VAT[m[c.sales_vat]]) lines.forEach(l=>{ if(!l.vat) l.vat = m[c.sales_vat]; }); }
   const t = finInvTotals(lines, jf.vat_treatment||st.default_vat||'standard', 20);
   const today = finToday();
   const rows = await dbInsert('fin_invoices', {
