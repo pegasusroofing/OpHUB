@@ -54041,6 +54041,10 @@ function finHelp(k){ const t = FIN_HELP[k]; if(!t) return ''; return `<button ty
    Set FIN_TRIAL = false (and remove this file's overrides) to go live.
    ============================================================ */
 const FIN_TRIAL = true;
+// Demo company (Sandbox Roofing Ltd, 22 Oct 2026, Andy: "in the sandbox let me do anything") —
+// the trial blocks don't apply there: new jobs, emails, Xero, inbox reading all work.
+const FIN_SANDBOX_ORGS = ['2eb072b7-2704-48c0-8110-62e45e621ded'];
+function finIsSandbox(){ return !!(typeof ME!=='undefined' && ME && FIN_SANDBOX_ORGS.includes(ME.org_id)); }
 if(FIN_TRIAL){
   const __finTrialMsg = 'Finance trial — switched off while testing';
   const __sbFetchLive = sbFetch;
@@ -54048,15 +54052,16 @@ if(FIN_TRIAL){
     // Directory may talk to Xero (Andy, 21 Oct): reading customers / suppliers and adding new ones.
     let act = ''; try{ act = JSON.parse((opts && opts.body) || '{}').action || ''; }catch(e){}
     const xeroClientOk = /\/functions\/v1\/xero\b/.test(String(path||'')) && ['status','customers','suppliers','contact','create_contact','connect','disconnect'].includes(act);
-    if(!xeroClientOk && /\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
+    if(!xeroClientOk && !finIsSandbox() && /\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
       return Promise.resolve(new Response(JSON.stringify({error: __finTrialMsg}), {status:403, headers:{'Content-Type':'application/json'}}));
     }
     return __sbFetchLive(path, opts);
   };
-  window.finInboxSendPm = async function(){ toast(__finTrialMsg+' (not sent to PMs).'); };
+  const __sendPmLive = window.finInboxSendPm;
+  window.finInboxSendPm = async function(){ if(finIsSandbox() && __sendPmLive) return __sendPmLive.apply(this, arguments); toast(__finTrialMsg+' (not sent to PMs).'); };
   // Finance-only companies have no Projects side, so they can still add projects here.
   const __newJobLive = window.openFinNewJob;
-  window.openFinNewJob = async function(){ if(typeof isFinanceOnly==='function' && isFinanceOnly() && __newJobLive) return __newJobLive.apply(this, arguments); toast(__finTrialMsg+' — set new jobs up in Projects.'); };
+  window.openFinNewJob = async function(){ if(((typeof isFinanceOnly==='function' && isFinanceOnly()) || finIsSandbox()) && __newJobLive) return __newJobLive.apply(this, arguments); toast(__finTrialMsg+' — set new jobs up in Projects.'); };
 }
 // Nothing from Finance reaches PMs or their price sheets during the trial.
 // NOTE: these four are plain declarations (they replace the live ones whatever FIN_TRIAL says) —
