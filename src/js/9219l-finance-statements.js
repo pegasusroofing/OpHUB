@@ -19,27 +19,35 @@
 
 const FIN_STMT_TYPES = {invoice:'Invoice', credit:'Credit note', payment:'Payment', other:'Other'};
 let finStmt = null; // the statement open on screen {rec, cands, file}
-const finRefKey = s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^(INV|INVOICE|CN|CR|SI|NO)+/,'').replace(/^0+/,'');
+const finRefKey = s=>String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^(INVOICE|INV|CRN|CN|CR|SI)(?=\d)/,'').replace(/^0+/,'');
 const finSupK = s=>String(s||'').trim().toLowerCase().replace(/\b(ltd|limited|plc|llp|uk|the)\b/g,'').replace(/[^a-z0-9]/g,'');
 
 /* ---------- reading a statement ---------- */
 const FIN_MON = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
-function finStmtDate(s){
-  s = String(s||'').trim(); let m;
-  if((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[0];
-  if((m = s.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/))){ let y = Number(m[3]); if(y<100) y += 2000; const mo = Number(m[2]), d = Number(m[1]); if(mo>=1&&mo<=12&&d>=1&&d<=31) return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
-  if((m = s.match(/(\d{1,2})[\s\-]([A-Za-z]{3,4})[a-z]*[\s\-,]+(\d{2,4})/))){ const mo = FIN_MON[m[2].toLowerCase()]; let y = Number(m[3]); if(y<100) y += 2000; if(mo) return y+'-'+String(mo).padStart(2,'0')+'-'+String(Number(m[1])).padStart(2,'0'); }
-  if(typeof s==='number' || /^\d{5}$/.test(s)){ const n = Number(s); if(n>30000 && n<60000){ const d = new Date(Date.UTC(1899,11,30) + n*86400000); return d.toISOString().slice(0,10); } }
+function finStmtDate(v){
+  // Excel date numbers (may carry a time part)
+  if(typeof v==='number' || /^\d{5}(\.\d+)?$/.test(String(v||'').trim())){ const n = Math.floor(Number(v)); if(n>30000 && n<60000) return new Date(Date.UTC(1899,11,30) + n*86400000).toISOString().slice(0,10); }
+  const s = String(v||'').trim(); let m;
+  const ok = (y,mo,d)=>{ if(y<100) y += 2000; const dt = new Date(Date.UTC(y, mo-1, d)); return (dt.getUTCFullYear()===y && dt.getUTCMonth()===mo-1 && dt.getUTCDate()===d) ? y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0') : null; };
+  if((m = s.match(/(?:^|[^\d])(\d{4})[\/.\-](\d{1,2})[\/.\-](\d{1,2})(?![\d])/))) return ok(Number(m[1]), Number(m[2]), Number(m[3]));
+  if((m = s.match(/(?:^|[^\d])(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})(?![\d])/))) return ok(Number(m[3]), Number(m[2]), Number(m[1])); // UK day/month/year
+  if((m = s.match(/(?:^|[^\d])(\d{1,2})(?:st|nd|rd|th)?[\s\-]+([A-Za-z]{3,9})\.?[\s\-,]+(\d{2}|\d{4})(?![\d])/))){ const mo = FIN_MON[m[2].slice(0,3).toLowerCase()]; if(mo) return ok(Number(m[3]), mo, Number(m[1])); }
   return null;
 }
-const FIN_DATE_RX = /\b(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\s\-](?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*[\s\-,]+\d{2,4})\b/i;
-const FIN_AMT_RX = /-?£?\s?\(?-?\d{1,3}(?:,\d{3})*\.\d{2}\)?(?:\s?(?:CR|DR))?/gi;
-function finAmt(s){ let t = String(s||'').trim(); const neg = /^\(.*\)$/.test(t.replace(/\s?(CR|DR)$/i,'')) || /^-/.test(t) || /CR$/i.test(t); t = t.replace(/[^0-9.]/g,''); const n = Number(t); return isNaN(n) ? null : (neg ? -n : n); }
+const FIN_DATE_RX = /(?:^|[^\d])(\d{4}[\/.\-]\d{1,2}[\/.\-]\d{1,2}|\d{1,2}[\/.\-]\d{1,2}[\/.\-](?:\d{4}|\d{2})|\d{1,2}(?:st|nd|rd|th)?[\s\-]+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s\-,]+(?:\d{4}|\d{2}))(?![\d])/i;
+const FIN_AMT_RX = /(?<![\d.,\/])(?:-\s?)?£?\s?\(?-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}\)?(?:\s?(?:CR|DR))?(?![\d\/])/gi;
+function finAmt(s){
+  let t = String(s==null?'':s).trim(); if(!t) return null;
+  if(typeof s==='number') return s;
+  const neg = /\(\s*£?\s*[\d,]+\.?\d*\s*\)/.test(t) || /^-|^£\s?-|-\s?£/.test(t) || /CR$/i.test(t);
+  const m = t.replace(/,/g,'').match(/\d+(?:\.\d+)?/); if(!m) return null;
+  const n = Number(m[0]); return isNaN(n) ? null : (neg ? -n : n);
+}
 function finLineType(txt, amt){
   const l = String(txt||'').toLowerCase();
-  if(/\b(payment|paid|receipt|bacs|chq|cheque|remittance|faster pay|direct debit|dd)\b/.test(l)) return 'payment';
-  if(/\b(credit note|credit|crn|cn)\b/.test(l) || (amt!=null && amt<0)) return 'credit';
-  if(/\b(balance b\/?f|brought forward|opening balance|carried forward|total|balance due|amount due)\b/.test(l)) return 'other';
+  if(/\b(balance b\/?f|b\/f|brought forward|opening balance|carried forward|c\/f|balance due|amount due|total due|total)\b/.test(l)) return 'other';
+  if(/\b(payment|paid|receipt|bacs|chq|cheque|remittance|faster pay(?:ment)?|direct debit)\b/.test(l)) return 'payment';
+  if(/\b(credit note|credit|crn)\b/.test(l) || /\bcn[\s\-]?\d/.test(l) || (amt!=null && amt<0)) return 'credit';
   return 'invoice';
 }
 // One line of text → {date, ref, type, amount} or null.
@@ -47,20 +55,20 @@ function finStmtParseText(line){
   const dm = line.match(FIN_DATE_RX); if(!dm) return null;
   const amts = line.match(FIN_AMT_RX); if(!amts) return null;
   // the line amount is the first money value after the date (the last is usually a running balance)
-  const rest = line.slice(line.indexOf(dm[0]) + dm[0].length);
+  const rest = line.slice(line.indexOf(dm[1]) + dm[1].length);
   const after = rest.match(FIN_AMT_RX) || amts;
   let amount = finAmt(after.length > 1 ? after[0] : after[after.length-1]);
   if(amount==null) return null;
-  const noMoney = rest.replace(FIN_AMT_RX, ' ');
+  const noMoney = rest.replace(FIN_AMT_RX, ' ').replace(new RegExp(FIN_DATE_RX.source,'gi'), ' ');
   const refM = noMoney.match(/\b([A-Z]{0,4}[\-\/]?\d{4,}[A-Z0-9\-\/]*)\b/i);
   const type = finLineType(line, amount);
   if(type==='other') return null;
   if(type==='credit' || type==='payment') amount = -Math.abs(amount);
-  return {date:finStmtDate(dm[0]), ref:refM ? refM[1] : '', type, amount:finRound(amount), text:line.trim().slice(0,160)};
+  return {date:finStmtDate(dm[1]), ref:refM ? refM[1] : '', type, amount:finRound(amount), text:line.trim().slice(0,160)};
 }
 async function finStmtReadPdf(file){
   if(!(await loadLib('pdfjsLib'))) return {lines:[], text:''};
-  const pdf = await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const pdf = await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer()), isEvalSupported:false}).promise;
   const rows = [];
   for(let p=1; p<=Math.min(pdf.numPages, 20); p++){
     const pg = await pdf.getPage(p); const tc = await pg.getTextContent();
@@ -90,7 +98,7 @@ async function finStmtReadSheet(file){
   if(hi<0) return {lines:rows.map(r=>finStmtParseText(r.join(' '))).filter(Boolean), text};
   const h = rows[hi].map(c=>String(c).toLowerCase());
   const col = rx=>h.findIndex(c=>rx.test(c));
-  const cDate = col(/date/), cRef = col(/(ref|invoice|document|doc|number|no\.?$|transaction)/), cType = col(/(type|description|details|narrative)/),
+  const cDate = col(/date/), cRef = h.findIndex(c=>/(ref|invoice|document|doc|number|no\.?$|transaction)/.test(c) && !/(date|amount|value|total|debit|credit)/.test(c)), cType = col(/(type|description|details|narrative)/),
         cDr = col(/(debit|invoice amount|charges?)/), cCr = col(/(credit|payment|receipts?)/), cAmt = col(/(amount|value|total|gross)/);
   const out = [];
   rows.slice(hi+1).forEach(r=>{
@@ -118,19 +126,28 @@ async function finStmtCands(supplierName){
   const a = pis.filter(p=>finSupK(p.supplier_name)===k || (k.length>3 && finSupK(p.supplier_name).includes(k)) || (finSupK(p.supplier_name).length>3 && k.includes(finSupK(p.supplier_name))))
     .map(p=>({id:p.id, kind:'pi', site_id:p.site_id, invoice_no:p.invoice_no||'', date:p.invoice_date, total:Number(p.total||0), status:p.paid_on?'paid':p.status}));
   const b = inbox.filter(i=>i.extracted && finSupK(i.extracted.supplier) && (finSupK(i.extracted.supplier)===k || (k.length>3 && finSupK(i.extracted.supplier).includes(k))))
-    .map(i=>({id:'in:'+i.id, kind:'inbox', invoice_no:i.extracted.invoice_no||'', date:i.extracted.invoice_date||String(i.received_at||'').slice(0,10), total:Number(i.extracted.total||0), status:'unallocated'}));
+    .map(i=>({id:'in:'+i.id, kind:'inbox', invoice_no:i.extracted.invoice_no||'', date:i.extracted.date||i.extracted.invoice_date||String(i.received_at||'').slice(0,10), total:Number(i.extracted.total||0), status:'unallocated'}));
   return a.concat(b);
 }
 function finStmtAutoMatch(lines, cands){
-  const used = new Set(lines.filter(l=>l.how==='manual' && l.match).map(l=>l.match));
+  // Two passes: invoice / credit-note numbers first, then (only where the line has no usable ref)
+  // a unique same-amount, same-sign candidate within 10 days. Hand-made matches are kept.
+  const used = new Set(lines.filter(l=>l.how==='manual' && l.match && !l.ignore).map(l=>l.match));
   const days = (a,b)=>Math.abs((new Date(a) - new Date(b))/86400000);
-  lines.forEach(l=>{
-    if(l.how==='manual' || l.ignore || l.type==='payment') return;
-    l.match = null; l.how = null;
-    const rk = finRefKey(l.ref);
-    let c = rk.length>=3 ? cands.find(c=>!used.has(c.id) && finRefKey(c.invoice_no) && (finRefKey(c.invoice_no)===rk || (rk.length>=5 && (finRefKey(c.invoice_no).endsWith(rk) || rk.endsWith(finRefKey(c.invoice_no)))))) : null;
-    if(!c){ const same = cands.filter(c=>!used.has(c.id) && Math.abs(Math.abs(c.total)-Math.abs(l.amount))<0.01 && (!l.date || !c.date || days(l.date, c.date)<=10)); if(same.length===1) c = same[0]; }
+  const sign = n=>Number(n)<0 ? -1 : 1;
+  const todo = lines.filter(l=>!(l.how==='manual' || l.ignore || l.type==='payment'));
+  todo.forEach(l=>{ l.match = null; l.how = null; });
+  todo.forEach(l=>{
+    const rk = finRefKey(l.ref); if(rk.length<3) return;
+    const c = cands.find(c=>{ if(used.has(c.id)) return false; const ck = finRefKey(c.invoice_no); if(!ck || sign(c.total)!==sign(l.amount)) return false;
+      return ck===rk || (rk.length>=5 && ck.length>=4 && (ck.endsWith(rk) || rk.endsWith(ck))); });
     if(c){ l.match = c.id; l.how = 'auto'; used.add(c.id); }
+  });
+  todo.forEach(l=>{
+    if(l.match) return;
+    const same = cands.filter(c=>!used.has(c.id) && sign(c.total)===sign(l.amount) && Math.abs(Math.abs(c.total)-Math.abs(l.amount))<0.01 && (!l.date || !c.date || days(l.date, c.date)<=10)
+      && !(finRefKey(l.ref).length>=3 && finRefKey(c.invoice_no).length>=3)); // both have numbers that didn't match → not the same invoice
+    if(same.length===1){ l.match = same[0].id; l.how = 'amount'; used.add(same[0].id); }
   });
   return lines;
 }
@@ -141,7 +158,7 @@ function finStmtLineState(l, cands){
   if(!c) return {k:'missing', pill:'<span class="finpill bad">Not in OpHUB</span>'};
   const diff = finRound(Math.abs(l.amount) - Math.abs(c.total));
   if(Math.abs(diff) >= 0.01) return {k:'diff', pill:`<span class="finpill warn">£ differs ${finMoney(diff)}</span>`, diff};
-  return {k:'ok', pill:`<span class="finpill ok">Matched${l.how==='manual'?' (by hand)':''}</span>`};
+  return {k:'ok', pill:`<span class="finpill ok">Matched${l.how==='manual'?' (by hand)':l.how==='amount'?' on amount — check':''}</span>`};
 }
 
 /* ---------- list ---------- */
@@ -185,7 +202,7 @@ window.finStmtUpload = async function(inp){
   const low = read.text.toLowerCase();
   const guess = names.filter(n=>n.length>2 && low.includes(n.toLowerCase())).sort((a,b)=>b.length-a.length)[0] || '';
   const dates = read.lines.map(l=>l.date).filter(Boolean).sort();
-  const balM = read.text.match(/(?:balance\s*(?:due|outstanding)?|amount\s*due|total\s*due)[^\d£\-]{0,20}(-?£?\s?\d{1,3}(?:,\d{3})*\.\d{2})/i);
+  const balM = read.text.match(/(?:balance\s*(?:due|outstanding|now due|carried forward|c\/f)|amount\s*(?:now\s*)?due|total\s*due|closing balance)[^\d£\-]{0,20}(-?£?\s?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}(?:\s?CR)?)/i);
   finStmtNew = {file, lines:read.lines, names, mat};
   let ov = document.getElementById('finStmtOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'finStmtOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -195,7 +212,7 @@ window.finStmtUpload = async function(inp){
     <p class="stub" style="margin:0 0 10px;font-style:normal;">${escapeHtml(file.name)} · ${read.lines.length ? `<b>${read.lines.length} line${read.lines.length===1?'':'s'} read</b>` : 'no lines could be read — you can add them by hand on the next page'}.</p>
     <div class="formfield"><label class="field-label">Supplier *</label><input type="text" id="finStmtSup" list="finStmtSupList" value="${escapeHtml(guess)}" placeholder="Start typing…"><datalist id="finStmtSupList">${names.map(n=>`<option value="${escapeHtml(n)}">`).join('')}</datalist></div>
     <div class="fingrid2"><div class="formfield"><label class="field-label">Statement date</label><input type="date" id="finStmtDate" value="${dates.length?dates[dates.length-1]:finToday()}"></div>
-    <div class="formfield"><label class="field-label">Balance on statement £</label><input type="text" inputmode="decimal" data-money id="finStmtBal" value="${balM?Math.abs(finAmt(balM[1])):''}"></div></div>
+    <div class="formfield"><label class="field-label">Balance on statement £</label><input type="text" inputmode="decimal" data-money id="finStmtBal" value="${balM && finAmt(balM[1])!=null ? finAmt(balM[1]) : ''}"></div></div>
     <button class="darkbtn" id="finStmtGo" onclick="finStmtCreate()">Match the invoices</button>
     <button class="geo-modal-cancel" onclick="document.getElementById('finStmtOverlay').style.display='none'">Cancel</button>
   </div>`;
@@ -207,8 +224,9 @@ window.finStmtCreate = async function(){
   const sup = finVal('finStmtSup'); if(!sup){ toast('Enter the supplier.'); return; }
   const btn = document.getElementById('finStmtGo'); if(btn){ btn.disabled = true; btn.textContent = 'Matching…'; }
   const safe = N.file.name.replace(/[^a-z0-9.\-]+/gi,'_').slice(-80);
+  let cands;
+  try{ cands = await finStmtCands(sup); }catch(e){ toast('Could not load the invoices — try again.'); if(btn){ btn.disabled = false; btn.textContent = 'Match the invoices'; } return; }
   const stored = await uploadToStorage('finance-docs', ME.org_id+'/statements/'+uid()+'-'+safe, N.file, N.file.type||'application/octet-stream');
-  const cands = await finStmtCands(sup);
   const lines = finStmtAutoMatch(N.lines.map(l=>Object.assign({id:uid()}, l)), cands);
   const m = N.mat.find(x=>finSupK(x.name)===finSupK(sup));
   const bal = finNum(finVal('finStmtBal'));
@@ -225,7 +243,7 @@ window.finStmtCreate = async function(){
 /* ---------- one statement ---------- */
 async function renderFinStatement(id){
   const __gen = RENDER_GEN;
-  const rec = (await dbSelect('fin_statements', 'id=eq.'+id))[0];
+  const rec = /^[A-Za-z0-9_-]{6,64}$/.test(id) ? (await dbSelect('fin_statements', 'id=eq.'+encodeURIComponent(id)))[0] : null;
   if(!rec){ go('#/finance/purchases/statements'); return; }
   const cands = await finStmtCands(rec.supplier_name);
   let fileUrl = '';
@@ -240,7 +258,7 @@ async function renderFinStatement(id){
   const notOn = cands.filter(c=>!used.has(c.id) && c.status!=='paid' && (!c.date || c.date<=upTo));
   const stmtTot = finRound(lines.filter(l=>!l.ignore).reduce((t,l)=>t+Number(l.amount||0),0));
   const optLbl = c=>`${c.invoice_no||'No number'} · ${c.date?finDate(c.date):''} · ${finMoney(c.total)}${c.kind==='inbox'?' · unallocated':''}`;
-  const sel = l=>`<select class="finstmt-sel" onclick="event.stopPropagation()" onchange="finStmtSetMatch('${l.id}',this.value)"><option value="">— not matched —</option>${cands.filter(c=>c.id===l.match || !used.has(c.id)).map(c=>`<option value="${c.id}" ${c.id===l.match?'selected':''}>${escapeHtml(optLbl(c))}</option>`).join('')}</select>`;
+  const sel = l=>`<select class="finstmt-sel" onclick="event.stopPropagation()" onchange="finStmtSetMatch('${jsAttr(l.id)}',this.value)"><option value="">— not matched —</option>${cands.filter(c=>c.id===l.match || !used.has(c.id)).map(c=>`<option value="${c.id}" ${c.id===l.match?'selected':''}>${escapeHtml(optLbl(c))}</option>`).join('')}</select>`;
   const desk = typeof isDeskMode==='function' && isDeskMode();
   document.getElementById('app').innerHTML = shell(`${finSectionNav('purchases')}${finSubTabs('purchases','statements')}
     <div class="finstmt-top"><button class="linkbtn" onclick="go('#/finance/purchases/statements')">‹ All statements</button>
@@ -258,26 +276,32 @@ async function renderFinStatement(id){
         <tbody>${st.length ? st.map(({l,s})=>`<tr class="${l.ignore?'findir-off':''}">
           <td data-l="Date">${l.date?finDate(l.date):'—'}</td>
           <td data-l="Reference" class="d"><b>${escapeHtml(l.ref||'—')}</b>${l.text?`<div class="fininv-addr" title="${escapeHtml(l.text)}">${escapeHtml(l.text.slice(0,60))}</div>`:''}</td>
-          <td data-l="Type"><select class="finstmt-sel" onchange="finStmtSet('${l.id}','type',this.value)">${Object.keys(FIN_STMT_TYPES).map(k=>`<option value="${k}" ${l.type===k?'selected':''}>${FIN_STMT_TYPES[k]}</option>`).join('')}</select></td>
+          <td data-l="Type"><select class="finstmt-sel" onchange="finStmtSet('${jsAttr(l.id)}','type',this.value)">${Object.keys(FIN_STMT_TYPES).map(k=>`<option value="${k}" ${l.type===k?'selected':''}>${FIN_STMT_TYPES[k]}</option>`).join('')}</select></td>
           <td data-l="Amount" class="num">${finMoney(l.amount)}</td>
           <td data-l="Matched to">${l.type==='payment'||l.ignore ? '—' : sel(l)}</td>
           <td data-l="Check">${s.pill}</td>
-          <td data-l=""><button class="linkbtn" onclick="finStmtSet('${l.id}','ignore',${!l.ignore})">${l.ignore?'Use':'Ignore'}</button></td></tr>`).join('') : '<tr><td colspan="7"><div class="empty">No lines yet — use “+ Add a line”.</div></td></tr>'}</tbody></table></div>
+          <td data-l=""><button class="linkbtn" onclick="finStmtSet('${jsAttr(l.id)}','ignore',${!l.ignore})">${l.ignore?'Use':'Ignore'}</button></td></tr>`).join('') : '<tr><td colspan="7"><div class="empty">No lines yet — use “+ Add a line”.</div></td></tr>'}</tbody></table></div>
       <p class="sectiontitle" style="margin:16px 0 6px;">Invoices we hold that aren’t on this statement (${notOn.length})</p>
       ${notOn.length ? `<div class="finreptbl-wrap"><table class="fincosttbl fininvtbl"><thead><tr><th>Invoice no.</th><th>Date</th><th class="num">Total</th><th>Status</th><th>Match to a line</th></tr></thead>
         <tbody>${notOn.map(c=>`<tr><td data-l="Invoice no." class="d"><b>${escapeHtml(c.invoice_no||'—')}</b></td><td data-l="Date">${c.date?finDate(c.date):'—'}</td><td data-l="Total" class="num">${finMoney(c.total)}</td>
           <td data-l="Status">${c.kind==='inbox'?'<span class="finpill blue">Unallocated</span>':escapeHtml(c.status==='approved'?'Approved, not paid':c.status==='to_approve'?'To approve':c.status||'')}</td>
-          <td data-l="Match to a line"><select class="finstmt-sel" onchange="finStmtSetMatch(this.value,'${c.id}')"><option value="">Choose a line…</option>${lines.filter(l=>!l.match && !l.ignore && l.type!=='payment').map(l=>`<option value="${l.id}">${escapeHtml((l.ref||'No ref')+' · '+(l.date?finDate(l.date):'')+' · '+finMoney(l.amount))}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`
+          <td data-l="Match to a line"><select class="finstmt-sel" onchange="finStmtSetMatch(this.value,'${c.id}')"><option value="">Choose a line…</option>${lines.filter(l=>!l.match && !l.ignore && l.type!=='payment').map(l=>`<option value="${escapeHtml(l.id)}">${escapeHtml((l.ref||'No ref')+' · '+(l.date?finDate(l.date):'')+' · '+finMoney(l.amount))}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`
         : '<p class="stub" style="margin:0;">None — every unpaid invoice up to the statement date is on it.</p>'}
       </div>
       ${desk && fileUrl ? `<div class="finstmt-pdf"><iframe src="${escapeHtml(fileUrl)}" title="Statement"></iframe></div>` : ''}
     </div>`,
     {title:'Statement', subtitle:'Purchases · reconciliation', back:'#/finance/purchases/statements', tabs:false});
 }
-async function finStmtSave(patch){
-  const r = finStmt.rec;
-  const row = await dbUpdate('fin_statements', r.id, Object.assign({lines:r.lines, updated_at:new Date().toISOString()}, patch||{}));
-  if(row){ finStmt.rec = row; render(); }
+let finStmtSaving = Promise.resolve();
+function finStmtSave(patch){
+  // one save at a time, in order, so quick changes don't overwrite each other
+  finStmtSaving = finStmtSaving.then(async ()=>{
+    if(!finStmt) return;
+    const r = finStmt.rec;
+    const row = await dbUpdate('fin_statements', r.id, Object.assign({lines:r.lines, updated_at:new Date().toISOString()}, patch||{}));
+    if(row && finStmt && finStmt.rec.id===row.id){ finStmt.rec = row; render(); }
+  }).catch(()=>{});
+  return finStmtSaving;
 }
 window.finStmtSetMatch = function(lineId, candId){
   const L = finStmt.rec.lines.find(l=>l.id===lineId); if(!L) return;
@@ -290,7 +314,7 @@ window.finStmtSet = function(lineId, k, v){
   L[k] = v;
   if(k==='type' && (v==='credit' || v==='payment')) L.amount = -Math.abs(Number(L.amount||0));
   if(k==='type' && v==='invoice') L.amount = Math.abs(Number(L.amount||0));
-  if(k==='type' && v==='payment'){ L.match = null; L.how = null; }
+  if((k==='type' && v==='payment') || (k==='ignore' && v)){ L.match = null; L.how = null; }
   finStmtSave();
 };
 window.finStmtRematch = function(){
@@ -308,8 +332,9 @@ window.finStmtAddLine = async function(){
 };
 window.finStmtOpenFile = async function(){
   const r = finStmt.rec; if(!r.file_path) return;
+  const w = window.open('', '_blank');
   const url = await resolveStorageUrl(publicUrl('finance-docs', r.file_path));
-  if(url) window.open(url, '_blank', 'noopener');
+  if(url && w){ try{ w.opener = null; }catch(e){} w.location.href = url; } else if(url) window.open(url, '_blank', 'noopener'); else if(w) w.close();
 };
 window.finStmtReconciled = async function(on){
   if(on){

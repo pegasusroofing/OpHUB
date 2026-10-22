@@ -125,7 +125,7 @@ async function renderFinPurchases(sub){
   const onHire = hires.filter(h=>!h.off_hire);
   const supKey = n=>String(n||'').trim().toLowerCase();
   const supNames = {}; [].concat(pos, pinvs, hires, inbox.map(i=>({supplier_name:(i.extracted||{}).supplier}))).forEach(x=>{ const n = String(x.supplier_name||'').trim(); if(n && !/^Emailed to /.test(n)) supNames[supKey(n)] = supNames[supKey(n)] || n; });
-  const jobIds = Array.from(new Set([].concat(pos, pinvs, hires).map(x=>x.site_id).filter(Boolean)));
+  const jobIds = Array.from(new Set([].concat(pos, pinvs, hires, inbox).map(x=>x.site_id).filter(Boolean)));
   const fOK = x=>(!finPurSup || supKey(x.supplier_name)===finPurSup) && (!finPurJob || x.site_id===finPurJob);
   const filtBar = ()=>`<div class="finjobfilt">
     <label>Supplier<select onchange="finPurSup=this.value;render()"><option value="">All suppliers</option>${Object.keys(supNames).sort().map(k=>`<option value="${escapeHtml(k)}" ${finPurSup===k?'selected':''}>${escapeHtml(supNames[k])}</option>`).join('')}</select></label>
@@ -172,7 +172,7 @@ async function renderFinPurchases(sub){
             <td data-l="Received">${finDate(String(it.received_at).slice(0,10))}</td>
             <td data-l="Total" class="num">${ex.total!=null?finMoney(ex.total):'—'}</td>
             <td data-l="${finPiF==='job'?'Why':'Sent to'}">${finPiF==='job' ? `${it.stage==='pm_replied'?'<span class="finpill blue">PM replied</span> ':''}<span class="fininv-addr" style="font-size:12.5px;">${escapeHtml(it.stage==='pm_replied' && last ? last.name+': '+last.text : (it.query_reason||'Check it'))}</span>` : `${escapeHtml(((PROFILES[it.assigned_pm]||{}).name)||'PM')}<div class="fininv-addr">${it.assigned_at?finDate(String(it.assigned_at).slice(0,10)):''}</div>`}</td>
-            <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinInboxItem('${it.id}')">${finPiF==='job'?'Allocate':'Open'}</button></td></tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">${finPiF==='job' ? 'Nothing unallocated — everything that came in was filed to a job.' : 'Nothing with a PM.'}</div>`}</div>`;
+            <td data-l=""><button class="ghostbtn finsmall" onclick="event.stopPropagation();openFinInboxItem('${it.id}')">${finPiF==='job'?'Allocate':'Open'}</button></td></tr>`; }).join('')}</tbody></table></div>` : `<div class="empty">${finPurSup||finPurJob ? 'Nothing matches those filters.' : finPiF==='job' ? 'Nothing unallocated — everything that came in was filed to a job.' : 'Nothing with a PM.'}</div>`}</div>`;
     } else {
       const list = sortBy(pinvs.filter(F[finPiF]).filter(fOK), 'invoice_date', 'total');
       body += filtBar() + finSearchHtml('Search supplier, invoice no. or project', 'finPurList')

@@ -14,16 +14,20 @@ if(FIN_TRIAL){
   sbFetch = function(path, opts){
     // Directory may talk to Xero (Andy, 21 Oct): reading customers / suppliers and adding new ones.
     let act = ''; try{ act = JSON.parse((opts && opts.body) || '{}').action || ''; }catch(e){}
-    const xeroClientOk = /\/functions\/v1\/xero\b/.test(String(path||'')) && ['status','customers','suppliers','contact','create_contact','connect'].includes(act);
+    const xeroClientOk = /\/functions\/v1\/xero\b/.test(String(path||'')) && ['status','customers','suppliers','contact','create_contact','connect','disconnect'].includes(act);
     if(!xeroClientOk && /\/functions\/v1\/(send-finance-email|xero|finance-inbox|finance-ai-read)\b/.test(String(path||''))){
       return Promise.resolve(new Response(JSON.stringify({error: __finTrialMsg}), {status:403, headers:{'Content-Type':'application/json'}}));
     }
     return __sbFetchLive(path, opts);
   };
   window.finInboxSendPm = async function(){ toast(__finTrialMsg+' (not sent to PMs).'); };
-  window.openFinNewJob = async function(){ toast(__finTrialMsg+' — set new jobs up in Projects.'); };
+  // Finance-only companies have no Projects side, so they can still add projects here.
+  const __newJobLive = window.openFinNewJob;
+  window.openFinNewJob = async function(){ if(typeof isFinanceOnly==='function' && isFinanceOnly() && __newJobLive) return __newJobLive.apply(this, arguments); toast(__finTrialMsg+' — set new jobs up in Projects.'); };
 }
 // Nothing from Finance reaches PMs or their price sheets during the trial.
+// NOTE: these four are plain declarations (they replace the live ones whatever FIN_TRIAL says) —
+// delete them as well as setting FIN_TRIAL = false when Finance goes live.
 async function pmToBookCounts(){ return {inv:0, wages:0}; }
 async function pmWagePushesHtml(){ return ''; }
 async function finOpPushToPm(){ return; }

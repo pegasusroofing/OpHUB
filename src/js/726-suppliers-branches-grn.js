@@ -136,6 +136,7 @@ function matGrnTag(g){
 }
 function matDoneTag(m){
   if(m.status==='cancelled') return `<span class="opmat-pill" style="background:#EEE;color:#666;">Cancelled</span>`;
+  if(m.merchant==='Yard stock') return `<span class="opmat-pill" style="background:#E7F4EC;color:#1E7A3C;">From yard</span>`;
   if(m.status==='sent' || m.merchant || m.sent_at) return `<span class="opmat-pill" style="background:#E3EEFA;color:#1F5FA6;">${m.fulfilment==='collection'?'Collection':'Ordered'}</span>`;
   if(/Collection List/.test(m.order_note||'')) return `<span class="opmat-pill" style="background:#FCEFD2;color:#8A5A00;">To collect</span>`;
   return `<span class="opmat-pill" style="background:#EEE;color:#666;">Closed</span>`;

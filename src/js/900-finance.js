@@ -77,7 +77,7 @@ async function renderFinanceSettings(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('settings')}
     <div class="card" id="finCostAccess"><p class="stub">Loading…</p></div>
-    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? `<div class="finshort"><button class="ghostbtn" onclick="go('#/fin-team')">Team</button>${isFullManager(ME)?`<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>`:''}<button class="ghostbtn" onclick="go('#/account')">My account</button></div>` : ''}
+    ${typeof isFinanceOnly==='function' && isFinanceOnly() ? `<div class="finshort"><button class="ghostbtn" onclick="go('#/fin-team')">Team</button>${isFullManager(ME)?`<button class="ghostbtn" onclick="go('#/finance/directory/suppliers')">Suppliers</button>`:''}<button class="ghostbtn" onclick="go('#/account')">My account</button></div>` : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project numbers</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">When this is on, every new project gets the next number automatically and nobody types one in. A number can’t be used twice.</p>
@@ -92,7 +92,7 @@ async function renderFinanceSettings(){
       <p class="sectiontitle" style="margin-top:0;">Purchase orders</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">Every material order sent from a project’s Materials tile becomes a purchase order numbered by project (e.g. ${escapeHtml(((SITES.find(x=>x.job_number)||{}).job_number)||'2628')}-PO-001). The number goes on the order email and the request.</p>
       <label class="finswitch"><input type="checkbox" id="finPoOn" ${st.po_enabled?'checked':''}> Raise a PO for every PM’s order</label>
-      <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: every order from every PM gets a PO number.' : 'Off: only orders you send get a PO, so PMs see no change while this is tested.'}</p>
+      <p class="stub" style="margin:0;font-style:normal;">${st.po_enabled ? 'On: orders sent by anyone with Finance switched on get a PO number (other PMs’ orders don’t).' : 'Off: no POs are raised from material orders.'}</p>
       <div class="formfield" style="margin-top:12px;max-width:320px;"><label class="field-label">VAT on new PO lines</label><select id="finPoVat">${Object.keys(FIN_VAT_RATES).map(k=>`<option value="${k}" ${String(st.po_vat_default||'20')===k?'selected':''}>${FIN_VAT_RATES[k].l}</option>`).join('')}</select></div>
     </div>
     <div class="card">
@@ -137,7 +137,7 @@ async function renderFinanceSettings(){
   const setRoot = document.querySelector('.scrollarea');
   if(setRoot) setRoot.classList.add('finsetpage');
   finCollapseCards(setRoot, 'settings');
-  if(typeof finCostsAccessFill==='function') Promise.resolve(finCostsAccessFill()).then(()=>finCollapseCards(document.querySelector('.scrollarea'), 'settings'));
+  if(typeof finCostsAccessFill==='function'){ const g2 = RENDER_GEN; Promise.resolve(finCostsAccessFill()).then(()=>{ if(g2===RENDER_GEN) finCollapseCards(document.querySelector('.scrollarea'), 'settings'); }); }
 }
 window.saveFinanceSettings = async function(){
   const auto = document.getElementById('finAutoJob').checked;

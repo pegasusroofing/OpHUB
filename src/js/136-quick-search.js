@@ -37,7 +37,7 @@ window.qsType = function(v){
   if(q){
     SITES.filter(s=>[s.name, s.job_number, s.address, s.postcode, s.client_name].some(x=>qsMatch(x, q))).slice(0,6)
       .forEach(s=>local.push({g:'Projects', ic:'🏗', t:(s.job_number?s.job_number+' · ':'')+(s.name||''), s:[s.client_name, s.postcode].filter(Boolean).join(' · '), go:`#/site/${s.id}/home`}));
-    if(isManager(ME)) Object.values(PROFILES||{}).filter(p=>p && p.org_id===ME.org_id && [p.name, p.email, p.phone].some(x=>qsMatch(x, q))).slice(0,5)
+    if(isManager(ME)) Object.values(PROFILES||{}).filter(p=>p && (!p.org_id || p.org_id===ME.org_id) && [p.name, p.email, p.phone].some(x=>qsMatch(x, q))).slice(0,5)
       .forEach(p=>local.push({g:'People', ic:'👷', t:p.name||p.email, s:[typeof personRoleLabel==='function'?personRoleLabel(p):p.role, p.phone].filter(Boolean).join(' · '), go:p.role==='operative'?`#/operatives`:'#/team'}));
   }
   qsActions().filter(a=>!q || qsMatch(a.t, q)).slice(0, q?4:8).forEach(a=>local.push(Object.assign({g:'Go to'}, a)));

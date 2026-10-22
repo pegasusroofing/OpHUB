@@ -539,7 +539,7 @@ async function renderSchedule(siteId){
     }catch(e){}
     if(sowShowAllAddrFor!==siteId+'|'+(sowHereAddr?sowHereAddr.id:'')) sowShowAllAddr = false;
     sowShowAllAddrFor = siteId+'|'+(sowHereAddr?sowHereAddr.id:'');
-    if(sowHereAddr && !sowShowAllAddr) allTasks = allTasks.filter(t=>t.sub_site_id===sowHereAddr.id);
+    if(sowHereAddr && !sowShowAllAddr) allTasks = allTasks.filter(t=>!t.sub_site_id || t.sub_site_id===sowHereAddr.id);
   }
   // Task changes made on this phone that are still waiting on their photos.
   try{ await sowPendingForRender(siteId, allTasks, null); }catch(e){}

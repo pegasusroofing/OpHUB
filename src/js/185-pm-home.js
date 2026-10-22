@@ -155,7 +155,7 @@ async function renderPmHome(){
         <div style="font-weight:800;font-size:13.5px;color:var(--warn);">Getting Started</div>
         <div class="stub" style="margin:2px 0 0;">${onboarding.items.filter(i=>i.done).length} of ${onboarding.items.length} steps done — tap to finish</div>
       </div>` : ''}
-    ${toBook.inv || toBook.wages ? `<button type="button" class="pmneeds" onclick="go('#/to-book')"><span class="pmneeds-ic">£</span><span class="pmneeds-t"><b>Needs you</b><em>${[toBook.inv ? toBook.inv+' supplier invoice'+(toBook.inv===1?'':'s')+' to book to a job' : '', toBook.wages ? toBook.wages+' wage'+(toBook.wages===1?'':'s')+' to book to a price' : ''].filter(Boolean).join(' · ')}</em></span>${ophIcon('chevron', 18, 2.2)}</button>` : ''}
+    ${toBook.inv || toBook.wages ? `<button type="button" class="pmneeds" onclick="go('#/to-book')"><span class="pmneeds-ic">£</span><span class="pmneeds-t"><b>Needs you</b><em>${[toBook.inv ? toBook.inv+' purchase invoice'+(toBook.inv===1?'':'s')+' to book to a job' : '', toBook.wages ? toBook.wages+' wage'+(toBook.wages===1?'':'s')+' to book to a price' : ''].filter(Boolean).join(' · ')}</em></span>${ophIcon('chevron', 18, 2.2)}</button>` : ''}
     <div class="pmstats">
       ${stat(live.length, 'Live jobs', "go('#/sites')")}
       ${stat(onSiteN, 'On site now', "go('#/onsite')")}

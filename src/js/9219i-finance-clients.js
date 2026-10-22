@@ -53,7 +53,10 @@ window.finCliPull = async function(){
     let added = 0, linked = 0;
     const now = new Date().toISOString();
     for(const x of list){
-      const patch = {name:x.name, email:x.email||null, phone:x.phone||null, address:x.address||null, postcode:x.postcode||null, xero_contact_id:x.id, xero_synced_at:now};
+      const patch = {name:x.name, xero_contact_id:x.id, xero_synced_at:now};
+      ['email','phone','address','postcode','sales_vat','purchase_vat','company_number'].forEach(k=>{ if(x[k]) patch[k] = x[k]; });
+      if(x.vat_number){ patch.vat_number = x.vat_number; patch.vat_registered = true; }
+      if(x.terms_type){ patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
       const ex = byX[x.id] || byN[String(x.name).trim().toLowerCase()];
       if(ex){ await dbUpdate('fin_clients', ex.id, patch); linked++; }
       else { const ins = await dbInsert('fin_clients', Object.assign({org_id:ME.org_id, created_by:ME.id}, patch)); if(ins) added++; }

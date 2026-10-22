@@ -202,6 +202,30 @@ Deno.serve(async (req) => {
       }) });
     }
 
+    if (action === 'customers' || action === 'suppliers') {
+      // Every active customer / supplier in Xero (Finance › Directory › Pull from Xero), with tax and payment terms.
+      const TAXMAP: Record<string, string> = { OUTPUT2: '20', INPUT2: '20', RROUTPUT: '5', RRINPUT: '5', ZERORATEDOUTPUT: '0', ZERORATEDINPUT: '0', EXEMPTOUTPUT: 'ex', EXEMPTINPUT: 'ex', DRCHARGESUPPLY20: 'rc20', DRCHARGE20: 'rc20', DRCHARGESUPPLY5: 'rc5', DRCHARGE5: 'rc5', NONE: 'none' };
+      const TERMS: Record<string, string> = { DAYSAFTERBILLDATE: 'days_after_bill', DAYSAFTERBILLMONTH: 'days_after_month', OFCURRENTMONTH: 'of_current_month', OFFOLLOWINGMONTH: 'of_following_month' };
+      const sup = action === 'suppliers';
+      const out: any[] = [];
+      for (let page = 1; page <= 20; page++) {
+        const r = await call('GET', '/Contacts?page=' + page + '&where=' + encodeURIComponent((sup ? 'IsSupplier' : 'IsCustomer') + '==true AND ContactStatus=="ACTIVE"'));
+        const cs = r.Contacts || [];
+        cs.forEach((c: any) => {
+          const a = (c.Addresses || []).find((x: any) => x.AddressLine1) || {};
+          const ph = (c.Phones || []).find((x: any) => x.PhoneNumber) || {};
+          const pt = (c.PaymentTerms || {})[sup ? 'Bills' : 'Sales'] || null;
+          out.push({ id: c.ContactID, name: c.Name, email: c.EmailAddress || '', phone: [ph.PhoneAreaCode, ph.PhoneNumber].filter(Boolean).join(' '),
+            address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region].filter(Boolean).join('\n'), postcode: a.PostalCode || '',
+            vat_number: c.TaxNumber || '', company_number: c.CompanyNumber || '',
+            sales_vat: TAXMAP[c.AccountsReceivableTaxType || ''] || '', purchase_vat: TAXMAP[c.AccountsPayableTaxType || ''] || '',
+            terms_days: pt && pt.Day != null ? Number(pt.Day) : null, terms_type: pt ? (TERMS[pt.Type] || '') : '' });
+        });
+        if (cs.length < 100) break;
+      }
+      return json(sup ? { suppliers: out } : { customers: out });
+    }
+
     if (action === 'create_contact') {
       // New customer in Xero (Finance › project › Billing › "+ New customer").
       const nm = String(body.name || '').trim().slice(0, 255);
@@ -211,7 +235,8 @@ Deno.serve(async (req) => {
       const addr = { AddressType: 'POBOX', AddressLine1: String(body.line1 || '').slice(0, 500), AddressLine2: String(body.line2 || '').slice(0, 500), City: String(body.city || '').slice(0, 255), PostalCode: String(body.postcode || '').slice(0, 50) };
       const shape = (c: any) => { const a = (c.Addresses || []).find((x: any) => x.AddressLine1) || {}; return { id: c.ContactID, name: c.Name, email: c.EmailAddress || '', address: [a.AddressLine1, a.AddressLine2, a.AddressLine3, a.City, a.Region, a.PostalCode].filter(Boolean).join('\n') }; };
       if (ex) return json({ ok: true, existed: true, contact: shape(ex) });
-      const c: any = { Name: nm, IsCustomer: true };
+      const c: any = { Name: nm };
+      if (!body.supplier) c.IsCustomer = true;
       if (body.email) c.EmailAddress = String(body.email).slice(0, 255);
       if (body.first_name) c.FirstName = String(body.first_name).slice(0, 255);
       if (body.last_name) c.LastName = String(body.last_name).slice(0, 255);
@@ -316,6 +341,12 @@ Deno.serve(async (req) => {
       if (pi.status !== 'approved') return json({ error: 'Approve it first' }, 400);
       if (pi.xero_id) return json({ error: 'Already posted to Xero' }, 400);
       if (pi.xero_post === false) return json({ error: 'This invoice is set not to post to Xero' }, 400);
+      // Directory › Suppliers › "Don't send this supplier's bills to Xero"
+      {
+        const q = admin.from('fin_suppliers').select('no_sync').eq('org_id', orgId);
+        const { data: fs } = pi.supplier_id ? await q.eq('supplier_id', pi.supplier_id).maybeSingle() : await q.ilike('name', String(pi.supplier_name || '').replace(/[%_]/g, '')).limit(1).maybeSingle();
+        if ((fs as any)?.no_sync) return json({ error: 'This supplier is set not to send bills to Xero (Directory › Suppliers)' }, 400);
+      }
       const [{ data: site }, { data: po }] = await Promise.all([
         admin.from('sites').select('name, job_number').eq('id', pi.site_id).maybeSingle(),
         pi.po_id ? admin.from('purchase_orders').select('number').eq('id', pi.po_id).maybeSingle() : Promise.resolve({ data: null }),

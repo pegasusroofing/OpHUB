@@ -172,7 +172,7 @@ async function renderMaterialRequests(siteId){
   // Everything on this tab that can be ticked — used by "Select all".
   const materials = !isPM ? materialsRaw
     : materialsRaw;
-  if(__gen === RENDER_GEN) materialSelectableIds = isPM ? (matFilter==='ordered' ? materials.map(m=>m.id) : materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id)) : [];
+  if(__gen === RENDER_GEN) materialSelectableIds = isPM ? (matFilter==='ordered' ? materials.filter(m=>m.merchant!=='Yard stock').map(m=>m.id) : materials.filter(m=>matFilter==='closed' ? m.status==='closed' : (m.status==='pending' || m.status==='sent')).map(m=>m.id)) : [];
   // Who could collect an order — only needed while the send step is open.
   let orderDrivers = [], orderSiteOps = [];
   if(isPM && (sendingGroup || sendingMaterial)){
@@ -236,7 +236,7 @@ async function renderMaterialRequests(siteId){
               <span class="statustag ${m.status}" style="font-size:12.4px;padding:3.9px 9.1px;border-radius:6.5px;">${isPM ? m.status : (opStatusLabel[m.status]||m.status)}</span>
               ${isPM ? rowActionsMenuHtml('matreq-'+m.id, `
                 <div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;openMaterialEdit('${siteId}','${m.id}')">✎ Edit</div>
-                ${m.status==='pending' && typeof yardMoveOpen==='function' ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;yardMoveOpen('issue','','${siteId}','${m.id}')">📦 Fill from yard stock</div>` : ''}
+                ${m.status==='pending' && typeof yardCanEdit==='function' && yardCanEdit() ? `<div class="statusmenu-item" onclick="rowActionsMenuOpenFor=null;yardMoveOpen('issue','','${siteId}','${m.id}')">📦 Fill from yard stock</div>` : ''}
                 <div class="statusmenu-item danger" onclick="rowActionsMenuOpenFor=null;deleteMaterial('${siteId}','${m.id}')">🗑 Delete</div>
               `) : ''}
             </div>
@@ -248,7 +248,7 @@ async function renderMaterialRequests(siteId){
             m.status==='closed'
               // Closed tab: supplier name is hidden here (kept only in the
               // request/send flow's own data) — show the emailed date instead.
-              ? `<div class="merchantrow">${m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
+              ? `<div class="merchantrow">${m.merchant==='Yard stock' ? `<span class="statustag closed">🏗 From yard stock</span>` : m.email_sent_at ? `<span class="statustag closed">✓ Emailed ${new Date(m.email_sent_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span>` : '<span class="statustag pending">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
               : `<div class="merchantrow">→ <span class="merchantchip sent">${escapeHtml(m.merchant||supplierName(m.supplier_id)||'Supplier')}</span> ${m.email_sent_at ? '<span class="statustag closed" style="margin-left:6px;">✓ Email sent</span>' : '<span class="statustag pending" style="margin-left:6px;">Email pending</span>'}</div>${m.required_for_delivery ? `<div class="merchantrow" style="margin-top:4px;">Required for delivery: <strong>${new Date(m.required_for_delivery+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</strong></div>` : ''}${m.po_number ? `<div class="merchantrow" style="margin-top:4px;">PO: <strong>${escapeHtml(m.po_number)}</strong></div>` : ''}`
           ) : '') :
             m.status==='cancelled' ? `<div class="merchantrow" style="color:var(--warn);">Cancelled by ${escapeHtml(nameOf(m.cancelled_by))}${m.cancel_reason ? ' — '+escapeHtml(m.cancel_reason) : ''}</div>` :
@@ -273,7 +273,7 @@ async function renderMaterialRequests(siteId){
             <button class="darkbtn" style="flex:1;" onclick="beginSendMaterial('${m.id}')">🚚 Order from merchant</button>
             <button class="ghostbtn" style="flex:1;" onclick="materialToCollection('${siteId}','${m.id}')">📦 Add to collections</button>
           </div>
-          <div class="row-gap" style="margin-top:8px;"><button class="ghostbtn" style="flex:1;margin:0;" onclick="yardMoveOpen('issue','','${siteId}','${m.id}')">🏗 From yard stock</button><button class="ghostbtn" style="flex:1;margin:0;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button></div>
+          <div class="row-gap" style="margin-top:8px;">${typeof yardCanEdit==='function' && yardCanEdit() ? `<button class="ghostbtn" style="flex:1;margin:0;" onclick="yardMoveOpen('issue','','${siteId}','${m.id}')">🏗 From yard stock</button>` : ''}<button class="ghostbtn" style="flex:1;margin:0;" onclick="closeMaterial('${siteId}','${m.id}')">Close request</button></div>
           ` : ''}
           ${isPM && m.status==='sent' && !selectedMaterialIds.has(m.id) ? `
           <div class="row-gap" style="margin-top:10px;">
@@ -282,7 +282,7 @@ async function renderMaterialRequests(siteId){
           </div>
           <button class="ghostbtn" style="margin-top:8px;" onclick="closeMaterial('${siteId}','${m.id}')">✓ Received — close</button>
           ` : ''}
-          ${isPM && m.status==='closed' && !selectedMaterialIds.has(m.id) ? (wasOrdered(m) ? `
+          ${isPM && m.status==='closed' && !selectedMaterialIds.has(m.id) ? (wasOrdered(m) && m.merchant!=='Yard stock' ? `
           <div class="row-gap" style="margin-top:10px;">
             <button class="ghostbtn" style="flex:1;" onclick="openMaterialEdit('${siteId}','${m.id}')">✎ Edit order</button>
             ${m.merchant && m.supplier_id ? `<button class="darkbtn" style="flex:1;" onclick="openReemailPrompt('${siteId}','${m.id}')">↻ Resend order</button>` : ''}

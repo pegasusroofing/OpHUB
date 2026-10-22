@@ -44,6 +44,7 @@ function finOnlyNavItems(){
     {k:'finance/purchases', ic:'truck', lbl:'Purchases', go:'#/finance/purchases'},
     {k:'finance/subs', ic:'tools', lbl:'Subcontractors & Labour', go:'#/finance/subs'},
     {k:'finance/reports', ic:'chart', lbl:'Reports', go:'#/finance/reports'},
+    {k:'finance/directory', ic:'users', lbl:'Directory', go:'#/finance/directory'},
     {k:'fin-team', ic:'admin', lbl:'Team', go:'#/fin-team'},
     {k:'finance/settings', ic:'gear', lbl:'Finance settings', go:'#/finance/settings'},
     {k:'account', ic:'gear', lbl:'My account', go:'#/account'},
@@ -55,7 +56,7 @@ function finOnlyNavItems(){
 function finOnlyHomeButtonsHtml(part){
   if(!isFinanceOnly()) return '';
   if(part==='new') return isFullManager(ME) ? `<button class="darkbtn finshort-main" onclick="openFinNewJob()">+ New project</button>` : '';
-  return `${isFullManager(ME) ? `<button class="ghostbtn" onclick="go('#/suppliers')">Suppliers</button>` : ''}
+  return `${isFullManager(ME) ? `<button class="ghostbtn" onclick="go('#/finance/directory/suppliers')">Suppliers</button>` : ''}
     <button class="ghostbtn" onclick="go('#/fin-team')">Team</button>
     <button class="ghostbtn" onclick="go('#/account')">My account</button>`;
 }

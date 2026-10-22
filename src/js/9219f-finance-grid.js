@@ -98,5 +98,5 @@ window.finGridFilter = function(id){
     tr.classList.toggle('fg-hide', !ok); if(ok && tr.style.display!=='none') n++;
   });
   const foot = document.getElementById(id+'Foot');
-  if(foot){ let note = foot.querySelector('.fgfoot-n'); if(!note){ note = document.createElement('em'); note.className = 'fgfoot-n'; foot.appendChild(note); } note.textContent = fs.length ? n+' shown with filters' : ''; }
+  if(foot){ let note = foot.querySelector('.fgfoot-n'); if(!note){ note = document.createElement('em'); note.className = 'fgfoot-n'; const cb = foot.querySelector('.fgcolbtn'); if(cb) foot.insertBefore(note, cb); else foot.appendChild(note); } note.textContent = fs.length ? n+' shown with filters' : ''; }
 };

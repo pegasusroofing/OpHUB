@@ -29,7 +29,9 @@ async function yardLoad(force){
 }
 const yardQty = n=>{ const v = Number(n||0); return (Math.round(v*100)/100).toLocaleString('en-GB'); };
 const yardLow = s=>s.min_qty!=null && Number(s.qty||0) <= Number(s.min_qty);
-function yardCanEdit(){ return (typeof isManager==='function' && isManager(ME)) || (typeof isFinanceUser==='function' && isFinanceUser()); }
+function yardCanEdit(){ return !!ME && (['pm','admin'].includes(ME.role) || (ME.role==='superadmin' && ME.view_as_org_id) || (typeof isFinanceUser==='function' && isFinanceUser())); }
+// "2 rolls" → 2, "1.5" → 1.5; null if no number
+function yardNum(t){ const m = String(t==null?'':t).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/); return m ? Number(m[0]) : null; }
 
 /* ================= Finance › Purchases › Yard stock ================= */
 (function(){
@@ -105,22 +107,30 @@ window.yardItemOpen = async function(id){
   </div>`;
   ov.style.display = 'flex';
 };
+let yardItemBusy = false;
 window.yardItemSave = async function(id){
   const item = finVal('ydItem'); if(!item){ toast('Enter the item.'); return; }
   const num = x=>{ const t = String(x||'').trim(); if(!t) return null; const n = Number(t.replace(/[£,\s]/g,'')); return isNaN(n) ? NaN : n; };
   const min = num(finVal('ydMin')); if(Number.isNaN(min)){ toast('Minimum must be a number.'); return; }
+  const rEl0 = document.getElementById('ydRate');
+  const rate0 = rEl0 ? num(rEl0.value) : null; if(Number.isNaN(rate0)){ toast('Rate must be a number.'); return; }
+  const q0 = id ? null : num(finVal('ydQty')); if(Number.isNaN(q0)){ toast('Qty must be a number.'); return; }
+  if(yardItemBusy) return; yardItemBusy = true;
+  try{
   const row = {item, unit:finVal('ydUnit')||null, category:finVal('ydCat')||null, location:finVal('ydLoc')||null, min_qty:min, notes:finVal('ydNotes')||null, updated_at:new Date().toISOString()};
   if(id){ const off = document.getElementById('ydOff'); row.active = !(off && off.checked); }
   let rec;
   if(id) rec = await dbUpdate('yard_stock', id, row);
   else { const ins = await dbInsert('yard_stock', Object.assign({org_id:ME.org_id, created_by:ME.id, qty:0}, row)); rec = ins && ins[0]; }
   if(!rec) return;
-  const rEl = document.getElementById('ydRate');
-  if(rEl){ const rate = num(rEl.value); if(Number.isNaN(rate)){ toast('Rate must be a number.'); return; }
-    await sbFetch('/rest/v1/yard_stock_rates?on_conflict=stock_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({stock_id:rec.id, org_id:ME.org_id, rate, updated_at:new Date().toISOString(), updated_by:ME.id})}); }
-  if(!id){ const q = num(finVal('ydQty')); if(q && !Number.isNaN(q)) await dbInsert('yard_moves', {org_id:ME.org_id, stock_id:rec.id, kind:'in', qty:Math.abs(q), note:'Opening stock', created_by:ME.id}); }
+  let warn = '';
+  if(rEl0){ const res = await sbFetch('/rest/v1/yard_stock_rates?on_conflict=stock_id', {method:'POST', headers:{'Prefer':'resolution=merge-duplicates'}, body:JSON.stringify({stock_id:rec.id, org_id:ME.org_id, rate:rate0, updated_at:new Date().toISOString(), updated_by:ME.id})}); if(!res.ok) warn = ' — but the rate didn’t save'; }
+  if(!id && q0){ const mv = await dbInsert('yard_moves', {org_id:ME.org_id, stock_id:rec.id, kind:'in', qty:Math.abs(q0), note:'Opening stock', created_by:ME.id}); if(!mv) warn += ' — the opening qty didn’t save, book it in'; }
   document.getElementById('yardOverlay').style.display = 'none';
-  yardCache = null; toast(id ? 'Saved' : 'Added to yard stock'); render();
+  yardCache = null; await yardLoad(true); toast((id ? 'Saved' : 'Added to yard stock')+warn);
+  const pm = document.getElementById('yardPmOverlay');
+  if(pm && pm.style.display!=='none' && pm.dataset.site) yardPmOpen(pm.dataset.site); else render();
+  } finally { yardItemBusy = false; }
 };
 
 /* ================= book in / issue / return / adjust ================= */
@@ -139,7 +149,7 @@ window.yardMoveOpen = async function(kind, stockId, siteId, materialId){
   }
   yardMove = {kind, materialId:materialId||null, siteId:siteId || (mat && mat.site_id) || ''};
   const live = SITES.filter(s=>typeof finSiteStatus!=='function' || finSiteStatus(s)!=='closed').slice().sort((a,b)=>String(b.job_number||'').localeCompare(String(a.job_number||''), undefined, {numeric:true}));
-  const qty0 = mat ? (String(mat.qty||'').match(/\d+(\.\d+)?/)||[''])[0] : '';
+  const qty0 = mat && /^\s*\d+(\.\d+)?\s*[a-z]*\s*$/i.test(String(mat.qty||'')) ? String(yardNum(mat.qty)) : '';
   const title = {in:'Book stock into the yard', issue:'Issue from the yard to a job', return:'Return to the yard from a job', adjust:'Adjust the yard count'}[kind];
   let ov = document.getElementById('yardMoveOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'yardMoveOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
@@ -168,8 +178,9 @@ window.yardMovePaintQty = function(){
 window.yardMoveSave = async function(){
   const M = yardMove; if(!M) return;
   const stockId = finVal('ymItem'); const s = yardCache && yardCache.items.find(x=>x.id===stockId); if(!s) return;
-  const q = Number(String(finVal('ymQty')).replace(/[,\s]/g,''));
-  if(!(q >= 0) || (M.kind!=='adjust' && !q)){ toast('Enter the qty.'); return; }
+  const q = yardNum(finVal('ymQty'));
+  if(q==null || !(q >= 0) || (M.kind!=='adjust' && !q)){ toast('Enter the qty as a number.'); return; }
+  if(M.kind==='adjust'){ const fresh = (await dbSelect('yard_stock', 'id=eq.'+stockId+'&select=qty').catch(()=>[]))[0]; if(fresh) s.qty = fresh.qty; }
   const site = (M.kind==='issue'||M.kind==='return') ? finVal('ymSite') : null;
   if((M.kind==='issue'||M.kind==='return') && !site){ toast('Choose the job.'); return; }
   if(M.kind==='issue' && q > Number(s.qty||0) && !(await customConfirm(`Only ${yardQty(s.qty)} ${s.unit||''} showing in the yard. Issue ${yardQty(q)} anyway? (The count will go below zero — adjust it after.)`))) return;
@@ -197,7 +208,7 @@ window.yardMoveSave = async function(){
   const base = matTopTabsHtml;
   matTopTabsHtml = function(siteId, active, collectN){
     let h = base.apply(this, arguments);
-    if(typeof isManager==='function' && isManager(ME)) h = h.replace(/<\/div>\s*$/, `<div class="filterchip yardchip" onclick="yardPmOpen('${siteId}')">📦 Yard stock</div></div>`);
+    if(yardCanEdit()) h = h.replace(/<\/div>\s*$/, `<div class="filterchip yardchip" onclick="yardPmOpen('${siteId}')">📦 Yard stock</div></div>`);
     return h;
   };
 })();
@@ -208,6 +219,7 @@ window.yardPmOpen = async function(siteId){
   let ov = document.getElementById('yardPmOverlay');
   if(!ov){ ov = document.createElement('div'); ov.id = 'yardPmOverlay'; ov.className = 'geo-modal-overlay'; document.body.appendChild(ov); }
   ov.onclick = e=>{ if(e.target===ov) ov.style.display='none'; };
+  ov.dataset.site = siteId;
   ov.innerHTML = `<div class="geo-modal-card yard-card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><h3 style="margin:0;">📦 Yard stock</h3><button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="document.getElementById('yardPmOverlay').style.display='none'">✕</button></div>
     <p class="stub" style="margin:4px 0 10px;">What’s in the yard. Tap Issue to send it to ${escapeHtml(site?site.name:'this project')}.</p>
@@ -222,13 +234,18 @@ window.yardPmOpen = async function(siteId){
   ov.style.display = 'flex';
 };
 
+let yardQuickBusy = false;
 window.yardQuickIssue = async function(stockId, siteId){
-  const el = document.getElementById('yq-'+stockId); const q = Number(String(el && el.value || '').replace(/[,\s]/g,''));
+  if(yardQuickBusy) return;
+  const el = document.getElementById('yq-'+stockId); const q = yardNum(el && el.value);
   if(!(q > 0)){ toast('Enter the qty to issue.'); if(el) el.focus(); return; }
-  const s = yardCache && yardCache.items.find(x=>x.id===stockId); if(!s) return;
-  if(q > Number(s.qty||0) && !(await customConfirm(`Only ${yardQty(s.qty)} ${s.unit||''} showing in the yard. Issue ${yardQty(q)} anyway?`))) return;
-  const ins = await dbInsert('yard_moves', {org_id:ME.org_id, stock_id:stockId, kind:'issue', qty:q, site_id:siteId, created_by:ME.id});
-  if(!ins) return;
+  const Y = await yardLoad();
+  const s = Y.items.find(x=>x.id===stockId); if(!s){ toast('That item has gone — refresh the list.'); return; }
+  yardQuickBusy = true;
+  if(q > Number(s.qty||0) && !(await customConfirm(`Only ${yardQty(s.qty)} ${s.unit||''} showing in the yard. Issue ${yardQty(q)} anyway?`))){ yardQuickBusy = false; return; }
+  document.querySelectorAll('#yardPmList .yard-sbtn').forEach(b=>b.disabled = true);
+  let ins; try{ ins = await dbInsert('yard_moves', {org_id:ME.org_id, stock_id:stockId, kind:'issue', qty:q, site_id:siteId, created_by:ME.id}); } finally { yardQuickBusy = false; }
+  if(!ins){ document.querySelectorAll('#yardPmList .yard-sbtn').forEach(b=>b.disabled = false); return; }
   toast(`Issued ${yardQty(q)} ${s.unit||''} ${s.item}`.replace(/\s+/g,' '));
   yardCache = null; yardPmOpen(siteId);
 };
@@ -259,6 +276,8 @@ window.yardQuickIssue = async function(stockId, siteId){
   #yardMoveOverlay .darkbtn, .yard-card > .darkbtn{text-transform:none;letter-spacing:0;font-size:13.5px;padding:9px 12px;min-height:0;}
   .finpill.bad{background:#fdecec;color:#b42318;}
   .filterchip.yardchip{margin-left:auto;}
+  @media (max-width:600px){ .filterrow .filterchip.yardchip{flex:1 0 100%;margin:4px 0 0;} }
+  #confirmModalOverlay{z-index:10050 !important;}
   @media (max-width:600px){ .yard-hist > div{grid-template-columns:80px 1fr;} }`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();

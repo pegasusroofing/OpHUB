@@ -204,7 +204,7 @@ function finInboxSettingsHtml(st){
   const url = SUPABASE_URL+'/functions/v1/finance-inbox?key='+(st.inbox_key||'<make a key first>');
   return `<div class="card">
     <p class="sectiontitle" style="margin-top:0;">Invoice inbox (email)</p>
-    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Invoice inbox, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
+    <p class="stub" style="margin:0 0 10px;font-style:normal;">Set up a shared mailbox such as invoices@ in Microsoft 365, and have its attachments sent to the address below — Power Automate (“When a new email arrives in a shared mailbox” → HTTP POST), Zapier or Make can all do this. Purchase invoices then appear in Finance › Purchases › Purchase invoices, already read. Keep this address private: anyone with it can add invoices to your inbox.</p>
     ${st.inbox_key ? `<div class="sublink" style="word-break:break-all;font-size:12px;">${escapeHtml(url)}</div>
       <p class="stub" style="margin:6px 0 0;font-style:normal;">Send JSON: <code>{"from": "...", "subject": "...", "attachments": [{"filename": "...", "content_type": "application/pdf", "content_base64": "..."}]}</code>. Power Automate’s own attachment format (Name, ContentType, ContentBytes) also works.</p>` : ''}
     <button class="ghostbtn" style="width:100%;margin-top:8px;" onclick="finInboxNewKey()">${st.inbox_key?'Make a new key (stops the old one)':'Make an inbox key'}</button>

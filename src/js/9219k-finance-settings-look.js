@@ -112,13 +112,14 @@ function finSecHead(title, btnLabel, btnClick){
   html.finmode .finsubtabs{margin-bottom:10px !important;}
   html.finmode .finsechead-notitle{float:right;margin:0 0 0 12px !important;position:relative;z-index:2;}
   html.finmode .finsechead-notitle h3{display:none;}
-  html.finmode .finsechead-notitle ~ div:not(.pmchips):not(.finsechead){clear:both;}
-  html.finmode .finjobfilt .fin-searchlbl{flex:1 1 240px;min-width:200px;max-width:380px;}
+  html.finmode .finsechead-notitle ~ div:not(.pmchips):not(.finsechead), html.finmode .finsechead-notitle ~ details, html.finmode .finsechead-notitle ~ table{clear:both;}
+  html.finmode .finjobfilt .fin-searchlbl{flex:1 1 240px !important;min-width:200px;max-width:380px;}
+  @media (max-width:640px){ html.finmode .finjobfilt .fin-searchlbl{grid-column:1/-1;min-width:0;max-width:none;} }
   html.finmode .finjobfilt .fin-searchlbl input{width:100%;}
   .fggrid thead tr:first-child th{font-weight:800 !important;text-decoration:underline;text-underline-offset:3px;text-align:center !important;color:var(--ink) !important;}
   .fggrid tbody td, .fggrid tbody td.num{text-align:center !important;}
   .fgfoot .fgcolbtn{margin-left:auto;background:#2A2F37;color:#fff;border:1px solid #3A404A;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;}
-  .fgfoot .fgfoot-n + .fgcolbtn, .fgfoot .fgfoot-n{margin-left:auto;}
+  .fgfoot .fgfoot-n{margin-left:auto;} .fgfoot .fgfoot-n + .fgcolbtn{margin-left:10px;}
   .fgcols-card{max-width:380px;width:100%;}
   .fgcols-list{border:1px solid var(--line);border-radius:10px;overflow:hidden;max-height:55vh;overflow-y:auto;}
   .fgcols-row{display:flex;justify-content:space-between;align-items:center;width:100%;padding:9px 12px;border:0;border-bottom:1px solid var(--line);background:#fff;font-size:13.5px;text-align:left;cursor:pointer;color:var(--ink);}
@@ -151,5 +152,15 @@ function finSecHead(title, btnLabel, btnClick){
   html.finmode .finjobfilt .fin-searchlbl input{text-align:center;}
   .fggrid td[data-l="Status"]{width:96px;max-width:110px;}
   .fggrid td[data-l="Job"]{width:72px;}`;
+  try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
+})();
+
+/* 9. Wide screens (Andy, 22 Oct): every Finance page lines up in one centred
+      column — tabs, chips, filters, tables and the title buttons share the same
+      left and right edges (before, block items were centred at 1720px while
+      the chips and floated buttons sat at the screen edges). */
+(function(){
+  const css = `html.desk.finmode .scrollarea{padding-left:max(40px, calc((100% - 1720px) / 2)) !important;padding-right:max(40px, calc((100% - 1720px) / 2)) !important;}
+  html.desk.finmode .scrollarea > *{max-width:none !important;margin-left:0 !important;margin-right:0 !important;}`;
   try{ const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st); }catch(e){}
 })();

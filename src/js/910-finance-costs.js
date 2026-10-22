@@ -121,6 +121,7 @@ window.finCostPaint = function(){
 /* ---------- add / edit a cost ---------- */
 window.openFinJobCost = async function(siteId, id){
   const x = id ? (await dbSelect('fin_job_costs', 'id=eq.'+id))[0] : null;
+  if(x && x.supplier==='Yard' && x.ref==='YARD'){ customAlert('This cost came from yard stock ('+(x.description||'')+'). To change it, issue or return the stock in Purchases › Yard stock (or the project’s Material Requests) — the cost updates itself.'); return; }
   await finSubJobsLoad(siteId);
   const subSel = x ? (x.sub_job_id||'') : (finCosts && finCosts.siteId===siteId && finCosts.sub && finCosts.sub!=='none' ? finCosts.sub : '');
   let ov = document.getElementById('finJcOverlay');

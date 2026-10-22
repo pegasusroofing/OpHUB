@@ -77,16 +77,18 @@ function finPiBulkBarHtml(list){
 }
 window.finPiBulkApprove = async function(){
   const ids = Array.from(finPiSel); if(!ids.length) return;
-  const rows = await dbSelect('purchase_invoices', 'id=in.('+ids.join(',')+')&select=id,status,query_note,po_id');
+  const all = await dbSelect('purchase_invoices', 'id=in.('+ids.join(',')+')&select=id,status,query_note,po_id');
+  const rows = all.filter(r=>['to_approve','query'].includes(r.status)); // leave anything rejected / approved since
+  if(!rows.length){ toast('None of those are waiting for approval.'); return; }
   const q = rows.filter(r=>r.status==='query');
-  if(!(await customConfirm(`Approve ${ids.length} purchase invoice${ids.length===1?'':'s'}?`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
+  if(!(await customConfirm(`Approve ${rows.length} purchase invoice${rows.length===1?'':'s'}?${rows.length<ids.length?` (${ids.length-rows.length} skipped — not waiting for approval)`:''}`+(q.length ? `\n\n${q.length} of them ${q.length===1?'is':'are'} marked as a query — they'll be approved too.` : ''), {confirmLabel:'Approve'}))) return;
   let ok = 0;
   for(const r of rows){
     const u = await dbUpdate('purchase_invoices', r.id, {status:'approved', approved_by:ME.id, approved_at:new Date().toISOString()});
     if(u){ ok++; if(typeof finXeroAuto==='function') finXeroAuto('bill', r.id); if(u.po_id && typeof finPoMaybeClose==='function') finPoMaybeClose(u.po_id); }
   }
   finPiSel = new Set();
-  toast(ok===ids.length ? ok+' approved' : ok+' of '+ids.length+' approved'); render();
+  toast(ok===rows.length ? ok+' approved' : ok+' of '+rows.length+' approved'); render();
 };
 window.finPiBulkPaid = async function(){
   const ids = Array.from(finPiSel); if(!ids.length) return;
@@ -94,7 +96,9 @@ window.finPiBulkPaid = async function(){
   if(d==null) return;
   const date = String(d).trim() || finToday();
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ toast('Use the date as YYYY-MM-DD, e.g. '+finToday()); return; }
-  const res = await Promise.all(ids.map(id=>dbUpdate('purchase_invoices', id, {paid_on:date})));
+  const ok = (await dbSelect('purchase_invoices', 'id=in.('+ids.join(',')+')&status=eq.approved&select=id')).map(r=>r.id);
+  if(!ok.length){ toast('Only approved invoices can be marked paid.'); return; }
+  const res = await Promise.all(ok.map(id=>dbUpdate('purchase_invoices', id, {paid_on:date})));
   finPiSel = new Set();
   toast(res.filter(Boolean).length+' marked paid'); render();
 };
@@ -111,7 +115,7 @@ window.openPurchaseInvoiceView = async function(siteId, id){
   document.querySelectorAll('tr[data-pi]').forEach(tr=>tr.classList.toggle('finpi-on', tr.getAttribute('data-pi')===id));
   const card = ov.querySelector('.geo-modal-card'); if(!card) return;
   const i = (await dbSelect('purchase_invoices', 'id=eq.'+id+'&select=id,site_id,file_path,file_name,lines,split,net,cost_code,status'))[0];
-  if(!i) return;
+  if(!i || finPiOpenId!==id) return; // another invoice was opened while this one loaded
   // The invoice itself, above the details (computer only — phones keep the "View invoice" button).
   if(docked && i.file_path){
     let url = '';

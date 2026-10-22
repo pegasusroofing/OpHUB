@@ -50,10 +50,12 @@ function finDueFromTerms(dateStr, r){
 
 /* ---------- old routes now live in the Directory ---------- */
 (function(){
-  const j = renderFinJobs; renderFinJobs = function(sub){ if(sub==='clients'){ location.hash = '#/finance/directory/clients'; return; } return j.apply(this, arguments); };
-  const p = renderFinPurchases; renderFinPurchases = function(sub){ if(sub==='suppliers'){ location.hash = '#/finance/directory/suppliers'; return; } return p.apply(this, arguments); };
+  const j = renderFinJobs; renderFinJobs = function(sub){ if(sub==='clients'){ location.replace('#/finance/directory/clients'); return; } return j.apply(this, arguments); };
+  const p = renderFinPurchases; renderFinPurchases = function(sub){ if(sub==='suppliers'){ location.replace('#/finance/directory/suppliers'); return; } return p.apply(this, arguments); };
   const s = renderFinanceSettings; renderFinanceSettings = async function(){
+    const g = RENDER_GEN;
     await s.apply(this, arguments);
+    if(g !== RENDER_GEN || !/^#\/finance\/settings\/?$/.test(location.hash)) return;
     const nav = document.querySelector('#app .finsecnav');
     if(nav && !document.querySelector('#app .finsubtabs')) nav.insertAdjacentHTML('afterend', finSubTabs('settings', 'general'));
   };
@@ -91,7 +93,7 @@ async function renderFinDirectory(sub){
     const by = {}; saved.forEach(c=>{ by[String(c.name).trim().toLowerCase()] = c; });
     // make each row open the editor, and show terms / VAT under the name
     h = h.replace(/<tr data-lf="([^"]*)">\s*<td data-l="Client" class="d"><b>([^<]*)<\/b>/g, (m, lf, nmEsc)=>{
-      const nm = nmEsc.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+      const nm = nmEsc.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');
       const c = by[nm.trim().toLowerCase()];
       const bits = c ? [finTermsText(c), c.sales_vat ? 'Sales VAT '+(FIN_DIR_VAT_S[c.sales_vat]||c.sales_vat) : '', c.cis_registered ? 'CIS' : ''].filter(Boolean) : [];
       return `<tr class="click" data-lf="${lf}" onclick="openFinDirEdit('client','${jsAttr(c ? c.id : '')}','${jsAttr(nm)}')"><td data-l="Client" class="d"><b>${nmEsc}</b>${bits.length?`<div class="fininv-addr">${escapeHtml(bits.join(' · '))}</div>`:''}`;
@@ -99,24 +101,6 @@ async function renderFinDirectory(sub){
     return h;
   };
   window.openFinClientForm = function(){ openFinDirEdit('client', '', ''); };
-  const pull = window.finCliPull;
-  window.finCliPull = async function(){
-    await pull();
-    // second pass: bring in tax + payment terms for linked clients
-    try{
-      const r = await finXeroCall('customers', {}, 90000); if(r.error || !r.customers) return;
-      const saved = await dbSelect('fin_clients', 'org_id=eq.'+ME.org_id+'&select=id,xero_contact_id&limit=5000');
-      const byX = {}; saved.forEach(c=>{ if(c.xero_contact_id) byX[c.xero_contact_id] = c; });
-      for(const x of r.customers){ const c = byX[x.id]; if(!c) continue;
-        const patch = {}; if(x.vat_number){ patch.vat_number = x.vat_number; patch.vat_registered = true; }
-        if(x.sales_vat) patch.sales_vat = x.sales_vat; if(x.purchase_vat) patch.purchase_vat = x.purchase_vat;
-        if(x.terms_type){ patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
-        if(x.company_number) patch.company_number = x.company_number;
-        if(Object.keys(patch).length) await dbUpdate('fin_clients', c.id, patch);
-      }
-      render();
-    }catch(e){}
-  };
 })();
 
 /* ================= Suppliers ================= */
@@ -174,14 +158,14 @@ window.finSupPull = async function(){
     const byX = {}, byN = {}, matN = {}; fin.forEach(f=>{ if(f.xero_contact_id) byX[f.xero_contact_id] = f; byN[key(f.name)] = f; }); mat.forEach(m=>{ matN[key(m.name)] = m; });
     const now = new Date().toISOString(); let added = 0, updated = 0;
     for(const x of list){
-      const patch = {name:x.name, email:x.email||null, phone:x.phone||null, address:x.address||null, postcode:x.postcode||null, xero_contact_id:x.id, xero_synced_at:now, updated_at:now};
+      const patch = {name:x.name, xero_contact_id:x.id, xero_synced_at:now, updated_at:now}; ['email','phone','address','postcode'].forEach(k=>{ if(x[k]) patch[k] = x[k]; });
       if(x.vat_number){ patch.vat_number = x.vat_number; patch.vat_registered = true; }
       if(x.purchase_vat) patch.purchase_vat = x.purchase_vat; if(x.sales_vat) patch.sales_vat = x.sales_vat;
       if(x.terms_type){ patch.terms_type = x.terms_type; patch.terms_days = x.terms_days; }
       if(x.company_number) patch.company_number = x.company_number;
       const ex = byX[x.id] || byN[key(x.name)];
-      if(ex){ if(!ex.supplier_id && matN[key(x.name)]) patch.supplier_id = matN[key(x.name)].id; await dbUpdate('fin_suppliers', ex.id, patch); updated++; }
-      else { const m = matN[key(x.name)]; const ins = await dbInsert('fin_suppliers', Object.assign({org_id:ME.org_id, created_by:ME.id, supplier_id:m?m.id:null}, patch)); if(ins) added++; }
+      if(ex){ const mm = matN[key(x.name)]; if(!ex.supplier_id && mm && !fin.some(f=>f.supplier_id===mm.id)) patch.supplier_id = mm.id; await dbUpdate('fin_suppliers', ex.id, patch); updated++; }
+      else { const m = matN[key(x.name)]; const ins = await dbInsert('fin_suppliers', Object.assign({org_id:ME.org_id, created_by:ME.id, supplier_id:(m && !fin.some(f=>f.supplier_id===m.id))?m.id:null}, patch)); if(ins){ added++; fin.push(ins[0]); byN[key(x.name)] = ins[0]; byX[x.id] = ins[0]; } }
     }
     toast(`From Xero: ${list.length} supplier${list.length===1?'':'s'} — ${added} new, ${updated} updated`);
   } finally { finSupBusy = ''; render(); }
@@ -197,7 +181,7 @@ window.openFinDirEdit = async function(kind, id, name, matId){
   let mat = null;
   if(kind==='supplier'){ const mid = (rec && rec.supplier_id) || matId; if(mid) mat = (await dbSelect('suppliers', 'id=eq.'+mid+'&select=id,name,email,account_number'))[0] || null; }
   if(!rec) rec = {name:name||(mat&&mat.name)||'', email:(mat&&mat.email)||'', supplier_id:mat?mat.id:null};
-  finDir = {kind, rec:Object.assign({}, rec), mat, tab:'general', isNew:!rec.id};
+  finDir = {kind, rec:Object.assign({}, rec), mat, tab:'general', isNew:!rec.id, toX:!rec.id, toMat:false};
   finDirPaint();
 };
 function finDirPaint(){
@@ -218,9 +202,9 @@ function finDirPaint(){
       + inp('email', (sup?'Supplier':'Accounts')+' email', 'accounts@…', 'email')
       + `<div class="formfield"><label class="field-label">Address</label><textarea rows="2" oninput="finDirSet('address',this.value)">${v(r.address)}</textarea></div>`
       + `<div class="fingrid2">${inp('postcode','Postcode')}${inp('phone','Phone number','+44', 'tel')}</div>`
-      + `<div class="formfield"><label class="field-label">Default cost code</label><select onchange="finDirSet('cost_code_id',this.value||null)"><option value="">None</option>${codes.filter(c=>c.active!==false).map(c=>`<option value="${c.id}" ${r.cost_code_id===c.id?'selected':''}>${escapeHtml((c.code?c.code+' – ':'')+c.name)}</option>`).join('')}</select>${codes.length?'':'<p class="stub" style="margin:4px 0 0;">Set cost codes up in Finance › Settings › Cost codes.</p>'}</div>`
-      + (sup ? `${tog('exclude_cost_report','Exclude from cost report')}${tog('no_sync','Don’t send this supplier’s bills to Xero')}
-        <div class="formfield" style="margin-top:8px;"><label class="field-label">Material Requests</label>${D.mat ? `<p class="stub" style="margin:0;font-style:normal;">In the Material Requests supplier list${D.mat.account_number?` · our account no. ${escapeHtml(D.mat.account_number)}`:''}.</p>` : `<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;"><input type="checkbox" id="finDirToMat" style="width:auto;"> Also add to the Material Requests supplier list</label>`}</div>` : '')
+      + `<div class="formfield"><label class="field-label">Default cost code</label><select onchange="finDirSet('cost_code_id',this.value||null)"><option value="">None</option>${codes.filter(c=>c.active!==false).map(c=>`<option value="${c.id}" ${r.cost_code_id===c.id?'selected':''}>${escapeHtml((c.code?c.code+' – ':'')+c.name)}</option>`).join('')}</select><p class="stub" style="margin:4px 0 0;">${codes.length?'Saved for reference — invoice coding will use it in a later update.':'Set cost codes up in Finance › Settings › Cost codes.'}</p></div>`
+      + (sup ? `${tog('no_sync','Don’t send this supplier’s bills to Xero')}
+        <div class="formfield" style="margin-top:8px;"><label class="field-label">Material Requests</label>${D.mat ? `<p class="stub" style="margin:0;font-style:normal;">In the Material Requests supplier list${D.mat.account_number?` · our account no. ${escapeHtml(D.mat.account_number)}`:''}.</p>` : `<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;"><input type="checkbox" id="finDirToMat" ${D.toMat?'checked':''} onchange="finDir.toMat=this.checked" style="width:auto;"> Also add to the Material Requests supplier list</label>`}</div>` : '')
       + `<div class="formfield"><label class="field-label">Notes</label><textarea rows="2" oninput="finDirSet('notes',this.value)">${v(r.notes)}</textarea></div>`;
   } else if(D.tab==='terms'){
     body = tog('terms_agreed', 'Terms agreed', 'Terms and service agreement signed')
@@ -232,10 +216,10 @@ function finDirPaint(){
       + tog('vat_registered', 'VAT registered')
       + (r.vat_registered ? inp('vat_number', 'VAT number', 'GB…') : '')
       + vatSel('sales_vat', 'Default sales VAT rate') + vatSel('purchase_vat', 'Default purchase VAT rate')
-      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'Sales VAT is the default on invoices and applications to this client.'}</p>`;
+      + `<p class="stub" style="margin:0;">${sup?'Purchase VAT is used as the default on new purchase orders to this supplier.':'Saved against the client for reference — invoices still use the VAT set on the project.'}</p>`;
   } else {
     body = tog('cis_registered', 'CIS registered', sup ? 'They are a CIS subcontractor — you deduct CIS from their labour' : 'They deduct CIS from what they pay you')
-      + (r.cis_registered ? `<div class="fingrid2"><div class="formfield"><label class="field-label">CIS rate</label><select onchange="finDirSet('cis_rate',Number(this.value))">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>${inp('utr','UTR','10 digits')}</div>${inp('company_number','Company number')}` : '')
+      + (r.cis_registered ? `<div class="fingrid2"><div class="formfield"><label class="field-label">CIS rate</label><select onchange="finDirSet('cis_rate',Number(this.value))">${Object.keys(FIN_CIS_LABEL).map(k=>`<option value="${k}" ${Number(r.cis_rate!=null?r.cis_rate:20)===Number(k)?'selected':''}>${FIN_CIS_LABEL[k]}</option>`).join('')}</select></div>${sup ? inp('utr','UTR','10 digits') : '<div></div>'}</div>${inp('company_number','Company number')}` : '')
       + (sup ? `<p class="stub" style="margin:4px 0 0;">Labour-only subbies are best kept in Directory › Labour (CIS), where you can record their HMRC verification.</p>` : '');
   }
   ov.innerHTML = `<div class="geo-modal-card findir-card">
@@ -243,7 +227,7 @@ function finDirPaint(){
       <button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="document.getElementById('finDirOverlay').style.display='none'">✕</button></div>
     <div class="finsubtabs findir-tabs">${tabs.map(([k,l])=>`<button type="button" class="${D.tab===k?'on':''}" onclick="finDir.tab='${k}';finDirPaint()">${l}</button>`).join('')}</div>
     <div class="findir-body">${body}</div>
-    ${!r.xero_contact_id ? `<label style="display:flex;align-items:center;gap:8px;margin:10px 0 0;font-size:13.5px;"><input type="checkbox" id="finDirXero" ${D.isNew?'checked':''} style="width:auto;"> Add to Xero as well</label>` : ''}
+    ${!r.xero_contact_id ? `<label style="display:flex;align-items:center;gap:8px;margin:10px 0 0;font-size:13.5px;"><input type="checkbox" id="finDirXero" ${D.toX?'checked':''} onchange="finDir.toX=this.checked" style="width:auto;"> Add to Xero as well</label>` : ''}
     <div style="display:flex;gap:8px;margin-top:12px;"><button class="ghostbtn" style="margin:0;" onclick="document.getElementById('finDirOverlay').style.display='none'">Cancel</button><button class="darkbtn" id="finDirSave" style="margin:0;" onclick="saveFinDir()">Save</button></div>
   </div>`;
   ov.style.display = 'flex';
@@ -260,9 +244,10 @@ window.saveFinDir = async function(){
   row.name = name; if(row.utr) row.utr = String(row.utr).replace(/\s/g,'');
   ['vat_registered','terms_agreed','cis_registered','foreign_supplier','exclude_cost_report','no_sync'].forEach(k=>{ if(k in row) row[k] = !!row[k]; });
   if(sup) row.updated_at = new Date().toISOString();
+  const dup = (await dbSelect(tbl, 'org_id=eq.'+ME.org_id+'&name=ilike.'+encodeURIComponent(name.replace(/[*%,()]/g,''))+'&select=id,name').catch(()=>[])).find(x=>x.id!==r.id);
+  if(dup){ toast('“'+dup.name+'” is already in the directory.'); return; }
   const btn = document.getElementById('finDirSave'); if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  const toMat = document.getElementById('finDirToMat') && document.getElementById('finDirToMat').checked;
-  const toX = document.getElementById('finDirXero') && document.getElementById('finDirXero').checked;
+  const toMat = !!D.toMat, toX = !!D.toX;
   if(sup){
     if(toMat && !D.mat){ const m = await dbInsert('suppliers', {org_id:ME.org_id, name, email:row.email||null, created_by:ME.id}); if(m && m[0]) row.supplier_id = m[0].id; }
     else if(D.mat) row.supplier_id = D.mat.id;
@@ -294,6 +279,7 @@ window.saveFinDir = async function(){
     const vat = f.foreign_supplier ? 'ex' : map[f.purchase_vat];
     if(!vat || !FIN_VAT_RATES[vat]) return;
     finNewPo.vat = vat; finNewPo.lines.forEach(l=>{ l.vat = vat; });
+    const sel = document.getElementById('finNpoVatAll'); if(sel) sel.value = vat;
     if(typeof finNpoPaint==='function') finNpoPaint();
     toast('VAT set to '+FIN_VAT_RATES[vat].l+' (this supplier’s default)');
   };
@@ -321,7 +307,7 @@ async function renderFinLabourRates(){
   document.getElementById('app').innerHTML = shell(`
     ${finSectionNav('directory')}${finSubTabs('directory','labour')}
     ${finSecHead('Labour (CIS)', '+ Add a person', "openFinPerson('')")}
-    <p class="stub" style="margin:-4px 0 10px;">Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie’s CIS status with HMRC before you pay them.${typeof finXeroConnected==='function' && finXeroConnected() ? ` <button class="linkbtn" onclick="openFinXeroWorkers()">Bring people in from Xero</button>` : ''}</p>
+    <p class="stub" style="margin:-4px 0 10px;">Subcontractors who invoice you under CIS, and PAYE staff. Check each subbie’s CIS status with HMRC before you pay them.${typeof finXeroConnected==='function' && finXeroConnected() && !(typeof FIN_TRIAL!=='undefined' && FIN_TRIAL) ? ` <button class="linkbtn" onclick="openFinXeroWorkers()">Bring people in from Xero</button>` : ''}</p>
     ${waiting.length ? `<details class="fincli-dd findir-apps" open><summary>${waiting.length} from the sub-contractor sign-up form, not in the directory yet</summary><div>${waiting.map(a=>{ const d = a.data||{};
       return `<div class="findir-app"><div><b>${escapeHtml(a.company_name||d.trading_name||a.contact_name||'Applicant')}</b> <span class="finpill ${a.status==='approved'?'ok':''}">${a.status==='approved'?'Approved':'New'}</span><div class="fininv-addr">${escapeHtml([a.contact_name, d.cis_status, d.utr?'UTR '+d.utr:''].filter(Boolean).join(' · '))}</div></div>
         <button class="ghostbtn finsmall" style="width:auto;margin:0;" onclick="finDirFromApp('${a.id}')">Add to directory</button></div>`; }).join('')}</div></details>` : ''}
@@ -340,7 +326,11 @@ async function renderFinLabourRates(){
 }
 const FIN_CIS_FROM_FORM = s=>/gross/i.test(s||'') ? 0 : /30/.test(s||'') ? 30 : 20;
 const FIN_REG_FROM_FORM = s=>/limited|ltd|company/i.test(s||'') ? 'company' : /partner/i.test(s||'') ? 'partnership' : /trust/i.test(s||'') ? 'trust' : /sole|self/i.test(s||'') ? 'sole_trader' : null;
+let finDirAppBusy = false;
 window.finDirFromApp = async function(appId){
+  if(finDirAppBusy) return; finDirAppBusy = true; try{ return await finDirFromAppDo(appId); } finally { finDirAppBusy = false; }
+};
+async function finDirFromAppDo(appId){
   const a = (await dbSelect('subcontractor_applications', 'id=eq.'+appId))[0]; if(!a) return;
   const d = a.data || {};
   const row = {org_id:ME.org_id, user_id:a.user_id||null, active:true, pay_type:'subcontractor', application_id:a.id,
@@ -380,7 +370,7 @@ function finPerPaint(){
       + `<div class="formfield"><label class="field-label">How they’re paid</label><select onchange="finPer.r.pay_type=this.value;if(this.value==='paye'&&finPer.tab==='cis')finPer.tab='general';finPerPaint()"><option value="subcontractor" ${!paye?'selected':''}>They invoice us (CIS)</option><option value="paye" ${paye?'selected':''}>PAYE (on our payroll)</option></select></div>`
       + (P.isApp ? '' : `<div class="fingrid2">${inp('email','Email (for CIS statements)','', 'type="email"')}${inp('phone','Phone','', 'type="tel"')}</div>`)
       + `<div class="formfield"><label class="field-label">Address</label><textarea rows="2" oninput="finPer.r.address=this.value">${v(r.address)}</textarea></div>`
-      + `<div class="fingrid2">${inp('postcode','Postcode','', 'oninput="this.value=this.value.toUpperCase()"')}<div></div></div>`
+      + `<div class="fingrid2"><div class="formfield"><label class="field-label">Postcode</label><input type="text" value="${v(r.postcode)}" oninput="this.value=this.value.toUpperCase();finPer.r.postcode=this.value"></div><div></div></div>`
       + `<div class="formfield"><label class="field-label">Notes</label><textarea rows="2" oninput="finPer.r.notes=this.value">${v(r.notes)}</textarea></div>`;
   } else if(P.tab==='pay'){
     body = `<div class="formfield"><label class="field-label">Day rate £</label><input type="text" inputmode="decimal" data-money value="${r.day_rate!=null?r.day_rate:''}" oninput="finPer.r.day_rate=this.value"></div>`
