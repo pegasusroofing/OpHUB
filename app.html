@@ -46806,6 +46806,20 @@ async function renderSiteFinance(siteId){
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
+    </div>
+    <div class="finptab" data-t="purchases">
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
+    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
+    ${finPlantCardHtml(siteId, hires)}
+    </div>
+    <div class="finptab" data-t="subs">
+    <div id="finScSlot"></div>
+    ${finLabourCardHtml(siteId, lab)}
+    </div>
+    <div class="finptab" data-t="boq">
+    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
+    </div>
+    <div class="finptab" data-t="setup">
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Client purchase orders</p>
@@ -46825,20 +46839,6 @@ async function renderSiteFinance(siteId){
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
-    </div>
-    <div class="finptab" data-t="purchases">
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
-    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
-    ${finPlantCardHtml(siteId, hires)}
-    </div>
-    <div class="finptab" data-t="subs">
-    <div id="finScSlot"></div>
-    ${finLabourCardHtml(siteId, lab)}
-    </div>
-    <div class="finptab" data-t="boq">
-    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
-    </div>
-    <div class="finptab" data-t="setup">
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
@@ -47566,26 +47566,15 @@ async function renderFinContract(siteId){
     <p class="stub" style="margin:0 0 12px;font-style:normal;">The priced list of work for this project. It sets the contract value, it’s what each application is valued against, and it can go onto the operatives’ Schedule of Works (without prices).</p>
     ${finSowCardHtml(siteId, sowSt)}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Upload a priced schedule</p>
+      <p class="sectiontitle" style="margin-top:0;">Upload a Bill of Quantities</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads headers, sub-headers and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
     ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
-    <div class="card fincosttool">
-      <p class="sectiontitle" style="margin-top:0;">Cost price (your budget)</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.</p>
-      <div class="fincosttool-row">
-        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
-        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
-        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
-        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
-      </div>
-      <p class="stub" id="finCtEg" style="margin:8px 0 0;font-style:normal;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33.</p>
-    </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <p class="sectiontitle" style="margin:0;">Schedule</p>
+        <p class="sectiontitle" style="margin:0;">Lines</p>
         <span class="fincontot"><span class="finval" id="finContractTotal"></span><span class="stub" id="finContractCostTot" style="margin:0;font-style:normal;"></span></span>
       </div>
       <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
@@ -47596,7 +47585,17 @@ async function renderFinContract(siteId){
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('item')">+ Item</button>
       </div>
     </div>
-    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save schedule</button>
+    <div class="card fincosttool fincosttool-sm">
+      <div class="fincosttool-row">
+        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Cost price (your budget)</span>
+        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
+        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
+        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
+        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
+      </div>
+      <p class="stub" id="finCtEg" style="margin:6px 0 0;font-style:normal;font-size:12px;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33. Or type a cost on each line.</p>
+    </div>
+    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save Bill of Quantities</button>
     <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.${(FIN_SUBJOBS[siteId]||[]).length ? ' Put a header on a '+escapeHtml(finSubNoun(siteId).toLowerCase())+' and everything under it goes there too.' : ''}</p>
   `, {title:'Bill of Quantities', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finContractPaint();
@@ -51871,7 +51870,7 @@ window.finPickQuote = function(q){ document.querySelectorAll('#shopPickList [dat
    Added automatically by shell() (finShellPrefix) for #/site/<id>/finance… pages.
    ============================================================ */
 const FIN_DOC_TYPES = [
-  {k:'overview', l:'Project finance', go:id=>`#/site/${id}/finance`},
+  {k:'overview', l:'Project overview', home:true},
   {k:'apps', l:'Applications', anchor:'fin-a-apps'},
   {k:'invoices', l:'Sales invoices', anchor:'fin-a-invoices'},
   {k:'variations', l:'Variations', go:id=>`#/site/${id}/finance/variations`},
@@ -51906,7 +51905,8 @@ function finShellPrefix(opts){
   const id = parts[1], s = SITES.find(x=>x.id===id); if(!s) return '';
   const cur = finCurrentDocType(parts);
   return `<div class="finprojbar">
-    <button type="button" class="finprojbar-p" onclick="go('#/site/${id}/finance')" title="Project finance"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
+    <button type="button" class="finprojbar-home" onclick="finProjHome('${id}')" title="Project overview" aria-label="Project overview">${typeof ophIcon==='function' ? ophIcon('home', 17) : '⌂'}<span>Overview</span></button>
+    <button type="button" class="finprojbar-p" onclick="finProjHome('${id}')" title="Project overview"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
     <select class="finprojbar-s" aria-label="Go to" onchange="finDocGo('${id}', this.value)">
       ${FIN_DOC_TYPES.filter(t=>!t.when || t.when(id)).map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${typeof t.l==='function' ? t.l(id) : t.l}</option>`).join('')}
     </select>
@@ -51917,6 +51917,7 @@ function finShellPrefix(opts){
 }
 window.finDocGo = function(siteId, k){
   const t = FIN_DOC_TYPES.find(x=>x.k===k); if(!t) return;
+  if(t.home){ finProjHome(siteId); return; }
   if(t.go){ go(t.go(siteId)); return; }
   const onOverview = String(location.hash||'').replace(/\?.*$/,'') === '#/site/'+siteId+'/finance';
   if(onOverview){ finScrollToAnchor(t.anchor); return; }
@@ -51951,6 +51952,21 @@ window.finSetSeeCosts = async function(userId, on){
   if(PROFILES[userId]) PROFILES[userId].see_costs = !!on;
   toast(on ? 'They can now see material costs' : 'Material costs hidden from them'); finCostsAccessFill();
 };
+
+// Back to the project's Finance overview tab from anywhere (Andy, 22 Oct: "needs a home on the top").
+window.finProjHome = function(siteId){
+  if(typeof finProjTab!=='undefined') finProjTab[siteId] = 'overview';
+  const here = String(location.hash||'').replace(/\?.*$/,'') === '#/site/'+siteId+'/finance';
+  if(here && typeof finProjTabGo==='function') finProjTabGo(siteId, 'overview'); else go('#/site/'+siteId+'/finance');
+};
+(function(){
+  if(document.getElementById('finHomeBtnCss')) return;
+  const st = document.createElement('style'); st.id = 'finHomeBtnCss';
+  st.textContent = `.finprojbar-home{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:700;color:var(--ink);flex:none;}
+.finprojbar-home:hover{background:#F4F6F9;}
+@media (max-width:600px){ .finprojbar-home span{display:none;} .finprojbar-home{padding:7px 9px;} }`;
+  document.head.appendChild(st);
+})();
 
 /* ============================================================
    OpHUB Finance — costs by plot / address / repair job (Andy, 20 Oct:
@@ -56211,6 +56227,44 @@ html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !impo
 .finret-f label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;font-weight:700;color:var(--slate);}
 .finret-f input{margin:0;padding:6px 8px;font-size:13px;width:160px;} .finret-f input[type=number]{width:90px;}
 .finret-f .ghostbtn{width:auto;margin:0;padding:7px 14px;}`;
+  document.head.appendChild(st);
+})();
+
+/* ---- 10. Project Admin sections are drop-downs, closed to start (Andy, 22 Oct) ----
+   Same rows as Finance › Settings. A card whose title sits inside a row with a
+   button (Client purchase orders, Bill to) gets the title lifted out first. */
+(function(){
+  if(typeof FIN_SET_ICONS!=='undefined') Object.assign(FIN_SET_ICONS, {
+    'client purchase orders':['🧾','#fff4e0','#a35f00'], 'project':['🏗','#fdecec','#c62828'],
+    'project details':['⚙','#f1f3f6','#4a5260'], 'bill to':['🏢','#e8f4fb','#1b6a96'],
+  });
+  const base = window.finAfterProjectRender || (typeof finAfterProjectRender==='function' ? finAfterProjectRender : null);
+  finAfterProjectRender = function(){
+    if(base) base.apply(this, arguments);
+    const root = document.querySelector('.finptab[data-t="setup"]'); if(!root) return;
+    root.querySelectorAll(':scope > .card').forEach(card=>{
+      const first = card.firstElementChild;
+      if(first && first.classList.contains('sectiontitle')) return;
+      const t = card.querySelector('.sectiontitle'); if(!t) return;
+      card.insertBefore(t, card.firstChild); t.style.margin = '0';
+    });
+    finCollapseCards(root, 'settings');
+    root.classList.add('finadmin-dd');
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finadmin-dd > .card.fincoll{margin:10px 0 0 !important;}
+.finadmin-dd > #finJobSave{margin-top:16px;max-width:260px;}
+.fincosttool-sm{padding:12px 16px !important;}
+.fincosttool-sm .fincosttool-row{gap:6px;flex-wrap:wrap;}
+.fincosttool-sm .fincosttool-t{font-weight:800;font-size:13.5px;margin-right:6px;}
+.fincosttool-sm select{flex:0 1 210px !important;height:32px !important;min-height:32px !important;padding:0 26px 0 10px !important;font-size:13px !important;border-radius:8px !important;}
+.fincosttool-sm .finpctin{height:32px !important;box-sizing:border-box;width:80px;padding:0 8px !important;border-radius:8px;}
+.fincosttool-sm .darkbtn,.fincosttool-sm .ghostbtn{box-sizing:border-box;}
+.fincosttool-sm .finpctin input{height:30px !important;border:0 !important;min-height:32px !important;width:56px !important;font-size:13px !important;padding:0 6px !important;}
+.fincosttool-sm .ghostbtn,.fincosttool-sm .darkbtn{height:32px;padding:0 12px !important;font-size:12.5px !important;border-radius:8px !important;}
+html.finmode .finptab.finset-dd[style*="none"], html.desk.finmode .finptab.finset-dd[style*="none"]{display:none !important;}`;
   document.head.appendChild(st);
 })();
 

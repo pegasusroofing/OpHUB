@@ -6,7 +6,7 @@
    Added automatically by shell() (finShellPrefix) for #/site/<id>/finance… pages.
    ============================================================ */
 const FIN_DOC_TYPES = [
-  {k:'overview', l:'Project finance', go:id=>`#/site/${id}/finance`},
+  {k:'overview', l:'Project overview', home:true},
   {k:'apps', l:'Applications', anchor:'fin-a-apps'},
   {k:'invoices', l:'Sales invoices', anchor:'fin-a-invoices'},
   {k:'variations', l:'Variations', go:id=>`#/site/${id}/finance/variations`},
@@ -41,7 +41,8 @@ function finShellPrefix(opts){
   const id = parts[1], s = SITES.find(x=>x.id===id); if(!s) return '';
   const cur = finCurrentDocType(parts);
   return `<div class="finprojbar">
-    <button type="button" class="finprojbar-p" onclick="go('#/site/${id}/finance')" title="Project finance"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
+    <button type="button" class="finprojbar-home" onclick="finProjHome('${id}')" title="Project overview" aria-label="Project overview">${typeof ophIcon==='function' ? ophIcon('home', 17) : '⌂'}<span>Overview</span></button>
+    <button type="button" class="finprojbar-p" onclick="finProjHome('${id}')" title="Project overview"><b>${escapeHtml(s.job_number||'')}</b> ${escapeHtml(s.name||'')}</button>
     <select class="finprojbar-s" aria-label="Go to" onchange="finDocGo('${id}', this.value)">
       ${FIN_DOC_TYPES.filter(t=>!t.when || t.when(id)).map(t=>`<option value="${t.k}" ${t.k===cur?'selected':''}>${typeof t.l==='function' ? t.l(id) : t.l}</option>`).join('')}
     </select>
@@ -52,6 +53,7 @@ function finShellPrefix(opts){
 }
 window.finDocGo = function(siteId, k){
   const t = FIN_DOC_TYPES.find(x=>x.k===k); if(!t) return;
+  if(t.home){ finProjHome(siteId); return; }
   if(t.go){ go(t.go(siteId)); return; }
   const onOverview = String(location.hash||'').replace(/\?.*$/,'') === '#/site/'+siteId+'/finance';
   if(onOverview){ finScrollToAnchor(t.anchor); return; }
@@ -86,3 +88,18 @@ window.finSetSeeCosts = async function(userId, on){
   if(PROFILES[userId]) PROFILES[userId].see_costs = !!on;
   toast(on ? 'They can now see material costs' : 'Material costs hidden from them'); finCostsAccessFill();
 };
+
+// Back to the project's Finance overview tab from anywhere (Andy, 22 Oct: "needs a home on the top").
+window.finProjHome = function(siteId){
+  if(typeof finProjTab!=='undefined') finProjTab[siteId] = 'overview';
+  const here = String(location.hash||'').replace(/\?.*$/,'') === '#/site/'+siteId+'/finance';
+  if(here && typeof finProjTabGo==='function') finProjTabGo(siteId, 'overview'); else go('#/site/'+siteId+'/finance');
+};
+(function(){
+  if(document.getElementById('finHomeBtnCss')) return;
+  const st = document.createElement('style'); st.id = 'finHomeBtnCss';
+  st.textContent = `.finprojbar-home{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;border:1px solid var(--line);background:#fff;font-size:13px;font-weight:700;color:var(--ink);flex:none;}
+.finprojbar-home:hover{background:#F4F6F9;}
+@media (max-width:600px){ .finprojbar-home span{display:none;} .finprojbar-home{padding:7px 9px;} }`;
+  document.head.appendChild(st);
+})();

@@ -117,26 +117,15 @@ async function renderFinContract(siteId){
     <p class="stub" style="margin:0 0 12px;font-style:normal;">The priced list of work for this project. It sets the contract value, it’s what each application is valued against, and it can go onto the operatives’ Schedule of Works (without prices).</p>
     ${finSowCardHtml(siteId, sowSt)}
     <div class="card">
-      <p class="sectiontitle" style="margin-top:0;">Upload a priced schedule</p>
+      <p class="sectiontitle" style="margin-top:0;">Upload a Bill of Quantities</p>
       <p class="stub" style="margin:0 0 10px;font-style:normal;">An Excel or PDF of the priced contract (tender, contract sum analysis or bill of quantities). The app reads headers, sub-headers and each priced line with its quantity, unit and rate; you check them before they’re saved.</p>
       <input type="file" id="finContractUpload" accept=".xlsx,.xls,.csv,application/pdf" onchange="finContractUploadPicked(this.files[0])">
       ${jf.contract_file_name ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Last uploaded: ${escapeHtml(jf.contract_file_name)} <button class="linkbtn" style="color:var(--blue);" onclick="openFinDoc('${jsAttr(jf.contract_file_path||'')}','${jsAttr(jf.contract_file_name||'')}')">view</button></p>` : ''}
     </div>
     ${apps.length ? `<div class="finbanner" style="background:var(--warn-bg);color:var(--warn);border-color:#F2D9B8;">This project already has applications. Changes here apply to new applications; existing ones keep the lines they were made with.</div>` : ''}
-    <div class="card fincosttool">
-      <p class="sectiontitle" style="margin-top:0;">Cost price (your budget)</p>
-      <p class="stub" style="margin:0 0 10px;font-style:normal;">Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.</p>
-      <div class="fincosttool-row">
-        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
-        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
-        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
-        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
-      </div>
-      <p class="stub" id="finCtEg" style="margin:8px 0 0;font-style:normal;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33.</p>
-    </div>
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-        <p class="sectiontitle" style="margin:0;">Schedule</p>
+        <p class="sectiontitle" style="margin:0;">Lines</p>
         <span class="fincontot"><span class="finval" id="finContractTotal"></span><span class="stub" id="finContractCostTot" style="margin:0;font-style:normal;"></span></span>
       </div>
       <div id="finCtBulk" class="finbulkbar" style="display:none;"></div>
@@ -147,7 +136,17 @@ async function renderFinContract(siteId){
         <button class="ghostbtn" style="flex:1;min-width:110px;" onclick="finContractAdd('item')">+ Item</button>
       </div>
     </div>
-    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save schedule</button>
+    <div class="card fincosttool fincosttool-sm">
+      <div class="fincosttool-row">
+        <span class="fincosttool-t" title="Type a cost against each line, or work them out from the sale price with a %. Tick lines to change just those.">Cost price (your budget)</span>
+        <select id="finCtBasis" aria-label="Margin or mark-up"><option value="margin">Margin on the sale price</option><option value="markup">Mark-up on cost</option></select>
+        <label class="finpctin"><input type="text" inputmode="decimal" id="finCtPct" placeholder="20"><span>%</span></label>
+        <button class="ghostbtn" id="finCtSelBtn" onclick="finContractApplyPct(true)" disabled>Apply to ticked</button>
+        <button class="darkbtn" onclick="finContractApplyPct(false)">Apply to all lines</button>
+      </div>
+      <p class="stub" id="finCtEg" style="margin:6px 0 0;font-style:normal;font-size:12px;">e.g. a £1,000.00 line at 20% margin costs £800.00; at 20% mark-up it costs £833.33. Or type a cost on each line.</p>
+    </div>
+    <button class="darkbtn" style="width:100%;" id="finContractSave" onclick="saveFinContract('${siteId}')">Save Bill of Quantities</button>
     <p class="stub" style="margin:6px 0 0;font-style:normal;">Saving sets the project’s contract value to the total of the items. Value = quantity × rate; leave the quantity and rate empty to enter a lump sum.${(FIN_SUBJOBS[siteId]||[]).length ? ' Put a header on a '+escapeHtml(finSubNoun(siteId).toLowerCase())+' and everything under it goes there too.' : ''}</p>
   `, {title:'Bill of Quantities', subtitle:site?site.name:'', back:`#/site/${siteId}/finance`, siteId, tabs:false});
   finContractPaint();

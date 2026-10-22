@@ -322,3 +322,41 @@ html .finjobfilt > label:not(.fin-searchlbl):not(.fincli-lbl){display:none !impo
 .finret-f .ghostbtn{width:auto;margin:0;padding:7px 14px;}`;
   document.head.appendChild(st);
 })();
+
+/* ---- 10. Project Admin sections are drop-downs, closed to start (Andy, 22 Oct) ----
+   Same rows as Finance › Settings. A card whose title sits inside a row with a
+   button (Client purchase orders, Bill to) gets the title lifted out first. */
+(function(){
+  if(typeof FIN_SET_ICONS!=='undefined') Object.assign(FIN_SET_ICONS, {
+    'client purchase orders':['🧾','#fff4e0','#a35f00'], 'project':['🏗','#fdecec','#c62828'],
+    'project details':['⚙','#f1f3f6','#4a5260'], 'bill to':['🏢','#e8f4fb','#1b6a96'],
+  });
+  const base = window.finAfterProjectRender || (typeof finAfterProjectRender==='function' ? finAfterProjectRender : null);
+  finAfterProjectRender = function(){
+    if(base) base.apply(this, arguments);
+    const root = document.querySelector('.finptab[data-t="setup"]'); if(!root) return;
+    root.querySelectorAll(':scope > .card').forEach(card=>{
+      const first = card.firstElementChild;
+      if(first && first.classList.contains('sectiontitle')) return;
+      const t = card.querySelector('.sectiontitle'); if(!t) return;
+      card.insertBefore(t, card.firstChild); t.style.margin = '0';
+    });
+    finCollapseCards(root, 'settings');
+    root.classList.add('finadmin-dd');
+  };
+})();
+(function(){
+  const st = document.createElement('style');
+  st.textContent = `.finadmin-dd > .card.fincoll{margin:10px 0 0 !important;}
+.finadmin-dd > #finJobSave{margin-top:16px;max-width:260px;}
+.fincosttool-sm{padding:12px 16px !important;}
+.fincosttool-sm .fincosttool-row{gap:6px;flex-wrap:wrap;}
+.fincosttool-sm .fincosttool-t{font-weight:800;font-size:13.5px;margin-right:6px;}
+.fincosttool-sm select{flex:0 1 210px !important;height:32px !important;min-height:32px !important;padding:0 26px 0 10px !important;font-size:13px !important;border-radius:8px !important;}
+.fincosttool-sm .finpctin{height:32px !important;box-sizing:border-box;width:80px;padding:0 8px !important;border-radius:8px;}
+.fincosttool-sm .darkbtn,.fincosttool-sm .ghostbtn{box-sizing:border-box;}
+.fincosttool-sm .finpctin input{height:30px !important;border:0 !important;min-height:32px !important;width:56px !important;font-size:13px !important;padding:0 6px !important;}
+.fincosttool-sm .ghostbtn,.fincosttool-sm .darkbtn{height:32px;padding:0 12px !important;font-size:12.5px !important;border-radius:8px !important;}
+html.finmode .finptab.finset-dd[style*="none"], html.desk.finmode .finptab.finset-dd[style*="none"]{display:none !important;}`;
+  document.head.appendChild(st);
+})();

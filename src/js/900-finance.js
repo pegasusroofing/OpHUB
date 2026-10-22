@@ -216,6 +216,20 @@ async function renderSiteFinance(siteId){
     <div id="fin-a-apps"></div>${bt==='application' || apps.length ? finApplicationsCardHtml(siteId, apps, finAppDueThisMonth(apps, finAppDateFor(jf, st, finToday().slice(0,7))) && finSiteStatus(site)==='live', invs) : ''}
     <div id="fin-a-invoices"></div>${finInvoicesCardHtml(siteId, invs)}
     ${finRetentionCardHtml(siteId, jf, st, apps)}
+    </div>
+    <div class="finptab" data-t="purchases">
+    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
+    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
+    ${finPlantCardHtml(siteId, hires)}
+    </div>
+    <div class="finptab" data-t="subs">
+    <div id="finScSlot"></div>
+    ${finLabourCardHtml(siteId, lab)}
+    </div>
+    <div class="finptab" data-t="boq">
+    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
+    </div>
+    <div class="finptab" data-t="setup">
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <p class="sectiontitle" style="margin:0;">Client purchase orders</p>
@@ -235,20 +249,6 @@ async function renderSiteFinance(siteId){
         </div>`).join('') + (pos.length>1 ? `<p class="stub" style="margin:8px 0 0;font-style:normal;">Total of POs: <b>${finMoney(poTotal)}</b></p>` : '')
       : `<div class="empty" style="margin:0;">No client PO yet.</div>`}
     </div>
-    </div>
-    <div class="finptab" data-t="purchases">
-    <div id="finJcSlot">${finJobCostCardHtml(finJobCost(jf, invs, pords, pinvs, lab.cost, hires.reduce((t,h)=>t+finPlantCost(h).cost,0), xcosts.reduce((t,x)=>t+Number(x.net||0),0)), siteId)}</div>
-    <div id="fin-a-purchasing"></div>${finPurchasingCardHtml(siteId, pords, pinvs)}
-    ${finPlantCardHtml(siteId, hires)}
-    </div>
-    <div class="finptab" data-t="subs">
-    <div id="finScSlot"></div>
-    ${finLabourCardHtml(siteId, lab)}
-    </div>
-    <div class="finptab" data-t="boq">
-    ${bt==='application' ? finContractCardHtml(siteId, items, jf) : ''}
-    </div>
-    <div class="finptab" data-t="setup">
     ${typeof finJobEditHtml==='function' ? finJobEditHtml(site) : ''}
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Project details</p>
