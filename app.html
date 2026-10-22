@@ -47107,7 +47107,6 @@ async function renderFinInvoice(siteId, invId){
       <div class="finkv"><span>Bill to</span><b>${escapeHtml(inv.bill_name||site.client_name||'—')}</b></div>
       <div class="finkv"><span>Issued</span><b>${finDate(inv.issue_date)}</b></div>
       <div class="finkv"><span>Due</span><b>${finDate(inv.due_date)}</b></div>
-      <div class="finkv"><span>Client PO</span><b>${escapeHtml(inv.client_po||'—')}</b></div>
       <div class="finkv"><span>Sent</span><b>${inv.sent_at ? finDate(inv.sent_at.slice(0,10))+(inv.sent_to?' to '+escapeHtml(inv.sent_to):'') : 'Not emailed yet'}</b></div>
     </div>
     <div class="card">
@@ -47161,7 +47160,6 @@ function renderFinInvoiceDraft(site, inv, pos){
         <div class="formfield"><label class="field-label">Address</label><textarea id="finInvBillAddr" rows="2" oninput="finInvDraft.bill_address=this.value">${escapeHtml(d.bill_address||'')}</textarea></div>
         <div class="formfield"><label class="field-label">Accounts email</label><input type="email" id="finInvBillEmail" value="${escapeHtml(d.bill_email||'')}" oninput="finInvDraft.bill_email=this.value"></div>
       </div>
-      <p class="stub" style="margin:0;font-style:normal;">Client PO on the invoice: <b>${escapeHtml(d.client_po||'none')}</b> · <button class="linkbtn" onclick="finProjTab['${site.id}']='setup';go('#/site/${site.id}/finance')">change in Project Admin</button></p>
     </div>
     <div class="card">
       <p class="sectiontitle" style="margin-top:0;">Lines</p>
